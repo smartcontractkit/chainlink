@@ -165,7 +165,7 @@ func (r *ReportingPluginFactory) makeSizeLimiter(defaultSize settings.Setting[pk
 		defaultSize.DefaultValue = pkgconfig.Size(configSize) * pkgconfig.Byte
 	}
 
-	return limits.MakeBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
+	return limits.MakeUpperBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
 }
 
 func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter limits.BoundLimiter[N]) N {
@@ -188,7 +188,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		maxSecretsPerOwnerLimit.DefaultValue = int(configProto.MaxSecretsPerOwner)
 	}
 
-	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
+	maxSecretsPerOwnerLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
@@ -198,7 +198,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		batchSize.DefaultValue = int(configProto.BatchSize)
 	}
 
-	maxBatchSizeLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, batchSize)
+	maxBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, batchSize)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
@@ -228,7 +228,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max share length bytes limiter: %w", err)
 	}
 
-	maxRequestBatchSizeLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	maxRequestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max request batch size limiter: %w", err)
 	}
@@ -493,9 +493,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
 
-		l, err := r.cfg.MaxBatchSize.Limit(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch max batch size limit: %w", err)
+		l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
 		}
 
 		if len(observedLocalQueue) > 2*l {
@@ -723,8 +723,8 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	if err := r.validateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); err != nil {
-		return id, newUserError(err.Error())
+	if ierr := r.validateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
+		return id, newUserError(ierr.Error())
 	}
 
 	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner)

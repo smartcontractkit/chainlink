@@ -240,28 +240,28 @@ func makeReportingPluginConfig(
 	maxIdentifierKeyLengthBytes int,
 	maxRequestBatchSize int,
 ) *ReportingPluginConfig {
-	msl, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxSecretsPerOwner))
+	msl, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxSecretsPerOwner))
 	require.NoError(t, err)
 
-	cipherTextLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
+	cipherTextLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxCipherTextLengthBytes)*pkgconfig.Byte))
 	require.NoError(t, err)
 
-	shareLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultShareSizeLimit)
+	shareLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultShareSizeLimit)
 	require.NoError(t, err)
 
-	ownerLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
+	ownerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierOwnerLengthBytes)*pkgconfig.Byte))
 	require.NoError(t, err)
 
-	namespaceOwnerLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
+	namespaceOwnerLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierNamespaceOwnerLengthBytes)*pkgconfig.Byte))
 	require.NoError(t, err)
 
-	keyLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
+	keyLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxIdentifierKeyLengthBytes)*pkgconfig.Byte))
 	require.NoError(t, err)
 
-	bsl, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(batchSize))
+	bsl, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(batchSize))
 	require.NoError(t, err)
 
-	requestBatchSizeLimiter, err := limits.MakeBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
+	requestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(maxRequestBatchSize))
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
@@ -2533,6 +2533,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 			100,
 			100,
 			100,
+			10,
 		),
 		unmarshalBlob: mockUnmarshalBlob,
 		marshalBlob:   mockMarshalBlob,
@@ -5117,6 +5118,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 			30,
 			30,
 			30,
+			10,
 		),
 		unmarshalBlob: mockUnmarshalBlob,
 	}
@@ -5870,6 +5872,8 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 					anyp, err = anypb.New(tc.obs.GetUpdateSecretsRequest())
 				case vaultcommon.RequestType_DELETE_SECRETS:
 					anyp, err = anypb.New(tc.obs.GetDeleteSecretsRequest())
+				default:
+					t.FailNow()
 				}
 			}
 			require.NoError(t, err)
@@ -6092,6 +6096,8 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 				anyp, err = anypb.New(tc.obs.GetCreateSecretsRequest())
 			case vaultcommon.RequestType_UPDATE_SECRETS:
 				anyp, err = anypb.New(tc.obs.GetUpdateSecretsRequest())
+			default:
+				t.FailNow()
 			}
 			require.NoError(t, err)
 
