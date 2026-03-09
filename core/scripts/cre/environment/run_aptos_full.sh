@@ -126,13 +126,14 @@ docker build -t "$IMAGE_TAG" -f core/chainlink.Dockerfile \
 cd "$SCRIPT_DIR"
 
 export CTF_CONFIGS=configs/workflow-gateway-don-aptos.toml
+export CTF_CHAINLINK_IMAGE="$IMAGE_TAG"
 
 STATE_FILE="$SCRIPT_DIR/state/local_cre.toml"
 READINESS_TIMEOUT=1200
 POLL_INTERVAL=20
 
-echo "Starting CRE environment (Aptos topology) with plugins image $IMAGE_TAG (timeout ${READINESS_TIMEOUT}s)..."
-go run . env start -p "$IMAGE_TAG" &
+echo "Starting CRE environment (Aptos topology) with image $IMAGE_TAG via CTF_CHAINLINK_IMAGE (timeout ${READINESS_TIMEOUT}s)..."
+go run . env start &
 ENV_PID=$!
 
 echo "Waiting for state to be cleared by current run..."
@@ -145,6 +146,11 @@ done
 
 elapsed=0
 while [ $elapsed -lt $READINESS_TIMEOUT ]; do
+  if ! kill -0 "$ENV_PID" 2>/dev/null; then
+    wait "$ENV_PID" || true
+    echo "Environment process exited before readiness. See logs above for details."
+    exit 1
+  fi
   sleep $POLL_INTERVAL
   elapsed=$((elapsed + POLL_INTERVAL))
   if [ -f "$STATE_FILE" ]; then
@@ -165,6 +171,6 @@ while [ $elapsed -lt $READINESS_TIMEOUT ]; do
 done
 
 echo "Timeout: state file did not appear after ${READINESS_TIMEOUT}s."
-echo "You can run manually: CTF_CONFIGS=configs/workflow-gateway-don-aptos.toml go run . env start -p $IMAGE_TAG"
+echo "You can run manually: CTF_CONFIGS=configs/workflow-gateway-don-aptos.toml CTF_CHAINLINK_IMAGE=$IMAGE_TAG go run . env start"
 kill $ENV_PID 2>/dev/null || true
 exit 1
