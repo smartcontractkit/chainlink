@@ -40,6 +40,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
@@ -50,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -334,6 +336,17 @@ func NewDelegate(
 
 func (d *Delegate) JobType() job.Type {
 	return job.OffchainReporting2
+}
+
+// NewTriggerQueueOCRQueue creates the trigger queue for the workflow syncer.
+// Uses the delegate's OCR infra (DB, peer wrapper, keyring, bootstrap peers).
+// Draft: calls NewOCRQueue with Inner from NewStandardTriggerQueue; full OCR implementation is TODO.
+func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
+	inner, err := v2.NewStandardTriggerQueue(lf, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return v2.NewOCRQueue(v2.OCRQueueDeps{Lf: lf, Cfg: cfg, Inner: inner})
 }
 
 func (d *Delegate) BeforeJobCreated(_ job.Job) {

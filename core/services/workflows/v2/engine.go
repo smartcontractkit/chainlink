@@ -74,7 +74,7 @@ type Engine struct {
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
-	allTriggerEventsQueueCh limits.QueueLimiter[enqueuedTriggerEvent]
+	allTriggerEventsQueueCh limits.QueueLimiter[EnqueuedTriggerEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
 	capCallsSemaphore       limits.ResourcePoolLimiter[int]
 
@@ -92,7 +92,8 @@ type triggerCapability struct {
 	method  string
 }
 
-type enqueuedTriggerEvent struct {
+// EnqueuedTriggerEvent is exported for use by TriggerQueueCreator (OCR delegate).
+type EnqueuedTriggerEvent struct {
 	triggerCapID string
 	triggerIndex int
 	timestamp    time.Time
@@ -539,7 +540,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
-					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
+					if err := e.allTriggerEventsQueueCh.Put(ctx, EnqueuedTriggerEvent{
 						triggerCapID: triggerID,
 						triggerIndex: idx,
 						timestamp:    e.cfg.Clock.Now(),
@@ -605,7 +606,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
-func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueuedTriggerEvent) {
+func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent EnqueuedTriggerEvent) {
 	fullExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
 	if err != nil {
 		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)

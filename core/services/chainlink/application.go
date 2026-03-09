@@ -742,6 +742,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if ocr2Delegate == nil {
 			return nil, errors.New("ocr2.NewDelegate() returned nil")
 		}
+		creServices.SetOCRTriggerQueueCreator(ocr2Delegate)
 		delegates[job.OffchainReporting2] = ocr2Delegate
 		delegates[job.Bootstrap] = ocrbootstrap.NewDelegateBootstrap(
 			opts.DS,

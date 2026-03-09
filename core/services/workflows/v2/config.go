@@ -28,6 +28,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
+// TriggerQueueCreator creates an OCR-backed trigger queue using the delegate's OCR infra.
+// Implemented by the OCR delegate; called by cre.go when OCRTriggerEventQueueEnabled is on.
+type TriggerQueueCreator interface {
+	NewTriggerQueueOCRQueue(ctx context.Context, lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
+}
+
+// NewStandardTriggerQueue creates the default in-process trigger queue.
+// Used by the delegate's NewTriggerQueueOCRQueue as a fallback until the full OCR queue is implemented.
+func NewStandardTriggerQueue(lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[EnqueuedTriggerEvent], error) {
+	return limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+}
+
 type EngineConfig struct {
 	Lggr                 logger.Logger
 	Module               host.ModuleV2
@@ -76,7 +88,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueue        limits.QueueLimiter[EnqueuedTriggerEvent]
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -104,12 +116,19 @@ type EngineLimiters struct {
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
 func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineLimiters, error) {
+	return NewLimitersWithTriggerQueue(lf, cfgFn, nil)
+}
+
+// NewLimitersWithTriggerQueue is like NewLimiters but accepts an optional pre-built trigger queue.
+// When triggerQueue is non-nil, it is used instead of creating a standard queue. Used when
+// OCRTriggerEventQueueEnabled is on and the OCR delegate provides an OCR-backed queue.
+func NewLimitersWithTriggerQueue(lf limits.Factory, cfgFn func(*cresettings.Workflows), triggerQueue limits.QueueLimiter[EnqueuedTriggerEvent]) (*EngineLimiters, error) {
 	l := &EngineLimiters{}
-	err := l.init(lf, cfgFn)
+	err := l.init(lf, cfgFn, triggerQueue)
 	return l, err
 }
 
-func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows), triggerQueue limits.QueueLimiter[EnqueuedTriggerEvent]) (err error) {
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -130,22 +149,13 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	stdQueue, err := limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
-	if err != nil {
-		return
-	}
-	ocrQueueEnabled, err := cresettings.Default.OCRTriggerEventQueueEnabled.GetOrDefault(context.Background(), lf.Settings)
-	if err != nil {
-		return
-	}
-	if ocrQueueEnabled {
-		newOCRQueue := NewOCRQueueWithInnerQueue(stdQueue)
-		l.TriggerEventQueue, err = newOCRQueue(OCRQueueDeps{Lf: lf, Cfg: &cfg})
+	if triggerQueue != nil {
+		l.TriggerEventQueue = triggerQueue
+	} else {
+		l.TriggerEventQueue, err = limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 		if err != nil {
 			return
 		}
-	} else {
-		l.TriggerEventQueue = stdQueue
 	}
 	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
 	if err != nil {

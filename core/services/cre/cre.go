@@ -58,7 +58,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 )
+
+// ocrTriggerEventQueueEnabled gates use of the OCR-backed trigger queue.
+// TODO: replace with cresettings.OCRTriggerEventQueueEnabled when added to chainlink-common.
+const ocrTriggerEventQueueEnabled = false
 
 // Keystore is the minimal interface needed from keystore for CRE
 type Keystore interface {
@@ -116,6 +122,15 @@ type Services struct {
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
 	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
+
+	// ocrTriggerQueueCreator is set by application.go after creating the OCR delegate.
+	ocrTriggerQueueCreator v2.TriggerQueueCreator
+}
+
+// SetOCRTriggerQueueCreator sets the creator for the OCR-backed trigger queue.
+// Called by application.go after creating the OCR delegate.
+func (s *Services) SetOCRTriggerQueueCreator(c v2.TriggerQueueCreator) {
+	s.ocrTriggerQueueCreator = c
 }
 
 func (s *Services) close() error {
@@ -222,6 +237,7 @@ func (s *Services) newSubservices(
 		cfg,
 		relayerChainInterops,
 		opts,
+		s.ocrTriggerQueueCreator,
 		lggr,
 		ds,
 		opts.DonTimeStore,
@@ -830,6 +846,7 @@ func newWorkflowRegistrySyncerV2(
 	relayerChainInterops RelayerChainInterops,
 	billingClient metering.BillingClient,
 	opts Opts,
+	ocrTriggerQueueCreator v2.TriggerQueueCreator,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	dontimeStore *dontime.Store,
@@ -874,7 +891,16 @@ func newWorkflowRegistrySyncerV2(
 
 	engineRegistry := syncerV2.NewEngineRegistry()
 
-	engineLimiters, err := v2.NewLimiters(lf, nil)
+	var triggerQueue limits.QueueLimiter[v2.EnqueuedTriggerEvent]
+	if ocrTriggerEventQueueEnabled && ocrTriggerQueueCreator != nil {
+		cfg := cresettings.Default.PerWorkflow
+		var tqErr error
+		triggerQueue, tqErr = ocrTriggerQueueCreator.NewTriggerQueueOCRQueue(context.Background(), lf, &cfg)
+		if tqErr != nil {
+			return nil, nil, fmt.Errorf("could not create OCR trigger queue: %w", tqErr)
+		}
+	}
+	engineLimiters, err := v2.NewLimitersWithTriggerQueue(lf, nil, triggerQueue)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
@@ -984,6 +1010,7 @@ func newWorkflowRegistrySyncer(
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
 	opts Opts,
+	ocrTriggerQueueCreator v2.TriggerQueueCreator,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	dontimeStore *dontime.Store,
@@ -1032,6 +1059,7 @@ func newWorkflowRegistrySyncer(
 			relayerChainInterops,
 			billingClient,
 			opts,
+			ocrTriggerQueueCreator,
 			lggr,
 			ds,
 			dontimeStore,
