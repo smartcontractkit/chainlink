@@ -470,7 +470,7 @@ jobs:
                 {
                   "name": "evm-implementation-compatibility-test-68",
                   "os": "ubuntu-latest",
-                  "product": "runlog",
+                  "product": "automation",
                   "eth_implementation": "erigon",
                   "docker_image": "thorax/erigon:v2.59.2",
                   "run": "-run 'TestAutomationBasic/registry_2_1_logtrigger' ./smoke/automation_test.go"
