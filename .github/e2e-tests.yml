@@ -25,7 +25,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestOCRBasic|TestOCRJobReplacement)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "^(TestOCRBasic|TestOCRJobReplacement)$" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-ocr-evm-simulated
     test_go_project_path: integration-tests
 
@@ -38,7 +38,7 @@ runner-test-matrix:
       --junitfile=/tmp/junit.xml \
       --jsonfile=/tmp/gotest.log \
       --format=github-actions \
-      -- -v -run "^TestOCRv1Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+      -- -v -run "^TestOCRv1Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -53,7 +53,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRv2Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -68,7 +68,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRv2Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_config_override_path: integration-tests/testconfig/ocr2/overrides/wemix_testnet.toml
     test_secrets_required: true
     test_env_vars:
@@ -85,7 +85,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRv2Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_config_override_path: integration-tests/testconfig/ocr2/overrides/base_sepolia_quick_smoke_test.toml
     test_secrets_required: true
     test_env_vars:
@@ -101,7 +101,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestForwarderOCRv1Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestForwarderOCRv1Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -116,7 +116,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestForwarderOCRv2Soak$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestForwarderOCRv2Soak$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -131,7 +131,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -146,7 +146,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -161,7 +161,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRSoak_GasSpike$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRSoak_GasSpike$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -176,7 +176,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRSoak_ChangeBlockGasLimit$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRSoak_ChangeBlockGasLimit$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -191,7 +191,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRSoak_RPCDownForAllCLNodes$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRSoak_RPCDownForAllCLNodes$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -206,7 +206,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestOCRSoak_RPCDownForHalfCLNodes$" -parallel=1 -timeout 900h -count=1 soak/ocr_test.go
+        -- -v -run "^TestOCRSoak_RPCDownForHalfCLNodes$" -timeout 900h -count=1 soak/ocr_test.go
     test_secrets_required: true
     test_env_vars:
       TEST_SUITE: soak
@@ -227,7 +227,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestForwarderOCRBasic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "^(TestForwarderOCRBasic)$" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     test_go_project_path: integration-tests
 
@@ -246,7 +246,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestForwarderOCR2Basic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "^(TestForwarderOCR2Basic)$" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     test_go_project_path: integration-tests
 
@@ -385,7 +385,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02)$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^(TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02)$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -402,7 +402,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link)$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^(TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link)$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -420,7 +420,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link)$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^(TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link)$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -438,7 +438,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^(TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link)$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^(TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link)$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -456,7 +456,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestSetUpkeepTriggerConfig$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestSetUpkeepTriggerConfig$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -618,7 +618,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestSetOffchainConfigWithMaxGasPrice$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestSetOffchainConfigWithMaxGasPrice$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-automation-evm-simulated
     test_go_project_path: integration-tests
 
@@ -672,7 +672,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperSimulation$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestKeeperSimulation$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -690,7 +690,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperCheckPerformGasLimit$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestKeeperCheckPerformGasLimit$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -762,7 +762,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperPauseRegistry$" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestKeeperPauseRegistry$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -780,7 +780,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperMigrateRegistry$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestKeeperMigrateRegistry$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -816,7 +816,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperPauseUnPauseUpkeep$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestKeeperPauseUnPauseUpkeep$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -834,7 +834,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperUpdateCheckData$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestKeeperUpdateCheckData$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -852,7 +852,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestKeeperJobReplacement$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestKeeperJobReplacement$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-keeper-evm-simulated
     test_go_project_path: integration-tests
 
@@ -866,7 +866,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestLogTrigger" -parallel=1 -timeout 60m -count=1
+        -- -v -run "TestLogTrigger" -timeout 60m -count=1
     remote_runner_memory: 4Gi
     test_secrets_required: true
     test_env_vars:
@@ -889,7 +889,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationNodeUpgrade/registry_2_0" -parallel=1 -timeout 60m -count=1
+        -- -v -run "^TestAutomationNodeUpgrade/registry_2_0" -timeout 60m -count=1
     test_env_vars:
       E2E_TEST_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
       E2E_TEST_CHAINLINK_VERSION: latest
@@ -961,7 +961,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationReorg/registry_2_0" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestAutomationReorg/registry_2_0" -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -982,7 +982,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationReorg/registry_2_1" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestAutomationReorg/registry_2_1" -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -1003,7 +1003,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationReorg/registry_2_2" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestAutomationReorg/registry_2_2" -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -1024,7 +1024,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationReorg/registry_2_3" -parallel=2 -timeout 30m -count=1
+        -- -v -run "^TestAutomationReorg/registry_2_3" -timeout 30m -count=1
     pyroscope_env: ci-automation-on-demand-reorg
     test_go_project_path: integration-tests
 
@@ -1062,7 +1062,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationBenchmark$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestAutomationBenchmark$" -timeout 30m -count=1
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
       TEST_LOG_LEVEL: info
@@ -1083,7 +1083,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestAutomationBenchmark$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestAutomationBenchmark$" -timeout 30m -count=1
     pyroscope_env: ci-benchmark-automation-nightly
     test_env_vars:
       TEST_LOG_LEVEL: info
@@ -1104,7 +1104,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestVRFv2Basic" -parallel=1 -timeout 30m -count=1
+        -- -v -run "TestVRFv2Basic" -timeout 30m -count=1
     test_secrets_required: true
     triggers:
       - On Demand VRFV2 Smoke Test (Ethereum clients)
@@ -1120,7 +1120,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestVRFV2PlusPerformance$" -parallel=1 -timeout 24h -count=1
+        -- -v -run "^TestVRFV2PlusPerformance$" -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1139,7 +1139,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
+        -- -v -run "^TestVRFV2PlusBHSPerformance$" -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1158,7 +1158,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestVRFV2Performance$" -parallel=1 -timeout 24h -count=1
+        -- -v -run "^TestVRFV2Performance$" -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1177,7 +1177,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
+        -- -v -run "^TestVRFV2PlusBHSPerformance$" -timeout 24h -count=1
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -1201,7 +1201,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestVRFBasic|TestVRFJobReplacement" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestVRFBasic|TestVRFJobReplacement" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-vrf-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1256,7 +1256,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -parallel=1 -timeout 2h -count=1
+        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -timeout 2h -count=1
     test_go_project_path: integration-tests
   # VRFv2Plus release tests on Sepolia testnet
 
@@ -1270,7 +1270,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -parallel=1 -timeout 2h -count=1
+        -- -v -run "TestVRFv2Plus$/(Link_Billing|Native_Billing|Direct_Funding)|TestVRFV2PlusWithBHS" -timeout 2h -count=1
     test_config_override_path: integration-tests/testconfig/vrfv2plus/overrides/new_env/sepolia_new_env_test_config.toml
     triggers:
       - VRF E2E Release Tests
@@ -1293,7 +1293,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerFewFiltersFixedDepth$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerFewFiltersFixedDepth$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1311,7 +1311,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerFewFiltersFinalityTag$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerFewFiltersFinalityTag$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1331,7 +1331,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerWithChaosFinalityTag$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerWithChaosFinalityTag$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1351,7 +1351,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerWithChaosPostgresFinalityTag$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerWithChaosPostgresFinalityTag$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1371,7 +1371,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerReplayFixedDepth$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerReplayFixedDepth$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1391,7 +1391,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestLogPollerReplayFinalityTag$" -parallel=1 -timeout 30m -count=1
+        -- -v -run "^TestLogPollerReplayFinalityTag$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-log_poller-evm-simulated
     test_go_project_path: integration-tests
   # END: LogPoller tests
@@ -1411,7 +1411,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestRunLogBasic" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestRunLogBasic" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-runlog-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1428,7 +1428,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestCronBasic|TestCronJobReplacement" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestCronBasic|TestCronJobReplacement" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-cron-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1445,7 +1445,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestFluxBasic" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestFluxBasic" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-flux-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1464,7 +1464,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
     test_go_project_path: integration-tests
 
@@ -1483,7 +1483,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
+        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke
     pyroscope_env: ci-smoke-jd-evm-simulated
     test_go_project_path: integration-tests
   # END: Other tests
@@ -1504,7 +1504,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
@@ -1525,7 +1525,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
@@ -1548,7 +1548,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1573,7 +1573,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1597,7 +1597,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1622,7 +1622,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$" -timeout 30m -count=1
     test_go_project_path: integration-tests
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
@@ -1647,7 +1647,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1672,7 +1672,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_NotEnoughObservers$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_NotEnoughObservers$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1697,7 +1697,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_DifferentSigners$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_DifferentSigners$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1722,7 +1722,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_NotEnoughSigners$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_NotEnoughSigners$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1747,7 +1747,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_DifferentRmnNodesForDifferentChains$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_DifferentRmnNodesForDifferentChains$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1772,7 +1772,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1798,7 +1798,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/test.json \
         --format=github-actions \
-        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1823,7 +1823,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_IncorrectSig$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_IncorrectSig$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1848,7 +1848,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1873,7 +1873,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1898,7 +1898,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1923,7 +1923,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1949,7 +1949,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestDeleteCCIPJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^TestDeleteCCIPJobs$" -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1974,7 +1974,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRevokeJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^TestRevokeJobs$" -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
