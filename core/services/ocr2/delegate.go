@@ -342,8 +342,8 @@ func (d *Delegate) JobType() job.Type {
 const triggerQueueContractID = "trigger_queue"
 
 // NewTriggerQueueOCRQueue creates the trigger queue for the workflow syncer.
-// Uses the delegate's OCR infra. Draft: builds OCR3_1OracleArgs with TODOs for unwired fields;
-// returns queue delegating to standard in-process queue until full OCR is implemented.
+// Delegate owns the oracle; builds OCR3_1OracleArgs with TODOs for unwired fields.
+// Returns OCRQueue wrapping Inner; transmitter feeds consensus events into Inner.
 func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
 	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
 	if err != nil {
@@ -370,16 +370,9 @@ func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQ
 		OnchainKeyring:               nil, // TODO: wire onchain keyring adapter (trigger queue may use same as vault/dontime for in-process)
 		ReportingPluginFactory:      beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr), d.lggr, "triggerqueue"),
 	}
-	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired; add oracle to OCRQueue lifecycle
+	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
 
-	return v2.NewOCRQueue(v2.OCRQueueDeps{
-		Lf:            deps.Lf,
-		Cfg:           deps.Cfg,
-		PluginFactory: triggerqueue.NewReportingPlugin(d.lggr),
-		Lggr:          d.lggr,
-		DonSubscriber: deps.DonSubscriber,
-		Inner:         inner,
-	})
+	return v2.NewOCRQueue(v2.OCRQueueDeps{Inner: inner})
 }
 
 func (d *Delegate) BeforeJobCreated(_ job.Job) {

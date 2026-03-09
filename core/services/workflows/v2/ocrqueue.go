@@ -4,36 +4,19 @@ import (
 	"context"
 	"errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var errOCRQueueNotImplemented = errors.New("OCRQueue: draft, use NewOCRQueueWithInnerQueue for delegating implementation")
 
-// OCR3_1PluginFactory creates OCR 3.1 ReportingPlugins (Blob + KV).
-// Placeholder for design; use triggerqueue.Factory when implemented.
-type OCR3_1PluginFactory any
-
-// OCRQueueDeps holds the planned dependencies for NewOCRQueue from the design.
+// OCRQueueDeps holds dependencies for NewOCRQueue.
+// Delegate owns the oracle; OCRQueue wraps the queue the transmitter feeds.
 type OCRQueueDeps struct {
-	Lf            limits.Factory
-	Cfg           *cresettings.Workflows
-	PluginFactory OCR3_1PluginFactory
-	Lggr          logger.Logger
-
-	// Subscribe to receive capabilities.DON (members, F, etc.)
-	// on each update; reconfigure OCR oracle accordingly.
-	//
-	// TODO: implement DON sync
-	DonSubscriber capabilities.DonSubscriber
-
-	// Inner is the fallback implementation for draft/mock mode to get things running
 	Inner limits.QueueLimiter[EnqueuedTriggerEvent]
 }
 
-// OCRQueue wraps a standard QueueLimiter and delegates all operations to it.
+// OCRQueue wraps a QueueLimiter and delegates all operations to it.
+// Delegate owns the oracle; transmitter decodes reports and Puts into Inner.
 type OCRQueue struct {
 	inner limits.QueueLimiter[EnqueuedTriggerEvent]
 }
