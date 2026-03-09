@@ -225,6 +225,7 @@ GoroutineThreshold = 5000
 [Pyroscope]
 ServerAddress = ''
 Environment = 'mainnet'
+LinkTracesToProfiles = false
 
 [Sentry]
 Debug = false
@@ -371,6 +372,7 @@ PerOwner = 200
 [CRE]
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
+DebugMode = false
 
 [CRE.Streams]
 WsURL = ''

@@ -1034,16 +1034,24 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		}
 	}
 
+	seen := map[string]bool{}
 	for _, i := range obs.PendingQueueItems {
 		bh, err := r.unmarshalBlob(i)
 		if err != nil {
 			return fmt.Errorf("could not unmarshal blob handle from observation pending queue item: %w", err)
 		}
 
-		_, err = blobFetcher.FetchBlob(ctx, bh)
+		blob, err := blobFetcher.FetchBlob(ctx, bh)
 		if err != nil {
 			return fmt.Errorf("could not fetch blob for observation pending queue item: %w", err)
 		}
+
+		sha := fmt.Sprintf("%x", sha256.Sum256(blob))
+		if seen[sha] {
+			return errors.New("duplicate item found in pending queue item observation")
+		}
+		seen[sha] = true
+
 	}
 
 	return nil
@@ -1312,6 +1320,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 	oidsToIDs := map[uint8][]string{} // for debugging only
 	shaToItem := map[string]*vaultcommon.StoredPendingQueueItem{}
 	for oid, o := range obs {
+		shaSeenForOracle := map[string]bool{}
 		for _, pqi := range o.PendingQueueItems {
 			bh, err := r.unmarshalBlob(pqi)
 			if err != nil {
@@ -1339,6 +1348,13 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 				r.lggr.Errorw("failed to compute sha for pending queue item", "error", err, "item", pqi)
 				continue
 			}
+
+			if shaSeenForOracle[sha] {
+				r.lggr.Warnw("duplicate sha found for oracle, skipping...", "oracleID", oid, "sha", sha, "item", pqi, "blobHandle", bh)
+				continue
+			}
+
+			shaSeenForOracle[sha] = true
 
 			shaToItem[sha] = i
 
