@@ -352,15 +352,9 @@ jobs:
         run: |
           SHOULD_RUN_REGRESSION="false"
 
-          # -- PULL REQUEST --
-          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
-            if [[ "$SKIP_E2E_TESTS_REGRESSION_LABEL_FOUND" != 'true' ]]; then
-              SHOULD_RUN_REGRESSION="false"
-            fi
-
-          # -- PUSH --
-          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
-            if [[ "$IS_DEFAULT_BRANCH" == 'true' ]]; then
+          # -- PUSH or TAG --
+          if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            if [[ "$IS_DEFAULT_BRANCH" == 'true' || "$GITHUB_REF_TYPE" == 'tag' ]]; then
               SHOULD_RUN_REGRESSION="true"
             fi
 
@@ -369,10 +363,6 @@ jobs:
             SHOULD_RUN_REGRESSION="true"
           fi
 
-          # -- Tags --
-          elif [[ "$GITHUB_REF_TYPE" == 'tag' ]]; then
-            SHOULD_RUN_REGRESSION="true"
-          fi
 
           echo "with-regression=${SHOULD_RUN_REGRESSION}" | tee -a "$GITHUB_OUTPUT"
 
