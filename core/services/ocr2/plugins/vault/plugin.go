@@ -141,7 +141,15 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 }
 
 func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
-	resolve := func(s settings.Setting[int]) (int, error) {
+	resolveSize := func(s settings.Setting[pkgconfig.Size]) (int, error) {
+		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
+		if err != nil {
+			return 0, err
+		}
+		v, err := limiter.Limit(ctx)
+		return int(v), err
+	}
+	resolveInt := func(s settings.Setting[int]) (int, error) {
 		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
 		if err != nil {
 			return 0, err
@@ -149,45 +157,45 @@ func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1typ
 		return limiter.Limit(ctx)
 	}
 
-	maxQueryBytes, err := resolve(cresettings.Default.VaultLimitsMaxQueryLength)
+	maxQueryBytes, err := resolveSize(cresettings.Default.VaultMaxQuerySizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxQueryLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxQuerySizeLimit: %w", err)
 	}
-	maxObservationBytes, err := resolve(cresettings.Default.VaultLimitsMaxObservationLength)
+	maxObservationBytes, err := resolveSize(cresettings.Default.VaultMaxObservationSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxObservationLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxObservationSizeLimit: %w", err)
 	}
-	maxReportsPlusPrecursorBytes, err := resolve(cresettings.Default.VaultLimitsMaxReportsPlusPrecursorLength)
+	maxReportsPlusPrecursorBytes, err := resolveSize(cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxReportsPlusPrecursorLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportsPlusPrecursorSizeLimit: %w", err)
 	}
-	maxReportBytes, err := resolve(cresettings.Default.VaultLimitsMaxReportLength)
+	maxReportBytes, err := resolveSize(cresettings.Default.VaultMaxReportSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxReportLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportSizeLimit: %w", err)
 	}
-	maxReportCount, err := resolve(cresettings.Default.VaultLimitsMaxReportCount)
+	maxReportCount, err := resolveInt(cresettings.Default.VaultMaxReportCount)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxReportCount: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportCount: %w", err)
 	}
-	maxKVModifiedKeysPlusValuesBytes, err := resolve(cresettings.Default.VaultLimitsMaxKeyValueModifiedKeysPlusValuesLength)
+	maxKVModifiedKeysPlusValuesBytes, err := resolveSize(cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxKeyValueModifiedKeysPlusValuesLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit: %w", err)
 	}
-	maxKVModifiedKeys, err := resolve(cresettings.Default.VaultLimitsMaxKeyValueModifiedKeys)
+	maxKVModifiedKeys, err := resolveInt(cresettings.Default.VaultMaxKeyValueModifiedKeys)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxKeyValueModifiedKeys: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeys: %w", err)
 	}
-	maxBlobPayloadBytes, err := resolve(cresettings.Default.VaultLimitsMaxBlobPayloadLength)
+	maxBlobPayloadBytes, err := resolveSize(cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxBlobPayloadLength: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
 	}
-	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := resolve(cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes)
+	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := resolveSize(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit: %w", err)
 	}
-	maxPerOracleUnexpiredBlobCount, err := resolve(cresettings.Default.VaultLimitsMaxPerOracleUnexpiredBlobCount)
+	maxPerOracleUnexpiredBlobCount, err := resolveInt(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount)
 	if err != nil {
-		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultLimitsMaxPerOracleUnexpiredBlobCount: %w", err)
+		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCount: %w", err)
 	}
 
 	return ocr3_1types.ReportingPluginLimits{
