@@ -208,7 +208,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		nodeConfig := baseNodeConfig(commonInputs)
+		nodeConfig := baseNodeConfig(commonInputs, input.DonMetadata, nodeMetadata)
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -262,9 +262,10 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	return configOverrides, nil
 }
 
-func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
+func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
+			InsecurePPROFHeap: ptr.Ptr(false), // Set to true to enable v2/debug/pprof/heap endpoint
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
 			},
@@ -280,17 +281,36 @@ func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
 			CRE: coretoml.CreConfig{
 				EnableDKGRecipient:   ptr.Ptr(true),
 				UseLocalTimeProvider: ptr.Ptr(false),
+				DebugMode:            ptr.Ptr(true),
 			},
 		},
 	}
 
 	if commonInputs.provider.IsDocker() {
+		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             ptr.Ptr(true),
 			Endpoint:            ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  ptr.Ptr(true),
 			LogStreamingEnabled: ptr.Ptr(true),
+			TraceSampleRatio:    ptr.Ptr(0.0), // Set to > 0 to enable tracing
+			ResourceAttributes: map[string]string{
+				"service.name":     "chainlink-node",
+				"service.instance": nodeIdentifier,
+				"node.don":         donMetadata.Name,
+				"node.index":       strconv.Itoa(nodeMetadata.Index),
+			},
 		}
+		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
+		// the service name is applied correctly. The ResourceAttributes above may
+		// not override the SDK default due to OTel resource merge behavior.
+		// Add to nodeset: env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+
+		c.Tracing.Enabled = ptr.Ptr(false) // Set to true to enable tracing
+		c.Tracing.CollectorTarget = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317")
+		c.Tracing.SamplingRatio = ptr.Ptr(1.0)
+		c.Tracing.Mode = ptr.Ptr("unencrypted")
+		c.Tracing.NodeID = ptr.Ptr(donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index))
 	}
 
 	return c

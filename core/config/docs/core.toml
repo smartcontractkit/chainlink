@@ -753,6 +753,8 @@ GoroutineThreshold = 5000 # Default
 ServerAddress = 'http://localhost:4040' # Example
 # Environment sets the target environment tag in which profiles will be added to.
 Environment = 'mainnet' # Default
+# LinkTracesToProfiles enables linking traces to profiles in Grafana when Pyroscope and Tracing are enabled.
+LinkTracesToProfiles = false # Default
 
 [Sentry]
 # **ADVANCED**
@@ -951,6 +953,8 @@ IgnoreJoblessBridges = false # Default
 UseLocalTimeProvider = true # Default
 # EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 EnableDKGRecipient = false # Default
+# DebugMode enables additional tracing and logging for workflow engines.
+DebugMode = false # Default
 
 # Sharding holds settings for node sharding configuration.
 [Sharding]

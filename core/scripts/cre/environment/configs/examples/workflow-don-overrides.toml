@@ -30,7 +30,7 @@
   override_mode = "all"
   http_port_range_start = 10100
 
-  env_vars = { CL_EVM_CMD = "" }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "write-evm-1337", "evm-2337"]
 
   # Capability config overrides for this DON.
