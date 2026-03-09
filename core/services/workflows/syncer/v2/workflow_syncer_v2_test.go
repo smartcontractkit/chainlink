@@ -50,6 +50,7 @@ import (
 )
 
 func Test_InitialStateSyncV2(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -153,6 +154,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
+	t.Parallel()
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -238,6 +240,7 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -341,6 +344,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
+	t.Parallel()
 	var (
 		ctx       = coretestutils.Context(t)
 		lggr      = logger.TestLogger(t)
@@ -448,6 +452,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
@@ -522,6 +527,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 }
 
 func Test_RegistrySyncer_DONUpdate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -617,6 +623,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 }
 
 func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
