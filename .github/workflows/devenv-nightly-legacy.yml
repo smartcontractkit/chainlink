@@ -18,8 +18,8 @@ jobs:
       pull-requests: write
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
-        fail-fast: false
         include:
           # quick feature tests
           # - test_name: "TestMultipleJobDistributors"
