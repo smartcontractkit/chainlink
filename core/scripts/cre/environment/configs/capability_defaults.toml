@@ -130,10 +130,10 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
-# Aptos chain capability plugin binary.
+# Aptos chain capability plugin binary installed during image build.
 # Local CRE Aptos read paths use this plugin for aptos:ChainSelector:<selector>@1.0.0 IDs.
 [capability_configs.write-aptos]
-  binary_path = "./binaries/aptos"
+  binary_name = "chainlink-aptos"
 
 # No static defaults: job config (chainId/network/creForwarderAddress) is built at runtime in read_contract.go.
 [capability_configs.write-aptos.values]

@@ -243,7 +243,7 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--extra-allowed-gateway-ports", Description: "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)"},
 			{Text: "--with-example", Description: "Deploys and registers example workflow (default: false)"},
 			{Text: "--example-workflow-timeout", Description: "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h) (default: 5m)"},
-			{Text: "--with-plugins-docker-image", Description: "Docker image to use (must have all capabilities included)"},
+			{Text: "--with-plugins-docker-image", Description: "DEPRECATED/unsupported: set node image in TOML config instead"},
 			{Text: "--example-workflow-trigger", Description: "Trigger for example workflow to deploy (web-trigger or cron) (default: web-trigger)"},
 			{Text: "--with-beholder", Description: "Deploys Beholder (Chip Ingress + Red Panda) (default: false)"},
 			{Text: "--with-dashboards", Description: "Deploys Observability Stack and Grafana Dashboards (default: false)"},

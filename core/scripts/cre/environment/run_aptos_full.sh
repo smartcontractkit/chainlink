@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
-# Start CRE with Aptos topology using remote feature branches and the normal Chainlink Dockerfile.
-# Pushes chainlink-aptos, chainlink-protos, chainlink-common (and optionally capabilities) to
-# remote branches, then resolves them via go get and builds the standard node image (small context, faster).
+# Start CRE with Aptos topology using remote plugin refs and the normal Chainlink Dockerfile.
+# Plugin versions are resolved via plugins.private.yaml/plugins.public.yaml and installed at image-build time.
 #
 # Prerequisites: Docker, Foundry (anvil). Remote branches must be pushed.
 # Run from: core/scripts/cre/environment.
 #
-# Optional env vars (defaults shown). Repo default branches: chainlink-evm=develop,
-# chainlink-common=main, chainlink-aptos=aptos-service, chainlink-protos=main.
-#   CHAINLINK_COMMON_BRANCH=aptos-service-common
+# Optional env vars (defaults shown).
 #   CHAINLINK_APTOS_BRANCH=aptos-service
-#   CHAINLINK_PROTOS_BRANCH=aptos-service-protos
-#   CHAINLINK_EVM_BRANCH=develop   (used to pin chainlink-evm so tidy keeps pkg/read, pkg/functions)
 #   CAPABILITIES_BRANCH=feature/aptos-service-tmp-2
 #   # Optional fallback if aptos-service head is temporarily broken:
 #   # CAPABILITIES_BRANCH=fcb512c64aa9
@@ -24,10 +19,7 @@ cd "$SCRIPT_DIR"
 
 # Chainlink repo root (core/scripts/cre/environment -> 4 levels up)
 CHAINLINK_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-BRANCH_COMMON="${CHAINLINK_COMMON_BRANCH:-feature/aptos-service-common-2}"
 BRANCH_APTOS="${CHAINLINK_APTOS_BRANCH:-feature/aptos-cre-tmp-2}"
-BRANCH_PROTOS="${CHAINLINK_PROTOS_BRANCH:-aptos-service-protos}"
-BRANCH_EVM="${CHAINLINK_EVM_BRANCH:-develop}"
 BRANCH_CAPABILITIES="${CAPABILITIES_BRANCH:-feature/aptos-service-tmp-3}"
 BRANCH_DATA_STREAMS="${CHAINLINK_DATA_STREAMS_BRANCH:-master}"
 BRANCH_SOLANA="${CHAINLINK_SOLANA_BRANCH:-develop}"
@@ -53,46 +45,14 @@ if [ -z "${CRE_APTOS_CONTRACTS_PATH:-}" ]; then
   fi
 fi
 
-echo "Using remote branches: chainlink-common@${BRANCH_COMMON}, chainlink-aptos@${BRANCH_APTOS}, chainlink-protos@${BRANCH_PROTOS}"
+echo "Using remote refs: chainlink-aptos@${BRANCH_APTOS}, capabilities@${BRANCH_CAPABILITIES}"
 echo "Resolved chainlink-aptos module ref: ${RESOLVED_APTOS_REF}"
 echo "Resolved chainlink-data-streams module ref: ${RESOLVED_DATA_STREAMS_REF}"
 echo "Resolved chainlink-solana module ref: ${RESOLVED_SOLANA_REF}"
 echo "Resolved Aptos capabilities module ref: ${RESOLVED_CAP_APTOS_REF}"
 echo "Resolved consensus capabilities module ref: ${RESOLVED_CAP_CONSENSUS_REF}"
 
-# Update chainlink go.mod to use remote branches (produces pseudo-versions in go.mod/go.sum)
 cd "$CHAINLINK_ROOT"
-go get "github.com/smartcontractkit/chainlink-protos@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/billing/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/cre/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/linking-service/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/orchestrator@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/ring/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/storage-service@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-protos/workflows/go@${BRANCH_PROTOS}"
-go get "github.com/smartcontractkit/chainlink-common@${BRANCH_COMMON}"
-go get "github.com/smartcontractkit/chainlink-common/keystore@${BRANCH_COMMON}"
-go get "github.com/smartcontractkit/chainlink-aptos@${RESOLVED_APTOS_REF}"
-go get "github.com/smartcontractkit/chainlink-evm@${BRANCH_EVM}"
-# Keep wsrpc imports available for plugin builds; aptos-service-common currently downgrades this.
-go get "github.com/smartcontractkit/chainlink-data-streams@${RESOLVED_DATA_STREAMS_REF}"
-# Keep CCIP Solana codec API shape aligned with current chainlink branch.
-go get "github.com/smartcontractkit/chainlink-solana@${RESOLVED_SOLANA_REF}"
-go mod tidy
-# Hydrate all required module checksums so Docker's readonly module mode does not fail.
-go mod download all
-
-# Keep system-tests modules in sync so the suggested go test command works without
-# manual `go mod tidy` after environment startup.
-echo "Tidying system-tests modules..."
-(
-  cd "$CHAINLINK_ROOT/system-tests/lib"
-  go mod tidy
-)
-(
-  cd "$CHAINLINK_ROOT/system-tests/tests"
-  go mod tidy
-)
 
 # Keep remote-branch workflow: point private Aptos + consensus capability plugins
 # to CAPABILITIES_BRANCH so report-generation algo changes are picked up together.

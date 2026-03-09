@@ -514,7 +514,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)")
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
-	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
+	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED/UNSUPPORTED: set Docker image in TOML config instead")
 	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
