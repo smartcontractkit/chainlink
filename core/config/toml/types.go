@@ -1640,8 +1640,9 @@ func (p *AutoPprof) setFrom(f *AutoPprof) {
 }
 
 type Pyroscope struct {
-	ServerAddress *string
-	Environment   *string
+	ServerAddress        *string
+	Environment          *string
+	LinkTracesToProfiles *bool
 }
 
 func (p *Pyroscope) setFrom(f *Pyroscope) {
@@ -1650,6 +1651,9 @@ func (p *Pyroscope) setFrom(f *Pyroscope) {
 	}
 	if v := f.Environment; v != nil {
 		p.Environment = v
+	}
+	if v := f.LinkTracesToProfiles; v != nil {
+		p.LinkTracesToProfiles = v
 	}
 }
 
@@ -1886,6 +1890,12 @@ type CreConfig struct {
 	UseLocalTimeProvider *bool                  `toml:",omitempty"`
 	EnableDKGRecipient   *bool                  `toml:",omitempty"`
 	Linking              *LinkingConfig         `toml:",omitempty"`
+	// DebugMode enables additional tracing and logging for workflow engines.
+	// When enabled, OTel traces are created for workflow execution and syncer events.
+	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
+	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
+	// WARNING: This is not suitable for production use due to performance overhead.
+	DebugMode *bool `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -1941,6 +1951,10 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		if v := f.Linking.TLSEnabled; v != nil {
 			c.Linking.TLSEnabled = v
 		}
+	}
+
+	if f.DebugMode != nil {
+		c.DebugMode = f.DebugMode
 	}
 }
 

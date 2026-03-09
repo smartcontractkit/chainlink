@@ -907,6 +907,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
 	)
 	if err != nil {

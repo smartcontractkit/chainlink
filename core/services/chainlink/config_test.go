@@ -617,8 +617,9 @@ func TestConfig_Marshal(t *testing.T) {
 		GoroutineThreshold:   ptr[int64](999),
 	}
 	full.Pyroscope = toml.Pyroscope{
-		ServerAddress: ptr("http://localhost:4040"),
-		Environment:   ptr("tests"),
+		ServerAddress:        ptr("http://localhost:4040"),
+		Environment:          ptr("tests"),
+		LinkTracesToProfiles: ptr(true),
 	}
 	full.Sentry = toml.Sentry{
 		Debug:       ptr(true),
@@ -650,6 +651,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
 		EnableDKGRecipient:   ptr(false),
+		DebugMode:            ptr(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
@@ -1219,6 +1221,7 @@ GoroutineThreshold = 999
 		{"Pyroscope", Config{Core: toml.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
+LinkTracesToProfiles = true
 `},
 		{"Sentry", Config{Core: toml.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
