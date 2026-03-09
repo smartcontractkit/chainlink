@@ -42,7 +42,7 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 		bn, err := rpcClient.BlockNumber()
 		assert.NoError(c, err)
 		l.Info().Int64("blockNumber", bn).Int("targetBlockNumber", waitForBlocks).Msg("Waiting for chain to progress above target block number")
-		assert.True(c, bn >= int64(waitForBlocks))
+		assert.GreaterOrEqual(c, bn, int64(waitForBlocks))
 	}, timeout, poll, "timeout exceeded: target block was not reached")
 
 	// reorg
@@ -65,7 +65,7 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 			l.Debug().Msgf("Resp: %v", resp)
 		}
 		l.Info().Int("Violated", violated).Int("Nodes", len(clNodes)).Msg("Checking if all nodes reported finality violation")
-		assert.True(c, violated == len(clNodes))
+		assert.Equal(c, violated, len(clNodes))
 	}, timeout, poll, "not all the nodes report finality violation")
 
 	l.Info().Msg("All nodes reported finality violation")
