@@ -18,6 +18,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -230,7 +231,7 @@ func TestToV2ConfigureInput(t *testing.T) {
 	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
 }
 
-func TestToV2ConfigureInput_DoesNotRequireAptosTransmittersInSpecConfig(t *testing.T) {
+func TestToV2ConfigureInput_EmbedsAptosTransmittersInSpecConfig(t *testing.T) {
 	registryChainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
 	registryChainID, err := chainselectors.GetChainIDFromSelector(registryChainSel)
 	require.NoError(t, err)
@@ -378,10 +379,18 @@ func TestToV2ConfigureInput_DoesNotRequireAptosTransmittersInSpecConfig(t *testi
 	var cfg capabilitiespb.CapabilityConfig
 	err = proto.Unmarshal(result.DONs[0].CapabilityConfigurations[0].Config, &cfg)
 	require.NoError(t, err)
-	if cfg.SpecConfig != nil {
-		_, ok := cfg.SpecConfig.Fields[aptosSpecConfigTransmittersListKey]
-		require.False(t, ok)
-	}
+	require.NotNil(t, cfg.SpecConfig)
+	specCfg, err := values.FromMapValueProto(cfg.SpecConfig)
+	require.NoError(t, err)
+	require.NotNil(t, specCfg)
+
+	rawTransmitters, ok := specCfg.Underlying[aptosSpecConfigTransmittersListKey]
+	require.True(t, ok)
+
+	var transmitters []string
+	err = rawTransmitters.UnwrapTo(&transmitters)
+	require.NoError(t, err)
+	require.Equal(t, []string{aptosTransmitterA, aptosTransmitterB}, transmitters)
 }
 
 func TestAptosTransmittersForChainSelector_ErrorsOnEmptyTransmitAccount(t *testing.T) {
