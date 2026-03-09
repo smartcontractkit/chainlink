@@ -103,7 +103,7 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspe
 		if options.AptosRole.String() == "unknown" {
 			return nil, fmt.Errorf("aptos role not properly set for chain: %d", chain)
 		}
-		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, options.AptosRole, false)
+		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, options.AptosRole)
 
 		return inspector, nil
 	default:

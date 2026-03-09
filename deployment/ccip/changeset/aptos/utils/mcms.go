@@ -34,7 +34,7 @@ func GenerateProposal(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
-	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role, false)
+	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role)
 
 	return proposalutils.BuildProposalFromBatchesV2(
 		env,
@@ -48,9 +48,9 @@ func GenerateProposal(
 }
 
 // GenerateCurseMCMSProposal creates a TimelockProposal targeting the CurseMCMS
-// contract. It uses aptosmcms.NewInspector with isCurseMCMS=true so the
-// inspector reads config from the "curse_mcms" module instead of "mcms".
-// It also sets IsCurseMCMS=true in the chain metadata so downstream tools
+// contract. It uses NewInspectorWithMCMSType(MCMSTypeCurse) so the inspector
+// reads config from the "curse_mcms" module instead of "mcms". It also sets
+// MCMSType=MCMSTypeCurse in the chain metadata so downstream tools
 // (mcms-tools set-signers, executor, etc.) use the correct binding.
 func GenerateCurseMCMSProposal(
 	env cldf.Environment,
@@ -64,7 +64,7 @@ func GenerateCurseMCMSProposal(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
-	inspector := aptosmcms.NewInspector(env.BlockChains.AptosChains()[chainSel].Client, role, true)
+	inspector := aptosmcms.NewInspectorWithMCMSType(env.BlockChains.AptosChains()[chainSel].Client, role, aptosmcms.MCMSTypeCurse)
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
@@ -80,13 +80,13 @@ func GenerateCurseMCMSProposal(
 	}
 
 	if err := markChainMetadataAsCurseMCMS(proposal, mcmstypes.ChainSelector(chainSel)); err != nil {
-		return nil, fmt.Errorf("failed to set IsCurseMCMS in chain metadata: %w", err)
+		return nil, fmt.Errorf("failed to set MCMSType in chain metadata: %w", err)
 	}
 
 	return proposal, nil
 }
 
-// markChainMetadataAsCurseMCMS sets IsCurseMCMS=true in the Aptos
+// markChainMetadataAsCurseMCMS sets MCMSType=MCMSTypeCurse in the Aptos
 // AdditionalFieldsMetadata for the given chain selector.
 func markChainMetadataAsCurseMCMS(proposal *mcms.TimelockProposal, cs mcmstypes.ChainSelector) error {
 	meta, ok := proposal.ChainMetadata[cs]
@@ -99,7 +99,7 @@ func markChainMetadataAsCurseMCMS(proposal *mcms.TimelockProposal, cs mcmstypes.
 			return fmt.Errorf("unmarshal additional fields metadata: %w", err)
 		}
 	}
-	afm.IsCurseMCMS = true
+	afm.MCMSType = aptosmcms.MCMSTypeCurse
 	b, err := json.Marshal(afm)
 	if err != nil {
 		return fmt.Errorf("marshal additional fields metadata: %w", err)
