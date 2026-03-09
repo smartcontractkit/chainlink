@@ -2,76 +2,41 @@ package triggerqueue
 
 import (
 	"context"
-	"errors"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const (
-	defaultMaxQueryBytes                                   = 100
-	defaultMaxObservationBytes                             = 500 * 1024
-	defaultMaxReportsPlusPrecursorBytes                    = 500 * 1024
-	defaultMaxReportBytes                                  = 500 * 1024
-	defaultMaxReportCount                                  = 20
-	defaultMaxKeyValueModifiedKeysPlusValuesBytes          = 1024 * 1024
-	defaultMaxKeyValueModifiedKeys                         = 500
-	defaultMaxBlobPayloadBytes                             = 25 * 1024
-	defaultMaxPerOracleUnexpiredBlobCumulativePayloadBytes = 30 * 1024 * 1024
-	defaultMaxPerOracleUnexpiredBlobCount                  = 1000
-)
+var _ ocr3_1types.ReportingPluginFactory[[]byte] = (*Factory)(nil)
 
-// Factory creates OCR 3.1 ReportingPlugins for the trigger queue. Draft: NewReportingPlugin returns a plugin that errors on all calls.
+// Factory creates ReportingPlugin instances for the trigger queue.
 type Factory struct {
 	lggr logger.Logger
-	services.StateMachine
 }
 
 // NewFactory creates a new trigger queue plugin factory.
-func NewFactory(lggr logger.Logger) (*Factory, error) {
-	if lggr == nil {
-		return nil, errors.New("logger is required")
-	}
-	return &Factory{
-		lggr: lggr.Named("TriggerQueuePluginFactory"),
-	}, nil
+func NewFactory(lggr logger.Logger) *Factory {
+	return &Factory{lggr: lggr.Named("TriggerQueueFactory")}
 }
 
-// NewReportingPlugin creates a new OCR 3.1 ReportingPlugin. Draft: returns plugin that errors on all OCR calls.
-func (f *Factory) NewReportingPlugin(_ context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
+func (f *Factory) NewReportingPlugin(ctx context.Context, config ocr3types.ReportingPluginConfig, fetcher ocr3_1types.BlobBroadcastFetcher) (ocr3_1types.ReportingPlugin[[]byte], ocr3_1types.ReportingPluginInfo, error) {
 	plugin := NewReportingPlugin(f.lggr)
-	_, _ = config, fetcher
 	info := ocr3_1types.ReportingPluginInfo1{
-		Name: "TriggerQueuePlugin",
+		Name: "triggerqueue",
 		Limits: ocr3_1types.ReportingPluginLimits{
-			MaxQueryBytes:                                   defaultMaxQueryBytes,
-			MaxObservationBytes:                             defaultMaxObservationBytes,
-			MaxReportsPlusPrecursorBytes:                    defaultMaxReportsPlusPrecursorBytes,
-			MaxReportBytes:                                  defaultMaxReportBytes,
-			MaxReportCount:                                  defaultMaxReportCount,
-			MaxKeyValueModifiedKeysPlusValuesBytes:          defaultMaxKeyValueModifiedKeysPlusValuesBytes,
-			MaxKeyValueModifiedKeys:                         defaultMaxKeyValueModifiedKeys,
-			MaxBlobPayloadBytes:                             defaultMaxBlobPayloadBytes,
-			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: defaultMaxPerOracleUnexpiredBlobCumulativePayloadBytes,
-			MaxPerOracleUnexpiredBlobCount:                  defaultMaxPerOracleUnexpiredBlobCount,
+			MaxQueryBytes:                                100,
+			MaxObservationBytes:                          500 * 1024, // 500KB per design doc
+			MaxReportsPlusPrecursorBytes:                 500 * 1024,
+			MaxReportBytes:                               500 * 1024,
+			MaxReportCount:                               1,
+			MaxKeyValueModifiedKeys:                      500,
+			MaxKeyValueModifiedKeysPlusValuesBytes:       1024 * 1024, // 1MB
+			MaxBlobPayloadBytes:                          25 * 1024,   // 25KB per design doc
+			MaxPerOracleUnexpiredBlobCumulativePayloadBytes: 30 * 1024 * 1024,
+			MaxPerOracleUnexpiredBlobCount:               1000,
 		},
 	}
 	return plugin, info, nil
-}
-
-func (f *Factory) Start(ctx context.Context) error {
-	return f.StartOnce("TriggerQueuePluginFactory", func() error { return nil })
-}
-
-func (f *Factory) Close() error {
-	return f.StopOnce("TriggerQueuePluginFactory", func() error { return nil })
-}
-
-func (f *Factory) Name() string { return f.lggr.Name() }
-
-func (f *Factory) HealthReport() map[string]error {
-	return map[string]error{f.Name(): f.Healthy()}
 }

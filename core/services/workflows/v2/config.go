@@ -29,12 +29,16 @@ import (
 )
 
 // TriggerQueueDeps holds dependencies for creating the OCR-backed trigger queue.
-// DonSubscriber enables DON sync: the queue subscribes to DON updates and reconfigures
-// the OCR oracle when members, F, or bootstrap peers change.
+// Extend as needed when wiring the full OCR 3.1 oracle (bootstrap peers, monitoring, etc.).
 type TriggerQueueDeps struct {
 	Lf            limits.Factory
 	Cfg           *cresettings.Workflows
 	DonSubscriber capabilities.DonSubscriber
+
+	// TODO: add fields as wiring progresses:
+	// - BootstrapPeers []commontypes.BootstrapperLocator (from DON or config)
+	// - MonitoringEndpointGen (delegate has it; may need synthetic contract ID)
+	// - OCR key bundle (workflow DON uses OCR keys)
 }
 
 // TriggerQueueCreator creates an OCR-backed trigger queue using the delegate's OCR infra.
