@@ -3,8 +3,7 @@
 #
 # Run from anywhere:
 #   ./core/scripts/cre/environment/fast_aptos_tdd.sh unit
-#   ./core/scripts/cre/environment/fast_aptos_tdd.sh write
-#   ./core/scripts/cre/environment/fast_aptos_tdd.sh failure
+#   ./core/scripts/cre/environment/fast_aptos_tdd.sh read
 #   ./core/scripts/cre/environment/fast_aptos_tdd.sh all
 #
 # Notes:
@@ -29,11 +28,9 @@ Usage:
 
 Targets:
   unit        Run fast unit/integration package tests (default)
-  write       Run Aptos write-only CRE test
-  failure     Run Aptos expected-failure CRE test
-  roundtrip   Run Aptos write/read roundtrip CRE test
+  read        Run Aptos read-only CRE test
   suite       Run full Aptos CRE suite test
-  all         Run: unit + write + failure + roundtrip
+  all         Run: unit + read + suite
   list        Print targets
 
 Environment variables:
@@ -44,7 +41,7 @@ EOF
 }
 
 print_targets() {
-  echo "Available targets: unit write failure roundtrip suite all list"
+  echo "Available targets: unit read suite all list"
 }
 
 run_go_test() {
@@ -111,23 +108,16 @@ run_target() {
     unit)
       run_unit
       ;;
-    write)
-      run_cre_test "Test_CRE_V2_Aptos_Write"
-      ;;
-    failure)
-      run_cre_test "Test_CRE_V2_Aptos_Write_Expected_Failure"
-      ;;
-    roundtrip)
-      run_cre_test "Test_CRE_V2_Aptos_Write_Read_Roundtrip"
+    read)
+      run_cre_test "Test_CRE_V2_Aptos_Read"
       ;;
     suite)
       run_cre_test "Test_CRE_V2_Aptos_Suite"
       ;;
     all)
       run_unit
-      run_cre_test "Test_CRE_V2_Aptos_Write"
-      run_cre_test "Test_CRE_V2_Aptos_Write_Expected_Failure"
-      run_cre_test "Test_CRE_V2_Aptos_Write_Read_Roundtrip"
+      run_cre_test "Test_CRE_V2_Aptos_Read"
+      run_cre_test "Test_CRE_V2_Aptos_Suite"
       ;;
     list)
       print_targets
@@ -154,4 +144,3 @@ fi
 for target in "$@"; do
   run_target "$target"
 done
-

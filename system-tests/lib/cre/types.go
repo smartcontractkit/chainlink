@@ -226,6 +226,7 @@ type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 // merging individual fields with defaults.
 type CapabilityConfig struct {
 	BinaryName string         `toml:"binary_name"`
+	BinaryPath string         `toml:"binary_path"` // Backward-compat with older local_cre.toml files.
 	Values     map[string]any `toml:"values"`
 }
 
@@ -236,10 +237,15 @@ type CapabilityConfig struct {
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {
+			if srcValue.BinaryName == "" && srcValue.BinaryPath != "" {
+				srcValue.BinaryName = srcValue.BinaryPath
+			}
 			dst[srcKey] = srcValue
 		} else {
 			if srcValue.BinaryName != "" {
 				dstValue.BinaryName = srcValue.BinaryName
+			} else if srcValue.BinaryPath != "" {
+				dstValue.BinaryName = srcValue.BinaryPath
 			}
 			dst[srcKey] = dstValue
 		}
@@ -647,6 +653,12 @@ func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (Capabilit
 	// Merge: user overrides (c.CapabilityConfigs) take precedence, defaults fill gaps
 	capConfigs := make(map[CapabilityFlag]CapabilityConfig)
 	maps.Copy(capConfigs, c.CapabilityConfigs)
+	for flag, cfg := range capConfigs {
+		if cfg.BinaryName == "" && cfg.BinaryPath != "" {
+			cfg.BinaryName = cfg.BinaryPath
+			capConfigs[flag] = cfg
+		}
+	}
 	mergeCapabilityConfigs(capConfigs, defaults)
 
 	// Remove base capability configs (e.g., "write-evm") when chain-specific variants
@@ -1485,11 +1497,11 @@ type LinkDonsToJDInput struct {
 }
 
 type Environment struct {
-	CldfEnvironment          *cldf.Environment
-	RegistryChainSelector    uint64
-	Blockchains              []blockchains.Blockchain
-	ContractVersions         map[ContractType]*semver.Version
-	Provider                 infra.Provider
+	CldfEnvironment         *cldf.Environment
+	RegistryChainSelector   uint64
+	Blockchains             []blockchains.Blockchain
+	ContractVersions        map[ContractType]*semver.Version
+	Provider                infra.Provider
 	AptosForwarderAddresses map[uint64]string // optional; chain selector -> forwarder address for Aptos chains
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }

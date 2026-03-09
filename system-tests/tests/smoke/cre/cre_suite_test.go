@@ -226,27 +226,6 @@ func Test_CRE_V2_Aptos_Read(t *testing.T) {
 	})
 }
 
-func Test_CRE_V2_Aptos_Write(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
-	t.Run("[v2] Aptos Write", func(t *testing.T) {
-		ExecuteAptosWriteOnlyTest(t, testEnv)
-	})
-}
-
-func Test_CRE_V2_Aptos_Write_Read_Roundtrip(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
-	t.Run("[v2] Aptos Write Read Roundtrip", func(t *testing.T) {
-		ExecuteAptosWriteReadRoundtripOnlyTest(t, testEnv)
-	})
-}
-
-func Test_CRE_V2_Aptos_Write_Expected_Failure(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
-	t.Run("[v2] Aptos Write Expected Failure", func(t *testing.T) {
-		ExecuteAptosWriteExpectedFailureOnlyTest(t, testEnv)
-	})
-}
-
 func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 

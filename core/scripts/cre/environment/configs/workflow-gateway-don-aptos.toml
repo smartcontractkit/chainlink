@@ -1,4 +1,4 @@
-# Same as workflow-gateway-don.toml but with Aptos chain and Aptos capabilities (read-contract-4, write-aptos-4).
+# Same as workflow-gateway-don.toml but with Aptos chain and Aptos read capability plumbing.
 # Anvil 1337: registry and gateway. Aptos: local devnet (chain_id 4). Run: env config path <this file>, then env start.
 
 [[blockchains]]

@@ -203,8 +203,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 	for _, don := range dons.List() {
 		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
 		for _, bc := range blockchains {
-			shouldFundAptos := bc.IsFamily(chainselectors.FamilyAptos) && don.HasFlag(cre.WriteAptosCapability)
-			if !shouldFundAptos && !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.IsFamily(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
+			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.IsFamily(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
 				continue
 			}
 

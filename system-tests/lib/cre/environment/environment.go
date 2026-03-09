@@ -89,7 +89,7 @@ type SetupInput struct {
 	CapabilitiesContractFactoryFunctions []cre.CapabilityRegistryConfigFn
 
 	StageGen *stagegen.StageGen
-	// Optional map of Aptos chain selector -> forwarder address to inject into Aptos node config and write-aptos job config.
+	// Optional map of Aptos chain selector -> forwarder address to inject into Aptos node/job config.
 	AptosForwarderAddresses map[uint64]string
 }
 
@@ -864,10 +864,6 @@ func SetupTestEnvironment(
 	if addrErr != nil {
 		return nil, fmt.Errorf("failed to resolve Aptos forwarder addresses: %w", addrErr)
 	}
-	aptosForwarderAddresses, addrErr = deployMissingAptosForwarders(ctx, testLogger, input.Provider, deployedBlockchains.Outputs, aptosForwarderAddresses)
-	if addrErr != nil {
-		return nil, fmt.Errorf("failed to auto-deploy missing Aptos forwarders: %w", addrErr)
-	}
 	creEnvironment.AptosForwarderAddresses = aptosForwarderAddresses
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -1127,19 +1123,6 @@ func SetupTestEnvironment(
 	if capRegErr != nil {
 		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
 	}
-	// Match Aptos data-feeds setup flow: deploy forwarder, then set forwarder config
-	// before write workflows execute.
-	if cfgErr := configureAptosForwarderContracts(
-		ctx,
-		testLogger,
-		input.Provider,
-		deployedBlockchains.Outputs,
-		dons,
-		aptosForwarderAddresses,
-	); cfgErr != nil {
-		return nil, fmt.Errorf("failed to configure Aptos forwarders: %w", cfgErr)
-	}
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))

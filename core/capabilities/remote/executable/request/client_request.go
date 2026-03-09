@@ -49,8 +49,6 @@ type ClientRequest struct {
 
 	requestTimeout time.Duration
 
-	responsePolicy responsePolicy
-
 	respSent bool
 	mux      sync.Mutex
 	wg       *sync.WaitGroup
@@ -199,7 +197,6 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		meteringResponses:          make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
-		responsePolicy:             newResponsePolicy(remoteCapabilityInfo, capMethodName),
 		responseCh:                 make(chan clientResponse, 1),
 		wg:                         &wg,
 		lggr:                       lggr,
@@ -269,16 +266,6 @@ func (c *ClientRequest) Cancel(err error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	if !c.respSent {
-		if c.responsePolicy != nil {
-			payload, ok, buildErr := c.responsePolicy.BuildDeterministicResponse(true)
-			if buildErr != nil {
-				c.lggr.Warnw("failed to build deterministic policy response", "error", buildErr)
-			}
-			if ok {
-				c.sendResponse(clientResponse{Result: payload})
-				return
-			}
-		}
 		c.sendResponse(clientResponse{Err: err})
 	}
 }
@@ -346,28 +333,13 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			lggr.Warnw("received multiple unique responses for the same request", "count for responseID", len(c.responseIDCount))
 		}
 
-		if c.responseIDCount[responseID] == c.requiredIdenticalResponses && !c.shouldDeferIdenticalResponse(msg.Payload) {
+		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 			payload, err := c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: nodeReports})
 			if err != nil {
 				return fmt.Errorf("failed to encode payload with metadata: %w", err)
 			}
 
 			c.sendResponse(clientResponse{Result: payload})
-		}
-
-		if !c.respSent {
-			if c.responsePolicy != nil {
-				c.responsePolicy.ObserveOKResponse(msg, metadata)
-				payload, ok, buildErr := c.responsePolicy.BuildDeterministicResponse(c.allResponsesReceived())
-				if buildErr != nil {
-					return fmt.Errorf("failed to build deterministic policy response: %w", buildErr)
-				}
-				if ok {
-					c.sendResponse(clientResponse{Result: payload})
-				} else if err := c.maybeFinalizeResponsePolicyAfterAllResponses(); err != nil {
-					return err
-				}
-			}
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
@@ -376,13 +348,6 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 		if len(c.errorCount) > 1 {
 			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
-		}
-
-		if c.responsePolicy != nil && c.responsePolicy.ShouldDeferErrorResponses() {
-			if err := c.maybeFinalizeResponsePolicyAfterAllResponses(); err != nil {
-				return err
-			}
-			return nil
 		}
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
@@ -433,46 +398,4 @@ func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metada
 	resp.Metadata = metadata
 
 	return pb.MarshalCapabilityResponse(resp)
-}
-
-func (c *ClientRequest) shouldDeferIdenticalResponse(payload []byte) bool {
-	if c.responsePolicy == nil {
-		return false
-	}
-	return c.responsePolicy.ShouldDeferIdenticalResponse(payload)
-}
-
-func (c *ClientRequest) allResponsesReceived() bool {
-	if len(c.responseReceived) == 0 {
-		return false
-	}
-
-	for _, received := range c.responseReceived {
-		if !received {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (c *ClientRequest) maybeFinalizeResponsePolicyAfterAllResponses() error {
-	if c.responsePolicy == nil || c.respSent {
-		return nil
-	}
-
-	response, ok, err := c.responsePolicy.FinalizeAfterAllResponses(responsePolicyState{
-		AllResponsesReceived: c.allResponsesReceived(),
-		ResponseVariants:     len(c.responseIDCount),
-		TotalErrorCount:      c.totalErrorCount,
-	})
-	if err != nil {
-		return err
-	}
-	if !ok || response == nil {
-		return nil
-	}
-
-	c.sendResponse(*response)
-	return nil
 }

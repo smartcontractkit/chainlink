@@ -39,10 +39,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite => ./smoke/cre/solana/solwrite
 
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite => ./smoke/cre/aptos/aptoswrite
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip => ./smoke/cre/aptos/aptoswriteroundtrip
-
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.6.1
@@ -65,7 +61,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.17.0
-	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
+	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.2
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
@@ -82,8 +78,6 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20251008094352-f74459c46e8c
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8

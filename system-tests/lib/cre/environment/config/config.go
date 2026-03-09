@@ -65,7 +65,7 @@ type Config struct {
 	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
-	// Optional map of Aptos chain selector -> forwarder address used for Aptos write capability runtime config.
+	// Optional map of Aptos chain selector -> forwarder address injected into Aptos capability runtime config.
 	AptosForwarderAddresses map[uint64]string `toml:"aptos_forwarder_addresses"`
 	Addresses               []string          `toml:"addresses"`
 

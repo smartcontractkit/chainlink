@@ -69,7 +69,6 @@ func (o *ReadContract) PreEnvStartup(
 			labelledName = "aptos:ChainSelector:" + strconv.FormatUint(aptosChain.ChainSelector(), 10)
 			useCapRegOCRConfig = true
 			methodConfigs = getAptosMethodConfigs()
-			// Aptos write expected-failure semantics rely on DON-wide remote execution aggregation.
 			// Keep Aptos capability remote-enabled even in single-DON local CRE topologies.
 			localOnly = false
 			capabilityToOCR3Config[labelledName] = contracts.DefaultChainCapabilityOCR3Config()
@@ -109,7 +108,6 @@ func findAptosChainByChainID(blockchains []creblockchains.Blockchain, chainID ui
 const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
 const aptosConfigTemplate = `{"chainId":"{{.ChainID}}","network":"aptos","creForwarderAddress":"{{.CREForwarderAddress}}"}`
 const aptosZeroForwarderHex = "0x0000000000000000000000000000000000000000000000000000000000000000"
-const aptosWriteDeltaStage = 500*time.Millisecond + 1*time.Second // align with EVM local timing baseline
 const aptosRequestTimeout = 30 * time.Second
 
 func getAptosMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
@@ -121,17 +119,6 @@ func getAptosMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 					RequestTimeout:            durationpb.New(aptosRequestTimeout),
 					ServerMaxParallelRequests: 10,
 					RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
-				},
-			},
-		},
-		"WriteReport": {
-			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
-				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					TransmissionSchedule:      capabilitiespb.TransmissionSchedule_OneAtATime,
-					DeltaStage:                durationpb.New(aptosWriteDeltaStage),
-					RequestTimeout:            durationpb.New(aptosRequestTimeout),
-					ServerMaxParallelRequests: 10,
-					RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
 				},
 			},
 		},
@@ -191,7 +178,7 @@ func (o *ReadContract) PostEnvStartup(
 			if resolveErr != nil {
 				return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", cre.WriteAptosCapability, chainID, resolveErr)
 			}
-			command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+			command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 			if cErr != nil {
 				return errors.Wrap(cErr, "failed to get command for Aptos capability")
 			}
@@ -226,7 +213,7 @@ func (o *ReadContract) PostEnvStartup(
 				Domain:      offchain.ProductLabel,
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
-				JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
+				JobName:     "aptos-worker-" + strconv.FormatUint(chainID, 10),
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: string(cre.WriteAptosCapability)},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},
