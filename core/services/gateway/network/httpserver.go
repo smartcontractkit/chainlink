@@ -146,9 +146,6 @@ func (s *httpServer) isAllowedOrigin(origin string) bool {
 		return false
 	}
 	for _, allowed := range s.config.CORSAllowedOrigins {
-		// probably better to do this once when server starts and store it in a map
-		// this is an easier solution so we don't have to apply more changes to the code
-		// just need to be careful when specifying allowed origins in the config file
 		allowedScheme, allowedHost, allowedPort, err := s.splitURL(allowed)
 		if err != nil {
 			s.lggr.Debug("error parsing allowed origin URL", err)
