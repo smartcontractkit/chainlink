@@ -341,10 +341,10 @@ func (d *Delegate) JobType() job.Type {
 // triggerQueueContractID is a synthetic ID for monitoring; trigger queue has no on-chain contract.
 const triggerQueueContractID = "trigger_queue"
 
-// NewTriggerQueueOCRQueue creates the trigger queue for the workflow syncer.
+// NewOCRTriggerQueue creates the trigger queue for the workflow syncer.
 // Delegate owns the oracle; builds OCR3_1OracleArgs with TODOs for unwired fields.
 // Returns OCRQueue wrapping Inner; transmitter feeds consensus events into Inner.
-func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
+func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
 	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
 	if err != nil {
 		return nil, err
@@ -360,16 +360,16 @@ func (d *Delegate) NewTriggerQueueOCRQueue(ctx context.Context, deps v2.TriggerQ
 		V2Bootstrappers:              nil, // TODO: wire bootstrap peers from workflow DON (deps.DonSubscriber.WaitForDon or config)
 		ContractConfigTracker:        nil, // TODO: in-process config; need static/dynamic config from DON (no on-chain contract)
 		ContractTransmitter:          triggerqueue.NewTransmitter(inner, d.lggr),
-		Database:                     nil, // TODO: wire OCR DB (e.g. NewDB(d.ds, triggerQueuePluginID, 0, d.lggr)); need unique plugin ID
-		KeyValueDatabaseFactory:      nil, // TODO: wire KV factory (e.g. kvdb.NewPebbleKeyValueDatabaseFactory(path)); path = KeyValueStoreRootDir/trigger_queue
+		Database:                     nil,                    // TODO: wire OCR DB (e.g. NewDB(d.ds, triggerQueuePluginID, 0, d.lggr)); need unique plugin ID
+		KeyValueDatabaseFactory:      nil,                    // TODO: wire KV factory (e.g. kvdb.NewPebbleKeyValueDatabaseFactory(path)); path = KeyValueStoreRootDir/trigger_queue
 		LocalConfig:                  ocrtypes.LocalConfig{}, // TODO: wire LocalConfig (BlockDelta, etc.)
 		Logger:                       ocrLogger,
-		MetricsRegisterer:             prometheus.WrapRegistererWith(map[string]string{"job_name": triggerQueueContractID}, prometheus.DefaultRegisterer),
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": triggerQueueContractID}, prometheus.DefaultRegisterer),
 		MonitoringEndpoint:           nil, // TODO: wire d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, triggerQueueContractID, ...); need rid for trigger queue
 		OffchainConfigDigester:       nil, // TODO: in-process digester; derive config digest from DON (members, F, offchain config)
 		OffchainKeyring:              nil, // TODO: wire OCR key bundle (d.ks.Get or workflow DON key)
 		OnchainKeyring:               nil, // TODO: wire onchain keyring adapter (trigger queue may use same as vault/dontime for in-process)
-		ReportingPluginFactory:      beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr, buffer), d.lggr, "triggerqueue"),
+		ReportingPluginFactory:       beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr, buffer), d.lggr, "triggerqueue"),
 	}
 	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
 
@@ -1086,9 +1086,6 @@ func (d *Delegate) newDonTimePlugin(
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
-	}
 	srvs = append(srvs, job.NewServiceAdapter(oracle))
 	return srvs, nil
 }

@@ -50,8 +50,9 @@ func (q *OCRQueue) Len(ctx context.Context) (int, error) {
 }
 
 func (q *OCRQueue) Put(ctx context.Context, event EnqueuedTriggerEvent) error {
+	// TODO: only add to buffer, delegate to Put for now.
 	q.buffer.Add(event)
-	return nil
+	return q.inner.Put(ctx, event)
 }
 
 func (q *OCRQueue) Get(ctx context.Context) (EnqueuedTriggerEvent, error) {

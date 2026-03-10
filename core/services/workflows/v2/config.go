@@ -29,28 +29,24 @@ import (
 )
 
 // TriggerQueueDeps holds dependencies for creating the OCR-backed trigger queue.
-// Extend as needed when wiring the full OCR 3.1 oracle (bootstrap peers, monitoring, etc.).
+//
+// TODO: add fields as wiring progresses:
+// - BootstrapPeers []commontypes.BootstrapperLocator (from DON or config)
+// - MonitoringEndpointGen (delegate has it; may need synthetic contract ID)
+// - OCR key bundle (workflow DON uses OCR keys)
 type TriggerQueueDeps struct {
 	Lf            limits.Factory
 	Cfg           *cresettings.Workflows
 	DonSubscriber capabilities.DonSubscriber
-
-	// TODO: add fields as wiring progresses:
-	// - BootstrapPeers []commontypes.BootstrapperLocator (from DON or config)
-	// - MonitoringEndpointGen (delegate has it; may need synthetic contract ID)
-	// - OCR key bundle (workflow DON uses OCR keys)
 }
 
-// TriggerQueueCreator creates an OCR-backed trigger queue using the delegate's OCR infra.
-// Implemented by the OCR delegate; called by cre.go when OCRTriggerEventQueueEnabled is on.
-// DonSubscriber in deps enables DON sync: the queue stays current with dynamic DON info
-// (members, F, bootstrap peers) delivered on the subscription channel.
-type TriggerQueueCreator interface {
-	NewTriggerQueueOCRQueue(ctx context.Context, deps TriggerQueueDeps) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
+// TriggerQueueFactory returns a trigger queue implementation that uses OCR
+// to reach consensus on the queue among a workflow DON.
+type TriggerQueueFactory interface {
+	NewOCRTriggerQueue(ctx context.Context, deps TriggerQueueDeps) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
 }
 
 // NewStandardTriggerQueue creates the default in-process trigger queue.
-// Used by the delegate's NewTriggerQueueOCRQueue as a fallback until the full OCR queue is implemented.
 func NewStandardTriggerQueue(lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[EnqueuedTriggerEvent], error) {
 	return limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
 }
@@ -135,8 +131,6 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 // NewLimitersWithTriggerQueue is like NewLimiters but accepts an optional pre-built trigger queue.
-// When triggerQueue is non-nil, it is used instead of creating a standard queue. Used when
-// OCRTriggerEventQueueEnabled is on and the OCR delegate provides an OCR-backed queue.
 func NewLimitersWithTriggerQueue(lf limits.Factory, cfgFn func(*cresettings.Workflows), triggerQueue limits.QueueLimiter[EnqueuedTriggerEvent]) (*EngineLimiters, error) {
 	l := &EngineLimiters{}
 	err := l.init(lf, cfgFn, triggerQueue)
@@ -164,14 +158,15 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.TriggerEventQueue, err = limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	if err != nil {
+		return
+	}
+
 	if triggerQueue != nil {
 		l.TriggerEventQueue = triggerQueue
-	} else {
-		l.TriggerEventQueue, err = limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
-		if err != nil {
-			return
-		}
 	}
+
 	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
 	if err != nil {
 		return

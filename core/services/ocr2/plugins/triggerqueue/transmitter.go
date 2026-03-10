@@ -27,7 +27,7 @@ func NewTransmitter(queue limits.QueueLimiter[v2.EnqueuedTriggerEvent], lggr log
 	return &Transmitter{queue: queue, lggr: lggr.Named("TriggerQueueTransmitter")}
 }
 
-// decodedTriggerEvent is the result of decoding a report; maps to EnqueuedTriggerEvent fields.
+// decodedTriggerEvent is the result of decoding a report
 type decodedTriggerEvent struct {
 	triggerCapID string
 	triggerIndex int
@@ -36,11 +36,10 @@ type decodedTriggerEvent struct {
 }
 
 // decodeReport extracts the consensus slice of events from the OCR report.
-// Overridable in tests to mock the decode.
+//
+// TODO: make interface dependency to mock in tests
 var decodeReport = func(rwi ocr3types.ReportWithInfo[[]byte]) ([]decodedTriggerEvent, error) {
-	// TODO: implement real decode. Report format per design: ordered event IDs in rwi.Report;
-	// fetch payloads from KV (keyValueReader from plugin context; transmitter may need KV ref).
-	// Stub: no real decode. Real impl would:
+	// TODO: implement real decode.
 	// - Parse rwi.Report (proto: ordered event IDs)
 	// - For each event ID, fetch payload from KV via "Event::"+eventID
 	// - Unmarshal to TriggerResponse, build decodedTriggerEvent
@@ -48,8 +47,9 @@ var decodeReport = func(rwi ocr3types.ReportWithInfo[[]byte]) ([]decodedTriggerE
 	return nil, nil
 }
 
-// Transmit is called by libOCR when consensus is reached. Decodes the report and
-// enqueues each event into the internal queue. Engine Wait() will return these.
+// Transmit decodes the report after consensus is reached and
+// enqueues each event into the internal queue. Engine Wait() will return the head
+// of these events.
 func (t *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte], sigs []types.AttributedOnchainSignature) error {
 	events, err := decodeReport(rwi)
 	if err != nil {

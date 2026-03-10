@@ -123,14 +123,15 @@ type Services struct {
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
 	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
 
-	// ocrTriggerQueueCreator is set by application.go after creating the OCR delegate.
-	ocrTriggerQueueCreator v2.TriggerQueueCreator
+	// triggerQueueFactory builds the trigger queue constructor, which is used
+	// to manage the queue of trigger events in the engine.
+	triggerQueueFactory v2.TriggerQueueFactory
 }
 
-// SetOCRTriggerQueueCreator sets the creator for the OCR-backed trigger queue.
+// SetOCRTriggerQueueFactory sets the creator for the OCR-backed trigger queue.
 // Called by application.go after creating the OCR delegate.
-func (s *Services) SetOCRTriggerQueueCreator(c v2.TriggerQueueCreator) {
-	s.ocrTriggerQueueCreator = c
+func (s *Services) SetOCRTriggerQueueFactory(c v2.TriggerQueueFactory) {
+	s.triggerQueueFactory = c
 }
 
 func (s *Services) close() error {
@@ -237,7 +238,7 @@ func (s *Services) newSubservices(
 		cfg,
 		relayerChainInterops,
 		opts,
-		s.ocrTriggerQueueCreator,
+		s.triggerQueueFactory,
 		lggr,
 		ds,
 		opts.DonTimeStore,
@@ -846,7 +847,7 @@ func newWorkflowRegistrySyncerV2(
 	relayerChainInterops RelayerChainInterops,
 	billingClient metering.BillingClient,
 	opts Opts,
-	ocrTriggerQueueCreator v2.TriggerQueueCreator,
+	triggerQueueFactory v2.TriggerQueueFactory,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	dontimeStore *dontime.Store,
@@ -891,8 +892,10 @@ func newWorkflowRegistrySyncerV2(
 
 	engineRegistry := syncerV2.NewEngineRegistry()
 
+	// Enable override of default queue behavior
+	// TODO: use cre settings package for feature flag
 	var triggerQueue limits.QueueLimiter[v2.EnqueuedTriggerEvent]
-	if ocrTriggerEventQueueEnabled && ocrTriggerQueueCreator != nil {
+	if ocrTriggerEventQueueEnabled && triggerQueueFactory != nil {
 		cfg := cresettings.Default.PerWorkflow
 		deps := v2.TriggerQueueDeps{
 			Lf:            lf,
@@ -900,7 +903,7 @@ func newWorkflowRegistrySyncerV2(
 			DonSubscriber: workflowDonNotifier,
 		}
 		var tqErr error
-		triggerQueue, tqErr = ocrTriggerQueueCreator.NewTriggerQueueOCRQueue(context.Background(), deps)
+		triggerQueue, tqErr = triggerQueueFactory.NewOCRTriggerQueue(context.Background(), deps)
 		if tqErr != nil {
 			return nil, nil, fmt.Errorf("could not create OCR trigger queue: %w", tqErr)
 		}
@@ -1015,7 +1018,7 @@ func newWorkflowRegistrySyncer(
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
 	opts Opts,
-	ocrTriggerQueueCreator v2.TriggerQueueCreator,
+	triggerQueueFactory v2.TriggerQueueFactory,
 	lggr logger.Logger,
 	ds sqlutil.DataSource,
 	dontimeStore *dontime.Store,
@@ -1064,7 +1067,7 @@ func newWorkflowRegistrySyncer(
 			relayerChainInterops,
 			billingClient,
 			opts,
-			ocrTriggerQueueCreator,
+			triggerQueueFactory,
 			lggr,
 			ds,
 			dontimeStore,
