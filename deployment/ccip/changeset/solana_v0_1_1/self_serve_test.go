@@ -11,7 +11,7 @@ import (
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -20,7 +20,7 @@ import (
 
 	cldfChain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/ccip_common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"

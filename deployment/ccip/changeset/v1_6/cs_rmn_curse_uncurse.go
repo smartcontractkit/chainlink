@@ -18,8 +18,8 @@ import (
 
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/ccip_offramp"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"

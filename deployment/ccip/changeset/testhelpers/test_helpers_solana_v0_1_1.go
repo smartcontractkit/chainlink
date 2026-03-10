@@ -25,9 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
-	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
+	solBaseTokenPoolV1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/base_token_pool"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/ccip_router"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/fee_quoter"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -261,12 +261,12 @@ func DeployTransferableTokenSolanaV0_1_1(
 										PoolType:    shared.BurnMintTokenPool,
 										PoolVersion: shared.CurrentTokenPoolVersion,
 										RateLimiterConfig: ccipChangeSetSolanaV0_1_1.RateLimiterConfig{
-											Inbound: solTestTokenPoolV0_1_1.RateLimitConfig{
+											Inbound: solBaseTokenPoolV1_6_1.RateLimitConfig{
 												Enabled:  false,
 												Capacity: 0,
 												Rate:     0,
 											},
-											Outbound: solTestTokenPoolV0_1_1.RateLimitConfig{
+											Outbound: solBaseTokenPoolV1_6_1.RateLimitConfig{
 												Enabled:  false,
 												Capacity: 0,
 												Rate:     0,

@@ -10,7 +10,7 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 

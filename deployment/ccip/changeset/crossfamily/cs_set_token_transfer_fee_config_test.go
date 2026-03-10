@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	solfq "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
+	solfq "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/fee_quoter"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment"
