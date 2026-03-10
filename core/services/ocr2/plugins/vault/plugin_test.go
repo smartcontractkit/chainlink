@@ -2021,7 +2021,7 @@ func makeGetSecretsObservations(
 	privateShare *tdh2easy.PrivateShare,
 ) []byte {
 	t.Helper()
-	var obs []observation
+	obs := make([]observation, 0, numRequests)
 	for i := range numRequests {
 		maxKey := fmt.Sprintf("%s%d", strings.Repeat("c", 64-1), i)
 
