@@ -470,10 +470,10 @@ jobs:
                 {
                   "name": "evm-implementation-compatibility-test-68",
                   "os": "ubuntu-latest",
-                  "product": "runlog",
+                  "product": "automation",
                   "eth_implementation": "erigon",
                   "docker_image": "thorax/erigon:v2.59.2",
-                  "run": "-run 'TestRunLogBasic' ./smoke/runlog_test.go"
+                  "run": "-run 'TestAutomationBasic/registry_2_1_logtrigger' ./smoke/automation_test.go"
                 }
               ]
           EOF
@@ -495,12 +495,6 @@ jobs:
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
-            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -512,12 +506,6 @@ jobs:
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
-            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -530,12 +518,6 @@ jobs:
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
-            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -547,12 +529,6 @@ jobs:
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
-            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -565,12 +541,6 @@ jobs:
 
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
             echo "Will test compatibility with reth"
-            testlistgenerator -o compatibility_test_list.json -p cron -r TestCronBasic -f './smoke/cron_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p flux -r TestFluxBasic -f './smoke/flux_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p runlog -r TestRunLogBasic -f './smoke/runlog_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p log_poller -r TestLogPollerFewFiltersFixedDepth -f './smoke/log_poller_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr -r TestOCRBasic -f './smoke/ocr_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p ocr2 -r '^TestOCRv2Basic/plugins$' -f './smoke/ocr2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p automation -r 'TestAutomationBasic/registry_2_1_logtrigger' -f './smoke/automation_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p keeper -r 'TestKeeperBasicSmoke/registry_1_3' -f './smoke/keeper_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
@@ -867,14 +837,9 @@ jobs:
           - automation
           - keeper
           - log_poller
-          - ocr
-          - ocr2
           - vrf
           - vrfv2
           - vrfv2plus
-          - cron
-          - flux
-          - runlog
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v4
