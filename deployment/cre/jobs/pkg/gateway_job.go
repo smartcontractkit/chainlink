@@ -425,8 +425,7 @@ type nodeRateLimiterConfig struct {
 }
 
 type httpCapabilitiesHandlerConfig struct {
-	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
-	CleanUpPeriodMs int                   `toml:"CleanUpPeriodMs"`
+	CleanUpPeriodMs int `toml:"CleanUpPeriodMs"`
 }
 
 func newDefaultHTTPCapabilitiesHandler() handler {
@@ -434,12 +433,6 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 		Name:        GatewayHandlerTypeHTTPCapabilities,
 		ServiceName: "workflows",
 		Config: httpCapabilitiesHandlerConfig{
-			NodeRateLimiter: nodeRateLimiterConfig{
-				GlobalBurst:    100,
-				GlobalRPS:      500,
-				PerSenderBurst: 100,
-				PerSenderRPS:   100,
-			},
 			CleanUpPeriodMs: 10 * 60 * 1000, // 10 minutes
 		},
 	}

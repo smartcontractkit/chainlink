@@ -290,12 +290,6 @@ ServiceName = 'workflows'
 [gatewayConfig.Services.Handlers.Config]
 CleanUpPeriodMs = 600000
 
-[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
-globalBurst = 100
-globalRPS = 500
-perSenderBurst = 100
-perSenderRPS = 100
-
 [[gatewayConfig.Services]]
 ServiceName = 'vault'
 DONs = ['workflow_2']

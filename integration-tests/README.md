@@ -1,5 +1,8 @@
 # Integration Tests
 
+**DEPRECATED**: Use a new version of [developer environment](../devenv/README.md) 
+Read more about tests [here](../devenv/tests/README.md)
+
 - [Integration Tests](#integration-tests)
   - [Summary](#summary)
   - [Guidelines](#guidelines)
@@ -12,6 +15,9 @@
       - [In Kubernetes](#in-kubernetes)
         - [From local machine](#from-local-machine)
       - [CI/GitHub Actions](#cigithub-actions)
+  - [CCIP 1.5 K8s Tests](#ccip-15-k8s-tests)
+    - [Building CCIP 1.5 K8s Tests](#building-ccip-15-k8s-tests)
+    - [Running CCIP 1.5 K8s Tests](#running-ccip-15-k8s-tests)
 
 ## Summary
 
@@ -92,7 +98,7 @@ This directory represent a place for different types of integration and system l
 
    > [!WARNING]
    > **Parallelized tests and nonce issues**
-   > Most tests are paralelized by default. To avoid nonce-related issues, it is recommended to run tests with disabled parallelization, e.g. with `-p 1`.
+   > Most tests are parallelized by default. To avoid nonce-related issues, it is recommended to run tests with disabled parallelization, e.g. with `-p 1`.
 
 2. Alternatively, you may use `make` commands (see more in [Makefile .PHONY lines](./Makefile)) for running suites of tests.
     Example:
@@ -115,12 +121,6 @@ Run CLI command (with `override.toml`):
 
 ```bash
 BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run <"TestNameToRun"> ./<directory_name_with_tests>
-```
-
-Example:
-
-```bash
-BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run "TestOCRv2Basic" ./smoke
 ```
 
 #### In Kubernetes

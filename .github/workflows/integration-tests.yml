@@ -363,7 +363,6 @@ jobs:
             SHOULD_RUN_REGRESSION="true"
           fi
 
-
           echo "with-regression=${SHOULD_RUN_REGRESSION}" | tee -a "$GITHUB_OUTPUT"
 
   run-core-cre-e2e-tests:

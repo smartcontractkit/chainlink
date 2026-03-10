@@ -17,7 +17,7 @@ FallbackGasPrice = '0.015' # Default
 GasToken = 'ucosm' # Default
 # GasLimitMultiplier scales the estimated gas limit.
 GasLimitMultiplier = '1.5' # Default
-# MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+# MaxMsgsPerBatch limits the numbers of messages per transaction batch.
 MaxMsgsPerBatch = 100 # Default
 # OCR2CachePollPeriod is the rate to poll for the OCR2 state cache.
 OCR2CachePollPeriod = '4s' # Default
