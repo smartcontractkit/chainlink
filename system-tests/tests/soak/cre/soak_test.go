@@ -129,6 +129,7 @@ loop:
 	for i, wf := range soakWorkflows {
 		if wf.updateCount == 0 {
 			framework.L.Error().Msgf("workflow[%02d] (feedID=%s) had zero confirmed on-chain updates — never ran", i, wf.feedID)
+			t.FailNow()
 		} else {
 			framework.L.Info().Msgf("workflow[%02d]: %d confirmed on-chain updates", i, wf.updateCount)
 		}
