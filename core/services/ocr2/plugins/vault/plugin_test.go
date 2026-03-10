@@ -2236,8 +2236,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	numEncryptionKeys := 10
 	encryptionKeys := make([]string, numEncryptionKeys)
 	for i := range numEncryptionKeys {
-		pubK, _, err := box.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		pubK, _, err2 := box.GenerateKey(rand.Reader)
+		require.NoError(t, err2)
 		encryptionKeys[i] = hex.EncodeToString(pubK[:])
 	}
 
@@ -2257,7 +2257,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	aos := make([]types.AttributedObservation, numObservers)
 	for i := range numObservers {
 		aos[i] = types.AttributedObservation{
-			Observer:    commontypes.OracleID(i),
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115 range is well within uint8 bounds
 			Observation: types.Observation(makeGetSecretsObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
 		}
 	}
