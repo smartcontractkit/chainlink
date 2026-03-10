@@ -59,6 +59,11 @@ func TestLoad(t *testing.T) {
 			},
 		},
 	}
+	
+	t.Cleanup(func() {
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
+	})
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
