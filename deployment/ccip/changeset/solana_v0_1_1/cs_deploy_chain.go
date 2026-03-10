@@ -937,6 +937,9 @@ func initializeRMNRemote(
 		return fmt.Errorf("failed to find Router Signer PDA: %w", err)
 	}
 	signersIx, err := solRmnRemote.NewSetEventAuthoritiesInstruction([]solana.PublicKey{routerSignerPDA}, rmnRemoteConfigPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to generate instruction for set event authorities: %w", err)
+	}
 	if err := chain.Confirm([]solana.Instruction{signersIx}); err != nil {
 		return fmt.Errorf("failed to confirm setEventAuthorities: %w", err)
 	}
