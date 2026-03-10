@@ -80,11 +80,9 @@ type ReportingPluginConfig struct {
 	MaxIdentifierKeyLengthBytes       limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierOwnerLengthBytes     limits.BoundLimiter[pkgconfig.Size]
 	MaxIdentifierNamespaceLengthBytes limits.BoundLimiter[pkgconfig.Size]
+	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSize               limits.BoundLimiter[int]
 
-	// Note: BatchSize and MaxBatchSize are somewhat duplicated,
-	// with BatchSize being the default value, and MaxBatchSize being
-	// the limiter.
-	BatchSize    settings.Setting[int]
 	MaxBatchSize limits.BoundLimiter[int]
 }
 
@@ -167,7 +165,7 @@ func (r *ReportingPluginFactory) makeSizeLimiter(defaultSize settings.Setting[pk
 		defaultSize.DefaultValue = pkgconfig.Size(configSize) * pkgconfig.Byte
 	}
 
-	return limits.MakeBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
+	return limits.MakeUpperBoundLimiter[pkgconfig.Size](r.limitsFactory, defaultSize)
 }
 
 func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter limits.BoundLimiter[N]) N {
@@ -190,7 +188,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		maxSecretsPerOwnerLimit.DefaultValue = int(configProto.MaxSecretsPerOwner)
 	}
 
-	maxSecretsPerOwnerLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
+	maxSecretsPerOwnerLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, maxSecretsPerOwnerLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
@@ -200,7 +198,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		batchSize.DefaultValue = int(configProto.BatchSize)
 	}
 
-	maxBatchSizeLimiter, err := limits.MakeBoundLimiter(r.limitsFactory, batchSize)
+	maxBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, batchSize)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
@@ -223,6 +221,16 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	maxIdentifierNamespaceLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultIdentifierNamespaceSizeLimit, configProto.MaxIdentifierNamespaceLengthBytes)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max identifier namespace length limiter: %w", err)
+	}
+
+	maxShareLengthBytesLimiter, err := r.makeSizeLimiter(cresettings.Default.VaultShareSizeLimit, 0)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max share length bytes limiter: %w", err)
+	}
+
+	maxRequestBatchSizeLimiter, err := limits.MakeUpperBoundLimiter(r.limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if err != nil {
+		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create default max request batch size limiter: %w", err)
 	}
 
 	if configProto.LimitsMaxQueryLength == 0 {
@@ -283,6 +291,8 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		"maxIdentifierKeyLengthBytes", logLimit(ctx, r.lggr, maxIdentifierKeyLengthBytesLimiter),
 		"maxIdentifierOwnerLengthBytes", logLimit(ctx, r.lggr, maxIdentifierOwnerLengthBytesLimiter),
 		"maxIdentifierNamespaceLengthBytes", logLimit(ctx, r.lggr, maxIdentifierNamespaceLengthBytesLimiter),
+		"maxRequestBatchSize", logLimit(ctx, r.lggr, maxRequestBatchSizeLimiter),
+		"maxShareLengthBytes", logLimit(ctx, r.lggr, maxShareLengthBytesLimiter),
 		"batchSize", logLimit(ctx, r.lggr, maxBatchSizeLimiter),
 	)
 
@@ -290,11 +300,12 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		PublicKey:                         publicKey,
 		PrivateKeyShare:                   privateKeyShare,
 		MaxSecretsPerOwner:                maxSecretsPerOwnerLimiter,
+		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
+		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
 		MaxCiphertextLengthBytes:          maxCiphertextLengthBytesLimiter,
 		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
-		BatchSize:                         batchSize,
 		MaxBatchSize:                      maxBatchSizeLimiter,
 	}
 
@@ -371,7 +382,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(batch) > 0 {
-		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", r.cfg.BatchSize)
+		mbs, _ := r.cfg.MaxBatchSize.Limit(ctx)
+		r.lggr.Debugw("observation started", "seqNr", seqNr, "batchSize", mbs)
 	}
 
 	ids := []string{}
@@ -481,11 +493,16 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
 
-		if len(observedLocalQueue) > 2*r.cfg.BatchSize.DefaultValue {
+		l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
+		if ierr2 != nil {
+			return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
+		}
+
+		if len(observedLocalQueue) > 2*l {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
 				"queueSize", len(observedLocalQueue),
-				"batchSizeLimit", 2*r.cfg.BatchSize.DefaultValue)
-			r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), r.cfg.BatchSize.DefaultValue)
+				"batchSizeLimit", 2*l)
+			r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), 2*l)
 			break
 		}
 	}
@@ -547,6 +564,55 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	}
 }
 
+type share struct {
+	data []byte
+}
+
+func (s *share) encryptWithKey(pk string) (string, error) {
+	publicKey, err := hex.DecodeString(pk)
+	if err != nil {
+		return "", newUserError("failed to convert public key to bytes: " + err.Error())
+	}
+
+	if len(publicKey) != curve25519.PointSize {
+		return "", newUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
+	}
+
+	publicKeyLength := [curve25519.PointSize]byte(publicKey)
+	encrypted, err := box.SealAnonymous(nil, s.data, &publicKeyLength, rand.Reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt decryption share: %w", err)
+	}
+
+	return hex.EncodeToString(encrypted), nil
+}
+
+func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, owner string) (*share, error) {
+	ct := &tdh2easy.Ciphertext{}
+	err := ct.UnmarshalVerify(encryptedSecret, publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
+	}
+
+	es := hex.EncodeToString(encryptedSecret)
+	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, owner)
+	if err != nil {
+		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
+	}
+
+	s, err := tdh2easy.Decrypt(ct, privateKeyShare)
+	if err != nil {
+		return nil, fmt.Errorf("could not generate decryption share: %w", err)
+	}
+
+	sb, err := s.Marshal()
+	if err != nil {
+		return nil, errors.New("could not marshal decryption share")
+	}
+
+	return &share{data: sb}, nil
+}
+
 func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
@@ -561,49 +627,22 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, newUserError("key does not exist")
 	}
 
-	ct := &tdh2easy.Ciphertext{}
-	err = ct.UnmarshalVerify(secret.EncryptedSecret, r.cfg.PublicKey)
+	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, secretRequest.Id.Owner)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ciphertext: %w", err)
-	}
-
-	encryptedSecret := hex.EncodeToString(secret.EncryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedSecret, secretRequest.Id.Owner)
-	if err != nil {
-		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
-	}
-
-	share, err := tdh2easy.Decrypt(ct, r.cfg.PrivateKeyShare)
-	if err != nil {
-		return nil, fmt.Errorf("could not generate decryption share: %w", err)
-	}
-
-	shareb, err := share.Marshal()
-	if err != nil {
-		return nil, errors.New("could not marshal decryption share")
+		return nil, err
 	}
 
 	shares := []*vaultcommon.EncryptedShares{}
 	for _, pk := range secretRequest.EncryptionKeys {
-		publicKey, err := hex.DecodeString(pk)
+		encShare, err := sh.encryptWithKey(pk)
 		if err != nil {
-			return nil, newUserError("failed to convert public key to bytes: " + err.Error())
-		}
-
-		if len(publicKey) != curve25519.PointSize {
-			return nil, newUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
-		}
-
-		publicKeyLength := [curve25519.PointSize]byte(publicKey)
-		encrypted, err := box.SealAnonymous(nil, shareb, &publicKeyLength, rand.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("failed to encrypt decryption share: %w", err)
+			return nil, err
 		}
 
 		shares = append(shares, &vaultcommon.EncryptedShares{
 			EncryptionKey: pk,
 			Shares: []string{
-				hex.EncodeToString(encrypted),
+				encShare,
 			},
 		})
 	}
@@ -612,7 +651,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               encryptedSecret,
+				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
@@ -684,23 +723,11 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	rawCiphertext := secretRequest.EncryptedValue
-	rawCiphertextB, err := hex.DecodeString(rawCiphertext)
-	if err != nil {
-		return id, newUserError("invalid hex encoding for ciphertext: " + err.Error())
+	if ierr := r.validateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
+		return id, newUserError(ierr.Error())
 	}
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: secretRequest.Id.Owner})
-	if ierr := r.cfg.MaxCiphertextLengthBytes.Check(ctx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); ierr != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(ierr, &errBoundLimited) {
-			return id, newUserError(fmt.Sprintf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit))
-		}
-		return id, newUserError("failed to check ciphertext size limit: " + ierr.Error())
-	}
-
-	ct := &tdh2easy.Ciphertext{}
-	err = ct.UnmarshalVerify(rawCiphertextB, r.cfg.PublicKey)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner)
 	if err != nil {
 		return id, newUserError("failed to verify ciphertext: " + err.Error())
 	}
@@ -999,7 +1026,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	idToObs := map[string]*vaultcommon.Observation{}
 	for _, o := range obs.Observations {
-		err := validateObservation(o)
+		err := r.validateObservation(ctx, o)
 		if err != nil {
 			return errors.New("invalid observation: " + err.Error())
 		}
@@ -1032,6 +1059,18 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		if !seen {
 			return fmt.Errorf("invalid observation: missing observation for pending request id %s", i.Id)
 		}
+	}
+
+	l, err := r.cfg.MaxBatchSize.Limit(ctx)
+	if err != nil {
+		return fmt.Errorf("could not fetch max batch size limit: %w", err)
+	}
+
+	// The Observation method enforces a max pending queue batch size of 2x the batch size.
+	// We can therefore reject any observation with a higher number of observations as invalid.
+	maxBatchSize := 2 * l
+	if len(obs.PendingQueueItems) > maxBatchSize {
+		return fmt.Errorf("invalid observation: too many pending queue items provided, have %d, want max %d", len(obs.PendingQueueItems), maxBatchSize)
 	}
 
 	seen := map[string]bool{}
@@ -1087,86 +1126,271 @@ func shaForObservation(o *vaultcommon.Observation) (string, error) {
 	}
 }
 
-func validateObservation(o *vaultcommon.Observation) error {
+func (r *ReportingPlugin) checkRequestBatchLimit(ctx context.Context, batchSize int) error {
+	if err := r.cfg.MaxRequestBatchSize.Check(ctx, batchSize); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[int]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("max batch size exceeded for request: %w", err)
+		}
+		// Fail closed here: this could cause a loss of liveness but
+		// the current implementation would only return an error that's
+		// not a ErrorBoundLimited if the limiter has been closed.
+		return errors.New("failed to check batch size")
+	}
+
+	return nil
+}
+
+func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation) error {
 	if o.Id == "" {
 		return errors.New("observation id cannot be empty")
 	}
 
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
-		if o.GetGetSecretsRequest() == nil || o.GetGetSecretsResponse() == nil {
-			return errors.New("GetSecrets observation must have both request and response")
-		}
-
-		if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
-			return errors.New("GetSecrets request and response must have the same number of items")
-		}
+		return r.validateGetSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_CREATE_SECRETS:
-		if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
-			return errors.New("CreateSecrets observation must have both request and response")
-		}
-
-		if len(o.GetCreateSecretsRequest().EncryptedSecrets) != len(o.GetCreateSecretsResponse().Responses) {
-			return errors.New("CreateSecrets request and response must have the same number of items")
-		}
-
-		// We disallow duplicate create requests within a single batch request.
-		// This prevents users from clobbering their own writes.
-		idSet := map[string]bool{}
-		for _, r := range o.GetCreateSecretsRequest().EncryptedSecrets {
-			_, ok := idSet[vaulttypes.KeyFor(r.Id)]
-			if ok {
-				return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", r.Id)
-			}
-
-			idSet[vaulttypes.KeyFor(r.Id)] = true
-		}
+		return r.validateCreateSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_UPDATE_SECRETS:
-		if o.GetUpdateSecretsRequest() == nil || o.GetUpdateSecretsResponse() == nil {
-			return errors.New("UpdateSecrets observation must have both request and response")
-		}
-
-		if len(o.GetUpdateSecretsRequest().EncryptedSecrets) != len(o.GetUpdateSecretsResponse().Responses) {
-			return errors.New("UpdateSecrets request and response must have the same number of items")
-		}
-
-		// We disallow duplicate update requests within a single batch request.
-		// This prevents users from clobbering their own writes.
-		idSet := map[string]bool{}
-		for _, r := range o.GetUpdateSecretsRequest().EncryptedSecrets {
-			_, ok := idSet[vaulttypes.KeyFor(r.Id)]
-			if ok {
-				return fmt.Errorf("UpdateSecrets requests cannot contain duplicate request for a given secret identifier: %s", r.Id)
-			}
-
-			idSet[vaulttypes.KeyFor(r.Id)] = true
-		}
+		return r.validateUpdateSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_DELETE_SECRETS:
-		if o.GetDeleteSecretsRequest() == nil || o.GetDeleteSecretsResponse() == nil {
-			return errors.New("DeleteSecrets observation must have both request and response")
-		}
-
-		if len(o.GetDeleteSecretsRequest().Ids) != len(o.GetDeleteSecretsResponse().Responses) {
-			return errors.New("DeleteSecrets request and response must have the same number of items")
-		}
-
-		// We disallow duplicate delete requests within a single batch request.
-		// This prevents users from clobbering their own writes.
-		idSet := map[string]bool{}
-		for _, r := range o.GetDeleteSecretsRequest().Ids {
-			_, ok := idSet[vaulttypes.KeyFor(r)]
-			if ok {
-				return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", r)
-			}
-
-			idSet[vaulttypes.KeyFor(r)] = true
-		}
+		return r.validateDeleteSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-		if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
-			return errors.New("ListSecretIdentifiers observation must have both request and response")
-		}
+		return r.validateListSecretIdentifiersObservation(ctx, o)
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
+	}
+}
+
+func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
+	if o.GetGetSecretsRequest() == nil || o.GetGetSecretsResponse() == nil {
+		return errors.New("GetSecrets observation must have both request and response")
+	}
+
+	if err := r.checkRequestBatchLimit(ctx, len(o.GetGetSecretsRequest().Requests)); err != nil {
+		return err
+	}
+
+	if len(o.GetGetSecretsRequest().Requests) != len(o.GetGetSecretsResponse().Responses) {
+		return errors.New("GetSecrets request and response must have the same number of items")
+	}
+
+	// check for that we have an entry per encrypted key in the request
+	// we should have max 1 share per observation per encrypted key
+	req, resp := o.GetGetSecretsRequest(), o.GetGetSecretsResponse()
+	reqMap := map[string]*vaultcommon.SecretRequest{}
+	for _, r := range req.Requests {
+		if r.Id == nil {
+			return errors.New("GetSecrets request contains nil secret identifier")
+		}
+		key := vaulttypes.KeyFor(r.Id)
+		if _, ok := reqMap[key]; ok {
+			return fmt.Errorf("duplicate request found for item %s", key)
+		}
+		reqMap[key] = r
+	}
+
+	respMap := map[string]*vaultcommon.SecretResponse{}
+	for _, r := range resp.Responses {
+		if r.Id == nil {
+			return errors.New("GetSecrets response contains nil secret identifier")
+		}
+		key := vaulttypes.KeyFor(r.Id)
+		if _, ok := respMap[key]; ok {
+			return fmt.Errorf("duplicate response found for item %s", key)
+		}
+		respMap[key] = r
+	}
+
+	if len(reqMap) != len(respMap) {
+		return errors.New("observation doesn't contain matching number of requests and responses")
+	}
+
+	for _, rq := range reqMap {
+		key := vaulttypes.KeyFor(rq.Id)
+		rsp, ok := respMap[key]
+		if !ok {
+			return fmt.Errorf("missing response for request with id %s", key)
+		}
+
+		d := rsp.GetData()
+		if d != nil {
+			decryptionShares := d.GetEncryptedDecryptionKeyShares()
+			if len(rq.EncryptionKeys) != len(d.GetEncryptedDecryptionKeyShares()) {
+				return errors.New("observation must contain a share per encryption key provided")
+			}
+
+			innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rq.Id.Owner})
+			for _, ds := range decryptionShares {
+				if len(ds.Shares) != 1 {
+					return errors.New("observation must have exactly 1 share per encryption key")
+				}
+
+				share := ds.Shares[0]
+				if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
+					var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+					if errors.As(err, &errBoundLimited) {
+						return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
+					}
+					return errors.New("failed to check share size")
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *ReportingPlugin) validateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
+	rawCiphertextB, err := hex.DecodeString(encryptedValue)
+	if err != nil {
+		return fmt.Errorf("invalid hex encoding for ciphertext: %w", err)
+	}
+	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
+	if err := r.cfg.MaxCiphertextLengthBytes.Check(innerCtx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)
+		}
+		return errors.New("failed to check ciphertext size")
+	}
+	return nil
+}
+
+func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
+	if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
+		return errors.New("CreateSecrets observation must have both request and response")
+	}
+
+	if err := r.checkRequestBatchLimit(ctx, len(o.GetCreateSecretsRequest().EncryptedSecrets)); err != nil {
+		return err
+	}
+
+	if len(o.GetCreateSecretsRequest().EncryptedSecrets) != len(o.GetCreateSecretsResponse().Responses) {
+		return errors.New("CreateSecrets request and response must have the same number of items")
+	}
+
+	// We disallow duplicate create requests within a single batch request.
+	// This prevents users from clobbering their own writes.
+	idSet := map[string]bool{}
+	for _, s := range o.GetCreateSecretsRequest().EncryptedSecrets {
+		if s.Id == nil {
+			return errors.New("CreateSecrets request contains nil secret identifier")
+		}
+		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
+		if ok {
+			return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
+		}
+
+		idSet[vaulttypes.KeyFor(s.Id)] = true
+
+		if err := r.validateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+			return fmt.Errorf("CreateSecrets request: %w", err)
+		}
+	}
+
+	for _, r := range o.GetCreateSecretsResponse().Responses {
+		if r.Id == nil {
+			return errors.New("CreateSecrets response contains nil secret identifier")
+		}
+	}
+
+	return nil
+}
+
+func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
+	if o.GetUpdateSecretsRequest() == nil || o.GetUpdateSecretsResponse() == nil {
+		return errors.New("UpdateSecrets observation must have both request and response")
+	}
+
+	if err := r.checkRequestBatchLimit(ctx, len(o.GetUpdateSecretsRequest().EncryptedSecrets)); err != nil {
+		return err
+	}
+
+	if len(o.GetUpdateSecretsRequest().EncryptedSecrets) != len(o.GetUpdateSecretsResponse().Responses) {
+		return errors.New("UpdateSecrets request and response must have the same number of items")
+	}
+
+	// We disallow duplicate update requests within a single batch request.
+	// This prevents users from clobbering their own writes.
+	idSet := map[string]bool{}
+	for _, s := range o.GetUpdateSecretsRequest().EncryptedSecrets {
+		if s.Id == nil {
+			return errors.New("UpdateSecrets request contains nil secret identifier")
+		}
+		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
+		if ok {
+			return fmt.Errorf("UpdateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
+		}
+
+		idSet[vaulttypes.KeyFor(s.Id)] = true
+
+		if err := r.validateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+			return fmt.Errorf("UpdateSecrets request: %w", err)
+		}
+	}
+
+	for _, r := range o.GetUpdateSecretsResponse().Responses {
+		if r.Id == nil {
+			return errors.New("UpdateSecrets response contains nil secret identifier")
+		}
+	}
+
+	return nil
+}
+
+func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
+	if o.GetDeleteSecretsRequest() == nil || o.GetDeleteSecretsResponse() == nil {
+		return errors.New("DeleteSecrets observation must have both request and response")
+	}
+
+	if err := r.checkRequestBatchLimit(ctx, len(o.GetDeleteSecretsRequest().Ids)); err != nil {
+		return err
+	}
+
+	if len(o.GetDeleteSecretsRequest().Ids) != len(o.GetDeleteSecretsResponse().Responses) {
+		return errors.New("DeleteSecrets request and response must have the same number of items")
+	}
+
+	// We disallow duplicate delete requests within a single batch request.
+	// This prevents users from clobbering their own writes.
+	idSet := map[string]bool{}
+	for _, r := range o.GetDeleteSecretsRequest().Ids {
+		if r == nil {
+			return errors.New("DeleteSecrets request contains nil secret identifier")
+		}
+		_, ok := idSet[vaulttypes.KeyFor(r)]
+		if ok {
+			return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", r)
+		}
+
+		idSet[vaulttypes.KeyFor(r)] = true
+	}
+
+	for _, r := range o.GetDeleteSecretsResponse().Responses {
+		if r.Id == nil {
+			return errors.New("DeleteSecrets response contains nil secret identifier")
+		}
+	}
+
+	return nil
+}
+
+func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.Context, o *vaultcommon.Observation) error {
+	if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
+		return errors.New("ListSecretIdentifiers observation must have both request and response")
+	}
+
+	resp := o.GetListSecretIdentifiersResponse()
+	if resp.Success {
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: o.GetListSecretIdentifiersRequest().Owner})
+		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(resp.Identifiers)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(resp.Identifiers), errBoundLimited.Limit)
+			}
+			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
+		}
 	}
 
 	return nil
@@ -1250,7 +1474,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
 				// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
 				// types.
-				// Technically we could have two shas with F+1 observations. If that happens we'll pick the first one.
+				// Technically we could have two shas with F+1 observations. If that happens we'll pick the last one.
 				// This is deterministic since we're sorting by shas above.
 				chosen = shaToObs[sha]
 				r.lggr.Debugw("sufficient observations for sha", "sha", sha, "count", len(obs), "threshold", r.onchainCfg.F+1, "id", id)
@@ -1481,9 +1705,26 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, chosen 
 					keyToShares[s.EncryptionKey] = s
 				}
 
+				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
+					if len(existing.Shares) != 1 {
+						// This should not happen because we validate against this in ValidateObservation.
+						r.lggr.Errorw("exactly 1 share must be provided in the response, skipping", "id", rsp.Id)
+						continue
+					}
+					share := existing.Shares[0]
+					if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(len(share))*pkgconfig.Byte); err != nil {
+						var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+						if errors.As(err, &errBoundLimited) {
+							r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+						} else {
+							r.lggr.Errorw("could not check max allowed share size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+						}
+						continue
+					}
+
 					if shares, ok := keyToShares[existing.EncryptionKey]; ok {
-						shares.Shares = append(shares.Shares, existing.Shares...)
+						shares.Shares = append(shares.Shares, share)
 					} else {
 						// This shouldn't happen -- this is because we're aggregating
 						// requests that have a matching sha (excluding the decryption share).
