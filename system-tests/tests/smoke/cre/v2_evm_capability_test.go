@@ -2,6 +2,7 @@ package cre
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"math/rand"
@@ -265,6 +266,26 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 	}, msgEmitter
 }
 
+func connectCapabilitiesDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open(
+		"postgres",
+		"host=localhost port=13100 user=chainlink password=thispasswordislongenough dbname=db_1 sslmode=disable")
+	require.NoError(t, err)
+	require.NoError(t, db.Ping())
+	return db
+}
+
+func countRows(t *testing.T, db *sql.DB, query string, args ...any) int {
+	t.Helper()
+
+	var count int
+	err := db.QueryRow(query, args...).Scan(&count)
+	require.NoError(t, err)
+
+	return count
+}
+
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/logtrigger/main.go"
 	lggr := framework.L
@@ -292,6 +313,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		chainsToTest[chainID] = bcOutput
 	}
 
+	capDB := connectCapabilitiesDB(t)
+	defer require.NoError(t, capDB.Close())
+
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
@@ -305,6 +329,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
+
+		// TODO: Try to read from cap DB to ensure ACK occurs
+		// Wait for event insertion
+		require.Eventually(t, func() bool {
+			return countRows(t, capDB, "SELECT COUNT(*) FROM base_trigger_events") > 0
+		}, 30*time.Second, time.Second)
 
 		// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
 		emitCtx, emitCancelFn := context.WithCancel(t.Context())

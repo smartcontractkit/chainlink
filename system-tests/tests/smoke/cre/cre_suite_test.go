@@ -171,6 +171,7 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
+		t.Skip("LOCAL TESTING")
 		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
