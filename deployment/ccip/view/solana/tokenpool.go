@@ -10,7 +10,6 @@ import (
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/base_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/cctp_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -177,7 +176,7 @@ func GenerateTokenPoolView(chain cldf_solana.Chain, program solana.PublicKey, re
 	return view, nil
 }
 
-func fetchChainConfig(chain cldf_solana.Chain, chainConfigPDA solana.PublicKey, poolType string) (*base_token_pool.BaseChain, *cctp_token_pool.CctpChain, error) {
+func fetchChainConfig(chain cldf_solana.Chain, chainConfigPDA solana.PublicKey, poolType string) (*solTestTokenPool.BaseChain, *cctp_token_pool.CctpChain, error) {
 	switch poolType {
 	case ccipshared.BurnMintTokenPool.String(), ccipshared.LockReleaseTokenPool.String():
 		var remoteChainConfigAccount solTestTokenPool.ChainConfig
