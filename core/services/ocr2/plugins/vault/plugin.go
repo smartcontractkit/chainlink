@@ -137,13 +137,17 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	return publicKey, privateKeyShare, nil
 }
 
-func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
+func initializePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
 	resolveSize := func(s settings.Setting[pkgconfig.Size]) (int, error) {
 		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
 		if err != nil {
 			return 0, err
 		}
 		v, err := limiter.Limit(ctx)
+		if err != nil {
+			return int(v), err
+		}
+		err = limiter.Close()
 		return int(v), err
 	}
 	resolveInt := func(s settings.Setting[int]) (int, error) {
@@ -151,7 +155,12 @@ func resolvePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1typ
 		if err != nil {
 			return 0, err
 		}
-		return limiter.Limit(ctx)
+		v, err := limiter.Limit(ctx)
+		if err != nil {
+			return int(v), err
+		}
+		err = limiter.Close()
+		return int(v), err
 	}
 
 	maxQueryBytes, err := resolveSize(cresettings.Default.VaultMaxQuerySizeLimit)
@@ -320,7 +329,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
 	}
 
-	pluginLimits, err := resolvePluginLimits(ctx, r.limitsFactory)
+	pluginLimits, err := initializePluginLimits(ctx, r.limitsFactory)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
 	}
