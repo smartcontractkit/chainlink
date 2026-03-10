@@ -41,3 +41,7 @@ just push-fakes <aws_registry> # use SDLC registry
 ## Adding Products
 
 To extend the environment all you need to do is to implement the [interface](interface.go) and add a switch clause in [environment](environment.go)
+
+## Running Tests
+
+Follow the [guide](./tests/README.md)

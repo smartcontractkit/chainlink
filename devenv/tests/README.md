@@ -2,11 +2,13 @@
 
 Read and setup [devenv](../README.md).
 
-Enter the shell: `cl sh`, select the product environment you need then run the corresponding test suite:
+Spin up observability stack in case you need performance tests:
 ```bash
-obs up -f # spin up full observability stack in case you need to run soak/load/chaos tests
-# spin up DF1 (OCR2) environment with product orchestration
-up env.toml,products/ocr2/basic.toml
-# run smoke tests
-test ocr2 TestSmoke/rounds
+obs up -f
+```
+
+To run any test, open two terminals and setup corresponding commands, `envcmd` and `testcmd` fields from [here](ttps://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-nightly.yml#L45):
+```bash
+$envcmd (from devenv dir)
+$testcmd (from tests dir)
 ```
