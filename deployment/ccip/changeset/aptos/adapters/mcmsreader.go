@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	mcms_utils "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	mcms_utils "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"

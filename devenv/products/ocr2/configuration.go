@@ -171,6 +171,7 @@ func (m *Configurator) GenerateNodesConfig(
 
        [Feature]
        FeedsManager = true
+       MultiFeedsManagers = true
        LogPoller = true
        UICSAKeys = true
        [OCR2]

@@ -21,7 +21,6 @@ import (
 )
 
 func TestOCR2Soak(t *testing.T) {
-	ctx := t.Context()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -32,7 +31,7 @@ func TestOCR2Soak(t *testing.T) {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, cErr)
 	})
-	c, _, _, err := products.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
+	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)
