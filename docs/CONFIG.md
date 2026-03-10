@@ -17424,6 +17424,7 @@ BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
 Bundles = false # Example
+FastlaneAuctionRequestTimeout = '5s' # Example
 ```
 
 
@@ -17456,6 +17457,12 @@ DualBroadcast enables DualBroadcast functionality.
 Bundles = false # Example
 ```
 Bundles enables Bundles functionality for SVR.
+
+### FastlaneAuctionRequestTimeout
+```toml
+FastlaneAuctionRequestTimeout = '5s' # Example
+```
+FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 
 ## EVM.BalanceMonitor
 ```toml
