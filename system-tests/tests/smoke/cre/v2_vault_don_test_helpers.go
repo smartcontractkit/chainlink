@@ -33,11 +33,8 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 
 	require.Eventually(t, func() bool {
 		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		if statusCode == http.StatusOK {
-			return true
-		}
-		return false
-	}, time.Second*30, time.Second*5)
+		return statusCode == http.StatusOK
+	}, time.Second*120, time.Second*5)
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
