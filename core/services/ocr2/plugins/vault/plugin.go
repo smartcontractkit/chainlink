@@ -157,10 +157,10 @@ func initializePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1
 		}
 		v, err := limiter.Limit(ctx)
 		if err != nil {
-			return int(v), err
+			return v, err
 		}
 		err = limiter.Close()
-		return int(v), err
+		return v, err
 	}
 
 	maxQueryBytes, err := resolveSize(cresettings.Default.VaultMaxQuerySizeLimit)
