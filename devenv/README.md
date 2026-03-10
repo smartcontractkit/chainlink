@@ -27,7 +27,7 @@ test load # Run the load test, you'll see OCR2 rounds stats
 
 ## Run with custom CL image
 
-Use `up env.toml,env-cl-rebuild.toml` to rebuild custom CL image from your local `chainlink` repository.
+Use `up env.toml,products/ocr2/basic.toml,env-cl-rebuild.toml` to rebuild custom CL image from your local `chainlink` repository.
 
 ## Updating Fakes
 
