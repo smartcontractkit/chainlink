@@ -530,6 +530,7 @@ func TestShell_BeforeNode(t *testing.T) {
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				c.Insecure.OCRDevelopmentMode = nil
+				c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
 			})
 
 			shell := cmd.Shell{
