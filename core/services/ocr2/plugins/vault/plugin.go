@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -137,83 +136,58 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	return publicKey, privateKeyShare, nil
 }
 
-func initializePluginLimits(ctx context.Context, factory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
-	resolveSize := func(s settings.Setting[pkgconfig.Size]) (int, error) {
-		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
-		if err != nil {
-			return 0, err
-		}
-		v, err := limiter.Limit(ctx)
-		if err != nil {
-			return int(v), err
-		}
-		err = limiter.Close()
-		return int(v), err
-	}
-	resolveInt := func(s settings.Setting[int]) (int, error) {
-		limiter, err := limits.MakeUpperBoundLimiter(factory, s)
-		if err != nil {
-			return 0, err
-		}
-		v, err := limiter.Limit(ctx)
-		if err != nil {
-			return v, err
-		}
-		err = limiter.Close()
-		return v, err
-	}
-
-	maxQueryBytes, err := resolveSize(cresettings.Default.VaultMaxQuerySizeLimit)
+func initializePluginLimits(ctx context.Context) (ocr3_1types.ReportingPluginLimits, error) {
+	maxQueryBytes, err := cresettings.Default.VaultMaxQuerySizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxQuerySizeLimit: %w", err)
 	}
-	maxObservationBytes, err := resolveSize(cresettings.Default.VaultMaxObservationSizeLimit)
+	maxObservationBytes, err := cresettings.Default.VaultMaxObservationSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxObservationSizeLimit: %w", err)
 	}
-	maxReportsPlusPrecursorBytes, err := resolveSize(cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit)
+	maxReportsPlusPrecursorBytes, err := cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportsPlusPrecursorSizeLimit: %w", err)
 	}
-	maxReportBytes, err := resolveSize(cresettings.Default.VaultMaxReportSizeLimit)
+	maxReportBytes, err := cresettings.Default.VaultMaxReportSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportSizeLimit: %w", err)
 	}
-	maxReportCount, err := resolveInt(cresettings.Default.VaultMaxReportCount)
+	maxReportCount, err := cresettings.Default.VaultMaxReportCount.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxReportCount: %w", err)
 	}
-	maxKVModifiedKeysPlusValuesBytes, err := resolveSize(cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit)
+	maxKVModifiedKeysPlusValuesBytes, err := cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit: %w", err)
 	}
-	maxKVModifiedKeys, err := resolveInt(cresettings.Default.VaultMaxKeyValueModifiedKeys)
+	maxKVModifiedKeys, err := cresettings.Default.VaultMaxKeyValueModifiedKeys.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxKeyValueModifiedKeys: %w", err)
 	}
-	maxBlobPayloadBytes, err := resolveSize(cresettings.Default.VaultMaxBlobPayloadSizeLimit)
+	maxBlobPayloadBytes, err := cresettings.Default.VaultMaxBlobPayloadSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
 	}
-	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := resolveSize(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit)
+	maxPerOracleUnexpiredBlobCumulativePayloadBytes, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit: %w", err)
 	}
-	maxPerOracleUnexpiredBlobCount, err := resolveInt(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount)
+	maxPerOracleUnexpiredBlobCount, err := cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount.GetOrDefault(ctx, cresettings.DefaultGetter)
 	if err != nil {
 		return ocr3_1types.ReportingPluginLimits{}, fmt.Errorf("VaultMaxPerOracleUnexpiredBlobCount: %w", err)
 	}
 
 	return ocr3_1types.ReportingPluginLimits{
-		MaxQueryBytes:                                   maxQueryBytes,
-		MaxObservationBytes:                             maxObservationBytes,
-		MaxReportsPlusPrecursorBytes:                    maxReportsPlusPrecursorBytes,
-		MaxReportBytes:                                  maxReportBytes,
+		MaxQueryBytes:                                   int(maxQueryBytes),
+		MaxObservationBytes:                             int(maxObservationBytes),
+		MaxReportsPlusPrecursorBytes:                    int(maxReportsPlusPrecursorBytes),
+		MaxReportBytes:                                  int(maxReportBytes),
 		MaxReportCount:                                  maxReportCount,
-		MaxKeyValueModifiedKeysPlusValuesBytes:          maxKVModifiedKeysPlusValuesBytes,
+		MaxKeyValueModifiedKeysPlusValuesBytes:          int(maxKVModifiedKeysPlusValuesBytes),
 		MaxKeyValueModifiedKeys:                         maxKVModifiedKeys,
-		MaxBlobPayloadBytes:                             maxBlobPayloadBytes,
-		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: maxPerOracleUnexpiredBlobCumulativePayloadBytes,
+		MaxBlobPayloadBytes:                             int(maxBlobPayloadBytes),
+		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: int(maxPerOracleUnexpiredBlobCumulativePayloadBytes),
 		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
 	}, nil
 }
@@ -329,7 +303,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create plugin metrics: %w", err)
 	}
 
-	pluginLimits, err := initializePluginLimits(ctx, r.limitsFactory)
+	pluginLimits, err := initializePluginLimits(ctx)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
 	}
