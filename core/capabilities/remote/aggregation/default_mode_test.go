@@ -110,7 +110,6 @@ func TestAggregateModeRaw_Performance(t *testing.T) {
 	}
 }
 
-
 func testPayload(t *testing.T, data string, eventID string) []byte {
 	t.Helper()
 	val, err := values.NewMap(map[string]any{"event": data})
