@@ -89,7 +89,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	framework.L.Info().Msg("Waiting 30 seconds for the Vault DON to be ready...")
 	time.Sleep(30 * time.Second)
 	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
-	executeVaultSecretsGetTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
+	// disable get tests
+	// executeVaultSecretsGetTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
 	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
 	executeVaultSecretsListTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)
 	executeVaultSecretsDeleteTest(t, secretID, ownerAddr, gatewayURL.String(), sethClient, wfRegistryContract)

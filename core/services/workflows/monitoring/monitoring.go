@@ -52,6 +52,11 @@ type EngineMetrics struct {
 	workflowExecutionSucceededCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
+
+	executionTimestampAssignedCounter metric.Int64Counter
+	executionTimestampFallbackCounter metric.Int64Counter
+	executionIDFullCounter            metric.Int64Counter
+	executionIDLegacyCounter          metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -237,6 +242,26 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create platform_engine_get_secrets_duration_ms metric: %w", err)
+	}
+
+	em.executionTimestampAssignedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_timestamp_assigned")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution timestamp assigned counter: %w", err)
+	}
+
+	em.executionTimestampFallbackCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_timestamp_fallback")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution timestamp fallback counter: %w", err)
+	}
+
+	em.executionIDFullCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_id_full")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution id full counter: %w", err)
+	}
+
+	em.executionIDLegacyCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_id_legacy")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution id legacy counter: %w", err)
 	}
 
 	return em, nil
@@ -454,4 +479,24 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionSucceededCounter(ctx c
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementExecutionTimestampAssignedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executionTimestampAssignedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementExecutionTimestampFallbackCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executionTimestampFallbackCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementExecutionIDFullCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executionIDFullCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementExecutionIDLegacyCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executionIDLegacyCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
