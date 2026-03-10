@@ -3,7 +3,6 @@ package aggregation
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -39,36 +38,24 @@ func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commonc
 }
 
 func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, error) {
-	hashToCount := make(map[string]uint32)
-	var found []byte
-	for _, elem := range elemList {
-		hasher := sha256.New()
-		hasher.Write(elem)
-		sha := hex.EncodeToString(hasher.Sum(nil))
-		hashToCount[sha]++
-		if hashToCount[sha] >= minIdenticalResponses {
-			found = elem
-			// update in case we find another elem with an even higher count
-			minIdenticalResponses = hashToCount[sha]
+	// Fast path: if elemList[0] holds a strict majority (>len/2) hashing won't be needed.
+	n := len(elemList)
+	majorityThreshold := uint32(n/2 + 1)
+	if minIdenticalResponses > majorityThreshold {
+		majorityThreshold = minIdenticalResponses
+	}
+	var matchCount uint32 = 1
+	for i := 1; i < n; i++ {
+		if bytes.Equal(elemList[0], elemList[i]) {
+			matchCount++
+			if matchCount >= majorityThreshold {
+				return elemList[0], nil
+			}
 		}
 	}
-	if found == nil {
-		return nil, errors.New("not enough identical responses found")
-	}
-	return found, nil
-}
 
-func AggregateModeRawFast(elemList [][]byte, minIdenticalResponses uint32) ([]byte, error) {
-	// Fast path: if all elements are byte-equal, the mode is trivially elemList[0].
-	allEqual := len(elemList) >= int(minIdenticalResponses)
-	for i := 1; i < len(elemList) && allEqual; i++ {
-		allEqual = bytes.Equal(elemList[0], elemList[i])
-	}
-	if allEqual {
-		return elemList[0], nil
-	}
-
-	hashToCount := make(map[[32]byte]uint32, len(elemList))
+	// Fallback: elemList[0] is not the majority, use hash-based mode finding.
+	hashToCount := make(map[[32]byte]uint32, n)
 	var found []byte
 	hasher := sha256.New()
 	for _, elem := range elemList {

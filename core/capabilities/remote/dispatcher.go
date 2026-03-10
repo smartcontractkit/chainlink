@@ -111,9 +111,9 @@ func (d *dispatcher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_unregistered_capability_msgs_total: %w", err)
 	}
-	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("capability_receive_channel_usage")
+	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
 	if err != nil {
-		return fmt.Errorf("failed to register capability_receive_channel_usage: %w", err)
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_receive_channel_usage: %w", err)
 	}
 	d.metrics.receiverDroppedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
 	if err != nil {
