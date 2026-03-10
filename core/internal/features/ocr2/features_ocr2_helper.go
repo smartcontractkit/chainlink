@@ -686,6 +686,13 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	)
 	require.NoError(t, err)
 
+	// Patch the reportingPluginConfig bytes inside the outer OffchainConfigProto
+	// to include transmitDespiteContractReadError=true (field #6 of the inner
+	// NumericalMedian proto).  This simulates what gauntlet does when rolling
+	// out the feature.  Nodes running older libocr versions (without that field)
+	// will silently ignore the unknown proto field and continue operating normally.
+	encodedConfig = encodeOffchainConfigWithTransmitDespiteContractReadError(t, encodedConfig)
+
 	minAnswer, maxAnswer := new(big.Int), new(big.Int)
 	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
 	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
@@ -727,6 +734,97 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// encodeOffchainConfigWithTransmitDespiteContractReadError takes the outer
+// serialised OffchainConfigProto blob produced by
+// confighelper2.ContractSetConfigArgsForEthereumIntegrationTest and patches the
+// inner NumericalMedian reportingPluginConfig bytes (field #10 of the outer
+// proto) to include transmit_despite_contract_read_error = true (field #6 of
+// the inner proto).
+//
+// Proto3 wire encoding:
+//   - inner field #6, wire type 0 (varint), value true: bytes 0x30 0x01
+//   - outer field #10, wire type 2 (length-delimited): tag byte 0x52
+//
+// Old nodes running a libocr version without field #6 will silently ignore the
+// unknown field when decoding – the exact backwards-compatibility property we
+// want to verify.
+func encodeOffchainConfigWithTransmitDespiteContractReadError(t *testing.T, outerBlob []byte) []byte {
+	t.Helper()
+
+	// field 6, wire type 0 (varint), value true (1)
+	const innerField6True = "\x30\x01"
+	// field 10, wire type 2 (length-delimited): tag = (10<<3)|2 = 0x52
+	const outerField10Tag byte = 0x52
+
+	readVarint := func(b []byte, pos int) (uint64, int) {
+		var x uint64
+		var s uint
+		for {
+			byt := b[pos]
+			pos++
+			x |= uint64(byt&0x7f) << s
+			if byt < 0x80 {
+				return x, pos
+			}
+			s += 7
+		}
+	}
+	appendVarint := func(buf []byte, v uint64) []byte {
+		for v >= 0x80 {
+			buf = append(buf, byte(v&0x7f)|0x80)
+			v >>= 7
+		}
+		return append(buf, byte(v))
+	}
+
+	out := make([]byte, 0, len(outerBlob)+10)
+	pos := 0
+	patched := false
+	for pos < len(outerBlob) {
+		tagStart := pos
+		tag, pos2 := readVarint(outerBlob, pos)
+		pos = pos2
+		wireType := tag & 0x7
+		fieldNum := tag >> 3
+
+		if wireType == 2 && fieldNum == 10 {
+			// length-delimited field #10 = reportingPluginConfig
+			innerLen, pos3 := readVarint(outerBlob, pos)
+			pos = pos3
+			innerBytes := outerBlob[pos : pos+int(innerLen)]
+			pos += int(innerLen)
+
+			// Append field #6 = true to the inner NumericalMedian proto bytes.
+			newInner := append(append([]byte(nil), innerBytes...), innerField6True...)
+
+			out = append(out, outerField10Tag)
+			out = appendVarint(out, uint64(len(newInner)))
+			out = append(out, newInner...)
+			patched = true
+		} else {
+			// Copy other fields verbatim
+			fieldEnd := pos
+			switch wireType {
+			case 0: // varint
+				_, fieldEnd = readVarint(outerBlob, pos)
+			case 1: // 64-bit
+				fieldEnd = pos + 8
+			case 2: // length-delimited
+				l, p := readVarint(outerBlob, pos)
+				fieldEnd = p + int(l)
+			case 5: // 32-bit
+				fieldEnd = pos + 4
+			default:
+				t.Fatalf("unexpected wire type %d at field %d", wireType, fieldNum)
+			}
+			out = append(out, outerBlob[tagStart:fieldEnd]...)
+			pos = fieldEnd
+		}
+	}
+	require.True(t, patched, "did not find reportingPluginConfig (field 10) in OffchainConfigProto blob")
+	return out
+}
 
 func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
 	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {
