@@ -26,6 +26,7 @@ func findAllDockerContainerNames(pattern string) ([]string, error) {
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
+	defer dockerClient.Close()
 
 	containers, containersErr := dockerClient.ContainerList(context.Background(), ctypes.ListOptions{})
 	if containersErr != nil {
@@ -54,6 +55,7 @@ func CopyArtifactsToDockerContainers(containerTargetDir string, containerNamePat
 		Msg("Copying workflow artifacts to Docker containers (parallel)")
 
 	eg := errgroup.Group{}
+	eg.SetLimit(4)
 	for _, file := range filesToCopy {
 		if _, err := os.Stat(file); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: File '%s' does not exist. Skipping file copying to docker containers\n", file)
@@ -95,8 +97,10 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 	if err != nil {
 		return errors.Wrap(err, "failed to create Docker client")
 	}
+	defer dockerClient.Close()
 
 	eg := errgroup.Group{}
+	eg.SetLimit(4)
 	for _, containerName := range containerNames {
 		eg.Go(func() error {
 			execOutput, execErr := frameworkDockerClient.ExecContainer(containerName, []string{"mkdir", "-p", targetDir})
@@ -128,7 +132,7 @@ func copyArtifactToDockerContainers(filePath string, containerNamePattern string
 					fmt.Fprint(os.Stderr, execOutput)
 					return errors.Wrap(execErr, "failed to execute chown command in Docker container")
 				}
-				fmt.Println("output " + execOutput)
+				framework.L.Debug().Str("container", containerName).Msgf("chown output: %s", execOutput)
 			}
 			return nil
 		})
