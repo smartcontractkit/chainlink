@@ -1,0 +1,209 @@
+name: (Nightly) System Tests
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Run daily at 6 AM
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: devenv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  summary:
+    name: "Build Information"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Print Summary
+        run: |
+          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
+          FULL_IMAGE_HINT="<sdlc_registry>/chainlink:${IMAGE_VERSION}"
+          echo "**Image:** \`${FULL_IMAGE_HINT}\`" >> $GITHUB_STEP_SUMMARY
+  
+  test-nightly:
+    name: ${{ matrix.display_name }}
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # # quick feature tests
+          - display_name: "Test Multiple JobDistributors"
+            testcmd: "go test -v -run TestMultipleJobDistributors"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "features"
+            logs_archive_name: "multiple-jd"
+          - display_name: "Test Reorg Finality Violation"
+            testcmd: "go test -v -run TestReorgHeadTrackerFinalityViolation"
+            envcmd: "cl u env.toml,env-geth.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "features"
+            logs_archive_name: "reorg-finality-violation"
+          # smoke tests, small legacy products
+          - display_name: "Test Cron Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/cron/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "cron"
+            logs_archive_name: "cron"
+          - display_name: "Test Direct Request Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/directrequest/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "directrequest"
+            logs_archive_name: "directrequest"
+          - display_name: "Test Flux Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/flux/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "flux"
+            logs_archive_name: "flux"
+          # smoke tests, medium legacy products
+          - display_name: "Automation Smoke Test, Registry 2.0"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_0"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_0"
+          - display_name: "Automation Smoke Test, Registry 2.1"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_1"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_1"
+          - display_name: "Automation Smoke Test, Registry 2.2"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_2"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_2"
+          - display_name: "Automation Smoke Test, Registry 2.3"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_3"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_3"
+          - display_name: "Keepers Smoke Tests 1"
+            testcmd: "go test -v -timeout 1h -run TestKeeperBasic\\|TestKeeperSimulation\\|TestKeeperCheckPerformGasLimit\\|TestKeeperRegisterUpkeep\\|TestKeeperAddFunds\\|TestKeeperRemove\\|TestKeeperPauseRegistry\\|TestKeeperMigrateRegistry\\|TestKeeperJobReplacement"
+            envcmd: "cl u env.toml,products/keepers/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-1"
+          - display_name: "Keepers Smoke Tests 2"
+            testcmd: "go test -v -timeout 1h -run TestKeeperNodeDown"
+            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-2"
+          - display_name: "Keepers Smoke Tests 3"
+            testcmd: "go test -v -timeout 1h -run TestKeeperPauseUnPauseUpkeep\\|TestKeeperUpdateCheckData"
+            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-3"
+          - display_name: "Keepers Smoke Tests 4"
+            testcmd: "go test -v -timeout 1h -run TestKeeperBlockCountPerTurn"
+            envcmd: "cl u env.toml,env-geth.toml,products/keepers/high_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-4"
+          # long-running
+          - display_name: "Automation Soak Test"
+            testcmd: "go test -v -timeout 4h -run TestLoad/registry_2_1"
+            envcmd: "cl u env.toml,env-geth.toml,products/automation/soak.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-soak"
+          - display_name: "Test DF1 (OCR2) Soak"
+            testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-soak"
+          - display_name: "Test DF1 (OCR2) Chaos"
+            testcmd: "go test -v -timeout 30m -run TestOCR2Chaos"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-chaos"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS credentials using OIDC
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
+
+      - name: Authenticate to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: devenv/go.mod
+          cache-dependency-path: devenv/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+      
+      - name: Set environment variables
+        run: |
+          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
+          FULL_IMAGE="${{ secrets.REGISTRY_SDLC }}/chainlink:${IMAGE_VERSION}"
+          echo "CHAINLINK_IMAGE=${FULL_IMAGE}" >> $GITHUB_ENV
+
+      - name: Setup environment
+        env:
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+        run: |
+          cd cmd/cl && go install . && cd -
+          ENV_CMD="${{ matrix.envcmd }}"
+          echo "Setting up environment with: $ENV_CMD"
+          eval $ENV_CMD
+
+      - name: Run tests
+        working-directory: devenv/tests/${{ matrix.tests_dir }}
+        env:
+          CURRENT_TEST: ${{ matrix.testcmd }}
+        run: |
+          TESTCMD="${{ matrix.testcmd }}"
+          echo "Running tests for: $CHAINLINK_IMAGE, test: $TESTCMD"
+          eval $TESTCMD
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-${{ matrix.logs_archive_name }}
+          path: devenv/tests/${{ matrix.tests_dir }}/logs
+          retention-days: 3

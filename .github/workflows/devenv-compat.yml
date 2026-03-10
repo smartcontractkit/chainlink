@@ -3,50 +3,6 @@ name: Upgrade Compatibility Test
 on:
   workflow_call:
     inputs:
-      buildcmd:
-        description: "Build command to run"
-        required: true
-        type: string
-      envcmd:
-        description: "Environment setup command to run"
-        required: true
-        type: string
-      testcmd:
-        description: "Test command to run"
-        required: true
-        type: string
-      nodes:
-        description: "Number of nodes for the test"
-        required: false
-        default: "3"
-        type: string
-      node-name-template:
-        description: "Template for the node name"
-        required: false
-        default: "don-node%d"
-        type: string
-      versions-back:
-        description: "Number of versions to go back for compatibility testing"
-        required: false
-        default: "2"
-        type: string
-      working-directory:
-        description: "Working directory for commands"
-        required: false
-        default: "devenv"
-        type: string
-      logs-directory:
-        description: "Logs directory"
-        required: true
-        type: string
-      ctf-log-level:
-        description: "CTF log level"
-        required: false
-        default: "info"
-        type: string
-
-  workflow_dispatch:
-    inputs:
       strip-image-suffix:
         description: "Strip image suffix from tag so it matches the registry tag"
         required: false
@@ -104,21 +60,18 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
-    defaults:
-      run:
-        working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
     environment: "integration"
     env:
-      STRIP_IMAGE_SUFFIX: ${{ github.event_name == 'workflow_call' && inputs.strip-image-suffix || github.event.inputs.strip-image-suffix }}
-      BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
-      ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
-      TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
-      NODES: ${{ github.event_name == 'workflow_call' && inputs.nodes || github.event.inputs.nodes }}
-      NODE_NAME_TEMPLATE: ${{ github.event_name == 'workflow_call' && inputs.node-name-template || github.event.inputs.node-name-template }}
-      VERSIONS_BACK: ${{ github.event_name == 'workflow_call' && inputs.versions-back || github.event.inputs.versions-back }}
-      WORKING_DIR: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
-      LOGS_DIR: ${{ github.event_name == 'workflow_call' && inputs.logs-directory || github.event.inputs.logs-directory }}
-      CTF_LOG_LEVEL: ${{ github.event_name == 'workflow_call' && inputs.ctf-log-level || github.event.inputs.ctf-log-level }}
+      STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
+      BUILD_CMD: ${{ inputs.buildcmd }}
+      ENV_CMD: ${{ inputs.envcmd }}
+      TEST_CMD: ${{ inputs.testcmd }}
+      NODES: ${{ inputs.nodes }}
+      NODE_NAME_TEMPLATE: ${{ inputs.node-name-template }}
+      VERSIONS_BACK: ${{ inputs.versions-back }}
+      WORKING_DIR: ${{ inputs.working-directory }}
+      LOGS_DIR: ${{ inputs.logs-directory }}
+      CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
       # JD is required by the local CRE-based tests
       CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
     steps:
@@ -126,7 +79,6 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -163,7 +115,6 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-        working-directory: ${{ env.WORKING_DIR }}
 
       - name: Get CTF version from go.mod
         shell: bash
@@ -173,8 +124,8 @@ jobs:
           echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
 
       - name: Install CTF binary
-        shell: bash
         working-directory: ${{ env.WORKING_DIR }}
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
