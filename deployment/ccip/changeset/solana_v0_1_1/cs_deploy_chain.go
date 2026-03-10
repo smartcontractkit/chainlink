@@ -939,7 +939,7 @@ func initializeRMNRemote(
 	signersIx, err := solRmnRemote.NewSetEventAuthoritiesInstruction([]solana.PublicKey{routerSignerPDA}, rmnRemoteConfigPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
 	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
 	if err := chain.Confirm([]solana.Instruction{signersIx}); err != nil {
-		return fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+		return fmt.Errorf("failed to confirm setEventAuthorities: %w", err)
 	}
 	return nil
 }
