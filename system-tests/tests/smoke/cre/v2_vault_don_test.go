@@ -63,7 +63,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}, time.Second*300, time.Second*5)
 
 	// Wait a bit to ensure the Vault plugin is ready.
-	time.Sleep(30 * time.Second)
+	time.Sleep(60 * time.Second)
 
 	testLogger.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")

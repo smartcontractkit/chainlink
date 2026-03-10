@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,13 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
 
+	require.Eventually(t, func() bool {
+		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode == http.StatusOK {
+			return true
+		}
+		return false
+	}, time.Second*30, time.Second*5)
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
