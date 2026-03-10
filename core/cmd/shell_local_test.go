@@ -524,13 +524,12 @@ func TestShell_BeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("dummy")
 				c.EVM[0].Nodes[0].Name = ptr("fake")
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				c.Insecure.OCRDevelopmentMode = nil
-				c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
 			})
 
 			shell := cmd.Shell{
@@ -573,6 +572,13 @@ func TestShell_BeforeNode(t *testing.T) {
 			} else {
 				require.Error(t, err)
 			}
+
+			// heavyweight creates test db named chainlink_test_uid, while usual naming is chainlink_test
+			// CleanupChainTables handles test db name with chainlink_test, but because of heavyweight test db naming we have to set danger flag
+			require.NoError(t, set.Set("danger", "true"))
+			c = cli.NewContext(nil, set, nil)
+			require.NoError(t, shell.CleanupChainTables(c))
+
 			// Clean up database if it was opened
 			if shell.LDB != nil {
 				cleanupErr := shell.AfterNode(c)
