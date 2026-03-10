@@ -327,6 +327,7 @@ func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 	capAttrs := metric.WithAttributes(
 		attribute.String("capabilityId", k.capID),
 		attribute.String("donId", strconv.FormatUint(uint64(k.donID), 10)),
+		attribute.String("method", k.methodName),
 	)
 	d.metrics.receiveChannelUsageGauge.Record(ctx, receiverQueueUsage, capAttrs)
 	select {
