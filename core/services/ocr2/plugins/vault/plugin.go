@@ -2236,5 +2236,14 @@ func (r *ReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqN
 }
 
 func (r *ReportingPlugin) Close() error {
-	return nil
+	return errors.Join(
+		r.cfg.MaxSecretsPerOwner.Close(),
+		r.cfg.MaxCiphertextLengthBytes.Close(),
+		r.cfg.MaxIdentifierKeyLengthBytes.Close(),
+		r.cfg.MaxIdentifierOwnerLengthBytes.Close(),
+		r.cfg.MaxIdentifierNamespaceLengthBytes.Close(),
+		r.cfg.MaxShareLengthBytes.Close(),
+		r.cfg.MaxRequestBatchSize.Close(),
+		r.cfg.MaxBatchSize.Close(),
+	)
 }
