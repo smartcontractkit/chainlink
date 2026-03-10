@@ -67,7 +67,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/fee_quoter"
+	solFeeQuoterV1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -895,11 +895,11 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
 							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
 						},
-						BillingConfig: []solFeeQuoterV0_1_1.BillingTokenConfig{
+						BillingConfig: []solFeeQuoterV1_6_1.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
-								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV1_6_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -908,7 +908,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
-								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV1_6_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -967,11 +967,11 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
 							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
 						},
-						BillingConfig: []solFeeQuoterV0_1_1.BillingTokenConfig{
+						BillingConfig: []solFeeQuoterV1_6_1.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
-								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV1_6_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -980,7 +980,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
-								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV1_6_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
