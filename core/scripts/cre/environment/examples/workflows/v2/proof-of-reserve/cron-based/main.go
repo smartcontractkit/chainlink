@@ -29,9 +29,13 @@ import (
 )
 
 func RunProofOfReservesWorkflow(config types.WorkflowConfig, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[types.WorkflowConfig], error) {
+	schedule := "*/30 * * * * *" // every 30 seconds by default
+	if config.CronSchedule != "" {
+		schedule = config.CronSchedule
+	}
 	return cre.Workflow[types.WorkflowConfig]{
 		cre.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}), // every 30 seconds
+			cron.Trigger(&cron.Config{Schedule: schedule}),
 			onTrigger,
 		),
 	}, nil
