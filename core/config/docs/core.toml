@@ -305,7 +305,7 @@ ExternalInitiatorsEnabled = false # Default
 # MaxRunDuration is the maximum time allowed for a single job run. If it takes longer, it will exit early and be marked errored. If set to zero, disables the time limit completely.
 MaxRunDuration = '10m' # Default
 # MaxSuccessfulRuns caps the number of completed successful runs per pipeline
-# spec in the database. You can set it to zero as a performance optimisation;
+# spec in the database. You can set it to zero as a performance optimization;
 # this will avoid saving any successful run.
 #
 # Note this is not a hard cap, it can drift slightly larger than this but not
@@ -360,7 +360,7 @@ Enabled = false # Default
 # censor any transaction.
 #
 # Note that 1 confirmation implies that the transaction/event has been mined in one block.
-# 0 confirmations would imply that the event would be recognised before it has even been mined, which is not currently supported.
+# 0 confirmations would imply that the event would be recognized before it has even been mined, which is not currently supported.
 # e.g.
 # Current block height: 42
 # Changed in block height: 43
@@ -391,7 +391,7 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 # KeyBundleID is a sha256 hexadecimal hash identifier.
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
-# CaptureEATelemetry toggles collecting extra information from External Adaptares
+# CaptureEATelemetry toggles collecting extra information from External Adapters
 CaptureEATelemetry = false # Default
 # CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 CaptureAutomationCustomTelemetry = true # Default
@@ -438,14 +438,14 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = false # Default
 # TransmitterAddress is the default sending address to use for OCR. If you have an OCR job that does not explicitly specify a transmitter address, it will fall back to this value.
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e' # Example
-# CaptureEATelemetry toggles collecting extra information from External Adaptares
+# CaptureEATelemetry toggles collecting extra information from External Adapters
 CaptureEATelemetry = false # Default
 # TraceLogging enables trace level logging.
 TraceLogging = false # Default
 # ConfigLogValidation ensures contract configuration logs are accessible when validating OCR jobs. Enable this when using RPC providers that don't maintain complete historical logs.
 ConfigLogValidation = false # Default
 
-# P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
+# P2P has a versioned networking stack. Currently only `[P2P.V2]` is supported.
 # All nodes in the OCR network should share the same networking stack.
 [P2P]
 # IncomingMessageBufferSize is the per-remote number of incoming
@@ -654,7 +654,7 @@ MaxMessageLenBytes = 500000 # Default
 MessageRateLimiterRate = 100.0 # Default
 # MessageRateLimiterCapacity is the "burst" of the message rate limiter.
 MessageRateLimiterCapacity = 500 # Default
-# BytesRateLimiterRate is the max size of precessed messages per second.
+# BytesRateLimiterRate is the max size of processed messages per second.
 BytesRateLimiterRate = 5000000.0 # Default
 # BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 BytesRateLimiterCapacity = 10000000 # Default
@@ -871,7 +871,7 @@ Enabled = false # Default
 # Endpoint of the OTEL Collector.
 Endpoint = 'example.com/collector' # Example
 # CACertFile is the file path of the TLS certificate used for secure communication with the OTEL Collector.
-# Required unless InescureConnection is true.
+# Required unless InsecureConnection is true.
 CACertFile = 'cert-file' # Example
 # InsecureConnection bypasses the TLS CACertFile requirement and uses an insecure connection instead.
 # Only available in dev mode.

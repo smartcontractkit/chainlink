@@ -52,7 +52,7 @@ BlockHistorySize = 1 # Default
 # This config is only relevant if BlockHistorySize > 1 and if BlockHistorySize is greater than BlockHistoryBatchLoadSize.
 # Ensure the value is greater than the number of blocks that would be produced between each BlockHistoryPollPeriod to avoid gaps in block history.
 BlockHistoryBatchLoadSize = 20 # Default
-# ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+# ComputeUnitLimitDefault is the compute units limit applied to transactions unless overridden during the txm enqueue
 ComputeUnitLimitDefault = 200_000 # Default
 # EstimateComputeUnitLimit enables or disables compute unit limit estimations per transaction. If estimations return 0 used compute, the ComputeUnitLimitDefault value is used, if set.
 EstimateComputeUnitLimit = false # Default
@@ -62,7 +62,7 @@ LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
 
 [Solana.Workflow]
-# AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+# AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
 AcceptanceTimeout = '45s' # Default
 # ForwarderAddress is the keystone forwarder program address on chain.
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
@@ -76,7 +76,7 @@ GasLimitDefault = 300_000 # Default
 Local = false # Default
 # PollPeriod is the default poll period for checking transmission state
 PollPeriod = '3s' # Default
-# TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+# TxAcceptanceState is the default acceptance state for writer DON transmissions.
 TxAcceptanceState = 3 # Default
 
 [Solana.MultiNode]
@@ -90,7 +90,7 @@ PollInterval = '10s' # Default
 SelectionMode = 'PriorityLevel' # Default
 # SyncThreshold is the number of blocks behind the best node that a node can be before it is considered out of sync.
 SyncThreshold = 5 # Default
-# NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relavant for Solana.
+# NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relevant for Solana.
 NodeIsSyncingEnabled = false # Default
 # LeaseDuration is the max duration a node can be leased for.
 LeaseDuration = '1m0s' # Default
