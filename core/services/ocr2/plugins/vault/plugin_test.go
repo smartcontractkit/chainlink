@@ -3,6 +3,7 @@ package vault
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -4773,7 +4774,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 			10,
 			pk,
 			shares[0],
-			1,
+			5,
 			1024,
 			30,
 			30,
@@ -4853,11 +4854,13 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 		},
 	}
 
+	r.unmarshalBlob = bf.unmarshalBlob
+
 	o1 := &vaultcommon.Observations{
 		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
+			{0}, // maps to item 0 in the blobs
+			{1}, // maps to item 1 in the blobs
+			{2}, // maps to item 2 in the blobs
 		},
 	}
 	o1b, err := proto.Marshal(o1)
@@ -4865,7 +4868,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 
 	o2 := &vaultcommon.Observations{
 		PendingQueueItems: [][]byte{
-			{}, // maps to item 3 in the blobs
+			{3}, // maps to item 3 in the blobs
 		},
 	}
 	o2b, err := proto.Marshal(o2)
@@ -4873,9 +4876,9 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 
 	o3 := &vaultcommon.Observations{
 		PendingQueueItems: [][]byte{
-			{}, // maps to item 4 in the blobs
-			{}, // maps to item 5 in the blobs
-			{}, // maps to item 6 in the blobs
+			{4}, // maps to item 4 in the blobs
+			{5}, // maps to item 5 in the blobs
+			{6}, // maps to item 6 in the blobs
 		},
 	}
 	o3b, err := proto.Marshal(o3)
@@ -4937,7 +4940,6 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 			30,
 			10,
 		),
-		unmarshalBlob: mockUnmarshalBlob,
 	}
 
 	seqNr := uint64(1)
@@ -4977,39 +4979,6 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 	areq4, err := anypb.New(req4)
 	require.NoError(t, err)
 
-	o1 := &vaultcommon.Observations{
-		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
-			{}, // maps to item 3 in the blobs
-		},
-	}
-	o1b, err := proto.Marshal(o1)
-	require.NoError(t, err)
-
-	o2 := &vaultcommon.Observations{
-		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
-			{}, // maps to item 3 in the blobs
-		},
-	}
-	o2b, err := proto.Marshal(o2)
-	require.NoError(t, err)
-
-	o3 := &vaultcommon.Observations{
-		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
-			{}, // maps to item 3 in the blobs
-		},
-	}
-	o3b, err := proto.Marshal(o3)
-	require.NoError(t, err)
-
 	bf := &blobber{
 		blobs: [][]byte{
 			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
@@ -5028,40 +4997,43 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 				Id:   "request-id4",
 				Item: areq4,
 			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id2",
-				Item: areq2,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id3",
-				Item: areq3,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id4",
-				Item: areq4,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id2",
-				Item: areq2,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id3",
-				Item: areq3,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id4",
-				Item: areq4,
-			}),
 		},
 	}
+
+	r.unmarshalBlob = bf.unmarshalBlob
+
+	o1 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{0}, // maps to item 0 in the blobs
+			{1}, // maps to item 1 in the blobs
+			{2}, // maps to item 2 in the blobs
+			{3}, // maps to item 3 in the blobs
+		},
+	}
+	o1b, err := proto.Marshal(o1)
+	require.NoError(t, err)
+
+	o2 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{0}, // maps to item 0 in the blobs
+			{1}, // maps to item 1 in the blobs
+			{2}, // maps to item 2 in the blobs
+			{3}, // maps to item 3 in the blobs
+		},
+	}
+	o2b, err := proto.Marshal(o2)
+	require.NoError(t, err)
+
+	o3 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{0}, // maps to item 0 in the blobs
+			{1}, // maps to item 1 in the blobs
+			{2}, // maps to item 2 in the blobs
+			{3}, // maps to item 3 in the blobs
+		},
+	}
+	o3b, err := proto.Marshal(o3)
+	require.NoError(t, err)
 
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
@@ -5120,7 +5092,6 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 			30,
 			10,
 		),
-		unmarshalBlob: mockUnmarshalBlob,
 	}
 
 	seqNr := uint64(1)
@@ -5136,32 +5107,26 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 	areq1, err := anypb.New(req1)
 	require.NoError(t, err)
 
-	o1 := &vaultcommon.Observations{
-		PendingQueueItems: [][]byte{
-			{}, // maps to item 0 in the blobs
-			{}, // maps to item 1 in the blobs
-			{}, // maps to item 2 in the blobs
-		},
-	}
-	o1b, err := proto.Marshal(o1)
-	require.NoError(t, err)
-
 	bf := &blobber{
 		blobs: [][]byte{
 			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
 				Id:   "request-id",
 				Item: areq1,
 			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
-			protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
-				Id:   "request-id",
-				Item: areq1,
-			}),
 		},
 	}
+
+	r.unmarshalBlob = bf.unmarshalBlob
+
+	o1 := &vaultcommon.Observations{
+		PendingQueueItems: [][]byte{
+			{0}, // maps to item 0 in the blobs
+			{0}, // maps to item 0 in the blobs (duplicate)
+			{0}, // maps to item 0 in the blobs (duplicate)
+		},
+	}
+	o1b, err := proto.Marshal(o1)
+	require.NoError(t, err)
 
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
@@ -6478,4 +6443,85 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwner(t *testing.T) {
+	maxSecretsPerOwner := 3
+
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			maxSecretsPerOwner,
+			1024,
+			30,
+			30,
+			30,
+			10,
+		),
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	listReq := &vaultcommon.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-1",
+	}
+
+	identifiers := make([]*vaultcommon.SecretIdentifier, maxSecretsPerOwner+1)
+	for i := range identifiers {
+		identifiers[i] = &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: fmt.Sprintf("secret%d", i)}
+	}
+
+	observation := &vaultcommon.Observation{
+		Id:          "request-1",
+		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
+		Request: &vaultcommon.Observation_ListSecretIdentifiersRequest{
+			ListSecretIdentifiersRequest: listReq,
+		},
+		Response: &vaultcommon.Observation_ListSecretIdentifiersResponse{
+			ListSecretIdentifiersResponse: &vaultcommon.ListSecretIdentifiersResponse{
+				Identifiers: identifiers,
+				Success:     true,
+			},
+		},
+	}
+
+	rdr := &kv{m: make(map[string]response)}
+	anyReq, err := anypb.New(listReq)
+	require.NoError(t, err)
+	err = NewWriteStore(rdr).WritePendingQueue(
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyReq},
+		},
+	)
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{
+		Observations: []*vaultcommon.Observation{observation},
+	}
+	ob := protoMarshal(t, obs)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: ob},
+		rdr,
+		&blobber{},
+	)
+
+	require.ErrorContains(t, err, "ListSecretIdentifiers response exceeds maximum number of secrets per owner")
 }

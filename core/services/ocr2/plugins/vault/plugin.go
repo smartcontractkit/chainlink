@@ -1156,7 +1156,7 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	case vaultcommon.RequestType_DELETE_SECRETS:
 		return r.validateDeleteSecretsObservation(ctx, o)
 	case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-		return r.validateListSecretIdentifiersObservation(o)
+		return r.validateListSecretIdentifiersObservation(ctx, o)
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
@@ -1376,10 +1376,23 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 	return nil
 }
 
-func (r *ReportingPlugin) validateListSecretIdentifiersObservation(o *vaultcommon.Observation) error {
+func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.Context, o *vaultcommon.Observation) error {
 	if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
 		return errors.New("ListSecretIdentifiers observation must have both request and response")
 	}
+
+	resp := o.GetListSecretIdentifiersResponse()
+	if resp.Success {
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: o.GetListSecretIdentifiersRequest().Owner})
+		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(resp.Identifiers)); err != nil {
+			var errBoundLimited limits.ErrorBoundLimited[int]
+			if errors.As(err, &errBoundLimited) {
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(resp.Identifiers), errBoundLimited.Limit)
+			}
+			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
+		}
+	}
+
 	return nil
 }
 
