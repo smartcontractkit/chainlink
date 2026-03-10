@@ -47,6 +47,10 @@ on:
 
   workflow_dispatch:
     inputs:
+      strip-image-suffix:
+        description: "Strip image suffix from tag so it matches the registry tag"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -105,6 +109,7 @@ jobs:
         working-directory: ${{ github.event_name == 'workflow_call' && inputs.working-directory || github.event.inputs.working-directory }}
     environment: "integration"
     env:
+      STRIP_IMAGE_SUFFIX: ${{ github.event_name == 'workflow_call' && inputs.strip-image-suffix || github.event.inputs.strip-image-suffix }}
       BUILD_CMD: ${{ github.event_name == 'workflow_call' && inputs.buildcmd || github.event.inputs.buildcmd }}
       ENV_CMD: ${{ github.event_name == 'workflow_call' && inputs.envcmd || github.event.inputs.envcmd }}
       TEST_CMD: ${{ github.event_name == 'workflow_call' && inputs.testcmd || github.event.inputs.testcmd }}
@@ -185,6 +190,7 @@ jobs:
           CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
+          STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
@@ -198,6 +204,7 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --nodes "${NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
+            --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}"
 
       - name: Upload Logs
