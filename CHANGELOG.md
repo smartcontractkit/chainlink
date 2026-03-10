@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.38.0
+
+### Minor Changes
+
+- [#21411](https://github.com/smartcontractkit/chainlink/pull/21411) [`281a8b9`](https://github.com/smartcontractkit/chainlink/commit/281a8b929631362d208da8b21ace76e7f3e670f3) - #updated Bump libocr
+
+- [#21386](https://github.com/smartcontractkit/chainlink/pull/21386) [`1a94b32`](https://github.com/smartcontractkit/chainlink/commit/1a94b321eb0343011c849c599f8c9eaf94f22128) - Minor bump to start next version
+
+  #internal
+
+### Patch Changes
+
+- [#21465](https://github.com/smartcontractkit/chainlink/pull/21465) [`62d65a6`](https://github.com/smartcontractkit/chainlink/commit/62d65a6187d4690545c8cc444e7918d5f020445e) - #changed Update MetaClient to support multiple dapps
+
+- [#21120](https://github.com/smartcontractkit/chainlink/pull/21120) [`c9df802`](https://github.com/smartcontractkit/chainlink/commit/c9df802a4779b155c5e3024bf2fce691eca90aa8) - Expanded `admin profile` to collect PPROF profiles from LOOP Plugins. Added `-vitals` flag for more granular profiling.
+
 ## 2.37.0
 
 ### Minor Changes
