@@ -92,9 +92,7 @@ func (m *respondingMockAggregator) Aggregate(resps map[string]jsonrpc.Response[j
 func TestConfidentialRelayHandler_Methods(t *testing.T) {
 	h, _, _, _ := setupHandler(t, 4)
 	methods := h.Methods()
-	assert.Contains(t, methods, MethodSecretsGet)
-	assert.Contains(t, methods, MethodCapabilityExec)
-	assert.Len(t, methods, 2)
+	assert.Equal(t, []string{MethodCapabilityExec}, methods)
 }
 
 func TestConfidentialRelayHandler_HandleLegacyUserMessage(t *testing.T) {
@@ -109,7 +107,7 @@ func TestConfidentialRelayHandler_RequestIDTooLong(t *testing.T) {
 	longID := strings.Repeat("x", 201)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     longID,
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 	}
 
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
@@ -122,7 +120,7 @@ func TestConfidentialRelayHandler_EmptyRequestID(t *testing.T) {
 
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 	}
 
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
@@ -137,7 +135,7 @@ func TestConfidentialRelayHandler_FanOutAndQuorumSuccess(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1","secrets":[{"key":"k","namespace":"ns"}],"enclave_public_key":"pk"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-1",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -145,7 +143,7 @@ func TestConfidentialRelayHandler_FanOutAndQuorumSuccess(t *testing.T) {
 	response := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-1",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Result:  &resultData,
 	}
 
@@ -223,7 +221,7 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-diverge",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -244,7 +242,7 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 	divergentResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-diverge",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Result:  &divergentResult,
 	}
 	err = h.HandleNodeMessage(t.Context(), divergentResp, "0x0000")
@@ -258,7 +256,7 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      "req-diverge",
-			Method:  MethodSecretsGet,
+			Method:  MethodCapabilityExec,
 			Result:  &rd,
 		}
 		err = h.HandleNodeMessage(t.Context(), resp, fmt.Sprintf("0x%04d", i))
@@ -275,14 +273,14 @@ func TestConfidentialRelayHandler_QuorumUnobtainable(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-unobtainable",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
 	response := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-unobtainable",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Error: &jsonrpc.WireError{
 			Code:    -32603,
 			Message: errQuorumUnobtainable.Error(),
@@ -320,7 +318,7 @@ func TestConfidentialRelayHandler_RequestTimeout(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-timeout",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -349,7 +347,7 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-dup",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -392,7 +390,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-ratelimit",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -403,7 +401,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	response := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-ratelimit",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Result:  &resultData,
 	}
 
@@ -422,7 +420,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	cb2 := common.NewCallback()
 	req2 := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-ratelimit-2",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 	err = h.HandleJSONRPCUserMessage(t.Context(), req2, cb2)
@@ -431,7 +429,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	response2 := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-ratelimit-2",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Result:  &resultData,
 	}
 
@@ -453,7 +451,7 @@ func TestConfidentialRelayHandler_LateNodeResponse(t *testing.T) {
 	staleResponse := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "nonexistent-request",
-		Method:  MethodSecretsGet,
+		Method:  MethodCapabilityExec,
 		Result:  &resultData,
 	}
 
@@ -475,7 +473,7 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	params := json.RawMessage(`{"workflow_id":"wf1"}`)
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-allfail",
-		Method: MethodSecretsGet,
+		Method: MethodCapabilityExec,
 		Params: &params,
 	}
 
@@ -495,43 +493,6 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 	wg.Wait()
-}
-
-func TestConfidentialRelayHandler_SecretsGetMethod(t *testing.T) {
-	h, cb, don, _ := setupHandler(t, 4)
-	h.aggregator = &respondingMockAggregator{}
-	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-
-	params := json.RawMessage(`{"workflow_id":"wf1","secrets":[{"key":"k","namespace":"ns"}],"enclave_public_key":"pk"}`)
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-secrets",
-		Method: MethodSecretsGet,
-		Params: &params,
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
-		assert.Equal(t, api.NoError, resp.ErrorCode)
-	}()
-
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-
-	resultData := json.RawMessage(`{"secrets":[],"master_public_key":"mpk","threshold":1}`)
-	response := jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      "req-secrets",
-		Method:  MethodSecretsGet,
-		Result:  &resultData,
-	}
-	err = h.HandleNodeMessage(t.Context(), &response, "0x0000")
-	require.NoError(t, err)
-	wg.Wait()
-	don.AssertCalled(t, "SendToNode", mock.Anything, mock.Anything, mock.Anything)
 }
 
 func TestConfidentialRelayHandler_CapabilityExecMethod(t *testing.T) {
