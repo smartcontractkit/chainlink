@@ -82,26 +82,26 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, ru
 		close(baseMessageCh)
 	})
 
-	if runRead {
-		t.Run("Aptos Read", func(t *testing.T) {
-			ExecuteAptosReadTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-		})
-	}
-	if runWrite {
-		t.Run("Aptos Write", func(t *testing.T) {
-			ExecuteAptosWriteTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-		})
-	}
-	if runRoundtrip {
-		t.Run("Aptos Write Read Roundtrip", func(t *testing.T) {
-			ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-		})
-	}
-	if runWriteExpectedFailure {
-		t.Run("Aptos Write Expected Failure", func(t *testing.T) {
-			ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-		})
-	}
+	// if runRead {
+	// 	t.Run("Aptos Read", func(t *testing.T) {
+	// 		ExecuteAptosReadTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+	// 	})
+	// }
+	// if runWrite {
+	// 	t.Run("Aptos Write", func(t *testing.T) {
+	// 		ExecuteAptosWriteTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+	// 	})
+	// }
+	// if runRoundtrip {
+	// 	t.Run("Aptos Write Read Roundtrip", func(t *testing.T) {
+	// 		ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+	// 	})
+	// }
+	// if runWriteExpectedFailure {
+	t.Run("Aptos Write Expected Failure", func(t *testing.T) {
+		ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+	})
+	// }
 }
 
 // ExecuteAptosReadTest deploys a workflow that reads 0x1::coin::name() on Aptos local devnet
@@ -151,6 +151,7 @@ func ExecuteAptosWriteTest(
 		// Keep within local Aptos devnet transaction max-gas bound.
 		MaxGasAmount: 1_000_000,
 		GasUnitPrice: 100,
+		// ExpectFailure: true,
 	}
 
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"

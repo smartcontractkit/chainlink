@@ -33,7 +33,7 @@ func main() {
 func RunAptosWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider sdk.SecretsProvider) (sdk.Workflow[config.Config], error) {
 	return sdk.Workflow[config.Config]{
 		sdk.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
+			cron.Trigger(&cron.Config{Schedule: "0 */1 * * * *"}),
 			onAptosWriteTrigger,
 		),
 	}, nil
@@ -135,9 +135,9 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		"maxGasAmount", cfg.MaxGasAmount,
 		"gasUnitPrice", cfg.GasUnitPrice,
 	)
-	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
 		Receiver: receiver,
-		Report:   reportResp,
+		Report:   report,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,
@@ -148,7 +148,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			runtime.Logger().Info(
 				"Aptos write failed: expected failure path requires non-empty failed tx hash",
 				"workflow", cfg.WorkflowName,
-				"txStatus", aptos.TxStatus_TX_STATUS_UNKNOWN.String(),
+				"txStatus", aptos.TxStatus_TX_STATUS_FATAL.String(),
 				"txHash", "",
 				"error", err.Error(),
 			)
@@ -163,7 +163,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		return nil, fmt.Errorf("nil WriteReport reply")
 	}
 	if cfg.ExpectFailure {
-		if reply.TxStatus != aptos.TxStatus_TX_STATUS_FAILED {
+		if reply.TxStatus != aptos.TxStatus_TX_STATUS_FATAL {
 			errorMsg := ""
 			if reply.ErrorMessage != nil {
 				errorMsg = *reply.ErrorMessage
@@ -176,7 +176,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			)
 			return nil, fmt.Errorf("expected failed tx status, got %s", reply.TxStatus.String())
 		}
-		if len(reply.TxHash) == 0 {
+		if *reply.TxHash == "" {
 			runtime.Logger().Info(
 				"Aptos write failed: expected failed tx hash but got empty hash",
 				"workflow", cfg.WorkflowName,
@@ -184,7 +184,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			return nil, fmt.Errorf("expected failed tx hash in WriteReport reply")
 		}
 
-		txHash, err := normalizeTxHash(reply.TxHash)
+		txHash, err := normalizeTxHash([]byte(*reply.TxHash))
 		if err != nil {
 			runtime.Logger().Info("Aptos write failed: invalid failed tx hash format", "workflow", cfg.WorkflowName, "error", err.Error())
 			return nil, fmt.Errorf("invalid failed tx hash format: %w", err)
@@ -212,7 +212,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		runtime.Logger().Info(failMsg, "workflow", cfg.WorkflowName)
 		return nil, fmt.Errorf("unexpected tx status: %s", reply.TxStatus.String())
 	}
-	if len(reply.TxHash) == 0 {
+	if *reply.TxHash == "" {
 		runtime.Logger().Info(
 			"Aptos write failed: expected successful tx hash but got empty hash",
 			"workflow", cfg.WorkflowName,
@@ -221,7 +221,7 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		return nil, fmt.Errorf("expected non-empty tx hash in successful WriteReport reply")
 	}
 
-	txHash, err := normalizeTxHash(reply.TxHash)
+	txHash, err := normalizeTxHash([]byte(*reply.TxHash))
 	if err != nil {
 		runtime.Logger().Info("Aptos write failed: invalid tx hash format", "workflow", cfg.WorkflowName, "error", err.Error())
 		return nil, fmt.Errorf("invalid tx hash format: %w", err)

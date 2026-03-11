@@ -185,6 +185,67 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 	return nil
 }
 
+// embedAptosP2PSpecConfig adds a "p2pToTransmitterMap" entry to the
+// CapabilityConfig's SpecConfig. The map is peerID-hex → Aptos transmitter
+// address, allowing the Aptos capability LOOP to resolve which transmitter
+// belongs to each DON member. SpecConfig is merged into dependencies.Config
+// by localCapabilityManager.buildConfigJSON before Initialise is called.
+func (d *dons) embedAptosP2PSpecConfig(capConfig *capabilitiespb.CapabilityConfig, don donConfig, aptosChainSelector uint64) error {
+	var allNodeIDs []string
+	for _, nop := range don.Nops {
+		allNodeIDs = append(allNodeIDs, nop.Nodes...)
+	}
+
+	nodes, err := deployment.NodeInfo(allNodeIDs, d.offChain)
+	if err != nil {
+		return fmt.Errorf("failed to get node info: %w", err)
+	}
+
+	p2pMap := make(map[string]string)
+	for _, node := range nodes {
+		ocrCfg, ok := node.OCRConfigForChainSelector(aptosChainSelector)
+		if !ok {
+			continue
+		}
+		transmitter := strings.TrimSpace(string(ocrCfg.TransmitAccount))
+		if transmitter == "" {
+			return fmt.Errorf("empty Aptos transmitter for node %s", node.Name)
+		}
+
+		peerID, pErr := p2pkey.MakePeerID(node.PeerID.String())
+		if pErr != nil {
+			return fmt.Errorf("failed to convert peer ID for node %s: %w", node.Name, pErr)
+		}
+		peerHex := fmt.Sprintf("%x", peerID[:])
+		p2pMap[peerHex] = transmitter
+	}
+
+	fmt.Printf("TestingAptosWriteCap: embedAptosP2PSpecConfig built p2pMap entries=%d map=%v chainSelector=%d\n", len(p2pMap), p2pMap, aptosChainSelector)
+
+	if len(p2pMap) == 0 {
+		return fmt.Errorf("no Aptos p2p transmitter mappings found for chain selector %d", aptosChainSelector)
+	}
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	if err != nil {
+		return fmt.Errorf("failed to decode existing spec config: %w", err)
+	}
+	if specConfig == nil {
+		specConfig = values.EmptyMap()
+	}
+
+	p2pValue, err := values.Wrap(p2pMap)
+	if err != nil {
+		return fmt.Errorf("failed to wrap p2p config map: %w", err)
+	}
+	specConfig.Underlying["p2pToTransmitterMap"] = p2pValue
+	capConfig.SpecConfig = values.ProtoMap(specConfig)
+
+	fmt.Printf("TestingAptosWriteCap: embedAptosP2PSpecConfig specConfig set, specConfigNil=%v\n", capConfig.SpecConfig == nil)
+
+	return nil
+}
+
 func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
@@ -273,8 +334,18 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 			capConfig := cap.Config
 			shouldMarshalProtoConfig := capConfig != nil
-			if _, isAptosCapability, parseErr := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName); isAptosCapability && parseErr != nil {
-				panic(fmt.Sprintf("failed to parse capability label %s: %s", cap.Capability.LabelledName, parseErr))
+
+			if aptosChainSelector, isAptosCapability, parseErr := aptosChainSelectorFromCapabilityLabel(cap.Capability.LabelledName); isAptosCapability {
+				if parseErr != nil {
+					panic(fmt.Sprintf("failed to parse capability label %s: %s", cap.Capability.LabelledName, parseErr))
+				}
+				if capConfig == nil {
+					capConfig = &capabilitiespb.CapabilityConfig{}
+				}
+				shouldMarshalProtoConfig = true
+				if err := d.embedAptosP2PSpecConfig(capConfig, don, aptosChainSelector); err != nil {
+					panic(fmt.Sprintf("failed to embed Aptos P2P spec config for capability %s: %s", cap.Capability.LabelledName, err))
+				}
 			}
 
 			if cap.UseCapRegOCRConfig {

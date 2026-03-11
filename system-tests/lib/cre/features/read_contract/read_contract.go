@@ -67,11 +67,11 @@ func (o *ReadContract) PreEnvStartup(
 			// Version is provided separately in CapabilitiesRegistryCapability.Version below.
 			// Keep LabelledName versionless to avoid creating IDs like "...@1.0.0@1.0.0".
 			labelledName = "aptos:ChainSelector:" + strconv.FormatUint(aptosChain.ChainSelector(), 10)
-			useCapRegOCRConfig = true
+			useCapRegOCRConfig = false
 			methodConfigs = getAptosMethodConfigs()
 			// Aptos write expected-failure semantics rely on DON-wide remote execution aggregation.
 			// Keep Aptos capability remote-enabled even in single-DON local CRE topologies.
-			localOnly = false
+			// localOnly = false
 			capabilityToOCR3Config[labelledName] = contracts.DefaultChainCapabilityOCR3Config()
 		} else {
 			labelledName = fmt.Sprintf("read-contract-evm-%d", chainID)
@@ -127,7 +127,7 @@ func getAptosMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 		"WriteReport": {
 			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
 				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
-					TransmissionSchedule:      capabilitiespb.TransmissionSchedule_OneAtATime,
+					TransmissionSchedule:      capabilitiespb.TransmissionSchedule_AllAtOnce,
 					DeltaStage:                durationpb.New(aptosWriteDeltaStage),
 					RequestTimeout:            durationpb.New(aptosRequestTimeout),
 					ServerMaxParallelRequests: 10,
