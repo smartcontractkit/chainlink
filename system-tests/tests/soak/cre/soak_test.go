@@ -143,7 +143,7 @@ loop:
 	}
 
 	// ── Phase 5: Memory / CPU leak check ──────────────────────────────────────
-	leakDetector, ldErr := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker())
+	leakDetector, ldErr := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker(), leak.WithNodesetName("workflow"))
 	require.NoError(t, ldErr, "failed to create CL nodes leak detector")
 
 	checkErr := leakDetector.Check(&leak.CLNodesCheck{
