@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -108,7 +109,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(ctx context.Context, gett
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(ctx context.Context, getter upkeepGetter, registry Registry, upkeepID *sqlutil.Big) error {
-	upkeep, err := getter.GetUpkeep(nil, upkeepID.ToInt())
+	upkeep, err := getter.GetUpkeep(&bind.CallOpts{Context: ctx}, upkeepID.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "failed to get upkeep config")
 	}
@@ -144,7 +145,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain(ctx context.Context) (Regis
 	fromAddress := rs.effectiveKeeperAddress
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 
-	registryConfig, err := rs.registryWrapper.GetConfig(nil)
+	registryConfig, err := rs.registryWrapper.GetConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		rs.jrm.TryRecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, errors.Wrap(err, "failed to get contract config")
