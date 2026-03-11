@@ -31,13 +31,12 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 	return ret
 }
 
-// NewApp returns the command-line parser/function-router for the given client
-func NewApp(s *Shell) *cli.App {
+// NewAppWithOpts returns the command-line parser/function-router for the given client
+// with custom configuration options for testing purposes.
+func NewAppWithOpts(s *Shell, opts chainlink.GeneralConfigOpts) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
-	// TOML
-	var opts chainlink.GeneralConfigOpts
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -329,6 +328,12 @@ func NewApp(s *Shell) *cli.App {
 		},
 	}...)
 	return app
+}
+
+// NewApp returns the command-line parser/function-router for the given client
+func NewApp(s *Shell) *cli.App {
+	var opts chainlink.GeneralConfigOpts
+	return NewAppWithOpts(s, opts)
 }
 
 var whitespace = regexp.MustCompile(`\s+`)

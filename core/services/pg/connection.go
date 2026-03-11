@@ -42,10 +42,6 @@ type ConnectionConfig interface {
 }
 
 func NewConnection(ctx context.Context, uri string, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
-	if os.Getenv("CL_FORCE_TXDB") == "true" {
-		driverName = commonpg.DriverTxWrappedPostgres
-	}
-
 	if driverName == commonpg.DriverTxWrappedPostgres {
 		if err = sqltest.RegisterTxDB(uri); err != nil {
 			return nil, fmt.Errorf("failed to register %s: %w", commonpg.DriverTxWrappedPostgres, err)
