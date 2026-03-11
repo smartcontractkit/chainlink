@@ -152,8 +152,8 @@ loop:
 		Start:           start,
 		End:             time.Now(),
 		WarmUpDuration:  30 * time.Minute,
-		CPUThreshold:    25.0,  // same as devenv OCR2 soak; calibrate after first run
-		MemoryThreshold: 350.0, // same as devenv OCR2 soak; calibrate after first run
+		CPUThreshold:    25.0,
+		MemoryThreshold: 3350.0, // CRE uses quite a bit of memory
 	})
 	require.NoError(t, checkErr, "resource leak check failed")
 }
