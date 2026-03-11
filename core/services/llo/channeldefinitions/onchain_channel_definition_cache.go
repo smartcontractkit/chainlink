@@ -624,8 +624,7 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 	}
 
 	// Drop previously tombstoned channels that the owner has omitted from newDefinitions
-	// Only tombstoned channels are allowed to be dropped by the owner to eventually remove them from them
-	// from the OCR state.
+	// Only tombstoned channels are allowed to be dropped by the owner to eventually remove them from the OCR state.
 	if source == SourceOwner {
 		for channelID, def := range currentDefinitions {
 			if def.Tombstone {
