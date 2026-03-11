@@ -52,7 +52,8 @@ const (
 		"transmitter":"{{.NodeAddress}}",
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
-		"network":"{{.Network}}"
+		"network":"{{.Network}}",
+		"deltaStage":"{{.DeltaStage}}"
 	}`
 	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
 	requestTimeout = 30 * time.Second
@@ -219,6 +220,7 @@ func createJobs(
 			"IsLocal":             true,
 			"Network":             "solana",
 			"ChainID":             solChainID.String(),
+			"DeltaStage":          deltaStage,
 		}
 
 		templateData, aErr := credon.ApplyRuntimeValues(config.Values, runtimeFallbacks)
