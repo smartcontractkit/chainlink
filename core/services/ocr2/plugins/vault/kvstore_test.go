@@ -42,8 +42,9 @@ func (k *kv) Write(key []byte, data []byte) error {
 }
 
 type blobber struct {
-	blobs [][]byte
-	cnt   int
+	blobs      [][]byte
+	cnt        int
+	pendingIdx *int
 }
 
 func (b *blobber) BroadcastBlob(_ context.Context, data []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
@@ -52,9 +53,20 @@ func (b *blobber) BroadcastBlob(_ context.Context, data []byte, _ ocr3_1types.Bl
 }
 
 func (b *blobber) FetchBlob(_ context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	if b.pendingIdx != nil {
+		return b.blobs[*b.pendingIdx], nil
+	}
 	blob := b.blobs[b.cnt]
 	b.cnt++
 	return blob, nil
+}
+
+func (b *blobber) unmarshalBlob(data []byte) (ocr3_1types.BlobHandle, error) {
+	if len(data) > 0 {
+		idx := int(data[0])
+		b.pendingIdx = &idx
+	}
+	return ocr3_1types.BlobHandle{}, nil
 }
 
 var _ (ocr3_1types.BlobBroadcastFetcher) = (*blobber)(nil)

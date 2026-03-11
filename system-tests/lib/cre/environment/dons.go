@@ -2,7 +2,11 @@ package environment
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +20,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -46,6 +49,44 @@ func (s *StartedDONs) DONs() []*cre.Don {
 	return dons
 }
 
+// ensureGithubTokenForPrivatePlugins checks if any nodeset has nodes with empty image (requiring
+// a Docker build). If so, ensures GITHUB_TOKEN is set so BuildImageOnce can install plugins from
+// private repos. If GITHUB_TOKEN is unset, tries to obtain it via `gh auth token`.
+func ensureGithubTokenForPrivatePlugins(ctx context.Context, nodeSets []*cre.NodeSet) error {
+	if os.Getenv("CTF_CHAINLINK_IMAGE") != "" {
+		return nil // image provided via env, no build needed
+	}
+	needsBuild := false
+	for _, nodeSet := range nodeSets {
+		for _, spec := range nodeSet.NodeSpecs {
+			if spec != nil && spec.Node != nil && spec.Node.Image == "" {
+				needsBuild = true
+				break
+			}
+		}
+		if needsBuild {
+			break
+		}
+	}
+	if !needsBuild {
+		return nil
+	}
+	if os.Getenv("GITHUB_TOKEN") != "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("GITHUB_TOKEN is not set and `gh auth token` failed (is gh CLI installed and configured?): %w", err)
+	}
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return errors.New("GITHUB_TOKEN is not set and `gh auth token` returned empty output")
+	}
+	os.Setenv("GITHUB_TOKEN", token)
+	return nil
+}
+
 func StartDONs(
 	ctx context.Context,
 	lggr zerolog.Logger,
@@ -53,7 +94,6 @@ func StartDONs(
 	infraInput infra.Provider,
 	registryChainBlockchainOutput *blockchain.Output,
 	capabilityConfigs cre.CapabilityConfigs,
-	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 ) (*StartedDONs, error) {
 	if infraInput.IsKubernetes() {
@@ -73,34 +113,6 @@ func StartDONs(
 		}
 	}
 
-	// Skip binary operations for Kubernetes (binaries are in the cluster images)
-	if infraInput.IsDocker() {
-		for donIdx, donMetadata := range topology.DonsMetadata.List() {
-			if !copyCapabilityBinaries {
-				continue
-			}
-
-			customBinariesPaths := make(map[cre.CapabilityFlag]string)
-			for flag, config := range capabilityConfigs {
-				if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
-					customBinariesPaths[flag] = config.BinaryPath
-				}
-			}
-
-			executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
-			if executableErr != nil {
-				return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
-			}
-
-			var err error
-			ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
-			}
-			nodeSets[donIdx] = ns
-		}
-	}
-
 	// Add env vars, which were provided programmatically, to the node specs
 	// or fail, if node specs already had some env vars set in the TOML config
 	for donIdx, donMetadata := range topology.DonsMetadata.List() {
@@ -116,6 +128,12 @@ func StartDONs(
 
 		if hasEnvVarsInTomlConfig && len(nodeSets[donIdx].EnvVars) > 0 {
 			return nil, fmt.Errorf("extra env vars for Chainlink Nodes are provided in the TOML config for the %s DON, but you tried to provide them programatically. Please set them only in one place", donMetadata.Name)
+		}
+	}
+
+	if !infraInput.IsKubernetes() {
+		if err := ensureGithubTokenForPrivatePlugins(ctx, nodeSets); err != nil {
+			return nil, err
 		}
 	}
 
