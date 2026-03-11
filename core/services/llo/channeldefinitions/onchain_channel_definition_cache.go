@@ -529,9 +529,11 @@ func buildFeedIDMap(definitions llotypes.ChannelDefinitions) map[common.Hash]uin
 
 // mergeDefinitions reconciles new channel definitions with the current set according to source
 // authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
-// tombstone (delete) channels. Missing channels in newDefinitions are not automatically removed;
-// channels must be explicitly tombstoned to be removed. Adder definitions (non-owner sources) have
-// limited authority: they can only add new channels and cannot overwrite or tombstone existing ones.
+// tombstone (delete) channels. Non-tombstoned channels missing from newDefinitions are preserved;
+// channels must be explicitly tombstoned to be removed. Previously tombstoned channels that are
+// omitted from the owner's newDefinitions are dropped (fully removed) from currentDefinitions.
+// Adder definitions (non-owner sources) have limited authority: they can only add new channels
+// and cannot overwrite or tombstone existing ones.
 //
 // Adder limits are enforced:
 //   - MaxChannelsPerAdder: The limit is enforced based on existing channels from the same source
@@ -618,6 +620,22 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 			c.lggr.Warnw("undefined source, skipping definition",
 				"channelID", channelID, "source", source)
 			continue
+		}
+	}
+
+	// Drop previously tombstoned channels that the owner has omitted from newDefinitions
+	// Only tombstoned channels are allowed to be dropped by the owner to eventually remove them from the OCR state.
+	if source == SourceOwner {
+		for channelID, def := range currentDefinitions {
+			if def.Tombstone {
+				if _, exists := newDefinitions[channelID]; !exists {
+					delete(currentDefinitions, channelID)
+					feedID := extractFeedID(def.Opts)
+					if feedID != (common.Hash{}) {
+						delete(feedIDToChannelID, feedID)
+					}
+				}
+			}
 		}
 	}
 }
