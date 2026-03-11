@@ -2,12 +2,14 @@ package vault
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -94,7 +96,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
-	assertLimit(t, 20, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
 	assert.NotNil(t, typedRP.cfg.PublicKey)
 	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
 	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
@@ -106,14 +108,19 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
 	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
-	assert.Equal(t, 100, infoObject.Limits.MaxQueryBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxObservationBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxReportsPlusPrecursorBytes)
-	assert.Equal(t, 512000, infoObject.Limits.MaxReportBytes)
-	assert.Equal(t, 20, infoObject.Limits.MaxReportCount)
-	assert.Equal(t, 1024*1024, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
-	assert.Equal(t, 25*1024, infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxQuerySizeLimit.DefaultValue), infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxObservationSizeLimit.DefaultValue), infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit.DefaultValue), infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxReportSizeLimit.DefaultValue), infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, cresettings.Default.VaultMaxReportCount.DefaultValue, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, int(cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit.DefaultValue), infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, cresettings.Default.VaultMaxKeyValueModifiedKeys.DefaultValue, infoObject.Limits.MaxKeyValueModifiedKeys)
+	assert.Equal(t, int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue), infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit.DefaultValue), infoObject.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
+	assert.Equal(t, cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCount)
 
+	// Verify that configProto overrides apply to BatchSize and MaxSecretsPerOwner,
+	// while other fields remain at cresettings defaults.
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
 		MaxSecretsPerOwner:                            2,
@@ -139,22 +146,21 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	typedRP = rp.(*ReportingPlugin)
 	assertLimit(t, 2, typedRP.cfg.MaxBatchSize)
 	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 2, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
+	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
 
 	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
 	assert.Equal(t, "VaultReportingPlugin", infoObject.Name)
-	assert.Equal(t, 2, infoObject.Limits.MaxQueryBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxObservationBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportsPlusPrecursorBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxReportCount)
-	assert.Equal(t, 2, infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
-	assert.Equal(t, 2, infoObject.Limits.MaxBlobPayloadBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxQuerySizeLimit.DefaultValue), infoObject.Limits.MaxQueryBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxObservationSizeLimit.DefaultValue), infoObject.Limits.MaxObservationBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxReportsPlusPrecursorSizeLimit.DefaultValue), infoObject.Limits.MaxReportsPlusPrecursorBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxReportSizeLimit.DefaultValue), infoObject.Limits.MaxReportBytes)
+	assert.Equal(t, cresettings.Default.VaultMaxReportCount.DefaultValue, infoObject.Limits.MaxReportCount)
+	assert.Equal(t, int(cresettings.Default.VaultMaxKeyValueModifiedKeysPlusValuesSizeLimit.DefaultValue), infoObject.Limits.MaxKeyValueModifiedKeysPlusValuesBytes)
+	assert.Equal(t, int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue), infoObject.Limits.MaxBlobPayloadBytes)
 }
 
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
@@ -188,7 +194,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 
 	typedRP := rp.(*ReportingPlugin)
-	assertLimit(t, 20, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
 
 	pkBytes, err := typedRP.cfg.PublicKey.Marshal()
 	require.NoError(t, err)
@@ -2172,6 +2178,74 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	assert.Empty(t, resp.GetError())
 }
 
+func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
+	t.Helper()
+	share, err := tdh2easy.Decrypt(ciphertext, privateShare)
+	require.NoError(t, err)
+	shareBytes, err := share.Marshal()
+	require.NoError(t, err)
+
+	result := make([]*vaultcommon.EncryptedShares, len(keys))
+	for i, pk := range keys {
+		pkBytes, err := hex.DecodeString(pk)
+		require.NoError(t, err)
+		pubKey := [32]byte(pkBytes)
+		encrypted, err := box.SealAnonymous(nil, shareBytes, &pubKey, rand.Reader)
+		require.NoError(t, err)
+		result[i] = &vaultcommon.EncryptedShares{
+			EncryptionKey: pk,
+			Shares:        []string{base64.StdEncoding.EncodeToString(encrypted)},
+		}
+	}
+	return result
+}
+
+func makeGetSecretsObservations(
+	t *testing.T,
+	numRequests int,
+	owner string,
+	namespace string,
+	encryptionKeys []string,
+	encryptedValue string,
+	ciphertext *tdh2easy.Ciphertext,
+	privateShare *tdh2easy.PrivateShare,
+) []byte {
+	t.Helper()
+	obs := make([]observation, 0, numRequests)
+	for i := range numRequests {
+		maxKey := fmt.Sprintf("%s%d", strings.Repeat("c", 64-1), i)
+
+		id := &vaultcommon.SecretIdentifier{
+			Owner:     owner,
+			Namespace: namespace,
+			Key:       maxKey,
+		}
+		req := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: encryptionKeys,
+				},
+			},
+		}
+		resp := &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{
+				{
+					Id: id,
+					Result: &vaultcommon.SecretResponse_Data{
+						Data: &vaultcommon.SecretData{
+							EncryptedValue:               encryptedValue,
+							EncryptedDecryptionKeyShares: makeEncryptedShares(t, ciphertext, privateShare, encryptionKeys),
+						},
+					},
+				},
+			},
+		}
+		obs = append(obs, observation{id, req, resp})
+	}
+	return marshalObservations(t, obs...)
+}
+
 type observation struct {
 	id   *vaultcommon.SecretIdentifier
 	req  proto.Message
@@ -2318,6 +2392,80 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 	assert.Empty(t, os.Outcomes, 0)
 
 	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(4, 10)
+	require.NoError(t, err)
+
+	numObservers := 10
+	r := &ReportingPlugin{
+		lggr: lggr,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 10,
+			F: 3,
+		},
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			pk,
+			shares[0],
+			100,
+			2000,
+			64,
+			64,
+			64,
+			10,
+		),
+	}
+
+	maxOwner := strings.Repeat("a", 64)
+	maxNamespace := strings.Repeat("b", 64)
+
+	numEncryptionKeys := 10
+	encryptionKeys := make([]string, numEncryptionKeys)
+	for i := range numEncryptionKeys {
+		pubK, _, err2 := box.GenerateKey(rand.Reader)
+		require.NoError(t, err2)
+		encryptionKeys[i] = hex.EncodeToString(pubK[:])
+	}
+
+	plaintext := make([]byte, 1)
+	_, err = rand.Read(plaintext)
+	require.NoError(t, err)
+	var label [32]byte
+	copy(label[:], maxOwner[:32])
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+	require.LessOrEqual(t, len(ciphertextBytes), 2000)
+	encryptedValue := hex.EncodeToString(ciphertextBytes)
+
+	// Create 10 observations from different observers, each with a distinct decryption share.
+	aos := make([]types.AttributedObservation, numObservers)
+	for i := range numObservers {
+		aos[i] = types.AttributedObservation{
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115 range is well within uint8 bounds
+			Observation: types.Observation(makeGetSecretsObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
+		}
+	}
+
+	kvStore := &kv{m: make(map[string]response)}
+	reportPrecursor, err := r.StateTransition(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		aos, kvStore, nil)
+	require.NoError(t, err)
+
+	t.Logf("StateTransition response size: %d bytes (%.2f KB)", len(reportPrecursor), float64(len(reportPrecursor))/1024.0)
+	maxResponseSize := 512 * 1024
+	assert.LessOrEqual(t, len(reportPrecursor), maxResponseSize,
+		"StateTransition response size %d exceeds 512KB limit", len(reportPrecursor))
 }
 
 func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {

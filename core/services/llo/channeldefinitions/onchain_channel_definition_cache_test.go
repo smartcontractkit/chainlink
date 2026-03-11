@@ -1096,6 +1096,106 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 			require.Contains(t, currentDefinitions, llotypes.ChannelID(2))
 			require.True(t, currentDefinitions[2].Tombstone, "channel 2 should be tombstoned")
 		})
+
+		t.Run("owner drops tombstoned channels omitted from new definitions", func(t *testing.T) {
+			feedID1 := common.HexToHash("0x1111111111111111111111111111111111111111111111111111111111111111")
+			feedID2 := common.HexToHash("0x2222222222222222222222222222222222222222222222222222222222222222")
+			feedID3 := common.HexToHash("0x3333333333333333333333333333333333333333333333333333333333333333")
+
+			currentDefinitions := llotypes.ChannelDefinitions{
+				1: makeChannelDefinitionWithFeedID(1, SourceOwner, feedID1),
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+					Opts:         []byte(fmt.Sprintf(`{"feedId":"%s"}`, feedID2.Hex())),
+					Source:       SourceOwner,
+					Tombstone:    true,
+				},
+				3: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams:      []llotypes.Stream{{StreamID: 3, Aggregator: llotypes.AggregatorMedian}},
+					Opts:         []byte(fmt.Sprintf(`{"feedId":"%s"}`, feedID3.Hex())),
+					Source:       SourceOwner,
+					Tombstone:    true,
+				},
+			}
+
+			// Owner omits tombstoned channels 2 and 3, keeps channel 1
+			newDefinitions := llotypes.ChannelDefinitions{
+				1: makeChannelDefinitionWithFeedID(1, SourceOwner, feedID1),
+			}
+
+			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
+			require.Contains(t, feedIDToChannelID, feedID2)
+			require.Contains(t, feedIDToChannelID, feedID3)
+
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
+
+			require.Len(t, currentDefinitions, 1)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(2), "tombstoned channel 2 should be dropped")
+			require.NotContains(t, currentDefinitions, llotypes.ChannelID(3), "tombstoned channel 3 should be dropped")
+
+			require.NotContains(t, feedIDToChannelID, feedID2, "feedID for dropped channel 2 should be removed")
+			require.NotContains(t, feedIDToChannelID, feedID3, "feedID for dropped channel 3 should be removed")
+			require.Contains(t, feedIDToChannelID, feedID1, "feedID for kept channel 1 should remain")
+		})
+
+		t.Run("owner keeps tombstoned channels still present in new definitions", func(t *testing.T) {
+			currentDefinitions := llotypes.ChannelDefinitions{
+				1: makeChannelDefinition(1, SourceOwner),
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+					Source:       SourceOwner,
+					Tombstone:    true,
+				},
+			}
+
+			// Owner still includes tombstoned channel 2 in newDefinitions
+			newDefinitions := llotypes.ChannelDefinitions{
+				1: makeChannelDefinition(1, SourceOwner),
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+					Source:       SourceOwner,
+					Tombstone:    true,
+				},
+			}
+
+			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
+			cdc.mergeDefinitions(SourceOwner, currentDefinitions, newDefinitions, feedIDToChannelID)
+
+			require.Len(t, currentDefinitions, 2)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(1))
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2), "tombstoned channel 2 should be kept when present in newDefinitions")
+			require.True(t, currentDefinitions[2].Tombstone)
+		})
+
+		t.Run("non-owner source does not drop tombstoned channels", func(t *testing.T) {
+			adderID := uint32(400)
+
+			currentDefinitions := llotypes.ChannelDefinitions{
+				1: makeChannelDefinition(1, SourceOwner),
+				2: {
+					ReportFormat: llotypes.ReportFormatJSON,
+					Streams:      []llotypes.Stream{{StreamID: 2, Aggregator: llotypes.AggregatorMedian}},
+					Source:       SourceOwner,
+					Tombstone:    true,
+				},
+			}
+
+			newDefinitions := llotypes.ChannelDefinitions{
+				3: makeChannelDefinition(3, adderID),
+			}
+
+			feedIDToChannelID := buildFeedIDMap(currentDefinitions)
+			cdc.mergeDefinitions(adderID, currentDefinitions, newDefinitions, feedIDToChannelID)
+
+			require.Len(t, currentDefinitions, 3)
+			require.Contains(t, currentDefinitions, llotypes.ChannelID(2), "tombstoned channel should not be dropped by non-owner source")
+			require.True(t, currentDefinitions[2].Tombstone)
+		})
 	})
 
 	t.Run("feedID uniqueness", func(t *testing.T) {

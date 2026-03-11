@@ -470,6 +470,7 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
+	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
