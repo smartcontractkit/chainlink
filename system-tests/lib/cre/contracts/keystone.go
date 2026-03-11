@@ -150,7 +150,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		return fmt.Errorf("failed to get node info: %w", err)
 	}
 
-	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil)
+	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
