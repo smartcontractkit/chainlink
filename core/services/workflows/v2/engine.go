@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -889,6 +891,19 @@ func (e *Engine) close() error {
 	}
 
 	e.cfg.Module.Close()
+
+	if e.cfg.LocalLimiters != nil {
+		if err := e.cfg.LocalLimiters.EvictWorkflow(e.cfg.WorkflowID); err != nil {
+			e.logger().Errorw("Failed to evict workflow from scoped limiters", "err", err)
+		}
+	}
+
+	// Encourage the Go runtime to release memory back to the OS after tearing
+	// down the WASM module and execution state.  Without this, freed heap pages
+	// stay resident (MADV_FREE) and CGo/wasmtime freed pages remain in the C
+	// allocator's free-list, so RSS never drops even though the memory is unused.
+	runtime.GC()
+	debug.FreeOSMemory()
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)

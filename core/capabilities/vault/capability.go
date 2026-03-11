@@ -70,6 +70,10 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
+	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
+	}
+
 	return err
 }
 

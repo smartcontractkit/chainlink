@@ -50,6 +50,7 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	storageService := mocks.NewWorkflowClient(t)

@@ -60,6 +60,11 @@ func TestLoad(t *testing.T) {
 		},
 	}
 
+	t.Cleanup(func() {
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
+	})
+
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			start := time.Now()
@@ -162,11 +167,11 @@ func TestLoad(t *testing.T) {
 			consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
 			require.NoError(t, err, "Error getting consumer abi")
 
-			var bytes0 = [32]byte{
+			bytes0 := [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			}
 
-			var bytes1 = [32]byte{
+			bytes1 := [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 			}
 
@@ -351,9 +356,7 @@ func TestLoad(t *testing.T) {
 					}
 					err = errors.New("initial error") // to ensure our for loop runs at least once
 					for err != nil {
-						var (
-							logsInBatch []types.Log
-						)
+						var logsInBatch []types.Log
 						ctx2, cancel := context.WithTimeout(t.Context(), timeout)
 						logsInBatch, err = a.ChainClient.Client.FilterLogs(ctx2, filterQuery)
 						cancel()
@@ -416,9 +419,7 @@ func TestLoad(t *testing.T) {
 					}
 					err = errors.New("initial error") // to ensure our for loop runs at least once
 					for err != nil {
-						var (
-							logsInBatch []types.Log
-						)
+						var logsInBatch []types.Log
 						ctx2, cancel := context.WithTimeout(t.Context(), timeout)
 						logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
 						cancel()

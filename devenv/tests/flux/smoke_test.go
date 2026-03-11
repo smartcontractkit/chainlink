@@ -43,7 +43,7 @@ func TestSmoke(t *testing.T) {
 	require.NoError(t, err)
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		lrd, err := fluxAggregatorWrapper.LatestRoundData(&bind.CallOpts{})
-		require.NoError(c, err)
-		require.Equal(c, int64(200), lrd.Answer.Int64())
+		assert.NoError(c, err)
+		assert.Equal(c, int64(200), lrd.Answer.Int64())
 	}, 2*time.Minute, 2*time.Second)
 }

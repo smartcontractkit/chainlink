@@ -255,25 +255,31 @@ func (e *evmService) SubmitTransaction(ctx context.Context, txRequest evm.Submit
 
 	retryContext, cancel := context.WithTimeout(ctx, maximumWaitTimeForConfirmation)
 	defer cancel()
+	var lastStatusErr error
 	txStatus, err := retry.Do(retryContext, e.logger, func(ctx context.Context) (evm.TransactionStatus, error) {
 		txStatus, txStatusErr := e.chain.TxManager().GetTransactionStatus(ctx, txID)
-		if txStatusErr != nil {
-			return evm.TxFatal, txStatusErr
+		if txStatusErr != nil && !errors.Is(txStatusErr, context.DeadlineExceeded) {
+			lastStatusErr = fmt.Errorf("failed to get transaction status for txID: %s err: %w", txID, txStatusErr)
+			return evm.TxFatal, lastStatusErr
 		}
+
 		switch txStatus {
 		case commontypes.Fatal, commontypes.Failed:
 			return evm.TxFatal, nil
 		case commontypes.Unconfirmed, commontypes.Finalized:
 			return evm.TxSuccess, nil
 		case commontypes.Pending, commontypes.Unknown:
-			return evm.TxFatal, fmt.Errorf("tx still in state pending or unknown, tx status is %d for tx with ID %s", txStatus, txID)
+			lastStatusErr = fmt.Errorf("tx still in state pending or unknown, tx status is %d for tx with ID %s", txStatus, txID)
+			return evm.TxFatal, lastStatusErr
 		default:
-			return evm.TxFatal, fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
+			lastStatusErr = fmt.Errorf("unexpected transaction status %d for tx with ID %s", txStatus, txID)
+			return evm.TxFatal, lastStatusErr
 		}
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("failed getting transaction status. %w", err)
+		e.logger.Warnw("Failed getting transaction status", "txID", txID, "lastErr", lastStatusErr, "retryErr", err)
+		return &evm.TransactionResult{TxStatus: evm.TxFatal, TxIdempotencyKey: txID}, fmt.Errorf("last err: %w retry err: %w", lastStatusErr, err)
 	}
 
 	if txStatus == evm.TxFatal {

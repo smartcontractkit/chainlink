@@ -1,0 +1,31 @@
+name: (Nightly) CL Cluster Node Version Compatibility
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Run daily at 6 AM
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  # CREcluster compatibility and upgrade test
+  # TODO
+  
+  # Data Feeds v1 cluster compatibility and upgrade test
+  df1-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    with:
+      buildcmd: "just cli"
+      envcmd: "cl u env.toml,products/ocr2/basic.toml"
+      testcmd: "cl test ocr2 TestSmoke/rounds"
+      nodes: "3"
+      node-name-template: "don-node%d"
+      versions-back: "2"
+      working-directory: "devenv"
+      logs-directory: "./devenv/tests/ocr2/logs"
+      ctf-log-level: "debug"
+      strip-image-suffix: "v"
+    secrets: inherit
