@@ -1745,6 +1745,73 @@ go run . env start --with-beholder
 go run . env beholder start
 ```
 
+### OTel Tracing Configuration
+
+To enable OpenTelemetry (OTel) tracing for workflow engines and see traces in Tempo/Grafana, **multiple configuration toggles must be set**:
+
+| Toggle | Location | Required Value | Purpose |
+|--------|----------|----------------|---------|
+| `Tracing.Enabled` | Node TOML | `true` | **Required.** Gates trace export; without this, no traces are exported even when `Telemetry.Enabled` is true |
+| `Tracing.CollectorTarget` | Node TOML | e.g., `host.docker.internal:4318` | OTLP endpoint for trace export. Must differ from `Telemetry.Endpoint` when both [Tracing] and [Telemetry] are enabled |
+| `Tracing.SamplingRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate for the span exporter (0 = no traces, 1 = 100%) |
+| `Telemetry.Enabled` | Node TOML | `true` | Enables the OTel/beholder exporter |
+| `Telemetry.TraceSampleRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate used by the beholder client (0 = no traces, 1 = 100%) |
+| `CRE.DebugMode` | Node TOML | `true` | Enables detailed tracing in workflow engines and syncer |
+| `OTEL_SERVICE_NAME` | Environment variable | e.g., `chainlink-node` | Sets the service name for traces in Tempo |
+| `Pyroscope.LinkTracesToProfiles` | Node TOML | `true` | Enables traces-to-profiles linking in Grafana (requires Pyroscope) |
+
+**Sampling ratios:** When both [Tracing] and [Telemetry] are enabled, `Tracing.SamplingRatio` controls the span exporter and `Telemetry.TraceSampleRatio` is used by the beholder client. Set both to the same value (e.g., `1.0`) for consistent trace capture.
+
+**Example TOML configuration:**
+
+```toml
+[Tracing]
+Enabled = true
+CollectorTarget = 'host.docker.internal:4318'  # Must differ from Telemetry.Endpoint when both enabled
+SamplingRatio = 1.0  # 100% sampling - adjust for production
+Mode = 'unencrypted'  # Use for local dev; use 'tls' in production
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'  # Must differ from Tracing.CollectorTarget
+InsecureConnection = true
+TraceSampleRatio = 1.0  # 100% sampling - adjust for production
+
+[CRE]
+DebugMode = true  # WARNING: Not suitable for production due to overhead
+
+[Pyroscope]
+ServerAddress = 'http://host.docker.internal:4040'
+LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
+```
+
+**Note:** When both [Tracing] and [Telemetry] are enabled, config validation requires `Tracing.CollectorTarget` and `Telemetry.Endpoint` to be different. For a single OTel collector, use different ports (e.g., gRPC on 4317, HTTP on 4318) if your collector exposes both.
+
+**Example environment variable (in nodeset config):**
+
+```toml
+[[nodesets]]
+  env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+```
+
+**Common issues:**
+
+| Symptom | Likely Cause |
+|---------|--------------|
+| No traces at all | `Tracing.Enabled = false`, `Telemetry.Enabled = false`, or sampling ratios set to `0` |
+| No workflow engine traces | `CRE.DebugMode = false` |
+| Traces show `unknown_service:chainlink` | Missing `OTEL_SERVICE_NAME` env var |
+| Traces not exported | Telemetry endpoint unreachable (check `go run . obs up -f `) |
+| No traces-to-profiles link in Grafana | `Pyroscope.LinkTracesToProfiles = false` or Pyroscope not running |
+
+**Important notes:**
+
+- `CRE.DebugMode` adds performance overhead and should only be enabled during development/debugging, not in production environments.
+- **Tracing is only implemented for V2 components:**
+  - **V2 Syncer**: Only used when workflow registry contracts are v2.x. If you're using v1.x contracts, the V1 syncer is used and has no tracing.
+  - **V2 Engine (NoDAG)**: Only used by V2/NoDAG workflows. V1/DAG workflows use the V1 engine which has no tracing.
+- To use tracing, ensure your environment is configured with **v2 workflow registry contracts** and you're deploying **V2 workflows**.
+
 ### Expected Error Messages
 
 If these telemetry services are not running, you will see frequent "expected" error messages in the logs due to connection failures:
