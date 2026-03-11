@@ -138,7 +138,9 @@ func doDisableRemoteChain(
 		fqDestChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
 		offRampSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, s.SolChains[chainSel].OffRamp)
 
-		solFeeQuoter.SetProgramID(feeQuoterID)
+		runSafely(func() {
+			solFeeQuoter.SetProgramID(feeQuoterID)
+		})
 		authority := GetAuthorityForIxn(
 			&e,
 			chain,
@@ -166,7 +168,9 @@ func doDisableRemoteChain(
 			ixns = append(ixns, feeQuoterIx)
 		}
 
-		solOffRamp.SetProgramID(offRampID)
+		runSafely(func() {
+			solOffRamp.SetProgramID(offRampID)
+		})
 		authority = GetAuthorityForIxn(
 			&e,
 			chain,

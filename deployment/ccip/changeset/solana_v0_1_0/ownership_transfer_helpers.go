@@ -41,12 +41,12 @@ type AcceptOwnershipFn func(
 func transferAndWrapAcceptOwnership(
 	buildTransfer TransferOwnershipFn,
 	buildAccept AcceptOwnershipFn,
-	programID solana.PublicKey,      // e.g. token_pool program or router program
-	proposedOwner solana.PublicKey,  // e.g. usually, the timelock signer PDA
-	configPDA solana.PublicKey,      // e.g. for routerConfigPDA or a token-pool config
-	currentOwner solana.PublicKey,   // the “from” authority
-	solChain cldf_solana.Chain,      // used for solChain.Confirm
-	label cldf.ContractType,         // e.g. "Router" or "TokenPool"
+	programID solana.PublicKey, // e.g. token_pool program or router program
+	proposedOwner solana.PublicKey, // e.g. usually, the timelock signer PDA
+	configPDA solana.PublicKey, // e.g. for routerConfigPDA or a token-pool config
+	currentOwner solana.PublicKey, // the “from” authority
+	solChain cldf_solana.Chain, // used for solChain.Confirm
+	label cldf.ContractType, // e.g. "Router" or "TokenPool"
 	timelockSigner solana.PublicKey, // the timelock signer PDA
 ) (mcmsTypes.Transaction, error) {
 	// 1. Build the instruction that transfers ownership to the timelock
