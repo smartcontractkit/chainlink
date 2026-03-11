@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"slices"
 	"testing"
 	"time"
 
@@ -268,23 +269,35 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 }
 
 // connectTriggerDB connects to the Postgres database where BaseTrigger persists
-// pending events. Which database that is depends on the topology:
-//   - Local trigger:  EVM capability exists on the workflow DON → port 13000
-//   - Remote trigger: EVM capability only on a capabilities DON → port 13100
-//
-// Local takes precedence: the capabilities launcher skips remote capabilities
-// that already exist in the local registry (ErrCapabilityAlreadyExists).
-func connectTriggerDB(t *testing.T, dons *cre.Dons) *sql.DB {
+// pending events for the given chainID. Which database that is depends on
+// which DON owns the evm-{chainID} capability.
+func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sql.DB {
 	t.Helper()
 
-	port := 13100 // capabilities node DB (remote trigger, fallback)
-	label := "Capabilities"
+	var port int
+	var label string
+	evmFlag := "evm-" + chainID
 
-	wfDON := dons.MustWorkflowDON()
-	if wfDON.HasFlag(cre.EVMCapability) {
-		port = 13000
-		label = "Workflow"
+	// Check workflow NodeSet first (local takes precedence).
+	for _, ns := range nodeSets {
+		if slices.Contains(ns.DONTypes, string(cre.WorkflowDON)) && slices.Contains(ns.Capabilities, evmFlag) {
+			port = ns.DbInput.Port
+			label = ns.Name
+			break
+		}
 	}
+
+	// Fall back to any NodeSet that has the capability (e.g. capabilities DON).
+	if port == 0 {
+		for _, ns := range nodeSets {
+			if slices.Contains(ns.Capabilities, evmFlag) {
+				port = ns.DbInput.Port
+				label = ns.Name
+				break
+			}
+		}
+	}
+	require.NotZerof(t, port, "no NodeSet found with evm-%s capability", chainID)
 
 	dsn := fmt.Sprintf(
 		"host=localhost port=%d user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable",
@@ -293,7 +306,8 @@ func connectTriggerDB(t *testing.T, dons *cre.Dons) *sql.DB {
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
-	t.Logf("connected to %s node DB (port %d) for trigger event tracking", label, port)
+	t.Logf("connected to %s node DB (port %d) for trigger event tracking on chain %s", label, port, chainID)
+	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
 
@@ -341,10 +355,10 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		chainsToTest[chainID] = bcOutput
 	}
 
-	triggerDB := connectTriggerDB(t, testEnv.Dons)
-
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
+		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
+
 		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
 		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
 		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
@@ -356,7 +370,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		message := "Data for log trigger"
+		message := fmt.Sprintf("Data for log trigger chain %s", chainID)
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
