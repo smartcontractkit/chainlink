@@ -19,8 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptosread/config"
 )
 
-// Fully-qualified generic Aptos view function for coin name.
-const coinNameReadID = "0x1::coin::name<0x1::aptos_coin::AptosCoin>"
+var aptosCoinTypeTag = &aptos.TypeTag{
+	Kind: aptos.TypeTagKind_TYPE_TAG_KIND_STRUCT,
+	Value: &aptos.TypeTag_Struct{
+		Struct: &aptos.StructTag{
+			Address: []byte{0x1},
+			Module:  "aptos_coin",
+			Name:    "AptosCoin",
+		},
+	},
+}
 
 func main() {
 	wasm.NewRunner(func(b []byte) (config.Config, error) {
@@ -52,8 +60,14 @@ func onAptosReadTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.Pa
 
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
 	reply, err := client.View(runtime, &aptos.ViewRequest{
-		Function:  coinNameReadID,
-		Arguments: nil,
+		Payload: &aptos.ViewPayload{
+			Module: &aptos.ModuleID{
+				Address: []byte{0x1},
+				Name:    "coin",
+			},
+			Function: "name",
+			ArgTypes: []*aptos.TypeTag{aptosCoinTypeTag},
+		},
 	}).Await()
 	if err != nil {
 		msg := fmt.Sprintf("Aptos read failed: View error: %v", err)
