@@ -521,6 +521,11 @@ func TestShell_BeforeNode(t *testing.T) {
 		{"wrong file", "doesntexist.txt", false},
 	}
 
+	// forces txdb to be used.
+	// app.Before(c), loads a default config and ignores the config we create
+	// This sets the driver to pgx, instead of txdb, which causes db leakage across tests.
+	t.Setenv("CL_FORCE_TXDB", "true")
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
