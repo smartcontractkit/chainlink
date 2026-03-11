@@ -397,3 +397,102 @@ func getCreateLogDiscriminator() [8]byte {
 	copy(discriminator[:], hash[:8])
 	return discriminator
 }
+
+func getCreateLogCpiDiscriminator() [8]byte {
+	hash := sha256.Sum256([]byte("global:create_log_cpi"))
+	var discriminator [8]byte
+	copy(discriminator[:], hash[:8])
+	return discriminator
+}
+
+func triggerLogReadTestCPIEvent(ctx context.Context, solChain *solana.Blockchain, programID solgo.PublicKey, value uint64) (slot uint64, err error) {
+	eventAuthority, _, err := solgo.FindProgramAddress([][]byte{[]byte("__event_authority")}, programID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to derive event authority PDA: %w", err)
+	}
+
+	discriminator := getCreateLogCpiDiscriminator()
+	var instructionData []byte
+	instructionData = append(instructionData, discriminator[:]...)
+	valueBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(valueBytes, value)
+	instructionData = append(instructionData, valueBytes...)
+
+	instruction := solgo.NewInstruction(
+		programID,
+		solgo.AccountMetaSlice{
+			{PublicKey: solChain.PrivateKey.PublicKey(), IsSigner: true, IsWritable: true},
+			{PublicKey: solgo.SystemProgramID, IsSigner: false, IsWritable: false},
+			{PublicKey: eventAuthority, IsSigner: false, IsWritable: false},
+			{PublicKey: programID, IsSigner: false, IsWritable: false},
+		},
+		instructionData,
+	)
+
+	result, err := solCommonUtil.SendAndConfirm(
+		ctx,
+		solChain.SolClient,
+		[]solgo.Instruction{instruction},
+		solChain.PrivateKey,
+		rpc.CommitmentConfirmed,
+	)
+	if result != nil {
+		slot = result.Slot
+	}
+	if err != nil {
+		return slot, fmt.Errorf("failed to send create_log_cpi transaction: %w", err)
+	}
+	tx, err := result.Transaction.GetTransaction()
+	if err != nil {
+		return slot, fmt.Errorf("failed to get transaction: %w", err)
+	}
+	fmt.Println("tx signature: ", tx.Signatures[0].String())
+	return slot, nil
+}
+
+func ExecuteSolanaLogTriggerCPITest(t *testing.T, tenv *configuration.TestEnvironment) {
+	bcs := tenv.CreEnvironment.Blockchains
+	testLogger := tenv.Logger
+
+	var solChain *solana.Blockchain
+	for _, w := range bcs {
+		if !w.IsFamily(chainselectors.FamilySolana) {
+			continue
+		}
+		require.IsType(t, &solana.Blockchain{}, w, "expected Solana blockchain type")
+		solChain = w.(*solana.Blockchain)
+		break
+	}
+	require.NotNil(t, solChain, "Solana blockchain not found in test environment")
+
+	logReadTestProgramID := solgo.MustPublicKeyFromBase58("J1zQwrBNBngz26jRPNWsUSZMHJwBwpkoDitXRV95LdK4")
+	const expectedU64Value uint64 = 99
+
+	workflowName := fmt.Sprintf("sol-logtrigger-cpi-wf--%04d", 5678)
+	var workflowConfig logtrigger_config.Config
+	workflowConfig.LogReadTestProgramID = logReadTestProgramID
+	workflowConfig.ExpectedU64Value = expectedU64Value
+
+	const workflowFileLocation = "./solana/sollogtrigger/main.go"
+
+	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, tenv)
+
+	t_helpers.CompileAndDeployWorkflow(t,
+		tenv, testLogger, workflowName, &workflowConfig,
+		workflowFileLocation)
+
+	workflowInitMessage := "RunSolLogTriggerWorkflow called"
+	err := t_helpers.AssertBeholderMessage(listenerCtx, t, workflowInitMessage, testLogger, messageChan, kafkaErrChan, 2*time.Minute)
+	require.NoError(t, err, "Workflow should have initialized")
+
+	slot, err := triggerLogReadTestCPIEvent(t.Context(), solChain, logReadTestProgramID, expectedU64Value)
+	require.NoError(t, err, "failed to trigger log_read_test CPI event")
+
+	t.Logf("Log read test CPI event triggered at slot: %d", slot)
+
+	timeout := 5 * time.Minute
+	expectedLogTriggerMessage := "TestEvent CPI received!"
+
+	err = t_helpers.AssertBeholderMessage(listenerCtx, t, expectedLogTriggerMessage, testLogger, messageChan, kafkaErrChan, timeout)
+	require.NoError(t, err, "Log trigger should have received TestEvent via CPI")
+}

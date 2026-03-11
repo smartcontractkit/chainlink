@@ -212,6 +212,7 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	})
 	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
+		ExecuteSolanaLogTriggerCPITest(t, testEnv)
 	})
 }
 
