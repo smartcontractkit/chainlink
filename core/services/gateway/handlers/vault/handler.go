@@ -252,7 +252,10 @@ func (h *handler) Close() error {
 	return h.StopOnce("VaultHandler", func() error {
 		h.lggr.Info("closing vault handler")
 		close(h.stopCh)
-		return nil
+		return errors.Join(
+			h.writeMethodsEnabled.Close(),
+			h.MaxRequestBatchSizeLimiter.Close(),
+		)
 	})
 }
 
