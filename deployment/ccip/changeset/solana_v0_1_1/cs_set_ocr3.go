@@ -237,3 +237,16 @@ func isOCR3ConfigSetOnOffRampSolana(
 	}
 	return true, nil
 }
+
+func runSafely(ops ...func()) {
+	for _, op := range ops {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+				}
+			}()
+			op()
+		}()
+	}
+}
