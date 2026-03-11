@@ -17,6 +17,7 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -266,92 +267,51 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 	}, msgEmitter
 }
 
-func connectCapabilitiesDB(t *testing.T) *sql.DB {
-	// TODO: Only if the TOPOLOGY is a remote trigger
-	// TODO: For local trigger, we should watch the db in wf node
+// connectTriggerDB connects to the Postgres database where BaseTrigger persists
+// pending events. Which database that is depends on the topology:
+//   - Local trigger:  EVM capability exists on the workflow DON → port 13000
+//   - Remote trigger: EVM capability only on a capabilities DON → port 13100
+//
+// Local takes precedence: the capabilities launcher skips remote capabilities
+// that already exist in the local registry (ErrCapabilityAlreadyExists).
+func connectTriggerDB(t *testing.T, dons *cre.Dons) *sql.DB {
 	t.Helper()
-	db, err := sql.Open(
-		"postgres",
-		"host=localhost port=13100 user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable")
+
+	port := 13100 // capabilities node DB (remote trigger, fallback)
+	label := "Capabilities"
+
+	wfDON := dons.MustWorkflowDON()
+	if wfDON.HasFlag(cre.EVMCapability) {
+		port = 13000
+		label = "Workflow"
+	}
+
+	dsn := fmt.Sprintf(
+		"host=localhost port=%d user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable",
+		port,
+	)
+	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
-	t.Log("connected to Capabilities db")
+	t.Logf("connected to %s node DB (port %d) for trigger event tracking", label, port)
 	return db
 }
 
-// trackedEvent holds the identity of a specific event row we are tracking through
-// its insert → ACK → delete lifecycle.
-type trackedEvent struct {
-	TriggerID string
-	EventID   string
+type tableStats struct {
+	inserts int64
+	deletes int64
 }
 
-// watchTriggerLifecycle polls the trigger_pending_events table until it spots a
-// newly inserted row, records that row's (trigger_id, event_id), and then waits
-// for that specific row to be deleted (i.e. ACKed by BaseTrigger).
-func watchTriggerLifecycle(
-	ctx context.Context,
-	db *sql.DB,
-	pollInterval time.Duration,
-) (<-chan trackedEvent, <-chan trackedEvent, <-chan error) {
-	insertedCh := make(chan trackedEvent, 1)
-	deletedCh := make(chan trackedEvent, 1)
-	errCh := make(chan error, 1)
-
-	go func() {
-		defer close(insertedCh)
-		defer close(deletedCh)
-		defer close(errCh)
-
-		var tracked *trackedEvent
-
-		ticker := time.NewTicker(pollInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if tracked == nil {
-					var triggerID, eventID string
-					err := db.QueryRowContext(ctx,
-						`SELECT trigger_id, event_id FROM cre.trigger_pending_events ORDER BY first_at ASC LIMIT 1`,
-					).Scan(&triggerID, &eventID)
-					if err == sql.ErrNoRows {
-						continue
-					}
-					if err != nil {
-						errCh <- fmt.Errorf("polling for insert: %w", err)
-						return
-					}
-
-					tracked = &trackedEvent{TriggerID: triggerID, EventID: eventID}
-					fmt.Printf("SEEN INSERTED trigger_id=%s event_id=%s\n", triggerID, eventID)
-					insertedCh <- *tracked
-					continue
-				}
-
-				var exists bool
-				err := db.QueryRowContext(ctx,
-					`SELECT EXISTS(SELECT 1 FROM cre.trigger_pending_events WHERE trigger_id = $1 AND event_id = $2)`,
-					tracked.TriggerID, tracked.EventID,
-				).Scan(&exists)
-				if err != nil {
-					errCh <- fmt.Errorf("polling for delete: %w", err)
-					return
-				}
-
-				if !exists {
-					fmt.Printf("SEEN DELETED trigger_id=%s event_id=%s\n", tracked.TriggerID, tracked.EventID)
-					deletedCh <- *tracked
-					return
-				}
-			}
-		}
-	}()
-
-	return insertedCh, deletedCh, errCh
+// snapshotTriggerStats returns the current cumulative insert/delete counts for
+// the trigger_pending_events table from pg_stat_user_tables.
+func snapshotTriggerStats(ctx context.Context, db *sql.DB) (tableStats, error) {
+	var s tableStats
+	err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(n_tup_ins,0), COALESCE(n_tup_del,0)
+		   FROM pg_stat_user_tables
+		  WHERE relname = 'trigger_pending_events'`,
+	).Scan(&s.inserts, &s.deletes)
+	return s, err
 }
 
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -381,11 +341,11 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		chainsToTest[chainID] = bcOutput
 	}
 
-	capDB := connectCapabilitiesDB(t)
-	_, err := capDB.ExecContext(t.Context(), `DELETE FROM cre.trigger_pending_events`)
-	require.NoError(t, err, "failed to clean trigger_pending_events before test")
+	capDB := connectTriggerDB(t, testEnv.Dons)
 
-	insertedCh, deletedCh, errCh := watchTriggerLifecycle(t.Context(), capDB, 50*time.Millisecond)
+	baselineStats, err := snapshotTriggerStats(t.Context(), capDB)
+	require.NoError(t, err, "failed to snapshot trigger_pending_events stats")
+	t.Logf("baseline trigger_pending_events stats: inserts=%d deletes=%d", baselineStats.inserts, baselineStats.deletes)
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
@@ -425,39 +385,21 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
 		emitCancelFn()
 
-		// Verify base trigger persists trigger event
+		// Verify BaseTrigger persisted events and processed ACKs by checking
+		// cumulative insert/delete counters in pg_stat_user_tables. This works
+		// for both local triggers (where ACK is near-instant) and remote
+		// triggers (where there's a network round-trip).
 		require.Eventually(t, func() bool {
-			select {
-			case err := <-errCh:
-				require.NoError(t, err)
-				return false
-			case ev, ok := <-insertedCh:
-				if !ok {
-					return false
-				}
-				t.Logf("event inserted into trigger_pending_events (trigger_id=%s, event_id=%s)", ev.TriggerID, ev.EventID)
-				return true
-			default:
+			cur, sErr := snapshotTriggerStats(t.Context(), capDB)
+			if sErr != nil {
+				t.Logf("stats query error: %v", sErr)
 				return false
 			}
-		}, 30*time.Second, time.Second, "event was never inserted")
-
-		// Verify ACK occurs on base trigger via deletion of the tracked event
-		require.Eventually(t, func() bool {
-			select {
-			case err := <-errCh:
-				require.NoError(t, err)
-				return false
-			case ev, ok := <-deletedCh:
-				if !ok {
-					return false
-				}
-				t.Logf("event deleted from trigger_pending_events (trigger_id=%s, event_id=%s)", ev.TriggerID, ev.EventID)
-				return true
-			default:
-				return false
-			}
-		}, 2*time.Minute, time.Second, "tracked event was never deleted (ACK did not occur)")
+			newInserts := cur.inserts - baselineStats.inserts
+			newDeletes := cur.deletes - baselineStats.deletes
+			t.Logf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
+			return newInserts > 0 && newDeletes > 0
+		}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
