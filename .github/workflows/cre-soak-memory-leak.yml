@@ -12,11 +12,6 @@ on:
         description: "Chainlink image tag to use"
         required: true
         type: string
-      chainlink_version:
-        description: "Git ref / branch to check out"
-        required: false
-        type: string
-        default: "develop"
   workflow_call:
     inputs:
       ecr_name:
@@ -26,10 +21,6 @@ on:
       chainlink_image_tag:
         required: true
         type: string
-      chainlink_version:
-        required: true
-        type: string
-        default: "develop"
 
 jobs:
   soak:
@@ -56,7 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.chainlink_version || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Go
