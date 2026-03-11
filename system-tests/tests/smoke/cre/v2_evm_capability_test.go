@@ -267,6 +267,8 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 }
 
 func connectCapabilitiesDB(t *testing.T) *sql.DB {
+	// TODO: Only if the TOPOLOGY is a remote trigger
+	// TODO: For local trigger, we should watch the db in wf node
 	t.Helper()
 	db, err := sql.Open(
 		"postgres",
@@ -380,13 +382,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 
 	capDB := connectCapabilitiesDB(t)
-	//defer require.NoError(t, capDB.Close())
-
 	_, err := capDB.ExecContext(t.Context(), `DELETE FROM cre.trigger_pending_events`)
 	require.NoError(t, err, "failed to clean trigger_pending_events before test")
 
-	// TODO: Only if the TOPOLOGY is a remote trigger
-	// TODO: For local trigger, we should watch the db in wf node
 	insertedCh, deletedCh, errCh := watchTriggerLifecycle(t.Context(), capDB, 50*time.Millisecond)
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
