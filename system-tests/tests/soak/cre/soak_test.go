@@ -44,6 +44,13 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 		t_helpers.GetDefaultTestConfig(t),
 	)
 
+	t.Cleanup(func() {
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
+	})
+
 	// ── Phase 1: Single shared price provider ──────────────────────────────────
 	// IMPORTANT: must be called once for ALL feed IDs before any workflow is
 	// registered.  Subsequent calls to setupFakeDataProvider would overwrite the

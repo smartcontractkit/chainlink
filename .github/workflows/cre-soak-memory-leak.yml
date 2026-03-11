@@ -141,16 +141,6 @@ jobs:
           path: alloc.pprof
           retention-days: 7
 
-      - name: Save Docker logs on failure
-        if: failure()
-        shell: bash
-        working-directory: system-tests/tests/soak/cre
-        run: |
-          mkdir -p logs
-          for c in $(docker ps -a --format '{{.Names}}'); do
-            docker logs "$c" > "logs/${c}.log" 2>&1
-          done
-
       - name: Upload Docker logs
         if: failure()
         uses: actions/upload-artifact@v4
