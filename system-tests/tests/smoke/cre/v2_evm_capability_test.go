@@ -341,14 +341,14 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		chainsToTest[chainID] = bcOutput
 	}
 
-	capDB := connectTriggerDB(t, testEnv.Dons)
-
-	baselineStats, err := snapshotTriggerStats(t.Context(), capDB)
-	require.NoError(t, err, "failed to snapshot trigger_pending_events stats")
-	t.Logf("baseline trigger_pending_events stats: inserts=%d deletes=%d", baselineStats.inserts, baselineStats.deletes)
+	triggerDB := connectTriggerDB(t, testEnv.Dons)
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
+		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
+		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
+		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
+
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
 
@@ -390,7 +390,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		// for both local triggers (where ACK is near-instant) and remote
 		// triggers (where there's a network round-trip).
 		require.Eventually(t, func() bool {
-			cur, sErr := snapshotTriggerStats(t.Context(), capDB)
+			cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
 			if sErr != nil {
 				t.Logf("stats query error: %v", sErr)
 				return false
