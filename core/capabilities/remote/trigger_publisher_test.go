@@ -242,7 +242,7 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 
 	dispatcher := mocks.NewDispatcher(t)
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationRefresh:     time.Hour,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
@@ -351,7 +351,7 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 
 	dispatcher := mocks.NewDispatcher(t)
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationRefresh:     time.Hour,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
@@ -441,7 +441,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	dispatcher := mocks.NewDispatcher(t)
 
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationRefresh:     time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 		MaxBatchSize:            1,

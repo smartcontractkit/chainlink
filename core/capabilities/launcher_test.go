@@ -336,7 +336,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 	dispatcher.On("Ready").Return(nil).Maybe()
-	awaitRegistrationMessageCh := make(chan struct{})
+	awaitRegistrationMessageCh := make(chan struct{}, 1)
 	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		select {
 		case awaitRegistrationMessageCh <- struct{}{}:

@@ -35,6 +35,7 @@ func TestTriggerSubscriber_RegisterAndReceive(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// register trigger
 	config := &commoncap.RemoteTriggerConfig{
@@ -76,6 +77,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	// register trigger
 	config := &commoncap.RemoteTriggerConfig{
@@ -198,6 +200,7 @@ func TestTriggerSubscriber_MultipleTriggersSameWorkflow(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -269,6 +272,7 @@ func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -310,6 +314,7 @@ func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 1, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -370,9 +375,8 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 
 	newSubscriber := func(t *testing.T) (subscriberSvc, *remoteMocks.Dispatcher) {
 		dispatcher := remoteMocks.NewDispatcher(t)
+		dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
-		// Set RegistrationRefresh very large so the background registrationLoop
-		// doesn't interfere with this test's expectations.
 		cfg := &commoncap.RemoteTriggerConfig{
 			RegistrationRefresh:     time.Hour,
 			MinResponsesToAggregate: 1,
@@ -439,11 +443,12 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
-				return m.Method == c.expectMethod
-			})).Return(nil).Once()
+			// Reset call tracking so we only inspect calls made after this point.
+			dispatcher.Calls = nil
 			sub.Receive(t.Context(), buildCheckMsg(trigID))
-			dispatcher.AssertExpectations(t)
+			dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+				return m.Method == c.expectMethod
+			}))
 		})
 	}
 }

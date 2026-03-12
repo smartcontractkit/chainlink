@@ -173,8 +173,9 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		return nil, errors.New("config not set - call SetConfig() first")
 	}
 
+	var callbackCh chan commoncap.TriggerResponse
+
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.lggr.Infow("RegisterTrigger called", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	triggerMap, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
@@ -192,8 +193,14 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
+	callbackCh = regState.callback
+	s.mu.Unlock()
 
-	return regState.callback, nil
+	// Send the initial registration to the publisher so it knows about this trigger.
+	// Subsequent re-registrations are handled reactively via MethodTriggerRegistrationCheck.
+	s.resendRegistration(request.Metadata.WorkflowID, request.TriggerID)
+
+	return callbackCh, nil
 }
 
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
@@ -319,6 +326,10 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 }
 
 func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
+	if s.dispatcher == nil {
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -343,6 +354,10 @@ func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
 }
 
 func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
+	if s.dispatcher == nil {
+		return
+	}
+
 	cfg := s.cfg.Load()
 
 	for _, peerID := range cfg.capDonInfo.Members {
