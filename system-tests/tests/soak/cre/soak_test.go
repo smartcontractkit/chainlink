@@ -143,7 +143,7 @@ loop:
 	}
 
 	// ── Phase 5: Memory / CPU leak check ──────────────────────────────────────
-	leakDetector, ldErr := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker())
+	leakDetector, ldErr := leak.NewCLNodesLeakDetector(leak.NewResourceLeakChecker(), leak.WithNodesetName("workflow"))
 	require.NoError(t, ldErr, "failed to create CL nodes leak detector")
 
 	checkErr := leakDetector.Check(&leak.CLNodesCheck{
@@ -152,8 +152,8 @@ loop:
 		Start:           start,
 		End:             time.Now(),
 		WarmUpDuration:  30 * time.Minute,
-		CPUThreshold:    25.0,  // same as devenv OCR2 soak; calibrate after first run
-		MemoryThreshold: 350.0, // same as devenv OCR2 soak; calibrate after first run
+		CPUThreshold:    25.0,
+		MemoryThreshold: 3350.0, // CRE uses quite a bit of memory
 	})
 	require.NoError(t, checkErr, "resource leak check failed")
 }

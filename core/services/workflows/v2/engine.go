@@ -251,11 +251,11 @@ func (e *Engine) init(ctx context.Context) {
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
-				e.logger().Info("Per owner workflow count limit reached", "err", err)
+				e.logger().Infow("Per owner workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
 			case settings.ScopeGlobal:
-				e.logger().Info("Global workflow count limit reached", "err", err)
+				e.logger().Infow("Global workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
 			default:

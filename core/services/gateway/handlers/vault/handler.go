@@ -224,7 +224,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 
 func (h *handler) Start(_ context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
-		h.lggr.Info("starting vault handler")
+		h.lggr.Debug("starting vault handler")
 		go func() {
 			ctx, cancel := h.stopCh.NewCtx()
 			defer cancel()
@@ -250,7 +250,7 @@ func (h *handler) Start(_ context.Context) error {
 
 func (h *handler) Close() error {
 	return h.StopOnce("VaultHandler", func() error {
-		h.lggr.Info("closing vault handler")
+		h.lggr.Debug("closing vault handler")
 		close(h.stopCh)
 		return errors.Join(
 			h.writeMethodsEnabled.Close(),
@@ -376,7 +376,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
-	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	ar, err := h.newActiveRequest(req, callback)
 	if err != nil {
 		return err
@@ -465,30 +465,30 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessage], l logger.Logger) {
 	if resp.Result == nil {
-		l.Infow("no result in public key response, not caching")
+		l.Debugw("no result in public key response, not caching")
 		return
 	}
 
 	r := &vaultcommon.GetPublicKeyResponse{}
 	err := json.Unmarshal(*resp.Result, r)
 	if err != nil {
-		l.Infow("failed to unmarshal public key response, not caching", "error", err)
+		l.Debugw("failed to unmarshal public key response, not caching", "error", err)
 		return
 	}
 
 	if r.PublicKey == "" {
-		l.Infow("no public key in unmarshaled response, not caching", "response", resp, "result", r)
+		l.Debugw("no public key in unmarshaled response, not caching", "response", resp, "result", r)
 		return
 	}
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(r.PublicKey)
 	if err != nil {
-		l.Infow("failed to decode master public key string", "error", err)
+		l.Debugw("failed to decode master public key string", "error", err)
 		return
 	}
 	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
 	if err != nil {
-		l.Infow("failed to unmarshal master public key", "error", err)
+		l.Debugw("failed to unmarshal master public key", "error", err)
 		return
 	}
 
@@ -496,7 +496,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	h.cachedPublicKeyGetResponse = *resp.Result
 	h.cachedPublicKeyObject = &masterPublicKey
 	h.mu.Unlock()
-	l.Infow("successfully cached public key response")
+	l.Debugw("successfully cached public key response")
 }
 
 func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {

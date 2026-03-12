@@ -161,94 +161,94 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Debugf("Received Request: %s", request.String())
 	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
-		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
 	authorized, owner, err := s.authorizeCreateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
 	for idx, req := range request.EncryptedSecrets {
 		// Ensure that users cannot access secrets belonging to other owners
 		if req.Id.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
+			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
 			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
 		}
 	}
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Debugf("Received Request: %s", request.String())
 	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
-		s.lggr.Infof("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
 	authorized, owner, err := s.authorizeUpdateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
 	for idx, req := range request.EncryptedSecrets {
 		// Ensure that users cannot access secrets belonging to other owners
 		if req.Id.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
+			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
 			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
 		}
 	}
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Debugf("Received Request: %s", request.String())
 	err := s.ValidateDeleteSecretsRequest(request)
 	if err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
 
 	authorized, owner, err := s.authorizeDeleteSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
+		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
 	for idx, req := range request.Ids {
 		// Ensure that users cannot access secrets belonging to other owners
 		if req.Owner != owner {
-			s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Owner, owner)
+			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Owner, owner)
 			return nil, errors.New("secret ID owner: " + req.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
 		}
 	}
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Debugf("Received Request: %s", request.String())
 	if err := s.ValidateGetSecretsRequest(request); err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
 
@@ -257,47 +257,47 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Infof("Received Request: %s", request.String())
+	s.lggr.Debugf("Received Request: %s", request.String())
 	err := s.ValidateListSecretIdentifiersRequest(request)
 	if err != nil {
-		s.lggr.Infof("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
 
 	authorized, owner, err := s.authorizeListSecrets(ctx, *request) //nolint:govet // The mutex isn't used
 	if !authorized || err != nil {
-		s.lggr.Infof("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
+		s.lggr.Debugf("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
 	}
 	if !strings.HasPrefix(request.RequestId, owner) {
 		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Infof("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
+		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
 		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
 	}
 	// Ensures that users cannot access secrets belonging to other owners
 	request.Owner = owner
 	if request.Owner != owner {
-		s.lggr.Infof("Secret ID owner: [%s] does not match authorized owner: [%s]", request.Owner, owner)
+		s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", request.Owner, owner)
 		return nil, errors.New("secret ID owner: " + request.Owner + " does not match authorized owner: " + owner)
 	}
 
-	s.lggr.Infof("Processing authorized and normalized request [%s]", request.String())
+	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error) {
 	l := logger.With(s.lggr, "method", "GetPublicKey")
-	l.Infof("Received Request: GetPublicKeyRequest")
+	l.Debugf("Received Request: GetPublicKeyRequest")
 
 	pubKey := s.publicKey.Get()
 	if pubKey == nil {
-		l.Info("could not get public key: is the plugin initialized?")
+		l.Debug("could not get public key: is the plugin initialized?")
 		return nil, errors.New("could not get public key: is the plugin initialized?")
 	}
 
 	pkb, err := pubKey.Marshal()
 	if err != nil {
-		l.Infof("could not marshal public key: %s", err.Error())
+		l.Debugf("could not marshal public key: %s", err.Error())
 		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 
