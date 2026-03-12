@@ -7,6 +7,14 @@ on:
         description: "Strip image suffix from tag so it matches the registry tag"
         required: false
         type: string
+      product:
+        description: "Product name to query in RANE SOT (jq '.nodes[].jobs[].product')"
+        required: false
+        type: string
+      refs:
+        description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -68,6 +76,8 @@ jobs:
     environment: "integration"
     env:
       STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
+      PRODUCT: ${{ inputs.product }}
+      REFS: ${{ inputs.refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
@@ -148,6 +158,8 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
+          PRODUCT: ${{ env.PRODUCT }}
+          REFS: ${{ env.REFS }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
@@ -159,6 +171,8 @@ jobs:
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
+            --product "${PRODUCT}" \
+            --refs "${refs}" \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \

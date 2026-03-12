@@ -14,8 +14,25 @@ permissions:
 jobs:
   # CREcluster compatibility and upgrade test
   # TODO
-  
+
+  # Data Feeds v1 upgrade test
+  # this verifies that all the versions existing in RANE SOT for Data Feeds v1 can be upgraded to the latest version
+  df1-upgrade:
+    uses: ./.github/workflows/devenv-compat.yml
+    with:
+      buildcmd: "just cli"
+      envcmd: "cl u env.toml,products/ocr2/basic.toml"
+      testcmd: "cl test ocr2 TestSmoke/rounds"
+      don-nodes: "5"
+      refs: "2.36.1-rc.0,2.36.1-beta.0,2.37.0-rc.0,2.37.0-beta.0,2.38.0-rc.0,2.38.0-beta.0"
+      working-directory: "devenv"
+      logs-directory: "./devenv/tests/ocr2/logs"
+      ctf-log-level: "info"
+      strip-image-suffix: "v"
+    secrets: inherit
+
   # Data Feeds v1 cluster compatibility and upgrade test
+  # this verifies that the cluster can be upgraded from last - N version to last version
   df1-compat:
     uses: ./.github/workflows/devenv-compat.yml
     with:
