@@ -269,6 +269,8 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec))
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
+			case GatewayHandlerTypeConfidentialRelay:
+				handlers = append(handlers, newDefaultConfidentialRelayHandler())
 			default:
 				return nil, nil, errors.New("unknown handler type: " + ht)
 			}
