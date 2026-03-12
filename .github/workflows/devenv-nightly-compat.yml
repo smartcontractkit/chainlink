@@ -21,7 +21,7 @@ jobs:
       buildcmd: "just cli"
       envcmd: "cl u env.toml,products/ocr2/basic.toml"
       testcmd: "cl test ocr2 TestSmoke/rounds"
-      nodes: "3"
+      upgrade-nodes: "3"
       node-name-template: "don-node%d"
       versions-back: "2"
       working-directory: "devenv"

@@ -19,10 +19,15 @@ on:
         description: "Test command to run"
         required: true
         type: string
-      nodes:
-        description: "Number of nodes for the test"
+      upgrade-nodes:
+        description: "Number of nodes to upgradefor the test"
         required: false
         default: "3"
+        type: string
+      don-nodes:
+        description: "Number of available DON nodes after envcmd"
+        required: false
+        default: "5"
         type: string
       node-name-template:
         description: "Template for the node name"
@@ -66,7 +71,8 @@ jobs:
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
-      NODES: ${{ inputs.nodes }}
+      UPGRADE_NODES: ${{ inputs.upgrade-nodes }}
+      DON_NODES: ${{ inputs.don-nodes }}
       NODE_NAME_TEMPLATE: ${{ inputs.node-name-template }}
       VERSIONS_BACK: ${{ inputs.versions-back }}
       WORKING_DIR: ${{ inputs.working-directory }}
@@ -153,7 +159,8 @@ jobs:
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
-            --nodes "${NODES}" \
+            --upgrade-nodes "${UPGRADE_NODES}" \
+            --don-nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}"
