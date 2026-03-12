@@ -195,8 +195,6 @@ jobs:
             echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
           else
             echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
           fi
