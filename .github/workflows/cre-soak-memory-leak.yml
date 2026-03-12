@@ -12,11 +12,6 @@ on:
         description: "Chainlink image tag to use"
         required: true
         type: string
-      chainlink_version:
-        description: "Git ref / branch to check out"
-        required: false
-        type: string
-        default: "develop"
   workflow_call:
     inputs:
       ecr_name:
@@ -26,15 +21,11 @@ on:
       chainlink_image_tag:
         required: true
         type: string
-      chainlink_version:
-        required: true
-        type: string
-        default: "develop"
 
 jobs:
   soak:
     name: CRE PoR Memory Leak Soak
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
     environment: "integration"
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
@@ -43,6 +34,7 @@ jobs:
     env:
       CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
       CRE_SOAK_DURATION: "2h"
+      CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
       CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink' }}:${{ inputs.chainlink_image_tag }}"
       CHIP_INGRESS_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
       CHIP_CONFIG_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
@@ -55,7 +47,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.chainlink_version || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Go
