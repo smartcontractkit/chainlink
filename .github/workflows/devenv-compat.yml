@@ -78,7 +78,7 @@ jobs:
     env:
       STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
       PRODUCT: ${{ inputs.product }}
-      NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }}  # Convert boolean to flag string
+      NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
       REFS: ${{ inputs.refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
@@ -105,7 +105,7 @@ jobs:
         uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
         with:
           just-version: "1.40.0"
-          
+
       # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
@@ -185,6 +185,20 @@ jobs:
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}" \
             ${{ env.NO_GIT_ROLLBACK }}
+
+      - name: Attach CI Summary
+        working-directory: ${{ env.WORKING_DIR }}
+        if: always()
+        run: |
+          if [ -f "ci_summary.txt" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Logs
         if: always()
