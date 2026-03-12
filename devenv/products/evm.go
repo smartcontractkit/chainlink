@@ -361,6 +361,13 @@ func EtherToWei(eth *big.Float) *big.Int {
 	return wei
 }
 
+// EtherToWei converts an ETH float amount to gwei
+func EtherToGwei(eth *big.Float) *big.Int {
+	truncInt, _ := eth.Int(nil)
+	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.GWei))
+	return truncInt
+}
+
 // WeiToEther converts a wei amount to eth float
 func WeiToEther(wei *big.Int) *big.Float {
 	f := new(big.Float)
