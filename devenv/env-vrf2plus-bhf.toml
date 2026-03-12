@@ -1,0 +1,27 @@
+[[blockchains]]
+  container_name = "blockchain"
+  chain_id = "1337"
+  port = "8545"
+  type = "geth"
+
+[fake_server]
+  image = "chainlink-fakes:latest"
+  port = 9111
+
+[[nodesets]]
+  name = "don"
+  nodes = 2
+  override_mode = "each"
+
+  [nodesets.db]
+    image = "postgres:15.0"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "chainlink-tmp:latest"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "chainlink-tmp:latest"
