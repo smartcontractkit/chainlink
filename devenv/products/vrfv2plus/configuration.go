@@ -11,11 +11,18 @@ import (
 type Configurator struct {
 	Config []*VRFv2Plus `toml:"vrfv2_plus"`
 
-	// Pre-generated EVM key fields; populated by ModifyNodesets(), used by
-	// ConfigureJobsAndContracts().
-	txKeyAddr    string
-	txKeyEncJSON []byte
-	txKeyPass    string
+	// nodeEVMKey: always pre-generated; index 0 of fromAddresses.
+	nodeEVMKeyAddr    string
+	nodeEVMKeyEncJSON []byte
+	nodeEVMKeyPass    string
+
+	// Extra TX keys (len = cfg.NumTxKeys); appended after nodeEVMKey in fromAddresses.
+	txKeyAddrs    []string
+	txKeyEncJSONs [][]byte
+
+	// BHS node TX key (only when EnableBHSJob)
+	bhsKeyAddr    string
+	bhsKeyEncJSON []byte
 }
 
 // VRFv2Plus holds the per-instance configuration for the vrfv2_plus product.
@@ -23,6 +30,9 @@ type VRFv2Plus struct {
 	CLNodesFundingETH     float64              `toml:"cl_nodes_funding_eth"`
 	CLNodeMaxGasPriceGWei int64                `toml:"cl_node_max_gas_price_gwei"`
 	GasSettings           products.GasSettings `toml:"gas_settings"`
+
+	// TX keys: N extra keys generated in addition to the node's own EVM key (default 0)
+	NumTxKeys int `toml:"num_tx_keys"`
 
 	// Coordinator config
 	MinimumConfirmations    uint16 `toml:"minimum_confirmations"`
@@ -52,6 +62,19 @@ type VRFv2Plus struct {
 	WrapperConsumerFundLinkJuels *big.Int `toml:"-"`
 	WrapperConsumerFundNativeWei *big.Int `toml:"-"`
 
+	// Batch fulfillment
+	BatchFulfillmentEnabled       bool    `toml:"batch_fulfillment_enabled"`
+	BatchFulfillmentGasMultiplier float64 `toml:"batch_fulfillment_gas_multiplier"`
+	BatchCallbackGasLimit         uint32  `toml:"batch_callback_gas_limit"`
+	BatchTxGasBudget              uint32  `toml:"batch_tx_gas_budget"`
+
+	// BHS job (only when EnableBHSJob = true)
+	EnableBHSJob         bool   `toml:"enable_bhs_job"`
+	BHSJobWaitBlocks     int    `toml:"bhs_job_wait_blocks"`
+	BHSJobLookbackBlocks int    `toml:"bhs_job_lookback_blocks"`
+	BHSJobPollPeriod     string `toml:"bhs_job_poll_period"`
+	BHSJobRunTimeout     string `toml:"bhs_job_run_timeout"`
+
 	DeployedContracts VRFDeployedContracts `toml:"deployed_contracts"`
 	VRFKeyData        VRFKeyOutput         `toml:"vrf_key_data"`
 }
@@ -71,9 +94,11 @@ type VRFDeployedContracts struct {
 
 // VRFKeyOutput holds VRF key data and the job ID, written to the output TOML.
 type VRFKeyOutput struct {
-	PubKeyCompressed string `toml:"pub_key_compressed"`
-	KeyHash          string `toml:"key_hash"`
-	VRFJobID         string `toml:"vrf_job_id"`
+	PubKeyCompressed string   `toml:"pub_key_compressed"`
+	KeyHash          string   `toml:"key_hash"`
+	VRFJobID         string   `toml:"vrf_job_id"`
+	TxKeyAddresses   []string `toml:"tx_key_addresses"` // [nodeEVMKey, ...extraKeys]; len = 1 + num_tx_keys
+	BHSJobID         string   `toml:"bhs_job_id"`       // populated if EnableBHSJob
 }
 
 func NewConfigurator() *Configurator {

@@ -3,7 +3,9 @@ name = "vrfv2_plus"
 instances = 1
 
 [[vrfv2_plus]]
-num_tx_keys = 0
+# 2 extra keys on top of the node's own EVM key → fromAddresses = [nodeEVMKey, extraKey1, extraKey2] (3 total senders)
+num_tx_keys = 2
+
 cl_nodes_funding_eth = 5.0
 cl_node_max_gas_price_gwei = 400
 

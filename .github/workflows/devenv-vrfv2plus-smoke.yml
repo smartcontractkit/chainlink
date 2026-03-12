@@ -1,0 +1,127 @@
+name: VRFv2Plus Smoke Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+  workflow_call:
+    inputs:
+      ecr_name:
+        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "The tag of the Chainlink image to use for the tests."
+
+defaults:
+  run:
+    working-directory: devenv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - environment: tests/vrfv2plus/basic.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2Plus
+          - environment: env-vrf2plus.toml,tests/vrfv2plus/two_keys.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2PlusMultipleSendingKeys
+          - environment: env-vrf2plus.toml,tests/vrfv2plus/bhs.toml
+            env_file: env-vrf2plus-bhs.toml
+            test_filter: TestVRFV2PlusWithBHS
+          - environment: env-vrf2plus.toml,tests/vrfv2plus/batch.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2PlusBatchFulfillment
+    env:
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag }}
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    timeout-minutes: 30
+    environment: "integration"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Authenticate to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: true
+          go-version-file: devenv/go.mod
+          cache-dependency-path: devenv/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+
+      - name: Run VRFv2Plus environment
+        env:
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+        run: |
+          cd cmd/cl && go install . && cd -
+          cl u ${{ matrix.env_file }},${{ matrix.environment }}
+
+      - name: Run Smoke tests
+        id: smoke_test
+        working-directory: devenv/tests/vrfv2plus
+        run: |
+          echo "Running tests for: $CHAINLINK_IMAGE, product: VRFv2Plus, environment: ${{ matrix.environment }}"
+          go test -v -timeout 30m -run ${{ matrix.test_filter }}
+
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-smoke-vrfv2plus-${{ matrix.test_filter }}
+          path: devenv/tests/vrfv2plus/logs
+          retention-days: 1

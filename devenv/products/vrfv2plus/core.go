@@ -40,15 +40,40 @@ func (m *Configurator) GenerateNodesConfig(
 	bc []*blockchain.Input,
 	ns []*nodeset.Input,
 ) (string, error) {
-	L.Info().Msg("Pre-generating EVM key for VRF node")
+	cfg := m.Config[0]
+
+	L.Info().Msg("Pre-generating primary EVM key for VRF node")
 	encJSON, addr, err := clclient.NewETHKey(txKeyPassword)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate ETH key: %w", err)
+		return "", fmt.Errorf("failed to generate primary ETH key: %w", err)
+	}
+	m.nodeEVMKeyAddr = addr.Hex()
+	m.nodeEVMKeyEncJSON = encJSON
+	m.nodeEVMKeyPass = txKeyPassword
+
+	// Generate extra TX keys (len = cfg.NumTxKeys)
+	m.txKeyAddrs = make([]string, 0, cfg.NumTxKeys)
+	m.txKeyEncJSONs = make([][]byte, 0, cfg.NumTxKeys)
+	for i := 0; i < cfg.NumTxKeys; i++ {
+		enc, a, kErr := clclient.NewETHKey(txKeyPassword)
+		if kErr != nil {
+			return "", fmt.Errorf("failed to generate extra TX key %d: %w", i, kErr)
+		}
+		m.txKeyAddrs = append(m.txKeyAddrs, a.Hex())
+		m.txKeyEncJSONs = append(m.txKeyEncJSONs, enc)
+		L.Info().Str("addr", a.Hex()).Int("index", i).Msg("Generated extra TX key")
 	}
 
-	m.txKeyAddr = addr.Hex()
-	m.txKeyEncJSON = encJSON
-	m.txKeyPass = txKeyPassword
+	// Generate BHS key if needed
+	if cfg.EnableBHSJob {
+		enc, a, kErr := clclient.NewETHKey(txKeyPassword)
+		if kErr != nil {
+			return "", fmt.Errorf("failed to generate BHS key: %w", kErr)
+		}
+		m.bhsKeyAddr = a.Hex()
+		m.bhsKeyEncJSON = enc
+		L.Info().Str("addr", a.Hex()).Msg("Generated BHS TX key")
+	}
 
 	baseConfig := `[Feature]
 FeedsManager = true
@@ -86,6 +111,7 @@ ListenAddresses = ['0.0.0.0:6690']
 AnnounceAddresses = ['0.0.0.0:6690']
 `
 
+	// The EVM section without KeySpecific (we append those separately)
 	netConfigTemplate := `
 [[EVM]]
 AutoCreateKey = true
@@ -95,34 +121,48 @@ MinIncomingConfirmations = 1
 
 ChainID = '{{.ChainID}}'
 
+[EVM.GasEstimator]
+LimitDefault = {{.TxGasLimitDefault}}
+LimitMax = {{.TxGasLimitDefault}}
+
 [[EVM.Nodes]]
 Name = 'default'
 WsUrl = '{{.WsURL}}'
 HttpUrl = '{{.HTTPURL}}'
-
+{{range .Keys}}
 [[EVM.KeySpecific]]
-Key = '{{.TxKeyAddr}}'
-GasEstimator.PriceMax = '{{.MaxGasPriceGWei}} gwei'
-`
+Key = '{{.}}'
+GasEstimator.PriceMax = '{{$.MaxGasPriceGWei}} gwei'
+{{end}}`
+
 	tmpl, err := template.New("vrfv2plus-net-config").Parse(netConfigTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse VRF net config template: %w", err)
 	}
 
-	type data struct {
-		ChainID         string
-		WsURL           string
-		HTTPURL         string
-		TxKeyAddr       string
-		MaxGasPriceGWei int64
+	// Collect all keys that need a KeySpecific entry
+	allKeys := append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
+	if m.bhsKeyAddr != "" {
+		allKeys = append(allKeys, m.bhsKeyAddr)
 	}
 
+	type data struct {
+		ChainID           string
+		WsURL             string
+		HTTPURL           string
+		Keys              []string
+		MaxGasPriceGWei   int64
+		TxGasLimitDefault uint32
+	}
+
+	txGasLimitDefault := uint32(3_500_000)
 	d := data{
-		ChainID:         bc[0].Out.ChainID,
-		WsURL:           bc[0].Out.Nodes[0].InternalWSUrl,
-		HTTPURL:         bc[0].Out.Nodes[0].InternalHTTPUrl,
-		TxKeyAddr:       m.txKeyAddr,
-		MaxGasPriceGWei: m.Config[0].CLNodeMaxGasPriceGWei,
+		ChainID:           bc[0].Out.ChainID,
+		WsURL:             bc[0].Out.Nodes[0].InternalWSUrl,
+		HTTPURL:           bc[0].Out.Nodes[0].InternalHTTPUrl,
+		Keys:              allKeys,
+		MaxGasPriceGWei:   cfg.CLNodeMaxGasPriceGWei,
+		TxGasLimitDefault: txGasLimitDefault,
 	}
 
 	var buf bytes.Buffer
@@ -160,22 +200,22 @@ func (m *Configurator) GenerateNodesSecrets(
 		EVM evmSecrets `toml:"EVM"`
 	}
 
-	doc := secretsDoc{
-		EVM: evmSecrets{
-			Keys: []evmKey{
-				{
-					JSON:     string(m.txKeyEncJSON),
-					Password: m.txKeyPass,
-					ID:       chainID,
-				},
-			},
-		},
+	keys := []evmKey{
+		{JSON: string(m.nodeEVMKeyEncJSON), Password: m.nodeEVMKeyPass, ID: chainID},
 	}
+	for _, enc := range m.txKeyEncJSONs {
+		keys = append(keys, evmKey{JSON: string(enc), Password: txKeyPassword, ID: chainID})
+	}
+	if len(m.bhsKeyEncJSON) > 0 {
+		keys = append(keys, evmKey{JSON: string(m.bhsKeyEncJSON), Password: txKeyPassword, ID: chainID})
+	}
+
+	doc := secretsDoc{EVM: evmSecrets{Keys: keys}}
 	out, err := toml.Marshal(doc)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal node secrets: %w", err)
 	}
-	L.Info().Msg("EVM keys pre-generated")
+	L.Info().Int("num_keys", len(keys)).Msg("EVM keys marshalled into secrets")
 
 	return string(out), nil
 }
@@ -189,65 +229,40 @@ func (m *Configurator) ConfigureJobsAndContracts(
 ) error {
 	cfg := m.Config[instanceIdx]
 
-	// L.Info().Msg("Connecting to CL nodes")
-	// cl, err := clclient.New(ns[0].Out.CLNodes)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to connect to CL nodes: %w", err)
-	// }
-
-	// pkey := products.NetworkPrivateKey()
-	// if pkey == "" {
-	// 	return errors.New("PRIVATE_KEY environment variable not set")
-	// }
-
-	// // Fund the pre-generated EVM addresses
-	// bcNode := bc[0].Out.Nodes[0]
-	// ethClient, _, _, err := products.ETHClient(ctx, bcNode.ExternalWSUrl,
-	// 	cfg.GasSettings.FeeCapMultiplier, cfg.GasSettings.TipCapMultiplier)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create ETH client: %w", err)
-	// }
-	// L.Info().Str("addr", m.txKeyAddr).Msg("Funding EVM address")
-	// if err := products.FundAddressEIP1559(ctx, ethClient, pkey, m.txKeyAddr, cfg.CLNodesFundingETH); err != nil {
-	// 	return fmt.Errorf("failed to fund address: %w", err)
-	// }
+	if err := validateTopology(cfg, ns[0]); err != nil {
+		return err
+	}
 
 	cl, err := clclient.New(ns[0].Out.CLNodes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to CL nodes: %w", err)
 	}
+
 	pkey := products.NetworkPrivateKey()
 	if pkey == "" {
 		return errors.New("PRIVATE_KEY environment variable not set")
-	}
-
-	ethKeyAddresses := make([]string, 0)
-	for i, nc := range cl {
-		addr, cErr := nc.ReadPrimaryETHKey(bc[0].Out.ChainID)
-		if cErr != nil {
-			return cErr
-		}
-		ethKeyAddresses = append(ethKeyAddresses, addr.Attributes.Address)
-		L.Info().
-			Int("Idx", i).
-			Str("ETH", addr.Attributes.Address).
-			Msg("Node info")
 	}
 
 	bcNode := bc[0].Out.Nodes[0]
 	c, _, _, err := products.ETHClient(
 		ctx,
 		bcNode.ExternalWSUrl,
-		m.Config[instanceIdx].GasSettings.FeeCapMultiplier,
-		m.Config[instanceIdx].GasSettings.TipCapMultiplier,
+		cfg.GasSettings.FeeCapMultiplier,
+		cfg.GasSettings.TipCapMultiplier,
 	)
-
 	if err != nil {
 		return fmt.Errorf("could not create basic eth client: %w", err)
 	}
-	for _, addr := range ethKeyAddresses {
-		if cErr := products.FundAddressEIP1559(ctx, c, pkey, addr, m.Config[instanceIdx].CLNodesFundingETH); cErr != nil {
-			return cErr
+
+	// Fund all pre-generated addresses
+	addrsToFund := append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
+	if m.bhsKeyAddr != "" {
+		addrsToFund = append(addrsToFund, m.bhsKeyAddr)
+	}
+	for _, addr := range addrsToFund {
+		L.Info().Str("addr", addr).Float64("eth", cfg.CLNodesFundingETH).Msg("Funding EVM address")
+		if fErr := products.FundAddressEIP1559(ctx, c, pkey, addr, cfg.CLNodesFundingETH); fErr != nil {
+			return fmt.Errorf("failed to fund address %s: %w", addr, fErr)
 		}
 	}
 
@@ -290,7 +305,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	cfg.DeployedContracts.BatchCoordinator = batchCoord.Address()
 
-	// Deploy LINK token and mock feed if not already set
 	L.Info().Msg("Deploying LINK token")
 	linkToken, err := contracts.DeployLinkTokenContract(L, chainClient)
 	if err != nil {
@@ -305,7 +319,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	cfg.DeployedContracts.MockFeed = mockFeed.Address()
 
-	// Configure coordinator
 	L.Info().Msg("Setting LINK and LINK/Native feed on coordinator")
 	if err := coord.SetLINKAndLINKNativeFeed(linkToken.Address(), mockFeed.Address()); err != nil {
 		return fmt.Errorf("SetLINKAndLINKNativeFeed failed: %w", err)
@@ -360,10 +373,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		requestTimeout = 24 * time.Hour
 	}
 
-	fromAddresses := []string{}
-	if m.txKeyAddr != "" {
-		fromAddresses = []string{m.txKeyAddr}
-	}
+	fromAddresses := append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
 
 	pipelineSpec := &VRFV2PlusTxPipelineSpec{
 		Address:               coord.Address(),
@@ -373,6 +383,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	observationSource, err := pipelineSpec.String()
 	if err != nil {
 		return fmt.Errorf("failed to build VRF pipeline spec: %w", err)
+	}
+
+	gasMultiplier := cfg.BatchFulfillmentGasMultiplier
+	if gasMultiplier == 0 {
+		gasMultiplier = 1.1
 	}
 
 	jobSpec := &VRFV2PlusJobSpec{
@@ -385,8 +400,8 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		MinIncomingConfirmations:      int(cfg.MinimumConfirmations),
 		FromAddresses:                 fromAddresses,
 		EVMChainID:                    bc[0].Out.ChainID,
-		BatchFulfillmentEnabled:       false,
-		BatchFulfillmentGasMultiplier: 1.1,
+		BatchFulfillmentEnabled:       cfg.BatchFulfillmentEnabled,
+		BatchFulfillmentGasMultiplier: gasMultiplier,
 		BackOffInitialDelay:           15 * time.Second,
 		BackOffMaxDelay:               5 * time.Minute,
 		PollPeriod:                    pollPeriod,
@@ -399,6 +414,31 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("failed to create VRF job: %w", err)
 	}
 	cfg.VRFKeyData.VRFJobID = job.Data.ID
+
+	// Create BHS job if enabled (on node 1)
+	if cfg.EnableBHSJob {
+		bhsJob, bhsErr := cl[1].MustCreateJob(&BlockhashStoreJobSpec{
+			Name:                     "bhs-vrf-v2-plus",
+			ExternalJobID:            uuid.New().String(),
+			CoordinatorV2Address:     coord.Address(),
+			CoordinatorV2PlusAddress: coord.Address(),
+			BlockhashStoreAddress:    bhs.Address(),
+			FromAddresses:            []string{m.bhsKeyAddr},
+			EVMChainID:               bc[0].Out.ChainID,
+			WaitBlocks:               cfg.BHSJobWaitBlocks,
+			LookbackBlocks:           cfg.BHSJobLookbackBlocks,
+			PollPeriod:               cfg.BHSJobPollPeriod,
+			RunTimeout:               cfg.BHSJobRunTimeout,
+		})
+		if bhsErr != nil {
+			return fmt.Errorf("failed to create BHS job: %w", bhsErr)
+		}
+		cfg.VRFKeyData.BHSJobID = bhsJob.Data.ID
+		L.Info().Str("bhs_job_id", cfg.VRFKeyData.BHSJobID).Msg("BHS job created")
+	}
+
+	// Store all TX key addresses for use in tests
+	cfg.VRFKeyData.TxKeyAddresses = append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
 
 	// Set up wrapper subscription
 	L.Info().Msg("Creating wrapper subscription on coordinator")
@@ -425,13 +465,11 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	cfg.DeployedContracts.Wrapper = wrapper.Address()
 
-	// Add wrapper as consumer on wrapper subscription
 	L.Info().Msg("Adding wrapper as consumer on wrapper subscription")
 	if err := coord.AddConsumer(wrapperSubID, wrapper.Address()); err != nil {
 		return fmt.Errorf("failed to add wrapper as consumer: %w", err)
 	}
 
-	// Configure wrapper
 	L.Info().Msg("Configuring wrapper")
 	if err := wrapper.SetConfig(
 		cfg.WrapperGasOverhead,
@@ -450,14 +488,12 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("wrapper SetConfig failed: %w", err)
 	}
 
-	// Fund wrapper subscription with native
 	wrapperNativeFund := products.EtherToWei(big.NewFloat(cfg.SubFundingAmountNative))
 	L.Info().Str("amount", wrapperNativeFund.String()).Msg("Funding wrapper sub with native")
 	if err := coord.FundSubscriptionWithNative(wrapperSubID, wrapperNativeFund); err != nil {
 		return fmt.Errorf("failed to fund wrapper sub with native: %w", err)
 	}
 
-	// Fund wrapper subscription with LINK via TransferAndCall
 	wrapperLinkFund := products.EtherToWei(big.NewFloat(cfg.SubFundingAmountLink))
 	encodedSubID, err := encodeSubID(wrapperSubID)
 	if err != nil {
@@ -468,7 +504,6 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("failed to fund wrapper sub with LINK: %w", err)
 	}
 
-	// Deploy wrapper load test consumer
 	L.Info().Msg("Deploying VRFV2PlusWrapperLoadTestConsumer")
 	wrapperConsumer, err := contracts.DeployVRFV2PlusWrapperLoadTestConsumer(chainClient, wrapper.Address())
 	if err != nil {
@@ -476,14 +511,12 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	}
 	cfg.DeployedContracts.WrapperConsumer = wrapperConsumer.Address()
 
-	// Fund wrapper consumer with LINK
 	consumerLinkFund := wrapperConsumerLinkFundJuels()
 	L.Info().Str("amount", consumerLinkFund.String()).Msg("Funding wrapper consumer with LINK")
 	if err := linkToken.Transfer(wrapperConsumer.Address(), consumerLinkFund); err != nil {
 		return fmt.Errorf("failed to fund wrapper consumer with LINK: %w", err)
 	}
 
-	// Fund wrapper consumer with native
 	L.Info().Msg("Funding wrapper consumer with native ETH")
 	if err := products.FundAddressEIP1559(ctx, c, pkey, wrapperConsumer.Address(), 1.0); err != nil {
 		return fmt.Errorf("failed to fund wrapper consumer with native: %w", err)
@@ -495,14 +528,36 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		Str("WrapperConsumer", cfg.DeployedContracts.WrapperConsumer).
 		Str("KeyHash", cfg.VRFKeyData.KeyHash).
 		Str("VRFJobID", cfg.VRFKeyData.VRFJobID).
+		Strs("TxKeyAddresses", cfg.VRFKeyData.TxKeyAddresses).
 		Msg("VRFv2Plus setup complete")
 
 	return nil
 }
 
+// validateTopology ensures the nodeset matches the product's job topology.
+//
+// VRFv2Plus always has exactly one VRF node. Auxiliary nodes are only valid
+// when the corresponding job flag is set:
+//   - node 1 (BHS node): requires EnableBHSJob = true
+//
+// Allowing arbitrary node counts would silently misconfigure the environment:
+// a second VRF node is meaningless (only one key/job is deployed), and a BHS
+// node without EnableBHSJob would sit idle and confuse debugging.
+func validateTopology(cfg *VRFv2Plus, ns *nodeset.Input) error {
+	got := len(ns.NodeSpecs)
+	want := 1
+	if cfg.EnableBHSJob {
+		want++
+	}
+	if got != want {
+		return fmt.Errorf("topology mismatch: nodeset has %d node(s), want %d (enable_bhs_job=%v)",
+			got, want, cfg.EnableBHSJob)
+	}
+	return nil
+}
+
 // encodeSubID ABI-encodes a uint256 subscription ID for use in TransferAndCall.
 func encodeSubID(subID *big.Int) ([]byte, error) {
-	// ABI encode uint256: 32-byte big-endian
 	b := make([]byte, 32)
 	subIDBytes := subID.Bytes()
 	if len(subIDBytes) > 32 {
@@ -514,6 +569,5 @@ func encodeSubID(subID *big.Int) ([]byte, error) {
 
 // wrapperConsumerLinkFundJuels returns 5 LINK in juels.
 func wrapperConsumerLinkFundJuels() *big.Int {
-	// 5 LINK = 5e18 juels
 	return new(big.Int).Mul(big.NewInt(5), new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil))
 }

@@ -229,6 +229,21 @@ func (v *EthereumVRFCoordinatorV2_5) FilterRandomWordsFulfilled(opts *bind.Filte
 	return iter.Event, nil
 }
 
+// CountRandomWordsFulfilledLogsInTx counts RandomWordsFulfilled events in a single tx receipt.
+func (v *EthereumVRFCoordinatorV2_5) CountRandomWordsFulfilledLogsInTx(ctx context.Context, txHash common.Hash) (int, error) {
+	receipt, err := v.client.Client.TransactionReceipt(ctx, txHash)
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, l := range receipt.Logs {
+		if _, pErr := v.coordinator.ParseRandomWordsFulfilled(*l); pErr == nil {
+			count++
+		}
+	}
+	return count, nil
+}
+
 // FindSubscriptionID parses the sub ID from the first log of a CreateSubscription receipt.
 func FindSubscriptionID(receipt *types.Receipt) (*big.Int, error) {
 	if len(receipt.Logs) == 0 {
@@ -268,11 +283,51 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(
 	return parseRequestIDFromLogs(tx.Receipt.Logs)
 }
 
+// RequestRandomnessWithEvent sends a VRF request and returns the full RandomWordsRequested event.
+func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomnessWithEvent(
+	keyHash [32]byte,
+	subID *big.Int,
+	requestConfirmations uint16,
+	callbackGasLimit uint32,
+	nativePayment bool,
+	numWords uint32,
+	requestCount uint16,
+) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested, error) {
+	tx, err := v.client.Decode(v.consumer.RequestRandomWords(
+		v.client.NewTXOpts(),
+		subID,
+		requestConfirmations,
+		keyHash,
+		callbackGasLimit,
+		nativePayment,
+		numWords,
+		requestCount,
+	))
+	if err != nil {
+		return nil, err
+	}
+	return parseRandomWordsRequestedFromLogs(tx.Receipt.Logs)
+}
+
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2plus_load_test_with_metrics.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
 		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
 	}, requestID)
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) RequestCount(ctx context.Context) (*big.Int, error) {
+	return v.consumer.SRequestCount(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) ResponseCount(ctx context.Context) (*big.Int, error) {
+	return v.consumer.SResponseCount(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	})
 }
 
 // --- Wrapper methods ---
@@ -496,6 +551,43 @@ func DeployVRFV2PlusWrapperLoadTestConsumer(client *seth.Client, wrapperAddr str
 
 // --- Load functions ---
 
+func LoadBlockhashStore(client *seth.Client, addr string) (*EthereumBlockhashStore, error) {
+	address := common.HexToAddress(addr)
+	abi, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get BlockhashStore ABI: %w", err)
+	}
+	client.ContractStore.AddABI("BlockhashStore", *abi)
+	client.ContractStore.AddBIN("BlockhashStore", common.FromHex(blockhash_store.BlockhashStoreMetaData.Bin))
+	instance, err := blockhash_store.NewBlockhashStore(address, MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BlockhashStore: %w", err)
+	}
+	return &EthereumBlockhashStore{client: client, store: instance, address: address}, nil
+}
+
+func (v *EthereumBlockhashStore) GetBlockhash(ctx context.Context, blockNumber uint64) ([32]byte, error) {
+	return v.store.GetBlockhash(&bind.CallOpts{
+		From:    v.client.MustGetRootKeyAddress(),
+		Context: ctx,
+	}, new(big.Int).SetUint64(blockNumber))
+}
+
+func LoadBatchVRFCoordinatorV2Plus(client *seth.Client, addr string) (*EthereumBatchVRFCoordinatorV2Plus, error) {
+	address := common.HexToAddress(addr)
+	abi, err := batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusMetaData.GetAbi()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get BatchVRFCoordinatorV2Plus ABI: %w", err)
+	}
+	client.ContractStore.AddABI("BatchVRFCoordinatorV2Plus", *abi)
+	client.ContractStore.AddBIN("BatchVRFCoordinatorV2Plus", common.FromHex(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusMetaData.Bin))
+	instance, err := batch_vrf_coordinator_v2plus.NewBatchVRFCoordinatorV2Plus(address, MustNewWrappedContractBackend(nil, client))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load BatchVRFCoordinatorV2Plus: %w", err)
+	}
+	return &EthereumBatchVRFCoordinatorV2Plus{client: client, coordinator: instance, address: address}, nil
+}
+
 func LoadVRFCoordinatorV2_5(client *seth.Client, addr string) (*EthereumVRFCoordinatorV2_5, error) {
 	address := common.HexToAddress(addr)
 	abi, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
@@ -558,6 +650,14 @@ func LoadVRFV2PlusWrapperLoadTestConsumer(client *seth.Client, addr string) (*Et
 
 // parseRequestIDFromLogs parses the RandomWordsRequested event from receipt logs and returns the requestID.
 func parseRequestIDFromLogs(logs []*types.Log) (*big.Int, error) {
+	event, err := parseRandomWordsRequestedFromLogs(logs)
+	if err != nil {
+		return nil, err
+	}
+	return event.RequestId, nil
+}
+
+func parseRandomWordsRequestedFromLogs(logs []*types.Log) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested, error) {
 	coordABI, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get coordinator ABI: %w", err)
@@ -568,7 +668,8 @@ func parseRequestIDFromLogs(logs []*types.Log) (*big.Int, error) {
 		if pErr := bc.UnpackLog(event, "RandomWordsRequested", *log); pErr != nil {
 			continue
 		}
-		return event.RequestId, nil
+		event.Raw = *log
+		return event, nil
 	}
 	return nil, errors.New("no RandomWordsRequested event found in receipt")
 }

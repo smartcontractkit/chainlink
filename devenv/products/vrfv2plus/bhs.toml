@@ -3,6 +3,12 @@ name = "vrfv2_plus"
 instances = 1
 
 [[vrfv2_plus]]
+enable_bhs_job          = true
+bhs_job_wait_blocks     = 2
+bhs_job_lookback_blocks = 20
+bhs_job_poll_period     = "1s"
+bhs_job_run_timeout     = "30s"
+
 num_tx_keys = 0
 cl_nodes_funding_eth = 5.0
 cl_node_max_gas_price_gwei = 400
