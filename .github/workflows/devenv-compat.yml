@@ -62,10 +62,6 @@ on:
         default: "info"
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: true
-
 jobs:
   compatibility:
     permissions:
