@@ -30,6 +30,81 @@ import (
 
 const testSinkStartupTimeout = 10 * time.Second
 
+type ChipSink interface {
+	Shutdown(ctx context.Context)
+}
+
+type fanoutSubscription struct {
+	id string
+}
+
+func (s *fanoutSubscription) Shutdown(_ context.Context) {
+	fanoutSubMu.Lock()
+	defer fanoutSubMu.Unlock()
+	delete(fanoutSubs, s.id)
+}
+
+var (
+	fanoutOnce   sync.Once
+	fanoutServer *chiptestsink.Server
+	fanoutErr    error
+
+	fanoutSubMu sync.Mutex
+	fanoutSubs  = make(map[string]chiptestsink.PublishFn)
+)
+
+func chipFanoutEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_SMOKE_CHIP_FANOUT")))
+	return v == "1" || v == "true" || v == "yes"
+}
+
+func ensureFanoutServer(t *testing.T) {
+	t.Helper()
+
+	fanoutOnce.Do(func() {
+		grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
+		startCh := make(chan struct{}, 1)
+		fanoutServer, fanoutErr = chiptestsink.NewServer(chiptestsink.Config{
+			GRPCListen: grpcListenAddr,
+			Started:    startCh,
+			PublishFunc: func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+				fanoutSubMu.Lock()
+				snapshot := make([]chiptestsink.PublishFn, 0, len(fanoutSubs))
+				for _, fn := range fanoutSubs {
+					snapshot = append(snapshot, fn)
+				}
+				fanoutSubMu.Unlock()
+
+				for _, fn := range snapshot {
+					if _, err := fn(ctx, event); err != nil {
+						// Best-effort delivery: one subscriber must not fail all.
+						continue
+					}
+				}
+				return &chippb.PublishResponse{}, nil
+			},
+		})
+		if fanoutErr != nil {
+			return
+		}
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- fanoutServer.Run()
+		}()
+
+		select {
+		case <-startCh:
+		case err := <-errCh:
+			fanoutErr = err
+		case <-time.After(testSinkStartupTimeout):
+			fanoutErr = errors.New("timeout waiting for fanout sink server to start")
+		}
+	})
+
+	require.NoError(t, fanoutErr, "failed to start fanout sink server")
+}
+
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
 func WaitForUserLog(
 	ctx context.Context,
@@ -270,7 +345,18 @@ func GetLoggingPublishFn(
 }
 
 // StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
-func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptestsink.Server {
+// In fanout mode (CRE_SMOKE_CHIP_FANOUT=1), a singleton sink is started and each test
+// registers its own publish function as a fanout subscriber.
+func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink {
+	if chipFanoutEnabled() {
+		ensureFanoutServer(t)
+		subID := t.Name() + "-" + time.Now().Format("150405.000000000")
+		fanoutSubMu.Lock()
+		fanoutSubs[subID] = publishFn
+		fanoutSubMu.Unlock()
+		return &fanoutSubscription{id: subID}
+	}
+
 	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
 	if !isPortAvailable(grpcListenAddr) {
 		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.

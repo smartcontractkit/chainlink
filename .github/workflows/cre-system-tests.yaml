@@ -219,6 +219,8 @@ jobs:
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
+          CRE_SMOKE_PARALLEL: true
+          CRE_SMOKE_CHIP_FANOUT: true
         run: |
           cd core/scripts/cre/environment
 

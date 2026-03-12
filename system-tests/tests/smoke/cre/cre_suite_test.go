@@ -126,6 +126,7 @@ func executeV2SuiteScenarios(t *testing.T, topology string, scenarios []v2suite_
 
 func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.SuiteScenario) {
 	parallelEnabled := strings.EqualFold(os.Getenv("CRE_SMOKE_PARALLEL"), "1") || strings.EqualFold(os.Getenv("CRE_SMOKE_PARALLEL"), "true")
+	fanoutEnabled := strings.EqualFold(os.Getenv("CRE_SMOKE_CHIP_FANOUT"), "1") || strings.EqualFold(os.Getenv("CRE_SMOKE_CHIP_FANOUT"), "true")
 	switch scenario {
 	case v2suite_config.SuiteScenarioProofOfReserve:
 		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
@@ -159,16 +160,25 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		})
 	case v2suite_config.SuiteScenarioHTTPActionCRUD:
 		t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioDONTime:
 		t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteDonTimeTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioConsensus:
 		t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteConsensusTest(t, testEnv)
 		})
