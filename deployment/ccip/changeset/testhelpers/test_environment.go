@@ -67,7 +67,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	fee_quoterV1_6_3 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	solFeeQuoterV0_1_0 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/fee_quoter"
 	solFeeQuoterV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/execute/tokendata/lbtc"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -927,7 +926,7 @@ func DeployChainContractsToSolChainCSV0_1_1(e DeployedEnv, solChainSelector uint
 		)}, nil
 }
 
-func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, preload bool, buildSolConfig *ccipChangeSetSolanaV0_1_1.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	var mcmsCfg *commontypes.MCMSWithTimelockConfigV2
 	if preload {
 		// Pre load default programs
@@ -959,20 +958,20 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 	value := [28]uint8{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 51, 51, 74, 153, 67, 41, 73, 55, 39, 96, 0, 0}
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
-			ccipChangeSetSolana.DeployChainContractsConfig{
+			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.DeployChainContractsChangeset),
+			ccipChangeSetSolanaV0_1_1.DeployChainContractsConfig{
 				HomeChainSelector: e.HomeChainSel,
 				ChainSelector:     solChainSelector,
-				ContractParamsPerChain: ccipChangeSetSolana.ChainContractParams{
-					FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
+				ContractParamsPerChain: ccipChangeSetSolanaV0_1_1.ChainContractParams{
+					FeeQuoterParams: ccipChangeSetSolanaV0_1_1.FeeQuoterParams{
 						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{
 							Lo: 15532559262904483840, Hi: 10, Endianness: nil,
 						},
-						BillingConfig: []solFeeQuoterV0_1_0.BillingTokenConfig{
+						BillingConfig: []solFeeQuoterV0_1_1.BillingTokenConfig{
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].LinkToken,
-								UsdPerToken: solFeeQuoterV0_1_0.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -981,7 +980,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 							{
 								Enabled: true,
 								Mint:    state.SolChains[solChainSelector].WSOL,
-								UsdPerToken: solFeeQuoterV0_1_0.TimestampedPackedU224{
+								UsdPerToken: solFeeQuoterV0_1_1.TimestampedPackedU224{
 									Value:     value,
 									Timestamp: time.Now().Unix(),
 								},
@@ -989,7 +988,7 @@ func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, pr
 							},
 						},
 					},
-					OffRampParams: ccipChangeSetSolana.OffRampParams{
+					OffRampParams: ccipChangeSetSolanaV0_1_1.OffRampParams{
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
