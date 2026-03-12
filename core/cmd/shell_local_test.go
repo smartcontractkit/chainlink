@@ -372,7 +372,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.DriverName = pgcommon.DriverPostgres
 
