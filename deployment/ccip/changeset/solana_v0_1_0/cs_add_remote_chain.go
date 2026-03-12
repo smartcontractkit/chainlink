@@ -174,7 +174,10 @@ func doAddRemoteChainToRouter(
 	)
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	// router setup
-	solRouter.SetProgramID(ccipRouterID)
+	runSafely(
+		func() {
+			solRouter.SetProgramID(ccipRouterID)
+		})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -401,7 +404,10 @@ func doAddRemoteChainToFeeQuoter(
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
 	// fee quoter setup
-	solFeeQuoter.SetProgramID(feeQuoterID)
+	runSafely(
+		func() {
+			solFeeQuoter.SetProgramID(feeQuoterID)
+		})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -585,7 +591,10 @@ func doAddRemoteChainToOffRamp(
 		solana.PublicKey{},
 		"")
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	solOffRamp.SetProgramID(offRampID)
+	runSafely(
+		func() {
+			solOffRamp.SetProgramID(offRampID)
+		})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
