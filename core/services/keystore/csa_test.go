@@ -32,6 +32,11 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 	t.Run("initializes with an empty state", func(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
+
+		for _, key := range keys {
+			t.Log("unexpected key found in keystore", "id", key.ID())
+		}
+
 		require.NoError(t, err)
 		require.Empty(t, keys)
 	})
