@@ -103,8 +103,7 @@ func TestCapabilitiesLocalConfigEmpty(t *testing.T) {
 	local := cfg.Capabilities().Local()
 	assert.Empty(t, local.RegistryBasedLaunchAllowlist())
 	assert.Nil(t, local.Capabilities())
-	// Empty allowlist means allow all capabilities from the on-chain registry (e.g. CRE without [Capabilities.Local] in TOML).
-	assert.True(t, local.IsAllowlisted("any@1.0.0"))
+	assert.False(t, local.IsAllowlisted("any@1.0.0"))
 	assert.Nil(t, local.GetCapabilityConfig("any@1.0.0"))
 }
 

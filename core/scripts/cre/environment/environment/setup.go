@@ -268,20 +268,8 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}
 	}
 
-	// Build Docker image. Use absolute paths for Dockerfile and context so Docker/BuildKit do not resolve them
-	// relative to each other (which causes "lstat ../core: no such file or directory" when context is "..").
-	dockerfilePath := c.Dockerfile
-	if !filepath.IsAbs(dockerfilePath) {
-		dockerfilePath = filepath.Join(workingDir, c.Dockerfile)
-	}
-	ctxPath := c.DockerCtx
-	if !filepath.IsAbs(ctxPath) {
-		ctxPath = filepath.Join(workingDir, c.DockerCtx)
-		if ctxPath, err = filepath.Abs(ctxPath); err != nil {
-			return "", fmt.Errorf("failed to resolve docker context path: %w", err)
-		}
-	}
-	args := []string{"build", "-t", c.LocalImage, "-f", dockerfilePath, ctxPath}
+	// Build Docker image
+	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}
@@ -598,7 +586,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
 	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
-	logger.Info().Msg("   Optional: Set node image in topology TOML under nodesets.nodesets.node_specs.node.image")
+	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
 	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 

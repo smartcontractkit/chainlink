@@ -468,8 +468,7 @@ func addWorkerNodeConfig(
 	}
 
 	// Default to legacy CRE behavior where capabilities are started from approved job specs.
-	// Without an explicit allowlist, LocalCapabilities treats all capability IDs as
-	// registry-launched and standardcapabilities job specs are rejected.
+	// Set an explicit deny-all regex for registry-based launch unless a DON-level allowlist is provided.
 	if existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist == nil {
 		existingConfig.Capabilities.Local.RegistryBasedLaunchAllowlist = []string{`^$`}
 	}

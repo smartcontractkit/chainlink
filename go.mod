@@ -106,9 +106,9 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260304150206-c64e48eb0cb0
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260223231247-735246035dab
-	github.com/smartcontractkit/cre-sdk-go v1.5.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
+	github.com/smartcontractkit/cre-sdk-go v1.5.1-0.20260311205259-d08647a6b874
+	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.1-0.20260311205259-d08647a6b874
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.1-0.20260311205259-d08647a6b874
 	github.com/smartcontractkit/freeport v0.1.3-0.20250716200817-cb5dfd0e369e
 	github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
