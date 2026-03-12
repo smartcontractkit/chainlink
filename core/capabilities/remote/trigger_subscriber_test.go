@@ -396,61 +396,137 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		return sub, dispatcher
 	}
 
-	buildCheckMsg := func(triggerID string) *remotetypes.MessageBody {
+	buildCheckMsg := func(workflowID, triggerID string) *remotetypes.MessageBody {
 		return &remotetypes.MessageBody{
 			Sender:      capDon.Members[0][:],
 			Method:      remotetypes.MethodTriggerRegistrationCheck,
 			CallerDonId: workflowDon.ID,
 			Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
-					WorkflowIds: []string{workflowID1},
+					WorkflowIds: []string{workflowID},
 					TriggerIds:  []string{triggerID},
 				},
 			},
 		}
 	}
 
-	type tc struct {
-		name          string
-		registerLocal bool
-		expectMethod  string
-	}
-	cases := []tc{
-		{
-			name:          "re-registers when trigger exists",
-			registerLocal: true,
-			expectMethod:  remotetypes.MethodRegisterTrigger,
-		},
-		{
-			name:          "sends unregister when trigger missing",
-			registerLocal: false,
-			expectMethod:  remotetypes.MethodUnRegisterTrigger,
-		},
-	}
+	t.Run("re-registers when trigger exists with correct metadata", func(t *testing.T) {
+		sub, dispatcher := newSubscriber(t)
 
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			sub, dispatcher := newSubscriber(t)
-
-			const trigID = "triggerA"
-			if c.registerLocal {
-				_, err := sub.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{
-					TriggerID: trigID,
-					Metadata: commoncap.RequestMetadata{
-						WorkflowID: workflowID1,
-					},
-				})
-				require.NoError(t, err)
-			}
-
-			// Reset call tracking so we only inspect calls made after this point.
-			dispatcher.Calls = nil
-			sub.Receive(t.Context(), buildCheckMsg(trigID))
-			dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
-				return m.Method == c.expectMethod
-			}))
+		_, err := sub.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{
+			TriggerID: "triggerA",
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID: workflowID1,
+			},
 		})
-	}
+		require.NoError(t, err)
+
+		dispatcher.Calls = nil
+		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
+
+		var found bool
+		for _, call := range dispatcher.Calls {
+			if call.Method != "Send" {
+				continue
+			}
+			msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
+			if msg.Method == remotetypes.MethodRegisterTrigger {
+				require.Equal(t, capInfo.ID, msg.CapabilityId)
+				require.Equal(t, capDon.ID, msg.CapabilityDonId)
+				require.Equal(t, workflowDon.ID, msg.CallerDonId)
+				require.NotEmpty(t, msg.Payload, "re-registration should include the raw request payload")
+				found = true
+				break
+			}
+		}
+		require.True(t, found, "expected a MethodRegisterTrigger Send call")
+	})
+
+	t.Run("sends unregister when trigger missing with correct metadata", func(t *testing.T) {
+		sub, dispatcher := newSubscriber(t)
+
+		dispatcher.Calls = nil
+		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
+
+		var found bool
+		for _, call := range dispatcher.Calls {
+			if call.Method != "Send" {
+				continue
+			}
+			msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
+			if msg.Method == remotetypes.MethodUnRegisterTrigger {
+				require.Equal(t, capInfo.ID, msg.CapabilityId)
+				require.Equal(t, capDon.ID, msg.CapabilityDonId)
+				require.Equal(t, workflowDon.ID, msg.CallerDonId)
+				meta := msg.GetTriggerEventMetadata()
+				require.NotNil(t, meta)
+				require.Equal(t, []string{workflowID1}, meta.WorkflowIds)
+				require.Equal(t, []string{"triggerA"}, meta.TriggerIds)
+				found = true
+				break
+			}
+		}
+		require.True(t, found, "expected a MethodUnRegisterTrigger Send call")
+	})
+
+	t.Run("sends unregister after trigger is unregistered locally", func(t *testing.T) {
+		sub, dispatcher := newSubscriber(t)
+
+		req := commoncap.TriggerRegistrationRequest{
+			TriggerID: "triggerA",
+			Metadata: commoncap.RequestMetadata{
+				WorkflowID: workflowID1,
+			},
+		}
+		_, err := sub.RegisterTrigger(t.Context(), req)
+		require.NoError(t, err)
+
+		// Verify check triggers re-register while registered
+		dispatcher.Calls = nil
+		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
+		dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+			return m.Method == remotetypes.MethodRegisterTrigger
+		}))
+
+		// Unregister locally
+		require.NoError(t, sub.UnregisterTrigger(t.Context(), req))
+
+		// Now the same check should result in unregister
+		dispatcher.Calls = nil
+		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
+		dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+			return m.Method == remotetypes.MethodUnRegisterTrigger
+		}))
+	})
+
+	t.Run("ignores check from unknown sender", func(t *testing.T) {
+		sub, dispatcher := newSubscriber(t)
+
+		unknownPeer := p2ptypes.PeerID{0xaa}
+		checkMsg := &remotetypes.MessageBody{
+			Sender:      unknownPeer[:],
+			Method:      remotetypes.MethodTriggerRegistrationCheck,
+			CallerDonId: workflowDon.ID,
+			Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID1},
+					TriggerIds:  []string{"triggerA"},
+				},
+			},
+		}
+
+		dispatcher.Calls = nil
+		sub.Receive(t.Context(), checkMsg)
+
+		// No registration or unregistration calls should have been made
+		for _, call := range dispatcher.Calls {
+			if call.Method == "Send" {
+				msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
+				require.NotEqual(t, remotetypes.MethodRegisterTrigger, msg.Method, "should not re-register from unknown sender")
+				require.NotEqual(t, remotetypes.MethodUnRegisterTrigger, msg.Method, "should not unregister from unknown sender")
+			}
+		}
+	})
 }
 
 func buildTwoTestDONs(t *testing.T, capDonSize int, workflowDonSize int) (commoncap.CapabilityInfo, commoncap.DON, commoncap.DON) {

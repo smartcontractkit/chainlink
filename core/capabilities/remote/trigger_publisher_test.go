@@ -481,6 +481,314 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[1]},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	dispatcher := mocks.NewDispatcher(t)
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+
+	// Register a trigger before starting so the loop has something to check
+	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
+	publisher.Receive(ctx, regEvent)
+	<-underlying.registrationsCh
+
+	checkReceived := make(chan *remotetypes.MessageBody, 10)
+	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationCheck
+	})).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		checkReceived <- msg
+	}).Return(nil)
+
+	require.NoError(t, publisher.Start(ctx))
+
+	select {
+	case msg := <-checkReceived:
+		meta := msg.GetTriggerEventMetadata()
+		require.NotNil(t, meta)
+		require.Equal(t, []string{workflowID1}, meta.WorkflowIds)
+		require.Equal(t, []string{"triggerA"}, meta.TriggerIds)
+		require.Equal(t, capabilityDONID, msg.CapabilityDonId)
+		require.Equal(t, workflowDONID, msg.CallerDonId)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for registration check message")
+	}
+
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 3)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	// peers[2] is a random peer not in any DON
+	peers[2] = p2ptypes.PeerID{0xff}
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[1]},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	dispatcher := mocks.NewDispatcher(t)
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     time.Hour,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	// Register a trigger from the valid workflow DON member
+	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
+	publisher.Receive(ctx, regEvent)
+	<-underlying.registrationsCh
+
+	// Send unregister from a peer NOT in the workflow DON — should be ignored
+	unregMsg := &remotetypes.MessageBody{
+		Sender:      peers[2][:],
+		Method:      remotetypes.MethodUnRegisterTrigger,
+		CallerDonId: workflowDONID,
+		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+				WorkflowIds: []string{workflowID1},
+				TriggerIds:  []string{"triggerA"},
+			},
+		},
+	}
+	publisher.Receive(ctx, unregMsg)
+
+	// UnregisterTrigger should NOT have been called on the underlying
+	select {
+	case trigID := <-underlying.unregisterCalled:
+		t.Fatalf("expected no unregister, but got unregister for %s", trigID)
+	default:
+		// expected: no unregister
+	}
+
+	// Now send from the valid member — should succeed
+	unregMsg.Sender = peers[1][:]
+	publisher.Receive(ctx, unregMsg)
+	require.Equal(t, "triggerA", <-underlying.unregisterCalled)
+
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	_, publisher, _, peers := newServices(t, 1, 2, 1)
+
+	cases := []struct {
+		name string
+		meta *remotetypes.MessageBody_TriggerEventMetadata
+	}{
+		{
+			name: "nil metadata",
+			meta: nil,
+		},
+		{
+			name: "empty workflow IDs",
+			meta: &remotetypes.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+					WorkflowIds: []string{},
+					TriggerIds:  []string{"triggerA"},
+				},
+			},
+		},
+		{
+			name: "empty trigger IDs",
+			meta: &remotetypes.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID1},
+					TriggerIds:  []string{},
+				},
+			},
+		},
+		{
+			name: "multiple workflow IDs",
+			meta: &remotetypes.MessageBody_TriggerEventMetadata{
+				TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+					WorkflowIds: []string{workflowID1, workflowID1},
+					TriggerIds:  []string{"triggerA"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := &remotetypes.MessageBody{
+				Sender:      peers[1][:],
+				Method:      remotetypes.MethodUnRegisterTrigger,
+				CallerDonId: 2,
+			}
+			if tc.meta != nil {
+				msg.Metadata = tc.meta
+			}
+			// Should not panic
+			publisher.Receive(ctx, msg)
+		})
+	}
+
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[0], peers[1]},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	dispatcher := mocks.NewDispatcher(t)
+
+	triggerEventSent := make(chan p2ptypes.PeerID, 10)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		if msg.Method == remotetypes.MethodTriggerEvent {
+			triggerEventSent <- args.Get(0).(p2ptypes.PeerID)
+		}
+	}).Return(nil).Maybe()
+
+	// Very short MessageExpiry so ACK entries expire quickly
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     200 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           200 * time.Millisecond,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+
+	// Register trigger
+	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
+	publisher.Receive(ctx, regEvent)
+	<-underlying.registrationsCh
+
+	// Insert an ACK from peers[0]; with F=0 minRequired=1, so it goes through.
+	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
+	publisher.Receive(ctx, ackMsg)
+
+	// Start the publisher — the cacheCleanupLoop will run sendRegistrationChecks()
+	// every 200ms, which cleans ack entries older than MessageExpiry (200ms).
+	require.NoError(t, publisher.Start(ctx))
+
+	// Wait long enough for the ack cache entry to expire and be cleaned up
+	time.Sleep(500 * time.Millisecond)
+
+	// Send a new trigger event for the same event ID and verify it gets sent to
+	// peers[0] again (not suppressed by the old ACK), proving the cleanup worked.
+	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+		Event: commoncap.TriggerEvent{ID: "event1"},
+	})
+
+	sentTo := make(map[p2ptypes.PeerID]bool)
+	for range 2 {
+		select {
+		case peer := <-triggerEventSent:
+			sentTo[peer] = true
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for trigger event sends")
+		}
+	}
+	require.True(t, sentTo[peers[0]], "event should be re-sent to peers[0] after ack cache cleanup")
+	require.True(t, sentTo[peers[1]], "event should be sent to peers[1]")
+
+	require.NoError(t, publisher.Close())
+}
+
 func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 	ctx := testutils.Context(t)
 	lggr := logger.Test(t)
@@ -543,11 +851,15 @@ func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 	sendCh := make(chan struct{}, 10)
 
 	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		if msg.Method != remotetypes.MethodTriggerEvent {
+			return
+		}
+
 		mu.Lock()
 		defer mu.Unlock()
 
 		peer := args.Get(0).(p2ptypes.PeerID)
-		msg := args.Get(1).(*remotetypes.MessageBody)
 		meta := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
 
 		sendRecords = append(sendRecords, struct {

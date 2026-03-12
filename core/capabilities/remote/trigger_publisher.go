@@ -259,6 +259,14 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Error("invalid unregister metadata")
 			return
 		}
+		if _, ok := cfg.workflowDONs[msg.CallerDonId]; !ok {
+			p.lggr.Errorw("received unregister from unsupported workflow DON", "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !cfg.membersCache[msg.CallerDonId][sender] {
+			p.lggr.Errorw("unregister sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
 
 		key := registrationKey{
 			callerDonID: msg.CallerDonId,
