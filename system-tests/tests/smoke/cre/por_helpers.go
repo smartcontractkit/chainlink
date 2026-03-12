@@ -135,8 +135,19 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 			chainFamily = blockchain.FamilyEVM
 		default:
 			require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-			workflowOwner = bcOutput.(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, common.HexToAddress(forwarderAddress))
+			require.NotNil(t, testEnv.Execution, "missing per-test execution context")
+			workflowOwner = testEnv.Execution.OwnerAddress
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(
+				t,
+				testLogger,
+				chainSelector,
+				chainID,
+				creEnvironment,
+				workflowOwner,
+				uniqueWorkflowName,
+				feedID,
+				common.HexToAddress(forwarderAddress),
+			)
 		}
 
 		// reset to avoid incrementing on each iteration
@@ -209,11 +220,11 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	require.NotNil(t, bcOutput, "no writable EVM blockchain found")
 	require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
 
-	evmBC := bcOutput.(*evm.Blockchain)
 	chainSelector := bcOutput.ChainSelector()
 	chainID := bcOutput.ChainID()
 	creEnvironment := testEnv.CreEnvironment
-	workflowOwner := evmBC.SethClient.MustGetRootKeyAddress()
+	require.NotNil(t, testEnv.Execution, "missing per-test execution context")
+	workflowOwner := testEnv.Execution.OwnerAddress
 
 	require.Len(t, wfConfig.FeedIDs, 1, "SetupPoRWorkflowForSoak expects exactly one feed ID per workflow")
 	feedID := wfConfig.FeedIDs[0]
@@ -276,7 +287,17 @@ func GenerateSoakFeedIDs(n int) []string {
 	return ids
 }
 
-func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+func deployAndConfigureEVMContracts(
+	t *testing.T,
+	testLogger zerolog.Logger,
+	chainSelector uint64,
+	chainID uint64,
+	creEnvironment *cre.Environment,
+	workflowOwner common.Address,
+	uniqueWorkflowName string,
+	feedID string,
+	forwarderAddress common.Address,
+) (common.Address, common.Address) {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
 	dfAddress, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)

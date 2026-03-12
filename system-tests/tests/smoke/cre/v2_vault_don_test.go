@@ -72,7 +72,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 	ownerAddr := sethClient.MustGetRootKeyAddress().Hex()
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "consensustest")
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(workflowRegistryAddress), sethClient.Client)
 	require.NoError(t, err, "failed to get workflow registry contract wrapper")
 

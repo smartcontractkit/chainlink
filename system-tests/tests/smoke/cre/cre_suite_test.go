@@ -3,6 +3,7 @@ package cre
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -124,15 +125,22 @@ func executeV2SuiteScenarios(t *testing.T, topology string, scenarios []v2suite_
 }
 
 func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.SuiteScenario) {
+	parallelEnabled := strings.EqualFold(os.Getenv("CRE_SMOKE_PARALLEL"), "1") || strings.EqualFold(os.Getenv("CRE_SMOKE_PARALLEL"), "true")
 	switch scenario {
 	case v2suite_config.SuiteScenarioProofOfReserve:
 		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			priceProvider, wfConfig := BeforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 		})
 	case v2suite_config.SuiteScenarioVaultDON:
 		t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteVaultTest(t, testEnv)
 		})
@@ -143,6 +151,9 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		})
 	case v2suite_config.SuiteScenarioHTTPTriggerAction:
 		t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
