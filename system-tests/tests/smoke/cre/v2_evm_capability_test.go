@@ -280,7 +280,7 @@ func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sq
 
 	// Check workflow NodeSet first (local takes precedence).
 	for _, ns := range nodeSets {
-		if slices.Contains(ns.DONTypes, string(cre.WorkflowDON)) && slices.Contains(ns.Capabilities, evmFlag) {
+		if slices.Contains(ns.DONTypes, cre.WorkflowDON) && slices.Contains(ns.Capabilities, evmFlag) {
 			port = ns.DbInput.Port
 			label = ns.Name
 			break
@@ -305,7 +305,7 @@ func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sq
 	)
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)
-	require.NoError(t, db.Ping())
+	require.NoError(t, db.PingContext(t.Context()))
 	t.Logf("connected to %s node DB (port %d) for trigger event tracking on chain %s", label, port, chainID)
 	t.Cleanup(func() { _ = db.Close() })
 	return db
@@ -370,7 +370,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		message := fmt.Sprintf("Data for log trigger chain %s", chainID)
+		message := "Data for log trigger chain " + chainID
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
