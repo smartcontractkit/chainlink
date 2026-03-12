@@ -28,13 +28,13 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260306142855-8d629e752265
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260303213437-47af98c8ae82
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260121163256-85accaf3d28d
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20250912190424-fd2e35d7deb5
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260309085605-12d6180b51ff
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260311150311-2d0c9b95fbc9
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260311190822-5cbfc939dd16
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260310183131-8d0f0e383288
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260310204254-f3e84643d9cd
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260309171438-f10976da0b9b
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260312040800-ae9a90cffec3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
@@ -46,7 +46,7 @@ require (
 	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/atomic v1.11.0
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 )
 
 require (
@@ -187,7 +187,7 @@ require (
 	github.com/danieljoos/wincred v1.2.1 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dchest/siphash v1.2.3 // indirect
-	github.com/deckarep/golang-set/v2 v2.6.0 // indirect
+	github.com/deckarep/golang-set/v2 v2.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dennwc/varint v1.0.0 // indirect
 	github.com/dgraph-io/badger/v4 v4.7.0 // indirect
@@ -607,9 +607,9 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0 // indirect
 	go.opentelemetry.io/otel/log v0.15.0 // indirect
 	go.opentelemetry.io/otel/metric v1.41.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.41.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.15.0 // indirect
-	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.41.0 // indirect
 	go.opentelemetry.io/otel/trace v1.41.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect

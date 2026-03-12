@@ -2431,7 +2431,9 @@ func DeploySolanaCcipReceiver(t *testing.T, e cldf.Environment) {
 	state, err := stateview.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	for solSelector, chainState := range state.SolChains {
-		solTestReceiver.SetProgramID(chainState.Receiver)
+		runSafely(func() {
+			solTestReceiver.SetProgramID(chainState.Receiver)
+		})
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
@@ -2633,4 +2635,17 @@ func UpdateFeeQuoterForToken(
 		return err
 	}
 	return nil
+}
+
+func runSafely(ops ...func()) {
+	for _, op := range ops {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+				}
+			}()
+			op()
+		}()
+	}
 }

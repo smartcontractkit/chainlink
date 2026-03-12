@@ -36,14 +36,14 @@ func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
 	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
 
 	// requires `readcontract`, `cron`
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 }
 
 func Test_CRE_V1_Tron(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"), v1RegistriesFlags...)
 
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
+	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 }
 
@@ -59,7 +59,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 		"failed to start Billing stack",
 	)
 
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
+	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }
@@ -128,7 +128,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 	case v2suite_config.SuiteScenarioProofOfReserve:
 		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-			priceProvider, wfConfig := beforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
+			priceProvider, wfConfig := BeforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 		})
 	case v2suite_config.SuiteScenarioVaultDON:
@@ -171,7 +171,7 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
-		priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
+		priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 

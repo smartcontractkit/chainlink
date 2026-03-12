@@ -33,6 +33,7 @@ import (
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
+	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -45,13 +46,20 @@ import (
 const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 const PoRWFV2Location = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
 
+// WorkflowTestConfig holds per-test workflow configuration for PoR tests.
+// CronSchedule is optional; when non-empty it overrides the default "*/30 * * * * *"
+// schedule embedded in the V2 workflow binary. Leave empty for smoke tests so the
+// existing behaviour is unchanged.
 type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
+	CronSchedule         string // optional; V2 only
 }
 
-func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
+// BeforePoRTest creates a FakePriceProvider and a WorkflowTestConfig pre-populated with
+// two hardcoded feed IDs. It is the entry-point used by all PoR smoke tests.
+func BeforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, workflowLocation string) (PriceProvider, WorkflowTestConfig) {
 	porWfCfg := WorkflowTestConfig{
 		FeedIDs:              []string{"018e16c38e000320000000000000000000000000000000000000000000000000", "018e16c39e000320000000000000000000000000000000000000000000000000"},
 		WorkflowName:         workflowName,
@@ -70,6 +78,9 @@ func beforePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName, 
 	return priceProvider, porWfCfg
 }
 
+// ExecutePoRTest deploys DataFeedsCache + ReadBalances contracts on all writable chains,
+// registers a workflow per chain, and validates that each feed is updated with the
+// expected prices from priceProvider.
 func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, cfg WorkflowTestConfig, withBilling bool) {
 	testLogger := framework.L
 	blockchainOutputs := testEnv.CreEnvironment.Blockchains
@@ -169,6 +180,100 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		expectedMinChange := float64(49)
 		assertBillingStateChanged(t, billingState, 2*time.Minute, expectedMinChange)
 	}
+}
+
+// SetupPoRWorkflowForSoak deploys DataFeedsCache + ReadBalances on the first writable EVM
+// chain, compiles and registers the V2 PoR workflow using the supplied WorkflowTestConfig,
+// and returns the DataFeedsCache contract address so the soak loop can poll it directly.
+//
+// Workflow cleanup (unregistration) is registered automatically via t.Cleanup inside
+// CompileAndDeployWorkflow.
+func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider PriceProvider, wfConfig WorkflowTestConfig) (common.Address, error) {
+	t.Helper()
+
+	testLogger := framework.L
+	writeableChains := t_helpers.GetWritableChainsFromSavedEnvironmentState(t, testEnv)
+	require.NotEmpty(t, writeableChains, "no writable chains found in saved environment state")
+
+	// Find the first writable EVM blockchain
+	var bcOutput blockchains.Blockchain
+	for _, bc := range testEnv.CreEnvironment.Blockchains {
+		if bc.IsFamily(blockchain.FamilySolana) || bc.IsFamily(blockchain.FamilyTron) {
+			continue
+		}
+		if slices.Contains(writeableChains, bc.ChainID()) {
+			bcOutput = bc
+			break
+		}
+	}
+	require.NotNil(t, bcOutput, "no writable EVM blockchain found")
+	require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+
+	evmBC := bcOutput.(*evm.Blockchain)
+	chainSelector := bcOutput.ChainSelector()
+	chainID := bcOutput.ChainID()
+	creEnvironment := testEnv.CreEnvironment
+	workflowOwner := evmBC.SethClient.MustGetRootKeyAddress()
+
+	require.Len(t, wfConfig.FeedIDs, 1, "SetupPoRWorkflowForSoak expects exactly one feed ID per workflow")
+	feedID := wfConfig.FeedIDs[0]
+
+	forwarderAddress := crecontracts.MustGetAddressFromDataStore(
+		creEnvironment.CldfEnvironment.DataStore, chainSelector,
+		keystone_changeset.KeystoneForwarder.String(),
+		creEnvironment.ContractVersions[keystone_changeset.KeystoneForwarder.String()], "",
+	)
+
+	dataFeedsCacheAddress, readBalancesAddress := deployAndConfigureEVMContracts(
+		t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner,
+		wfConfig.WorkflowName, feedID, common.HexToAddress(forwarderAddress),
+	)
+
+	numberOfAddressesToCreate := 2
+	amountToFund := big.NewInt(10) // 10 wei
+	addressesToRead, addrErr := t_helpers.CreateAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, creEnvironment)
+	require.NoError(t, addrErr, "failed to create and fund addresses for soak workflow %s", wfConfig.WorkflowName)
+
+	writeTargetName := corevm.GenerateWriteTargetName(chainID)
+	testLogger.Info().Msgf("SetupPoRWorkflowForSoak: chain=%d writeTarget=%s cache=%s feedID=%s cron=%q",
+		chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID, wfConfig.CronSchedule)
+
+	workflowConfig := porV2types.WorkflowConfig{
+		ChainSelector: chainSelector,
+		CronSchedule:  wfConfig.CronSchedule,
+		BalanceReaderConfig: porV2types.BalanceReaderConfig{
+			BalanceReaderAddress: readBalancesAddress.Hex(),
+			AddressesToRead:      addressesToRead,
+		},
+		ComputeConfig: porV2types.ComputeConfig{
+			FeedID:                feedID,
+			URL:                   priceProvider.URL(),
+			DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
+			WriteTargetName:       writeTargetName,
+		},
+	}
+
+	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, wfConfig.WorkflowName, &workflowConfig, wfConfig.WorkflowFileLocation)
+
+	return dataFeedsCacheAddress, nil
+}
+
+// GenerateSoakFeedIDs generates n unique 32-hex-char (16-byte) feed IDs for the soak test.
+// Each ID differs only in byte 4 (last byte of the data family), keeping all other fields fixed.
+// Layout per DF2.0 spec:
+//
+//	byte  0:    0x01   – format byte
+//	bytes 1-3:  8e16c3 – data family prefix (fixed)
+//	byte  4:    <i>    – data family suffix (varies per feed, supports up to 256 unique IDs)
+//	bytes 5-6:  0003   – attribute bucket 3
+//	byte  7:    20     – data type: Decimal0 (integer)
+//	bytes 8-15: 00…    – reserved (must be zero)
+func GenerateSoakFeedIDs(n int) []string {
+	ids := make([]string, n)
+	for i := range n {
+		ids[i] = fmt.Sprintf("018e16c3%02x0003200000000000000000", i)
+	}
+	return ids
 }
 
 func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
@@ -302,7 +407,7 @@ func validateTronPrices(t *testing.T, testEnv *ttypes.TestEnvironment, blockchai
 	tronChains := testEnv.CreEnvironment.CldfEnvironment.BlockChains.TronChains()
 	tronChain, exists := tronChains[blockchain.ChainSelector()]
 	if !exists {
-		return fmt.Errorf("Tron chain %d not found in environment", blockchain.ChainSelector())
+		return fmt.Errorf("tron chain %d not found in environment", blockchain.ChainSelector())
 	}
 
 	cacheAddr := address.EVMAddressToAddress(dataFeedsCacheAddresses)
