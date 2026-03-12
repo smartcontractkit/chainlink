@@ -37,6 +37,13 @@ func (a *defaultModeAggregator) Aggregate(_ string, responses [][]byte) (commonc
 	return unmarshaled, nil
 }
 
+// AggregateModeRaw finds the mode (most frequent element) in elemList that meets minIdenticalResponses.
+// This function is on the critical path of publisher_subscriber.go#Receive() and is called once per workflow per batched message.
+// Any change here must be validated by running the benchmark and comparing against the checked-in baseline:
+//
+//	cd ./core/capabilities/remote/aggregation/
+//	go test -bench=Benchmark_AggregateModeRaw -benchmem -count=6 . > /tmp/benchmark_new.txt
+//	benchstat ./testdata/aggregate_mode_raw_benchmark.txt /tmp/benchmark_new.txt
 func AggregateModeRaw(elemList [][]byte, minIdenticalResponses uint32) ([]byte, error) {
 	// Fast path: if elemList[0] reaches majorityThreshold (max(len/2+1, minIdenticalResponses)) hashing won't be needed.
 	n := len(elemList)
