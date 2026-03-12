@@ -307,10 +307,10 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			e.BlockChains,
 			fqUpdate,
 		)
-		output.Reports = append(output.Reports, v2Report.ExecutionReports...)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute v2 FeeQuoter update sequence on chain %d: %w", chainSel, err)
 		}
+		output.Reports = append(output.Reports, v2Report.ExecutionReports...)
 		v2BatchOps = append(v2BatchOps, v2Report.Output.BatchOps...)
 	}
 
