@@ -162,26 +162,29 @@ jobs:
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
           PRODUCT: ${{ env.PRODUCT }}
           NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
-          REFS: ${{ env.REFS }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
           NODES: ${{ env.NODES }}
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
         run: |
+          REFS_ARGS=""
+          if [ -n "${{ env.REFS }}" ]; then
+            REFS_ARGS="--refs ${{ env.REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
-            --refs "${REFS}" \
+            ${REFS_ARGS} \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}" \
-            "${NO_GIT_ROLLBACK}"
+            ${{ env.NO_GIT_ROLLBACK }}
 
       - name: Upload Logs
         if: always()
