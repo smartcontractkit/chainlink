@@ -24,7 +24,10 @@ jobs:
       envcmd: "cl u env.toml,products/ocr2/basic.toml"
       testcmd: "cl test ocr2 TestSmoke/rounds"
       don-nodes: "5"
+      # this is just an example, right now Git tags != ECR tags != RANE's version field
+      # that's why we need it for testing purposes
       refs: "2.36.1-rc.0,2.36.1-beta.0,2.37.0-rc.0,2.37.0-beta.0,2.38.0-rc.0,2.38.0-beta.0"
+      no-git-rollback: "true"
       working-directory: "devenv"
       logs-directory: "./devenv/tests/ocr2/logs"
       ctf-log-level: "info"
