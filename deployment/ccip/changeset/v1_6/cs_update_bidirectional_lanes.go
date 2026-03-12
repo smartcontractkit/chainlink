@@ -291,10 +291,14 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			ExistingAddresses: ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel)),
 		}
 		if dests, ok := feeQuoterDestsInput.UpdatesByChain[chainSel]; ok {
-			fqUpdate.DestChainConfigs = convertV16FeeQuoterDestUpdatesToV2(dests.CallInput)
+			destCfgs, err := ConvertV16FeeQuoterDestUpdatesToV2(dests.CallInput)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert v1.6 fee quoter destination updates for chain %d: %w", chainSel, err)
+			}
+			fqUpdate.DestChainConfigs = destCfgs
 		}
 		if prices, ok := feeQuoterPricesInput.UpdatesByChain[chainSel]; ok {
-			fqUpdate.PriceUpdates = convertV16FeeQuoterPriceUpdatesToV2(prices.CallInput)
+			fqUpdate.PriceUpdates = ConvertV16FeeQuoterPriceUpdatesToV2(prices.CallInput)
 		}
 
 		v2Report, err := operations.ExecuteSequence(
@@ -303,6 +307,7 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			e.BlockChains,
 			fqUpdate,
 		)
+		output.Reports = append(output.Reports, v2Report.ExecutionReports...)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute v2 FeeQuoter update sequence on chain %d: %w", chainSel, err)
 		}
@@ -331,9 +336,16 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	return output, nil
 }
 
-func convertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfigArgs) []fqv2ops.DestChainConfigArgs {
+func ConvertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfigArgs) ([]fqv2ops.DestChainConfigArgs, error) {
 	out := make([]fqv2ops.DestChainConfigArgs, 0, len(in))
 	for _, cfg := range in {
+		if cfg.DestChainConfig.NetworkFeeUSDCents > uint32(^uint16(0)) {
+			return nil, fmt.Errorf(
+				"network fee USD cents %d for destination chain %d exceeds uint16 max",
+				cfg.DestChainConfig.NetworkFeeUSDCents,
+				cfg.DestChainSelector,
+			)
+		}
 		out = append(out, fqv2ops.DestChainConfigArgs{
 			DestChainSelector: cfg.DestChainSelector,
 			DestChainConfig: fqv2ops.DestChainConfig{
@@ -346,15 +358,15 @@ func convertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfig
 				DefaultTokenFeeUSDCents:     cfg.DestChainConfig.DefaultTokenFeeUSDCents,
 				DefaultTokenDestGasOverhead: cfg.DestChainConfig.DefaultTokenDestGasOverhead,
 				DefaultTxGasLimit:           cfg.DestChainConfig.DefaultTxGasLimit,
-				NetworkFeeUSDCents:          uint16(cfg.DestChainConfig.NetworkFeeUSDCents),
+				NetworkFeeUSDCents:          uint16(cfg.DestChainConfig.NetworkFeeUSDCents), //nolint:gosec // value is range-checked above
 				LinkFeeMultiplierPercent:    fqv2seq.LinkFeeMultiplierPercent,
 			},
 		})
 	}
-	return out
+	return out, nil
 }
 
-func convertV16FeeQuoterPriceUpdatesToV2(in fee_quoter.InternalPriceUpdates) fqv2ops.PriceUpdates {
+func ConvertV16FeeQuoterPriceUpdatesToV2(in fee_quoter.InternalPriceUpdates) fqv2ops.PriceUpdates {
 	out := fqv2ops.PriceUpdates{
 		TokenPriceUpdates: make([]fqv2ops.TokenPriceUpdate, 0, len(in.TokenPriceUpdates)),
 		GasPriceUpdates:   make([]fqv2ops.GasPriceUpdate, 0, len(in.GasPriceUpdates)),
@@ -443,6 +455,10 @@ func resolveUpdateLanesFeeQuoterAddressAndVersion(
 
 	if bestVersion == nil {
 		return common.Address{}, semver.Version{}, fmt.Errorf("no fee quoter address found for chain %d", chainSel)
+	}
+
+	if !common.IsHexAddress(bestRef.Address) {
+		return common.Address{}, semver.Version{}, fmt.Errorf("invalid fee quoter address %q for chain %d", bestRef.Address, chainSel)
 	}
 
 	return common.HexToAddress(bestRef.Address), *bestVersion, nil
