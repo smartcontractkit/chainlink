@@ -160,7 +160,7 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --upgrade-nodes "${UPGRADE_NODES}" \
-            --don-nodes "${DON_NODES}" \
+            --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}"
