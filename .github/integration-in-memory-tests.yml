@@ -19,7 +19,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestMigrateFromV1_5ToV1_6$" -timeout 12m -count=1 -parallel=1 smoke/ccip/ccip_migration_to_v_1_6_test.go
+        -- -v -run "^TestMigrateFromV1_5ToV1_6$" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_fees_test.go:*
@@ -51,7 +51,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana
@@ -67,7 +67,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana_LOOPP
@@ -83,7 +83,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -102,7 +102,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM_LOOPP
@@ -118,7 +118,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -137,7 +137,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -156,7 +156,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -count=1 -parallel=4 smoke/ccip/ccip_messaging_test.go
+        -- -v -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_message_limitations_test.go:*
@@ -171,7 +171,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPMessageLimitations" -timeout 12m -count=1 -parallel=2 smoke/ccip/ccip_message_limitations_test.go
+        -- -v -run "Test_CCIPMessageLimitations" -timeout 12m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MaxBatchSizeEVM
@@ -186,7 +186,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource
@@ -201,7 +201,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPBatching_MultiSource" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "Test_CCIPBatching_MultiSource" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiRoot
@@ -216,7 +216,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiPrice
@@ -231,7 +231,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
@@ -246,7 +246,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPBatching_SingleSource$" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "^Test_CCIPBatching_SingleSource$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultiRoot
@@ -261,7 +261,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPBatching_SingleSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "^Test_CCIPBatching_SingleSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultiPrice
@@ -276,7 +276,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPBatching_SingleSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 smoke/ccip/ccip_batching_test.go
+        -- -v -run "^Test_CCIPBatching_SingleSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_add_chain_test.go:*
@@ -712,7 +712,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest" -timeout 15m -count=1 -parallel=2 smoke/ccip/ccip_topologies_test.go
+        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest" -timeout 15m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_topologies_test.go:Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource
@@ -728,7 +728,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -count=1 -parallel=2 smoke/ccip/ccip_topologies_test.go
+        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   # Aptos tests
