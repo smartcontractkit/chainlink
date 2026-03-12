@@ -520,21 +520,7 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, createErr)
 		}
 		if ocr2BundleID == "" {
-			// Best-effort self-heal: create missing OCR2 key bundle for this chain type,
-			// then re-fetch the bundle ID from GraphQL.
-			if n.Clients.RestClient == nil {
-				return fmt.Errorf("no OCR2 key bundle id found for node %s and REST client is unavailable to create one", n.Name)
-			}
-			if _, _, keyErr := n.Clients.RestClient.CreateOCR2Key(strings.ToLower(chainType)); keyErr != nil {
-				return fmt.Errorf("failed to create OCR2 key bundle for node %s (chainType=%s): %w", n.Name, chainType, keyErr)
-			}
-			ocr2BundleID, createErr = n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
-			if createErr != nil {
-				return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s after creation (chainType=%s): %w", n.Name, chainType, createErr)
-			}
-			if ocr2BundleID == "" {
-				return fmt.Errorf("no OCR2 key bundle id found for node %s after creation attempt (chainType=%s)", n.Name, chainType)
-			}
+			return fmt.Errorf("no OCR2 key bundle id found for node %s (chainType=%s)", n.Name, chainType)
 		}
 
 		if n.Keys.OCR2BundleIDs == nil {

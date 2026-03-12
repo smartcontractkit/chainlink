@@ -473,8 +473,6 @@ type GenerateConfigsInput struct {
 	ContractVersions        map[ContractType]*semver.Version
 	Topology                *Topology
 	Provider                infra.Provider
-	// AptosForwarderAddresses maps Aptos chain selector to forwarder address (optional; zero address used when missing).
-	AptosForwarderAddresses map[uint64]string
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -1277,7 +1275,7 @@ func (c *NodeSet) ensureChainCapabilityIndex() {
 	c.chainCapabilityIndexBuilt = true
 }
 
-func (c *NodeSet) chainCapabilityIDs() []uint64 {
+func (c *NodeSet) ChainCapabilityIDs() []uint64 {
 	c.ensureChainCapabilityIndex()
 
 	if len(c.chainCapabilityIndex) == 0 {
@@ -1302,7 +1300,7 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 
 // ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, write-aptos-4).
 func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
-	return c.chainCapabilityIDs()
+	return c.ChainCapabilityIDs()
 }
 
 func (c *NodeSet) Flags() []string {
@@ -1359,7 +1357,7 @@ func (c *NodeSet) EVMChains() []uint64 {
 		return c.SupportedEVMChains
 	}
 
-	return c.chainCapabilityIDs()
+	return c.ChainCapabilityIDs()
 }
 
 type CapabilitiesPeeringData struct {
@@ -1497,12 +1495,11 @@ type LinkDonsToJDInput struct {
 }
 
 type Environment struct {
-	CldfEnvironment         *cldf.Environment
-	RegistryChainSelector   uint64
-	Blockchains             []blockchains.Blockchain
-	ContractVersions        map[ContractType]*semver.Version
-	Provider                infra.Provider
-	AptosForwarderAddresses map[uint64]string // optional; chain selector -> forwarder address for Aptos chains
+	CldfEnvironment       *cldf.Environment
+	RegistryChainSelector uint64
+	Blockchains           []blockchains.Blockchain
+	ContractVersions      map[ContractType]*semver.Version
+	Provider              infra.Provider
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 

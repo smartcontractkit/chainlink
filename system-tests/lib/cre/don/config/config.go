@@ -115,7 +115,6 @@ func PrepareNodeTOMLs(
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
 					Topology:                topology,
 					Provider:                creEnv.Provider,
-					AptosForwarderAddresses: creEnv.AptosForwarderAddresses,
 				},
 				configFactoryFunctions,
 			)
@@ -797,25 +796,18 @@ func aptosNodeURLWithV1(nodeURL string) string {
 func findAptosChains(input cre.GenerateConfigsInput) []*aptosChain {
 	capabilityChainIDs := input.DonMetadata.MustNodeSet().ChainCapabilityChainIDs()
 	out := make([]*aptosChain, 0)
-	for chainSelector, bcOut := range input.Blockchains {
+	for _, bcOut := range input.Blockchains {
 		if !bcOut.IsFamily(chain_selectors.FamilyAptos) {
 			continue
 		}
 		if len(capabilityChainIDs) > 0 && !slices.Contains(capabilityChainIDs, bcOut.ChainID()) {
 			continue
 		}
-		forwarderAddr := ""
-		if input.AptosForwarderAddresses != nil {
-			forwarderAddr = input.AptosForwarderAddresses[chainSelector]
-		}
-		if forwarderAddr == "" {
-			forwarderAddr = aptosZeroForwarderHex
-		}
 		nodeURL := aptosNodeURLWithV1(bcOut.CtfOutput().Nodes[0].InternalHTTPUrl)
 		out = append(out, &aptosChain{
 			ChainID:          strconv.FormatUint(bcOut.ChainID(), 10),
 			NodeURL:          nodeURL,
-			ForwarderAddress: forwarderAddr,
+			ForwarderAddress: aptosZeroForwarderHex,
 		})
 	}
 	return out

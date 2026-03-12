@@ -499,7 +499,6 @@ func startCmd() *cobra.Command {
 			if stErr != nil {
 				return errors.Wrap(stErr, "failed to set addresses on Config")
 			}
-			in.AptosForwarderAddresses = output.CreEnvironment.AptosForwarderAddresses
 			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
@@ -717,7 +716,6 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
-		AptosForwarderAddresses: in.AptosForwarderAddresses,
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)

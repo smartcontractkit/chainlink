@@ -183,13 +183,6 @@ func (o *ReadContract) PostEnvStartup(
 				return errors.Wrap(cErr, "failed to get command for Aptos capability")
 			}
 
-			forwarderAddress := aptosZeroForwarderHex
-			if creEnv.AptosForwarderAddresses != nil {
-				if a := creEnv.AptosForwarderAddresses[aptosChain.ChainSelector()]; a != "" {
-					forwarderAddress = a
-				}
-			}
-
 			tmpl, tmplErr := template.New("aptos-config").Parse(aptosConfigTemplate)
 			if tmplErr != nil {
 				return errors.Wrapf(tmplErr, "failed to parse Aptos config template")
@@ -197,7 +190,7 @@ func (o *ReadContract) PostEnvStartup(
 
 			templateData := map[string]string{
 				"ChainID":             strconv.FormatUint(chainID, 10),
-				"CREForwarderAddress": forwarderAddress,
+				"CREForwarderAddress": aptosZeroForwarderHex,
 			}
 
 			var configBuffer bytes.Buffer
