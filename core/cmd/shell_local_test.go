@@ -525,7 +525,6 @@ func TestShell_BeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			shell := cmd.Shell{
 				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
 					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
