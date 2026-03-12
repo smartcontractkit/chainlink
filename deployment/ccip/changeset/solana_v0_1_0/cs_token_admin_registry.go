@@ -118,7 +118,9 @@ func RegisterTokenAdminRegistry(e cldf.Environment, cfg RegisterTokenAdminRegist
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 
 	deployerKey := chain.DeployerKey.PublicKey()
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
@@ -319,7 +321,9 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
 	if err != nil {
@@ -460,7 +464,9 @@ func AcceptAdminRoleTokenAdminRegistry(e cldf.Environment, cfg AcceptAdminRoleTo
 	}
 	// verified
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 	mcmsTxs := []mcmsTypes.Transaction{}
 	for _, acceptAdminRoleTokenConfig := range cfg.AcceptAdminRoleTokenConfigs {
 		tokenPubKey := acceptAdminRoleTokenConfig.TokenPubKey
@@ -602,7 +608,9 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 		return cldf.ChangesetOutput{}, err
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
 	if err != nil {

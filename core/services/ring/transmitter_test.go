@@ -154,6 +154,52 @@ func TestTransmitter_Transmit_ArbiterError(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 }
 
+func TestTransmitter_Transmit_StaleEntriesPruned(t *testing.T) {
+	lggr := logger.Test(t)
+	store := NewStore()
+	mock := &mockArbiterScaler{}
+	tx := NewTransmitter(lggr, store, mock, "test-account")
+
+	outcome1 := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
+			Id:    1,
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
+		},
+		Routes: map[string]*ringpb.WorkflowRoute{
+			"wf-1": {Shard: 0},
+			"wf-2": {Shard: 1},
+			"wf-3": {Shard: 2},
+		},
+	}
+	outcomeBytes, err := proto.Marshal(outcome1)
+	require.NoError(t, err)
+
+	err = tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	require.NoError(t, err)
+	require.Len(t, store.GetAllRoutingState(), 3)
+
+	outcome2 := &ringpb.Outcome{
+		State: &ringpb.RoutingState{
+			Id:    2,
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
+		},
+		Routes: map[string]*ringpb.WorkflowRoute{
+			"wf-1": {Shard: 0},
+		},
+	}
+	outcomeBytes, err = proto.Marshal(outcome2)
+	require.NoError(t, err)
+
+	err = tx.Transmit(t.Context(), types.ConfigDigest{}, 0, ocr3types.ReportWithInfo[[]byte]{Report: outcomeBytes}, nil)
+	require.NoError(t, err)
+
+	routes := store.GetAllRoutingState()
+	require.Len(t, routes, 1)
+	require.Equal(t, uint32(0), routes["wf-1"])
+	require.NotContains(t, routes, "wf-2")
+	require.NotContains(t, routes, "wf-3")
+}
+
 func TestTransmitter_Transmit_NilState(t *testing.T) {
 	lggr := logger.Test(t)
 	store := NewStore()

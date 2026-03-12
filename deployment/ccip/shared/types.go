@@ -85,6 +85,7 @@ var (
 
 	// Aptos
 	AptosMCMSType               deployment.ContractType = "AptosManyChainMultisig"
+	AptosCurseMCMSType          deployment.ContractType = "AptosCurseMCMS"
 	AptosCCIPType               deployment.ContractType = "AptosCCIP"
 	AptosReceiverType           deployment.ContractType = "AptosReceiver"
 	AptosManagedTokenPoolType   deployment.ContractType = "AptosManagedTokenPool"

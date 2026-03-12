@@ -663,7 +663,7 @@ func TestPlugin_RingStoreIntegration(t *testing.T) {
 
 		mappings, version := ringStore.GetWorkflowMappingsBatch(workflows)
 		require.Len(t, mappings, 3)
-		require.Equal(t, uint64(3), version)
+		require.Equal(t, uint64(1), version)
 	})
 
 	t.Run("workflow_transition_detected", func(t *testing.T) {

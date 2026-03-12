@@ -56,6 +56,7 @@ import (
 
 	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -279,6 +280,7 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
+		porV2types.WorkflowConfig |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
@@ -369,6 +371,21 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR workflow config file created.")
+
+		case *porV2types.WorkflowConfig:
+			// Validate and format the feed ID (truncate to 16 bytes / 32 hex chars)
+			cleanID := strings.TrimPrefix(cfg.FeedID, "0x")
+			if len(cleanID) < 32 {
+				require.NoError(t, fmt.Errorf("v2 PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
+			}
+			if len(cleanID) > 32 {
+				cleanID = cleanID[:32]
+			}
+			cfg.FeedID = "0x" + cleanID
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
+			testLogger.Info().Msg("PoR v2 workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)

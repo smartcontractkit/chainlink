@@ -2119,6 +2119,7 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 [Pyroscope]
 ServerAddress = 'http://localhost:4040' # Example
 Environment = 'mainnet' # Default
+LinkTracesToProfiles = false # Default
 ```
 
 
@@ -2133,6 +2134,12 @@ ServerAddress sets the address that will receive the profile logs. It enables th
 Environment = 'mainnet' # Default
 ```
 Environment sets the target environment tag in which profiles will be added to.
+
+### LinkTracesToProfiles
+```toml
+LinkTracesToProfiles = false # Default
+```
+LinkTracesToProfiles enables linking traces to profiles in Grafana when Pyroscope and Tracing are enabled.
 
 ## Sentry
 ```toml
@@ -2664,6 +2671,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 [CRE]
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
+DebugMode = false # Default
 ```
 
 
@@ -2678,6 +2686,12 @@ UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not runnin
 EnableDKGRecipient = false # Default
 ```
 EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+
+### DebugMode
+```toml
+DebugMode = false # Default
+```
+DebugMode enables additional tracing and logging for workflow engines.
 
 ## Sharding
 ```toml
@@ -17409,6 +17423,8 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+Bundles = false # Example
+FastlaneAuctionRequestTimeout = '5s' # Example
 ```
 
 
@@ -17435,6 +17451,18 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### Bundles
+```toml
+Bundles = false # Example
+```
+Bundles enables Bundles functionality for SVR.
+
+### FastlaneAuctionRequestTimeout
+```toml
+FastlaneAuctionRequestTimeout = '5s' # Example
+```
+FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 
 ## EVM.BalanceMonitor
 ```toml

@@ -21,22 +21,30 @@ import (
 const defaultGatewayRequestTimeoutSec = 12
 
 type ProposeGatewayJobInput struct {
-	Domain                   string
-	DONFilters               []offchain.TargetDONFilter
-	DONs                     []DON             `yaml:"dons"`
-	GatewayRequestTimeoutSec int               `yaml:"gatewayRequestTimeoutSec"`
-	AllowedPorts             []int             `yaml:"allowedPorts"`
-	AllowedSchemes           []string          `yaml:"allowedSchemes"`
-	AllowedIPsCIDR           []string          `yaml:"allowedIPsCIDR"`
-	AuthGatewayID            string            `yaml:"authGatewayID"`
-	GatewayKeyChainSelector  pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
-	JobLabels                map[string]string
+	Domain                      string
+	DONFilters                  []offchain.TargetDONFilter
+	ServiceCentricFormatEnabled bool              `yaml:"serviceCentricFormatEnabled"`
+	DONs                        []DON             `yaml:"dons"`
+	Services                    []GatewayService  `yaml:"services"`
+	GatewayRequestTimeoutSec    int               `yaml:"gatewayRequestTimeoutSec"`
+	AllowedPorts                []int             `yaml:"allowedPorts"`
+	AllowedSchemes              []string          `yaml:"allowedSchemes"`
+	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
+	AuthGatewayID               string            `yaml:"authGatewayID"`
+	GatewayKeyChainSelector     pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
+	JobLabels                   map[string]string
 }
 
 type DON struct {
-	Name     string
-	F        int
-	Handlers []string
+	Name     string   `yaml:"name"`
+	F        int      `yaml:"f"`
+	Handlers []string `yaml:"handlers"`
+}
+
+type GatewayService struct {
+	ServiceName string   `yaml:"servicename"`
+	Handlers    []string `yaml:"handlers"`
+	DONs        []string `yaml:"dons"`
 }
 
 type ProposeGatewayJobDeps struct {
@@ -55,113 +63,30 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 )
 
 // proposeGatewayJob builds a gateway job spec and then proposes it to the nodes of a DON.
-// It first fetches node information and chain configurations about the target DONs given in input.DONs to build the job spec.
-// Target DONs are the DONs that the Gateway allows communication with.
-// It then proposes this job spec to each node of the specific DON based on input filters and a chain selector.
-// All nodes must be connected to job distributor and have the proper chain declared.
+// When ServiceCentricFormatEnabled is true, it derives the set of unique DON names from
+// input.Services; otherwise it uses the don-centric input.DONs list.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
-	targetDONs := make([]pkg.TargetDON, 0)
-
-	for _, ad := range input.DONs {
-		// Use filters from input, except the DON name which needs to be the target DON
-		filters := &nodev1.ListNodesRequest_Filter{}
-		for _, f := range input.DONFilters {
-			if f.Key == offchain.FilterKeyDONName {
-				continue
-			}
-			filters = offchain.TargetDONFilter{
-				Key:   f.Key,
-				Value: f.Value,
-			}.AddToFilter(filters)
-		}
-		filtersWithTargetDONName := offchain.TargetDONFilter{
-			Key:   offchain.FilterKeyDONName,
-			Value: ad.Name,
-		}.AddToFilter(filters)
-
-		ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
-			Domain:  input.Domain,
-			Filters: filtersWithTargetDONName,
-		})
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		if len(ns) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no nodes with filters %s", input.DONFilters)
-		}
-
-		nodes, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
-			Domain:  input.Domain,
-			Filters: filtersWithTargetDONName,
-		})
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		if len(nodes) == 0 {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("no chain configs with filters %s", input.DONFilters)
-		}
-
-		fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-
-		// make map of node id to node
-		m := make(map[string]*nodev1.Node, len(ns))
-		for _, n := range ns {
-			m[n.Id] = n
-		}
-
-		var members []pkg.TargetDONMember
-		for _, n := range nodes {
-			var found bool
-			for _, cc := range n.ChainConfigs {
-				if cc.Chain.Id == chainID && cc.Chain.Type == fam {
-					nodeName := n.NodeID
-					if matched, ok := m[n.NodeID]; ok {
-						nodeName = matched.Name
-					}
-					members = append(members, pkg.TargetDONMember{
-						Address: cc.AccountAddress,
-						Name:    fmt.Sprintf("%s (DON %s)", nodeName, ad.Name),
-					})
-					found = true
-
-					break
-				}
-			}
-
-			if !found {
-				return ProposeGatewayJobOutput{}, fmt.Errorf("could not find key belonging to chain id %s on node %s", chainID, n.NodeID)
-			}
-		}
-
-		td := pkg.TargetDON{
-			ID:       ad.Name,
-			F:        ad.F,
-			Members:  members,
-			Handlers: ad.Handlers,
-		}
-		targetDONs = append(targetDONs, td)
-	}
-
 	requestTimeoutSec := input.GatewayRequestTimeoutSec
 	if requestTimeoutSec == 0 {
 		requestTimeoutSec = defaultGatewayRequestTimeoutSec
 	}
 
-	gj := pkg.GatewayJob{
-		JobName:           "CRE Gateway",
-		TargetDONs:        targetDONs,
-		RequestTimeoutSec: requestTimeoutSec,
-		AllowedPorts:      input.AllowedPorts,
-		AllowedSchemes:    input.AllowedSchemes,
-		AllowedIPsCIDR:    input.AllowedIPsCIDR,
-		AuthGatewayID:     input.AuthGatewayID,
+	var gj pkg.GatewayJob
+	if input.ServiceCentricFormatEnabled {
+		built, err := buildServiceCentricJob(deps, input, requestTimeoutSec)
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		gj = built
+	} else {
+		built, err := buildLegacyFormatJob(deps, input, requestTimeoutSec)
+		if err != nil {
+			return ProposeGatewayJobOutput{}, err
+		}
+		gj = built
 	}
 
-	err := gj.Validate()
-	if err != nil {
+	if err := gj.Validate(); err != nil {
 		return ProposeGatewayJobOutput{}, err
 	}
 
@@ -197,18 +122,18 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 		Specs: make(map[string][]string),
 	}
 	for nodeIdx, n := range nodes {
-		spec, err := gj.Resolve(nodeIdx)
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
+		spec, specErr := gj.Resolve(nodeIdx)
+		if specErr != nil {
+			return ProposeGatewayJobOutput{}, specErr
 		}
 
-		_, err = deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
+		_, propErr := deps.Env.Offchain.ProposeJob(b.GetContext(), &jobv1.ProposeJobRequest{
 			NodeId: n.GetId(),
 			Spec:   spec,
 			Labels: labels,
 		})
-		if err != nil {
-			return ProposeGatewayJobOutput{}, fmt.Errorf("error proposing job to node %s spec %s : %w", n.GetId(), spec, err)
+		if propErr != nil {
+			return ProposeGatewayJobOutput{}, fmt.Errorf("error proposing job to node %s spec %s : %w", n.GetId(), spec, propErr)
 		}
 
 		output.Specs[n.GetId()] = append(output.Specs[n.GetId()], spec)
@@ -218,6 +143,149 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 	}
 
 	return output, nil
+}
+
+func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
+	donNameSet := make(map[string]struct{})
+	for _, svc := range input.Services {
+		for _, donName := range svc.DONs {
+			donNameSet[donName] = struct{}{}
+		}
+	}
+
+	dons := make([]pkg.TargetDON, 0, len(donNameSet))
+	for donName := range donNameSet {
+		members, f, err := resolveDONMembers(deps, input, donName)
+		if err != nil {
+			return pkg.GatewayJob{}, err
+		}
+		dons = append(dons, pkg.TargetDON{
+			ID:      donName,
+			F:       f,
+			Members: members,
+		})
+	}
+
+	services := make([]pkg.GatewayServiceConfig, len(input.Services))
+	for i, svc := range input.Services {
+		services[i] = pkg.GatewayServiceConfig{
+			ServiceName: svc.ServiceName,
+			Handlers:    svc.Handlers,
+			DONs:        svc.DONs,
+		}
+	}
+
+	return pkg.GatewayJob{
+		ServiceCentricFormatEnabled: true,
+		JobName:                     "CRE Gateway",
+		DONs:                        dons,
+		Services:                    services,
+		RequestTimeoutSec:           requestTimeoutSec,
+		AllowedPorts:                input.AllowedPorts,
+		AllowedSchemes:              input.AllowedSchemes,
+		AllowedIPsCIDR:              input.AllowedIPsCIDR,
+		AuthGatewayID:               input.AuthGatewayID,
+	}, nil
+}
+
+func buildLegacyFormatJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
+	targetDONs := make([]pkg.TargetDON, 0, len(input.DONs))
+	for _, ad := range input.DONs {
+		members, _, err := resolveDONMembers(deps, input, ad.Name)
+		if err != nil {
+			return pkg.GatewayJob{}, err
+		}
+		targetDONs = append(targetDONs, pkg.TargetDON{
+			ID:       ad.Name,
+			F:        ad.F,
+			Members:  members,
+			Handlers: ad.Handlers,
+		})
+	}
+
+	return pkg.GatewayJob{
+		JobName:           "CRE Gateway",
+		TargetDONs:        targetDONs,
+		RequestTimeoutSec: requestTimeoutSec,
+		AllowedPorts:      input.AllowedPorts,
+		AllowedSchemes:    input.AllowedSchemes,
+		AllowedIPsCIDR:    input.AllowedIPsCIDR,
+		AuthGatewayID:     input.AuthGatewayID,
+	}, nil
+}
+
+func resolveDONMembers(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, donName string) ([]pkg.TargetDONMember, int, error) {
+	filters := &nodev1.ListNodesRequest_Filter{}
+	for _, f := range input.DONFilters {
+		if f.Key == offchain.FilterKeyDONName {
+			continue
+		}
+		filters = offchain.TargetDONFilter{
+			Key:   f.Key,
+			Value: f.Value,
+		}.AddToFilter(filters)
+	}
+	filtersWithTargetDONName := offchain.TargetDONFilter{
+		Key:   offchain.FilterKeyDONName,
+		Value: donName,
+	}.AddToFilter(filters)
+
+	ns, err := pkg.FetchNodesFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
+		Domain:  input.Domain,
+		Filters: filtersWithTargetDONName,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(ns) == 0 {
+		return nil, 0, fmt.Errorf("no nodes with filters %s", input.DONFilters)
+	}
+
+	nodeChainConfigs, err := pkg.FetchNodeChainConfigsFromJD(deps.Env.GetContext(), deps.Env, pkg.FetchNodesRequest{
+		Domain:  input.Domain,
+		Filters: filtersWithTargetDONName,
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(nodeChainConfigs) == 0 {
+		return nil, 0, fmt.Errorf("no chain configs with filters %s", input.DONFilters)
+	}
+
+	fam, chainID, err := parseSelector(uint64(input.GatewayKeyChainSelector))
+	if err != nil {
+		return nil, 0, err
+	}
+
+	m := make(map[string]*nodev1.Node, len(ns))
+	for _, n := range ns {
+		m[n.Id] = n
+	}
+
+	var members []pkg.TargetDONMember
+	for _, n := range nodeChainConfigs {
+		var found bool
+		for _, cc := range n.ChainConfigs {
+			if cc.Chain.Id == chainID && cc.Chain.Type == fam {
+				nodeName := n.NodeID
+				if matched, ok := m[n.NodeID]; ok {
+					nodeName = matched.Name
+				}
+				members = append(members, pkg.TargetDONMember{
+					Address: cc.AccountAddress,
+					Name:    fmt.Sprintf("%s (DON %s)", nodeName, donName),
+				})
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, 0, fmt.Errorf("could not find key belonging to chain id %s on node %s", chainID, n.NodeID)
+		}
+	}
+
+	f := (len(members) - 1) / 3
+	return members, f, nil
 }
 
 func parseSelector(sel uint64) (nodev1.ChainType, string, error) {

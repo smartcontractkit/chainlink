@@ -1,5 +1,29 @@
 # Changelog Chainlink Core
 
+## 2.38.0
+
+### Minor Changes
+
+- [#21411](https://github.com/smartcontractkit/chainlink/pull/21411) [`281a8b9`](https://github.com/smartcontractkit/chainlink/commit/281a8b929631362d208da8b21ace76e7f3e670f3) - #updated Bump libocr
+
+- [#21386](https://github.com/smartcontractkit/chainlink/pull/21386) [`1a94b32`](https://github.com/smartcontractkit/chainlink/commit/1a94b321eb0343011c849c599f8c9eaf94f22128) - Minor bump to start next version
+
+  #internal
+
+### Patch Changes
+
+- [#21465](https://github.com/smartcontractkit/chainlink/pull/21465) [`62d65a6`](https://github.com/smartcontractkit/chainlink/commit/62d65a6187d4690545c8cc444e7918d5f020445e) - #changed Update MetaClient to support multiple dapps
+
+- [#21120](https://github.com/smartcontractkit/chainlink/pull/21120) [`c9df802`](https://github.com/smartcontractkit/chainlink/commit/c9df802a4779b155c5e3024bf2fce691eca90aa8) - Expanded `admin profile` to collect PPROF profiles from LOOP Plugins. Added `-vitals` flag for more granular profiling.
+
+## 2.37.0
+
+### Minor Changes
+
+- [#21294](https://github.com/smartcontractkit/chainlink/pull/21294) [`0c3919a`](https://github.com/smartcontractkit/chainlink/commit/0c3919a85046f3a172cef8496ebb4513a3432505) - Minor bump to start next version
+
+- [#21354](https://github.com/smartcontractkit/chainlink/pull/21354) [`5f3b013`](https://github.com/smartcontractkit/chainlink/commit/5f3b0136b2a95a7b60e4ef1d964335a5a58bbb1e) - Introduces bundling for SVR (It's not enabled by default) #added
+
 ## 2.36.0
 
 ### Minor Changes

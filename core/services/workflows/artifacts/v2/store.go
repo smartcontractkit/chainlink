@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -122,14 +123,14 @@ type Store struct {
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store)) (*Store, error) {
 	artifactsStore := &Store{
-		lggr:                     lggr,
-		orm:                      orm,
-		retrieveFunc:             retrieveFunc,
-		fetchFn:                  fetchFn,
-		clock:  clock,
-		config: &StoreConfig{},
-		encryptionKey:            encryptionKey,
-		emitter:                  emitter,
+		lggr:          lggr,
+		orm:           orm,
+		retrieveFunc:  retrieveFunc,
+		fetchFn:       fetchFn,
+		clock:         clock,
+		config:        &StoreConfig{},
+		encryptionKey: encryptionKey,
+		emitter:       emitter,
 	}
 
 	for _, o := range opts {

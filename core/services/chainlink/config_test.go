@@ -617,8 +617,9 @@ func TestConfig_Marshal(t *testing.T) {
 		GoroutineThreshold:   ptr[int64](999),
 	}
 	full.Pyroscope = toml.Pyroscope{
-		ServerAddress: ptr("http://localhost:4040"),
-		Environment:   ptr("tests"),
+		ServerAddress:        ptr("http://localhost:4040"),
+		Environment:          ptr("tests"),
+		LinkTracesToProfiles: ptr(true),
 	}
 	full.Sentry = toml.Sentry{
 		Debug:       ptr(true),
@@ -650,6 +651,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
 		EnableDKGRecipient:   ptr(false),
+		DebugMode:            ptr(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
@@ -786,6 +788,7 @@ func TestConfig_Marshal(t *testing.T) {
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
 						Enabled: ptr(false),
+						Bundles: ptr(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
@@ -1218,6 +1221,7 @@ GoroutineThreshold = 999
 		{"Pyroscope", Config{Core: toml.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
+LinkTracesToProfiles = true
 `},
 		{"Sentry", Config{Core: toml.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
@@ -1269,6 +1273,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+Bundles = false
 
 [EVM.BalanceMonitor]
 Enabled = true
@@ -1547,6 +1552,12 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
