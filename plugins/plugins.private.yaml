@@ -1,5 +1,4 @@
 # This file defines private plugins to be installed via `loopinstall`.
-
 # Common plugin configuration
 defaults:
   # The `-s` flag is added to strip debug information from the binary to reduce

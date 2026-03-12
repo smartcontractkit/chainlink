@@ -399,21 +399,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
 		emitCancelFn()
 
-		// Verify BaseTrigger persisted events and processed ACKs by checking
-		// cumulative insert/delete counters in pg_stat_user_tables. This works
-		// for both local triggers (where ACK is near-instant) and remote
-		// triggers (where there's a network round-trip).
-		require.Eventually(t, func() bool {
-			cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
-			if sErr != nil {
-				t.Logf("stats query error: %v", sErr)
-				return false
-			}
-			newInserts := cur.inserts - baselineStats.inserts
-			newDeletes := cur.deletes - baselineStats.deletes
-			t.Logf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
-			return newInserts > 0 && newDeletes > 0
-		}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
+		verifyTriggerEventACKs(t, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -424,4 +410,22 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		successfulLogTriggerChains, keysFromMap(chainsToTest))
 
 	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
+}
+
+// verifyTriggerEventACKs ensures the Base Trigger persisted events and processed ACKs
+// by checking cumulative insert/delete counters in pg_stat_user_tables.
+// This works for both local triggers (where ACK is near-instant) and remote
+// triggers (where there's a network round-trip).
+func verifyTriggerEventACKs(t *testing.T, triggerDB *sql.DB, baselineStats tableStats) {
+	require.Eventually(t, func() bool {
+		cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
+		if sErr != nil {
+			t.Logf("stats query error: %v", sErr)
+			return false
+		}
+		newInserts := cur.inserts - baselineStats.inserts
+		newDeletes := cur.deletes - baselineStats.deletes
+		t.Logf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
+		return newInserts > 0 && newDeletes > 0
+	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
 }
