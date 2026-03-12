@@ -26,6 +26,7 @@ jobs:
       don-nodes: "5"
       # this is just an example, right now Git tags != ECR tags != RANE's version field
       # that's why we need it for testing purposes
+      product: "data-feeds"
       refs: "2.38.0-rc.0,2.38.0-beta.0"
       no-git-rollback: true
       working-directory: "devenv"
