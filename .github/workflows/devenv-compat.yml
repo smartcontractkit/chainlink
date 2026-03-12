@@ -175,7 +175,7 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
-            --refs "${refs}" \
+            --refs "${REFS}" \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
