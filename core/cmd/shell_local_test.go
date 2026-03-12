@@ -511,6 +511,8 @@ func TestShell_RemoveBlocks(t *testing.T) {
 
 func TestShell_BeforeNode(t *testing.T) {
 	testutils.SkipShortDB(t)
+	t.Parallel()
+
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -523,6 +525,7 @@ func TestShell_BeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			shell := cmd.Shell{
 				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
 					Prompter: &cltest.MockCountingPrompter{T: t, NotTerminal: true},
@@ -546,7 +549,7 @@ func TestShell_BeforeNode(t *testing.T) {
 				},
 			}
 
-			app := cmd.NewAppWithOpts(&shell, opts)
+			app := cmd.NewAppWithOptsForTest(&shell, opts)
 			err := app.Before(c)
 			if err != nil && test.wantUnlocked {
 				t.Fatalf("CLI Before hook failed: %v", err)

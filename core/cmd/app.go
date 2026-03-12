@@ -31,9 +31,9 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 	return ret
 }
 
-// NewAppWithOpts returns the command-line parser/function-router for the given client
+// newAppWithOpts returns the command-line parser/function-router for the given client
 // with custom configuration options for testing purposes.
-func NewAppWithOpts(s *Shell, opts chainlink.GeneralConfigOpts) *cli.App {
+func newAppWithOpts(s *Shell, opts chainlink.GeneralConfigOpts) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
@@ -333,7 +333,7 @@ func NewAppWithOpts(s *Shell, opts chainlink.GeneralConfigOpts) *cli.App {
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(s *Shell) *cli.App {
 	var opts chainlink.GeneralConfigOpts
-	return NewAppWithOpts(s, opts)
+	return newAppWithOpts(s, opts)
 }
 
 var whitespace = regexp.MustCompile(`\s+`)
