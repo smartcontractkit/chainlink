@@ -173,6 +173,14 @@ jobs:
             tests_dir: "ocr2"
             logs_archive_name: "df1-chaos"
     steps:
+      # DEBUG: Run monitor for tests
+      - name: Monitor
+        uses: kalverra/octometrics-action@v0.0.10
+        with:
+          job_name: ${{ matrix.display_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Checkout code
         uses: actions/checkout@v6
         with:
