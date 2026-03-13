@@ -1732,8 +1732,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12i
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e h1:poXTj5cFVM6XfC4HICIDYkDVc/A6OYB0eeID0wU2JQE=
 github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e/go.mod h1:PLdNK6GlqfxIWXzziPkU7dCAVlVFeYkyyW7AQY0R+4Q=
-github.com/smartcontractkit/mcms v0.38.1 h1:CzOMg+FyFZ614Tzee2Fx8GKCnxLX7kQ0iPQT7k3bClU=
-github.com/smartcontractkit/mcms v0.38.1/go.mod h1:7YqJPR8w9GiO1L/JjjTrwlSwAZ7i3J7cgOcu88PqtvU=
+github.com/smartcontractkit/mcms v0.38.2 h1:3aOzBfE8VzoTJ/JTL7jg6gE/QlpAZEmK/rU6J2V/HVE=
+github.com/smartcontractkit/mcms v0.38.2/go.mod h1:7YqJPR8w9GiO1L/JjjTrwlSwAZ7i3J7cgOcu88PqtvU=
 github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618 h1:rN8PnOZj53L70zlm1aYz1k14lXNCt7NoV666TDfcTJA=
 github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618/go.mod h1:iwy4yWFuK+1JeoIRTaSOA9pl+8Kf//26zezxEXrAQEQ=
 github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb h1:kLHdQQkijaPGsBbtV2rJgpzVpQ96e7T10pzjNlWfK8U=
