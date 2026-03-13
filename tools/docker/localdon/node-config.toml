@@ -24,7 +24,7 @@ Enabled = true
 ListenAddresses = ['0.0.0.0:6690']
 
 [[EVM]]
-ChainID = '1337'
+ChainID = '31337'
 MinIncomingConfirmations = 1
 MinContractPayment = '0 link'
 

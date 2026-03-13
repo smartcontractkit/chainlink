@@ -30,7 +30,7 @@ import (
 
 const (
 	anvilURL   = "http://localhost:8545"
-	chainID    = 1337
+	chainID    = 31337
 	deployerPK = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" // Anvil account 0
 
 	apiEmail    = "local-test@chainlink.test"
@@ -142,12 +142,14 @@ func main() {
 
 	oracles := make([]confighelper2.OracleIdentityExtra, len(nodes))
 	for i, n := range nodes {
+		// PeerID from API includes "p2p_" prefix, but OCR config expects bare ID
+		peerID := strings.TrimPrefix(n.peerID, "p2p_")
 		oracles[i] = confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  n.onchainPubKey,
 				TransmitAccount:   ocrtypes2.Account(n.ethAddr.Hex()),
 				OffchainPublicKey: n.offchainPub,
-				PeerID:            n.peerID,
+				PeerID:            peerID,
 			},
 			ConfigEncryptionPublicKey: n.configPub,
 		}
@@ -175,9 +177,10 @@ func main() {
 
 	// --- Create oracle jobs ---
 
+	bootstrapPeerID := nodes[0].peerID
 	for i, url := range nodeURLs {
 		nc := newNodeClient(url)
-		spec := oracleJobSpec(ocrAddr, nodes[i].ocrKeyID, nodes[i].ethAddr, int64(blockNum))
+		spec := oracleJobSpec(ocrAddr, nodes[i].ocrKeyID, nodes[i].ethAddr, int64(blockNum), bootstrapPeerID)
 		nc.createJob(spec)
 		log.Printf("Created oracle job on node %d", i+1)
 	}
@@ -187,7 +190,9 @@ func main() {
 	log.Printf("Monitor with: cast call %s 'latestAnswer()(int256)' --rpc-url %s", ocrAddr, anvilURL)
 }
 
-func oracleJobSpec(contractAddr common.Address, ocrKeyBundleID string, transmitterAddr common.Address, fromBlock int64) string {
+func oracleJobSpec(contractAddr common.Address, ocrKeyBundleID string, transmitterAddr common.Address, fromBlock int64, bootstrapPeerID string) string {
+	// PeerID for bootstrapper must be bare (no "p2p_" prefix)
+	barePeerID := strings.TrimPrefix(bootstrapPeerID, "p2p_")
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
 relay              = "evm"
@@ -199,11 +204,12 @@ ocrKeyBundleID     = "%s"
 transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-allowNoBootstrappers = true
+p2pv2Bootstrappers = ["%s@localdon-node-1:6690"]
 
 observationSource = """
     price [type=memo value="42000000000"];
-    price;
+    price_multiply [type=multiply times=1];
+    price -> price_multiply;
 """
 
 [relayConfig]
@@ -213,16 +219,18 @@ fromBlock = %d
 [pluginConfig]
 juelsPerFeeCoinSource = """
     price [type=memo value="1000000000000000000"];
-    price;
+    price_multiply [type=multiply times=1];
+    price -> price_multiply;
 """
 gasPriceSubunitsSource = """
     price [type=memo value="1000000000"];
-    price;
+    price_multiply [type=multiply times=1];
+    price -> price_multiply;
 """
 
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
-`, contractAddr.Hex(), ocrKeyBundleID, transmitterAddr.Hex(), chainID, fromBlock)
+`, contractAddr.Hex(), ocrKeyBundleID, transmitterAddr.Hex(), barePeerID, chainID, fromBlock)
 }
 
 // --- Anvil helpers ---

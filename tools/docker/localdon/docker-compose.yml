@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    platform: linux/amd64
     container_name: localdon-postgres
     environment:
       POSTGRES_USER: chainlink
@@ -9,7 +10,7 @@ services:
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       - pg-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chainlink"]
       interval: 2s
@@ -18,6 +19,7 @@ services:
 
   anvil:
     image: ghcr.io/foundry-rs/foundry:latest
+    platform: linux/amd64
     container_name: localdon-anvil
     entrypoint: ["anvil", "--host", "0.0.0.0", "--block-time", "1", "--accounts", "10", "--balance", "10000"]
     ports:
@@ -31,6 +33,7 @@ services:
   node-1: &node-defaults
     container_name: localdon-node-1
     image: smartcontract/chainlink:2.36.0
+    platform: linux/amd64
     entrypoint: /bin/sh -c "chainlink -c /config/node-config.toml -s /config/secrets.toml node start -d -p /config/password.txt -a /config/apicredentials"
     restart: unless-stopped
     volumes:
