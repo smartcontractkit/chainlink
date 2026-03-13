@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: localdon-postgres
+    environment:
+      POSTGRES_USER: chainlink
+      POSTGRES_PASSWORD: chainlink-dev-password
+    volumes:
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainlink"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: localdon-anvil
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--block-time", "1", "--accounts", "10", "--balance", "10000"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD", "cast", "block-number", "--rpc-url", "http://localhost:8545"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  node-1: &node-defaults
+    container_name: localdon-node-1
+    image: localdon-chainlink
+    build:
+      context: ../../../
+      dockerfile: core/chainlink.Dockerfile
+    entrypoint: /bin/sh -c "chainlink -c /config/node-config.toml -s /config/secrets.toml node start -d -p /config/password.txt -a /config/apicredentials"
+    restart: unless-stopped
+    volumes:
+      - ./node-config.toml:/config/node-config.toml:ro
+      - ./secrets/node1-secrets.toml:/config/secrets.toml:ro
+      - ./secrets/password.txt:/config/password.txt:ro
+      - ./secrets/apicredentials:/config/apicredentials:ro
+    ports:
+      - "6688:6688"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      anvil:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6688/readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  node-2:
+    <<: *node-defaults
+    container_name: localdon-node-2
+    volumes:
+      - ./node-config.toml:/config/node-config.toml:ro
+      - ./secrets/node2-secrets.toml:/config/secrets.toml:ro
+      - ./secrets/password.txt:/config/password.txt:ro
+      - ./secrets/apicredentials:/config/apicredentials:ro
+    ports:
+      - "6689:6688"
+
+  node-3:
+    <<: *node-defaults
+    container_name: localdon-node-3
+    volumes:
+      - ./node-config.toml:/config/node-config.toml:ro
+      - ./secrets/node3-secrets.toml:/config/secrets.toml:ro
+      - ./secrets/password.txt:/config/password.txt:ro
+      - ./secrets/apicredentials:/config/apicredentials:ro
+    ports:
+      - "6690:6688"
+
+  node-4:
+    <<: *node-defaults
+    container_name: localdon-node-4
+    volumes:
+      - ./node-config.toml:/config/node-config.toml:ro
+      - ./secrets/node4-secrets.toml:/config/secrets.toml:ro
+      - ./secrets/password.txt:/config/password.txt:ro
+      - ./secrets/apicredentials:/config/apicredentials:ro
+    ports:
+      - "6691:6688"
+
+volumes:
+  pg-data:

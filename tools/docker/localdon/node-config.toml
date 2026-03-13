@@ -1,0 +1,39 @@
+[Log]
+Level = 'info'
+
+[Feature]
+LogPoller = true
+
+[WebServer]
+SecureCookies = false
+AllowOrigins = '*'
+HTTPPort = 6688
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR]
+Enabled = false
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+
+[[EVM]]
+ChainID = '1337'
+MinIncomingConfirmations = 1
+MinContractPayment = '0 link'
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '1 gwei'
+LimitDefault = 6000000
+
+[[EVM.Nodes]]
+Name = 'anvil'
+WSURL = 'ws://anvil:8545'
+HTTPURL = 'http://anvil:8545'
