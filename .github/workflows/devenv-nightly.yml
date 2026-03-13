@@ -73,6 +73,12 @@ jobs:
             runner: "ubuntu-latest"
             tests_dir: "flux"
             logs_archive_name: "flux"
+          - display_name: "Test VRF Smoke"
+            testcmd: "go test -v -timeout 10m -run TestVRFBasic\\|TestVRFJobReplacement"
+            envcmd: "cl u env.toml,products/vrf/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "vrf"
+            logs_archive_name: "vrf"
           # smoke tests, medium legacy products
           - display_name: "Automation Smoke Test, Registry 2.0"
             testcmd: "go test -v -timeout 30m -run TestRegistry_2_0"
