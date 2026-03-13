@@ -14,7 +14,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run ^TestMigrateFromV1_5ToV1_6$
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestMigrateFromV1_5ToV1_6$" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_fees_test.go:*
@@ -25,7 +30,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_fees_test.go -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_fees_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2EVM
@@ -36,7 +46,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana
@@ -47,7 +62,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana_LOOPP
@@ -58,7 +78,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -72,7 +97,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM_LOOPP
@@ -83,7 +113,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -97,7 +132,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -111,7 +151,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_MultiExecReports_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_message_limitations_test.go:*
@@ -121,7 +166,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPMessageLimitations" -timeout 12m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessageLimitations" -timeout 12m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MaxBatchSizeEVM
@@ -131,7 +181,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource
@@ -141,7 +196,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPBatching_MultiSource" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiRoot
@@ -151,7 +211,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPBatching_MultiSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiPrice
@@ -161,7 +226,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPBatching_MultiSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
@@ -171,7 +241,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_SingleSource$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPBatching_SingleSource$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultiRoot
@@ -181,7 +256,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_SingleSource_MultiRoot$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPBatching_SingleSource_MultiRoot$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultiPrice
@@ -191,7 +271,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "^Test_CCIPBatching_SingleSource_MultiPrice$" -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPBatching_SingleSource_MultiPrice$" -timeout 25m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_add_chain_test.go:*
@@ -201,7 +286,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_add_chain_test.go -timeout 15m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 15m -count=1 -parallel=1 smoke/ccip/ccip_add_chain_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_add_chain_e2e_test.go:*
@@ -211,7 +301,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_add_chain_e2e_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 18m -count=1 -parallel=1 smoke/ccip/ccip_add_chain_e2e_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_reader_test.go:*
@@ -221,7 +316,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 5m -count=1 -parallel=1 smoke/ccip/ccip_reader_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_lane_rmn_test.go:*
@@ -231,7 +331,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_lane_rmn_test.go -timeout 5m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 5m -count=1 -parallel=1 smoke/ccip/ccip_lane_rmn_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_usdc_test.go:*
@@ -241,7 +346,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_usdc_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 18m -count=1 -parallel=1 smoke/ccip/ccip_usdc_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_lbtc_test.go:*
@@ -251,7 +361,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_lbtc_test.go -timeout 18m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 18m -count=1 -parallel=1 smoke/ccip/ccip_lbtc_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_ooo_execution_test.go:*
@@ -261,7 +376,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_ooo_execution_test.go -timeout 16m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 16m -count=1 -parallel=1 smoke/ccip/ccip_ooo_execution_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*
@@ -272,7 +392,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 16m -count=1 -parallel=2 smoke/ccip/ccip_token_transfer_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*_LOOPP
@@ -283,7 +408,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 16m -count=1 -parallel=2 smoke/ccip/ccip_token_transfer_test.go
     test_go_project_path: integration-tests
     install_plugins_public: true
     test_env_vars:
@@ -296,7 +426,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_update_rmn_config_test.go -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_update_rmn_config_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurse
@@ -307,7 +442,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurse$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurse$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseUncurseAptos
@@ -318,7 +458,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseUncurseAptos$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseUncurseAptos$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
 
@@ -330,7 +475,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseMCMS$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseMCMS$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypass
@@ -341,7 +491,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseBypass$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseBypass$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotent
@@ -351,7 +506,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseIdempotent$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseIdempotent$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotent
@@ -361,7 +521,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseIdempotent$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNUncurseIdempotent$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurse
@@ -372,7 +537,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurse$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNUncurse$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseMCMS
@@ -383,7 +553,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseMCMS$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNUncurseMCMS$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypass
@@ -394,7 +569,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseBypass$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNUncurseBypass$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidate
@@ -405,7 +585,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseConfigValidate$" -timeout 20m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseConfigValidate$" -timeout 20m -count=1 -parallel=2 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseNoConnectedLanes
@@ -415,7 +600,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseNoConnectedLanes$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseNoConnectedLanes$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanes
@@ -425,7 +615,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanes$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseOneConnectedLanes$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesSolana
@@ -435,7 +630,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesSolana$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseOneConnectedLanesSolana$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesGlobalOnly
@@ -445,7 +645,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesGlobalOnly$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseOneConnectedLanesGlobalOnly$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesLaneOnlyOnSource
@@ -455,7 +660,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNCurseOneConnectedLanesLaneOnlyOnSource$" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNCurseOneConnectedLanesLaneOnlyOnSource$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseForceOption
@@ -466,7 +676,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -run "^TestRMNUncurseForceOption$" -timeout 20m -test.parallel=4 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMNUncurseForceOption$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_disable_lane_test.go:*
@@ -476,7 +691,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip/ && go test ccip_disable_lane_test.go -timeout 10m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run ".*" -timeout 10m -count=1 -parallel=1 smoke/ccip/ccip_disable_lane_test.go
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_topologies_test.go:Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest
@@ -487,7 +707,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest" -timeout 15m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportSource_SomeSupportDest" -timeout 15m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_topologies_test.go:Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource
@@ -498,7 +723,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -test.parallel=2 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTopologies_EVM2EVM_RoleDON_AllSupportDest_SomeSupportSource" -timeout 15m -count=1 -parallel=2 ./smoke/ccip
     test_go_project_path: integration-tests
 
   # Aptos tests
@@ -509,7 +739,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -522,7 +757,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -535,7 +775,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -548,7 +793,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -561,7 +811,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -574,7 +829,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -587,7 +847,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -600,7 +865,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -615,7 +885,11 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       echo "🚀 Starting CCIP Aptos LnR without TransferRef EVM2Aptos test..."
-      go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -628,7 +902,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -641,7 +920,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_AptosMessageHasher" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_AptosMessageHasher" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -654,7 +938,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -667,7 +956,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -680,7 +974,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -693,7 +992,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -706,7 +1010,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -719,7 +1028,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -732,7 +1046,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -745,7 +1064,12 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: go test ./smoke/ccip -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     aptos_cli_version: 8.1.0
     install_plugins_public: true
@@ -761,7 +1085,11 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       echo "🚀 Starting CCIP TON2EVM test..."
-      go test ./smoke/ccip -run "Test_CCIPMessaging_TON2EVM" -timeout 20m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_TON2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     free_disk_space: true
@@ -775,7 +1103,11 @@ runner-test-matrix:
       - Nightly Integration CCIP Tests
     test_cmd: |
       echo "🚀 Starting CCIP EVM2TON test..."
-      go test ./smoke/ccip -run "Test_CCIPMessaging_EVM2TON" -timeout 20m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPMessaging_EVM2TON" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
     free_disk_space: true
@@ -789,7 +1121,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIP_Messaging_Sui2EVM" -timeout 12m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Messaging_Sui2EVM" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -818,7 +1154,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_EVM2Sui_ZeroReceiver" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -832,7 +1172,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool" -timeout 15m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -846,7 +1190,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 12m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -860,7 +1208,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -874,7 +1226,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" -timeout 15m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -888,7 +1244,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -930,7 +1290,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 15m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -944,7 +1308,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit" -timeout 25m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
@@ -958,7 +1326,11 @@ runner-test-matrix:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
-      go test ./smoke/ccip -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 25m -test.parallel=1 -count=1 -json
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Upgrade_Sui2EVM" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.65.2
     install_plugins_public: true
