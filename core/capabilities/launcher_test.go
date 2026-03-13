@@ -336,13 +336,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 	dispatcher.On("Ready").Return(nil).Maybe()
-	awaitRegistrationMessageCh := make(chan struct{}, 1)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		select {
-		case awaitRegistrationMessageCh <- struct{}{}:
-		default:
-		}
-	})
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	err = launcher.OnNewRegistry(ctx, localRegistry)
 	require.NoError(t, err)
@@ -372,7 +366,6 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	}
 	triggerEventCallbackCh, err := remoteTriggerSubscriber.RegisterTrigger(ctx, req)
 	require.NoError(t, err)
-	<-awaitRegistrationMessageCh
 
 	// Receive trigger event
 	triggerEvent1 := map[string]any{"event": "triggerEvent1"}

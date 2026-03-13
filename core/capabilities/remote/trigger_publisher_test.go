@@ -442,6 +442,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     time.Hour,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 		MaxBatchSize:            1,
@@ -593,6 +594,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     time.Hour,
+		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 		MaxBatchSize:            1,

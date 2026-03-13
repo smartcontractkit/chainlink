@@ -275,18 +275,20 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 
 		p.mu.Lock()
-		defer p.mu.Unlock()
 		reg, exists := p.registrations[key]
 		if !exists {
+			p.mu.Unlock()
 			return
 		}
-
-		ctx, cancel := p.stopCh.NewCtx()
-		_ = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
-		cancel()
+		delete(p.registrations, key)
+		p.mu.Unlock()
 
 		reg.cancel()
-		delete(p.registrations, key)
+		ctx, cancel := p.stopCh.NewCtx()
+		if err := p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request); err != nil {
+			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
+		}
+		cancel()
 		p.lggr.Infow("unregistered trigger", "workflowID", key.workflowID, "triggerID", key.triggerID)
 	case types.MethodTriggerEvent:
 		p.lggr.Errorw("trigger request failed with error",
@@ -380,9 +382,13 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 	}
 
 	p.mu.RLock()
-	defer p.mu.RUnlock()
-
+	keys := make([]registrationKey, 0, len(p.registrations))
 	for key := range p.registrations {
+		keys = append(keys, key)
+	}
+	p.mu.RUnlock()
+
+	for _, key := range keys {
 		msg := &types.MessageBody{
 			CapabilityId:     p.capabilityID,
 			CapabilityDonId:  cfg.capDonInfo.ID,

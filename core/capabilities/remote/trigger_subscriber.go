@@ -302,7 +302,11 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 	case types.MethodTriggerRegistrationCheck:
 		meta := msg.GetTriggerEventMetadata()
-		if meta == nil {
+		if meta == nil || len(meta.WorkflowIds) != len(meta.TriggerIds) {
+			s.lggr.Errorw("received registration check with mismatched or missing metadata",
+				"sender", sender,
+				"workflowIds", len(meta.GetWorkflowIds()),
+				"triggerIds", len(meta.GetTriggerIds()))
 			return
 		}
 
