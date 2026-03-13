@@ -29,6 +29,7 @@ func NewTransmitter(queue limits.QueueLimiter[v2.EnqueuedTriggerEvent], lggr log
 
 // decodedTriggerEvent is the result of decoding a report
 type decodedTriggerEvent struct {
+	workflowID   string // hex-encoded, for dispatcher routing
 	triggerCapID string
 	triggerIndex int
 	timestamp    time.Time
@@ -57,7 +58,7 @@ func (t *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		return err
 	}
 	for _, ev := range events {
-		enqueued := v2.NewEnqueuedTriggerEvent(ev.triggerCapID, ev.triggerIndex, ev.timestamp, ev.event)
+		enqueued := v2.NewEnqueuedTriggerEvent(ev.workflowID, ev.triggerCapID, ev.triggerIndex, ev.timestamp, ev.event)
 		if err := t.queue.Put(ctx, enqueued); err != nil {
 			t.lggr.Errorw("Failed to enqueue consensus event", "triggerCapID", ev.triggerCapID, "err", err)
 			return err

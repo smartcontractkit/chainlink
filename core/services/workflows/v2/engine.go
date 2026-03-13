@@ -93,8 +93,9 @@ type triggerCapability struct {
 }
 
 // EnqueuedTriggerEvent is the type queued for workflow trigger execution.
-// Implementations are opaque; consumers use the accessors.
+// workflowID is used by ConsensusEventDispatcher to route to the correct engine.
 type EnqueuedTriggerEvent interface {
+	WorkflowID() string
 	TriggerCapID() string
 	TriggerIndex() int
 	Timestamp() time.Time
@@ -102,20 +103,22 @@ type EnqueuedTriggerEvent interface {
 }
 
 type enqueuedTriggerEvent struct {
+	workflowID   string // hex-encoded, for dispatcher routing when using shared queue
 	triggerCapID string
 	triggerIndex int
 	timestamp    time.Time
 	event        capabilities.TriggerResponse
 }
 
-func (e *enqueuedTriggerEvent) TriggerCapID() string   { return e.triggerCapID }
-func (e *enqueuedTriggerEvent) TriggerIndex() int       { return e.triggerIndex }
-func (e *enqueuedTriggerEvent) Timestamp() time.Time    { return e.timestamp }
-func (e *enqueuedTriggerEvent) Event() capabilities.TriggerResponse { return e.event }
+func (e *enqueuedTriggerEvent) WorkflowID() string                      { return e.workflowID }
+func (e *enqueuedTriggerEvent) TriggerCapID() string                     { return e.triggerCapID }
+func (e *enqueuedTriggerEvent) TriggerIndex() int                        { return e.triggerIndex }
+func (e *enqueuedTriggerEvent) Timestamp() time.Time                     { return e.timestamp }
+func (e *enqueuedTriggerEvent) Event() capabilities.TriggerResponse      { return e.event }
 
 // NewEnqueuedTriggerEvent constructs an EnqueuedTriggerEvent for the queue.
-func NewEnqueuedTriggerEvent(triggerCapID string, triggerIndex int, timestamp time.Time, event capabilities.TriggerResponse) EnqueuedTriggerEvent {
-	return &enqueuedTriggerEvent{triggerCapID, triggerIndex, timestamp, event}
+func NewEnqueuedTriggerEvent(workflowID, triggerCapID string, triggerIndex int, timestamp time.Time, event capabilities.TriggerResponse) EnqueuedTriggerEvent {
+	return &enqueuedTriggerEvent{workflowID, triggerCapID, triggerIndex, timestamp, event}
 }
 
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
@@ -249,7 +252,7 @@ func (e *Engine) start(ctx context.Context) error {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
-	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
+	// handleAllTriggerEvents is run by ConsensusEventDispatcher when using shared queue
 	return nil
 }
 
@@ -558,7 +561,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
-					if err := e.allTriggerEventsQueueCh.Put(ctx, NewEnqueuedTriggerEvent(triggerID, idx, e.cfg.Clock.Now(), event)); err != nil {
+					if err := e.allTriggerEventsQueueCh.Put(ctx, NewEnqueuedTriggerEvent(e.cfg.WorkflowID, triggerID, idx, e.cfg.Clock.Now(), event)); err != nil {
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
@@ -580,42 +583,38 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
-	for {
-		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
-		if err != nil {
-			return
-		}
-		eventAge := queueHead.Timestamp().Sub(e.cfg.Clock.Now())
-		eventID := queueHead.Event().Event.ID
-		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
-		if err != nil {
-			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
-			continue
-		}
-		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.TriggerCapID(), "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-			continue
-		}
-		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
-		if err != nil {
-			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
-			continue
-		}
-		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			defer free()
-			// Tracer is no-op if DebugMode is false
-			ctx, span := e.tracer.Start(ctx, "workflow_execution",
-				trace.WithAttributes(
-					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
-					attribute.String("version", "v2"),
-				))
-			defer span.End()
-			e.startExecution(ctx, queueHead)
-		})
+// OnConsensusEvent implements ConsensusEventReceiver. Processes a consensus-decided trigger event.
+// Called by ConsensusEventDispatcher when events are routed from the shared queue or OCR Transmitter.
+func (e *Engine) OnConsensusEvent(ctx context.Context, ev EnqueuedTriggerEvent) error {
+	eventAge := ev.Timestamp().Sub(e.cfg.Clock.Now())
+	eventID := ev.Event().Event.ID
+	e.logger().Debugw("Processing consensus trigger event", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+	triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+	if err != nil {
+		e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
+		return err
 	}
+	if eventAge > triggerEventMaxAge {
+		e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", ev.TriggerCapID(), "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		return nil
+	}
+	free, err := e.executionsSemaphore.Wait(ctx, 1)
+	if err != nil {
+		e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
+		return err
+	}
+	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
+	e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		defer free()
+		ctx, span := e.tracer.Start(ctx, "workflow_execution",
+			trace.WithAttributes(
+				attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+				attribute.String("version", "v2"),
+			))
+		defer span.End()
+		e.startExecution(ctx, ev)
+	})
+	return nil
 }
 
 // startExecution initiates a new workflow execution, blocking until completed

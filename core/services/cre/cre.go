@@ -913,6 +913,16 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
+	consensusEventDispatcher, err := syncerV2.NewConsensusEventDispatcher(
+		lggr,
+		engineRegistry,
+		engineLimiters.TriggerEventQueue,
+		engineLimiters,
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create consensus event dispatcher: %w", err)
+	}
+
 	featureFlags, err := v2.NewFeatureFlags(lf, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
@@ -1008,7 +1018,7 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("unable to create workflow registry syncer: %w", err)
 	}
 
-	srvcs = append(srvcs, workflowRegistrySyncerV2)
+	srvcs = append(srvcs, consensusEventDispatcher, workflowRegistrySyncerV2)
 	lggr.Debugw("Created WorkflowRegistrySyncer V2")
 	return workflowRegistrySyncerV2, srvcs, nil
 }
