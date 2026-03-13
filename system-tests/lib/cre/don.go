@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	aptossdk "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/pkg/errors"
 	"github.com/sethvargo/go-retry"
 
@@ -452,8 +453,11 @@ type JDChainConfigInput struct {
 }
 
 func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+	// Dedupe by (chain ID, chain type) so we never create the same config twice (avoids unique constraint violation).
+	seen := make(map[string]struct{})
 	for _, chain := range supportedChains {
 		var account string
+		var accountAddrPubKey string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
 
 		switch strings.ToLower(chain.ChainFamily()) {
@@ -490,15 +494,14 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
-			// always fetch; currently Node doesn't have Aptos keys
-			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
+			accounts, err := aptosAccountsForJDChainConfig(ctx, n)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), err)
-			}
-			if len(accounts) == 0 {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
+				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, err)
 			}
 			account = accounts[0]
+			// Deployment parsing prefers AccountAddressPublicKey for Aptos chain configs.
+			// Mirror transmitter into this field so OCRConfigForChainSelector always resolves it.
+			accountAddrPubKey = account
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainFamily())
 		}
@@ -507,12 +510,18 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
+		dedupeKey := chainIDStr + "\x00" + chainType
+		if _, exists := seen[dedupeKey]; exists {
+			continue
+		}
+		seen[dedupeKey] = struct{}{}
+
 		ocr2BundleID, createErr := n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
 		if createErr != nil {
 			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, createErr)
 		}
 		if ocr2BundleID == "" {
-			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
+			return fmt.Errorf("no OCR2 key bundle id found for node %s (chainType=%s)", n.Name, chainType)
 		}
 
 		if n.Keys.OCR2BundleIDs == nil {
@@ -542,22 +551,26 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 			// we need to create JD chain config for each chain, because later on changestes ask the node for that chain data
 			// each node needs to have OCR2 enabled, because p2pIDs are used by some contracts to identify nodes (e.g. capability registry)
 			_, createErr = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-				JobDistributorID: n.JobDistributorDetails.JDID,
-				ChainID:          chainIDStr,
-				ChainType:        chainType,
-				AccountAddr:      account,
-				AdminAddr:        n.Addresses.AdminAddress,
-				Ocr2Enabled:      true,
-				Ocr2IsBootstrap:  n.HasRole(RoleBootstrap),
-				Ocr2Multiaddr:    n.Addresses.MultiAddress,
-				Ocr2P2PPeerID:    n.Keys.P2PKey.PeerID.String(),
-				Ocr2KeyBundleID:  ocr2BundleID,
-				Ocr2Plugins:      `{}`,
+				JobDistributorID:  n.JobDistributorDetails.JDID,
+				ChainID:           chainIDStr,
+				ChainType:         chainType,
+				AccountAddr:       account,
+				AccountAddrPubKey: accountAddrPubKey,
+				AdminAddr:         n.Addresses.AdminAddress,
+				Ocr2Enabled:       true,
+				Ocr2IsBootstrap:   n.HasRole(RoleBootstrap),
+				Ocr2Multiaddr:     n.Addresses.MultiAddress,
+				Ocr2P2PPeerID:     n.Keys.P2PKey.PeerID.String(),
+				Ocr2KeyBundleID:   ocr2BundleID,
+				Ocr2Plugins:       `{}`,
 			})
-			// TODO: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
-			if createErr != nil {
-				return createErr
-			}
+				if createErr != nil {
+					// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
+					if strings.Contains(createErr.Error(), "duplicate key") || strings.Contains(createErr.Error(), "23505") {
+						return nil
+					}
+					return createErr
+				}
 
 			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
 			// if it's not updated , throw an error
@@ -569,6 +582,69 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		}
 	}
 	return nil
+}
+
+func aptosAccountsForJDChainConfig(ctx context.Context, n *Node) ([]string, error) {
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+	add := func(raw string) {
+		s := strings.TrimSpace(raw)
+		if s == "" {
+			return
+		}
+		var addr aptossdk.AccountAddress
+		if err := addr.ParseStringRelaxed(s); err != nil {
+			return
+		}
+		normalized := addr.StringLong()
+		if _, ok := seen[normalized]; ok {
+			return
+		}
+		seen[normalized] = struct{}{}
+		out = append(out, normalized)
+	}
+
+	accounts, gqlErr := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chainselectors.FamilyAptos))
+	if gqlErr == nil {
+		for _, account := range accounts {
+			add(account)
+		}
+	}
+
+	var raw struct {
+		Data []struct {
+			Attributes struct {
+				Account string `json:"account"`
+				Address string `json:"address"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+
+	restResp, restErr := n.Clients.RestClient.APIClient.R().
+		SetContext(ctx).
+		SetResult(&raw).
+		Get("/v2/keys/aptos")
+	if restErr == nil && restResp != nil && restResp.IsSuccess() {
+		for _, entry := range raw.Data {
+			add(entry.Attributes.Account)
+			add(entry.Attributes.Address)
+		}
+	}
+
+	if len(out) == 0 {
+		if gqlErr != nil && restErr != nil {
+			return nil, fmt.Errorf("graphql and rest aptos key lookups failed (gql=%v, rest=%v)", gqlErr, restErr)
+		}
+		if gqlErr != nil {
+			return nil, gqlErr
+		}
+		if restErr != nil {
+			return nil, restErr
+		}
+		return nil, fmt.Errorf("no valid aptos accounts found for node %s", n.Name)
+	}
+
+	return out, nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec
@@ -809,12 +885,16 @@ func HasFlag(values []string, capability string) bool {
 
 func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
+	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 
 	for _, bc := range bcs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
+		hasChainCapabilityEnabled := slices.Contains(chainCapabilityIDs, bc.ChainID())
 		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
-		if !hasEVMChainEnabled && (!chainIsSolana) {
+		// Include all Solana chains (legacy behavior), and include any chain that is
+		// explicitly referenced by chain-scoped capabilities (e.g. write-aptos-4).
+		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !chainIsSolana {
 			continue
 		}
 

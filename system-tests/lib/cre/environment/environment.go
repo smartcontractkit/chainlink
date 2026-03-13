@@ -2,15 +2,25 @@ package environment
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
+	aptos "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/api"
+	aptoscrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -21,6 +31,9 @@ import (
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
@@ -75,6 +88,8 @@ type SetupInput struct {
 	CapabilitiesContractFactoryFunctions []cre.CapabilityRegistryConfigFn
 
 	StageGen *stagegen.StageGen
+	// Optional map of Aptos chain selector -> forwarder address to inject into Aptos node config and jobs.
+	AptosForwarderAddresses map[uint64]string
 }
 
 func (s *SetupInput) Validate() error {
@@ -92,6 +107,616 @@ func (s *SetupInput) Validate() error {
 
 	if s.JdInput == nil {
 		return pkgerrors.New("jd input is nil")
+	}
+
+	return nil
+}
+
+const (
+	aptosForwarderAddressEnvVar   = "CRE_APTOS_FORWARDER_ADDRESS"
+	aptosForwarderAddressesEnvVar = "CRE_APTOS_FORWARDER_ADDRESSES"
+	aptosAddressHexLen            = 64
+	aptosForwarderConfigVersion   = 1
+)
+
+func normalizeAptosForwarderAddress(raw string) (string, error) {
+	addr := strings.TrimSpace(raw)
+	if addr == "" {
+		return "", errors.New("empty address")
+	}
+	addr = strings.TrimPrefix(strings.TrimPrefix(addr, "0x"), "0X")
+	if len(addr) != aptosAddressHexLen {
+		return "", fmt.Errorf("expected %d hex chars, got %d", aptosAddressHexLen, len(addr))
+	}
+	for _, ch := range addr {
+		isHex := (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
+		if !isHex {
+			return "", fmt.Errorf("address contains non-hex char %q", ch)
+		}
+	}
+	return "0x" + addr, nil
+}
+
+func resolveAptosForwarderAddresses(
+	testLogger zerolog.Logger,
+	deployedBlockchains []blockchains.Blockchain,
+	configured map[uint64]string,
+) (map[uint64]string, error) {
+	aptosSelectors := make([]uint64, 0)
+	aptosSelectorSet := make(map[uint64]struct{})
+	for _, bc := range deployedBlockchains {
+		if bc.IsFamily(chainselectors.FamilyAptos) {
+			aptosSelectors = append(aptosSelectors, bc.ChainSelector())
+			aptosSelectorSet[bc.ChainSelector()] = struct{}{}
+		}
+	}
+	if len(aptosSelectors) == 0 {
+		return nil, nil
+	}
+
+	out := make(map[uint64]string)
+	for selector, addrRaw := range configured {
+		if _, ok := aptosSelectorSet[selector]; !ok {
+			continue
+		}
+		addr, err := normalizeAptosForwarderAddress(addrRaw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid configured Aptos forwarder address for selector %d: %w", selector, err)
+		}
+		out[selector] = addr
+	}
+
+	// Optional: CRE_APTOS_FORWARDER_ADDRESSES='{"4457093679053095497":"0x..."}'
+	if rawMap := strings.TrimSpace(os.Getenv(aptosForwarderAddressesEnvVar)); rawMap != "" {
+		var decoded map[string]string
+		if err := json.Unmarshal([]byte(rawMap), &decoded); err != nil {
+			return nil, fmt.Errorf("invalid %s JSON: %w", aptosForwarderAddressesEnvVar, err)
+		}
+		for selectorRaw, addrRaw := range decoded {
+			selector, err := strconv.ParseUint(selectorRaw, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid chain selector key %q in %s: %w", selectorRaw, aptosForwarderAddressesEnvVar, err)
+			}
+			addr, err := normalizeAptosForwarderAddress(addrRaw)
+			if err != nil {
+				return nil, fmt.Errorf("invalid forwarder address for selector %d in %s: %w", selector, aptosForwarderAddressesEnvVar, err)
+			}
+			out[selector] = addr
+		}
+	}
+
+	// Optional: CRE_APTOS_FORWARDER_ADDRESS='0x...'
+	if rawSingle := strings.TrimSpace(os.Getenv(aptosForwarderAddressEnvVar)); rawSingle != "" {
+		addr, err := normalizeAptosForwarderAddress(rawSingle)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s: %w", aptosForwarderAddressEnvVar, err)
+		}
+		for _, selector := range aptosSelectors {
+			if _, exists := out[selector]; !exists {
+				out[selector] = addr
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		return nil, nil
+	}
+	testLogger.Info().Interface("aptosForwarderAddresses", out).Msg("resolved Aptos forwarder addresses for node/job config")
+	return out, nil
+}
+
+func deployMissingAptosForwarders(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	provider infra.Provider,
+	deployedBlockchains []blockchains.Blockchain,
+	current map[uint64]string,
+) (map[uint64]string, error) {
+	missing := make([]blockchains.Blockchain, 0)
+	for _, bc := range deployedBlockchains {
+		if !bc.IsFamily(chainselectors.FamilyAptos) {
+			continue
+		}
+		addr := ""
+		if current != nil {
+			addr = current[bc.ChainSelector()]
+		}
+		if addr != "" {
+			continue
+		}
+		missing = append(missing, bc)
+	}
+	if len(missing) == 0 {
+		return current, nil
+	}
+	if !provider.IsDocker() {
+		missingSelectors := make([]uint64, 0, len(missing))
+		for _, bc := range missing {
+			missingSelectors = append(missingSelectors, bc.ChainSelector())
+		}
+		return current, fmt.Errorf(
+			"missing Aptos forwarder address for chain selectors %v (set aptos_forwarder_addresses in config or %s/%s env vars)",
+			missingSelectors,
+			aptosForwarderAddressesEnvVar,
+			aptosForwarderAddressEnvVar,
+		)
+	}
+
+	var deployerPrivateKey aptoscrypto.Ed25519PrivateKey
+	if err := deployerPrivateKey.FromHex(blockchain.DefaultAptosPrivateKey); err != nil {
+		return current, fmt.Errorf("failed to parse Aptos deployer private key: %w", err)
+	}
+	deployerAccount, err := aptos.NewAccountFromSigner(&deployerPrivateKey)
+	if err != nil {
+		return current, fmt.Errorf("failed to create Aptos deployer signer: %w", err)
+	}
+
+	if current == nil {
+		current = make(map[uint64]string)
+	}
+
+	for _, bc := range missing {
+		output := bc.CtfOutput()
+		if output == nil || len(output.Nodes) == 0 {
+			return current, fmt.Errorf("missing Aptos node output for chain selector %d", bc.ChainSelector())
+		}
+
+		nodeURL := strings.TrimSpace(output.Nodes[0].ExternalHTTPUrl)
+		if nodeURL == "" {
+			return current, fmt.Errorf("missing Aptos external node URL for chain selector %d", bc.ChainSelector())
+		}
+		nodeURL, err = normalizeAptosNodeURL(nodeURL)
+		if err != nil {
+			return current, fmt.Errorf("invalid Aptos node URL for chain selector %d: %w", bc.ChainSelector(), err)
+		}
+
+		chainID := bc.ChainID()
+		if chainID > 255 {
+			return current, fmt.Errorf("Aptos chain id %d does not fit in uint8 for chain selector %d", chainID, bc.ChainSelector())
+		}
+
+		client, clientErr := aptos.NewNodeClient(nodeURL, uint8(chainID))
+		if clientErr != nil {
+			return current, fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", bc.ChainSelector(), nodeURL, clientErr)
+		}
+
+		owner := deployerAccount.AccountAddress()
+		containerName := ""
+		if output != nil {
+			containerName = output.ContainerName
+		}
+		if ensureErr := ensureAptosAccountVisible(ctx, testLogger, client, nodeURL, owner, bc.ChainSelector(), containerName); ensureErr != nil {
+			testLogger.Warn().
+				Uint64("chainSelector", bc.ChainSelector()).
+				Str("nodeURL", nodeURL).
+				Err(ensureErr).
+				Msg("Aptos deployer account not confirmed visible yet; proceeding with deploy retries")
+		}
+
+		var objectAddress aptos.AccountAddress
+		var pendingTxHash string
+		var lastDeployErr error
+		deployCtx, deployCancel := context.WithTimeout(ctx, 3*time.Minute)
+		defer deployCancel()
+		deployRetryErr := retry.Do(deployCtx, retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
+			var deployErr error
+			var pendingTx *api.PendingTransaction
+			objectAddress, pendingTx, _, deployErr = aptosplatform.DeployToObject(deployerAccount, client, owner)
+			if deployErr != nil {
+				lastDeployErr = deployErr
+				if containerName != "" {
+					if fundErr := fundAptosAccountInContainer(ctx, containerName, owner.StringLong()); fundErr != nil {
+						testLogger.Warn().
+							Uint64("chainSelector", bc.ChainSelector()).
+							Str("containerName", containerName).
+							Err(fundErr).
+							Msg("failed to re-fund Aptos deployer account during deploy retry")
+					}
+				}
+				return retry.RetryableError(fmt.Errorf("deploy-to-object failed: %w", deployErr))
+			}
+			if pendingTx == nil {
+				lastDeployErr = errors.New("nil pending transaction")
+				return retry.RetryableError(fmt.Errorf("deploy-to-object returned nil pending transaction"))
+			}
+			pendingTxHash = pendingTx.Hash
+			receipt, waitErr := client.WaitForTransaction(pendingTxHash)
+			if waitErr != nil {
+				lastDeployErr = waitErr
+				return retry.RetryableError(fmt.Errorf("wait for deployment tx failed: %w", waitErr))
+			}
+			if !receipt.Success {
+				return fmt.Errorf("Aptos forwarder deployment tx %s failed on chain selector %d: %s", pendingTx.Hash, bc.ChainSelector(), receipt.VmStatus)
+			}
+			return nil
+		})
+		if deployRetryErr != nil {
+			if lastDeployErr != nil {
+				return current, fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries (last error: %v): %w", bc.ChainSelector(), lastDeployErr, deployRetryErr)
+			}
+			return current, fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries: %w", bc.ChainSelector(), deployRetryErr)
+		}
+
+		addr, normErr := normalizeAptosForwarderAddress(objectAddress.StringLong())
+		if normErr != nil {
+			return current, fmt.Errorf("invalid Aptos forwarder address parsed from deployment output for chain selector %d: %w", bc.ChainSelector(), normErr)
+		}
+		current[bc.ChainSelector()] = addr
+		testLogger.Info().
+			Uint64("chainSelector", bc.ChainSelector()).
+			Str("nodeURL", nodeURL).
+			Str("txHash", pendingTxHash).
+			Str("forwarderAddress", addr).
+			Msg("Aptos platform forwarder deployed")
+	}
+
+	return current, nil
+}
+
+func ensureAptosAccountVisible(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	client *aptos.NodeClient,
+	nodeURL string,
+	address aptos.AccountAddress,
+	chainSelector uint64,
+	containerName string,
+) error {
+	ensureCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	if _, err := client.Account(address); err == nil {
+		return nil
+	}
+
+	faucetURL, faucetErr := aptosFaucetURLFromNodeURL(nodeURL)
+	if faucetErr != nil {
+		return faucetErr
+	}
+
+	faucetClient, faucetClientErr := aptos.NewFaucetClient(client, faucetURL)
+	if faucetClientErr != nil {
+		testLogger.Warn().
+			Uint64("chainSelector", chainSelector).
+			Str("faucetURL", faucetURL).
+			Err(faucetClientErr).
+			Msg("failed to create Aptos faucet client; will try container fallback")
+	}
+
+	var lastErr error
+	fundedViaAPI := false
+	fundedViaContainer := false
+	bo := retry.WithMaxRetries(20, retry.NewFibonacci(300*time.Millisecond))
+	err := retry.Do(ensureCtx, bo, func(ctx context.Context) error {
+		if _, accountErr := client.Account(address); accountErr == nil {
+			return nil
+		} else {
+			lastErr = accountErr
+		}
+
+		if !fundedViaAPI && faucetClientErr == nil {
+			const fundAmount = uint64(1_000_000_000)
+			if fundErr := faucetClient.Fund(address, fundAmount); fundErr != nil {
+				lastErr = fundErr
+				return retry.RetryableError(fmt.Errorf("failed to fund Aptos deployer account via faucet (%s): %w", faucetURL, fundErr))
+			}
+			fundedViaAPI = true
+			testLogger.Info().
+				Uint64("chainSelector", chainSelector).
+				Str("nodeURL", nodeURL).
+				Str("faucetURL", faucetURL).
+				Str("account", address.StringLong()).
+				Uint64("amount", fundAmount).
+				Msg("Funded Aptos deployer account while waiting for account visibility")
+		}
+
+		if !fundedViaContainer && containerName != "" {
+			if fundErr := fundAptosAccountInContainer(ctx, containerName, address.StringLong()); fundErr != nil {
+				lastErr = fundErr
+				testLogger.Warn().
+					Uint64("chainSelector", chainSelector).
+					Str("containerName", containerName).
+					Err(fundErr).
+					Msg("failed to fund Aptos deployer account via container CLI fallback")
+			} else {
+				fundedViaContainer = true
+				testLogger.Info().
+					Uint64("chainSelector", chainSelector).
+					Str("containerName", containerName).
+					Str("account", address.StringLong()).
+					Msg("Funded Aptos deployer account via container CLI fallback")
+			}
+		}
+
+		if lastErr != nil {
+			return retry.RetryableError(fmt.Errorf("Aptos account not visible yet on %s: %w", nodeURL, lastErr))
+		}
+		return retry.RetryableError(fmt.Errorf("Aptos account not visible yet on %s", nodeURL))
+	})
+	if err != nil {
+		if lastErr != nil {
+			return fmt.Errorf("account %s not visible on %s within timeout (last error: %v): %w", address.StringLong(), nodeURL, lastErr, err)
+		}
+		return fmt.Errorf("account %s not visible on %s within timeout: %w", address.StringLong(), nodeURL, err)
+	}
+
+	return nil
+}
+
+func fundAptosAccountInContainer(ctx context.Context, containerName string, account string) error {
+	dc, err := framework.NewDockerClient()
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+	cmd := []string{
+		"aptos", "account", "fund-with-faucet",
+		"--account", account,
+		"--amount", "1000000000000",
+	}
+	if _, err = dc.ExecContainerWithContext(ctx, containerName, cmd); err != nil {
+		return fmt.Errorf("failed to execute aptos faucet funding command in container %s: %w", containerName, err)
+	}
+	return nil
+}
+
+func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
+	parsed, err := url.Parse(nodeURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse Aptos node URL %q: %w", nodeURL, err)
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return "", fmt.Errorf("Aptos node URL %q has empty host", nodeURL)
+	}
+
+	parsed.Host = fmt.Sprintf("%s:%s", host, blockchain.DefaultAptosFaucetPort)
+	parsed.Path = ""
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
+}
+
+func normalizeAptosNodeURL(nodeURL string) (string, error) {
+	parsed, err := url.Parse(nodeURL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse Aptos node URL %q: %w", nodeURL, err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("Aptos node URL %q must include scheme and host", nodeURL)
+	}
+	trimmedPath := strings.TrimRight(parsed.Path, "/")
+	if trimmedPath == "" {
+		parsed.Path = "/v1"
+	} else if trimmedPath != "/v1" {
+		parsed.Path = trimmedPath + "/v1"
+	}
+	parsed.RawPath = ""
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String(), nil
+}
+
+func parseAptosOCR2OnchainPublicKey(raw string) ([]byte, error) {
+	key := strings.TrimSpace(raw)
+	if key == "" {
+		return nil, errors.New("empty OCR2 onchain public key")
+	}
+	if strings.Contains(key, "_") {
+		parts := strings.Split(key, "_")
+		key = parts[len(parts)-1]
+	}
+	key = strings.TrimPrefix(strings.TrimPrefix(key, "0x"), "0X")
+	if key == "" {
+		return nil, errors.New("empty OCR2 onchain public key after normalization")
+	}
+	decoded, err := hex.DecodeString(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode OCR2 onchain public key %q: %w", raw, err)
+	}
+	if len(decoded) == 0 {
+		return nil, fmt.Errorf("decoded OCR2 onchain public key %q is empty", raw)
+	}
+	return decoded, nil
+}
+
+func aptosDonOraclePublicKeys(don *cre.Don) ([][]byte, error) {
+	workers, err := don.Workers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worker nodes for DON %q: %w", don.Name, err)
+	}
+
+	oracles := make([][]byte, 0, len(workers))
+	for _, worker := range workers {
+		ocr2ID := ""
+		if worker.Keys != nil && worker.Keys.OCR2BundleIDs != nil {
+			ocr2ID = worker.Keys.OCR2BundleIDs[chainselectors.FamilyAptos]
+		}
+		if ocr2ID == "" {
+			fetchedID, fetchErr := worker.Clients.GQLClient.FetchOCR2KeyBundleID(context.Background(), strings.ToUpper(chainselectors.FamilyAptos))
+			if fetchErr != nil {
+				return nil, fmt.Errorf("missing Aptos OCR2 bundle id for worker %q in DON %q and fallback fetch failed: %w", worker.Name, don.Name, fetchErr)
+			}
+			if fetchedID == "" {
+				return nil, fmt.Errorf("missing Aptos OCR2 bundle id for worker %q in DON %q", worker.Name, don.Name)
+			}
+			ocr2ID = fetchedID
+			if worker.Keys != nil {
+				if worker.Keys.OCR2BundleIDs == nil {
+					worker.Keys.OCR2BundleIDs = make(map[string]string)
+				}
+				worker.Keys.OCR2BundleIDs[chainselectors.FamilyAptos] = ocr2ID
+			}
+		}
+
+		exported, expErr := worker.ExportOCR2Keys(ocr2ID)
+		if expErr != nil {
+			return nil, fmt.Errorf("failed to export Aptos OCR2 key for worker %q (bundle %s): %w", worker.Name, ocr2ID, expErr)
+		}
+
+		pubkey, parseErr := parseAptosOCR2OnchainPublicKey(exported.OnchainPublicKey)
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid Aptos OCR2 onchain public key for worker %q: %w", worker.Name, parseErr)
+		}
+		oracles = append(oracles, pubkey)
+	}
+
+	return oracles, nil
+}
+
+func configureAptosForwarderContracts(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	provider infra.Provider,
+	deployedBlockchains []blockchains.Blockchain,
+	dons *cre.Dons,
+	forwarderAddresses map[uint64]string,
+) error {
+	if dons == nil || len(forwarderAddresses) == 0 {
+		return nil
+	}
+
+	var deployerPrivateKey aptoscrypto.Ed25519PrivateKey
+	if err := deployerPrivateKey.FromHex(blockchain.DefaultAptosPrivateKey); err != nil {
+		return fmt.Errorf("failed to parse Aptos deployer private key for forwarder config: %w", err)
+	}
+	deployerAccount, err := aptos.NewAccountFromSigner(&deployerPrivateKey)
+	if err != nil {
+		return fmt.Errorf("failed to create Aptos deployer signer for forwarder config: %w", err)
+	}
+	deployerAddress := deployerAccount.AccountAddress()
+
+	aptosChainsByChainID := make(map[uint64]blockchains.Blockchain)
+	for _, bc := range deployedBlockchains {
+		if bc.IsFamily(chainselectors.FamilyAptos) {
+			aptosChainsByChainID[bc.ChainID()] = bc
+		}
+	}
+
+	for _, don := range dons.DonsWithFlag(cre.WriteAptosCapability) {
+		aptosChainIDs, chainErr := don.GetEnabledChainIDsForCapability(cre.WriteAptosCapability)
+		if chainErr != nil {
+			return fmt.Errorf("failed to get Aptos chain IDs for DON %q: %w", don.Name, chainErr)
+		}
+		if len(aptosChainIDs) == 0 {
+			continue
+		}
+
+		workers, workerErr := don.Workers()
+		if workerErr != nil {
+			return fmt.Errorf("failed to get worker nodes for DON %q: %w", don.Name, workerErr)
+		}
+		f := (len(workers) - 1) / 3
+		if f <= 0 {
+			return fmt.Errorf("invalid Aptos DON %q fault tolerance F=%d (workers=%d)", don.Name, f, len(workers))
+		}
+		if f > 255 {
+			return fmt.Errorf("Aptos DON %q fault tolerance F=%d exceeds u8", don.Name, f)
+		}
+		if don.ID > uint64(^uint32(0)) {
+			return fmt.Errorf("DON %q id %d exceeds u32 for Aptos forwarder config", don.Name, don.ID)
+		}
+
+		oracles, oracleErr := aptosDonOraclePublicKeys(don)
+		if oracleErr != nil {
+			return oracleErr
+		}
+
+		for _, chainID := range aptosChainIDs {
+			bc, ok := aptosChainsByChainID[chainID]
+			if !ok {
+				return fmt.Errorf("Aptos chain id %d enabled for DON %q but no Aptos blockchain is configured", chainID, don.Name)
+			}
+
+			forwarderHex := strings.TrimSpace(forwarderAddresses[bc.ChainSelector()])
+			if forwarderHex == "" {
+				return fmt.Errorf("missing Aptos forwarder address for chain selector %d (chain id %d)", bc.ChainSelector(), chainID)
+			}
+
+			output := bc.CtfOutput()
+			if output == nil || len(output.Nodes) == 0 {
+				return fmt.Errorf("missing Aptos node output for chain selector %d", bc.ChainSelector())
+			}
+			nodeURL, normErr := normalizeAptosNodeURL(output.Nodes[0].ExternalHTTPUrl)
+			if normErr != nil {
+				return fmt.Errorf("invalid Aptos node URL for chain selector %d: %w", bc.ChainSelector(), normErr)
+			}
+			if bc.ChainID() > 255 {
+				return fmt.Errorf("Aptos chain id %d does not fit in uint8 for chain selector %d", bc.ChainID(), bc.ChainSelector())
+			}
+
+			client, clientErr := aptos.NewNodeClient(nodeURL, uint8(bc.ChainID()))
+			if clientErr != nil {
+				return fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", bc.ChainSelector(), nodeURL, clientErr)
+			}
+
+			if ensureErr := ensureAptosAccountVisible(ctx, testLogger, client, nodeURL, deployerAddress, bc.ChainSelector(), output.ContainerName); ensureErr != nil {
+				if !provider.IsDocker() {
+					return fmt.Errorf("failed to ensure Aptos deployer account visibility for chain selector %d: %w", bc.ChainSelector(), ensureErr)
+				}
+				testLogger.Warn().
+					Uint64("chainSelector", bc.ChainSelector()).
+					Str("nodeURL", nodeURL).
+					Err(ensureErr).
+					Msg("Aptos deployer account not confirmed visible yet; proceeding with forwarder set_config retries")
+			}
+
+			var forwarderAddr aptos.AccountAddress
+			if parseErr := forwarderAddr.ParseStringRelaxed("0x" + strings.TrimPrefix(forwarderHex, "0x")); parseErr != nil {
+				return fmt.Errorf("invalid Aptos forwarder address for chain selector %d: %w", bc.ChainSelector(), parseErr)
+			}
+			forwarderContract := aptosplatform.Bind(forwarderAddr, client).Forwarder()
+
+			var pendingTxHash string
+			var lastSetConfigErr error
+			setConfigErr := retry.Do(
+				ctx,
+				retry.WithMaxDuration(2*time.Minute, retry.NewFibonacci(500*time.Millisecond)),
+				func(ctx context.Context) error {
+					pendingTx, txErr := forwarderContract.SetConfig(&bind.TransactOpts{
+						Signer: deployerAccount,
+					}, uint32(don.ID), aptosForwarderConfigVersion, byte(f), oracles)
+					if txErr != nil {
+						lastSetConfigErr = txErr
+						if output.ContainerName != "" {
+							if fundErr := fundAptosAccountInContainer(ctx, output.ContainerName, deployerAddress.StringLong()); fundErr != nil {
+								testLogger.Warn().
+									Uint64("chainSelector", bc.ChainSelector()).
+									Str("containerName", output.ContainerName).
+									Err(fundErr).
+									Msg("failed to fund Aptos deployer account during set_config retry")
+							}
+						}
+						return retry.RetryableError(fmt.Errorf("set_config transaction submit failed: %w", txErr))
+					}
+					pendingTxHash = pendingTx.Hash
+					receipt, waitErr := client.WaitForTransaction(pendingTxHash)
+					if waitErr != nil {
+						lastSetConfigErr = waitErr
+						return retry.RetryableError(fmt.Errorf("waiting for set_config transaction failed: %w", waitErr))
+					}
+					if !receipt.Success {
+						lastSetConfigErr = fmt.Errorf("vm status: %s", receipt.VmStatus)
+						return retry.RetryableError(fmt.Errorf("set_config transaction failed: %s", receipt.VmStatus))
+					}
+					return nil
+				},
+			)
+			if setConfigErr != nil {
+				if lastSetConfigErr != nil {
+					return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d (last error: %v): %w", forwarderHex, don.Name, bc.ChainSelector(), lastSetConfigErr, setConfigErr)
+				}
+				return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d: %w", forwarderHex, don.Name, bc.ChainSelector(), setConfigErr)
+			}
+
+			testLogger.Info().
+				Str("donName", don.Name).
+				Uint64("donID", don.ID).
+				Uint64("chainSelector", bc.ChainSelector()).
+				Str("txHash", pendingTxHash).
+				Str("forwarderAddress", "0x"+strings.TrimPrefix(forwarderHex, "0x")).
+				Msg("configured Aptos forwarder set_config")
+		}
 	}
 
 	return nil
@@ -145,6 +770,15 @@ func SetupTestEnvironment(
 		Provider:              input.Provider,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 	}
+	aptosForwarderAddresses, addrErr := resolveAptosForwarderAddresses(testLogger, deployedBlockchains.Outputs, input.AptosForwarderAddresses)
+	if addrErr != nil {
+		return nil, fmt.Errorf("failed to resolve Aptos forwarder addresses: %w", addrErr)
+	}
+	aptosForwarderAddresses, addrErr = deployMissingAptosForwarders(ctx, testLogger, input.Provider, deployedBlockchains.Outputs, aptosForwarderAddresses)
+	if addrErr != nil {
+		return nil, fmt.Errorf("failed to auto-deploy missing Aptos forwarders: %w", addrErr)
+	}
+	creEnvironment.AptosForwarderAddresses = aptosForwarderAddresses
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Deploying Workflow and Capability Registry contracts")))
@@ -313,6 +947,7 @@ func SetupTestEnvironment(
 		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
 		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
 		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
+		chainselectors.FamilyAptos:  1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
 	}
 
 	fErr := FundNodes(
@@ -328,6 +963,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
+
 	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
@@ -395,7 +1031,16 @@ func SetupTestEnvironment(
 	if capRegErr != nil {
 		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
 	}
-
+	if cfgErr := configureAptosForwarderContracts(
+		ctx,
+		testLogger,
+		input.Provider,
+		deployedBlockchains.Outputs,
+		dons,
+		aptosForwarderAddresses,
+	); cfgErr != nil {
+		return nil, fmt.Errorf("failed to configure Aptos forwarders: %w", cfgErr)
+	}
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after environment startup")))

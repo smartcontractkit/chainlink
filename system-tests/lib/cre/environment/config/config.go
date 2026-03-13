@@ -57,15 +57,16 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 }
 
 type Config struct {
-	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
-	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
-	JD                *jd.Input                       `toml:"jd" validate:"required"`
-	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
-	Fake              *fake.Input                     `toml:"fake" validate:"required"`
-	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
-	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
-	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
-	Addresses         []string                        `toml:"addresses"`
+	Blockchains             []*blockchain.Input             `toml:"blockchains" validate:"required"`
+	NodeSets                []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
+	JD                      *jd.Input                       `toml:"jd" validate:"required"`
+	Infra                   *infra.Provider                 `toml:"infra" validate:"required"`
+	Fake                    *fake.Input                     `toml:"fake" validate:"required"`
+	FakeHTTP                *fake.Input                     `toml:"fake_http" validate:"required"`
+	S3ProviderInput         *s3provider.Input               `toml:"s3provider"`
+	CapabilityConfigs       map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
+	AptosForwarderAddresses map[uint64]string               `toml:"aptos_forwarder_addresses"`
+	Addresses               []string                        `toml:"addresses"`
 
 	mu     sync.Mutex
 	loaded bool

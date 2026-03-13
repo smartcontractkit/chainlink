@@ -70,6 +70,7 @@ const (
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
 	SolanaCapability          CapabilityFlag = "solana"
+	WriteAptosCapability      CapabilityFlag = "write-aptos"
 	// Add more capabilities as needed
 )
 
@@ -466,6 +467,7 @@ type GenerateConfigsInput struct {
 	ContractVersions        map[ContractType]*semver.Version
 	Topology                *Topology
 	Provider                infra.Provider
+	AptosForwarderAddresses map[uint64]string
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -1280,6 +1282,11 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	return out
 }
 
+// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, write-aptos-4).
+func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
+	return c.chainCapabilityIDs()
+}
+
 func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
@@ -1472,11 +1479,12 @@ type LinkDonsToJDInput struct {
 }
 
 type Environment struct {
-	CldfEnvironment       *cldf.Environment
-	RegistryChainSelector uint64
-	Blockchains           []blockchains.Blockchain
-	ContractVersions      map[ContractType]*semver.Version
-	Provider              infra.Provider
+	CldfEnvironment         *cldf.Environment
+	RegistryChainSelector   uint64
+	Blockchains             []blockchains.Blockchain
+	ContractVersions        map[ContractType]*semver.Version
+	Provider                infra.Provider
+	AptosForwarderAddresses map[uint64]string
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 

@@ -499,6 +499,7 @@ func startCmd() *cobra.Command {
 			if stErr != nil {
 				return errors.Wrap(stErr, "failed to set addresses on Config")
 			}
+			in.AptosForwarderAddresses = output.CreEnvironment.AptosForwarderAddresses
 			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")

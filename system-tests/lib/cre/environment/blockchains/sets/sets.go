@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/tron"
@@ -16,5 +17,6 @@ func NewDeployerSet(testLogger zerolog.Logger, provider *infra.Provider) map[blo
 		blockchain.FamilyEVM:    evm.NewDeployer(testLogger, provider),
 		blockchain.FamilySolana: solana.NewDeployer(testLogger, provider),
 		blockchain.FamilyTron:   tron.NewDeployer(testLogger, provider),
+		blockchain.FamilyAptos:  aptos.NewDeployer(testLogger, provider),
 	}
 }

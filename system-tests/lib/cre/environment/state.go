@@ -93,7 +93,9 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		if chainErr != nil {
 			return nil, nil, errors.Wrap(chainErr, "failed to create cldf chain from blockchain")
 		}
-		cldfBlockchains = append(cldfBlockchains, chain)
+		if chain != nil {
+			cldfBlockchains = append(cldfBlockchains, chain)
+		}
 	}
 
 	cldEnv := cldf.NewEnvironment(
@@ -127,12 +129,22 @@ func BuildFromSavedState(ctx context.Context, cldLogger logger.Logger, cachedInp
 		return nil, nil, errors.Wrap(cErr, "failed to get contract versions from datastore")
 	}
 
+	aptosForwarderAddresses, addrErr := resolveAptosForwarderAddresses(framework.L, deployedBlockchains.Outputs, cachedInput.AptosForwarderAddresses)
+	if addrErr != nil {
+		return nil, nil, errors.Wrap(addrErr, "failed to resolve Aptos forwarder addresses from saved state")
+	}
+	aptosForwarderAddresses, addrErr = deployMissingAptosForwarders(ctx, framework.L, *cachedInput.Infra, deployedBlockchains.Outputs, aptosForwarderAddresses)
+	if addrErr != nil {
+		return nil, nil, errors.Wrap(addrErr, "failed to auto-deploy missing Aptos forwarders from saved state")
+	}
+
 	return &cre.Environment{
-		CldfEnvironment:       cldEnv,
-		Blockchains:           deployedBlockchains.Outputs,
-		RegistryChainSelector: deployedBlockchains.Outputs[0].ChainSelector(),
-		Provider:              *cachedInput.Infra,
-		ContractVersions:      contractVersions.ContractVersions(),
+		CldfEnvironment:         cldEnv,
+		Blockchains:             deployedBlockchains.Outputs,
+		RegistryChainSelector:   deployedBlockchains.Outputs[0].ChainSelector(),
+		Provider:                *cachedInput.Infra,
+		ContractVersions:        contractVersions.ContractVersions(),
+		AptosForwarderAddresses: aptosForwarderAddresses,
 	}, dons, nil
 }
 

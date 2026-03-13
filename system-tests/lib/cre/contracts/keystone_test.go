@@ -8,15 +8,18 @@ import (
 	"strings"
 	"testing"
 
+	aptossdk "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
@@ -225,6 +228,257 @@ func TestToV2ConfigureInput(t *testing.T) {
 	require.Equal(t, uint8(1), result.DONs[0].F)
 	require.Len(t, result.DONs[0].Nodes, 2)
 	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
+}
+
+func TestToV2ConfigureInput_AptosCapabilityConfigIncludesP2PToTransmitterMap(t *testing.T) {
+	chainSel := chainselectors.APTOS_LOCALNET.Selector
+	chainID, err := chainselectors.GetChainIDFromSelector(chainSel)
+	require.NoError(t, err)
+	evmChainID, err := chainselectors.GetChainIDFromSelector(chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector)
+	require.NoError(t, err)
+
+	key1 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(101))
+	key2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(202))
+	peerID1 := key1.PeerID().String()
+	peerID2 := key2.PeerID().String()
+
+	transmitter1 := "0x1"
+	transmitter2 := "0xa11ce"
+
+	fakeNodes := []*fakeNodeInfo{
+		{
+			id:          "node_aptos_1",
+			name:        "aptos-node-1",
+			csaKey:      "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
+			workflowKey: "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+			p2pID:       peerID1,
+			chainConfigs: []*nodev1.ChainConfig{
+				makeEVMGoldenChainConfig(
+					peerID1,
+					evmChainID,
+					"03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+					"b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+					"5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+					"665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+					"0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+				),
+				makeAptosChainConfig(
+					peerID1,
+					chainID,
+					"03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+					"b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+					"5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+					"665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+					&transmitter1,
+				),
+			},
+		},
+		{
+			id:          "node_aptos_2",
+			name:        "aptos-node-2",
+			csaKey:      "28b91143ec9111796a7d63e14c1cf6bb01b4ed59667ab54f5bc72ebe49c881be",
+			workflowKey: "2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+			p2pID:       peerID2,
+			chainConfigs: []*nodev1.ChainConfig{
+				makeEVMGoldenChainConfig(
+					peerID2,
+					evmChainID,
+					"255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+					"8258f4c4761cc445333017608044a204fd0c006a",
+					"2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+					"7a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb0",
+					"0x415aa1E9a1bcB3929ed92bFa1F9735Dc0D45AD31",
+				),
+				makeAptosChainConfig(
+					peerID2,
+					chainID,
+					"255096a3b7ade10e29c648e0b407fc486180464f713446b1da04f013df6179c8",
+					"8258f4c4761cc445333017608044a204fd0c006a",
+					"2c45fec2320f6bcd36444529a86d9f8b4439499a5d8272dec9bcbbebb5e1bf01",
+					"7a9b75510b8d09932b98142419bef52436ff725dd9395469473b487ef87fdfb0",
+					&transmitter2,
+				),
+			},
+		},
+	}
+
+	offchainClient := newFakeOffchainClient(fakeNodes)
+	d := &dons{
+		c:        make(map[string]donConfig),
+		offChain: offchainClient,
+	}
+	d.c["aptos-don"] = donConfig{
+		id: 1,
+		DonCapabilities: keystone_changeset.DonCapabilities{
+			Name: "aptos-don",
+			F:    1,
+			Nops: []keystone_changeset.NOP{{
+				Name:  "aptos-nop",
+				Nodes: []string{peerID1, peerID2},
+			}},
+			Capabilities: []keystone_changeset.DONCapabilityWithConfig{{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   fmt.Sprintf("aptos:ChainSelector:%d", chainSel),
+					Version:        "1.0.0",
+					CapabilityType: 1,
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			}},
+		},
+	}
+
+	result := d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil)
+	require.Len(t, result.DONs, 1)
+	require.Len(t, result.DONs[0].CapabilityConfigurations, 1)
+
+	var capConfig capabilitiespb.CapabilityConfig
+	require.NoError(t, proto.Unmarshal(result.DONs[0].CapabilityConfigurations[0].Config, &capConfig))
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	require.NoError(t, err)
+	require.NotNil(t, specConfig)
+
+	rawMap, exists := specConfig.Underlying[aptosSpecConfigP2PMapKey]
+	require.True(t, exists, "expected Aptos p2p->transmitter map in spec config")
+
+	var gotMap map[string]string
+	require.NoError(t, rawMap.UnwrapTo(&gotMap))
+
+	pid1 := key1.PeerID()
+	pid2 := key2.PeerID()
+	require.Equal(t, map[string]string{
+		fmt.Sprintf("%x", pid1[:]): mustNormalizeAptosAddress(t, transmitter1),
+		fmt.Sprintf("%x", pid2[:]): mustNormalizeAptosAddress(t, transmitter2),
+	}, gotMap)
+
+	_, hasLegacyKey := specConfig.Underlying[legacyAptosTransmittersConfigKey]
+	require.False(t, hasLegacyKey, "legacy aptosTransmitters key should not be set")
+}
+
+func TestToV2ConfigureInput_AptosCapabilityMissingTransmitterDataFails(t *testing.T) {
+	chainSel := chainselectors.APTOS_LOCALNET.Selector
+	chainID, err := chainselectors.GetChainIDFromSelector(chainSel)
+	require.NoError(t, err)
+	evmChainID, err := chainselectors.GetChainIDFromSelector(chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector)
+	require.NoError(t, err)
+
+	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(303))
+	peerID := key.PeerID().String()
+
+	fakeNodes := []*fakeNodeInfo{
+		{
+			id:          "node_aptos_missing_txr",
+			name:        "aptos-node-missing",
+			csaKey:      "403b72f0b1b3b5f5a91bcfedb7f28599767502a04b5b7e067fcf3782e23eeb9c",
+			workflowKey: "5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+			p2pID:       peerID,
+			chainConfigs: []*nodev1.ChainConfig{
+				makeEVMGoldenChainConfig(
+					peerID,
+					evmChainID,
+					"03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+					"b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+					"5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+					"665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+					"0x2877F08d9c5Cc9F401F730Fa418fAE563A9a2FF3",
+				),
+				makeAptosChainConfig(
+					peerID,
+					chainID,
+					"03dacd15fc96c965c648e3623180de002b71a97cf6eeca9affb91f461dcd6ce1",
+					"b35409a8d4f9a18da55c5b2bb08a3f5f68d44442",
+					"5193f72fc7b4323a86088fb0acb4e4494ae351920b3944bd726a59e8dbcdd45f",
+					"665a101d79d310cb0a5ebf695b06e8fc8082b5cbe62d7d362d80d47447a31fea",
+					nil, // Intentionally omit transmitter to trigger setup failure.
+				),
+			},
+		},
+	}
+
+	offchainClient := newFakeOffchainClient(fakeNodes)
+	d := &dons{
+		c:        make(map[string]donConfig),
+		offChain: offchainClient,
+	}
+	d.c["aptos-don"] = donConfig{
+		id: 1,
+		DonCapabilities: keystone_changeset.DonCapabilities{
+			Name: "aptos-don",
+			F:    1,
+			Nops: []keystone_changeset.NOP{{
+				Name:  "aptos-nop",
+				Nodes: []string{peerID},
+			}},
+			Capabilities: []keystone_changeset.DONCapabilityWithConfig{{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   fmt.Sprintf("aptos:ChainSelector:%d", chainSel),
+					Version:        "1.0.0",
+					CapabilityType: 1,
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			}},
+		},
+	}
+
+	require.Panics(t, func() {
+		_ = d.mustToV2ConfigureInput(chainSel, "0x1234567890abcdef", nil)
+	})
+}
+
+func mustNormalizeAptosAddress(t *testing.T, raw string) string {
+	t.Helper()
+	var addr aptossdk.AccountAddress
+	require.NoError(t, addr.ParseStringRelaxed(raw))
+	return addr.StringLong()
+}
+
+func makeEVMGoldenChainConfig(
+	peerID, chainID, offchainPublicKey, onchainSigningAddress, configPublicKey, bundleID, accountAddress string,
+) *nodev1.ChainConfig {
+	return &nodev1.ChainConfig{
+		Chain: &nodev1.Chain{
+			Type: nodev1.ChainType_CHAIN_TYPE_EVM,
+			Id:   chainID,
+		},
+		Ocr2Config: &nodev1.OCR2Config{
+			OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+				OffchainPublicKey:     offchainPublicKey,
+				OnchainSigningAddress: onchainSigningAddress,
+				ConfigPublicKey:       configPublicKey,
+				BundleId:              bundleID,
+			},
+			P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+				PeerId: peerID,
+			},
+			IsBootstrap: false,
+		},
+		AccountAddress: accountAddress,
+	}
+}
+
+func makeAptosChainConfig(
+	peerID, chainID, offchainPublicKey, onchainSigningAddress, configPublicKey, bundleID string,
+	transmitter *string,
+) *nodev1.ChainConfig {
+	return &nodev1.ChainConfig{
+		Chain: &nodev1.Chain{
+			Type: nodev1.ChainType_CHAIN_TYPE_APTOS,
+			Id:   chainID,
+		},
+		Ocr2Config: &nodev1.OCR2Config{
+			OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
+				OffchainPublicKey:     offchainPublicKey,
+				OnchainSigningAddress: onchainSigningAddress,
+				ConfigPublicKey:       configPublicKey,
+				BundleId:              bundleID,
+			},
+			P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+				PeerId: peerID,
+			},
+			IsBootstrap: false,
+		},
+		AccountAddressPublicKey: transmitter,
+	}
 }
 
 // TestGenerateAdminAddresses contains all the test cases for the function.

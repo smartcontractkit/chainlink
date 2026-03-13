@@ -214,6 +214,26 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 			}
 
 			for _, node := range don.Nodes {
+				if chainFamily == chainselectors.FamilyAptos {
+					accounts, err := aptosAccountsForNode(ctx, node)
+					if err != nil {
+						return fmt.Errorf("failed to fetch aptos keys for node %s: %w", node.Name, err)
+					}
+					if len(accounts) == 0 {
+						testLogger.Info().Msgf("No Aptos keys found for node %s. Skipping Aptos funding", node.Name)
+						continue
+					}
+					for _, account := range accounts {
+						if strings.TrimSpace(account) == "" {
+							continue
+						}
+						if fundErr := bc.Fund(ctx, account, fundingAmount); fundErr != nil {
+							return fundErr
+						}
+					}
+					continue
+				}
+
 				address, addrErr := nodeAddress(node, chainFamily, bc)
 				if addrErr != nil {
 					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
@@ -253,7 +273,74 @@ func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) 
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
 		return solKey.PublicAddress.String(), nil
+	case chainselectors.FamilyAptos:
+		accounts, err := aptosAccountsForNode(context.Background(), node)
+		if err != nil {
+			return "", fmt.Errorf("failed to fetch aptos keys for node %s: %w", node.Name, err)
+		}
+		if len(accounts) == 0 {
+			return "", nil // Skip nodes without Aptos keys
+		}
+		return accounts[0], nil
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
+}
+
+func aptosAccountsForNode(ctx context.Context, node *cre.Node) ([]string, error) {
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+	add := func(raw string) {
+		addr := strings.TrimSpace(raw)
+		if addr == "" {
+			return
+		}
+		if _, ok := seen[addr]; ok {
+			return
+		}
+		seen[addr] = struct{}{}
+		out = append(out, addr)
+	}
+
+	// GraphQL keys are the existing source used across CRE.
+	gqlAccounts, gqlErr := node.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chainselectors.FamilyAptos))
+	if gqlErr == nil {
+		for _, acct := range gqlAccounts {
+			add(acct)
+		}
+	}
+
+	// REST /v2/keys/aptos can include the effective tx key account selected by txm.
+	var raw struct {
+		Data []struct {
+			Attributes struct {
+				Account string `json:"account"`
+				Address string `json:"address"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	restResp, restErr := node.Clients.RestClient.APIClient.R().
+		SetContext(ctx).
+		SetResult(&raw).
+		Get("/v2/keys/aptos")
+	if restErr == nil && restResp != nil && restResp.IsSuccess() {
+		for _, entry := range raw.Data {
+			add(entry.Attributes.Account)
+			add(entry.Attributes.Address)
+		}
+	}
+
+	if len(out) == 0 {
+		if gqlErr != nil && restErr != nil {
+			return nil, fmt.Errorf("graphql and rest aptos key lookups failed (gql=%v, rest=%v)", gqlErr, restErr)
+		}
+		if gqlErr != nil {
+			return nil, gqlErr
+		}
+		if restErr != nil {
+			return nil, restErr
+		}
+	}
+
+	return out, nil
 }
