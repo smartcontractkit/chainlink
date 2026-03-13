@@ -2,8 +2,9 @@ name: (Nightly) System Tests
 
 on:
   schedule:
-    - cron: "0 6 * * *" # Run daily at 6 AM
+    - cron: "0 0 * * *" # Run daily at midnight UTC
   workflow_dispatch:
+  pull_request:
 
 defaults:
   run:
@@ -14,6 +15,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect devenv changes
+    runs-on: ubuntu-latest
+    outputs:
+      devenv-changes: ${{ steps.devenv-changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
+        id: devenv-changes
+        with:
+          filters: |
+            src:
+            - 'devenv/**/*.go'
+            - 'devenv/**/*.toml'
+            - 'devenv/**/go.mod'
+            - 'devenv/**/go.sum'
+            - 'devenv/**/*Dockerfile'
+            - '.github/workflows/devenv-nightly.yml'
+
   summary:
     name: "Build Information"
     runs-on: ubuntu-latest
@@ -21,7 +44,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Print Summary
@@ -29,14 +52,16 @@ jobs:
           IMAGE_VERSION="nightly-$(date +%Y%m%d)"
           FULL_IMAGE_HINT="<sdlc_registry>/chainlink:${IMAGE_VERSION}"
           echo "**Image:** \`${FULL_IMAGE_HINT}\`" >> $GITHUB_STEP_SUMMARY
-  
   test-nightly:
     name: ${{ matrix.display_name }}
+    needs: [changes]
     permissions:
       id-token: write
       contents: read
       pull-requests: write
     runs-on: ${{ matrix.runner }}
+    # If there's a PR that's changing devenv, run the tests
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.devenv-changes == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -149,7 +174,7 @@ jobs:
             logs_archive_name: "df1-chaos"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -181,7 +206,7 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-      
+
       - name: Set environment variables
         run: |
           IMAGE_VERSION="nightly-$(date +%Y%m%d)"
