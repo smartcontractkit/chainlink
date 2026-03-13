@@ -160,19 +160,28 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "automation"
             logs_archive_name: "automation-soak"
+            run_on_pr: false
           - display_name: "Test DF1 (OCR2) Soak"
             testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
             envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "ocr2"
             logs_archive_name: "df1-soak"
+            run_on_pr: false
           - display_name: "Test DF1 (OCR2) Chaos"
             testcmd: "go test -v -timeout 30m -run TestOCR2Chaos"
             envcmd: "cl u env.toml,products/ocr2/basic.toml; cl obs up -f"
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "ocr2"
             logs_archive_name: "df1-chaos"
+            run_on_pr: false
     steps:
+      - name: Skip soak tests on PRs
+        if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && matrix.run_on_pr == false) }}
+        run: |
+          echo "Skipping soak tests on PRs"
+          exit 0
+
       # DEBUG: Run monitor for tests
       - name: Monitor
         uses: kalverra/octometrics-action@v0.0.10
@@ -182,8 +191,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout code
-        # Skip soak tests on PRs
-        if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !contains(matrix.display_name, 'Soak')) }}
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
