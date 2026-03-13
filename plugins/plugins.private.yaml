@@ -9,7 +9,7 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "9382dd467b74fe964497d84ac134162eac150322"
+      gitRef: "fb5ae42e0b1153ed284175c4cd87d80a7eb6fef5"
       installPath: "."
       flags: "-tags timetzdata"
   kvstore:
@@ -36,7 +36,7 @@ plugins:
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "9382dd467b74fe964497d84ac134162eac150322"
+      gitRef: "fb5ae42e0b1153ed284175c4cd87d80a7eb6fef5"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
@@ -44,7 +44,7 @@ plugins:
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "9382dd467b74fe964497d84ac134162eac150322"
+      gitRef: "fb5ae42e0b1153ed284175c4cd87d80a7eb6fef5"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
