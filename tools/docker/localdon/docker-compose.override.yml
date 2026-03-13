@@ -1,0 +1,6 @@
+# Override file for Phase 2: swap node-4 to a different Chainlink version.
+# This file is automatically picked up by `docker compose`.
+# Comment out or delete to revert all nodes to the same version.
+services:
+  node-4:
+    image: smartcontract/chainlink:2.37.0

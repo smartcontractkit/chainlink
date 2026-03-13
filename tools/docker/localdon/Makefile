@@ -1,6 +1,6 @@
-.PHONY: help build up setup down logs clean
+.PHONY: help build up setup down logs clean restart
 
-COMPOSE := docker compose -f docker-compose.yml
+COMPOSE := docker compose
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -31,3 +31,5 @@ logs: ## Follow logs from all services
 
 clean: ## Stop all services and remove volumes
 	$(COMPOSE) down -v --remove-orphans
+
+restart: clean up setup ## Full restart: clean + up + setup (use after changing node images)
