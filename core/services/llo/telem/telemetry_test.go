@@ -528,7 +528,6 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 			assert.Equal(t, uint32(10), decoded.DonId)
 		})
-
 	})
 
 	t.Run("overwrites previous outcome for same seqNr (epoch transition)", func(t *testing.T) {
