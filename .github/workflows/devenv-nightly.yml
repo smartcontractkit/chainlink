@@ -181,6 +181,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout code
+        # Skip soak tests on PRs
+        if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && !contains(matrix.display_name, 'Soak')) }}
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -231,8 +233,6 @@ jobs:
 
       - name: Run tests
         working-directory: devenv/tests/${{ matrix.tests_dir }}
-        # Skip soak tests on PRs
-        if: ${{ github.event_name != 'pull_request' || !contains(matrix.display_name, 'Soak') }}
         env:
           CURRENT_TEST: ${{ matrix.testcmd }}
         run: |
