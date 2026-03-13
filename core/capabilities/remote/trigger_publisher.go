@@ -285,7 +285,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 
 		reg.cancel()
 		ctx, cancel := p.stopCh.NewCtx()
-		if err := p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request); err != nil {
+		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		if err != nil {
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
 		}
 		cancel()
