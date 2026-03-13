@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
@@ -347,8 +348,8 @@ func TestToV2ConfigureInput_AptosCapabilityConfigIncludesP2PToTransmitterMap(t *
 	pid1 := key1.PeerID()
 	pid2 := key2.PeerID()
 	require.Equal(t, map[string]string{
-		fmt.Sprintf("%x", pid1[:]): mustNormalizeAptosAddress(t, transmitter1),
-		fmt.Sprintf("%x", pid2[:]): mustNormalizeAptosAddress(t, transmitter2),
+		hex.EncodeToString(pid1[:]): mustNormalizeAptosAddress(t, transmitter1),
+		hex.EncodeToString(pid2[:]): mustNormalizeAptosAddress(t, transmitter2),
 	}, gotMap)
 
 	_, hasLegacyKey := specConfig.Underlying[legacyAptosTransmittersConfigKey]

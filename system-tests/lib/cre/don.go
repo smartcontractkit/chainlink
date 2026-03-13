@@ -2,6 +2,7 @@ package cre
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"net/url"
 	"slices"
@@ -564,13 +565,13 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				Ocr2KeyBundleID:   ocr2BundleID,
 				Ocr2Plugins:       `{}`,
 			})
-				if createErr != nil {
-					// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
-					if strings.Contains(createErr.Error(), "duplicate key") || strings.Contains(createErr.Error(), "23505") {
-						return nil
-					}
-					return createErr
+			if createErr != nil {
+				// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
+				if strings.Contains(createErr.Error(), "duplicate key") || strings.Contains(createErr.Error(), "23505") {
+					return nil
 				}
+				return createErr
+			}
 
 			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
 			// if it's not updated , throw an error
@@ -633,7 +634,7 @@ func aptosAccountsForJDChainConfig(ctx context.Context, n *Node) ([]string, erro
 
 	if len(out) == 0 {
 		if gqlErr != nil && restErr != nil {
-			return nil, fmt.Errorf("graphql and rest aptos key lookups failed (gql=%v, rest=%v)", gqlErr, restErr)
+			return nil, fmt.Errorf("graphql and rest aptos key lookups failed: %w", stderrors.Join(gqlErr, restErr))
 		}
 		if gqlErr != nil {
 			return nil, gqlErr

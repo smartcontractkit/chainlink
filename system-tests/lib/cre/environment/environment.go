@@ -272,10 +272,14 @@ func deployMissingAptosForwarders(
 
 		chainID := bc.ChainID()
 		if chainID > 255 {
-			return current, fmt.Errorf("Aptos chain id %d does not fit in uint8 for chain selector %d", chainID, bc.ChainSelector())
+			return current, fmt.Errorf("aptos chain id %d does not fit in uint8 for chain selector %d", chainID, bc.ChainSelector())
+		}
+		chainIDUint8, chainIDErr := aptosChainIDUint8(chainID)
+		if chainIDErr != nil {
+			return current, fmt.Errorf("invalid aptos chain id for chain selector %d: %w", bc.ChainSelector(), chainIDErr)
 		}
 
-		client, clientErr := aptos.NewNodeClient(nodeURL, uint8(chainID))
+		client, clientErr := aptos.NewNodeClient(nodeURL, chainIDUint8)
 		if clientErr != nil {
 			return current, fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", bc.ChainSelector(), nodeURL, clientErr)
 		}
@@ -296,43 +300,46 @@ func deployMissingAptosForwarders(
 		var objectAddress aptos.AccountAddress
 		var pendingTxHash string
 		var lastDeployErr error
-		deployCtx, deployCancel := context.WithTimeout(ctx, 3*time.Minute)
-		defer deployCancel()
-		deployRetryErr := retry.Do(deployCtx, retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
-			var deployErr error
-			var pendingTx *api.PendingTransaction
-			objectAddress, pendingTx, _, deployErr = aptosplatform.DeployToObject(deployerAccount, client, owner)
-			if deployErr != nil {
-				lastDeployErr = deployErr
-				if containerName != "" {
-					if fundErr := fundAptosAccountInContainer(ctx, containerName, owner.StringLong()); fundErr != nil {
-						testLogger.Warn().
-							Uint64("chainSelector", bc.ChainSelector()).
-							Str("containerName", containerName).
-							Err(fundErr).
-							Msg("failed to re-fund Aptos deployer account during deploy retry")
+		deployRetryErr := func() error {
+			deployCtx, deployCancel := context.WithTimeout(ctx, 3*time.Minute)
+			defer deployCancel()
+
+			return retry.Do(deployCtx, retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
+				var deployErr error
+				var pendingTx *api.PendingTransaction
+				objectAddress, pendingTx, _, deployErr = aptosplatform.DeployToObject(deployerAccount, client, owner)
+				if deployErr != nil {
+					lastDeployErr = deployErr
+					if containerName != "" {
+						if fundErr := fundAptosAccountInContainer(ctx, containerName, owner.StringLong()); fundErr != nil {
+							testLogger.Warn().
+								Uint64("chainSelector", bc.ChainSelector()).
+								Str("containerName", containerName).
+								Err(fundErr).
+								Msg("failed to re-fund Aptos deployer account during deploy retry")
+						}
 					}
+					return retry.RetryableError(fmt.Errorf("deploy-to-object failed: %w", deployErr))
 				}
-				return retry.RetryableError(fmt.Errorf("deploy-to-object failed: %w", deployErr))
-			}
-			if pendingTx == nil {
-				lastDeployErr = errors.New("nil pending transaction")
-				return retry.RetryableError(fmt.Errorf("deploy-to-object returned nil pending transaction"))
-			}
-			pendingTxHash = pendingTx.Hash
-			receipt, waitErr := client.WaitForTransaction(pendingTxHash)
-			if waitErr != nil {
-				lastDeployErr = waitErr
-				return retry.RetryableError(fmt.Errorf("wait for deployment tx failed: %w", waitErr))
-			}
-			if !receipt.Success {
-				return fmt.Errorf("Aptos forwarder deployment tx %s failed on chain selector %d: %s", pendingTx.Hash, bc.ChainSelector(), receipt.VmStatus)
-			}
-			return nil
-		})
+				if pendingTx == nil {
+					lastDeployErr = errors.New("nil pending transaction")
+					return retry.RetryableError(errors.New("deploy-to-object returned nil pending transaction"))
+				}
+				pendingTxHash = pendingTx.Hash
+				receipt, waitErr := client.WaitForTransaction(pendingTxHash)
+				if waitErr != nil {
+					lastDeployErr = waitErr
+					return retry.RetryableError(fmt.Errorf("wait for deployment tx failed: %w", waitErr))
+				}
+				if !receipt.Success {
+					return fmt.Errorf("aptos forwarder deployment tx %s failed on chain selector %d: %s", pendingTx.Hash, bc.ChainSelector(), receipt.VmStatus)
+				}
+				return nil
+			})
+		}()
 		if deployRetryErr != nil {
 			if lastDeployErr != nil {
-				return current, fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries (last error: %v): %w", bc.ChainSelector(), lastDeployErr, deployRetryErr)
+				return current, fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries: %w", bc.ChainSelector(), errors.Join(lastDeployErr, deployRetryErr))
 			}
 			return current, fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries: %w", bc.ChainSelector(), deployRetryErr)
 		}
@@ -388,11 +395,11 @@ func ensureAptosAccountVisible(
 	fundedViaContainer := false
 	bo := retry.WithMaxRetries(20, retry.NewFibonacci(300*time.Millisecond))
 	err := retry.Do(ensureCtx, bo, func(ctx context.Context) error {
-		if _, accountErr := client.Account(address); accountErr == nil {
+		_, accountErr := client.Account(address)
+		if accountErr == nil {
 			return nil
-		} else {
-			lastErr = accountErr
 		}
+		lastErr = accountErr
 
 		if !fundedViaAPI && faucetClientErr == nil {
 			const fundAmount = uint64(1_000_000_000)
@@ -429,13 +436,13 @@ func ensureAptosAccountVisible(
 		}
 
 		if lastErr != nil {
-			return retry.RetryableError(fmt.Errorf("Aptos account not visible yet on %s: %w", nodeURL, lastErr))
+			return retry.RetryableError(fmt.Errorf("aptos account not visible yet on %s: %w", nodeURL, lastErr))
 		}
-		return retry.RetryableError(fmt.Errorf("Aptos account not visible yet on %s", nodeURL))
+		return retry.RetryableError(fmt.Errorf("aptos account not visible yet on %s", nodeURL))
 	})
 	if err != nil {
 		if lastErr != nil {
-			return fmt.Errorf("account %s not visible on %s within timeout (last error: %v): %w", address.StringLong(), nodeURL, lastErr, err)
+			return fmt.Errorf("account %s not visible on %s within timeout: %w", address.StringLong(), nodeURL, errors.Join(lastErr, err))
 		}
 		return fmt.Errorf("account %s not visible on %s within timeout: %w", address.StringLong(), nodeURL, err)
 	}
@@ -466,7 +473,7 @@ func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 	}
 	host := parsed.Hostname()
 	if host == "" {
-		return "", fmt.Errorf("Aptos node URL %q has empty host", nodeURL)
+		return "", fmt.Errorf("aptos node URL %q has empty host", nodeURL)
 	}
 
 	parsed.Host = fmt.Sprintf("%s:%s", host, blockchain.DefaultAptosFaucetPort)
@@ -483,7 +490,7 @@ func normalizeAptosNodeURL(nodeURL string) (string, error) {
 		return "", fmt.Errorf("failed to parse Aptos node URL %q: %w", nodeURL, err)
 	}
 	if parsed.Scheme == "" || parsed.Host == "" {
-		return "", fmt.Errorf("Aptos node URL %q must include scheme and host", nodeURL)
+		return "", fmt.Errorf("aptos node URL %q must include scheme and host", nodeURL)
 	}
 	trimmedPath := strings.TrimRight(parsed.Path, "/")
 	if trimmedPath == "" {
@@ -495,6 +502,22 @@ func normalizeAptosNodeURL(nodeURL string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+func aptosChainIDUint8(chainID uint64) (uint8, error) {
+	if chainID > uint64(^uint8(0)) {
+		return 0, fmt.Errorf("aptos chain id %d does not fit in uint8", chainID)
+	}
+
+	return uint8(chainID), nil
+}
+
+func aptosDonIDUint32(donID uint64) (uint32, error) {
+	if donID > uint64(^uint32(0)) {
+		return 0, fmt.Errorf("DON id %d exceeds u32", donID)
+	}
+
+	return uint32(donID), nil
 }
 
 func parseAptosOCR2OnchainPublicKey(raw string) ([]byte, error) {
@@ -520,7 +543,7 @@ func parseAptosOCR2OnchainPublicKey(raw string) ([]byte, error) {
 	return decoded, nil
 }
 
-func aptosDonOraclePublicKeys(don *cre.Don) ([][]byte, error) {
+func aptosDonOraclePublicKeys(ctx context.Context, don *cre.Don) ([][]byte, error) {
 	workers, err := don.Workers()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list worker nodes for DON %q: %w", don.Name, err)
@@ -533,7 +556,7 @@ func aptosDonOraclePublicKeys(don *cre.Don) ([][]byte, error) {
 			ocr2ID = worker.Keys.OCR2BundleIDs[chainselectors.FamilyAptos]
 		}
 		if ocr2ID == "" {
-			fetchedID, fetchErr := worker.Clients.GQLClient.FetchOCR2KeyBundleID(context.Background(), strings.ToUpper(chainselectors.FamilyAptos))
+			fetchedID, fetchErr := worker.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, strings.ToUpper(chainselectors.FamilyAptos))
 			if fetchErr != nil {
 				return nil, fmt.Errorf("missing Aptos OCR2 bundle id for worker %q in DON %q and fallback fetch failed: %w", worker.Name, don.Name, fetchErr)
 			}
@@ -611,13 +634,17 @@ func configureAptosForwarderContracts(
 			return fmt.Errorf("invalid Aptos DON %q fault tolerance F=%d (workers=%d)", don.Name, f, len(workers))
 		}
 		if f > 255 {
-			return fmt.Errorf("Aptos DON %q fault tolerance F=%d exceeds u8", don.Name, f)
+			return fmt.Errorf("aptos DON %q fault tolerance F=%d exceeds u8", don.Name, f)
 		}
 		if don.ID > uint64(^uint32(0)) {
 			return fmt.Errorf("DON %q id %d exceeds u32 for Aptos forwarder config", don.Name, don.ID)
 		}
+		donIDUint32, donIDErr := aptosDonIDUint32(don.ID)
+		if donIDErr != nil {
+			return fmt.Errorf("invalid DON id for Aptos forwarder config: %w", donIDErr)
+		}
 
-		oracles, oracleErr := aptosDonOraclePublicKeys(don)
+		oracles, oracleErr := aptosDonOraclePublicKeys(ctx, don)
 		if oracleErr != nil {
 			return oracleErr
 		}
@@ -625,7 +652,7 @@ func configureAptosForwarderContracts(
 		for _, chainID := range aptosChainIDs {
 			bc, ok := aptosChainsByChainID[chainID]
 			if !ok {
-				return fmt.Errorf("Aptos chain id %d enabled for DON %q but no Aptos blockchain is configured", chainID, don.Name)
+				return fmt.Errorf("aptos chain id %d enabled for DON %q but no Aptos blockchain is configured", chainID, don.Name)
 			}
 
 			forwarderHex := strings.TrimSpace(forwarderAddresses[bc.ChainSelector()])
@@ -642,10 +669,14 @@ func configureAptosForwarderContracts(
 				return fmt.Errorf("invalid Aptos node URL for chain selector %d: %w", bc.ChainSelector(), normErr)
 			}
 			if bc.ChainID() > 255 {
-				return fmt.Errorf("Aptos chain id %d does not fit in uint8 for chain selector %d", bc.ChainID(), bc.ChainSelector())
+				return fmt.Errorf("aptos chain id %d does not fit in uint8 for chain selector %d", bc.ChainID(), bc.ChainSelector())
+			}
+			chainIDUint8, chainIDErr := aptosChainIDUint8(bc.ChainID())
+			if chainIDErr != nil {
+				return fmt.Errorf("invalid aptos chain id for chain selector %d: %w", bc.ChainSelector(), chainIDErr)
 			}
 
-			client, clientErr := aptos.NewNodeClient(nodeURL, uint8(bc.ChainID()))
+			client, clientErr := aptos.NewNodeClient(nodeURL, chainIDUint8)
 			if clientErr != nil {
 				return fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", bc.ChainSelector(), nodeURL, clientErr)
 			}
@@ -675,7 +706,7 @@ func configureAptosForwarderContracts(
 				func(ctx context.Context) error {
 					pendingTx, txErr := forwarderContract.SetConfig(&bind.TransactOpts{
 						Signer: deployerAccount,
-					}, uint32(don.ID), aptosForwarderConfigVersion, byte(f), oracles)
+					}, donIDUint32, aptosForwarderConfigVersion, byte(f), oracles)
 					if txErr != nil {
 						lastSetConfigErr = txErr
 						if output.ContainerName != "" {
@@ -704,7 +735,7 @@ func configureAptosForwarderContracts(
 			)
 			if setConfigErr != nil {
 				if lastSetConfigErr != nil {
-					return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d (last error: %v): %w", forwarderHex, don.Name, bc.ChainSelector(), lastSetConfigErr, setConfigErr)
+					return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d: %w", forwarderHex, don.Name, bc.ChainSelector(), errors.Join(lastSetConfigErr, setConfigErr))
 				}
 				return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d: %w", forwarderHex, don.Name, bc.ChainSelector(), setConfigErr)
 			}

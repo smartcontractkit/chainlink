@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -424,8 +427,10 @@ func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Block
 
 	chainID := bc.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
+	chainIDUint8, err := aptosChainIDUint8(chainID)
+	require.NoError(t, err, "failed to convert Aptos chain id")
 
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(chainID))
+	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	tx, err := client.WaitForTransaction(txHash)
@@ -446,8 +451,10 @@ func assertAptosWriteTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, 
 
 	chainID := bc.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
+	chainIDUint8, err := aptosChainIDUint8(chainID)
+	require.NoError(t, err, "failed to convert Aptos chain id")
 
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(chainID))
+	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	tx, err := client.WaitForTransaction(txHash)
@@ -492,7 +499,9 @@ func assertAptosReceiverUpdatedOnChain(
 
 	chainID := aptosBC.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(chainID))
+	chainIDUint8, err := aptosChainIDUint8(chainID)
+	require.NoError(t, err, "failed to convert Aptos chain id")
+	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	var receiverAddr aptoslib.AccountAddress
@@ -519,7 +528,6 @@ func assertAptosReceiverUpdatedOnChain(
 		}
 		return false
 	}, 2*time.Minute, 3*time.Second, "expected benchmark value %d not observed onchain for receiver %s", expectedBenchmark, receiverHex)
-
 }
 
 func normalizeTxHash(input string) string {
@@ -562,7 +570,9 @@ func deployAptosDataFeedsReceiverForWrite(
 
 	chainID := aptosBC.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(chainID))
+	chainIDUint8, err := aptosChainIDUint8(chainID)
+	require.NoError(t, err, "failed to convert Aptos chain id")
+	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	deployer, err := aptosDeployerAccount()
@@ -621,7 +631,7 @@ func aptosDeployerAccount() (*aptoslib.Account, error) {
 		keyHex = defaultAptosDeployerKey
 	}
 	if keyHex == "" {
-		return nil, fmt.Errorf("empty Aptos deployer key")
+		return nil, errors.New("empty Aptos deployer key")
 	}
 	keyHex = strings.TrimPrefix(keyHex, "0x")
 	var privateKey aptoscrypto.Ed25519PrivateKey
@@ -719,7 +729,9 @@ func ensureAptosWriteWorkersFunded(t *testing.T, aptosChain blockchains.Blockcha
 
 	chainID := aptosBC.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(chainID))
+	chainIDUint8, err := aptosChainIDUint8(chainID)
+	require.NoError(t, err, "failed to convert Aptos chain id")
+	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	containerName := aptosBC.CtfOutput().ContainerName
@@ -798,7 +810,7 @@ func aptosAccountsForWorker(t *testing.T, worker *crelib.Node) ([]string, error)
 
 	if len(out) == 0 {
 		if gqlErr != nil && restErr != nil {
-			return nil, fmt.Errorf("graphql and rest aptos key lookups failed (gql=%v, rest=%v)", gqlErr, restErr)
+			return nil, fmt.Errorf("graphql and rest aptos key lookups failed: %w", errors.Join(gqlErr, restErr))
 		}
 		if gqlErr != nil {
 			return nil, gqlErr
@@ -820,7 +832,7 @@ func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 	if host == "" {
 		return "", fmt.Errorf("empty host in node url %q", nodeURL)
 	}
-	u.Host = fmt.Sprintf("%s:8081", host)
+	u.Host = net.JoinHostPort(host, "8081")
 	u.Path = ""
 	u.RawPath = ""
 	u.RawQuery = ""
@@ -843,7 +855,7 @@ func fundAptosAccountInContainer(containerName string, account string) error {
 	_, err = dc.ExecContainerWithContext(context.Background(), containerName, []string{
 		"aptos", "account", "fund-with-faucet",
 		"--account", account,
-		"--amount", fmt.Sprintf("%d", aptosWorkerFundingAmountOctas),
+		"--amount", strconv.FormatUint(aptosWorkerFundingAmountOctas, 10),
 	})
 	if err != nil {
 		return fmt.Errorf("execute aptos faucet fund in %s: %w", containerName, err)
@@ -855,11 +867,11 @@ func waitForAptosAccountVisible(client *aptoslib.NodeClient, account aptoslib.Ac
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
-		if _, err := client.Account(account); err == nil {
+		_, accountErr := client.Account(account)
+		if accountErr == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = accountErr
 		time.Sleep(1 * time.Second)
 	}
 	if lastErr != nil {
@@ -874,7 +886,7 @@ func normalizeAptosNodeURL(nodeURL string) (string, error) {
 		return "", fmt.Errorf("failed to parse Aptos node URL %q: %w", nodeURL, err)
 	}
 	if parsed.Scheme == "" || parsed.Host == "" {
-		return "", fmt.Errorf("Aptos node URL %q must include scheme and host", nodeURL)
+		return "", fmt.Errorf("aptos node URL %q must include scheme and host", nodeURL)
 	}
 	trimmedPath := strings.TrimRight(parsed.Path, "/")
 	if trimmedPath == "" {
@@ -896,10 +908,6 @@ func workflowRegistryOwnerBytes(t *testing.T, tenv *configuration.TestEnvironmen
 	return common.HexToAddress(rootOwner.Hex()).Bytes()
 }
 
-func buildAptosDataFeedsBenchmarkPayload() []byte {
-	return buildAptosDataFeedsBenchmarkPayloadFor(aptosBenchmarkFeedID(), 123456789)
-}
-
 func buildAptosDataFeedsBenchmarkPayloadFor(feedID []byte, benchmark uint64) []byte {
 	// ABI-like benchmark payload expected by data_feeds::registry::parse_raw_report
 	// [offset=32][count=1][feed_id(32)][report(64)]
@@ -919,6 +927,14 @@ func buildAptosDataFeedsBenchmarkPayloadFor(feedID []byte, benchmark uint64) []b
 	out = append(out, feedID...)
 	out = append(out, report...)
 	return out
+}
+
+func aptosChainIDUint8(chainID uint64) (uint8, error) {
+	if chainID > uint64(^uint8(0)) {
+		return 0, fmt.Errorf("aptos chain id %d does not fit in uint8", chainID)
+	}
+
+	return uint8(chainID), nil
 }
 
 func aptosBenchmarkFeedID() []byte {

@@ -3,6 +3,7 @@ package aptos
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -71,14 +72,19 @@ func (a *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 		return fmt.Errorf("cannot fund Aptos address %s: invalid node URL: %w", address, err)
 	}
 
-	client, err := aptoslib.NewNodeClient(nodeURL, uint8(a.chainID))
+	chainID, err := aptosChainIDUint8(a.chainID)
+	if err != nil {
+		return fmt.Errorf("cannot fund Aptos address %s: invalid chain id: %w", address, err)
+	}
+
+	client, err := aptoslib.NewNodeClient(nodeURL, chainID)
 	if err != nil {
 		return fmt.Errorf("cannot fund Aptos address %s: create node client: %w", address, err)
 	}
 
 	var account aptoslib.AccountAddress
-	if err := account.ParseStringRelaxed(address); err != nil {
-		return fmt.Errorf("cannot fund Aptos address %q: parse error: %w", address, err)
+	if parseErr := account.ParseStringRelaxed(address); parseErr != nil {
+		return fmt.Errorf("cannot fund Aptos address %q: parse error: %w", address, parseErr)
 	}
 
 	// Fast path: already visible, still top up because fees are variable.
@@ -112,7 +118,7 @@ func (a *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 		return fmt.Errorf("failed to fund Aptos address %s via container faucet fallback: %w", address, execErr)
 	}
 	if waitErr := waitForAptosAccountVisible(ctx, client, account, 20*time.Second); waitErr != nil {
-		return fmt.Errorf("Aptos funding fallback completed but account still not visible: %w", waitErr)
+		return fmt.Errorf("aptos funding fallback completed but account still not visible: %w", waitErr)
 	}
 
 	a.testLogger.Info().Msgf("Funded Aptos account %s via container faucet fallback (%d octas)", account.StringLong(), amount)
@@ -127,10 +133,14 @@ func (a *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	}
 	url := a.ctfOutput.Nodes[0].ExternalHTTPUrl
 	if url == "" {
-		return nil, fmt.Errorf("Aptos node has no ExternalHTTPUrl for chain %d", a.chainID)
+		return nil, fmt.Errorf("aptos node has no ExternalHTTPUrl for chain %d", a.chainID)
 	}
 	// Aptos chain IDs are small (e.g. 1=mainnet, 2=testnet, 4=local devnet).
-	client, err := aptoslib.NewNodeClient(url, uint8(a.chainID))
+	chainID, err := aptosChainIDUint8(a.chainID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := aptoslib.NewNodeClient(url, chainID)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "create Aptos RPC client for chain %d", a.chainID)
 	}
@@ -243,7 +253,7 @@ func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 	if host == "" {
 		return "", fmt.Errorf("empty host in node url %q", nodeURL)
 	}
-	u.Host = fmt.Sprintf("%s:8081", host)
+	u.Host = net.JoinHostPort(host, "8081")
 	u.Path = ""
 	u.RawPath = ""
 	u.RawQuery = ""
@@ -260,15 +270,23 @@ func waitForAptosAccountVisible(ctx context.Context, client *aptoslib.NodeClient
 			return ctx.Err()
 		default:
 		}
-		if _, err := client.Account(account); err == nil {
+		_, accountErr := client.Account(account)
+		if accountErr == nil {
 			return nil
-		} else {
-			lastErr = err
 		}
+		lastErr = accountErr
 		time.Sleep(1 * time.Second)
 	}
 	if lastErr != nil {
 		return fmt.Errorf("account %s not visible after funding attempt: %w", account.StringLong(), lastErr)
 	}
 	return fmt.Errorf("account %s not visible after funding attempt", account.StringLong())
+}
+
+func aptosChainIDUint8(chainID uint64) (uint8, error) {
+	if chainID > uint64(^uint8(0)) {
+		return 0, fmt.Errorf("aptos chain id %d does not fit in uint8", chainID)
+	}
+
+	return uint8(chainID), nil
 }

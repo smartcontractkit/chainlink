@@ -218,8 +218,8 @@ func (o *ReadContract) PostEnvStartup(
 				return errors.Wrapf(err, "failed to execute Aptos config template")
 			}
 			configStr := configBuffer.String()
-			if err := credon.ValidateTemplateSubstitution(configStr, string(cre.WriteAptosCapability)); err != nil {
-				return fmt.Errorf("Aptos template validation failed: %w\nRendered: %s", err, configStr)
+			if err := credon.ValidateTemplateSubstitution(configStr, cre.WriteAptosCapability); err != nil {
+				return fmt.Errorf("aptos template validation failed: %w\nRendered: %s", err, configStr)
 			}
 
 			workerInput := cre_jobs.ProposeJobSpecInput{
@@ -227,7 +227,7 @@ func (o *ReadContract) PostEnvStartup(
 				Environment: cre.EnvironmentName,
 				DONName:     don.Name,
 				JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
-				ExtraLabels: map[string]string{cre.CapabilityLabelKey: string(cre.WriteAptosCapability)},
+				ExtraLabels: map[string]string{cre.CapabilityLabelKey: cre.WriteAptosCapability},
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: offchain.FilterKeyDONName, Value: don.Name},
 				},

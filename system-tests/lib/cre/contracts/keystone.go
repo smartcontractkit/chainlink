@@ -376,7 +376,7 @@ func aptosChainSelectorFromCapabilityLabel(labelledName string) (uint64, bool, e
 
 	rawSelector := strings.TrimPrefix(labelledName, aptosCapabilityLabelPrefix)
 	if rawSelector == "" {
-		return 0, true, fmt.Errorf("missing chain selector")
+		return 0, true, errors.New("missing chain selector")
 	}
 
 	selector, err := strconv.ParseUint(rawSelector, 10, 64)
@@ -389,7 +389,7 @@ func aptosChainSelectorFromCapabilityLabel(labelledName string) (uint64, bool, e
 
 func aptosP2PToTransmitterMapForChainSelector(nodes []deployment.Node, chainSelector uint64) (map[string]string, error) {
 	if len(nodes) == 0 {
-		return nil, fmt.Errorf("no DON worker nodes provided")
+		return nil, errors.New("no DON worker nodes provided")
 	}
 
 	p2pToTransmitterMap := make(map[string]string)
@@ -404,7 +404,7 @@ func aptosP2PToTransmitterMapForChainSelector(nodes []deployment.Node, chainSele
 			return nil, fmt.Errorf("invalid Aptos transmitter for node %s: %w", node.Name, err)
 		}
 
-		peerKey := fmt.Sprintf("%x", node.PeerID[:])
+		peerKey := hex.EncodeToString(node.PeerID[:])
 		p2pToTransmitterMap[peerKey] = transmitter
 	}
 
@@ -418,7 +418,7 @@ func aptosP2PToTransmitterMapForChainSelector(nodes []deployment.Node, chainSele
 func normalizeAptosTransmitter(raw string) (string, error) {
 	s := strings.TrimSpace(raw)
 	if s == "" {
-		return "", fmt.Errorf("empty Aptos transmitter")
+		return "", errors.New("empty Aptos transmitter")
 	}
 
 	var addr aptossdk.AccountAddress
@@ -431,10 +431,10 @@ func normalizeAptosTransmitter(raw string) (string, error) {
 
 func setAptosP2PToTransmitterMapSpecConfig(capConfig *capabilitiespb.CapabilityConfig, p2pToTransmitterMap map[string]string) error {
 	if capConfig == nil {
-		return fmt.Errorf("capability config is nil")
+		return errors.New("capability config is nil")
 	}
 	if len(p2pToTransmitterMap) == 0 {
-		return fmt.Errorf("p2p transmitter map is empty")
+		return errors.New("p2p transmitter map is empty")
 	}
 
 	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)

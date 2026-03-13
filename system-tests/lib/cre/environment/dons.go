@@ -332,7 +332,7 @@ func aptosAccountsForNode(ctx context.Context, node *cre.Node) ([]string, error)
 
 	if len(out) == 0 {
 		if gqlErr != nil && restErr != nil {
-			return nil, fmt.Errorf("graphql and rest aptos key lookups failed (gql=%v, rest=%v)", gqlErr, restErr)
+			return nil, fmt.Errorf("graphql and rest aptos key lookups failed: %w", errors.Join(gqlErr, restErr))
 		}
 		if gqlErr != nil {
 			return nil, gqlErr
