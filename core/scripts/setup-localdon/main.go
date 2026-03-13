@@ -207,9 +207,19 @@ contractConfigTrackerPollInterval = "1s"
 p2pv2Bootstrappers = ["%s@localdon-node-1:6690"]
 
 observationSource = """
-    price [type=memo value="42000000000"];
-    price_multiply [type=multiply times=1];
-    price -> price_multiply;
+    p1  [type=memo value="41500000000"];
+    p2  [type=memo value="42000000000"];
+    p3  [type=memo value="42500000000"];
+    p4  [type=memo value="43000000000"];
+    p5  [type=memo value="41000000000"];
+    pick [type=any];
+    conv [type=multiply times=1];
+    p1 -> pick;
+    p2 -> pick;
+    p3 -> pick;
+    p4 -> pick;
+    p5 -> pick;
+    pick -> conv;
 """
 
 [relayConfig]

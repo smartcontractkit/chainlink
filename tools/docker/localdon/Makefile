@@ -21,7 +21,7 @@ up: ## Start all services (postgres + anvil + 4 nodes)
 	@echo "All nodes healthy."
 
 setup: ## Run the setup script (deploy contracts, create jobs)
-	cd ../../../core/scripts && go run ./localdon
+	cd ../../../core/scripts && go run ./setup-localdon
 
 down: ## Stop all services
 	$(COMPOSE) down
