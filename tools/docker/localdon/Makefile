@@ -5,7 +5,7 @@ COMPOSE := docker compose -f docker-compose.yml
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build the chainlink Docker image from local source
+build: ## Build the chainlink Docker image from local source (optional, default uses published image)
 	$(COMPOSE) build node-1
 
 up: ## Start all services (postgres + anvil + 4 nodes)

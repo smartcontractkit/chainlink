@@ -30,10 +30,7 @@ services:
 
   node-1: &node-defaults
     container_name: localdon-node-1
-    image: localdon-chainlink
-    build:
-      context: ../../../
-      dockerfile: core/chainlink.Dockerfile
+    image: smartcontract/chainlink:2.36.0
     entrypoint: /bin/sh -c "chainlink -c /config/node-config.toml -s /config/secrets.toml node start -d -p /config/password.txt -a /config/apicredentials"
     restart: unless-stopped
     volumes:
