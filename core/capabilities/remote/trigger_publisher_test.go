@@ -241,8 +241,9 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 	}
 
 	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     time.Hour,
+		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
@@ -261,6 +262,12 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 	return underlying, publisher, dispatcher, peers
+}
+
+func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
+	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationCheck
+	})).Return(nil).Maybe()
 }
 
 func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
@@ -350,8 +357,9 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	underlying := newMultiTrigger(capInfo)
 
 	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     time.Hour,
+		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
@@ -439,9 +447,10 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	}
 
 	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     time.Hour,
+		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
@@ -591,9 +600,10 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 
 	underlying := newMultiTrigger(capInfo)
 	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
 
 	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     time.Hour,
+		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
