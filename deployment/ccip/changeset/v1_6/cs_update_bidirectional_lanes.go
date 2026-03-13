@@ -3,6 +3,7 @@ package v1_6
 import (
 	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -283,9 +284,15 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		return output, nil
 	}
 
-	// Execute v2 FeeQuoter update sequences and append their batch ops
-	var v2BatchOps []mcmstypes.BatchOperation
+	// Execute v2 FeeQuoter update sequences and append their batch
+	v2ChainSels := make([]uint64, 0, len(v2FeeQuoterChains))
 	for chainSel := range v2FeeQuoterChains {
+		v2ChainSels = append(v2ChainSels, chainSel)
+	}
+	slices.Sort(v2ChainSels)
+
+	var v2BatchOps []mcmstypes.BatchOperation
+	for _, chainSel := range v2ChainSels {
 		fqUpdate := fqv2seq.FeeQuoterUpdate{
 			ChainSelector:     chainSel,
 			ExistingAddresses: ds.Addresses().Filter(datastore.AddressRefByChainSelector(chainSel)),
