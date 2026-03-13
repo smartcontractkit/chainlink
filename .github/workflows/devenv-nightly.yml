@@ -19,7 +19,7 @@ jobs:
     name: Detect devenv changes
     runs-on: ubuntu-latest
     outputs:
-      devenv-changes: ${{ steps.devenv-changes.outputs.src }}
+      devenv-changes: ${{ steps.devenv-changes.outputs.changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v6
@@ -29,6 +29,7 @@ jobs:
         id: devenv-changes
         with:
           filters: |
+            changes:
             - 'devenv/**/*.go'
             - 'devenv/**/*.toml'
             - 'devenv/**/go.mod'
