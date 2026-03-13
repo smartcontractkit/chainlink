@@ -398,7 +398,10 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		}
 
 		for _, peerID := range cfg.workflowDONs[key.callerDonID].Members {
-			_ = p.dispatcher.Send(peerID, msg)
+			err := p.dispatcher.Send(peerID, msg)
+			if err != nil {
+				p.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+			}
 		}
 	}
 }

@@ -349,7 +349,10 @@ func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
 			Payload:          reg.rawRequest,
 			CapabilityMethod: s.capMethodName,
 		}
-		_ = s.dispatcher.Send(peerID, m)
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+		}
 	}
 }
 
@@ -374,7 +377,10 @@ func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
 				},
 			},
 		}
-		_ = s.dispatcher.Send(peerID, m)
+		err := s.dispatcher.Send(peerID, m)
+		if err != nil {
+			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+		}
 	}
 }
 
