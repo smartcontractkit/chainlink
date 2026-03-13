@@ -54,10 +54,12 @@ local-dev-up: ## Start Docker services (postgres + anvil + 3 nodes; node-4 disab
 local-dev-setup: ## Run the setup script in local-dev mode
 	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --local-dev
 
-local-dev-node: ## Run node-4 locally from source
+local-dev-node: ## Run node-4 locally from source (logs to local-dev/node-4.log)
+	@echo "Node-4 logs: $(LOCALDON_DIR)/local-dev/node-4.log"
 	cd $(REPO_ROOT) && go run -mod=mod . \
 		-c $(LOCALDON_DIR)/local-dev/node-config.toml \
 		-s $(LOCALDON_DIR)/local-dev/secrets.toml \
 		node start -d \
 		-p $(LOCALDON_DIR)/secrets/password.txt \
-		-a $(LOCALDON_DIR)/secrets/apicredentials
+		-a $(LOCALDON_DIR)/secrets/apicredentials \
+		2>&1 | tee $(LOCALDON_DIR)/local-dev/node-4.log
