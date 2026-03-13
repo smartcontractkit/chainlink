@@ -176,14 +176,20 @@ jobs:
             logs_archive_name: "df1-chaos"
             run_on_pr: false
     steps:
-      - name: Skip soak tests on PRs
-        if: ${{ github.event_name != 'pull_request' || (github.event_name == 'pull_request' && matrix.run_on_pr == false) }}
+      - name: Check if job should run
+        id: gate
+        working-directory: .
         run: |
-          echo "Skipping soak tests on PRs"
-          exit 0
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.run_on_pr }}" == "false" ]]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping ${{ matrix.display_name }} on PR"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
 
       # DEBUG: Run monitor for tests
       - name: Monitor
+        if: steps.gate.outputs.should_run == 'true'
         uses: kalverra/octometrics-action@v0.0.10
         with:
           job_name: ${{ matrix.display_name }}
@@ -191,29 +197,35 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout code
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Docker Buildx
+        if: steps.gate.outputs.should_run == 'true'
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Install Just
+        if: steps.gate.outputs.should_run == 'true'
         uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
         with:
           just-version: "1.40.0"
 
       - name: Configure AWS credentials using OIDC
+        if: steps.gate.outputs.should_run == 'true'
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
           aws-region: us-west-2
 
       - name: Authenticate to ECR
+        if: steps.gate.outputs.should_run == 'true'
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
 
       - name: Set up Go
+        if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-go@v6 # v6
         with:
           cache: true
@@ -221,16 +233,19 @@ jobs:
           cache-dependency-path: devenv/go.sum
 
       - name: Download Go dependencies
+        if: steps.gate.outputs.should_run == 'true'
         run: |
           go mod download
 
       - name: Set environment variables
+        if: steps.gate.outputs.should_run == 'true'
         run: |
           IMAGE_VERSION="nightly-$(date +%Y%m%d)"
           FULL_IMAGE="${{ secrets.REGISTRY_SDLC }}/chainlink:${IMAGE_VERSION}"
           echo "CHAINLINK_IMAGE=${FULL_IMAGE}" >> $GITHUB_ENV
 
       - name: Setup environment
+        if: steps.gate.outputs.should_run == 'true'
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
@@ -240,6 +255,7 @@ jobs:
           eval $ENV_CMD
 
       - name: Run tests
+        if: steps.gate.outputs.should_run == 'true'
         working-directory: devenv/tests/${{ matrix.tests_dir }}
         env:
           CURRENT_TEST: ${{ matrix.testcmd }}
@@ -249,7 +265,7 @@ jobs:
           eval $TESTCMD
 
       - name: Upload Logs
-        if: always()
+        if: always() && steps.gate.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: container-logs-${{ matrix.logs_archive_name }}
