@@ -16,8 +16,9 @@ const (
 	GatewayHandlerTypeVault              = "vault"
 	GatewayHandlerTypeConfidentialRelay  = "confidential-compute-relay"
 
-	ServiceNameWorkflows = "workflows"
-	ServiceNameVault     = "vault"
+	ServiceNameWorkflows     = "workflows"
+	ServiceNameVault         = "vault"
+	ServiceNameConfidential  = "confidential"
 
 	minimumRequestTimeoutSec = 5
 )
@@ -29,6 +30,8 @@ func HandlerServiceName(handlerType string) string {
 		return ServiceNameVault
 	case GatewayHandlerTypeHTTPCapabilities, GatewayHandlerTypeWebAPICapabilities:
 		return ServiceNameWorkflows
+	case GatewayHandlerTypeConfidentialRelay:
+		return ServiceNameConfidential
 	default:
 		return handlerType
 	}
