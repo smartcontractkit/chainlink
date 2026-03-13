@@ -1,4 +1,4 @@
-# Override file for Phase 2: swap node-4 to a different Chainlink version.
+# Override file for swapping node-4 to a different Chainlink version.
 # This file is automatically picked up by `docker compose`.
 # Comment out or delete to revert all nodes to the same version.
 services:

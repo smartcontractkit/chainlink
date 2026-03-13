@@ -1,11 +1,14 @@
-.PHONY: help build up setup down logs clean restart
+.PHONY: help build up setup down logs clean restart local-dev-up local-dev-setup local-dev-node
 
 COMPOSE := docker compose
+COMPOSE_LOCAL_DEV := docker compose -f docker-compose.yml -f docker-compose.local-dev.yml
+REPO_ROOT := $(shell cd ../../.. && pwd)
+LOCALDON_DIR := $(REPO_ROOT)/tools/docker/localdon
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build the chainlink Docker image from local source (optional, default uses published image)
+build: ## Build the chainlink Docker image from local source (optional)
 	$(COMPOSE) build node-1
 
 up: ## Start all services (postgres + anvil + 4 nodes)
@@ -21,7 +24,7 @@ up: ## Start all services (postgres + anvil + 4 nodes)
 	@echo "All nodes healthy."
 
 setup: ## Run the setup script (deploy contracts, create jobs)
-	cd ../../../core/scripts && go run ./setup-localdon
+	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon
 
 down: ## Stop all services
 	$(COMPOSE) down
@@ -32,4 +35,29 @@ logs: ## Follow logs from all services
 clean: ## Stop all services and remove volumes
 	$(COMPOSE) down -v --remove-orphans
 
-restart: clean up setup ## Full restart: clean + up + setup (use after changing node images)
+restart: clean up setup ## Full restart: clean + up + setup
+
+# --- Local-dev mode: run node-4 on the host ---
+
+local-dev-up: ## Start Docker services (postgres + anvil + 3 nodes; node-4 disabled)
+	$(COMPOSE_LOCAL_DEV) up -d
+	@echo "Waiting for Docker nodes to become healthy..."
+	@for i in 1 2 3; do \
+		printf "  node-$$i: "; \
+		until curl -sf http://localhost:$$(( 6687 + $$i ))/readyz > /dev/null 2>&1; do \
+			printf "."; sleep 2; \
+		done; \
+		echo " ready"; \
+	done
+	@echo "Docker nodes healthy. Start node-4 with: make local-dev-node"
+
+local-dev-setup: ## Run the setup script in local-dev mode
+	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --local-dev
+
+local-dev-node: ## Run node-4 locally from source
+	cd $(REPO_ROOT) && go run -mod=mod . \
+		-c $(LOCALDON_DIR)/local-dev/node-config.toml \
+		-s $(LOCALDON_DIR)/local-dev/secrets.toml \
+		node start -d \
+		-p $(LOCALDON_DIR)/secrets/password.txt \
+		-a $(LOCALDON_DIR)/secrets/apicredentials

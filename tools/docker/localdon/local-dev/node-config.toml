@@ -1,0 +1,51 @@
+# Chainlink node config for running node-4 on the host (not in Docker).
+# Differences from the Docker node-config.toml:
+#   - EVM node URLs point to localhost (not Docker DNS)
+#   - API port is 6691 (to match Docker port mapping)
+#   - P2P listens on 6694 and announces as host.docker.internal:6694
+#     so Docker nodes can reach this host node
+
+[Log]
+Level = 'info'
+
+[Feature]
+LogPoller = true
+
+[WebServer]
+SecureCookies = false
+AllowOrigins = '*'
+HTTPPort = 6691
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[OCR]
+Enabled = false
+
+[OCR2]
+Enabled = true
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6694']
+# 0.250.250.254 is OrbStack's host gateway IP (host.docker.internal).
+# Docker nodes reach this host node via this IP.
+# If not using OrbStack, replace with your host's Docker gateway IP
+# (run: docker exec localdon-node-1 getent hosts host.docker.internal)
+AnnounceAddresses = ['0.250.250.254:6694']
+
+[[EVM]]
+ChainID = '31337'
+MinIncomingConfirmations = 1
+MinContractPayment = '0 link'
+
+[EVM.GasEstimator]
+Mode = 'FixedPrice'
+PriceDefault = '1 gwei'
+LimitDefault = 6000000
+
+[[EVM.Nodes]]
+Name = 'anvil'
+WSURL = 'ws://localhost:8545'
+HTTPURL = 'http://localhost:8545'

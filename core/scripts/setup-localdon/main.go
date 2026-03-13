@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -44,7 +45,10 @@ var nodeURLs = []string{
 	"http://localhost:6691",
 }
 
+var localDev = flag.Bool("local-dev", false, "Run node-4 on the host instead of Docker (uses localhost:6700 as bootstrapper for node-4)")
+
 func main() {
+	flag.Parse()
 	ctx := context.Background()
 
 	// Connect to Anvil
@@ -180,7 +184,13 @@ func main() {
 	bootstrapPeerID := nodes[0].peerID
 	for i, url := range nodeURLs {
 		nc := newNodeClient(url)
-		spec := oracleJobSpec(ocrAddr, nodes[i].ocrKeyID, nodes[i].ethAddr, int64(blockNum), bootstrapPeerID)
+		bootstrapHost := "localdon-node-1:6690"
+		if *localDev && i == 3 {
+			// In local-dev mode, node-4 runs on the host and reaches
+			// node-1's P2P port via localhost:6700 (exposed by docker-compose.local-dev.yml).
+			bootstrapHost = "localhost:6700"
+		}
+		spec := oracleJobSpec(ocrAddr, nodes[i].ocrKeyID, nodes[i].ethAddr, int64(blockNum), bootstrapPeerID, bootstrapHost)
 		nc.createJob(spec)
 		log.Printf("Created oracle job on node %d", i+1)
 	}
@@ -190,8 +200,7 @@ func main() {
 	log.Printf("Monitor with: cast call %s 'latestAnswer()(int256)' --rpc-url %s", ocrAddr, anvilURL)
 }
 
-func oracleJobSpec(contractAddr common.Address, ocrKeyBundleID string, transmitterAddr common.Address, fromBlock int64, bootstrapPeerID string) string {
-	// PeerID for bootstrapper must be bare (no "p2p_" prefix)
+func oracleJobSpec(contractAddr common.Address, ocrKeyBundleID string, transmitterAddr common.Address, fromBlock int64, bootstrapPeerID string, bootstrapHost string) string {
 	barePeerID := strings.TrimPrefix(bootstrapPeerID, "p2p_")
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -204,7 +213,7 @@ ocrKeyBundleID     = "%s"
 transmitterID      = "%s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
-p2pv2Bootstrappers = ["%s@localdon-node-1:6690"]
+p2pv2Bootstrappers = ["%s@%s"]
 
 observationSource = """
     p1  [type=memo value="41500000000"];
@@ -240,7 +249,7 @@ gasPriceSubunitsSource = """
 
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
-`, contractAddr.Hex(), ocrKeyBundleID, transmitterAddr.Hex(), barePeerID, chainID, fromBlock)
+`, contractAddr.Hex(), ocrKeyBundleID, transmitterAddr.Hex(), barePeerID, bootstrapHost, chainID, fromBlock)
 }
 
 // --- Anvil helpers ---
