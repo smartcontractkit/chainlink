@@ -231,6 +231,8 @@ jobs:
 
       - name: Run tests
         working-directory: devenv/tests/${{ matrix.tests_dir }}
+        # Skip soak tests on PRs
+        if: ${{ github.event_name != 'pull_request' || !contains(matrix.display_name, 'Soak') }}
         env:
           CURRENT_TEST: ${{ matrix.testcmd }}
         run: |
