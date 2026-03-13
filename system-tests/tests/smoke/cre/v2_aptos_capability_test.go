@@ -82,26 +82,26 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, ru
 		close(baseMessageCh)
 	})
 
-	// if runRead {
-	// 	t.Run("Aptos Read", func(t *testing.T) {
-	// 		ExecuteAptosReadTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-	// 	})
-	// }
-	// if runWrite {
-	// 	t.Run("Aptos Write", func(t *testing.T) {
-	// 		ExecuteAptosWriteTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-	// 	})
-	// }
-	// if runRoundtrip {
-	// 	t.Run("Aptos Write Read Roundtrip", func(t *testing.T) {
-	// 		ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-	// 	})
-	// }
-	// if runWriteExpectedFailure {
-	t.Run("Aptos Write Expected Failure", func(t *testing.T) {
-		ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-	})
-	// }
+	if runRead {
+		t.Run("Aptos Read", func(t *testing.T) {
+			ExecuteAptosReadTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+		})
+	}
+	if runWrite {
+		t.Run("Aptos Write", func(t *testing.T) {
+			ExecuteAptosWriteTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+		})
+	}
+	if runRoundtrip {
+		t.Run("Aptos Write Read Roundtrip", func(t *testing.T) {
+			ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+		})
+	}
+	if runWriteExpectedFailure {
+		t.Run("Aptos Write Expected Failure", func(t *testing.T) {
+			ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+		})
+	}
 }
 
 // ExecuteAptosReadTest deploys a workflow that reads 0x1::coin::name() on Aptos local devnet
@@ -149,7 +149,7 @@ func ExecuteAptosWriteTest(
 		RequiredSignatures: scenario.requiredSignatures,
 		ReportPayloadHex:   scenario.reportPayloadHex,
 		// Keep within local Aptos devnet transaction max-gas bound.
-		MaxGasAmount: 1_000_000,
+		MaxGasAmount: 200000,
 		GasUnitPrice: 100,
 		// ExpectFailure: true,
 	}
@@ -157,7 +157,7 @@ func ExecuteAptosWriteTest(
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
 	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
+	time.Sleep(4 * time.Minute)
 	txHash := waitForAptosWriteSuccessLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, 4*time.Minute)
 	assertAptosReceiverUpdatedOnChain(t, aptosChain, scenario.receiverHex, scenario.expectedBenchmarkValue)
 	assertAptosWriteTxOnChain(t, aptosChain, txHash, scenario.receiverHex)
@@ -225,7 +225,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 		ReceiverHex:        "0x0", // Intentionally invalid write receiver to force onchain failure path.
 		RequiredSignatures: scenario.requiredSignatures,
 		ReportPayloadHex:   scenario.reportPayloadHex,
-		MaxGasAmount:       1_000_000,
+		MaxGasAmount:       200000,
 		GasUnitPrice:       100,
 		ExpectFailure:      true,
 	}
@@ -233,7 +233,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
 	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
+	time.Sleep(4 * time.Minute)
 	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, 4*time.Minute)
 	assertAptosWriteFailureTxOnChain(t, aptosChain, txHash)
 
