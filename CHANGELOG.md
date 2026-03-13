@@ -1,5 +1,45 @@
 # Changelog Chainlink Core
 
+## 2.38.0
+
+### Minor Changes
+
+- [#21411](https://github.com/smartcontractkit/chainlink/pull/21411) [`281a8b9`](https://github.com/smartcontractkit/chainlink/commit/281a8b929631362d208da8b21ace76e7f3e670f3) - #updated Bump libocr
+
+- [#21386](https://github.com/smartcontractkit/chainlink/pull/21386) [`1a94b32`](https://github.com/smartcontractkit/chainlink/commit/1a94b321eb0343011c849c599f8c9eaf94f22128) - Minor bump to start next version
+
+  #internal
+
+### Patch Changes
+
+- [#21465](https://github.com/smartcontractkit/chainlink/pull/21465) [`62d65a6`](https://github.com/smartcontractkit/chainlink/commit/62d65a6187d4690545c8cc444e7918d5f020445e) - #changed Update MetaClient to support multiple dapps
+
+- [#21120](https://github.com/smartcontractkit/chainlink/pull/21120) [`c9df802`](https://github.com/smartcontractkit/chainlink/commit/c9df802a4779b155c5e3024bf2fce691eca90aa8) - Expanded `admin profile` to collect PPROF profiles from LOOP Plugins. Added `-vitals` flag for more granular profiling.
+
+## 2.37.0
+
+### Minor Changes
+
+- [#21294](https://github.com/smartcontractkit/chainlink/pull/21294) [`0c3919a`](https://github.com/smartcontractkit/chainlink/commit/0c3919a85046f3a172cef8496ebb4513a3432505) - Minor bump to start next version
+
+- [#21354](https://github.com/smartcontractkit/chainlink/pull/21354) [`5f3b013`](https://github.com/smartcontractkit/chainlink/commit/5f3b0136b2a95a7b60e4ef1d964335a5a58bbb1e) - Introduces bundling for SVR (It's not enabled by default) #added
+
+## 2.36.0
+
+### Minor Changes
+
+- [#21208](https://github.com/smartcontractkit/chainlink/pull/21208) [`140625e`](https://github.com/smartcontractkit/chainlink/commit/140625edee02df6a608178b166e72cf2bd8a14a1) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21220](https://github.com/smartcontractkit/chainlink/pull/21220) [`d5f838f`](https://github.com/smartcontractkit/chainlink/commit/d5f838f2b46c5ac2b0c152e7b23f875a3d741816) - Fix EVMService.SubmitTransaction to return TxReverted when receipt status is 0 (reverted), instead of always returning TxSuccess. This resolves OCR consensus failures on Polygon WriteReport where DON nodes returned inconsistent results for reverted transactions.
+
+- [#18882](https://github.com/smartcontractkit/chainlink/pull/18882) [`de0dfd6`](https://github.com/smartcontractkit/chainlink/commit/de0dfd67feb23e5c8504fa32e23ad526ebcaa3a4) - #updated Update Aptos deployment ops to support new OnRamp bindings.
+
+- [#21275](https://github.com/smartcontractkit/chainlink/pull/21275) [`ce46b0b`](https://github.com/smartcontractkit/chainlink/commit/ce46b0b4081cf8408f12fdac90df86c68b63b842) - Bump dependency of chainlink-evm #internal
+
+- [#21237](https://github.com/smartcontractkit/chainlink/pull/21237) [`0ec7a41`](https://github.com/smartcontractkit/chainlink/commit/0ec7a41d4678a438a62886acbe87399339ab6bf9) - #updated In llo observation loop ensure that the Pipeline streams are extracted atomically
+
 ## 2.35.0
 
 ### Minor Changes

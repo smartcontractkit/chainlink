@@ -34,6 +34,7 @@ type CapabilitiesWorkflowRegistry interface {
 	MaxConfigSize() utils.FileSize
 	RelayID() types.RelayID
 	SyncStrategy() string
+	MaxConcurrency() int
 	WorkflowStorage() WorkflowStorage
 	ModuleCache() ModuleCache
 	AdditionalSources() []AdditionalWorkflowSource

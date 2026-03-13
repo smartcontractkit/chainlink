@@ -224,7 +224,7 @@ type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 // in the user's config, the entire CapabilityConfig is used as-is without
 // merging individual fields with defaults.
 type CapabilityConfig struct {
-	BinaryPath string         `toml:"binary_path"`
+	BinaryName string         `toml:"binary_name"`
 	Values     map[string]any `toml:"values"`
 }
 
@@ -237,8 +237,8 @@ func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 		if dstValue, exists := dst[srcKey]; !exists {
 			dst[srcKey] = srcValue
 		} else {
-			if srcValue.BinaryPath != "" {
-				dstValue.BinaryPath = srcValue.BinaryPath
+			if srcValue.BinaryName != "" {
+				dstValue.BinaryName = srcValue.BinaryName
 			}
 			dst[srcKey] = dstValue
 		}
@@ -416,9 +416,12 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
-type GatewayConfig struct {
-	Name     string // DON name
-	Handlers []string
+// GatewayServiceConfig represents a service in the service-centric gateway format.
+// Each service groups handlers and references the DON names it operates on.
+type GatewayServiceConfig struct {
+	ServiceName string   `yaml:"servicename"`
+	Handlers    []string `yaml:"handlers"`
+	DONs        []string `yaml:"dons"`
 }
 
 type GatewayConnectors struct {
@@ -538,13 +541,14 @@ func allDigits(value string) bool {
 }
 
 type DonMetadata struct {
-	NodesMetadata             []*NodeMetadata                     `toml:"nodes_metadata" json:"nodes_metadata"`
-	Flags                     []string                            `toml:"flags" json:"flags"`
-	ID                        uint64                              `toml:"id" json:"id"`
-	Name                      string                              `toml:"name" json:"name"`
-	ExposesRemoteCapabilities bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
-	ShardIndex                uint                                `toml:"shard_index" json:"shard_index"`
-	CapabilityConfigs         map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
+	NodesMetadata                []*NodeMetadata                     `toml:"nodes_metadata" json:"nodes_metadata"`
+	Flags                        []string                            `toml:"flags" json:"flags"`
+	ID                           uint64                              `toml:"id" json:"id"`
+	Name                         string                              `toml:"name" json:"name"`
+	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
+	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
+	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
+	RegistryBasedLaunchAllowlist []string                            `toml:"registry_based_launch_allowlist" json:"registry_based_launch_allowlist"`
 
 	ns *NodeSet // computed field, not serialized
 }
@@ -580,14 +584,15 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	c.CapabilityConfigs = capConfigs
 
 	out := &DonMetadata{
-		ID:                        id,
-		Flags:                     c.Flags(),
-		NodesMetadata:             nodes,
-		Name:                      c.Name,
-		ns:                        c,
-		ExposesRemoteCapabilities: c.ExposesRemoteCapabilities,
-		ShardIndex:                c.ShardIndex,
-		CapabilityConfigs:         capConfigs,
+		ID:                           id,
+		Flags:                        c.Flags(),
+		NodesMetadata:                nodes,
+		Name:                         c.Name,
+		ns:                           c,
+		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
+		ShardIndex:                   c.ShardIndex,
+		CapabilityConfigs:            capConfigs,
+		RegistryBasedLaunchAllowlist: c.RegistryBasedLaunchAllowlist,
 	}
 
 	return out, nil
@@ -1135,8 +1140,17 @@ func (n *NodeMetadata) PeerID() string {
 	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
 }
 
+const (
+	DefaultShardOrchestratorPort uint16 = 50051
+	DefaultArbiterPort           uint16 = 9876
+)
+
 func (n *NodeMetadata) ShardOrchestratorAddress() string {
-	return fmt.Sprintf("%s:%d", n.Host, 50051)
+	return n.ShardOrchestratorAddressWithPort(DefaultShardOrchestratorPort)
+}
+
+func (n *NodeMetadata) ShardOrchestratorAddressWithPort(port uint16) string {
+	return fmt.Sprintf("%s:%d", n.Host, port)
 }
 
 type NodeMetadataConfig struct {
@@ -1201,6 +1215,8 @@ type NodeSet struct {
 
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
+
+	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool

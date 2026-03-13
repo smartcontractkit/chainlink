@@ -17,14 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 )
 
 const (
@@ -116,6 +116,9 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, configTOML string, keyst
 	evmKeystore := keys.NewChainStore(keystore, cfg.EVM.ChainID.ToInt())
 
 	mailMon := mailbox.NewMonitor(c.AppID, logger.Named(c.Logger, "Mailbox"))
+	if err := mailMon.Start(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start mailbox monitor: %w", err)
+	}
 	c.SubService(mailMon)
 
 	chain, err := legacyevm.NewTOMLChain(&cfg.EVM, legacyevm.ChainRelayOpts{

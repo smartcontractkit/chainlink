@@ -196,3 +196,60 @@ func loadTestData(t *testing.T, path string) []deployment.Node {
 	require.Len(t, nodes, 10)
 	return nodes
 }
+
+func Test_getOffchainCfg(t *testing.T) {
+	t.Run("nil when no offchain config set", func(t *testing.T) {
+		cfg := OracleConfig{}
+		got, err := getOffchainCfg(cfg)
+		require.NoError(t, err)
+		require.Nil(t, got)
+	})
+	t.Run("returns ConsensusCapOffchainConfig", func(t *testing.T) {
+		cfg := OracleConfig{
+			ConsensusCapOffchainConfig: &ConsensusCapOffchainConfig{MaxBatchSize: 1},
+		}
+		got, err := getOffchainCfg(cfg)
+		require.NoError(t, err)
+		require.Equal(t, cfg.ConsensusCapOffchainConfig, got)
+	})
+	t.Run("returns ChainCapOffchainConfig", func(t *testing.T) {
+		cfg := OracleConfig{
+			ChainCapOffchainConfig: &ChainCapOffchainConfig{MaxBatchSize: 2},
+		}
+		got, err := getOffchainCfg(cfg)
+		require.NoError(t, err)
+		require.Equal(t, cfg.ChainCapOffchainConfig, got)
+	})
+	t.Run("returns DontimeOffchainConfig", func(t *testing.T) {
+		cfg := OracleConfig{
+			DontimeOffchainConfig: &DontimeOffchainConfig{MaxBatchSize: 3},
+		}
+		got, err := getOffchainCfg(cfg)
+		require.NoError(t, err)
+		require.Equal(t, cfg.DontimeOffchainConfig, got)
+	})
+	t.Run("error when ConsensusCapOffchainConfig and DontimeOffchainConfig both set", func(t *testing.T) {
+		cfg := OracleConfig{
+			ConsensusCapOffchainConfig: &ConsensusCapOffchainConfig{MaxBatchSize: 1},
+			DontimeOffchainConfig:      &DontimeOffchainConfig{MaxBatchSize: 3},
+		}
+		_, err := getOffchainCfg(cfg)
+		require.ErrorContains(t, err, "multiple offchain configs specified")
+	})
+	t.Run("error when ChainCapOffchainConfig and DontimeOffchainConfig both set", func(t *testing.T) {
+		cfg := OracleConfig{
+			ChainCapOffchainConfig: &ChainCapOffchainConfig{MaxBatchSize: 2},
+			DontimeOffchainConfig:  &DontimeOffchainConfig{MaxBatchSize: 3},
+		}
+		_, err := getOffchainCfg(cfg)
+		require.ErrorContains(t, err, "multiple offchain configs specified")
+	})
+	t.Run("error when ConsensusCapOffchainConfig and ChainCapOffchainConfig both set", func(t *testing.T) {
+		cfg := OracleConfig{
+			ConsensusCapOffchainConfig: &ConsensusCapOffchainConfig{MaxBatchSize: 1},
+			ChainCapOffchainConfig:     &ChainCapOffchainConfig{MaxBatchSize: 2},
+		}
+		_, err := getOffchainCfg(cfg)
+		require.ErrorContains(t, err, "multiple offchain configs specified")
+	})
+}

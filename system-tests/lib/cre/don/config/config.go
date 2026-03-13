@@ -208,7 +208,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		nodeConfig := baseNodeConfig(commonInputs)
+		nodeConfig := baseNodeConfig(commonInputs, input.DonMetadata, nodeMetadata)
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -262,9 +262,10 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	return configOverrides, nil
 }
 
-func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
+func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
+			InsecurePPROFHeap: ptr.Ptr(false), // Set to true to enable v2/debug/pprof/heap endpoint
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
 			},
@@ -280,17 +281,36 @@ func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
 			CRE: coretoml.CreConfig{
 				EnableDKGRecipient:   ptr.Ptr(true),
 				UseLocalTimeProvider: ptr.Ptr(false),
+				DebugMode:            ptr.Ptr(true),
 			},
 		},
 	}
 
 	if commonInputs.provider.IsDocker() {
+		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             ptr.Ptr(true),
 			Endpoint:            ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  ptr.Ptr(true),
 			LogStreamingEnabled: ptr.Ptr(true),
+			TraceSampleRatio:    ptr.Ptr(0.0), // Set to > 0 to enable tracing
+			ResourceAttributes: map[string]string{
+				"service.name":     "chainlink-node",
+				"service.instance": nodeIdentifier,
+				"node.don":         donMetadata.Name,
+				"node.index":       strconv.Itoa(nodeMetadata.Index),
+			},
 		}
+		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
+		// the service name is applied correctly. The ResourceAttributes above may
+		// not override the SDK default due to OTel resource merge behavior.
+		// Add to nodeset: env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+
+		c.Tracing.Enabled = ptr.Ptr(false) // Set to true to enable tracing
+		c.Tracing.CollectorTarget = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317")
+		c.Tracing.SamplingRatio = ptr.Ptr(1.0)
+		c.Tracing.Mode = ptr.Ptr("unencrypted")
+		c.Tracing.NodeID = ptr.Ptr(donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index))
 	}
 
 	return c
@@ -432,6 +452,12 @@ func addWorkerNodeConfig(
 		WorkflowRegistry: existingWorkflowRegistry,
 	}
 
+	if len(donMetadata.RegistryBasedLaunchAllowlist) > 0 {
+		existingConfig.Capabilities.Local = coretoml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
+		}
+	}
+
 	for _, evmChain := range commonInputs.evmChains {
 		appendEVMChain(&existingConfig.EVM, evmChain)
 	}
@@ -467,17 +493,20 @@ func addWorkerNodeConfig(
 	if donMetadata.IsShardDON() {
 		existingConfig.Sharding.ShardingEnabled = ptr.Ptr(true)
 		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
+		existingConfig.Sharding.ArbiterPort = ptr.Ptr(cre.DefaultArbiterPort)
+		existingConfig.Sharding.ShardOrchestratorPort = ptr.Ptr(cre.DefaultShardOrchestratorPort)
 
-		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
 		if !donMetadata.IsShardLeader() {
 			shard0, sErr := topology.DonsMetadata.ShardLeaderDON()
 			if sErr != nil {
 				return existingConfig, fmt.Errorf("failed to fetch shard leader DON: %w", sErr)
 			}
 
-			// all shards have the same amount of nodes, we can use current node index to select
-			// shard0 node it should connect to. We connect corresponding nodes to spread the load.
-			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddress()))
+			if m.Index >= len(shard0.NodesMetadata) {
+				return existingConfig, fmt.Errorf("shard %d node index %d exceeds shard leader node count %d", donMetadata.ShardIndex, m.Index, len(shard0.NodesMetadata))
+			}
+
+			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddressWithPort(cre.DefaultShardOrchestratorPort)))
 		}
 	}
 

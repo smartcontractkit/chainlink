@@ -100,19 +100,19 @@ func (s *webSocketServer) GetPort() int {
 func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get(WsServerHandshakeAuthHeaderName)
 	if len(authHeader) > HandshakeEncodedAuthHeaderMaxLen {
-		s.lggr.Errorw("received auth header is too large", "len", len(authHeader))
+		s.lggr.Debugw("received auth header is too large", "len", len(authHeader))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	authBytes, err := base64.StdEncoding.DecodeString(authHeader)
 	if err != nil {
-		s.lggr.Errorw("received auth header can't be base64-decoded", "err", err)
+		s.lggr.Debugw("received auth header can't be base64-decoded", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
-		s.lggr.Errorw("received invalid auth header", "err", err)
+		s.lggr.Debugw("received invalid auth header", "err", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}

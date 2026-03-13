@@ -333,3 +333,59 @@ func (f *FakePriceProvider) URL() string {
 func (f *FakePriceProvider) AuthKey() string {
 	return f.authKey
 }
+
+// NewFakePriceProviderForSoak creates a single FakePriceProvider covering all allFeedIDs at once.
+// It must be called BEFORE any workflow is registered to ensure the HTTP handler is registered
+// for all feed IDs in a single call (subsequent calls would overwrite the handler).
+// soakPriceCount prices per feed are pre-generated so the provider can serve price updates
+// for many hours without exhausting the sequence.
+func NewFakePriceProviderForSoak(testLogger zerolog.Logger, input *fake.Input, authKey string, allFeedIDs []string) (PriceProvider, error) {
+	const soakPriceCount = 300
+
+	testLogger.Info().Msgf("Creating soak fake price provider for %d feed IDs...", len(allFeedIDs))
+	cleanFeedIDs := make([]string, 0, len(allFeedIDs))
+	for _, feedID := range allFeedIDs {
+		cleanFeedIDs = append(cleanFeedIDs, cleanFeedID(feedID))
+	}
+
+	priceIndexes := make(map[string]*int)
+	for _, feedID := range cleanFeedIDs {
+		priceIndexes[feedID] = ptr.Ptr(0)
+	}
+
+	expectedPrices := make(map[string][]*big.Int)
+	pricesToServe := make(map[string][]float64)
+	for _, feedID := range cleanFeedIDs {
+		pricesFloat64 := make([]float64, soakPriceCount)
+		for i := range soakPriceCount {
+			pricesFloat64[i] = math.Round((rand.Float64()*199+1)*100) / 100
+		}
+		pricesToServe[feedID] = pricesFloat64
+
+		expectedPrices[feedID] = make([]*big.Int, soakPriceCount)
+		for i, p := range pricesFloat64 {
+			expectedPrices[feedID][i] = big.NewInt(int64(p * 100.0))
+		}
+	}
+
+	actualPrices := make(map[string][]*big.Int)
+	for _, feedID := range cleanFeedIDs {
+		actualPrices[feedID] = make([]*big.Int, 0)
+	}
+
+	url, err := setupFakeDataProvider(testLogger, input, authKey, pricesToServe, priceIndexes)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to set up soak fake data provider")
+	}
+
+	testLogger.Info().Msgf("Soak fake price provider set up with %d prices per feed.", soakPriceCount)
+	return &FakePriceProvider{
+		testLogger:     testLogger,
+		expectedPrices: expectedPrices,
+		actualPrices:   actualPrices,
+		priceIndex:     priceIndexes,
+		url:            url,
+		authKey:        authKey,
+		mu:             sync.RWMutex{},
+	}, nil
+}

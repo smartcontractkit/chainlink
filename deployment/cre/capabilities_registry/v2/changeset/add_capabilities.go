@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -22,7 +23,8 @@ type AddCapabilitiesInput struct {
 	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
 	MCMSConfig        *crecontracts.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
-	DonName           string                       `json:"donName" yaml:"donName"`
+	DonName           string                       `json:"donName" yaml:"donName"`   // optional if DonNames is set; for backward compatibility
+	DonNames          []string                     `json:"donNames" yaml:"donNames"` // multiple DONs to update
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
@@ -33,11 +35,29 @@ type AddCapabilitiesInput struct {
 type AddCapabilities struct{}
 
 func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
-	if config.DonName == "" {
-		return errors.New("must specify DONName")
+	if config.DonName != "" && len(config.DonNames) > 0 {
+		return errors.New("cannot specify both donName and donNames")
+	}
+	donNames := u.donNames(config)
+	if len(donNames) == 0 {
+		return errors.New("must specify donName or donNames")
+	}
+	if slices.Contains(donNames, "") {
+		return errors.New("donName or donNames cannot contain an empty string")
 	}
 	if len(config.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
+	}
+	return nil
+}
+
+// donNames returns the list of DON names to update (from DonNames or single DonName for backward compatibility).
+func (u AddCapabilities) donNames(config AddCapabilitiesInput) []string {
+	if len(config.DonNames) > 0 {
+		return config.DonNames
+	}
+	if config.DonName != "" {
+		return []string{config.DonName}
 	}
 	return nil
 }
@@ -60,7 +80,7 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilitiesDeps{Env: &e, MCMSContracts: mcmsContracts},
 		sequences.AddCapabilitiesInput{
 			RegistryRef:       registryRef,
-			DonName:           config.DonName,
+			DonNames:          u.donNames(config),
 			CapabilityConfigs: config.CapabilityConfigs,
 			Force:             config.Force,
 			MCMSConfig:        config.MCMSConfig,
