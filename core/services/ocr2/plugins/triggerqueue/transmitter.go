@@ -8,23 +8,22 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 var _ ocr3types.ContractTransmitter[[]byte] = (*Transmitter)(nil)
 
-// Transmitter receives OCR consensus reports and enqueues decoded trigger events.
-// No on-chain transmit; reports are consumed locally to feed the internal queue.
+// Transmitter receives OCR consensus reports and delivers decoded trigger events via callback.
+// No on-chain transmit; reports are consumed locally and routed to the ConsensusEventReceiver.
 type Transmitter struct {
-	queue limits.QueueLimiter[v2.EnqueuedTriggerEvent]
-	lggr  logger.Logger
+	receiver v2.ConsensusEventReceiver
+	lggr     logger.Logger
 }
 
-// NewTransmitter creates a transmitter that decodes reports and Puts into the queue.
-func NewTransmitter(queue limits.QueueLimiter[v2.EnqueuedTriggerEvent], lggr logger.Logger) *Transmitter {
-	return &Transmitter{queue: queue, lggr: lggr.Named("TriggerQueueTransmitter")}
+// NewTransmitter creates a transmitter that decodes reports and calls receiver.OnConsensusEvent.
+func NewTransmitter(receiver v2.ConsensusEventReceiver, lggr logger.Logger) *Transmitter {
+	return &Transmitter{receiver: receiver, lggr: lggr.Named("TriggerQueueTransmitter")}
 }
 
 // decodedTriggerEvent is the result of decoding a report
@@ -59,11 +58,11 @@ func (t *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 	for _, ev := range events {
 		enqueued := v2.NewEnqueuedTriggerEvent(ev.workflowID, ev.triggerCapID, ev.triggerIndex, ev.timestamp, ev.event)
-		if err := t.queue.Put(ctx, enqueued); err != nil {
-			t.lggr.Errorw("Failed to enqueue consensus event", "triggerCapID", ev.triggerCapID, "err", err)
+		if err := t.receiver.OnConsensusEvent(ctx, enqueued); err != nil {
+			t.lggr.Errorw("Failed to deliver consensus event", "triggerCapID", ev.triggerCapID, "err", err)
 			return err
 		}
-		t.lggr.Debugw("Enqueued consensus event", "triggerCapID", ev.triggerCapID, "triggerIndex", ev.triggerIndex)
+		t.lggr.Debugw("Delivered consensus event", "triggerCapID", ev.triggerCapID, "triggerIndex", ev.triggerIndex)
 	}
 	return nil
 }

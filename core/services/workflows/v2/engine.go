@@ -121,6 +121,12 @@ func NewEnqueuedTriggerEvent(workflowID, triggerCapID string, triggerIndex int, 
 	return &enqueuedTriggerEvent{workflowID, triggerCapID, triggerIndex, timestamp, event}
 }
 
+// ConsensusEventReceiver receives consensus-decided trigger events.
+// Implemented by ConsensusEventDispatcher (receives from OCR Transmitter) and Engine (receives from Dispatcher).
+type ConsensusEventReceiver interface {
+	OnConsensusEvent(ctx context.Context, event EnqueuedTriggerEvent) error
+}
+
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
 	return fmt.Sprintf("trigger_reg_%s_%d", workflowID, triggerIndex)
 }

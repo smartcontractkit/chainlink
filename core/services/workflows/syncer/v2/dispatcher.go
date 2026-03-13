@@ -26,12 +26,6 @@ func newWaitLoopService(run func(context.Context) error, lggr logger.Logger) ser
 	return w
 }
 
-// ConsensusEventReceiver receives consensus-decided trigger events for routing to workflow engines.
-// Implemented by both the Dispatcher (receives from OCR Transmitter) and the Engine (receives from Dispatcher).
-type ConsensusEventReceiver interface {
-	OnConsensusEvent(ctx context.Context, event v2.EnqueuedTriggerEvent) error
-}
-
 // ConsensusEventDispatcher routes trigger events from a shared queue (or OCR callback) to the
 // correct workflow engine. Uses EngineRegistry to look up engines by workflowID.
 //
@@ -106,7 +100,7 @@ func (d *ConsensusEventDispatcher) routeEvent(ctx context.Context, event v2.Enqu
 		d.lggr.Debugw("No engine for workflow, skipping consensus event", "workflowID", event.WorkflowID())
 		return nil
 	}
-	receiver, ok := entry.Service.(ConsensusEventReceiver)
+	receiver, ok := entry.Service.(v2.ConsensusEventReceiver)
 	if !ok {
 		d.lggr.Warnw("Engine does not implement ConsensusEventReceiver", "workflowID", event.WorkflowID())
 		return nil
