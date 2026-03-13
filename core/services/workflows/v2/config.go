@@ -38,6 +38,10 @@ type TriggerQueueDeps struct {
 	Lf            limits.Factory
 	Cfg           *cresettings.Workflows
 	DonSubscriber capabilities.DonSubscriber
+
+	// ConsensusEventReceiver receives consensus-decided events from the Transmitter.
+	// Required when using OCR trigger queue; the dispatcher implements this.
+	ConsensusEventReceiver ConsensusEventReceiver
 }
 
 // TriggerQueueFactory returns a trigger queue implementation that uses OCR

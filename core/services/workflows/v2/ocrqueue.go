@@ -50,9 +50,9 @@ func (q *OCRQueue) Len(ctx context.Context) (int, error) {
 }
 
 func (q *OCRQueue) Put(ctx context.Context, event EnqueuedTriggerEvent) error {
-	// TODO: only add to buffer, delegate to Put for now.
+	// Add to buffer for Observation; consensus events are delivered via OnConsensusEvent callback.
 	q.buffer.Add(event)
-	return q.inner.Put(ctx, event)
+	return nil
 }
 
 func (q *OCRQueue) Get(ctx context.Context) (EnqueuedTriggerEvent, error) {

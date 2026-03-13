@@ -343,8 +343,11 @@ const triggerQueueContractID = "trigger_queue"
 
 // NewOCRTriggerQueue creates the trigger queue for the workflow syncer.
 // Delegate owns the oracle; builds OCR3_1OracleArgs with TODOs for unwired fields.
-// Returns OCRQueue wrapping Inner; transmitter feeds consensus events into Inner.
+// Returns OCRQueue; transmitter delivers consensus events via receiver.OnConsensusEvent.
 func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
+	if deps.ConsensusEventReceiver == nil {
+		return nil, errors.New("OCR trigger queue requires ConsensusEventReceiver")
+	}
 	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
 	if err != nil {
 		return nil, err
@@ -359,7 +362,7 @@ func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueD
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              nil, // TODO: wire bootstrap peers from workflow DON (deps.DonSubscriber.WaitForDon or config)
 		ContractConfigTracker:        nil, // TODO: in-process config; need static/dynamic config from DON (no on-chain contract)
-		ContractTransmitter:          triggerqueue.NewTransmitter(inner, d.lggr),
+		ContractTransmitter:          triggerqueue.NewTransmitter(deps.ConsensusEventReceiver, d.lggr),
 		Database:                     nil,                    // TODO: wire OCR DB (e.g. NewDB(d.ds, triggerQueuePluginID, 0, d.lggr)); need unique plugin ID
 		KeyValueDatabaseFactory:      nil,                    // TODO: wire KV factory (e.g. kvdb.NewPebbleKeyValueDatabaseFactory(path)); path = KeyValueStoreRootDir/trigger_queue
 		LocalConfig:                  ocrtypes.LocalConfig{}, // TODO: wire LocalConfig (BlockDelta, etc.)

@@ -328,7 +328,7 @@ func newRegistrySyncerV1(
 	relayer loop.Relayer,
 	registryAddress string,
 	ds sqlutil.DataSource,
-	externalPeerWrapper p2ptypes.PeerWrapper,
+	_ p2ptypes.PeerWrapper,
 	ocrConfigService capregconfig.OCRConfigService,
 	wfLauncher registrysyncerV1.Listener,
 ) ([]commonsrv.Service, error) {
@@ -895,12 +895,24 @@ func newWorkflowRegistrySyncerV2(
 	// Enable override of default queue behavior
 	// TODO: use cre settings package for feature flag
 	var triggerQueue limits.QueueLimiter[v2.EnqueuedTriggerEvent]
+	var consensusEventDispatcher *syncerV2.ConsensusEventDispatcher
 	if ocrTriggerEventQueueEnabled && triggerQueueFactory != nil {
+		// OCR mode: create dispatcher first (queue=nil, no Wait loop); Transmitter delivers via OnConsensusEvent.
+		consensusEventDispatcher, err = syncerV2.NewConsensusEventDispatcher(
+			lggr,
+			engineRegistry,
+			nil, // queue=nil: events come from Transmitter callback
+			nil, // engineLimiters not needed for routing
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not create consensus event dispatcher: %w", err)
+		}
 		cfg := cresettings.Default.PerWorkflow
 		deps := v2.TriggerQueueDeps{
-			Lf:            lf,
-			Cfg:           &cfg,
-			DonSubscriber: workflowDonNotifier,
+			Lf:                     lf,
+			Cfg:                    &cfg,
+			DonSubscriber:          workflowDonNotifier,
+			ConsensusEventReceiver: consensusEventDispatcher,
 		}
 		var tqErr error
 		triggerQueue, tqErr = triggerQueueFactory.NewOCRTriggerQueue(context.Background(), deps)
@@ -913,14 +925,17 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
-	consensusEventDispatcher, err := syncerV2.NewConsensusEventDispatcher(
-		lggr,
-		engineRegistry,
-		engineLimiters.TriggerEventQueue,
-		engineLimiters,
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not create consensus event dispatcher: %w", err)
+	if consensusEventDispatcher == nil {
+		// Standard mode: dispatcher runs Wait loop on the queue
+		consensusEventDispatcher, err = syncerV2.NewConsensusEventDispatcher(
+			lggr,
+			engineRegistry,
+			engineLimiters.TriggerEventQueue,
+			engineLimiters,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not create consensus event dispatcher: %w", err)
+		}
 	}
 
 	featureFlags, err := v2.NewFeatureFlags(lf, nil)
