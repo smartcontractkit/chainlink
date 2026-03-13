@@ -227,6 +227,12 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate datastore from existing addresses: %w", err)
 	}
+	// Merge the environment's DataStore as feequoter v2 is only available in DS
+	if e.DataStore != nil {
+		if err := ds.Merge(e.DataStore); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge environment datastore: %w", err)
+		}
+	}
 
 	feeQuoterDestsInput := configs.UpdateFeeQuoterDestsConfig.ToSequenceInput(state)
 	feeQuoterPricesInput := configs.UpdateFeeQuoterPricesConfig.ToSequenceInput(state)
