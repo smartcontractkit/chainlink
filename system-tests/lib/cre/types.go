@@ -230,9 +230,10 @@ type CapabilityConfig struct {
 }
 
 // mergeCapabilityConfigs copies entries from src to dst only for keys that
-// do not already exist in dst. This is NOT a deep merge - if a key exists
-// in dst, its entire CapabilityConfig is preserved without modification.
-// Users who override a capability config must provide all required values.
+// do not already exist in dst. This is NOT a deep merge - when a key exists
+// in dst, only BinaryName may be backfilled from src and Values are preserved
+// exactly as provided by the override. Users who override a capability config
+// must still provide all required Values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {

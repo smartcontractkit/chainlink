@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/durationpb"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -99,7 +100,7 @@ func (o *ReadContract) PreEnvStartup(
 // findAptosChainByChainID returns an Aptos blockchain in the slice with the given chain ID, or nil.
 func findAptosChainByChainID(blockchains []creblockchains.Blockchain, chainID uint64) creblockchains.Blockchain {
 	for _, bc := range blockchains {
-		if bc.IsFamily("aptos") && bc.ChainID() == chainID {
+		if bc.IsFamily(chainselectors.FamilyAptos) && bc.ChainID() == chainID {
 			return bc
 		}
 	}

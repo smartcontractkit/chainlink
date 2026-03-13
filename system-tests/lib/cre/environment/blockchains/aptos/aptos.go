@@ -131,8 +131,11 @@ func (a *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	if a.ctfOutput == nil || len(a.ctfOutput.Nodes) == 0 {
 		return nil, fmt.Errorf("no nodes found for Aptos chain %s-%d", a.ChainFamily(), a.chainID)
 	}
-	url := a.ctfOutput.Nodes[0].ExternalHTTPUrl
-	if url == "" {
+	nodeURL, err := aptosNodeURLWithV1(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Aptos ExternalHTTPUrl for chain %d: %w", a.chainID, err)
+	}
+	if nodeURL == "" {
 		return nil, fmt.Errorf("aptos node has no ExternalHTTPUrl for chain %d", a.chainID)
 	}
 	// Aptos chain IDs are small (e.g. 1=mainnet, 2=testnet, 4=local devnet).
@@ -140,7 +143,7 @@ func (a *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 	if err != nil {
 		return nil, err
 	}
-	client, err := aptoslib.NewNodeClient(url, chainID)
+	client, err := aptoslib.NewNodeClient(nodeURL, chainID)
 	if err != nil {
 		return nil, pkgerrors.Wrapf(err, "create Aptos RPC client for chain %d", a.chainID)
 	}
@@ -148,7 +151,7 @@ func (a *Blockchain) ToCldfChain() (cldf_chain.BlockChain, error) {
 		Selector:       a.chainSelector,
 		Client:         client,
 		DeployerSigner: nil, // CRE read-only use; deployer not required for View calls
-		URL:            url,
+		URL:            nodeURL,
 		Confirm: func(txHash string, opts ...any) error {
 			tx, err := client.WaitForTransaction(txHash, opts...)
 			if err != nil {
