@@ -45,7 +45,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.12" # bump - delete this. Comment just to trigger pipeline
+      gitRef: "v0.1.12"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
