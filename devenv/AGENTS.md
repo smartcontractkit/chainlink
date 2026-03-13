@@ -10,30 +10,30 @@ This file documents conventions and constraints for the `devenv` module. Follow 
 
 ### Allowed Dependencies
 
-| Dependency | Use for |
-|---|---|
+| Dependency                                                          | Use for                                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `github.com/smartcontractkit/chainlink-testing-framework/framework` | Docker orchestration, `clclient` (CL node HTTP API), observability |
-| `github.com/smartcontractkit/chainlink-evm/gethwrappers` | On-chain contract interaction (deploy, call, transact) |
-| `github.com/smartcontractkit/libocr` | OCR-specific contract wrappers |
-| `github.com/ethereum/go-ethereum` | ETH client, `bind`, ABI, `common`, `crypto` |
-| `github.com/stretchr/testify` | Test assertions (`require`, `assert`) |
-| `github.com/google/uuid` | UUID generation |
-| Standard library | Everything else |
+| `github.com/smartcontractkit/chainlink-evm/gethwrappers`            | On-chain contract interaction (deploy, call, transact)             |
+| `github.com/smartcontractkit/libocr`                                | OCR-specific contract wrappers                                     |
+| `github.com/ethereum/go-ethereum`                                   | ETH client, `bind`, ABI, `common`, `crypto`                        |
+| `github.com/stretchr/testify`                                       | Test assertions (`require`, `assert`)                              |
+| `github.com/google/uuid`                                            | UUID generation                                                    |
+| Standard library                                                    | Everything else                                                    |
 
 ### Denied Packages
 
 These are enforced by depguard and will cause lint failures:
 
-| Denied | Use instead |
-|---|---|
-| `github.com/smartcontractkit/chainlink/v2` (and children) | Local implementations or CTF equivalents |
-| `github.com/BurntSushi/toml` | `github.com/pelletier/go-toml/v2` |
-| `github.com/smartcontractkit/chainlink-integrations/evm` | `github.com/smartcontractkit/chainlink-evm` |
-| `github.com/gofrs/uuid`, `github.com/satori/go.uuid` | `github.com/google/uuid` |
-| `github.com/test-go/testify/*` | `github.com/stretchr/testify/*` |
-| `go.uber.org/multierr` | `errors.Join` (standard library) |
-| `gopkg.in/guregu/null.v1/v2/v3` | `gopkg.in/guregu/null.v4` |
-| `github.com/go-gorm/gorm` | `github.com/jmoiron/sqlx` |
+| Denied                                                    | Use instead                                 |
+| --------------------------------------------------------- | ------------------------------------------- |
+| `github.com/smartcontractkit/chainlink/v2` (and children) | Local implementations or CTF equivalents    |
+| `github.com/BurntSushi/toml`                              | `github.com/pelletier/go-toml/v2`           |
+| `github.com/smartcontractkit/chainlink-integrations/evm`  | `github.com/smartcontractkit/chainlink-evm` |
+| `github.com/gofrs/uuid`, `github.com/satori/go.uuid`      | `github.com/google/uuid`                    |
+| `github.com/test-go/testify/*`                            | `github.com/stretchr/testify/*`             |
+| `go.uber.org/multierr`                                    | `errors.Join` (standard library)            |
+| `gopkg.in/guregu/null.v1/v2/v3`                           | `gopkg.in/guregu/null.v4`                   |
+| `github.com/go-gorm/gorm`                                 | `github.com/jmoiron/sqlx`                   |
 
 ## Product Interface
 
@@ -46,6 +46,8 @@ Every Chainlink product in devenv implements the `Product` interface defined in 
 3. Register in [environment.go](environment.go) — add a `case "<name>"` in `newProduct()`
 4. Create `tests/<name>/smoke_test.go`
 5. Add a matrix entry in [`.github/workflows/devenv-nightly.yml`](../.github/workflows/devenv-nightly.yml)
+
+If migrating an existing test from `integration-tests/smoke/`, follow the full step-by-step process in [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md).
 
 ### Product Lifecycle
 

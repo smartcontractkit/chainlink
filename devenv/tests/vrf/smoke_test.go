@@ -125,7 +125,7 @@ func TestVRFJobReplacement(t *testing.T) {
 	require.NoError(t, err)
 
 	newJob, err := cls[0].MustCreateJob(&clclient.VRFJobSpec{
-		Name:                     fmt.Sprintf("vrf-%s", cfg.ExternalJobID),
+		Name:                     "vrf-" + cfg.ExternalJobID,
 		CoordinatorAddress:       cfg.CoordinatorAddress,
 		MinIncomingConfirmations: 1,
 		PublicKey:                cfg.PublicKeyCompressed,

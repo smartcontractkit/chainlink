@@ -40,13 +40,13 @@ type VRF struct {
 }
 
 type Out struct {
-	ConsumerAddress    string `toml:"consumer_address"`
-	CoordinatorAddress string `toml:"coordinator_address"`
-	KeyHash            string `toml:"key_hash"`
-	JobID              string `toml:"job_id"`
+	ConsumerAddress     string `toml:"consumer_address"`
+	CoordinatorAddress  string `toml:"coordinator_address"`
+	KeyHash             string `toml:"key_hash"`
+	JobID               string `toml:"job_id"`
 	PublicKeyCompressed string `toml:"public_key_compressed"`
-	ExternalJobID      string `toml:"external_job_id"`
-	ChainID            string `toml:"chain_id"`
+	ExternalJobID       string `toml:"external_job_id"`
+	ChainID             string `toml:"chain_id"`
 }
 
 func NewConfigurator() *Configurator {
@@ -257,13 +257,13 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	L.Info().Str("KeyHash", hex.EncodeToString(keyHash[:])).Msg("Computed key hash")
 
 	m.Config[0].Out = &Out{
-		ConsumerAddress:    consumerAddr.String(),
-		CoordinatorAddress: coordAddr.String(),
-		KeyHash:            hex.EncodeToString(keyHash[:]),
-		JobID:              job.Data.ID,
+		ConsumerAddress:     consumerAddr.String(),
+		CoordinatorAddress:  coordAddr.String(),
+		KeyHash:             hex.EncodeToString(keyHash[:]),
+		JobID:               job.Data.ID,
 		PublicKeyCompressed: pubKeyCompressed,
-		ExternalJobID:      jobUUID.String(),
-		ChainID:            bc[0].ChainID,
+		ExternalJobID:       jobUUID.String(),
+		ChainID:             bc[0].ChainID,
 	}
 	return nil
 }
