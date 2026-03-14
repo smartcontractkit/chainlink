@@ -106,17 +106,11 @@ type workflowRegistry struct {
 	maxConcurrency   int
 	clock            clockwork.Clock
 
-	hooks Hooks
-
 	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
-}
-
-type Hooks struct {
-	OnStartFailure func(error)
 }
 
 type evtHandler interface {
@@ -300,10 +294,7 @@ func NewWorkflowRegistry(
 		maxRetryInterval:                 defaultMaxRetryInterval,
 		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
-		hooks: Hooks{
-			OnStartFailure: func(_ error) {},
-		},
-		workflowSources: workflowSources,
+		workflowSources:                  workflowSources,
 	}
 
 	for _, opt := range opts {
@@ -364,12 +355,6 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 			select {
 			case <-initDoneCh:
 			case <-ctx.Done():
-				return
-			}
-			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			_, err := w.workflowDonNotifier.WaitForDon(ctx)
-			if err != nil {
-				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
 			w.syncUsingReconciliationStrategy(ctx)
@@ -463,11 +448,18 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// we can't tell the difference between an activation and registration without holding
 			// state in the db; so we handle as an activation event.
 			case false:
+				// Skip if we already generated an event for this workflow ID in this pass.
+				// Duplicate IDs can occur when the same workflow is associated with multiple DON
+				// families queried in ListWorkflowMetadata.
+				if workflowsSeen[id] {
+					continue
+				}
 				signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, id, toSpecStatus(wfMeta.Status))
 
 				if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
 					events = append(events, pendingEvents[id])
 					delete(pendingEvents, id)
+					workflowsSeen[id] = true
 					continue
 				}
 
@@ -499,9 +491,20 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
 			// then we don't need to action the event further. Mark as seen and continue.
 			case true:
+				// Clear any stale pending activation event for this workflow. This can accumulate
+				// when a different source registered the engine between ticks — source B's pending
+				// event would otherwise never be cleared, causing a permanent invariant violation
+				// that blocks all further reconciliation for source B.
+				delete(pendingEvents, id)
 				workflowsSeen[id] = true
 			}
 		case WorkflowStatusPaused:
+			// Skip if we already generated an event for this workflow ID in this pass.
+			// Duplicate IDs can occur when the same workflow is associated with multiple DON
+			// families queried in ListWorkflowMetadata.
+			if workflowsSeen[id] {
+				continue
+			}
 			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
 			switch engineFound {
 			case false:

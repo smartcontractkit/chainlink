@@ -776,6 +776,139 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Empty(t, events)
 		require.Empty(t, pendingEvents)
 	})
+
+	t.Run("duplicate workflow ID in metadata with pending event produces only one activation", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		wfID := [32]byte{42}
+		owner := []byte{1}
+		wfView := WorkflowMetadataView{
+			WorkflowID:   wfID,
+			Owner:        owner,
+			Status:       WorkflowStatusActive,
+			WorkflowName: "dup-wf",
+			BinaryURL:    "b1",
+			ConfigURL:    "c1",
+		}
+		// Simulate the same workflow appearing twice (e.g. registered under two DON families).
+		metadata := []WorkflowMetadataView{wfView, wfView}
+
+		// Simulate a previously-failed activation event sitting in the pending queue.
+		sig := fmt.Sprintf("%s-%s-%s", WorkflowActivated, wfTypes.WorkflowID(wfID).Hex(), toSpecStatus(WorkflowStatusActive))
+		pendingEvents := map[string]*reconciliationEvent{
+			wfTypes.WorkflowID(wfID).Hex(): {
+				Event:     Event{Data: WorkflowActivatedEvent{WorkflowID: wfID}, Name: WorkflowActivated},
+				signature: sig,
+				id:        wfTypes.WorkflowID(wfID).Hex(),
+			},
+		}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "1"}, "TestSource")
+		require.NoError(t, err)
+		// Must be exactly one event — the recycled pending event — not two.
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowActivated, events[0].Name)
+	})
+
+	t.Run("active engine with stale pending event clears the stale event without error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		wfID := [32]byte{7}
+		// The engine was already registered (e.g. by another source earlier in the same tick).
+		require.NoError(t, er.Add(wfID, "SourceA", &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{{
+			WorkflowID:   wfID,
+			Owner:        []byte{1},
+			Status:       WorkflowStatusActive,
+			WorkflowName: "wf",
+		}}
+
+		// Source B has a stale pending activation event from a previous tick where
+		// the handler failed before another source managed to register the engine.
+		sig := fmt.Sprintf("%s-%s-%s", WorkflowActivated, wfTypes.WorkflowID(wfID).Hex(), toSpecStatus(WorkflowStatusActive))
+		pendingEvents := map[string]*reconciliationEvent{
+			wfTypes.WorkflowID(wfID).Hex(): {
+				Event:      Event{Data: WorkflowActivatedEvent{WorkflowID: wfID}, Name: WorkflowActivated},
+				signature:  sig,
+				id:         wfTypes.WorkflowID(wfID).Hex(),
+				retryCount: 3,
+			},
+		}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "1"}, "SourceB")
+		// Before the fix this returned an invariant violation error.
+		require.NoError(t, err)
+		require.Empty(t, events)
+		require.Empty(t, pendingEvents, "stale pending event must be cleared")
+	})
+
+	t.Run("duplicate workflow ID in metadata with paused status produces only one pause event", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+
+		wfID := [32]byte{99}
+		require.NoError(t, er.Add(wfID, "TestSource", &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		wfView := WorkflowMetadataView{
+			WorkflowID:   wfID,
+			Owner:        []byte{1},
+			Status:       WorkflowStatusPaused,
+			WorkflowName: "paused-wf",
+		}
+		// Same workflow ID appears twice, simulating a multi-DON-family query result.
+		metadata := []WorkflowMetadataView{wfView, wfView}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "1"}, "TestSource")
+		require.NoError(t, err)
+		// Must be exactly one pause event — not two.
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowPaused, events[0].Name)
+	})
 }
 
 func Test_Start(t *testing.T) {
