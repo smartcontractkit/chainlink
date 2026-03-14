@@ -9,13 +9,11 @@ import (
 	"text/template"
 	"time"
 
-	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"google.golang.org/protobuf/types/known/durationpb"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -31,6 +29,7 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
 const flag = cre.ReadContractCapability
