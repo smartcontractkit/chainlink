@@ -757,6 +757,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
 	}
+	// Free the hex-encoded binary string as it is not needed beyond this decode
+	spec.Workflow = ""
 
 	// Workflow Registry version >2 no longer handles secrets
 	secretsURL := ""
@@ -803,6 +805,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
+	// Free the WASM bytes it is not needed after the factory returns
+	decodedBinary = nil
 
 	if err = engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
