@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	crontypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	crontypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 )
