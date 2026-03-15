@@ -20,10 +20,10 @@ func TestLocalEnvironmentSatisfiesRequestedConfig(t *testing.T) {
 				},
 			},
 			&envconfig.Config{
-			Blockchains: []*blockchain.Input{
-				{Type: blockchain.TypeAnvil, ChainID: "1337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "1337"}},
-				{Type: blockchain.TypeAptos, ChainID: "4", Out: &blockchain.Output{Family: blockchain.FamilyAptos, ChainID: "4"}},
-			},
+				Blockchains: []*blockchain.Input{
+					{Type: blockchain.TypeAnvil, ChainID: "1337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "1337"}},
+					{Type: blockchain.TypeAptos, ChainID: "4", Out: &blockchain.Output{Family: blockchain.FamilyAptos, ChainID: "4"}},
+				},
 			},
 		)
 		require.NoError(t, err)
@@ -39,10 +39,10 @@ func TestLocalEnvironmentSatisfiesRequestedConfig(t *testing.T) {
 				},
 			},
 			&envconfig.Config{
-			Blockchains: []*blockchain.Input{
-				{Type: blockchain.TypeAnvil, ChainID: "1337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "1337"}},
-				{Type: blockchain.TypeAnvil, ChainID: "2337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "2337"}},
-			},
+				Blockchains: []*blockchain.Input{
+					{Type: blockchain.TypeAnvil, ChainID: "1337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "1337"}},
+					{Type: blockchain.TypeAnvil, ChainID: "2337", Out: &blockchain.Output{Family: blockchain.FamilyEVM, ChainID: "2337"}},
+				},
 			},
 		)
 		require.NoError(t, err)
