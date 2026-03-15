@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -71,4 +72,33 @@ func TestChainKey(t *testing.T) {
 		require.Equal(t, blockchain.FamilyEVM, family)
 		require.Equal(t, "1337", chainID)
 	})
+}
+
+func TestParseRunningContainers(t *testing.T) {
+	output := "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1\tjob-distributor\n" +
+		"123456789012.dkr.ecr.us-east-2.amazonaws.com/chainlink-integration-tests:abc123\tworkflow-node0\n" +
+		"ghcr.io/foundry-rs/foundry:stable\tanvil-1337\n"
+
+	containers := parseRunningContainers(output)
+
+	require.Len(t, containers, 3)
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", containers[0].Image)
+	require.Equal(t, "workflow-node0", containers[1].Name)
+}
+
+func TestFirstMatchingContainerImage(t *testing.T) {
+	containers := []runningContainer{
+		{Image: "job-distributor:0.22.1", Name: "job-distributor"},
+		{Image: "chainlink:test", Name: "workflow-node0"},
+	}
+
+	jdImage := firstMatchingContainerImage(containers, func(name string) bool {
+		return strings.HasPrefix(name, "job-distributor")
+	})
+	chainlinkImage := firstMatchingContainerImage(containers, func(name string) bool {
+		return strings.HasPrefix(name, "workflow-node")
+	})
+
+	require.Equal(t, "job-distributor:0.22.1", jdImage)
+	require.Equal(t, "chainlink:test", chainlinkImage)
 }
