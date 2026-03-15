@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -87,6 +88,9 @@ func createEnvironment(t *testing.T, testConfig *ttypes.TestConfig, flags ...str
 	confErr := setConfigurationIfMissing(testConfig.EnvironmentConfigPath)
 	require.NoError(t, confErr, "failed to set configuration")
 
+	recreateErr := recreateEnvironmentIfIncompatible(t.Context(), testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, testConfig.EnvironmentConfigPath, flags...)
+	require.NoError(t, recreateErr, "failed to recreate incompatible environment")
+
 	createErr := createEnvironmentIfNotExists(t.Context(), testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, flags...)
 	require.NoError(t, createErr, "failed to create environment")
 
@@ -109,18 +113,139 @@ func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, e
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
-		args := []string{"run", ".", "env", "start"}
-		args = append(args, flags...)
-
-		cmd := exec.CommandContext(ctx, "go", args...)
-		cmd.Dir = environmentDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmdErr := cmd.Run()
-		if cmdErr != nil {
-			return errors.Wrap(cmdErr, "failed to start environment")
+		if err := startEnvironment(ctx, environmentDir, flags...); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func recreateEnvironmentIfIncompatible(ctx context.Context, relativePathToRepoRoot, environmentDir, requestedConfigPath string, flags ...string) error {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
+		return nil
+	}
+
+	compatible, err := localEnvironmentSatisfiesRequestedConfig(relativePathToRepoRoot, requestedConfigPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to compare requested config with saved environment")
+	}
+	if compatible {
+		return nil
+	}
+
+	framework.L.Info().
+		Str("requested_config", requestedConfigPath).
+		Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).
+		Msg("Saved local CRE state is incompatible with requested test config, recreating environment")
+
+	stopCmd := exec.CommandContext(ctx, "go", "run", ".", "env", "stop")
+	stopCmd.Dir = environmentDir
+	stopCmd.Stdout = os.Stdout
+	stopCmd.Stderr = os.Stderr
+	if err := stopCmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to stop incompatible environment")
+	}
+
+	previousCTFConfigs := os.Getenv("CTF_CONFIGS")
+	if err := os.Setenv("CTF_CONFIGS", requestedConfigPath); err != nil {
+		return errors.Wrap(err, "failed to set requested CTF_CONFIGS before environment recreation")
+	}
+	defer func() {
+		_ = os.Setenv("CTF_CONFIGS", previousCTFConfigs)
+	}()
+
+	return startEnvironment(ctx, environmentDir, flags...)
+}
+
+func startEnvironment(ctx context.Context, environmentDir string, flags ...string) error {
+	args := []string{"run", ".", "env", "start"}
+	args = append(args, flags...)
+
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = environmentDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to start environment")
+	}
+
+	return nil
+}
+
+func localEnvironmentSatisfiesRequestedConfig(relativePathToRepoRoot, requestedConfigPath string) (bool, error) {
+	requested := &envconfig.Config{}
+	if err := requested.Load(requestedConfigPath); err != nil {
+		return false, errors.Wrap(err, "failed to load requested environment config")
+	}
+
+	current := &envconfig.Config{}
+	if err := current.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return false, errors.Wrap(err, "failed to load saved local CRE state")
+	}
+
+	return savedEnvironmentSatisfiesRequestedConfig(requested, current)
+}
+
+func savedEnvironmentSatisfiesRequestedConfig(requested, current *envconfig.Config) (bool, error) {
+	required, err := requiredChainKeys(requested)
+	if err != nil {
+		return false, err
+	}
+	available, err := requiredChainKeys(current)
+	if err != nil {
+		return false, err
+	}
+
+	for _, req := range required {
+		if !slices.Contains(available, req) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func requiredChainKeys(cfg *envconfig.Config) ([]string, error) {
+	keys := make([]string, 0, len(cfg.Blockchains))
+	for _, in := range cfg.Blockchains {
+		if in == nil {
+			continue
+		}
+
+		family, chainID, err := chainKey(in)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, family+":"+chainID)
+	}
+
+	return keys, nil
+}
+
+func chainKey(in *blockchain.Input) (string, string, error) {
+	if in == nil {
+		return "", "", errors.New("nil blockchain input")
+	}
+
+	family := ""
+	if in.Out != nil && in.Out.Family != "" {
+		family = in.Out.Family
+	} else {
+		derived, err := blockchain.TypeToFamily(in.Type)
+		if err != nil {
+			return "", "", errors.Wrap(err, "failed to derive blockchain family")
+		}
+		family = string(derived)
+	}
+
+	chainID := in.ChainID
+	if chainID == "" && in.Out != nil {
+		chainID = in.Out.ChainID
+	}
+	if chainID == "" {
+		return "", "", errors.New("blockchain chain ID is empty")
+	}
+
+	return family, chainID, nil
 }
