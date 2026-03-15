@@ -1,13 +1,17 @@
 package helpers
 
 import (
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
@@ -101,4 +105,50 @@ func TestFirstMatchingContainerImage(t *testing.T) {
 
 	require.Equal(t, "job-distributor:0.22.1", jdImage)
 	require.Equal(t, "chainlink:test", chainlinkImage)
+}
+
+func TestHydrateRecreatedEnvironmentImageEnvFromConfig(t *testing.T) {
+	t.Setenv("CTF_JD_IMAGE", "")
+	t.Setenv("CTF_CHAINLINK_IMAGE", "")
+
+	hydrateRecreatedEnvironmentImageEnvFromConfig(&envconfig.Config{
+		JD: &jd.Input{Image: "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1"},
+		NodeSets: []*cre.NodeSet{
+			{
+				NodeSpecs: []*cre.NodeSpecWithRole{
+					{
+						Input: &clnode.Input{
+							Node: &clnode.NodeInput{Image: "123456789012.dkr.ecr.us-east-2.amazonaws.com/chainlink:abc123"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", os.Getenv("CTF_JD_IMAGE"))
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/chainlink:abc123", os.Getenv("CTF_CHAINLINK_IMAGE"))
+}
+
+func TestHydrateRecreatedEnvironmentImageEnvFromConfigDoesNotOverrideExistingEnv(t *testing.T) {
+	t.Setenv("CTF_JD_IMAGE", "existing-jd")
+	t.Setenv("CTF_CHAINLINK_IMAGE", "existing-cl")
+
+	hydrateRecreatedEnvironmentImageEnvFromConfig(&envconfig.Config{
+		JD: &jd.Input{Image: "new-jd"},
+		NodeSets: []*cre.NodeSet{
+			{
+				NodeSpecs: []*cre.NodeSpecWithRole{
+					{
+						Input: &clnode.Input{
+							Node: &clnode.NodeInput{Image: "new-cl"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, "existing-jd", os.Getenv("CTF_JD_IMAGE"))
+	require.Equal(t, "existing-cl", os.Getenv("CTF_CHAINLINK_IMAGE"))
 }

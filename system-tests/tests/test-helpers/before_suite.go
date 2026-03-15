@@ -19,6 +19,7 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -141,7 +142,7 @@ func recreateEnvironmentIfIncompatible(ctx context.Context, relativePathToRepoRo
 		Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).
 		Msg("Saved local CRE state is incompatible with requested test config, recreating environment")
 
-	if err := hydrateRecreatedEnvironmentImageEnv(ctx); err != nil {
+	if err := hydrateRecreatedEnvironmentImageEnv(ctx, relativePathToRepoRoot); err != nil {
 		framework.L.Warn().Err(err).Msg("failed to hydrate recreated environment image env vars from running containers")
 	}
 
@@ -179,7 +180,11 @@ func startEnvironment(ctx context.Context, environmentDir string, flags ...strin
 	return nil
 }
 
-func hydrateRecreatedEnvironmentImageEnv(ctx context.Context) error {
+func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepoRoot string) error {
+	if err := hydrateRecreatedEnvironmentImageEnvFromSavedState(relativePathToRepoRoot); err != nil {
+		return err
+	}
+
 	containers, err := runningContainers(ctx)
 	if err != nil {
 		return err
@@ -201,6 +206,30 @@ func hydrateRecreatedEnvironmentImageEnv(ctx context.Context) error {
 	}))
 
 	return nil
+}
+
+func hydrateRecreatedEnvironmentImageEnvFromSavedState(relativePathToRepoRoot string) error {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
+		return nil
+	}
+
+	current := &envconfig.Config{}
+	if err := current.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return errors.Wrap(err, "failed to load saved local CRE state while hydrating image env vars")
+	}
+
+	hydrateRecreatedEnvironmentImageEnvFromConfig(current)
+	return nil
+}
+
+func hydrateRecreatedEnvironmentImageEnvFromConfig(current *envconfig.Config) {
+	if current == nil {
+		return
+	}
+	if current.JD != nil {
+		setEnvIfMissing("CTF_JD_IMAGE", current.JD.Image)
+	}
+	setEnvIfMissing("CTF_CHAINLINK_IMAGE", firstConfiguredNodeImage(current.NodeSets))
 }
 
 type runningContainer struct {
@@ -244,6 +273,23 @@ func firstMatchingContainerImage(containers []runningContainer, match func(name 
 		}
 		if match(container.Name) {
 			return container.Image
+		}
+	}
+	return ""
+}
+
+func firstConfiguredNodeImage(nodeSets []*cre.NodeSet) string {
+	for _, nodeSet := range nodeSets {
+		if nodeSet == nil {
+			continue
+		}
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec == nil || nodeSpec.Input == nil || nodeSpec.Node == nil {
+				continue
+			}
+			if nodeSpec.Node.Image != "" {
+				return nodeSpec.Node.Image
+			}
 		}
 	}
 	return ""
