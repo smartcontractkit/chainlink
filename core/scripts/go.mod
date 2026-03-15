@@ -46,13 +46,13 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260311190822-5cbfc939dd16
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260313102325-bc3411a9d8f9
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260315075705-43ccc379ebf6
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.12-0.20260227110503-42b236799872
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260312040800-ae9a90cffec3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260310142526-ecda729848f6
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260315075612-521c1d565f4a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.5
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.20
@@ -486,7 +486,7 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.97 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260314110358-87b2cfc0fff5 // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260315080138-bc3b03f495ba // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260216170932-c8081efc1ae5 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260310183131-8d0f0e383288 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288 // indirect
@@ -521,7 +521,7 @@ require (
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260309192839-c93b1af6a35a // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260309192839-c93b1af6a35a // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260218133534-cbd44da2856b // indirect
-	github.com/smartcontractkit/cre-sdk-go v1.5.1-0.20260313102248-f2aadf4f1946 // indirect
+	github.com/smartcontractkit/cre-sdk-go v1.5.1-0.20260315083720-88a05f057bb6 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.38.1 // indirect
