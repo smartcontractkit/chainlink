@@ -12,6 +12,7 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
 var _ cciptypes.CommitStoreReader = (*IncompleteSourceCommitStoreReader)(nil)

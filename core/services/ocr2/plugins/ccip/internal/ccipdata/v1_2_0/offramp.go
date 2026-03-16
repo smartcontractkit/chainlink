@@ -22,6 +22,7 @@ import (
 	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
+	prices2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -35,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
 const (
@@ -160,7 +160,7 @@ type OffRamp struct {
 	// Dynamic config
 	// configMu guards all the dynamic config fields.
 	configMu           sync.RWMutex
-	gasPriceEstimator  prices.GasPriceEstimatorExec
+	gasPriceEstimator  prices2.GasPriceEstimatorExec
 	offchainConfig     cciptypes.ExecOffchainConfig
 	onchainConfig      cciptypes.ExecOnchainConfig
 	feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader
@@ -381,7 +381,7 @@ func (o *OffRamp) Address(ctx context.Context) (cciptypes.Address, error) {
 	return cciptypes.Address(o.addr.String()), nil
 }
 
-func (o *OffRamp) UpdateDynamicConfig(onchainConfig cciptypes.ExecOnchainConfig, offchainConfig cciptypes.ExecOffchainConfig, gasPriceEstimator prices.GasPriceEstimatorExec) {
+func (o *OffRamp) UpdateDynamicConfig(onchainConfig cciptypes.ExecOnchainConfig, offchainConfig cciptypes.ExecOffchainConfig, gasPriceEstimator prices2.GasPriceEstimatorExec) {
 	o.configMu.Lock()
 	o.onchainConfig = onchainConfig
 	o.offchainConfig = offchainConfig
@@ -421,7 +421,7 @@ func (o *OffRamp) ChangeConfig(ctx context.Context, onchainConfigBytes []byte, o
 		PermissionLessExecutionThresholdSeconds: time.Second * time.Duration(onchainConfigParsed.PermissionLessExecutionThresholdSeconds),
 		Router:                                  cciptypes.Address(onchainConfigParsed.Router.String()),
 	}
-	priceEstimator := prices.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0, o.feeEstimatorConfig)
+	priceEstimator := prices2.NewDAGasPriceEstimator(o.Estimator, o.DestMaxGasPrice, 0, 0, o.feeEstimatorConfig)
 
 	o.UpdateDynamicConfig(onchainConfig, offchainConfig, priceEstimator)
 
@@ -600,7 +600,7 @@ func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp lo
 			offRamp.Address(),
 		),
 		// values set on the fly after ChangeConfig is called
-		gasPriceEstimator:  prices.ExecGasPriceEstimator{},
+		gasPriceEstimator:  prices2.ExecGasPriceEstimator{},
 		offchainConfig:     cciptypes.ExecOffchainConfig{},
 		onchainConfig:      cciptypes.ExecOnchainConfig{},
 		feeEstimatorConfig: feeEstimatorConfig,

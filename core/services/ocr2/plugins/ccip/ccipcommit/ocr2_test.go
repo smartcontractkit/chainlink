@@ -26,6 +26,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	prices2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/txmeta"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 
@@ -41,7 +42,6 @@ import (
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 )
 
 func TestCommitReportingPlugin_Observation(t *testing.T) {
@@ -410,7 +410,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			evmEstimator.On("L1Oracle").Return(nil)
 
 			feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
-			gasPriceEstimator := prices.NewDAGasPriceEstimator(evmEstimator, nil, 2e9, 2e9, feeEstimatorConfig) // 200% deviation
+			gasPriceEstimator := prices2.NewDAGasPriceEstimator(evmEstimator, nil, 2e9, 2e9, feeEstimatorConfig) // 200% deviation
 
 			var destTokens []cciptypes.Address
 			for tk := range tc.tokenDecimals {
@@ -1525,7 +1525,7 @@ func TestCommitReportingPlugin_calculatePriceUpdates(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
-			estimator, _ := prices.NewGasPriceEstimatorForCommitPlugin(
+			estimator, _ := prices2.NewGasPriceEstimatorForCommitPlugin(
 				*estimatorCSVer,
 				evmEstimator,
 				nil,
