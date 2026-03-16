@@ -23,7 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay/attestation"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
+	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -96,7 +97,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn gatewayConnector, tr
 		trustedPCRs:         trustedPCRs,
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
-		validateAttestation: attestation.ValidateNitroAttestation,
+		validateAttestation: nitro.ValidateAttestation,
 		caRootsPEM:          roots,
 	}
 	h.Service, h.eng = services.Config{
@@ -231,7 +232,7 @@ func (h *Handler) verifyAttestationHash(attestationB64 string, cleanParams any, 
 		return fmt.Errorf("failed to marshal params for attestation: %w", err)
 	}
 
-	hash := attestation.DomainHash(domainTag, paramsJSON)
+	hash := teeattestation.DomainHash(domainTag, paramsJSON)
 
 	attestationBytes, err := base64.StdEncoding.DecodeString(attestationB64)
 	if err != nil {
