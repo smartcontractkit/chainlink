@@ -45,7 +45,6 @@ const (
 var L = log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel).With().Fields(map[string]any{"component": "ocr2"}).Logger()
 
 type OCR2 struct {
-	Forwarders               bool                   `toml:"forwarders"`
 	OCR2                     *OCRv2OffChainOptions  `toml:"ocr2"`
 	OCR2SetConfig            *OCRv2SetConfigOptions `toml:"ocr2_set_config"`
 	OCR2SetConfigOut         *OCRv2Config           `toml:"ocr2_set_config_out"`
@@ -124,7 +123,8 @@ type OCRv2Config struct {
 }
 
 type Configurator struct {
-	Config []*OCR2 `toml:"ocr2"`
+	Config     []*OCR2 `toml:"ocr2"`
+	Forwarders bool    `toml:"forwarders"`
 }
 
 func NewConfigurator() *Configurator {
@@ -136,7 +136,7 @@ func (m *Configurator) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to load product config: %w", err)
 	}
-	m.Config = cfg.Config
+	*m = *cfg
 	return nil
 }
 
@@ -425,6 +425,40 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create link token contract and mint: %w", err)
 	}
+
+	// Forwarders, deploy contracts and use forwarders as transmitters
+	if m.Forwarders {
+		ops, fwds, err := DeployForwarders(ctx, c, auth, lt.Address(), 5)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to deploy forwarders: %w", err)
+		}
+		L.Info().
+			Any("Operators", ops).
+			Any("Forwarders", fwds).
+			Msg("Deployed forwarders")
+
+		for i, n := range cl {
+			o, err := operator.NewOperator(ops[i], c)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to create operator: %w", err)
+			}
+			acceptTx, err := o.AcceptAuthorizedReceivers(auth, []common.Address{fwds[i]}, []common.Address{transmitters[i]})
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to accept authorized receivers: %w", err)
+			}
+			_, err = products.WaitMinedFast(ctx, c, acceptTx.Hash())
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to wait for accept authorized receivers tx to be mined: %w", err)
+			}
+			if _, _, err := n.TrackForwarder(big.NewInt(1337), fwds[i]); err != nil {
+				return nil, "", fmt.Errorf("failed to track forwarder: %w", err)
+			}
+		}
+		// // in case of forwarders replace transmitters with forwarders
+		transmitters = make([]common.Address, 0)
+		transmitters = append(transmitters, fwds...)
+	}
+
 	// OCRv2 Aggregator
 	L.Info().Msg("Deploying OCRv2 aggregator contract")
 	opts := m.Config[0].OCR2
@@ -486,49 +520,16 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 		return nil, "", fmt.Errorf("could not set config: %w", err)
 	}
 
-	transmitterAddresses := make([]common.Address, 0)
-
-	// Forwarders, deploy contracts and use forwarders as transmitters
-	if m.Config[0].Forwarders {
-		ops, fwds, err := DeployForwarders(ctx, c, auth, lt.Address(), 5)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to deploy forwarders: %w", err)
-		}
-		L.Info().
-			Any("Operators", ops).
-			Any("Forwarders", fwds).
-			Msg("Deployed forwarders")
-
-		for i, n := range cl {
-			o, err := operator.NewOperator(ops[i], c)
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to create operator: %w", err)
-			}
-			acceptTx, err := o.AcceptAuthorizedReceivers(auth, []common.Address{fwds[i]}, []common.Address{transmitters[i]})
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to accept authorized receivers: %w", err)
-			}
-			_, err = products.WaitMinedFast(ctx, c, acceptTx.Hash())
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to wait for accept authorized receivers tx to be mined: %w", err)
-			}
-			if _, _, err := n.TrackForwarder(big.NewInt(1337), fwds[i]); err != nil {
-				return nil, "", fmt.Errorf("failed to track forwarder: %w", err)
-			}
-		}
-
-		transmitterAddresses = append(transmitterAddresses, fwds...)
-	}
-
 	signerAddresses := make([]common.Address, 0)
+	transmitterAddresses := make([]common.Address, 0)
 	for _, signer := range signerKeys {
 		signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
 	}
-	if !m.Config[0].Forwarders {
-		for _, account := range transmitterAccounts {
-			transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
-		}
+	for _, account := range transmitterAccounts {
+		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
+
+
 	onChainConfig, err := median.StandardOnchainConfigCodec{}.Encode(context.Background(), median.OnchainConfig{Min: m.Config[0].OCR2.MinimumAnswer, Max: m.Config[0].OCR2.MaximumAnswer})
 	if err != nil {
 		return nil, "", fmt.Errorf("could not encode onchain config: %w", err)
@@ -688,7 +689,7 @@ func (m *Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *
 			JobType:           "offchainreporting2",
 			MaxTaskDuration:   (time.Duration(m.Config[0].Jobs.MaxTaskDurationSec) * time.Second).String(),
 			ObservationSource: clclient.ObservationSourceSpecBridge(ea),
-			ForwardingAllowed: m.Config[0].Forwarders,
+			ForwardingAllowed: m.Forwarders,
 			OCR2OracleSpec: OracleSpec{
 				PluginType: "median",
 				Relay:      "evm",
