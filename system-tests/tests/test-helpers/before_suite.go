@@ -61,12 +61,41 @@ var (
 	fundingNonceLock    sync.Mutex
 )
 
+// SetupTestEnvironmentWithConfig creates a test environment backed by the shared
+// root deployer/signer context (legacy behavior).
+//
+// Use this for admin/control-plane and ownership-sensitive tests (e.g. V1
+// registry paths, sharding tests) where operations are expected to be executed
+// by the root owner.
+//
+// For parallel workflow-plane tests, use SetupTestEnvironmentWithPerTestKeys.
 func SetupTestEnvironmentWithConfig(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
+	t.Helper()
+	return setupTestEnvironmentWithConfigMode(t, tconf, false, flags...)
+}
+
+// SetupTestEnvironmentWithPerTestKeys creates a test environment that uses a
+// dedicated per-test funded key (seth + CLDF deployer key) for on-chain writes.
+//
+// Use this for workflow-plane tests that may run in parallel and should avoid
+// nonce collisions and shared-key state coupling (e.g. V2 suite bucket flows).
+//
+// Do NOT use this for admin/control-plane tests that require owner-only access
+// on shared contracts (e.g. ShardConfig ownership-admin operations). Use
+// SetupTestEnvironmentWithConfig for those.
+func SetupTestEnvironmentWithPerTestKeys(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
+	t.Helper()
+	return setupTestEnvironmentWithConfigMode(t, tconf, true, flags...)
+}
+
+func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, usePerTestKeys bool, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
 
 	sharedEnv := getOrCreateSharedEnvironment(t, tconf, flags...)
 	testEnv := cloneSharedEnvironmentForTest(sharedEnv, tconf)
-	testEnv.Execution = configurePerTestExecutionContext(t, sharedEnv, testEnv)
+	if usePerTestKeys {
+		testEnv.Execution = configurePerTestExecutionContext(t, sharedEnv, testEnv)
+	}
 
 	t.Cleanup(func() {
 		if t.Failed() {

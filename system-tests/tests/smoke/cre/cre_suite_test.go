@@ -133,7 +133,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			priceProvider, wfConfig := BeforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 		})
@@ -142,12 +142,12 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteVaultTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioCronBeholder:
 		t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteCronBeholderTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPTriggerAction:
@@ -155,7 +155,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPActionCRUD:
@@ -163,7 +163,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled && fanoutEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioDONTime:
@@ -171,7 +171,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled && fanoutEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteDonTimeTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioConsensus:
@@ -179,7 +179,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled && fanoutEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteConsensusTest(t, testEnv)
 		})
 	default:
@@ -189,7 +189,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)

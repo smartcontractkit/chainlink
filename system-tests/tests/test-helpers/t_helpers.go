@@ -17,6 +17,8 @@ package helpers
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -71,6 +73,7 @@ import (
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
+const maxWorkflowNameLen = 64
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -694,8 +697,29 @@ func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string 
 }
 
 func UniqueWorkflowName(testEnv *ttypes.TestEnvironment, baseName string) string {
-	if testEnv == nil || testEnv.Execution == nil || testEnv.Execution.TestID == "" {
-		return baseName
+	testID := ""
+	if testEnv != nil && testEnv.Execution != nil {
+		testID = testEnv.Execution.TestID
 	}
-	return fmt.Sprintf("%s-%s", baseName, testEnv.Execution.TestID)
+	if testID == "" {
+		return truncateWorkflowName(baseName, baseName)
+	}
+	return truncateWorkflowName(fmt.Sprintf("%s-%s", baseName, testID), fmt.Sprintf("%s:%s", baseName, testID))
+}
+
+func truncateWorkflowName(name, uniquenessSeed string) string {
+	if len(name) <= maxWorkflowNameLen {
+		return name
+	}
+
+	sum := sha1.Sum([]byte(uniquenessSeed))
+	suffix := hex.EncodeToString(sum[:])[:8]
+	prefixLen := maxWorkflowNameLen - len(suffix) - 1 // include hyphen
+	if prefixLen < 1 {
+		return suffix[:maxWorkflowNameLen]
+	}
+	if prefixLen > len(name) {
+		prefixLen = len(name)
+	}
+	return fmt.Sprintf("%s-%s", name[:prefixLen], suffix)
 }

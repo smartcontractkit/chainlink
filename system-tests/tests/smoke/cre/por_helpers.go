@@ -106,7 +106,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	// forming the final PoR "expected" total price written on-chain.
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
-	var workflowOwner common.Address
+	workflowOwner := workflowOwnerAddressForTest(t, testEnv)
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.CtfOutput().Family
 		chainID := bcOutput.ChainID()
@@ -135,8 +135,6 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 			chainFamily = blockchain.FamilyEVM
 		default:
 			require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-			require.NotNil(t, testEnv.Execution, "missing per-test execution context")
-			workflowOwner = testEnv.Execution.OwnerAddress
 			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(
 				t,
 				testLogger,
@@ -223,8 +221,7 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	chainSelector := bcOutput.ChainSelector()
 	chainID := bcOutput.ChainID()
 	creEnvironment := testEnv.CreEnvironment
-	require.NotNil(t, testEnv.Execution, "missing per-test execution context")
-	workflowOwner := testEnv.Execution.OwnerAddress
+	workflowOwner := workflowOwnerAddressForTest(t, testEnv)
 
 	require.Len(t, wfConfig.FeedIDs, 1, "SetupPoRWorkflowForSoak expects exactly one feed ID per workflow")
 	feedID := wfConfig.FeedIDs[0]
@@ -267,6 +264,16 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, wfConfig.WorkflowName, &workflowConfig, wfConfig.WorkflowFileLocation)
 
 	return dataFeedsCacheAddress, nil
+}
+
+func workflowOwnerAddressForTest(t *testing.T, testEnv *ttypes.TestEnvironment) common.Address {
+	t.Helper()
+	if testEnv != nil && testEnv.Execution != nil && testEnv.Execution.OwnerAddress != (common.Address{}) {
+		return testEnv.Execution.OwnerAddress
+	}
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected registry chain to be EVM")
+	return testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
 }
 
 // GenerateSoakFeedIDs generates n unique 32-hex-char (16-byte) feed IDs for the soak test.
