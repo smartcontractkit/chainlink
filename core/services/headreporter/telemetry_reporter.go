@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	solana "github.com/smartcontractkit/chainlink-common/pkg/types/chains/solana"
 
 	"google.golang.org/protobuf/proto"
 
@@ -17,6 +18,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	relayservice "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -104,7 +106,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("no relay found for chain=%s", relayID)
 		}
-		err := reportLatestHead(ctx, endpoint, relayID, relay)
+		err := reportLatestHead(ctx, t.lggr, endpoint, relayID, relay)
 		if err != nil {
 			return err
 		}
@@ -113,7 +115,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	return nil
 }
 
-func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
+func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)
@@ -128,6 +130,11 @@ func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoi
 		return fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
 	}
 
+	var finalized *telem.Block
+	if relayID.Network == relayservice.NetworkSolana {
+		finalized = fetchSolanaFinalizedHead(ctx, lggr, relayID, relay)
+	}
+
 	request := &telem.HeadReportRequest{
 		ChainID: relayID.ChainID,
 		Latest: &telem.Block{
@@ -135,7 +142,7 @@ func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoi
 			Number:    blockNum,
 			Hash:      hex.EncodeToString(head.Hash),
 		},
-		Finalized: nil, // latest finalized head retrieval not supported by relayer yet
+		Finalized: finalized,
 	}
 	bytes, err := proto.Marshal(request)
 	if err != nil {
@@ -143,4 +150,24 @@ func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoi
 	}
 	endpoint.SendLog(bytes)
 	return nil
+}
+
+func fetchSolanaFinalizedHead(ctx context.Context, lggr logger.Logger, relayID types.RelayID, relay loop.Relayer) *telem.Block {
+	solSvc, err := relay.Solana()
+	if err != nil {
+		lggr.Warnw("Failed to get Solana service for finalized head", "chainID", relayID.ChainID, "err", err)
+		return nil
+	}
+
+	slotReply, err := solSvc.GetSlotHeight(ctx, solana.GetSlotHeightRequest{
+		Commitment: solana.CommitmentFinalized,
+	})
+	if err != nil {
+		lggr.Warnw("Failed to get finalized slot height", "chainID", relayID.ChainID, "err", err)
+		return nil
+	}
+
+	return &telem.Block{
+		Number: slotReply.Height,
+	}
 }

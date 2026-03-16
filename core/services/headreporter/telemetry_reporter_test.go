@@ -3,6 +3,7 @@ package headreporter_test
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	solanaTypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/solana"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -23,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
+	relaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -116,13 +119,35 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=100")
 }
 
-type mockRelayer struct {
-	testutils2.MockRelayer
-	latestHead types.Head
+type mockSolanaService struct {
+	types.UnimplementedSolanaService
+	finalizedHeight uint64
+	err             error
 }
 
-func (m mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
+func (m *mockSolanaService) GetSlotHeight(_ context.Context, req solanaTypes.GetSlotHeightRequest) (*solanaTypes.GetSlotHeightReply, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &solanaTypes.GetSlotHeightReply{Height: m.finalizedHeight}, nil
+}
+
+type mockRelayer struct {
+	testutils2.MockRelayer
+	latestHead    types.Head
+	solanaService types.SolanaService
+	solanaErr     error
+}
+
+func (m *mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 	return m.latestHead, nil
+}
+
+func (m *mockRelayer) Solana() (types.SolanaService, error) {
+	if m.solanaService != nil || m.solanaErr != nil {
+		return m.solanaService, m.solanaErr
+	}
+	return m.MockRelayer.Solana()
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
@@ -204,4 +229,89 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 
 	err := reporter.ReportPeriodic(testutils.Context(t))
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=testchain")
+}
+
+func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) {
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	blockHash := [32]byte(privKey.PublicKey())
+
+	head := types.Head{
+		Height:    "42",
+		Hash:      blockHash[:],
+		Timestamp: 1000,
+	}
+	mockSolSvc := &mockSolanaService{finalizedHeight: 40}
+	r := &mockRelayer{latestHead: head, solanaService: mockSolSvc}
+	solanaRelays := map[types.RelayID]loop.Relayer{
+		{Network: relaynetwork.NetworkSolana, ChainID: "testchain"}: r,
+	}
+
+	request := telem.HeadReportRequest{
+		ChainID: "testchain",
+		Latest: &telem.Block{
+			Timestamp: head.Timestamp,
+			Number:    42,
+			Hash:      hex.EncodeToString(head.Hash),
+		},
+		Finalized: &telem.Block{
+			Number: 40,
+		},
+	}
+	requestBytes, err := proto.Marshal(&request)
+	require.NoError(t, err)
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpoint.On("SendLog", requestBytes).Return()
+
+	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
+	monitoringEndpointGen.
+		On("GenMonitoringEndpoint", relaynetwork.NetworkSolana, "testchain", "", synchronization.HeadReport).
+		Return(monitoringEndpoint)
+
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
+
+	err = reporter.ReportPeriodic(testutils.Context(t))
+	assert.NoError(t, err)
+}
+
+func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T) {
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	blockHash := [32]byte(privKey.PublicKey())
+
+	head := types.Head{
+		Height:    "42",
+		Hash:      blockHash[:],
+		Timestamp: 1000,
+	}
+	mockSolSvc := &mockSolanaService{err: fmt.Errorf("rpc error")}
+	r := &mockRelayer{latestHead: head, solanaService: mockSolSvc}
+	solanaRelays := map[types.RelayID]loop.Relayer{
+		{Network: relaynetwork.NetworkSolana, ChainID: "testchain"}: r,
+	}
+
+	request := telem.HeadReportRequest{
+		ChainID: "testchain",
+		Latest: &telem.Block{
+			Timestamp: head.Timestamp,
+			Number:    42,
+			Hash:      hex.EncodeToString(head.Hash),
+		},
+	}
+	requestBytes, err := proto.Marshal(&request)
+	require.NoError(t, err)
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpoint.On("SendLog", requestBytes).Return()
+
+	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
+	monitoringEndpointGen.
+		On("GenMonitoringEndpoint", relaynetwork.NetworkSolana, "testchain", "", synchronization.HeadReport).
+		Return(monitoringEndpoint)
+
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
+
+	err = reporter.ReportPeriodic(testutils.Context(t))
+	assert.NoError(t, err)
 }
