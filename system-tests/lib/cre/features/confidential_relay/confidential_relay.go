@@ -2,13 +2,15 @@ package confidentialrelay
 
 import (
 	"context"
-	"fmt"
 
+	tomlser "github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
@@ -43,20 +45,36 @@ func (o *ConfidentialRelay) PreEnvStartup(
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config for don %s", don.Name)
 	}
 
-	// Set env vars from capability config to activate the confidential relay handler on DON nodes.
-	// The handler is gated by CL_CONFIDENTIAL_RELAY_TRUSTED_PCRS; without it, the subservice won't start.
+	// Set TOML config to activate the confidential relay handler on DON nodes.
 	capConfig, ok := don.CapabilityConfigs[flag]
 	if ok && capConfig.Values != nil {
 		ns := don.MustNodeSet()
-		if ns.EnvVars == nil {
-			ns.EnvVars = make(map[string]string)
-		}
+		for i := range ns.NodeSpecs {
+			currentConfig := ns.NodeSpecs[i].Node.TestConfigOverrides
+			var typedConfig corechainlink.Config
+			if currentConfig != "" {
+				if err := tomlser.Unmarshal([]byte(currentConfig), &typedConfig); err != nil {
+					return nil, errors.Wrapf(err, "failed to unmarshal node TOML config for node %d", i)
+				}
+			}
 
-		if v, exists := capConfig.Values["trustedPCRs"]; exists {
-			ns.EnvVars["CL_CONFIDENTIAL_RELAY_TRUSTED_PCRS"] = fmt.Sprintf("%v", v)
-		}
-		if v, exists := capConfig.Values["caRootsPEM"]; exists {
-			ns.EnvVars["CL_CONFIDENTIAL_RELAY_CA_ROOTS_PEM"] = fmt.Sprintf("%v", v)
+			enabled := true
+			relayConf := &coretoml.ConfidentialRelayConfig{Enabled: &enabled}
+			if v, exists := capConfig.Values["trustedPCRs"]; exists {
+				s := v.(string)
+				relayConf.TrustedPCRs = &s
+			}
+			if v, exists := capConfig.Values["caRootsPEM"]; exists {
+				s := v.(string)
+				relayConf.CARootsPEM = &s
+			}
+			typedConfig.CRE.ConfidentialRelay = relayConf
+
+			out, err := tomlser.Marshal(typedConfig)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to marshal node TOML config for node %d", i)
+			}
+			ns.NodeSpecs[i].Node.TestConfigOverrides = string(out)
 		}
 	}
 

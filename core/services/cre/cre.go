@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"os"
 	"strconv"
 
 	"github.com/Masterminds/semver/v3"
@@ -172,13 +171,12 @@ func (s *Services) newSubservices(
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
 
-		if trustedPCRs := os.Getenv("CL_CONFIDENTIAL_RELAY_TRUSTED_PCRS"); trustedPCRs != "" {
-			caRootsPEM := os.Getenv("CL_CONFIDENTIAL_RELAY_CA_ROOTS_PEM")
+		if relayConfig := cfg.CRE().ConfidentialRelay(); relayConfig.Enabled() {
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
-				[]byte(trustedPCRs),
-				caRootsPEM,
+				[]byte(relayConfig.TrustedPCRs()),
+				relayConfig.CARootsPEM(),
 				lggr,
 			)
 			srvs = append(srvs, relayService)
