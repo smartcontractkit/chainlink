@@ -141,7 +141,6 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "automation"
             logs_archive_name: "automation-soak"
-            # cl r env.toml,products/ocr2/basic.toml,products/ocr2/forwarders.toml
           - display_name: "Test DF1 (OCR2) Soak"
             testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
             envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"
