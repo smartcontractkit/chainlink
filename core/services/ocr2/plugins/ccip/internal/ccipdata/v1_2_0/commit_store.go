@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
@@ -59,7 +60,7 @@ type CommitStore struct {
 	configMu           sync.RWMutex
 	gasPriceEstimator  *prices.DAGasPriceEstimator
 	offchainConfig     cciptypes.CommitOffchainConfig
-	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
+	feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader
 }
 
 func (c *CommitStore) GetCommitStoreStaticConfig(ctx context.Context) (cciptypes.CommitStoreStaticConfig, error) {
@@ -348,7 +349,7 @@ func (c *CommitStore) RegisterFilters(ctx context.Context) error {
 	return logpollerutil.RegisterLpFilters(ctx, c.lp, c.filters)
 }
 
-func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*CommitStore, error) {
+func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader) (*CommitStore, error) {
 	commitStore, err := commit_store_1_2_0.NewCommitStore(addr, ec)
 	if err != nil {
 		return nil, err

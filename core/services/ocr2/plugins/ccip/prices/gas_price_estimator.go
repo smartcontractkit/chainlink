@@ -3,7 +3,7 @@ package prices
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"

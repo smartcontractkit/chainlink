@@ -19,6 +19,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
@@ -162,7 +163,7 @@ type OffRamp struct {
 	gasPriceEstimator  prices.GasPriceEstimatorExec
 	offchainConfig     cciptypes.ExecOffchainConfig
 	onchainConfig      cciptypes.ExecOnchainConfig
-	feeEstimatorConfig ccipdata.FeeEstimatorConfigReader
+	feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader
 }
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
@@ -544,7 +545,7 @@ func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cci
 	return decode.DecodeExecReport(ctx, o.ExecutionReportArgs, report)
 }
 
-func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*OffRamp, error) {
+func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader) (*OffRamp, error) {
 	offRamp, err := evm_2_evm_offramp_1_2_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
