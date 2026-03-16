@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	cache2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/logpollerutil"
@@ -64,7 +65,7 @@ type OnRamp struct {
 	sendRequestedEventSig      common.Hash
 	sendRequestedSeqNumberWord int
 	filters                    []logpoller.Filter
-	cachedOnRampDynamicConfig  cache.AutoSync[cciptypes.OnRampDynamicConfig]
+	cachedOnRampDynamicConfig  cache2.AutoSync[cciptypes.OnRampDynamicConfig]
 	// Static config can be cached, because it's never expected to change.
 	// The only way to change that is through the contract's constructor (redeployment)
 	cachedStaticConfig cache.OnceCtxFunction[evm_2_evm_onramp.EVM2EVMOnRampStaticConfig]
@@ -116,7 +117,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 		address:                    onRampAddress,
 		sendRequestedSeqNumberWord: CCIPSendRequestSeqNumIndex,
 		sendRequestedEventSig:      CCIPSendRequestEventSig,
-		cachedOnRampDynamicConfig: cache.NewLogpollerEventsBased[cciptypes.OnRampDynamicConfig](
+		cachedOnRampDynamicConfig: cache2.NewLogpollerEventsBased[cciptypes.OnRampDynamicConfig](
 			sourceLP,
 			[]common.Hash{ConfigSetEventSig},
 			onRampAddress,
