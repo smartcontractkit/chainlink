@@ -29,7 +29,7 @@ func TestCommitStore(t *testing.T) {
 		feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-		versionFinder := newMockVersionFinder(ccipconfig.CommitStore, *semver.MustParse(versionStr), nil)
+		versionFinder := factory2.newMockVersionFinder(ccipconfig.CommitStore, *semver.MustParse(versionStr), nil)
 		_, err := NewCommitStoreReader(ctx, lggr, versionFinder, addr, nil, lp, feeEstimatorConfig)
 		assert.NoError(t, err)
 
