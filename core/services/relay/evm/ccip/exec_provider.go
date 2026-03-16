@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
@@ -197,7 +198,7 @@ func (s *SrcExecProvider) NewPriceRegistryReader(ctx context.Context, addr ccipt
 }
 
 func (s *SrcExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress cciptypes.Address) (cciptypes.TokenDataReader, error) {
-	tokenAddr, err := ccip.GenericAddrToEvm(tokenAddress)
+	tokenAddr, err := ccipcalc.GenericAddrToEvm(tokenAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse token address: %w", err)
 	}
@@ -240,7 +241,7 @@ func (s *SrcExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRamp
 }
 
 func (s *SrcExecProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
-	sourceRouterAddrHex, err := ccip.GenericAddrToEvm(sourceRouterAddr)
+	sourceRouterAddrHex, err := ccipcalc.GenericAddrToEvm(sourceRouterAddr)
 	if err != nil {
 		return "", err
 	}
@@ -253,7 +254,7 @@ func (s *SrcExecProvider) SourceNativeToken(ctx context.Context, sourceRouterAdd
 		return "", err
 	}
 
-	return ccip.EvmAddrToGeneric(sourceNative), nil
+	return ccipcalc.EvmAddrToGeneric(sourceNative), nil
 }
 
 type DstExecProvider struct {

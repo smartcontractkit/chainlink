@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -32,14 +31,6 @@ import (
 const OffchainAggregator = "OffchainAggregator"
 const DecimalsMethodName = "decimals"
 const LatestRoundDataMethodName = "latestRoundData"
-
-func GenericAddrToEvm(addr ccip.Address) (common.Address, error) {
-	return ccipcalc.GenericAddrToEvm(addr)
-}
-
-func EvmAddrToGeneric(addr common.Address) ccip.Address {
-	return ccipcalc.EvmAddrToGeneric(addr)
-}
 
 func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.Logger, pluginLabel string) *ccipdataprovider.EvmPriceRegistry {
 	return ccipdataprovider.NewEvmPriceRegistry(lp, ec, lggr, pluginLabel)

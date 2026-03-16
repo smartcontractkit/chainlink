@@ -126,7 +126,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 			return nil, err2
 		}
 
-		usdcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(pluginConfig.USDCConfig.SourceTokenAddress))
+		usdcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccipcalc.EvmAddrToGeneric(pluginConfig.USDCConfig.SourceTokenAddress))
 		if err2 != nil {
 			return nil, fmt.Errorf("new usdc reader: %w", err2)
 		}
@@ -145,7 +145,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 				"sourceTokenAddress", lbtcConfig.SourceTokenAddress.String(),
 				"attestationURI", lbtcConfig.AttestationAPI,
 			)
-			lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccip.EvmAddrToGeneric(lbtcConfig.SourceTokenAddress))
+			lbtcReader, err2 := srcProvider.NewTokenDataReader(ctx, ccipcalc.EvmAddrToGeneric(lbtcConfig.SourceTokenAddress))
 			if err2 != nil {
 				return nil, fmt.Errorf("new lbtc reader: %w", err2)
 			}

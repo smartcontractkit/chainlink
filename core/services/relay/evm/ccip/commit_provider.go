@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -311,7 +312,7 @@ func (p *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cci
 }
 
 func (p *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
-	sourceRouterAddrHex, err := ccip.GenericAddrToEvm(sourceRouterAddr)
+	sourceRouterAddrHex, err := ccipcalc.GenericAddrToEvm(sourceRouterAddr)
 	if err != nil {
 		return "", err
 	}
@@ -324,7 +325,7 @@ func (p *SrcCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterA
 		return "", err
 	}
 
-	return ccip.EvmAddrToGeneric(sourceNative), nil
+	return ccipcalc.EvmAddrToGeneric(sourceNative), nil
 }
 
 func (p *DstCommitProvider) SourceNativeToken(ctx context.Context, sourceRouterAddr cciptypes.Address) (cciptypes.Address, error) {
