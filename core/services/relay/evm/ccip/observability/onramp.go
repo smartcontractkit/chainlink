@@ -4,16 +4,15 @@ import (
 	"context"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 )
 
 type ObservedOnRampReader struct {
-	ccipdata.OnRampReader
+	types.OnRampReader
 	metric metricDetails
 }
 
-func NewObservedOnRampReader(origin ccipdata.OnRampReader, chainID int64, pluginName string) *ObservedOnRampReader {
+func NewObservedOnRampReader(origin types.OnRampReader, chainID int64, pluginName string) *ObservedOnRampReader {
 	return &ObservedOnRampReader{
 		OnRampReader: origin,
 		metric: metricDetails{

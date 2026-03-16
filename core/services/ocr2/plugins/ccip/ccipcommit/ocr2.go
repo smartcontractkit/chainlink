@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -53,12 +54,12 @@ type CommitPluginStaticConfig struct {
 	lggr                          logger.Logger
 	newReportingPluginRetryConfig ccipdata.RetryConfig
 	// Source
-	onRampReader        ccipdata.OnRampReader
+	onRampReader        types2.OnRampReader
 	sourceChainSelector uint64
 	sourceNative        cciptypes.Address
 	// Dest
-	offRamp               ccipdata.OffRampReader
-	commitStore           ccipdata.CommitStoreReader
+	offRamp               types2.OffRampReader
+	commitStore           types2.CommitStoreReader
 	destChainSelector     uint64
 	priceRegistryProvider ccipdataprovider.PriceRegistry
 	// Offchain
@@ -70,16 +71,16 @@ type CommitPluginStaticConfig struct {
 type CommitReportingPlugin struct {
 	lggr logger.Logger
 	// Source
-	onRampReader        ccipdata.OnRampReader
+	onRampReader        types2.OnRampReader
 	sourceChainSelector uint64
 	sourceNative        cciptypes.Address
 	gasPriceEstimator   prices.GasPriceEstimatorCommit
 	// Dest
 	destChainSelector       uint64
-	commitStoreReader       ccipdata.CommitStoreReader
-	destPriceRegistryReader ccipdata.PriceRegistryReader
+	commitStoreReader       types2.CommitStoreReader
+	destPriceRegistryReader types2.PriceRegistryReader
 	offchainConfig          cciptypes.CommitOffchainConfig
-	offRampReader           ccipdata.OffRampReader
+	offRampReader           types2.OffRampReader
 	F                       int
 	// Offchain
 	metricsCollector ccip.PluginMetricsCollector

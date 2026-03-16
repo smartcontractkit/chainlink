@@ -30,13 +30,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	db "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
+	observability2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 )
 
 var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
@@ -85,7 +86,7 @@ func NewCommitServices(
 		return nil, err
 	}
 
-	var commitStoreReader ccipdata.CommitStoreReader
+	var commitStoreReader types.CommitStoreReader
 	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 	commitLggr := lggr.Named("CCIPCommit").With("sourceChain", sourceChainID, "destChain", destChainID)
 
@@ -133,9 +134,9 @@ func NewCommitServices(
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
-	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
-	offRampReader = observability.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
+	onRampReader = observability2.NewObservedOnRampReader(onRampReader, sourceChainID, ccip.CommitPluginLabel)
+	commitStoreReader = observability2.NewObservedCommitStoreReader(commitStoreReader, destChainID, ccip.CommitPluginLabel)
+	offRampReader = observability2.NewObservedOffRampReader(offRampReader, destChainID, ccip.CommitPluginLabel)
 
 	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-commit")
 	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.CommitPluginLabel, bhClient, sourceChainID, destChainID, srcChain.Name, dstChain.Name)

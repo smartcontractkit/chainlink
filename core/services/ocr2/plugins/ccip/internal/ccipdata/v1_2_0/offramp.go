@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -43,13 +44,13 @@ const (
 )
 
 var (
-	abiOffRamp                                               = abihelpers.MustParseABI(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampABI)
-	_                                 ccipdata.OffRampReader = &OffRamp{}
-	ExecutionStateChangedEvent                               = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRamp)
-	PoolAddedEvent                                           = abihelpers.MustGetEventID("PoolAdded", abiOffRamp)
-	PoolRemovedEvent                                         = abihelpers.MustGetEventID("PoolRemoved", abiOffRamp)
-	ExecutionStateChangedSeqNrIndex                          = 1
-	offrampPoolAddedPoolRemovedEvents                        = []common.Hash{PoolAddedEvent, PoolRemovedEvent}
+	abiOffRamp                                             = abihelpers.MustParseABI(evm_2_evm_offramp_1_2_0.EVM2EVMOffRampABI)
+	_                                 types2.OffRampReader = &OffRamp{}
+	ExecutionStateChangedEvent                             = abihelpers.MustGetEventID("ExecutionStateChanged", abiOffRamp)
+	PoolAddedEvent                                         = abihelpers.MustGetEventID("PoolAdded", abiOffRamp)
+	PoolRemovedEvent                                       = abihelpers.MustGetEventID("PoolRemoved", abiOffRamp)
+	ExecutionStateChangedSeqNrIndex                        = 1
+	offrampPoolAddedPoolRemovedEvents                      = []common.Hash{PoolAddedEvent, PoolRemovedEvent}
 )
 
 type ExecOnchainConfig evm_2_evm_offramp_1_2_0.EVM2EVMOffRampDynamicConfig

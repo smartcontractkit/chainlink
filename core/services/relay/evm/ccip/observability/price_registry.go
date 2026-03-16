@@ -5,16 +5,15 @@ import (
 	"time"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 )
 
 type ObservedPriceRegistryReader struct {
-	ccipdata.PriceRegistryReader
+	types.PriceRegistryReader
 	metric metricDetails
 }
 
-func NewPriceRegistryReader(origin ccipdata.PriceRegistryReader, chainID int64, pluginName string) *ObservedPriceRegistryReader {
+func NewPriceRegistryReader(origin types.PriceRegistryReader, chainID int64, pluginName string) *ObservedPriceRegistryReader {
 	return &ObservedPriceRegistryReader{
 		PriceRegistryReader: origin,
 		metric: metricDetails{

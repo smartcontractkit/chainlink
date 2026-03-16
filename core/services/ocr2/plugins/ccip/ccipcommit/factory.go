@@ -11,9 +11,9 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 type CommitReportingPluginFactory struct {
@@ -23,7 +23,7 @@ type CommitReportingPluginFactory struct {
 
 	// Dynamic readers
 	readersMu          *sync.Mutex
-	destPriceRegReader ccipdata.PriceRegistryReader
+	destPriceRegReader types2.PriceRegistryReader
 	destPriceRegAddr   common.Address
 }
 

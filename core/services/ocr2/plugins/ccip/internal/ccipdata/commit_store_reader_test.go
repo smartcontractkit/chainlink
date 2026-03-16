@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -245,7 +246,7 @@ func TestCommitStoreReaders(t *testing.T) {
 	configs := map[string][][]byte{
 		ccipdata.V1_2_0: {onchainConfig2, offchainConfig2},
 	}
-	crs := map[string]ccipdata.CommitStoreReader{
+	crs := map[string]types.CommitStoreReader{
 		ccipdata.V1_2_0: c12r,
 	}
 	prs := map[string]common.Address{

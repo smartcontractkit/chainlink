@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -52,9 +53,9 @@ var (
 
 type ExecutionPluginStaticConfig struct {
 	lggr                          logger.Logger
-	onRampReader                  ccipdata.OnRampReader
-	offRampReader                 ccipdata.OffRampReader
-	commitStoreReader             ccipdata.CommitStoreReader
+	onRampReader                  types2.OnRampReader
+	offRampReader                 types2.OffRampReader
+	commitStoreReader             types2.CommitStoreReader
 	sourcePriceRegistryProvider   ccipdataprovider.PriceRegistry
 	sourceWrappedNativeToken      cciptypes.Address
 	tokenDataWorker               tokendata.Worker
@@ -78,19 +79,19 @@ type ExecutionReportingPlugin struct {
 
 	// Source
 	gasPriceEstimator           prices.GasPriceEstimatorExec
-	sourcePriceRegistry         ccipdata.PriceRegistryReader
+	sourcePriceRegistry         types2.PriceRegistryReader
 	sourcePriceRegistryProvider ccipdataprovider.PriceRegistry
 	sourcePriceRegistryLock     sync.RWMutex
 	sourceWrappedNativeToken    cciptypes.Address
-	onRampReader                ccipdata.OnRampReader
+	onRampReader                types2.OnRampReader
 
 	// Dest
 	destChainSelector      uint64
-	commitStoreReader      ccipdata.CommitStoreReader
-	destPriceRegistry      ccipdata.PriceRegistryReader
+	commitStoreReader      types2.CommitStoreReader
+	destPriceRegistry      types2.PriceRegistryReader
 	destWrappedNative      cciptypes.Address
 	onchainConfig          cciptypes.ExecOnchainConfig
-	offRampReader          ccipdata.OffRampReader
+	offRampReader          types2.OffRampReader
 	tokenPoolBatchedReader batchreader.TokenPoolBatchedReader
 
 	// State
@@ -735,7 +736,7 @@ func getInflightAggregateRateLimit(
 // getTokensPrices returns token prices of the given price registry,
 // price values are USD per 1e18 of smallest token denomination, in base units 1e18 (e.g. 5$ = 5e18 USD per 1e18 units).
 // this function is used for price registry of both source and destination chains.
-func getTokensPrices(ctx context.Context, priceRegistry ccipdata.PriceRegistryReader, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
+func getTokensPrices(ctx context.Context, priceRegistry types2.PriceRegistryReader, tokens []cciptypes.Address) (map[cciptypes.Address]*big.Int, error) {
 	tokenPrices := make(map[cciptypes.Address]*big.Int)
 
 	fetchedPrices, err := priceRegistry.GetTokenPrices(ctx, tokens)

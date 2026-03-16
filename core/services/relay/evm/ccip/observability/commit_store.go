@@ -5,15 +5,15 @@ import (
 	"time"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 )
 
 type ObservedCommitStoreReader struct {
-	ccipdata.CommitStoreReader
+	types.CommitStoreReader
 	metric metricDetails
 }
 
-func NewObservedCommitStoreReader(origin ccipdata.CommitStoreReader, chainID int64, pluginName string) *ObservedCommitStoreReader {
+func NewObservedCommitStoreReader(origin types.CommitStoreReader, chainID int64, pluginName string) *ObservedCommitStoreReader {
 	return &ObservedCommitStoreReader{
 		CommitStoreReader: origin,
 		metric: metricDetails{

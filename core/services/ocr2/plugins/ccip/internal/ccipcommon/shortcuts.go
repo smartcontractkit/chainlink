@@ -14,9 +14,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func GetMessageIDsAsHexString(messages []cciptypes.EVM2EVMMessage) []string {
@@ -44,7 +44,7 @@ func FlattenedAndSortedTokens(addressSlices ...[]cciptypes.Address) (tokens []cc
 
 // GetDestinationTokens returns the destination chain fee tokens from the provided price registry
 // and the bridgeable tokens from the offramp.
-func GetDestinationTokens(ctx context.Context, offRamp ccipdata.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (fee, bridged []cciptypes.Address, err error) {
+func GetDestinationTokens(ctx context.Context, offRamp types.OffRampReader, priceRegistry cciptypes.PriceRegistryReader) (fee, bridged []cciptypes.Address, err error) {
 	eg := new(errgroup.Group)
 
 	var destFeeTokens []cciptypes.Address

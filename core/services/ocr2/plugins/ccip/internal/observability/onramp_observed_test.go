@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	observability2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
@@ -81,7 +82,7 @@ func TestOnRampObservedMethods(t *testing.T) {
 	}
 }
 
-func testMethod(t *testing.T, method reflect.Method, methodCalls map[string]MethodCall, excludedMethods []string, reader *mocks.OnRampReader, observed ObservedOnRampReader) {
+func testMethod(t *testing.T, method reflect.Method, methodCalls map[string]MethodCall, excludedMethods []string, reader *mocks.OnRampReader, observed observability2.ObservedOnRampReader) {
 	t.Run("observability_wrapper_"+method.Name, func(t *testing.T) {
 		// Skip excluded methods.
 		if slices.Contains(excludedMethods, method.Name) {
@@ -133,21 +134,21 @@ func buildCallParams(mc MethodCall) []reflect.Value {
 }
 
 // Build a mock reader and an observed wrapper to be used in the tests.
-func buildReader(t *testing.T) (ObservedOnRampReader, *mocks.OnRampReader) {
-	labels = []string{"evmChainID", "reader", "function"}
+func buildReader(t *testing.T) (observability2.ObservedOnRampReader, *mocks.OnRampReader) {
+	observability2.labels = []string{"evmChainID", "reader", "function"}
 	ph := promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "test_histogram",
-	}, labels)
+	}, observability2.labels)
 	pg := promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "test_gauge",
-	}, labels)
-	metric := metricDetails{
+	}, observability2.labels)
+	metric := observability2.metricDetails{
 		interactionDuration: ph,
 		resultSetSize:       pg,
 		readerName:          "test reader",
 		chainId:             1337,
 	}
 	reader := mocks.NewOnRampReader(t)
-	observed := ObservedOnRampReader{reader, metric}
+	observed := observability2.ObservedOnRampReader{reader, metric}
 	return observed, reader
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -42,7 +43,7 @@ type priceRegReaderTH struct {
 	ec      client.Client
 	lggr    logger.Logger
 	user    *bind.TransactOpts
-	readers map[string]ccipdata.PriceRegistryReader
+	readers map[string]types2.PriceRegistryReader
 
 	// Expected state
 	blockTs              []uint64
@@ -147,7 +148,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		ec:   ec,
 		lggr: lggr,
 		user: user,
-		readers: map[string]ccipdata.PriceRegistryReader{
+		readers: map[string]types2.PriceRegistryReader{
 			ccipdata.V1_2_0: pr12r,
 		},
 		expectedFeeTokens: feeTokens,
@@ -164,7 +165,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	}
 }
 
-func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.PriceRegistryReader) {
+func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr types2.PriceRegistryReader) {
 	ctx := testutils.Context(t)
 	// Assert have expected fee tokens.
 	gotFeeTokens, err := pr.GetFeeTokens(ctx)

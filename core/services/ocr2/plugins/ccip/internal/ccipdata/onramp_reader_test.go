@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -34,7 +35,7 @@ import (
 
 type onRampReaderTH struct {
 	user   *bind.TransactOpts
-	reader ccipdata.OnRampReader
+	reader types.OnRampReader
 }
 
 func TestNewOnRampReader_noContractAtAddress(t *testing.T) {

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -39,7 +40,7 @@ const (
 	ReportAccepted    = "ReportAccepted"
 )
 
-var _ ccipdata.CommitStoreReader = &CommitStore{}
+var _ types2.CommitStoreReader = &CommitStore{}
 
 type CommitStore struct {
 	// Static config

@@ -15,6 +15,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -29,8 +30,8 @@ import (
 )
 
 var (
-	_        ccipdata.PriceRegistryReader = &PriceRegistry{}
-	abiERC20                              = abihelpers.MustParseABI(erc20.ERC20ABI)
+	_        types2.PriceRegistryReader = &PriceRegistry{}
+	abiERC20                            = abihelpers.MustParseABI(erc20.ERC20ABI)
 	// Exposed only for backwards compatibility with tests.
 	UsdPerUnitGasUpdated = abihelpers.MustGetEventID("UsdPerUnitGasUpdated", abihelpers.MustParseABI(price_registry_1_2_0.PriceRegistryABI))
 )

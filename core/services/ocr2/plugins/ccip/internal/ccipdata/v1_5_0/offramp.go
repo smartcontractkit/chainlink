@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -28,10 +29,10 @@ import (
 )
 
 var (
-	abiOffRamp                                        = abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
-	_                          ccipdata.OffRampReader = &OffRamp{}
-	RateLimitTokenAddedEvent                          = abihelpers.MustGetEventID("TokenAggregateRateLimitAdded", abiOffRamp)
-	RateLimitTokenRemovedEvent                        = abihelpers.MustGetEventID("TokenAggregateRateLimitRemoved", abiOffRamp)
+	abiOffRamp                                     = abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+	_                          types.OffRampReader = &OffRamp{}
+	RateLimitTokenAddedEvent                       = abihelpers.MustGetEventID("TokenAggregateRateLimitAdded", abiOffRamp)
+	RateLimitTokenRemovedEvent                     = abihelpers.MustGetEventID("TokenAggregateRateLimitRemoved", abiOffRamp)
 )
 
 type ExecOnchainConfig evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig

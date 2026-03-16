@@ -1,11 +1,7 @@
 package ccipdata
 
 import (
-	"context"
-	"math/big"
 	"time"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -52,10 +48,4 @@ func NewCommitOffchainConfig(
 		InflightCacheExpiry:    inflightCacheExpiry,
 		PriceReportingDisabled: priceReportingDisabled,
 	}
-}
-
-type CommitStoreReader interface {
-	cciptypes.CommitStoreReader
-	SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error
-	SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error
 }

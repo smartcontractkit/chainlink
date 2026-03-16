@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -18,7 +19,7 @@ import (
 )
 
 // NewPriceRegistryReader determines the appropriate version of the price registry and returns a reader for it.
-func NewPriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) (ccipdata.PriceRegistryReader, error) {
+func NewPriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client) (types.PriceRegistryReader, error) {
 	return initOrClosePriceRegistryReader(ctx, lggr, versionFinder, priceRegistryAddress, lp, cl, false)
 }
 
@@ -27,7 +28,7 @@ func ClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFi
 	return err
 }
 
-func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (ccipdata.PriceRegistryReader, error) {
+func initOrClosePriceRegistryReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, priceRegistryAddress cciptypes.Address, lp logpoller.LogPoller, cl client.Client, closeReader bool) (types.PriceRegistryReader, error) {
 	registerFilters := !closeReader
 
 	priceRegistryEvmAddr, err := ccipcalc.GenericAddrToEvm(priceRegistryAddress)

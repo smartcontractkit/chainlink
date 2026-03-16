@@ -10,10 +10,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 // ChainHealthcheck checks the health of the both source and destination chain.
@@ -53,15 +53,15 @@ type chainHealthcheck struct {
 	rmnStatusRefreshInterval time.Duration
 
 	lggr        logger.Logger
-	onRamp      ccipdata.OnRampReader
-	commitStore ccipdata.CommitStoreReader
+	onRamp      types.OnRampReader
+	commitStore types.CommitStoreReader
 
 	services.StateMachine
 	wg       sync.WaitGroup
 	stopChan services.StopChan
 }
 
-func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader) *chainHealthcheck {
+func NewChainHealthcheck(lggr logger.Logger, onRamp types.OnRampReader, commitStore types.CommitStoreReader) *chainHealthcheck {
 	return &chainHealthcheck{
 		// Different keys use different expiration times, so we don't need to worry about the default value
 		cache:                    cache.New(cache.NoExpiration, 0),
@@ -78,7 +78,7 @@ func NewChainHealthcheck(lggr logger.Logger, onRamp ccipdata.OnRampReader, commi
 }
 
 // newChainHealthcheckWithCustomEviction is used for testing purposes only. It doesn't start background worker
-func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp ccipdata.OnRampReader, commitStore ccipdata.CommitStoreReader, globalStatusDuration time.Duration, rmnStatusRefreshInterval time.Duration) *chainHealthcheck {
+func newChainHealthcheckWithCustomEviction(lggr logger.Logger, onRamp types.OnRampReader, commitStore types.CommitStoreReader, globalStatusDuration time.Duration, rmnStatusRefreshInterval time.Duration) *chainHealthcheck {
 	return &chainHealthcheck{
 		cache:                    cache.New(rmnStatusRefreshInterval, 0),
 		rmnStatusKey:             rmnStatusKey,

@@ -13,6 +13,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	cciporm "github.com/smartcontractkit/chainlink/v2/core/services/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -35,7 +35,7 @@ type PriceService interface {
 	job.ServiceCtx
 
 	// UpdateDynamicConfig updates gasPriceEstimator and destPriceRegistryReader during Commit plugin dynamic config change.
-	UpdateDynamicConfig(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader ccipdata.PriceRegistryReader) error
+	UpdateDynamicConfig(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader types.PriceRegistryReader) error
 
 	// GetGasAndTokenPrices fetches source chain gas prices and relevant token prices from all lanes that touch the given dest chain.
 	// The prices have been written into the DB by each lane's PriceService in the background. The prices are denoted in USD.
@@ -64,9 +64,9 @@ type priceService struct {
 	sourceChainSelector     uint64
 	sourceNative            cciptypes.Address
 	priceGetter             pricegetter.AllTokensPriceGetter
-	offRampReader           ccipdata.OffRampReader
+	offRampReader           types.OffRampReader
 	gasPriceEstimator       prices.GasPriceEstimatorCommit
-	destPriceRegistryReader ccipdata.PriceRegistryReader
+	destPriceRegistryReader types.PriceRegistryReader
 
 	services.StateMachine
 	wg              sync.WaitGroup
@@ -83,7 +83,7 @@ func NewPriceService(
 
 	sourceNative cciptypes.Address,
 	priceGetter pricegetter.AllTokensPriceGetter,
-	offRampReader ccipdata.OffRampReader,
+	offRampReader types.OffRampReader,
 ) PriceService {
 	pw := &priceService{
 		gasUpdateInterval:   gasPriceUpdateInterval,
@@ -151,7 +151,7 @@ func (p *priceService) run() {
 	}()
 }
 
-func (p *priceService) UpdateDynamicConfig(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader ccipdata.PriceRegistryReader) error {
+func (p *priceService) UpdateDynamicConfig(ctx context.Context, gasPriceEstimator prices.GasPriceEstimatorCommit, destPriceRegistryReader types.PriceRegistryReader) error {
 	p.dynamicConfigMu.Lock()
 	p.gasPriceEstimator = gasPriceEstimator
 	p.destPriceRegistryReader = destPriceRegistryReader

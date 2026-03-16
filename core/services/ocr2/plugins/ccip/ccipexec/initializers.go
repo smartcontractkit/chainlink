@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
+	observability2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -26,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
@@ -114,7 +115,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		return nil, fmt.Errorf("could not create dst commitStoreReader reader: %w", err)
 	}
 
-	var commitStoreReader ccipdata.CommitStoreReader
+	var commitStoreReader types2.CommitStoreReader
 	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 
 	tokenDataProviders := make(map[cciptypes.Address]tokendata.Reader)
@@ -154,9 +155,9 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	}
 
 	// Prom wrappers
-	onRampReader = observability.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
-	commitStoreReader = observability.NewObservedCommitStoreReader(commitStoreReader, dstChainID, ccip.ExecPluginLabel)
-	offRampReader = observability.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
+	onRampReader = observability2.NewObservedOnRampReader(onRampReader, srcChainID, ccip.ExecPluginLabel)
+	commitStoreReader = observability2.NewObservedCommitStoreReader(commitStoreReader, dstChainID, ccip.ExecPluginLabel)
+	offRampReader = observability2.NewObservedOffRampReader(offRampReader, dstChainID, ccip.ExecPluginLabel)
 
 	bhClient := beholder.GetClient().ForPackage("ccip-ocr2-exec")
 	metricsCollector, err := ccip.NewPluginMetricsCollector(ccip.ExecPluginLabel, bhClient, srcChainID, dstChainID, srcChain.Name, dstChain.Name)

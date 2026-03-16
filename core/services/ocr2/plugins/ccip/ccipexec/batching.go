@@ -18,10 +18,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
@@ -341,7 +341,7 @@ func getTokenDataWithTimeout(
 
 func getProofData(
 	ctx context.Context,
-	sourceReader ccipdata.OnRampReader,
+	sourceReader types2.OnRampReader,
 	interval cciptypes.CommitStoreInterval,
 ) (sendReqsInRoot []cciptypes.EVM2EVMMessageWithTxMeta, leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
 	// We don't need to double-check if logs are finalized because we already checked that in the Commit phase.
@@ -483,7 +483,7 @@ func buildExecutionReportForMessages(
 
 // Validates the given message observations do not exceed the committed sequence numbers
 // in the commitStoreReader.
-func validateSeqNumbers(serviceCtx context.Context, commitStore ccipdata.CommitStoreReader, observedMessages []ccip.ObservedMessage) error {
+func validateSeqNumbers(serviceCtx context.Context, commitStore types2.CommitStoreReader, observedMessages []ccip.ObservedMessage) error {
 	nextMin, err := commitStore.GetExpectedNextSequenceNumber(serviceCtx)
 	if err != nil {
 		return err
@@ -498,7 +498,7 @@ func validateSeqNumbers(serviceCtx context.Context, commitStore ccipdata.CommitS
 }
 
 // Gets the commit report from the saved logs for a given sequence number.
-func getCommitReportForSeqNum(ctx context.Context, commitStoreReader ccipdata.CommitStoreReader, seqNum uint64) (cciptypes.CommitStoreReport, error) {
+func getCommitReportForSeqNum(ctx context.Context, commitStoreReader types2.CommitStoreReader, seqNum uint64) (cciptypes.CommitStoreReport, error) {
 	acceptedReports, err := commitStoreReader.GetCommitReportMatchingSeqNum(ctx, seqNum, 0)
 	if err != nil {
 		return cciptypes.CommitStoreReport{}, err

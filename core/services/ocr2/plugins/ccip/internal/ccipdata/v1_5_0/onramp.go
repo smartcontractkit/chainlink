@@ -16,6 +16,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -49,7 +50,7 @@ func init() {
 	ConfigSetEventSig = abihelpers.MustGetEventID(ConfigSetEventName, onRampABI)
 }
 
-var _ ccipdata.OnRampReader = &OnRamp{}
+var _ types2.OnRampReader = &OnRamp{}
 
 type OnRamp struct {
 	onRamp                     *evm_2_evm_onramp.EVM2EVMOnRamp
