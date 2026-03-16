@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 )
 
 var _ cciptypes.CommitStoreReader = (*IncompleteSourceCommitStoreReader)(nil)
@@ -147,7 +145,7 @@ func NewIncompleteDestCommitStoreReader(
 	lp logpoller.LogPoller,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (*IncompleteDestCommitStoreReader, error) {
-	cs, err := ccip.NewCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
+	cs, err := export.NewCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
 	if err != nil {
 		return nil, err
 	}

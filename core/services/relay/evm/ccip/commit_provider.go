@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -183,7 +184,7 @@ func (p *DstCommitProvider) Close() error {
 		if p.seenCommitStoreAddress == nil {
 			return nil
 		}
-		return ccip.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp, p.feeEstimatorConfig)
+		return export.CloseCommitStoreReader(ctx, p.lggr, versionFinder, *p.seenCommitStoreAddress, p.client, p.lp, p.feeEstimatorConfig)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if p.seenOffRampAddress == nil {
