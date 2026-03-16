@@ -138,25 +138,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-func pendingQueueEnabled(don *cre.Don) bool {
-	os, ok := don.GetCapabilityConfig(flag)
-	if !ok {
-		return false
-	}
-	setting, ok := os.Values["EnableDeterministicPendingQueue"]
-
-	if !ok {
-		return false
-	}
-
-	enabled, ok := setting.(bool)
-	if !ok {
-		return false
-	}
-
-	return enabled
-}
-
 func (o *Vault) PostEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,

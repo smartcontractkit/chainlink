@@ -1261,6 +1261,70 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond, "channel 600 should be removed, 601 and 602 should still be present")
 	})
 
+	t.Run("owner drops tombstoned channels by omitting them from new definitions", func(t *testing.T) {
+		observedLogs.TakeAll()
+
+		// At this point channel 600 is tombstoned in the owner source definitions
+		// (set by the preceding "owner can remove channels explicitly" test).
+		// Owner now publishes definitions that omit channel 600 entirely,
+		// which should cause the tombstoned channel to be dropped from the merged result.
+		ownerDefsDropped := llotypes.ChannelDefinitions{
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		ownerDefsDroppedJSON, err := json.MarshalIndent(ownerDefsDropped, "", "  ")
+		require.NoError(t, err)
+		ownerDefsDroppedSHA := sha3.Sum256(ownerDefsDroppedJSON)
+
+		url := "http://example.com/owner-dropped-600.json"
+		rc := NewMockReadCloser(ownerDefsDroppedJSON)
+		client.SetResponseForURL(url, &http.Response{
+			StatusCode: 200,
+			Body:       rc,
+		}, nil)
+		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
+		backend.Commit()
+
+		testutils.WaitForLogMessageWithField(t, observedLogs, "Got new logs",
+			"url", url)
+
+		// Build a prev that contains the tombstoned channel 600 (simulating the
+		// previous observation round where 600 was still present as tombstoned).
+		prevWithTombstone := llotypes.ChannelDefinitions{
+			600: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 1, Aggregator: llotypes.AggregatorMedian},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: true,
+			},
+			601: {
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{StreamID: 2, Aggregator: llotypes.AggregatorMode},
+				},
+				Source:    channeldefinitions.SourceOwner,
+				Tombstone: false,
+			},
+		}
+
+		require.Eventually(t, func() bool {
+			defs := cdc.Definitions(prevWithTombstone)
+			_, has600 := defs[600]
+			_, has601 := defs[601]
+			return !has600 && has601
+		}, 5*time.Second, 100*time.Millisecond,
+			"tombstoned channel 600 should be dropped, channel 601 should remain")
+	})
+
 	t.Run("multiple adders can add different channels", func(t *testing.T) {
 		observedLogs.TakeAll()
 

@@ -276,7 +276,9 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}
 		switch tokenPoolCfg.PoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			// initialize token pool for token
 			poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
@@ -288,7 +290,9 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				configPDA,
 			).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			// initialize token pool for token
 			poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
 				poolConfigPDA,
@@ -300,7 +304,9 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 				configPDA,
 			).ValidateAndBuild()
 		case shared.CCTPTokenPool:
-			cctp_token_pool.SetProgramID(tokenPool)
+			runSafely(func() {
+				cctp_token_pool.SetProgramID(tokenPool)
+			})
 			// initialize token pool for token
 			poolInitI, err = cctp_token_pool.NewInitializeInstruction(
 				routerProgramAddress,
@@ -628,14 +634,20 @@ func InitGlobalConfigTokenPoolProgram(e cldf.Environment, cfg TokenPoolConfigWit
 		var initGlobalConfigIx solana.Instruction
 		switch tokenPoolCfg.PoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			initGlobalConfigIx, err = solBurnMintTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			initGlobalConfigIx, err = solLockReleaseTokenPool.NewInitGlobalConfigInstruction(routerProgramAddress, rmnRemoteAddress, configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 		case shared.CCTPTokenPool:
 			// CCTP token pool should not need separate global config initialization in normal use cases. Global config is initialized in the deployment changeset.
-			cctp_token_pool.SetProgramID(tokenPool)
+			runSafely(func() {
+				cctp_token_pool.SetProgramID(tokenPool)
+			})
 			initGlobalConfigIx, err = cctp_token_pool.NewInitGlobalConfigInstruction(configPDA, authority, solana.SystemProgramID, tokenPool, programData.Address).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
@@ -743,10 +755,14 @@ func modifySelfServedConfig(e cldf.Environment, cfg TokenPoolConfigWithMCM, enab
 		var initGlobalConfigIx solana.Instruction
 		switch tokenPoolConfig.PoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			initGlobalConfigIx, err = solBurnMintTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			initGlobalConfigIx, err = solLockReleaseTokenPool.NewUpdateSelfServedAllowedInstruction(enabled, configPDA, authority, tokenPool, programData.Address).ValidateAndBuild()
 		default:
 			return cldf.ChangesetOutput{}, fmt.Errorf("invalid token pool type: %w", err)
@@ -917,7 +933,9 @@ func ModifyMintAuthority(e cldf.Environment, cfg NewMintTokenPoolConfig) (cldf.C
 
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		solBurnMintTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(tokenPool)
+		})
 	case shared.LockReleaseTokenPool:
 		return cldf.ChangesetOutput{}, nil
 	default:
@@ -1035,7 +1053,9 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 		)
 		switch remoteTokenPoolConfig.SolPoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up bnm token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", remoteTokenPoolConfig.SolPoolType)
 				chainIxs, err := getInstructionsForBurnMint(e, chain, envState, solChainState, remoteTokenPoolConfig, evmChainSelector, evmRemoteConfig)
@@ -1055,7 +1075,9 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 			}
 
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up lnr token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String(), "pool_type", remoteTokenPoolConfig.SolPoolType)
 				chainIxs, err := getInstructionsForLockRelease(e, chain, envState, solChainState, remoteTokenPoolConfig, evmChainSelector, evmRemoteConfig)
@@ -1074,7 +1096,9 @@ func SetupTokenPoolForRemoteChain(e cldf.Environment, cfg SetupTokenPoolForRemot
 				}
 			}
 		case shared.CCTPTokenPool:
-			cctp_token_pool.SetProgramID(tokenPool)
+			runSafely(func() {
+				cctp_token_pool.SetProgramID(tokenPool)
+			})
 			for evmChainSelector, evmRemoteConfig := range remoteTokenPoolConfig.EVMRemoteConfigs {
 				e.Logger.Infow("Setting up CCTP token pool for remote chain", "remote_chain_selector", evmChainSelector, "token_pubkey", tokenPubKey.String())
 				chainIxs, err := getInstructionsForCCTP(e, chain, envState, solChainState, remoteTokenPoolConfig, evmChainSelector, evmRemoteConfig)
@@ -1949,7 +1973,9 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-		solBurnMintTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(tokenPool)
+		})
 		ix, err = solBurnMintTokenPool.NewConfigureAllowListInstruction(
 			cfg.Accounts,
 			cfg.Enabled,
@@ -1963,7 +1989,9 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 		}
 	case shared.LockReleaseTokenPool:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-		solLockReleaseTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solLockReleaseTokenPool.SetProgramID(tokenPool)
+		})
 		ix, err = solLockReleaseTokenPool.NewConfigureAllowListInstruction(
 			cfg.Accounts,
 			cfg.Enabled,
@@ -1976,7 +2004,9 @@ func ConfigureTokenPoolAllowList(e cldf.Environment, cfg ConfigureTokenPoolAllow
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.CCTPTokenPool:
-		cctp_token_pool.SetProgramID(tokenPool)
+		runSafely(func() {
+			cctp_token_pool.SetProgramID(tokenPool)
+		})
 		ix, err = cctp_token_pool.NewConfigureAllowListInstruction(
 			cfg.Accounts,
 			cfg.Enabled,
@@ -2074,7 +2104,9 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-		solBurnMintTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(tokenPool)
+		})
 		ix, err = solBurnMintTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
@@ -2087,7 +2119,9 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 		}
 	case shared.LockReleaseTokenPool:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-		solLockReleaseTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solLockReleaseTokenPool.SetProgramID(tokenPool)
+		})
 		ix, err = solLockReleaseTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
@@ -2099,7 +2133,9 @@ func RemoveFromTokenPoolAllowList(e cldf.Environment, cfg RemoveFromAllowListCon
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case shared.CCTPTokenPool:
-		cctp_token_pool.SetProgramID(tokenPool)
+		runSafely(func() {
+			cctp_token_pool.SetProgramID(tokenPool)
+		})
 		ix, err = cctp_token_pool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
@@ -2192,7 +2228,9 @@ func LockReleaseLiquidityOps(e cldf.Environment, cfg LockReleaseLiquidityOpsConf
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.SolChainSelector]
 	tokenPool := chainState.GetActiveTokenPool(shared.LockReleaseTokenPool, cfg.Metadata)
-	solLockReleaseTokenPool.SetProgramID(tokenPool)
+	runSafely(func() {
+		solLockReleaseTokenPool.SetProgramID(tokenPool)
+	})
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolUsingMcms := solanastateview.IsSolanaProgramOwnedByTimelock(
@@ -2438,7 +2476,9 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 
 	switch cfg.PoolType {
 	case shared.BurnMintTokenPool:
-		solBurnMintTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(tokenPool)
+		})
 		if cfg.DeleteChainCfg != nil {
 			ix, err = solBurnMintTokenPool.NewDeleteChainConfigInstruction(
 				cfg.DeleteChainCfg.RemoteChainSelector,
@@ -2467,7 +2507,9 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			ixns = append(ixns, ix)
 		}
 	case shared.LockReleaseTokenPool:
-		solLockReleaseTokenPool.SetProgramID(tokenPool)
+		runSafely(func() {
+			solLockReleaseTokenPool.SetProgramID(tokenPool)
+		})
 		if cfg.DeleteChainCfg != nil {
 			ix, err = solLockReleaseTokenPool.NewDeleteChainConfigInstruction(
 				cfg.DeleteChainCfg.RemoteChainSelector,
@@ -2496,7 +2538,9 @@ func TokenPoolOps(e cldf.Environment, cfg TokenPoolOpsCfg) (cldf.ChangesetOutput
 			ixns = append(ixns, ix)
 		}
 	case shared.CCTPTokenPool:
-		cctp_token_pool.SetProgramID(tokenPool)
+		runSafely(func() {
+			cctp_token_pool.SetProgramID(tokenPool)
+		})
 		if cfg.DeleteChainCfg != nil {
 			ix, err = cctp_token_pool.NewDeleteChainConfigInstruction(
 				cfg.DeleteChainCfg.RemoteChainSelector,
@@ -2574,12 +2618,16 @@ func InitializeStateVersion(e cldf.Environment, cfg TokenPoolConfigWithMCM) (cld
 		var initializeStateVersionIx solana.Instruction
 		switch tokenPoolConfig.PoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			initializeStateVersionIx, err = solBurnMintTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
 				poolConfig).ValidateAndBuild()
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			initializeStateVersionIx, err = solLockReleaseTokenPool.NewInitializeStateVersionInstruction(
 				tokenPubKey,
 				poolConfig).ValidateAndBuild()
@@ -2713,7 +2761,9 @@ func SyncDomain(e cldf.Environment, cfg SyncDomainConfig) (cldf.ChangesetOutput,
 	}
 
 	var txns []mcmsTypes.Transaction
-	cctp_token_pool.SetProgramID(cctpTokenPool)
+	runSafely(func() {
+		cctp_token_pool.SetProgramID(cctpTokenPool)
+	})
 	for remoteChainSel, cctpConfig := range cfg.CCTPChainConfigMap {
 		e.Logger.Infow("Setting up USDC token pool CCTP config for remote chain", "remote_chain_selector", remoteChainSel, "domain", cctpConfig.Domain, "destination_caller", cctpConfig.DestinationCaller.String())
 
@@ -2998,7 +3048,9 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 		)
 		switch rateLimitAdminConfig.PoolType {
 		case shared.BurnMintTokenPool:
-			solBurnMintTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solBurnMintTokenPool.SetProgramID(tokenPool)
+			})
 			ix, err = solBurnMintTokenPool.NewSetRateLimitAdminInstruction(
 				tokenPubKey,
 				rateLimitAdminConfig.NewRateLimitAdmin,
@@ -3009,7 +3061,9 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 		case shared.LockReleaseTokenPool:
-			solLockReleaseTokenPool.SetProgramID(tokenPool)
+			runSafely(func() {
+				solLockReleaseTokenPool.SetProgramID(tokenPool)
+			})
 			ix, err = solLockReleaseTokenPool.NewSetRateLimitAdminInstruction(
 				tokenPubKey,
 				rateLimitAdminConfig.NewRateLimitAdmin,
@@ -3020,7 +3074,9 @@ func SetRateLimitAdmin(e cldf.Environment, cfg SetRateLimitAdminConfig) (cldf.Ch
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
 		case shared.CCTPTokenPool:
-			cctp_token_pool.SetProgramID(tokenPool)
+			runSafely(func() {
+				cctp_token_pool.SetProgramID(tokenPool)
+			})
 			ix, err = cctp_token_pool.NewSetRateLimitAdminInstruction(
 				tokenPubKey,
 				rateLimitAdminConfig.NewRateLimitAdmin,

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -36,9 +38,16 @@ const (
 	// Error messages
 	ErrTransformingMessageToRequest = "error transforming message to request"
 	ErrDecodingPayload              = "error decoding payload"
+
+	handlerName = "WebAPIHandler"
+
+	defaultCallbackMaxAgeSec        = 120   // 2 minutes
+	defaultMaxSavedCallbacks        = 20000 // could briefly exceed under heavy load
+	defaultCallbackPruneIntervalSec = 30
 )
 
 type handler struct {
+	services.StateMachine
 	config          HandlerConfig
 	don             handlers.DON
 	donConfig       *config.DONConfig
@@ -48,16 +57,22 @@ type handler struct {
 	httpClient      network.HTTPClient
 	nodeRateLimiter *ratelimit.RateLimiter
 	wg              sync.WaitGroup
+	stopCh          services.StopChan
 	metrics         *metrics
 }
 
 type HandlerConfig struct {
 	NodeRateLimiter         ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 	MaxAllowedMessageAgeSec uint                        `json:"maxAllowedMessageAgeSec"`
+
+	CallbackMaxAgeSec        int `json:"callbackMaxAgeSec"`
+	MaxSavedCallbacks        int `json:"maxSavedCallbacks"`
+	CallbackPruneIntervalSec int `json:"callbackPruneIntervalSec"`
 }
 
 type savedCallback struct {
-	id string
+	id        string
+	createdAt time.Time
 	handlers.Callback
 }
 
@@ -69,6 +84,16 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 	if err != nil {
 		return nil, err
 	}
+	if cfg.CallbackMaxAgeSec == 0 {
+		cfg.CallbackMaxAgeSec = defaultCallbackMaxAgeSec
+	}
+	if cfg.MaxSavedCallbacks == 0 {
+		cfg.MaxSavedCallbacks = defaultMaxSavedCallbacks
+	}
+	if cfg.CallbackPruneIntervalSec == 0 {
+		cfg.CallbackPruneIntervalSec = defaultCallbackPruneIntervalSec
+	}
+
 	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
 		return nil, err
@@ -86,8 +111,8 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonId),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
-		wg:              sync.WaitGroup{},
 		savedCallbacks:  make(map[string]*savedCallback),
+		stopCh:          make(services.StopChan),
 		metrics:         metrics,
 	}, nil
 }
@@ -245,23 +270,78 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 }
 
 func (h *handler) Start(context.Context) error {
-	return nil
+	return h.StartOnce(handlerName, func() error {
+		h.wg.Go(func() {
+			ticker := time.NewTicker(time.Duration(h.config.CallbackPruneIntervalSec) * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					h.pruneCallbacks()
+				case <-h.stopCh:
+					return
+				}
+			}
+		})
+		return nil
+	})
 }
 
 func (h *handler) Close() error {
-	h.wg.Wait()
-	return nil
+	return h.StopOnce(handlerName, func() error {
+		close(h.stopCh)
+		h.wg.Wait()
+		return nil
+	})
 }
 
 func (h *handler) HandleJSONRPCUserMessage(_ context.Context, _ jsonrpc.Request[json.RawMessage], _ handlers.Callback) error {
 	return errors.New("capabilities handler does not support JSON-RPC user messages")
 }
 
-func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
+func (h *handler) pruneCallbacks() {
 	h.mu.Lock()
-	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{msg.Body.MessageId, callback}
-	don := h.don
-	h.mu.Unlock()
+	defer h.mu.Unlock()
+
+	// First, remove expired callbacks.
+	maxAge := time.Duration(h.config.CallbackMaxAgeSec) * time.Second
+	now := time.Now()
+	var expired int
+	for id, cb := range h.savedCallbacks {
+		if now.Sub(cb.createdAt) > maxAge {
+			delete(h.savedCallbacks, id)
+			expired++
+		}
+	}
+
+	// If there are still too many callbacks, sort them by creation time and remove the oldest ones.
+	maxSize := h.config.MaxSavedCallbacks
+	var evicted int
+	if len(h.savedCallbacks) > maxSize {
+		type entry struct {
+			id        string
+			createdAt time.Time
+		}
+		entries := make([]entry, 0, len(h.savedCallbacks))
+		for id, cb := range h.savedCallbacks {
+			entries = append(entries, entry{id, cb.createdAt})
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].createdAt.Before(entries[j].createdAt)
+		})
+		// Trim to maxSize/2 to avoid sorting the list too frequently.
+		for _, e := range entries[:len(entries)-maxSize/2] {
+			delete(h.savedCallbacks, e.id)
+			evicted++
+		}
+	}
+
+	if expired > 0 || evicted > 0 {
+		h.lggr.Infow("Pruned savedCallbacks", "expired", expired, "evicted", evicted, "remaining", len(h.savedCallbacks))
+	}
+}
+
+func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	body := msg.Body
 	var payload webapicap.TriggerRequestPayload
 	codec := api.JsonRPCCodec{}
@@ -330,6 +410,12 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 			ErrorCode: api.UserMessageParseError,
 		})
 	}
+
+	h.mu.Lock()
+	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{id: msg.Body.MessageId, createdAt: time.Now(), Callback: callback}
+	don := h.don
+	h.mu.Unlock()
+
 	// Send original request to all nodes
 	for _, member := range h.donConfig.Members {
 		err = errors.Join(err, don.SendToNode(ctx, member.Address, req))

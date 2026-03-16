@@ -1216,6 +1216,8 @@ type NodeSet struct {
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
 
+	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
+	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
