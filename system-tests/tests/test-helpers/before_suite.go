@@ -1,13 +1,11 @@
 package helpers
 
 import (
-	"bufio"
 	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -19,7 +17,6 @@ import (
 
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -142,10 +139,6 @@ func recreateEnvironmentIfIncompatible(ctx context.Context, relativePathToRepoRo
 		Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).
 		Msg("Saved local CRE state is incompatible with requested test config, recreating environment")
 
-	if err := hydrateRecreatedEnvironmentImageEnv(ctx, relativePathToRepoRoot); err != nil {
-		framework.L.Warn().Err(err).Msg("failed to hydrate recreated environment image env vars from running containers")
-	}
-
 	stopCmd := exec.CommandContext(ctx, "go", "run", ".", "env", "stop")
 	stopCmd.Dir = environmentDir
 	stopCmd.Stdout = os.Stdout
@@ -178,133 +171,6 @@ func startEnvironment(ctx context.Context, environmentDir string, flags ...strin
 	}
 
 	return nil
-}
-
-func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepoRoot string) error {
-	current, err := loadSavedLocalCREConfig(relativePathToRepoRoot)
-	if err != nil {
-		return err
-	}
-
-	containers, err := runningContainers(ctx)
-	if err != nil {
-		return err
-	}
-
-	hydrateRecreatedEnvironmentImageEnvFromContainers(containers)
-	hydrateRecreatedEnvironmentImageEnvFromConfig(current)
-
-	return nil
-}
-
-func loadSavedLocalCREConfig(relativePathToRepoRoot string) (*envconfig.Config, error) {
-	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
-		return nil, nil
-	}
-
-	current := &envconfig.Config{}
-	if err := current.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
-		return nil, errors.Wrap(err, "failed to load saved local CRE state while hydrating image env vars")
-	}
-
-	return current, nil
-}
-
-func hydrateRecreatedEnvironmentImageEnvFromContainers(containers []runningContainer) {
-	setEnvIfMissing("CTF_JD_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.HasPrefix(name, "job-distributor") || strings.HasPrefix(name, "jd-")
-	}))
-	setEnvIfMissing("CTF_CHAINLINK_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.HasPrefix(name, "workflow-node") ||
-			strings.HasPrefix(name, "capabilities-node") ||
-			strings.HasPrefix(name, "bootstrap-gateway")
-	}))
-	setEnvIfMissing("CHIP_INGRESS_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.Contains(name, "chip-ingress")
-	}))
-	setEnvIfMissing("BILLING_PLATFORM_SERVICE_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.Contains(name, "billing-platform-service")
-	}))
-}
-
-func hydrateRecreatedEnvironmentImageEnvFromConfig(current *envconfig.Config) {
-	if current == nil {
-		return
-	}
-	if current.JD != nil {
-		setEnvIfMissing("CTF_JD_IMAGE", current.JD.Image)
-	}
-	setEnvIfMissing("CTF_CHAINLINK_IMAGE", firstConfiguredNodeImage(current.NodeSets))
-}
-
-type runningContainer struct {
-	Image string
-	Name  string
-}
-
-func runningContainers(ctx context.Context) ([]runningContainer, error) {
-	cmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{.Image}}\t{{.Names}}")
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to list running docker containers")
-	}
-	return parseRunningContainers(string(out)), nil
-}
-
-func parseRunningContainers(output string) []runningContainer {
-	var containers []runningContainer
-	scanner := bufio.NewScanner(strings.NewReader(output))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		parts := strings.SplitN(line, "\t", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		containers = append(containers, runningContainer{
-			Image: strings.TrimSpace(parts[0]),
-			Name:  strings.TrimSpace(parts[1]),
-		})
-	}
-	return containers
-}
-
-func firstMatchingContainerImage(containers []runningContainer, match func(name string) bool) string {
-	for _, container := range containers {
-		if container.Image == "" || container.Name == "" {
-			continue
-		}
-		if match(container.Name) {
-			return container.Image
-		}
-	}
-	return ""
-}
-
-func firstConfiguredNodeImage(nodeSets []*cre.NodeSet) string {
-	for _, nodeSet := range nodeSets {
-		if nodeSet == nil {
-			continue
-		}
-		for _, nodeSpec := range nodeSet.NodeSpecs {
-			if nodeSpec == nil || nodeSpec.Input == nil || nodeSpec.Node == nil {
-				continue
-			}
-			if nodeSpec.Node.Image != "" {
-				return nodeSpec.Node.Image
-			}
-		}
-	}
-	return ""
-}
-
-func setEnvIfMissing(key, value string) {
-	if value == "" || os.Getenv(key) != "" {
-		return
-	}
-	_ = os.Setenv(key, value)
 }
 
 func localEnvironmentSatisfiesRequestedConfig(relativePathToRepoRoot, requestedConfigPath string) (bool, error) {
