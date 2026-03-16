@@ -34,17 +34,23 @@ func (p *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReade
 }
 
 // Observation reads from the buffer (filled by OCRQueue.Put) and produces an observation.
-// Draft: returns minimal observation (event IDs as JSON); full impl would BroadcastBlob for payloads.
+// Draft: returns minimal observation (event IDs and Lamport as JSON); full impl would BroadcastBlob for payloads.
 func (p *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
 	events := p.buffer.TakeForObservation()
 	if len(events) == 0 {
 		return []byte("[]"), nil
 	}
-	ids := make([]string, len(events))
-	for i, ev := range events {
-		ids[i] = ev.Event().Event.ID
+	obs := make([]struct {
+		ID     string `json:"id"`
+		Lamport uint64 `json:"lamport"`
+	}, len(events))
+	for i, be := range events {
+		obs[i] = struct {
+			ID     string `json:"id"`
+			Lamport uint64 `json:"lamport"`
+		}{ID: be.ID(), Lamport: be.Lamport()}
 	}
-	return json.Marshal(ids)
+	return json.Marshal(obs)
 }
 
 func (p *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {

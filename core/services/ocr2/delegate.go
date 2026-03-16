@@ -352,7 +352,8 @@ func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueD
 	if err != nil {
 		return nil, err
 	}
-	buffer := &v2.ObservationBuffer{}
+	lamport := &v2.LamportCounter{}
+	buffer := v2.NewObservationBuffer(lamport)
 
 	// Build OCR3_1OracleArgs for the trigger queue. TODO: wire all fields and call libocr2.NewOracle.
 	ocrLogger := ocrcommon.NewOCRWrapper(d.lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
