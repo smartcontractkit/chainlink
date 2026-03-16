@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cciporm "github.com/smartcontractkit/chainlink/v2/core/services/ccip"
 	ccipmocks "github.com/smartcontractkit/chainlink/v2/core/services/ccip/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
@@ -253,7 +252,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 			if tc.maxGasPrice > 0 {
 				gasPriceEstimator.On("GetGasPrice", mock.Anything).Return(tc.feeEstimatorRespFee, tc.feeEstimatorRespErr)
 				if tc.feeEstimatorRespFee != nil {
-					pUSD := ccipcalc.CalculateUsdPerUnitGas(tc.feeEstimatorRespFee, tc.priceGetterRespData[sourceNativeTokenID])
+					pUSD := ccipcalc2.CalculateUsdPerUnitGas(tc.feeEstimatorRespFee, tc.priceGetterRespData[sourceNativeTokenID])
 					gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything, mock.Anything).Return(pUSD, nil)
 				}
 			}
@@ -819,7 +818,7 @@ func TestPriceService_priceWriteInBackground(t *testing.T) {
 	}, nil)
 
 	gasPriceEstimator.On("GetGasPrice", mock.Anything).Return(gasPrice, nil)
-	pUSD := ccipcalc.CalculateUsdPerUnitGas(gasPrice, val1e18(tokenPrices[0]))
+	pUSD := ccipcalc2.CalculateUsdPerUnitGas(gasPrice, val1e18(tokenPrices[0]))
 	gasPriceEstimator.On("DenoteInUSD", mock.Anything, mock.Anything, mock.Anything).Return(pUSD, nil)
 
 	destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)

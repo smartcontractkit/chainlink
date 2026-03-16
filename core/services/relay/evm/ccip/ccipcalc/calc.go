@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"sort"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (
