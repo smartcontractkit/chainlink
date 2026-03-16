@@ -38,20 +38,20 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260316101208-c0c1db183e10
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260316123207-902ab60ce37b
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260311190822-5cbfc939dd16
 	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260311190822-5cbfc939dd16
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260224214816-cb23ec38649f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260311190822-5cbfc939dd16
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260316101054-374a0d2dbb4a
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260316121452-2a70a37fcb21
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260312040800-ae9a90cffec3
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260315075612-521c1d565f4a
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260316115110-5ec1a23c833c
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0

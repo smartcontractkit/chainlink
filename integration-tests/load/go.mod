@@ -28,11 +28,11 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260316101208-c0c1db183e10
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260316123207-902ab60ce37b
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260311190822-5cbfc939dd16
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260310183131-8d0f0e383288
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260316101054-374a0d2dbb4a
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260316121452-2a70a37fcb21
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260312040800-ae9a90cffec3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
@@ -498,7 +498,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260315075612-521c1d565f4a // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260316115110-5ec1a23c833c // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260211172625-dff40e83b3c9 // indirect
