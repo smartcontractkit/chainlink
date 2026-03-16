@@ -65,7 +65,7 @@ func NewSrcCommitProvider(
 
 type DstCommitProvider struct {
 	lggr                logger.Logger
-	versionFinder       ccip.VersionFinder
+	versionFinder       versionfinder.VersionFinder
 	startBlock          uint64
 	client              client.Client
 	lp                  logpoller.LogPoller
@@ -82,7 +82,7 @@ type DstCommitProvider struct {
 
 func NewDstCommitProvider(
 	lggr logger.Logger,
-	versionFinder ccip.VersionFinder,
+	versionFinder versionfinder.VersionFinder,
 	startBlock uint64,
 	client client.Client,
 	lp logpoller.LogPoller,

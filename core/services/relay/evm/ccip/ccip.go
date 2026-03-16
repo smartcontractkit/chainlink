@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -139,7 +140,7 @@ type IncompleteDestCommitStoreReader struct {
 func NewIncompleteDestCommitStoreReader(
 	ctx context.Context,
 	lggr logger.Logger,
-	versionFinder ccip.VersionFinder,
+	versionFinder versionfinder.VersionFinder,
 	address cciptypes.Address,
 	ec client.Client,
 	lp logpoller.LogPoller,

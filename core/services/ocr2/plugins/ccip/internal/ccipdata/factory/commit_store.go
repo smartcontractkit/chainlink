@@ -9,6 +9,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -17,16 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
 
-func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.CommitStoreReader, error) {
+func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.CommitStoreReader, error) {
 	return initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig, false)
 }
 
-func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
+func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
 	_, err := initOrCloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig, true)
 	return err
 }
 
-func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader, closeReader bool) (ccipdata.CommitStoreReader, error) {
+func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address cciptypes.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader, closeReader bool) (ccipdata.CommitStoreReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(address, ec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")

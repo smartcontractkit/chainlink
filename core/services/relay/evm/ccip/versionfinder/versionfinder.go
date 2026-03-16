@@ -22,3 +22,9 @@ func (e EvmVersionFinder) TypeAndVersion(addr ccip.Address, client bind.Contract
 	}
 	return version.TypeAndVersion(evmAddr, client)
 }
+
+// VersionFinder accepts a contract address and a client and performs an on-chain call to
+// determine the contract type.
+type VersionFinder interface {
+	TypeAndVersion(addr ccip.Address, client bind.ContractBackend) (version.ContractType, semver.Version, error)
+}

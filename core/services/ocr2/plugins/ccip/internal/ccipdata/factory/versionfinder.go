@@ -8,12 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 )
 
-// VersionFinder accepts a contract address and a client and performs an on-chain call to
-// determine the contract type.
-type VersionFinder interface {
-	TypeAndVersion(addr cciptypes.Address, client bind.ContractBackend) (version.ContractType, semver.Version, error)
-}
-
 type mockVersionFinder struct {
 	typ     version.ContractType
 	version semver.Version

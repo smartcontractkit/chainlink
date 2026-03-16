@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -44,29 +45,27 @@ func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.L
 	return ccipdataprovider.NewEvmPriceRegistry(lp, ec, lggr, pluginLabel)
 }
 
-type VersionFinder = factory.VersionFinder
-
-func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.CommitStoreReader, error) {
+func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.CommitStoreReader, error) {
 	return factory.NewCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
 }
 
-func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
+func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
 	return factory.CloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
 }
 
-func NewOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.OffRampReader, error) {
+func NewOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (ccipdata.OffRampReader, error) {
 	return factory.NewOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, registerFilters, feeEstimatorConfig)
 }
 
-func CloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
+func CloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
 	return factory.CloseOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 }
 
-func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
+func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
 	return factory.NewOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 }
 
-func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) error {
+func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) error {
 	return factory.CloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
 }
 

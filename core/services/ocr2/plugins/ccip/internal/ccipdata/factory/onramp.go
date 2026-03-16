@@ -9,6 +9,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -18,16 +19,16 @@ import (
 )
 
 // NewOnRampReader determines the appropriate version of the onramp and returns a reader for it
-func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
+func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {
 	return initOrCloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, false)
 }
 
-func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) error {
+func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client) error {
 	_, err := initOrCloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source, true)
 	return err
 }
 
-func initOrCloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client, closeReader bool) (ccipdata.OnRampReader, error) {
+func initOrCloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress cciptypes.Address, sourceLP logpoller.LogPoller, source client.Client, closeReader bool) (ccipdata.OnRampReader, error) {
 	contractType, version, err := versionFinder.TypeAndVersion(onRampAddress, source)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to read type and version")

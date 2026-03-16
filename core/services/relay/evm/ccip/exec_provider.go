@@ -33,7 +33,7 @@ import (
 
 type SrcExecProvider struct {
 	lggr          logger.Logger
-	versionFinder ccip.VersionFinder
+	versionFinder versionfinder.VersionFinder
 	client        client.Client
 	lp            logpoller.LogPoller
 	startBlock    uint64
@@ -56,7 +56,7 @@ type SrcExecProvider struct {
 func NewSrcExecProvider(
 	ctx context.Context,
 	lggr logger.Logger,
-	versionFinder ccip.VersionFinder,
+	versionFinder versionfinder.VersionFinder,
 	client client.Client,
 	estimator gas.EvmFeeEstimator,
 	maxGasPrice *big.Int,
@@ -258,7 +258,7 @@ func (s *SrcExecProvider) SourceNativeToken(ctx context.Context, sourceRouterAdd
 
 type DstExecProvider struct {
 	lggr                logger.Logger
-	versionFinder       ccip.VersionFinder
+	versionFinder       versionfinder.VersionFinder
 	client              client.Client
 	lp                  logpoller.LogPoller
 	startBlock          uint64
@@ -276,7 +276,7 @@ type DstExecProvider struct {
 
 func NewDstExecProvider(
 	lggr logger.Logger,
-	versionFinder ccip.VersionFinder,
+	versionFinder versionfinder.VersionFinder,
 	client client.Client,
 	lp logpoller.LogPoller,
 	startBlock uint64,
