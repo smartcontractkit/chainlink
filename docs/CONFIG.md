@@ -1535,31 +1535,34 @@ CacheDir = '' # Default
 ```toml
 Enabled = true # Default
 ```
-Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
+Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
+are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
 
 ### IdleEviction
 ```toml
 IdleEviction = true # Default
 ```
-IdleEviction enables time-based eviction of modules that have been unused for longer than IdleTimeout.
+IdleEviction enables time-based eviction of modules unused for IdleTimeout.
 
 ### IdleTimeout
 ```toml
 IdleTimeout = '10m' # Default
 ```
-IdleTimeout is how long a module can remain idle before being evicted from memory. Only applies when IdleEviction is true.
+IdleTimeout is how long a module can remain idle before being evicted from memory.
+Only applies when IdleEviction = true.
 
 ### MaxLoaded
 ```toml
 MaxLoaded = 200 # Default
 ```
-MaxLoaded caps the number of simultaneously loaded modules. When exceeded the least-recently-used module is evicted immediately. 0 means no cap.
+MaxLoaded caps the number of simultaneously loaded modules. When exceeded the least-recently-used
+module is evicted immediately. 0 means no cap.
 
 ### CacheDir
 ```toml
 CacheDir = '' # Default
 ```
-CacheDir is the directory for serialised module binaries. When empty, a temporary directory is used.
+CacheDir is the directory for serialised module binaries. Empty uses a temp directory.
 
 ## Workflows
 ```toml

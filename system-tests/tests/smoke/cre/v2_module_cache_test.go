@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -89,7 +90,7 @@ func assertNodeLogs(t *testing.T, testEnv *ttypes.TestEnvironment, needle string
 			if name == "" {
 				continue
 			}
-			out, err := exec.Command("docker", "logs", name).CombinedOutput()
+			out, err := exec.CommandContext(t.Context(), "docker", "logs", name).CombinedOutput()
 			if err != nil {
 				framework.L.Warn().Str("container", name).Err(err).Msg("could not read docker logs")
 				continue
