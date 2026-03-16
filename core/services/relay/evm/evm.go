@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
+	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -93,57 +94,6 @@ func init() {
 }
 
 var _ commontypes.Relayer = &Relayer{}
-
-// The current PluginProvider interface does not support an error return. This was fine up until CCIP.
-// CCIP is the first product to introduce the idea of incomplete implementations of a provider based on
-// what chain (for CCIP, src or dest) the provider is created for. The Unimplemented* implementations below allow us to return
-// a non nil value, which is hopefully a better developer experience should you find yourself using the right methods
-// but on the *wrong* provider.
-
-// [UnimplementedOffchainConfigDigester] satisfies the OCR OffchainConfigDigester interface
-type UnimplementedOffchainConfigDigester struct{}
-
-func (e UnimplementedOffchainConfigDigester) ConfigDigest(ctx context.Context, config ocrtypes.ContractConfig) (ocrtypes.ConfigDigest, error) {
-	return ocrtypes.ConfigDigest{}, errors.New("unimplemented for this relayer")
-}
-
-func (e UnimplementedOffchainConfigDigester) ConfigDigestPrefix(ctx context.Context) (ocrtypes.ConfigDigestPrefix, error) {
-	return 0, errors.New("unimplemented for this relayer")
-}
-
-// [UnimplementedContractConfigTracker] satisfies the OCR ContractConfigTracker interface
-type UnimplementedContractConfigTracker struct{}
-
-func (u UnimplementedContractConfigTracker) Notify() <-chan struct{} {
-	return nil
-}
-
-func (u UnimplementedContractConfigTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	return 0, ocrtypes.ConfigDigest{}, errors.New("unimplemented for this relayer")
-}
-
-func (u UnimplementedContractConfigTracker) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	return ocrtypes.ContractConfig{}, errors.New("unimplemented for this relayer")
-}
-
-func (u UnimplementedContractConfigTracker) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	return 0, errors.New("unimplemented for this relayer")
-}
-
-// [UnimplementedContractTransmitter] satisfies the OCR ContractTransmitter interface
-type UnimplementedContractTransmitter struct{}
-
-func (u UnimplementedContractTransmitter) Transmit(context.Context, ocrtypes.ReportContext, ocrtypes.Report, []ocrtypes.AttributedOnchainSignature) error {
-	return errors.New("unimplemented for this relayer")
-}
-
-func (u UnimplementedContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Account, error) {
-	return "", errors.New("unimplemented for this relayer")
-}
-
-func (u UnimplementedContractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, err error) {
-	return ocrtypes.ConfigDigest{}, 0, errors.New("unimplemented for this relayer")
-}
 
 var _ commontypes.EVMService = (*Relayer)(nil)
 
@@ -574,7 +524,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
 	// bail early.
 	if commitPluginConfig.IsSourceProvider {
-		return NewSrcCommitProvider(
+		return ccip2.NewSrcCommitProvider(
 			lggr,
 			sourceStartBlock,
 			r.chain.Client(),
@@ -608,7 +558,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		return nil, err
 	}
 
-	return NewDstCommitProvider(
+	return ccip2.NewDstCommitProvider(
 		lggr,
 		versionFinder,
 		destStartBlock,
@@ -655,7 +605,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	// The src chain implementation of this provider does not need a configWatcher or contractTransmitter;
 	// bail early.
 	if execPluginConfig.IsSourceProvider {
-		return NewSrcExecProvider(
+		return ccip2.NewSrcExecProvider(
 			ctx,
 			lggr,
 			versionFinder,
@@ -702,7 +652,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		return nil, err
 	}
 
-	return NewDstExecProvider(
+	return ccip2.NewDstExecProvider(
 		lggr,
 		versionFinder,
 		r.chain.Client(),

@@ -1,4 +1,4 @@
-package evm
+package ccip
 
 import (
 	"context"
@@ -69,7 +69,7 @@ type DstCommitProvider struct {
 	client              client.Client
 	lp                  logpoller.LogPoller
 	contractTransmitter transmitter.ContractTransmitter
-	configWatcher       *configWatcher
+	configWatcher       commontypes.ConfigProvider
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
 	feeEstimatorConfig  estimatorconfig.FeeEstimatorConfigProvider
@@ -88,7 +88,7 @@ func NewDstCommitProvider(
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
 	contractTransmitter transmitter.ContractTransmitter,
-	configWatcher *configWatcher,
+	configWatcher commontypes.ConfigProvider,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) commontypes.CCIPCommitProvider {
 	return &DstCommitProvider{

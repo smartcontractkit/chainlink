@@ -1,4 +1,4 @@
-package evm
+package ccip
 
 import (
 	"context"
@@ -262,7 +262,7 @@ type DstExecProvider struct {
 	lp                  logpoller.LogPoller
 	startBlock          uint64
 	contractTransmitter transmitter.ContractTransmitter
-	configWatcher       *configWatcher
+	configWatcher       commontypes.ConfigProvider
 	gasEstimator        gas.EvmFeeEstimator
 	maxGasPrice         big.Int
 	feeEstimatorConfig  estimatorconfig.FeeEstimatorConfigProvider
@@ -280,7 +280,7 @@ func NewDstExecProvider(
 	lp logpoller.LogPoller,
 	startBlock uint64,
 	contractTransmitter transmitter.ContractTransmitter,
-	configWatcher *configWatcher,
+	configWatcher commontypes.ConfigProvider,
 	gasEstimator gas.EvmFeeEstimator,
 	maxGasPrice big.Int,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
