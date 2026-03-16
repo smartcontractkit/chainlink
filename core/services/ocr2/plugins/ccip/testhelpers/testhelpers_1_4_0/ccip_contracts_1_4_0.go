@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -46,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
@@ -83,7 +83,7 @@ var (
 
 type MessageExecutionState cciptypes.MessageExecutionState
 type CommitOffchainConfig struct {
-	v1_2_0.JSONCommitOffchainConfig
+	commitstore.JSONCommitOffchainConfig
 }
 
 func (c CommitOffchainConfig) Encode() ([]byte, error) {
@@ -99,7 +99,7 @@ func NewCommitOffchainConfig(
 	inflightCacheExpiry config.Duration,
 	priceReportingDisabled bool,
 ) CommitOffchainConfig {
-	return CommitOffchainConfig{v1_2_0.JSONCommitOffchainConfig{
+	return CommitOffchainConfig{commitstore.JSONCommitOffchainConfig{
 		GasPriceHeartBeat:        gasPriceHeartBeat,
 		DAGasPriceDeviationPPB:   daGasPriceDeviationPPB,
 		ExecGasPriceDeviationPPB: execGasPriceDeviationPPB,
@@ -111,13 +111,13 @@ func NewCommitOffchainConfig(
 }
 
 type CommitOnchainConfig struct {
-	ccipdata.CommitOnchainConfig
+	commitstore.CommitOnchainConfig
 }
 
 func NewCommitOnchainConfig(
 	priceRegistry common.Address,
 ) CommitOnchainConfig {
-	return CommitOnchainConfig{ccipdata.CommitOnchainConfig{
+	return CommitOnchainConfig{commitstore.CommitOnchainConfig{
 		PriceRegistry: priceRegistry,
 	}}
 }

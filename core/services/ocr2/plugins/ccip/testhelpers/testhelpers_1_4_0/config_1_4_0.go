@@ -11,8 +11,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
@@ -20,7 +20,7 @@ import (
 var PermissionLessExecutionThresholdSeconds = uint32(testhelpers.FirstBlockAge.Seconds())
 
 func (c *CCIPContracts) CreateDefaultCommitOnchainConfig(t *testing.T) []byte {
-	config, err := abihelpers.EncodeAbiStruct(ccipdata.CommitOnchainConfig{
+	config, err := abihelpers.EncodeAbiStruct(commitstore.CommitOnchainConfig{
 		PriceRegistry: c.Dest.PriceRegistry.Address(),
 	})
 	require.NoError(t, err)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -64,7 +65,7 @@ func TestCommitReportEncoding(t *testing.T) {
 
 func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 	t.Parallel()
-	validConfig := JSONCommitOffchainConfig{
+	validConfig := commitstore.JSONCommitOffchainConfig{
 		SourceFinalityDepth:      3,
 		DestFinalityDepth:        4,
 		GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Minute),
@@ -79,7 +80,7 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		want       JSONCommitOffchainConfig
+		want       commitstore.JSONCommitOffchainConfig
 		errPattern string
 	}{
 		{
@@ -88,48 +89,48 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 		},
 		{
 			name: "can omit finality depth",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.SourceFinalityDepth = 0
 				c.DestFinalityDepth = 0
 			}),
 		},
 		{
 			name: "can set PriceReportingDisabled",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.PriceReportingDisabled = true
 			}),
 		},
 		{
 			name: "must set GasPriceHeartBeat",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.GasPriceHeartBeat = *config.MustNewDuration(0)
 			}),
 			errPattern: "GasPriceHeartBeat",
 		},
 		{
 			name: "must set ExecGasPriceDeviationPPB",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.ExecGasPriceDeviationPPB = 0
 			}),
 			errPattern: "ExecGasPriceDeviationPPB",
 		},
 		{
 			name: "must set TokenPriceHeartBeat",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.TokenPriceHeartBeat = *config.MustNewDuration(0)
 			}),
 			errPattern: "TokenPriceHeartBeat",
 		},
 		{
 			name: "must set TokenPriceDeviationPPB",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.TokenPriceDeviationPPB = 0
 			}),
 			errPattern: "TokenPriceDeviationPPB",
 		},
 		{
 			name: "must set InflightCacheExpiry",
-			want: modifyCopy(validConfig, func(c *JSONCommitOffchainConfig) {
+			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.InflightCacheExpiry = *config.MustNewDuration(0)
 			}),
 			errPattern: "InflightCacheExpiry",
@@ -140,7 +141,7 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 			exp := tc.want
 			encode, err := ccipconfig.EncodeOffchainConfig(&exp)
 			require.NoError(t, err)
-			got, err := ccipconfig.DecodeOffchainConfig[JSONCommitOffchainConfig](encode)
+			got, err := ccipconfig.DecodeOffchainConfig[commitstore.JSONCommitOffchainConfig](encode)
 
 			if tc.errPattern != "" {
 				require.ErrorContains(t, err, tc.errPattern)
@@ -208,9 +209,9 @@ func TestCommitStoreV120ffchainConfigDecodingCompatibility(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			decoded, err := ccipconfig.DecodeOffchainConfig[JSONCommitOffchainConfig](tc.config)
+			decoded, err := ccipconfig.DecodeOffchainConfig[commitstore.JSONCommitOffchainConfig](tc.config)
 			require.NoError(t, err)
-			require.Equal(t, JSONCommitOffchainConfig{
+			require.Equal(t, commitstore.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				DestFinalityDepth:        4,
 				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Minute),

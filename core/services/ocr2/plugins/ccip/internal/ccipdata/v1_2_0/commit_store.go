@@ -13,13 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
@@ -146,47 +146,13 @@ func (c *CommitStore) SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPric
 	return nil
 }
 
-// Do not change the JSON format of this struct without consulting with the RDD people first.
-type JSONCommitOffchainConfig struct {
-	SourceFinalityDepth      uint32
-	DestFinalityDepth        uint32
-	GasPriceHeartBeat        config.Duration
-	DAGasPriceDeviationPPB   uint32
-	ExecGasPriceDeviationPPB uint32
-	TokenPriceHeartBeat      config.Duration
-	TokenPriceDeviationPPB   uint32
-	InflightCacheExpiry      config.Duration
-	PriceReportingDisabled   bool
-}
-
-func (c JSONCommitOffchainConfig) Validate() error {
-	if c.GasPriceHeartBeat.Duration() == 0 {
-		return errors.New("must set GasPriceHeartBeat")
-	}
-	if c.ExecGasPriceDeviationPPB == 0 {
-		return errors.New("must set ExecGasPriceDeviationPPB")
-	}
-	if c.TokenPriceHeartBeat.Duration() == 0 {
-		return errors.New("must set TokenPriceHeartBeat")
-	}
-	if c.TokenPriceDeviationPPB == 0 {
-		return errors.New("must set TokenPriceDeviationPPB")
-	}
-	if c.InflightCacheExpiry.Duration() == 0 {
-		return errors.New("must set InflightCacheExpiry")
-	}
-	// DAGasPriceDeviationPPB is not validated because it can be 0 on non-rollups
-
-	return nil
-}
-
 func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
-	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onchainConfig)
+	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[commitstore.CommitOnchainConfig](onchainConfig)
 	if err != nil {
 		return "", err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[JSONCommitOffchainConfig](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[commitstore.JSONCommitOffchainConfig](offchainConfig)
 	if err != nil {
 		return "", err
 	}
@@ -208,7 +174,7 @@ func (c *CommitStore) ChangeConfig(_ context.Context, onchainConfig []byte, offc
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
 		c.feeEstimatorConfig,
 	)
-	c.offchainConfig = ccipdata.NewCommitOffchainConfig(
+	c.offchainConfig = commitstore.NewCommitOffchainConfig(
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
 		offchainConfigParsed.GasPriceHeartBeat.Duration(),
 		offchainConfigParsed.TokenPriceDeviationPPB,

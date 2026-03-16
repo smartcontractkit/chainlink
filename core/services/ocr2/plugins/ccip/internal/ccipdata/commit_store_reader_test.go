@@ -17,6 +17,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
@@ -44,11 +45,11 @@ import (
 
 func TestCommitOffchainConfig_Encoding(t *testing.T) {
 	tests := map[string]struct {
-		want      v1_2_0.JSONCommitOffchainConfig
+		want      commitstore.JSONCommitOffchainConfig
 		expectErr bool
 	}{
 		"encodes and decodes config with all fields set": {
-			want: v1_2_0.JSONCommitOffchainConfig{
+			want: commitstore.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				DestFinalityDepth:        3,
 				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
@@ -60,7 +61,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 			},
 		},
 		"fails decoding when all fields present but with 0 values": {
-			want: v1_2_0.JSONCommitOffchainConfig{
+			want: commitstore.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      0,
 				DestFinalityDepth:        0,
 				GasPriceHeartBeat:        *config.MustNewDuration(0),
@@ -73,11 +74,11 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 			expectErr: true,
 		},
 		"fails decoding when all fields are missing": {
-			want:      v1_2_0.JSONCommitOffchainConfig{},
+			want:      commitstore.JSONCommitOffchainConfig{},
 			expectErr: true,
 		},
 		"fails decoding when some fields are missing": {
-			want: v1_2_0.JSONCommitOffchainConfig{
+			want: commitstore.JSONCommitOffchainConfig{
 				SourceFinalityDepth:      3,
 				GasPriceHeartBeat:        *config.MustNewDuration(1 * time.Hour),
 				DAGasPriceDeviationPPB:   5e7,
@@ -92,7 +93,7 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			encode, err := ccipconfig.EncodeOffchainConfig(tc.want)
 			require.NoError(t, err)
-			got, err := ccipconfig.DecodeOffchainConfig[v1_2_0.JSONCommitOffchainConfig](encode)
+			got, err := ccipconfig.DecodeOffchainConfig[commitstore.JSONCommitOffchainConfig](encode)
 
 			if tc.expectErr {
 				require.ErrorContains(t, err, "must set")
@@ -107,19 +108,19 @@ func TestCommitOffchainConfig_Encoding(t *testing.T) {
 func TestCommitOnchainConfig(t *testing.T) {
 	tests := []struct {
 		name      string
-		want      ccipdata.CommitOnchainConfig
+		want      commitstore.CommitOnchainConfig
 		expectErr bool
 	}{
 		{
 			name: "encodes and decodes config with all fields set",
-			want: ccipdata.CommitOnchainConfig{
+			want: commitstore.CommitOnchainConfig{
 				PriceRegistry: utils.RandomAddress(),
 			},
 			expectErr: false,
 		},
 		{
 			name:      "encodes and fails decoding config with missing fields",
-			want:      ccipdata.CommitOnchainConfig{},
+			want:      commitstore.CommitOnchainConfig{},
 			expectErr: true,
 		},
 	}
@@ -128,7 +129,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 			encoded, err := abihelpers.EncodeAbiStruct(tt.want)
 			require.NoError(t, err)
 
-			decoded, err := abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](encoded)
+			decoded, err := abihelpers.DecodeAbiStruct[commitstore.CommitOnchainConfig](encoded)
 			if tt.expectErr {
 				require.ErrorContains(t, err, "must set")
 			} else {
@@ -215,11 +216,11 @@ func TestCommitStoreReaders(t *testing.T) {
 		InflightCacheExpiry:    3 * time.Hour,
 		PriceReportingDisabled: false,
 	}
-	onchainConfig2, err := abihelpers.EncodeAbiStruct[ccipdata.CommitOnchainConfig](ccipdata.CommitOnchainConfig{
+	onchainConfig2, err := abihelpers.EncodeAbiStruct[commitstore.CommitOnchainConfig](commitstore.CommitOnchainConfig{
 		PriceRegistry: pr2,
 	})
 	require.NoError(t, err)
-	offchainConfig2, err := ccipconfig.EncodeOffchainConfig[v1_2_0.JSONCommitOffchainConfig](v1_2_0.JSONCommitOffchainConfig{
+	offchainConfig2, err := ccipconfig.EncodeOffchainConfig[commitstore.JSONCommitOffchainConfig](commitstore.JSONCommitOffchainConfig{
 		SourceFinalityDepth:      sourceFinalityDepth,
 		DestFinalityDepth:        destFinalityDepth,
 		GasPriceHeartBeat:        *config.MustNewDuration(commonOffchain.GasPriceHeartBeat),

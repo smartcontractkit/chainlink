@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -43,12 +44,12 @@ func NewIncompleteSourceCommitStoreReader(estimator gas.EvmFeeEstimator, sourceM
 }
 
 func (i *IncompleteSourceCommitStoreReader) ChangeConfig(ctx context.Context, onchainConfig []byte, offchainConfig []byte) (cciptypes.Address, error) {
-	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[ccip.CommitOnchainConfig](onchainConfig)
+	onchainConfigParsed, err := abihelpers.DecodeAbiStruct[export.CommitOnchainConfig](onchainConfig)
 	if err != nil {
 		return "", err
 	}
 
-	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[ccip.JSONCommitOffchainConfigV1_2_0](offchainConfig)
+	offchainConfigParsed, err := ccipconfig.DecodeOffchainConfig[export.JSONCommitOffchainConfigV1_2_0](offchainConfig)
 	if err != nil {
 		return "", err
 	}
@@ -60,7 +61,7 @@ func (i *IncompleteSourceCommitStoreReader) ChangeConfig(ctx context.Context, on
 		int64(offchainConfigParsed.DAGasPriceDeviationPPB),
 		i.feeEstimatorConfig,
 	)
-	i.offchainConfig = ccip.NewCommitOffchainConfig(
+	i.offchainConfig = export.NewCommitOffchainConfig(
 		offchainConfigParsed.ExecGasPriceDeviationPPB,
 		offchainConfigParsed.GasPriceHeartBeat.Duration(),
 		offchainConfigParsed.TokenPriceDeviationPPB,

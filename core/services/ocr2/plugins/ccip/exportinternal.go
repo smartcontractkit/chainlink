@@ -3,7 +3,6 @@ package ccip
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -127,20 +125,6 @@ func (c *ChainAgnosticPriceRegistry) NewPriceRegistryReader(ctx context.Context,
 
 func NewChainAgnosticPriceRegistry(provider ChainAgnosticPriceRegistryFactory) *ChainAgnosticPriceRegistry {
 	return &ChainAgnosticPriceRegistry{provider}
-}
-
-type JSONCommitOffchainConfigV1_2_0 = v1_2_0.JSONCommitOffchainConfig
-type CommitOnchainConfig = ccipdata.CommitOnchainConfig
-
-func NewCommitOffchainConfig(
-	gasPriceDeviationPPB uint32,
-	gasPriceHeartBeat time.Duration,
-	tokenPriceDeviationPPB uint32,
-	tokenPriceHeartBeat time.Duration,
-	inflightCacheExpiry time.Duration,
-	priceReportingDisabled bool,
-) ccip.CommitOffchainConfig {
-	return ccipdata.NewCommitOffchainConfig(gasPriceDeviationPPB, gasPriceHeartBeat, tokenPriceDeviationPPB, tokenPriceHeartBeat, inflightCacheExpiry, priceReportingDisabled)
 }
 
 const OffChainAggregatorABI = offchainaggregator.OffchainAggregatorABI

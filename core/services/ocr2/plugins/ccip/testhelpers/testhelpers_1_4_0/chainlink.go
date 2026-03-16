@@ -40,6 +40,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -64,7 +65,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -196,7 +196,7 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 	return log
 }
 
-func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipdata.CommitOnchainConfig) logpoller.Log {
+func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg commitstore.CommitOnchainConfig) logpoller.Log {
 	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	c, ok := cs.(legacyevm.Chain)
@@ -212,7 +212,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 			0,
 		)
 		require.NoError(t, err)
-		var latestCfg ccipdata.CommitOnchainConfig
+		var latestCfg commitstore.CommitOnchainConfig
 		if log != nil {
 			latestCfg, err = DecodeCommitOnChainConfig(log.Data)
 			require.NoError(t, err)
@@ -966,14 +966,14 @@ func (c *CCIPIntegrationTestHarness) NewCCIPJobSpecParams(tokenPricesUSDPipeline
 	}
 }
 
-func DecodeCommitOnChainConfig(encoded []byte) (ccipdata.CommitOnchainConfig, error) {
-	var onchainConfig ccipdata.CommitOnchainConfig
+func DecodeCommitOnChainConfig(encoded []byte) (commitstore.CommitOnchainConfig, error) {
+	var onchainConfig commitstore.CommitOnchainConfig
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)
 	if err != nil {
 		return onchainConfig, err
 	}
 	onChainCfg := unpacked.OnchainConfig
-	onchainConfig, err = abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onChainCfg)
+	onchainConfig, err = abihelpers.DecodeAbiStruct[commitstore.CommitOnchainConfig](onChainCfg)
 	if err != nil {
 		return onchainConfig, err
 	}
