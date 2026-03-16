@@ -814,7 +814,21 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	if err = engine.Start(ctx); err != nil {
+	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
+}
+
+// startAndRegisterEngine starts a workflow engine, waits for initialization to
+// complete, and registers it in the engine registry. Used by both the normal
+// and confidential engine creation paths.
+func (h *eventHandler) startAndRegisterEngine(
+	ctx context.Context,
+	engine services.Service,
+	initDone <-chan error,
+	wid types.WorkflowID,
+	workflowID string,
+	source string,
+) error {
+	if err := engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
@@ -822,32 +836,25 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
-		// Context cancelled while waiting for initialization
 		if closeErr := engine.Close(); closeErr != nil {
-			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", workflowID)
 		}
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
 		if initErr != nil {
-			// Engine initialization failed (e.g., trigger subscription failed)
 			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
-			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
-			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
-			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
-				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", workflowID)
 			}
 			return fmt.Errorf("engine initialization failed: %w", initErr)
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
 	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
 
-		// Check for WorkflowID collision across sources
 		if errors.Is(err, ErrAlreadyExists) {
 			existingEntry, found := h.engineRegistry.Get(wid)
 			if found {
@@ -859,8 +866,6 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 			}
 		}
 
-		// This shouldn't happen because we call the handler serially and
-		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
 	}
 	return nil
@@ -942,45 +947,7 @@ func (h *eventHandler) tryConfidentialEngineCreate(
 		return fmt.Errorf("failed to create confidential workflow engine: %w", err)
 	}
 
-	if err = engine.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start confidential workflow engine: %w", err)
-	}
-
-	select {
-	case <-ctx.Done():
-		if closeErr := engine.Close(); closeErr != nil {
-			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
-		}
-		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
-	case initErr := <-initDone:
-		if initErr != nil {
-			if closeErr := engine.Close(); closeErr != nil {
-				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
-			}
-			return fmt.Errorf("engine initialization failed: %w", initErr)
-		}
-	}
-
-	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
-		if closeErr := engine.Close(); closeErr != nil {
-			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
-		}
-
-		if errors.Is(err, ErrAlreadyExists) {
-			existingEntry, found := h.engineRegistry.Get(wid)
-			if found {
-				h.lggr.Warnw("WorkflowID collision detected: workflow already exists from different source",
-					"workflowID", wid.Hex(),
-					"attemptedSource", source,
-					"existingSource", existingEntry.Source,
-					"hint", "Each workflow ID should only be registered from a single source. Check your workflow configurations for duplicates.")
-			}
-		}
-
-		return fmt.Errorf("invariant violation: %w", err)
-	}
-
-	return nil
+	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.
