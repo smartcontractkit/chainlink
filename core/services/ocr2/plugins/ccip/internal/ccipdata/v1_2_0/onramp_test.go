@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 )
 
 func TestLogPollerClient_GetSendRequestsBetweenSeqNumsV1_2_0(t *testing.T) {
