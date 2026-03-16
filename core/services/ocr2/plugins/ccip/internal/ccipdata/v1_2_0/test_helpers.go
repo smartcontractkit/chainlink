@@ -10,9 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
 // ApplyPriceRegistryUpdate is a helper function used in tests only.

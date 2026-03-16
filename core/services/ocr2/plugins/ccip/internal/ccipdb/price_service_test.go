@@ -15,6 +15,7 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
+	ccipcalc2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
@@ -172,7 +173,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 	destChain := chainselectors.TEST_1338
 	sourceChain := chainselectors.TEST_1000
 	sourceNativeTokenID := ccipcommon.TokenID{
-		TokenAddress:  ccipcalc.EvmAddrToGeneric(utils.RandomAddress()),
+		TokenAddress:  ccipcalc2.EvmAddrToGeneric(utils.RandomAddress()),
 		ChainSelector: sourceChain.Selector,
 	}
 
@@ -547,8 +548,8 @@ func TestPriceService_GetGasAndTokenPrices(t *testing.T) {
 	destChainSelector := uint64(12345)
 	sourceChainSelector := uint64(67890)
 
-	token1 := ccipcalc.HexToAddress("0x123")
-	token2 := ccipcalc.HexToAddress("0x234")
+	token1 := ccipcalc2.HexToAddress("0x123")
+	token2 := ccipcalc2.HexToAddress("0x234")
 
 	gasPrice := big.NewInt(1e18)
 	tokenPrices := map[cciptypes.Address]*big.Int{
@@ -768,22 +769,22 @@ func TestPriceService_priceWriteInBackground(t *testing.T) {
 	ctx := t.Context()
 
 	sourceNative := ccipcommon.TokenID{
-		TokenAddress:  ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x001")),
+		TokenAddress:  ccipcalc2.EvmAddrToGeneric(common.HexToAddress("0x001")),
 		ChainSelector: sourceChain.Selector,
 	}
 
 	destToken1 := ccipcommon.TokenID{
-		TokenAddress:  ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x001")), // <-- same addr as source native
+		TokenAddress:  ccipcalc2.EvmAddrToGeneric(common.HexToAddress("0x001")), // <-- same addr as source native
 		ChainSelector: destChain.Selector,
 	}
 
 	destToken2 := ccipcommon.TokenID{
-		TokenAddress:  ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x003")),
+		TokenAddress:  ccipcalc2.EvmAddrToGeneric(common.HexToAddress("0x003")),
 		ChainSelector: destChain.Selector,
 	}
 
 	destToken3 := ccipcommon.TokenID{
-		TokenAddress:  ccipcalc.EvmAddrToGeneric(common.HexToAddress("0x004")),
+		TokenAddress:  ccipcalc2.EvmAddrToGeneric(common.HexToAddress("0x004")),
 		ChainSelector: destChain.Selector,
 	}
 
