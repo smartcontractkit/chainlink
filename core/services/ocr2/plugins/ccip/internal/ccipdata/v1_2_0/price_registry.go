@@ -15,6 +15,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/logpollerutil"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
@@ -66,19 +67,19 @@ func NewPriceRegistry(ctx context.Context, lggr logger.Logger, priceRegistryAddr
 			Name:      logpoller.FilterName(ccipdata.COMMIT_PRICE_UPDATES, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{UsdPerUnitGasUpdated, usdPerTokenUpdated},
 			Addresses: []common.Address{priceRegistryAddr},
-			Retention: ccipdata.PriceUpdatesLogsRetention,
+			Retention: ccipdata2.PriceUpdatesLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_ADDED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenAdded},
 			Addresses: []common.Address{priceRegistryAddr},
-			Retention: ccipdata.CacheEvictionLogsRetention,
+			Retention: ccipdata2.CacheEvictionLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_REMOVED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenRemoved},
 			Addresses: []common.Address{priceRegistryAddr},
-			Retention: ccipdata.CacheEvictionLogsRetention,
+			Retention: ccipdata2.CacheEvictionLogsRetention,
 		}}
 	if registerFilters {
 		err = logpollerutil.RegisterLpFilters(ctx, lp, filters)
@@ -168,7 +169,7 @@ func (p *PriceRegistry) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts
 		return nil, err
 	}
 
-	parsedLogs, err := ccipdata.ParseLogs[cciptypes.TokenPriceUpdate](
+	parsedLogs, err := ccipdata2.ParseLogs[cciptypes.TokenPriceUpdate](
 		logs,
 		p.lggr,
 		func(log types.Log) (*cciptypes.TokenPriceUpdate, error) {
@@ -230,7 +231,7 @@ func (p *PriceRegistry) GetAllGasPriceUpdatesCreatedAfter(ctx context.Context, t
 }
 
 func (p *PriceRegistry) parseGasPriceUpdatesLogs(logs []logpoller.Log) ([]cciptypes.GasPriceUpdateWithTxMeta, error) {
-	parsedLogs, err := ccipdata.ParseLogs[cciptypes.GasPriceUpdate](
+	parsedLogs, err := ccipdata2.ParseLogs[cciptypes.GasPriceUpdate](
 		logs,
 		p.lggr,
 		func(log types.Log) (*cciptypes.GasPriceUpdate, error) {

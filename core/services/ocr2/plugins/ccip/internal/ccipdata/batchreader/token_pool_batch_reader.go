@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -140,9 +141,9 @@ func (br *EVMTokenPoolBatchedReader) loadTokenPoolReaders(ctx context.Context, t
 			return err
 		}
 		switch version {
-		case ccipdata.V1_0_0, ccipdata.V1_1_0, ccipdata.V1_2_0:
+		case ccipdata2.V1_0_0, ccipdata2.V1_1_0, ccipdata2.V1_2_0:
 			br.tokenPoolReaders[ccipcalc.EvmAddrToGeneric(tokenPoolAddress)] = v1_2_0.NewTokenPool(poolType, tokenPoolAddress, br.offRampAddress)
-		case ccipdata.V1_4_0:
+		case ccipdata2.V1_4_0:
 			br.tokenPoolReaders[ccipcalc.EvmAddrToGeneric(tokenPoolAddress)] = v1_4_0.NewTokenPool(poolType, tokenPoolAddress, br.remoteChainSelector)
 		default:
 			return fmt.Errorf("unsupported token pool version %v", version)
@@ -174,7 +175,7 @@ func getBatchedTypeAndVersion(ctx context.Context, evmBatchCaller rpclib.EvmBatc
 			// typeAndVersion method do not exist for 1.0 pools. We are going to get an ErrEmptyOutput in that case.
 			// Some chains, like the simulated chains, will simply revert with "execution reverted"
 			if errors.Is(err1, rpclib.ErrEmptyOutput) || ccipcommon.IsTxRevertError(err1) {
-				return "LegacyPool " + ccipdata.V1_0_0, nil
+				return "LegacyPool " + ccipdata2.V1_0_0, nil
 			}
 			return "", err1
 		}

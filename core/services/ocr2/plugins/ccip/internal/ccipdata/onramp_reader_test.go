@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -53,11 +54,11 @@ func TestOnRampReaderInit(t *testing.T) {
 	}{
 		{
 			name:    "OnRampReader_V1_2_0",
-			version: ccipdata.V1_2_0,
+			version: ccipdata2.V1_2_0,
 		},
 		{
 			name:    "OnRampReader_V1_5_0",
-			version: ccipdata.V1_5_0,
+			version: ccipdata2.V1_5_0,
 		},
 	}
 
@@ -95,9 +96,9 @@ func setupOnRampReaderTH(t *testing.T, version string) onRampReaderTH {
 	// Setup onRamp.
 	var onRampAddress common.Address
 	switch version {
-	case ccipdata.V1_2_0:
+	case ccipdata2.V1_2_0:
 		onRampAddress = setupOnRampV1_2_0(t, user, bc)
-	case ccipdata.V1_5_0:
+	case ccipdata2.V1_5_0:
 		onRampAddress = setupOnRampV1_5_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
@@ -259,9 +260,9 @@ func setupOnRampV1_5_0(t *testing.T, user *bind.TransactOpts, bc *client.Simulat
 
 func testVersionSpecificOnRampReader(t *testing.T, th onRampReaderTH, version string) {
 	switch version {
-	case ccipdata.V1_2_0:
+	case ccipdata2.V1_2_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000120"))
-	case ccipdata.V1_5_0:
+	case ccipdata2.V1_5_0:
 		testOnRampReader(t, th, common.HexToAddress("0x0000000000000000000000000000000000000150"))
 	default:
 		require.Fail(t, "Unknown version: ", version)

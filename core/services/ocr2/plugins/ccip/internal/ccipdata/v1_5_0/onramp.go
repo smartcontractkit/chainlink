@@ -16,6 +16,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/logpollerutil"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
@@ -83,13 +84,13 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 			Name:      logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, onRampAddress),
 			EventSigs: []common.Hash{CCIPSendRequestEventSig},
 			Addresses: []common.Address{onRampAddress},
-			Retention: ccipdata.CommitExecLogsRetention,
+			Retention: ccipdata2.CommitExecLogsRetention,
 		},
 		{
 			Name:      logpoller.FilterName(ccipdata.CONFIG_CHANGED, onRampAddress),
 			EventSigs: []common.Hash{ConfigSetEventSig},
 			Addresses: []common.Address{onRampAddress},
-			Retention: ccipdata.CacheEvictionLogsRetention,
+			Retention: ccipdata2.CacheEvictionLogsRetention,
 		},
 	}
 	cachedStaticConfig := cache.OnceCtxFunction[evm_2_evm_onramp.EVM2EVMOnRampStaticConfig](func(ctx context.Context) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error) {
@@ -170,13 +171,13 @@ func (o *OnRamp) GetSendRequestsBetweenSeqNums(ctx context.Context, seqNumMin, s
 		o.sendRequestedSeqNumberWord,
 		logpoller.EvmWord(seqNumMin),
 		logpoller.EvmWord(seqNumMax),
-		ccipdata.LogsConfirmations(finalized),
+		ccipdata2.LogsConfirmations(finalized),
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	parsedLogs, err := ccipdata.ParseLogs[cciptypes.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
+	parsedLogs, err := ccipdata2.ParseLogs[cciptypes.EVM2EVMMessage](logs, o.lggr, o.logToMessage)
 	if err != nil {
 		return nil, err
 	}

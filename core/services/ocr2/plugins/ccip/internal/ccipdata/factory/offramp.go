@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
@@ -48,7 +47,7 @@ func initOrCloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFi
 	lggr.Infow("Initializing OffRamp Reader", "version", version.String(), "destMaxGasPrice", destMaxGasPrice.String())
 
 	switch version.String() {
-	case ccipdata.V1_2_0:
+	case ccipdata2.V1_2_0:
 		offRamp, err := v1_2_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
@@ -57,7 +56,7 @@ func initOrCloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFi
 			return nil, offRamp.Close()
 		}
 		return offRamp, offRamp.RegisterFilters(ctx)
-	case ccipdata.V1_5_0:
+	case ccipdata2.V1_5_0:
 		offRamp, err := v1_5_0.NewOffRamp(lggr, evmAddr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
 		if err != nil {
 			return nil, err

@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 )
@@ -46,7 +45,7 @@ func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versi
 	lggr.Infow("Initializing CommitStore Reader", "version", version.String())
 
 	switch version.String() {
-	case ccipdata.V1_2_0:
+	case ccipdata2.V1_2_0:
 		cs, err := v1_2_0.NewCommitStore(lggr, evmAddr, ec, lp, feeEstimatorConfig)
 		if err != nil {
 			return nil, err
@@ -55,7 +54,7 @@ func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versi
 			return nil, cs.Close()
 		}
 		return cs, cs.RegisterFilters(ctx)
-	case ccipdata.V1_5_0:
+	case ccipdata2.V1_5_0:
 		cs, err := v1_5_0.NewCommitStore(lggr, evmAddr, ec, lp, feeEstimatorConfig)
 		if err != nil {
 			return nil, err

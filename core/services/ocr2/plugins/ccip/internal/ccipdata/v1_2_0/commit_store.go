@@ -33,7 +33,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 const (
@@ -238,7 +237,7 @@ func (c *CommitStore) GetCommitReportMatchingSeqNum(ctx context.Context, seqNr u
 		return nil, err
 	}
 
-	parsedLogs, err := ccipdata.ParseLogs[cciptypes.CommitStoreReport](
+	parsedLogs, err := ccipdata2.ParseLogs[cciptypes.CommitStoreReport](
 		logs,
 		c.lggr,
 		c.parseReport,
@@ -289,7 +288,7 @@ func (c *CommitStore) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, 
 		return nil, err
 	}
 
-	parsedLogs, err := ccipdata.ParseLogs[cciptypes.CommitStoreReport](logs, c.lggr, c.parseReport)
+	parsedLogs, err := ccipdata2.ParseLogs[cciptypes.CommitStoreReport](logs, c.lggr, c.parseReport)
 	if err != nil {
 		return nil, fmt.Errorf("parse logs: %w", err)
 	}
@@ -362,7 +361,7 @@ func NewCommitStore(lggr logger.Logger, addr common.Address, ec client.Client, l
 			Name:      logpoller.FilterName(ExecReportAccepts, addr.String()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{addr},
-			Retention: ccipdata.CommitExecLogsRetention,
+			Retention: ccipdata2.CommitExecLogsRetention,
 		},
 	}
 

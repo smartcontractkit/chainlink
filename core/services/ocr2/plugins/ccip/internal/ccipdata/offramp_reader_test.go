@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -91,11 +92,11 @@ func TestOffRampReaderInit(t *testing.T) {
 	}{
 		{
 			name:    "OffRampReader_V1_2_0",
-			version: ccipdata.V1_2_0,
+			version: ccipdata2.V1_2_0,
 		},
 		{
 			name:    "OffRampReader_V1_5_0",
-			version: ccipdata.V1_5_0,
+			version: ccipdata2.V1_5_0,
 		},
 	}
 
@@ -133,9 +134,9 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	// Setup offRamp.
 	var offRampAddress common.Address
 	switch version {
-	case ccipdata.V1_2_0:
+	case ccipdata2.V1_2_0:
 		offRampAddress = setupOffRampV1_2_0(t, user, bc)
-	case ccipdata.V1_5_0:
+	case ccipdata2.V1_5_0:
 		offRampAddress = setupOffRampV1_5_0(t, user, bc)
 	default:
 		require.Fail(t, "Unknown version: ", version)
