@@ -94,7 +94,9 @@ type triggerCapability struct {
 
 // EnqueuedTriggerEvent is the type queued for workflow trigger execution.
 // workflowID is used by ConsensusEventDispatcher to route to the correct engine.
+// Implements Identifiable for use with generic ObservationBuffer and OCRQueue.
 type EnqueuedTriggerEvent interface {
+	ID() string
 	WorkflowID() string
 	TriggerCapID() string
 	TriggerIndex() int
@@ -110,11 +112,12 @@ type enqueuedTriggerEvent struct {
 	event        capabilities.TriggerResponse
 }
 
-func (e *enqueuedTriggerEvent) WorkflowID() string                      { return e.workflowID }
-func (e *enqueuedTriggerEvent) TriggerCapID() string                     { return e.triggerCapID }
-func (e *enqueuedTriggerEvent) TriggerIndex() int                        { return e.triggerIndex }
+func (e *enqueuedTriggerEvent) ID() string                               { return e.event.Event.ID }
+func (e *enqueuedTriggerEvent) WorkflowID() string                       { return e.workflowID }
+func (e *enqueuedTriggerEvent) TriggerCapID() string                      { return e.triggerCapID }
+func (e *enqueuedTriggerEvent) TriggerIndex() int                         { return e.triggerIndex }
 func (e *enqueuedTriggerEvent) Timestamp() time.Time                     { return e.timestamp }
-func (e *enqueuedTriggerEvent) Event() capabilities.TriggerResponse      { return e.event }
+func (e *enqueuedTriggerEvent) Event() capabilities.TriggerResponse     { return e.event }
 
 // NewEnqueuedTriggerEvent constructs an EnqueuedTriggerEvent for the queue.
 func NewEnqueuedTriggerEvent(workflowID, triggerCapID string, triggerIndex int, timestamp time.Time, event capabilities.TriggerResponse) EnqueuedTriggerEvent {

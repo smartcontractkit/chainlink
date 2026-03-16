@@ -353,7 +353,7 @@ func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueD
 		return nil, err
 	}
 	lamport := &v2.LamportCounter{}
-	buffer := v2.NewObservationBuffer(lamport)
+	buffer := v2.NewObservationBuffer[v2.EnqueuedTriggerEvent](lamport)
 
 	// Build OCR3_1OracleArgs for the trigger queue. TODO: wire all fields and call libocr2.NewOracle.
 	ocrLogger := ocrcommon.NewOCRWrapper(d.lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -377,7 +377,7 @@ func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueD
 	}
 	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
 
-	return v2.NewOCRQueue(v2.OCRQueueDeps{Inner: inner, Buffer: buffer})
+	return v2.NewOCRQueue[v2.EnqueuedTriggerEvent](v2.OCRQueueDeps[v2.EnqueuedTriggerEvent]{Inner: inner, Buffer: buffer})
 }
 
 func (d *Delegate) BeforeJobCreated(_ job.Job) {

@@ -21,11 +21,11 @@ var _ ocr3_1types.ReportingPlugin[[]byte] = (*ReportingPlugin)(nil)
 // ReportingPlugin implements OCR 3.1 ReportingPlugin for the trigger queue.
 type ReportingPlugin struct {
 	lggr   logger.Logger
-	buffer *v2.ObservationBuffer
+	buffer *v2.ObservationBuffer[v2.EnqueuedTriggerEvent]
 }
 
 // NewReportingPlugin creates a new ReportingPlugin.
-func NewReportingPlugin(lggr logger.Logger, buffer *v2.ObservationBuffer) *ReportingPlugin {
+func NewReportingPlugin(lggr logger.Logger, buffer *v2.ObservationBuffer[v2.EnqueuedTriggerEvent]) *ReportingPlugin {
 	return &ReportingPlugin{lggr: lggr.Named("TriggerQueuePlugin"), buffer: buffer}
 }
 

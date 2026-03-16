@@ -15,11 +15,11 @@ var _ ocr3_1types.ReportingPluginFactory[[]byte] = (*Factory)(nil)
 // Factory creates ReportingPlugin instances for the trigger queue.
 type Factory struct {
 	lggr   logger.Logger
-	buffer *v2.ObservationBuffer
+	buffer *v2.ObservationBuffer[v2.EnqueuedTriggerEvent]
 }
 
 // NewFactory creates a new trigger queue plugin factory.
-func NewFactory(lggr logger.Logger, buffer *v2.ObservationBuffer) *Factory {
+func NewFactory(lggr logger.Logger, buffer *v2.ObservationBuffer[v2.EnqueuedTriggerEvent]) *Factory {
 	return &Factory{lggr: lggr.Named("TriggerQueueFactory"), buffer: buffer}
 }
 
