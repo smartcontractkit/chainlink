@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	relay "github.com/smartcontractkit/confidential-compute/capabilities/relay"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -26,7 +24,7 @@ type Service struct {
 	caRootsPEM  string
 	lggr        logger.Logger
 
-	handler *relay.Handler
+	handler *Handler
 }
 
 func NewService(
@@ -56,7 +54,7 @@ func (s *Service) start(ctx context.Context) error {
 	if conn == nil {
 		return errors.New("gateway connector not available")
 	}
-	h, err := relay.NewHandler(s.capRegistry, conn, s.trustedPCRs, s.lggr, s.caRootsPEM)
+	h, err := NewHandler(s.capRegistry, conn, s.trustedPCRs, s.lggr, s.caRootsPEM)
 	if err != nil {
 		return err
 	}
