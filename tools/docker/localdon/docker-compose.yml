@@ -21,7 +21,7 @@ services:
     image: ghcr.io/foundry-rs/foundry:latest
     platform: linux/amd64
     container_name: localdon-anvil
-    entrypoint: ["anvil", "--host", "0.0.0.0", "--block-time", "1", "--accounts", "10", "--balance", "10000"]
+    entrypoint: ["anvil", "--host", "0.0.0.0", "--block-time", "2", "--accounts", "10", "--balance", "10000"]
     ports:
       - "8545:8545"
     healthcheck:
