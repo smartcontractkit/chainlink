@@ -3,7 +3,7 @@ package headreporter_test
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -285,7 +285,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T
 		Hash:      blockHash[:],
 		Timestamp: 1000,
 	}
-	mockSolSvc := &mockSolanaService{err: fmt.Errorf("rpc error")}
+	mockSolSvc := &mockSolanaService{err: errors.New("rpc error")}
 	r := &mockRelayer{latestHead: head, solanaService: mockSolSvc}
 	solanaRelays := map[types.RelayID]loop.Relayer{
 		{Network: relaynetwork.NetworkSolana, ChainID: "testchain"}: r,
