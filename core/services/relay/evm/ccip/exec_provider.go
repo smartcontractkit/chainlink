@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -105,7 +106,7 @@ func (s *SrcExecProvider) Start(ctx context.Context) error {
 // Close is called when the job that created this provider is closed.
 func (s *SrcExecProvider) Close() error {
 	ctx := context.Background()
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	unregisterFuncs := make([]func(context.Context) error, 0, 2)
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
@@ -180,7 +181,7 @@ func (s *SrcExecProvider) NewOffRampReader(ctx context.Context, addr cciptypes.A
 func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cciptypes.Address, sourceChainSelector uint64, destChainSelector uint64) (onRampReader cciptypes.OnRampReader, err error) {
 	s.seenOnRampAddress = &onRampAddress
 
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 	onRampReader, err = ccip.NewOnRampReader(ctx, s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
 	if err != nil {
 		return nil, err
@@ -321,7 +322,7 @@ func (d *DstExecProvider) Start(ctx context.Context) error {
 // Close methods will be expected to error.
 func (d *DstExecProvider) Close() error {
 	ctx := context.Background()
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	unregisterFuncs := make([]func(context.Context) error, 0, 2)
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
@@ -379,7 +380,7 @@ func (d *DstExecProvider) GetTransactionStatus(ctx context.Context, transactionI
 func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
 	d.seenCommitStoreAddr = &addr
 
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, d.lggr, versionFinder, addr, d.client, d.lp, d.feeEstimatorConfig)
 	return
 }

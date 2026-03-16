@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 )
 
 type PriceRegistry interface {
@@ -32,7 +33,7 @@ func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.L
 }
 
 func (p *EvmPriceRegistry) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (cciptypes.PriceRegistryReader, error) {
-	destPriceRegistryReader, err := factory.NewPriceRegistryReader(ctx, p.lggr, factory.NewEvmVersionFinder(), addr, p.lp, p.ec)
+	destPriceRegistryReader, err := factory.NewPriceRegistryReader(ctx, p.lggr, versionfinder.NewEvmVersionFinder(), addr, p.lp, p.ec)
 	if err != nil {
 		return nil, err
 	}

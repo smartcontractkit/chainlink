@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store_helper"
@@ -142,7 +143,7 @@ func setupOffRampReaderTH(t *testing.T, version string) offRampReaderTH {
 	feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
 
 	// Create the version-specific reader.
-	reader, err := factory.NewOffRampReader(ctx, log, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(offRampAddress), bc, lp, nil, nil, true, feeEstimatorConfig)
+	reader, err := factory.NewOffRampReader(ctx, log, versionfinder.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(offRampAddress), bc, lp, nil, nil, true, feeEstimatorConfig)
 	require.NoError(t, err)
 	addr, err := reader.Address(ctx)
 	require.NoError(t, err)
@@ -320,7 +321,7 @@ func TestNewOffRampReader(t *testing.T) {
 			addr := ccipcalc.EvmAddrToGeneric(utils.RandomAddress())
 			lp := lpmocks.NewLogPoller(t)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
-			_, err = factory.NewOffRampReader(ctx, logger.TestLogger(t), factory.NewEvmVersionFinder(), addr, c, lp, nil, nil, true, feeEstimatorConfig)
+			_, err = factory.NewOffRampReader(ctx, logger.TestLogger(t), versionfinder.NewEvmVersionFinder(), addr, c, lp, nil, nil, true, feeEstimatorConfig)
 			if tc.expectedErr != "" {
 				assert.EqualError(t, err, tc.expectedErr)
 			} else {

@@ -5,11 +5,11 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
@@ -60,10 +60,6 @@ func NewOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder Ver
 
 func CloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
 	return factory.CloseOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
-}
-
-func NewEvmVersionFinder() factory.EvmVersionFinder {
-	return factory.NewEvmVersionFinder()
 }
 
 func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) (ccipdata.OnRampReader, error) {

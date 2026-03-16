@@ -52,12 +52,12 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -496,7 +496,7 @@ func chainToUUID(chainID *big.Int) uuid.UUID {
 // chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
 func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPCommitProvider, error) {
 	lggr := r.lggr.Named(rargs.ExternalJobID.String()).Named("CCIPCommitProvider")
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	var commitPluginConfig ccipconfig.CommitPluginConfig
 	err := json.Unmarshal(pargs.PluginConfig, &commitPluginConfig)
@@ -579,7 +579,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 // chain or on the dst chain. This results in the two implementations of providers: a src and dst implementation.
 func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.CCIPExecProvider, error) {
 	lggr := r.lggr.Named(rargs.ExternalJobID.String()).Named("CCIPExecProvider")
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	var execPluginConfig ccipconfig.ExecPluginConfig
 	err := json.Unmarshal(pargs.PluginConfig, &execPluginConfig)

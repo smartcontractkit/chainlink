@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
@@ -114,7 +115,7 @@ func (p *SrcCommitProvider) Name() string {
 // If NewOnRampReader has not been called, their corresponding
 // Close methods will be expected to error.
 func (p *SrcCommitProvider) Close() error {
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	unregisterFuncs := make([]func() error, 0, 2)
 	unregisterFuncs = append(unregisterFuncs, func() error {
@@ -174,7 +175,7 @@ func (p *DstCommitProvider) Name() string {
 
 func (p *DstCommitProvider) Close() error {
 	ctx := context.Background()
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	unregisterFuncs := make([]func(ctx context.Context) error, 0, 2)
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
@@ -266,7 +267,7 @@ func (p *SrcCommitProvider) NewCommitStoreReader(ctx context.Context, commitStor
 func (p *DstCommitProvider) NewCommitStoreReader(ctx context.Context, commitStoreAddress cciptypes.Address) (commitStoreReader cciptypes.CommitStoreReader, err error) {
 	p.seenCommitStoreAddress = &commitStoreAddress
 
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 	commitStoreReader, err = NewIncompleteDestCommitStoreReader(ctx, p.lggr, versionFinder, commitStoreAddress, p.client, p.lp, p.feeEstimatorConfig)
 	return
 }
@@ -276,7 +277,7 @@ func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress c
 	p.seenSourceChainSelector = &sourceChainSelector
 	p.seenDestChainSelector = &destChainSelector
 
-	versionFinder := ccip.NewEvmVersionFinder()
+	versionFinder := versionfinder.NewEvmVersionFinder()
 
 	onRampReader, err = ccip.NewOnRampReader(ctx, p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
 	if err != nil {

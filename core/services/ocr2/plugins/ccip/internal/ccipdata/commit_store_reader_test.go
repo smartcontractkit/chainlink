@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -191,7 +192,7 @@ func TestCommitStoreReaders(t *testing.T) {
 		return x, y, nil
 	})
 	maxGasPrice := big.NewInt(1e8)
-	c12r, err := factory.NewCommitStoreReader(ctx, lggr, factory.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp, feeEstimatorConfig)
+	c12r, err := factory.NewCommitStoreReader(ctx, lggr, versionfinder.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), ec, lp, feeEstimatorConfig)
 	require.NoError(t, err)
 	err = c12r.SetGasEstimator(ctx, ge)
 	require.NoError(t, err)
@@ -385,7 +386,7 @@ func TestNewCommitStoreReader(t *testing.T) {
 
 			feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
 
-			_, err = factory.NewCommitStoreReader(ctx, logger.Test(t), factory.NewEvmVersionFinder(), addr, c, lp, feeEstimatorConfig)
+			_, err = factory.NewCommitStoreReader(ctx, logger.Test(t), versionfinder.NewEvmVersionFinder(), addr, c, lp, feeEstimatorConfig)
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
 			} else {
