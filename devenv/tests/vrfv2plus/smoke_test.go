@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2plus"
 )
 
-func TestVRFv2Plus(t *testing.T) {
+func TestVRFv2PlusSmoke(t *testing.T) {
 	t.Cleanup(func() {
 		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
 		require.NoError(t, cErr)

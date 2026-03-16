@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -36,6 +37,7 @@ type StandardCapabilities struct {
 	gatewayConnector     core.GatewayConnector
 	orgResolver          orgresolver.OrgResolver
 	creSettings          core.SettingsBroadcaster
+	triggerEventStore    capabilities.EventStore
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -65,6 +67,7 @@ func NewStandardCapabilities(
 		keystore:             dependencies.P2PKeystore,
 		orgResolver:          dependencies.OrgResolver,
 		creSettings:          dependencies.CRESettings,
+		triggerEventStore:    dependencies.TriggerEventStore,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -113,6 +116,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				P2PKeystore:        s.keystore,
 				OrgResolver:        s.orgResolver,
 				CRESettings:        s.creSettings,
+				TriggerEventStore:  s.triggerEventStore,
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)

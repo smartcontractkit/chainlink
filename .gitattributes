@@ -1,1 +1,2 @@
 *.sol linguist-language=Solidity
+**go.sum linguist-generated=true

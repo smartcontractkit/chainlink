@@ -29,10 +29,10 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, cErr)
 	})
 
-	outputFile := "../../env-vrf2plus-bhs-out.toml"
+	outputFile := "../../env-vrf2plus-bhX-out.toml"
 
 	in, err := de.LoadOutput[de.Cfg](outputFile)
-	require.NoError(t, err, "failed to load env-vrf2plus-bhs-out.toml")
+	require.NoError(t, err, "failed to load env-vrf2plus-bhX-out.toml")
 
 	cfg, err := products.LoadOutput[vrfv2plus.Configurator](outputFile)
 	require.NoError(t, err, "failed to load VRFv2Plus config")
@@ -41,7 +41,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	c := cfg.Config[0]
 	require.NotEmpty(t, c.DeployedContracts.Coordinator, "coordinator address must not be empty")
 	require.NotEmpty(t, c.VRFKeyData.KeyHash, "key hash must not be empty")
-	require.NotEmpty(t, c.VRFKeyData.BHSJobID, "BHS job ID must not be empty — was env-vrf2plus-bhs.toml used?")
+	require.NotEmpty(t, c.VRFKeyData.BHSJobID, "BHS job ID must not be empty — was env-vrf2plus-bhX.toml used?")
 	require.NotEmpty(t, c.DeployedContracts.BHS, "BHS contract address must not be empty")
 
 	keyHashBytes := common.HexToHash(c.VRFKeyData.KeyHash)

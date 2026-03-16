@@ -97,6 +97,9 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspe
 	case chain_selectors.FamilySolana:
 		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
 	case chain_selectors.FamilyAptos:
+		// NOTE: Aptos changesets do not use this function. They construct inspectors
+		// directly in utils/mcms.go (GenerateProposal / GenerateCurseMCMSProposal)
+		// because they need finer control over isCurseMCMS.
 		if options.AptosRole.String() == "unknown" {
 			return nil, fmt.Errorf("aptos role not properly set for chain: %d", chain)
 		}

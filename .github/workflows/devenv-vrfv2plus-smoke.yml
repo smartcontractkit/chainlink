@@ -39,28 +39,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - environment: tests/vrfv2plus/basic.toml
+          - environment: products/vrfv2plus/basic.toml
             env_file: env-vrf2plus.toml
-            test_filter: TestVRFv2Plus
-          - environment: env-vrf2plus.toml,tests/vrfv2plus/two_keys.toml
+            test_filter: TestVRFv2PlusSmoke
+          - environment: products/vrfv2plus/two_keys.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusMultipleSendingKeys
-          - environment: env-vrf2plus.toml,tests/vrfv2plus/bhs.toml
-            env_file: env-vrf2plus-bhs.toml
+          - environment: products/vrfv2plus/bhs.toml
+            env_file: env-vrf2plus-bhX.toml
             test_filter: TestVRFV2PlusWithBHS
-          - environment: env-vrf2plus.toml,tests/vrfv2plus/batch.toml
+          - environment: products/vrfv2plus/batch.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusBatchFulfillment
-          - environment: tests/vrfv2plus/bhf.toml
-            env_file: env-vrf2plus-bhf.toml
+          - environment: products/vrfv2plus/bhf.toml
+            env_file: env-vrf2plus-bhX.toml,env-geth.toml
             test_filter: TestVRFV2PlusWithBHF
-          - environment: tests/vrfv2plus/replay.toml
+          - environment: products/vrfv2plus/replay.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusReplayAfterTimeout
-          - environment: tests/vrfv2plus/pending_block.toml
+          - environment: products/vrfv2plus/pending_block.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays
-          - environment: tests/vrfv2plus/basic.toml
+          - environment: products/vrfv2plus/basic.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusMigration
     env:

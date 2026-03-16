@@ -15,7 +15,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -133,12 +132,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
@@ -173,12 +169,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// // ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
 
 	t.Run("http client non-HTTP error", func(t *testing.T) {
@@ -207,12 +200,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// // ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
 }
 
@@ -362,6 +352,32 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 			ErrorCode: api.UserMessageParseError,
 		}, r)
 	})
+	t.Run("savedCallbacks stored only when message is valid", func(t *testing.T) {
+		require.Empty(t, handler.savedCallbacks)
+
+		invalidPayloadMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", `{"foo":"bar"}`)
+		cb := hc.NewCallback()
+		err := handler.HandleLegacyUserMessage(ctx, invalidPayloadMsg, cb)
+		require.NoError(t, err)
+		_, _ = cb.Wait(t.Context())
+
+		staleMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "123456", "")
+		cb2 := hc.NewCallback()
+		err = handler.HandleLegacyUserMessage(ctx, staleMsg, cb2)
+		require.NoError(t, err)
+		_, _ = cb2.Wait(t.Context())
+
+		badMethodMsg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "foo", "", "")
+		cb3 := hc.NewCallback()
+		err = handler.HandleLegacyUserMessage(ctx, badMethodMsg, cb3)
+		require.NoError(t, err)
+		_, _ = cb3.Wait(t.Context())
+
+		handler.mu.Lock()
+		require.Empty(t, handler.savedCallbacks, "error paths must not leave entries in savedCallbacks")
+		handler.mu.Unlock()
+	})
+
 	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
 }
 
@@ -421,12 +437,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
 
 	t.Run("NOK-payload_error_making_external_request", func(t *testing.T) {
@@ -461,12 +474,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// // ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
 
 	t.Run("NOK-error_outside_payload", func(t *testing.T) {
@@ -495,13 +505,115 @@ func TestHandleComputeActionMessage(t *testing.T) {
 		err = handler.HandleNodeMessage(ctx, resp, nodeAddr)
 		require.NoError(t, err)
 
-		require.Eventually(t, func() bool {
-			// // ensure all goroutines close
-			err2 := handler.Close()
-			require.NoError(t, err2)
-			return httpClient.AssertExpectations(t) && don.AssertExpectations(t)
-		}, tests.WaitTimeout(t), 100*time.Millisecond)
+		handler.wg.Wait()
+		require.True(t, httpClient.AssertExpectations(t))
+		require.True(t, don.AssertExpectations(t))
 	})
+}
+
+func TestPruneCallbacks(t *testing.T) {
+	handler, _, _, _ := setupHandler(t)
+
+	t.Run("removes expired entries", func(t *testing.T) {
+		handler.mu.Lock()
+		handler.savedCallbacks = make(map[string]*savedCallback)
+		now := time.Now()
+		maxAge := time.Duration(handler.config.CallbackMaxAgeSec) * time.Second
+		handler.savedCallbacks["old"] = &savedCallback{id: "old", createdAt: now.Add(-maxAge - time.Second)}
+		handler.savedCallbacks["fresh"] = &savedCallback{id: "fresh", createdAt: now}
+		handler.mu.Unlock()
+
+		handler.pruneCallbacks()
+
+		handler.mu.Lock()
+		require.Len(t, handler.savedCallbacks, 1)
+		require.Contains(t, handler.savedCallbacks, "fresh")
+		handler.mu.Unlock()
+	})
+
+	t.Run("enforces max size by evicting oldest", func(t *testing.T) {
+		// maxSize=2: trims to maxSize/2=1, so only the newest entry survives
+		handler.config.MaxSavedCallbacks = 2
+
+		handler.mu.Lock()
+		handler.savedCallbacks = make(map[string]*savedCallback)
+		now := time.Now()
+		handler.savedCallbacks["a"] = &savedCallback{id: "a", createdAt: now.Add(-3 * time.Second)}
+		handler.savedCallbacks["b"] = &savedCallback{id: "b", createdAt: now.Add(-2 * time.Second)}
+		handler.savedCallbacks["c"] = &savedCallback{id: "c", createdAt: now.Add(-1 * time.Second)}
+		handler.savedCallbacks["d"] = &savedCallback{id: "d", createdAt: now}
+		handler.mu.Unlock()
+
+		handler.pruneCallbacks()
+
+		handler.mu.Lock()
+		require.Len(t, handler.savedCallbacks, 1)
+		require.Contains(t, handler.savedCallbacks, "d")
+		handler.mu.Unlock()
+
+		handler.config.MaxSavedCallbacks = defaultMaxSavedCallbacks
+	})
+
+	t.Run("expires then enforces max size", func(t *testing.T) {
+		// maxSize=1: after expiry 2 live entries remain; maxSize/2=0 so trim target is
+		// len(entries)-0=2, evicting all live entries.
+		handler.config.MaxSavedCallbacks = 1
+
+		handler.mu.Lock()
+		handler.savedCallbacks = make(map[string]*savedCallback)
+		now := time.Now()
+		maxAge := time.Duration(handler.config.CallbackMaxAgeSec) * time.Second
+		handler.savedCallbacks["expired1"] = &savedCallback{id: "expired1", createdAt: now.Add(-maxAge - 2*time.Second)}
+		handler.savedCallbacks["expired2"] = &savedCallback{id: "expired2", createdAt: now.Add(-maxAge - time.Second)}
+		handler.savedCallbacks["old_live"] = &savedCallback{id: "old_live", createdAt: now.Add(-10 * time.Second)}
+		handler.savedCallbacks["new_live"] = &savedCallback{id: "new_live", createdAt: now}
+		handler.mu.Unlock()
+
+		handler.pruneCallbacks()
+
+		handler.mu.Lock()
+		require.Empty(t, handler.savedCallbacks)
+		handler.mu.Unlock()
+
+		handler.config.MaxSavedCallbacks = defaultMaxSavedCallbacks
+	})
+
+	t.Run("no-op when empty", func(t *testing.T) {
+		handler.mu.Lock()
+		handler.savedCallbacks = make(map[string]*savedCallback)
+		handler.mu.Unlock()
+
+		handler.pruneCallbacks()
+
+		handler.mu.Lock()
+		require.Empty(t, handler.savedCallbacks)
+		handler.mu.Unlock()
+	})
+}
+
+func TestHandlerStartClose(t *testing.T) {
+	handler, _, _, _ := setupHandler(t)
+	ctx := testutils.Context(t)
+
+	handler.config.CallbackPruneIntervalSec = 1
+	handler.config.CallbackMaxAgeSec = 1
+
+	require.NoError(t, handler.Start(ctx))
+
+	handler.mu.Lock()
+	handler.savedCallbacks["stale"] = &savedCallback{id: "stale", createdAt: time.Now().Add(-2 * time.Second)}
+	handler.mu.Unlock()
+
+	require.Eventually(t, func() bool {
+		handler.mu.Lock()
+		defer handler.mu.Unlock()
+		return len(handler.savedCallbacks) == 0
+	}, 5*time.Second, 100*time.Millisecond, "pruning goroutine should have removed the stale callback")
+
+	require.NoError(t, handler.Close())
+
+	require.ErrorContains(t, handler.Start(ctx), "has already been started")
+	require.ErrorContains(t, handler.Close(), "has already been stopped")
 }
 
 func nodeRequest(msg *api.Message) *jsonrpc.Request[json.RawMessage] {
