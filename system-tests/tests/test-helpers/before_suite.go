@@ -181,7 +181,8 @@ func startEnvironment(ctx context.Context, environmentDir string, flags ...strin
 }
 
 func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepoRoot string) error {
-	if err := hydrateRecreatedEnvironmentImageEnvFromSavedState(relativePathToRepoRoot); err != nil {
+	current, err := loadSavedLocalCREConfig(relativePathToRepoRoot)
+	if err != nil {
 		return err
 	}
 
@@ -190,6 +191,26 @@ func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepo
 		return err
 	}
 
+	hydrateRecreatedEnvironmentImageEnvFromContainers(containers)
+	hydrateRecreatedEnvironmentImageEnvFromConfig(current)
+
+	return nil
+}
+
+func loadSavedLocalCREConfig(relativePathToRepoRoot string) (*envconfig.Config, error) {
+	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
+		return nil, nil
+	}
+
+	current := &envconfig.Config{}
+	if err := current.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return nil, errors.Wrap(err, "failed to load saved local CRE state while hydrating image env vars")
+	}
+
+	return current, nil
+}
+
+func hydrateRecreatedEnvironmentImageEnvFromContainers(containers []runningContainer) {
 	setEnvIfMissing("CTF_JD_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
 		return strings.HasPrefix(name, "job-distributor") || strings.HasPrefix(name, "jd-")
 	}))
@@ -204,22 +225,6 @@ func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepo
 	setEnvIfMissing("BILLING_PLATFORM_SERVICE_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
 		return strings.Contains(name, "billing-platform-service")
 	}))
-
-	return nil
-}
-
-func hydrateRecreatedEnvironmentImageEnvFromSavedState(relativePathToRepoRoot string) error {
-	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
-		return nil
-	}
-
-	current := &envconfig.Config{}
-	if err := current.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
-		return errors.Wrap(err, "failed to load saved local CRE state while hydrating image env vars")
-	}
-
-	hydrateRecreatedEnvironmentImageEnvFromConfig(current)
-	return nil
 }
 
 func hydrateRecreatedEnvironmentImageEnvFromConfig(current *envconfig.Config) {
@@ -238,7 +243,7 @@ type runningContainer struct {
 }
 
 func runningContainers(ctx context.Context) ([]runningContainer, error) {
-	cmd := exec.CommandContext(ctx, "docker", "ps", "--format", "{{.Image}}\t{{.Names}}")
+	cmd := exec.CommandContext(ctx, "docker", "ps", "-a", "--format", "{{.Image}}\t{{.Names}}")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list running docker containers")

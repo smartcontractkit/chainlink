@@ -152,3 +152,30 @@ func TestHydrateRecreatedEnvironmentImageEnvFromConfigDoesNotOverrideExistingEnv
 	require.Equal(t, "existing-jd", os.Getenv("CTF_JD_IMAGE"))
 	require.Equal(t, "existing-cl", os.Getenv("CTF_CHAINLINK_IMAGE"))
 }
+
+func TestHydrateRecreatedEnvironmentImageEnvPrefersContainerImagesOverSavedStateDefaults(t *testing.T) {
+	t.Setenv("CTF_JD_IMAGE", "")
+	t.Setenv("CTF_CHAINLINK_IMAGE", "")
+
+	hydrateRecreatedEnvironmentImageEnvFromContainers([]runningContainer{
+		{Image: "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", Name: "jd-ab123"},
+		{Image: "123456789012.dkr.ecr.us-east-2.amazonaws.com/chainlink:abc123", Name: "workflow-node0"},
+	})
+	hydrateRecreatedEnvironmentImageEnvFromConfig(&envconfig.Config{
+		JD: &jd.Input{Image: "job-distributor:0.22.1"},
+		NodeSets: []*cre.NodeSet{
+			{
+				NodeSpecs: []*cre.NodeSpecWithRole{
+					{
+						Input: &clnode.Input{
+							Node: &clnode.NodeInput{Image: "chainlink-tmp:latest"},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", os.Getenv("CTF_JD_IMAGE"))
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/chainlink:abc123", os.Getenv("CTF_CHAINLINK_IMAGE"))
+}
