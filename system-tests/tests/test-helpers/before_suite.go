@@ -191,7 +191,7 @@ func hydrateRecreatedEnvironmentImageEnv(ctx context.Context, relativePathToRepo
 	}
 
 	setEnvIfMissing("CTF_JD_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.HasPrefix(name, "job-distributor")
+		return strings.HasPrefix(name, "job-distributor") || strings.HasPrefix(name, "jd-")
 	}))
 	setEnvIfMissing("CTF_CHAINLINK_IMAGE", firstMatchingContainerImage(containers, func(name string) bool {
 		return strings.HasPrefix(name, "workflow-node") ||

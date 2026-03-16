@@ -92,18 +92,18 @@ func TestParseRunningContainers(t *testing.T) {
 
 func TestFirstMatchingContainerImage(t *testing.T) {
 	containers := []runningContainer{
-		{Image: "job-distributor:0.22.1", Name: "job-distributor"},
+		{Image: "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", Name: "jd-ab123"},
 		{Image: "chainlink:test", Name: "workflow-node0"},
 	}
 
 	jdImage := firstMatchingContainerImage(containers, func(name string) bool {
-		return strings.HasPrefix(name, "job-distributor")
+		return strings.HasPrefix(name, "job-distributor") || strings.HasPrefix(name, "jd-")
 	})
 	chainlinkImage := firstMatchingContainerImage(containers, func(name string) bool {
 		return strings.HasPrefix(name, "workflow-node")
 	})
 
-	require.Equal(t, "job-distributor:0.22.1", jdImage)
+	require.Equal(t, "123456789012.dkr.ecr.us-east-2.amazonaws.com/job-distributor:0.22.1", jdImage)
 	require.Equal(t, "chainlink:test", chainlinkImage)
 }
 
