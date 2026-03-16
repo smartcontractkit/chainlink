@@ -6,8 +6,11 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -75,10 +78,14 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 
 	runWithFunding("Link Billing", func(t *testing.T) {
 		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		subBefore, gsErr := coord.GetSubscription(ctx, subID)
+		require.NoError(t, gsErr, "failed to get subscription before request")
+		subBalanceBefore := new(big.Int).Set(subBefore.Balance)
 
 		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
+		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
 		require.True(t, fulfilled.Success, "RandomWordsFulfilled.Success should be true")
 		require.False(t, fulfilled.NativePayment, "should be LINK payment")
 
@@ -88,14 +95,23 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 		for _, w := range status.RandomWords {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "random word should be > 0")
 		}
+
+		subAfter, aErr := coord.GetSubscription(ctx, subID)
+		require.NoError(t, aErr, "failed to get subscription after request")
+		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBefore, fulfilled.Payment)
+		require.Equal(t, expectedSubBalanceJuels, subAfter.Balance, "LINK subscription balance delta mismatch")
 	})
 
 	runWithFunding("Native Billing", func(t *testing.T) {
 		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		subBefore, gsErr := coord.GetSubscription(ctx, subID)
+		require.NoError(t, gsErr, "failed to get subscription before request")
+		subNativeBalanceBefore := new(big.Int).Set(subBefore.NativeBalance)
 
 		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, true,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
+		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
 		require.True(t, fulfilled.Success, "RandomWordsFulfilled.Success should be true")
 		require.True(t, fulfilled.NativePayment, "should be native payment")
 
@@ -105,50 +121,109 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 		for _, w := range status.RandomWords {
 			require.Equal(t, 1, w.Cmp(big.NewInt(0)), "random word should be > 0")
 		}
+
+		subAfter, aErr := coord.GetSubscription(ctx, subID)
+		require.NoError(t, aErr, "failed to get subscription after request")
+		expectedSubBalanceWei := new(big.Int).Sub(subNativeBalanceBefore, fulfilled.Payment)
+		require.Equal(t, expectedSubBalanceWei, subAfter.NativeBalance, "native subscription balance delta mismatch")
 	})
 
 	runWithFunding("Direct Funding — Link Billing", func(t *testing.T) {
 		wrapperConsumer, err := contracts.LoadVRFV2PlusWrapperLoadTestConsumer(
 			chainClient, c.DeployedContracts.WrapperConsumer)
 		require.NoError(t, err)
+		wrapperSubID, ok := new(big.Int).SetString(c.DeployedContracts.WrapperSubID, 10)
+		require.True(t, ok, "failed to parse wrapper subID")
+
+		wrapperConsumerLinkBefore, bErr := linkToken.BalanceOf(ctx, wrapperConsumer.Address())
+		require.NoError(t, bErr, "failed to get wrapper consumer LINK balance before request")
+		wrapperSubBefore, sErr := coord.GetSubscription(ctx, wrapperSubID)
+		require.NoError(t, sErr, "failed to get wrapper subscription before request")
+		wrapperSubLinkBefore := new(big.Int).Set(wrapperSubBefore.Balance)
 
 		fulfilled := requestAndWaitWrapper(t, ctx, wrapperConsumer, coord, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
+		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
 		require.True(t, fulfilled.Success, "RandomWordsFulfilled.Success should be true")
 		require.False(t, fulfilled.NativePayment, "should be LINK payment")
 
 		status, sErr := wrapperConsumer.GetRequestStatus(ctx, fulfilled.RequestId)
 		require.NoError(t, sErr)
 		require.Len(t, status.RandomWords, 1, "expected 1 random word")
+
+		wrapperSubAfter, wsErr := coord.GetSubscription(ctx, wrapperSubID)
+		require.NoError(t, wsErr, "failed to get wrapper subscription after request")
+		expectedWrapperSubLink := new(big.Int).Sub(wrapperSubLinkBefore, fulfilled.Payment)
+		require.Equal(t, expectedWrapperSubLink, wrapperSubAfter.Balance, "wrapper subscription LINK balance delta mismatch")
+
+		wrapperConsumerLinkAfter, waErr := linkToken.BalanceOf(ctx, wrapperConsumer.Address())
+		require.NoError(t, waErr, "failed to get wrapper consumer LINK balance after request")
+		expectedWrapperConsumerLink := new(big.Int).Sub(wrapperConsumerLinkBefore, status.Paid)
+		require.Equal(t, expectedWrapperConsumerLink, wrapperConsumerLinkAfter, "wrapper consumer LINK balance delta mismatch")
 	})
 
 	runWithFunding("Direct Funding — Native Billing", func(t *testing.T) {
 		wrapperConsumer, err := contracts.LoadVRFV2PlusWrapperLoadTestConsumer(
 			chainClient, c.DeployedContracts.WrapperConsumer)
 		require.NoError(t, err)
+		wrapperSubID, ok := new(big.Int).SetString(c.DeployedContracts.WrapperSubID, 10)
+		require.True(t, ok, "failed to parse wrapper subID")
+
+		wrapperConsumerNativeBefore, bErr := chainClient.Client.BalanceAt(ctx, common.HexToAddress(wrapperConsumer.Address()), nil)
+		require.NoError(t, bErr, "failed to get wrapper consumer native balance before request")
+		wrapperSubBefore, sErr := coord.GetSubscription(ctx, wrapperSubID)
+		require.NoError(t, sErr, "failed to get wrapper subscription before request")
+		wrapperSubNativeBefore := new(big.Int).Set(wrapperSubBefore.NativeBalance)
 
 		fulfilled := requestAndWaitWrapper(t, ctx, wrapperConsumer, coord, true,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
+		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
 		require.True(t, fulfilled.Success, "RandomWordsFulfilled.Success should be true")
 		require.True(t, fulfilled.NativePayment, "should be native payment")
 
 		status, sErr := wrapperConsumer.GetRequestStatus(ctx, fulfilled.RequestId)
 		require.NoError(t, sErr)
 		require.Len(t, status.RandomWords, 1, "expected 1 random word")
+
+		wrapperSubAfter, wsErr := coord.GetSubscription(ctx, wrapperSubID)
+		require.NoError(t, wsErr, "failed to get wrapper subscription after request")
+		expectedWrapperSubNative := new(big.Int).Sub(wrapperSubNativeBefore, fulfilled.Payment)
+		require.Equal(t, expectedWrapperSubNative, wrapperSubAfter.NativeBalance, "wrapper subscription native balance delta mismatch")
+
+		wrapperConsumerNativeAfter, waErr := chainClient.Client.BalanceAt(ctx, common.HexToAddress(wrapperConsumer.Address()), nil)
+		require.NoError(t, waErr, "failed to get wrapper consumer native balance after request")
+		expectedWrapperConsumerNative := new(big.Int).Sub(wrapperConsumerNativeBefore, status.Paid)
+		require.Equal(t, expectedWrapperConsumerNative, wrapperConsumerNativeAfter, "wrapper consumer native balance delta mismatch")
 	})
 
 	runWithFunding("Block Confirmation", func(t *testing.T) {
 		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
 
 		const highConfirmations = uint16(10)
-		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, false,
-			highConfirmations, defaultFulfillTimeout)
+		requested, rErr := consumer.RequestRandomnessWithEvent(
+			keyHash, subID, highConfirmations, defaultCallbackGasLimit, false, defaultNumWords, defaultRequestCount,
+		)
+		require.NoError(t, rErr, "RequestRandomness failed")
+		require.NotNil(t, requested)
 
-		require.True(t, fulfilled.Success)
-		// Verify the fulfillment happened (event existence proves confirmations were waited)
-		require.NotNil(t, fulfilled.RequestId)
+		var fulfilledBlock uint64
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			fulfilled, fErr := coord.FilterRandomWordsFulfilled(
+				&bind.FilterOpts{Context: ctx},
+				requested.RequestId,
+			)
+			if fErr != nil {
+				return false
+			}
+			fulfilledBlock = fulfilled.Raw.BlockNumber
+			return fulfilled.Success
+		}, defaultFulfillTimeout, 5*time.Second).Should(gomega.BeTrue(),
+			"timed out waiting for RandomWordsFulfilled for requestID %s", requested.RequestId)
+
+		require.GreaterOrEqual(t, fulfilledBlock, requested.Raw.BlockNumber+uint64(highConfirmations),
+			"fulfillment block should be at least request block + minimum confirmations")
 	})
 
 	runWithFunding("Job Runs", func(t *testing.T) {

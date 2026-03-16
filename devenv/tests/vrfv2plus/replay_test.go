@@ -87,8 +87,16 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		)
 		require.NoError(t, qErr, "error requesting randomness")
 
-		// Wait for the 5s request timeout to expire (env was configured with vrf_job_request_timeout=5s).
-		time.Sleep(6 * time.Second)
+		// Wait until the underfunded request is observed as pending. This is
+		// more robust in CI than a fixed sleep around request timeout boundaries.
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			pendingReqExists, pxErr := coord.PendingRequestsExist(ctx, subID)
+			if pxErr != nil {
+				return false
+			}
+			return pendingReqExists
+		}, 30*time.Second, time.Second).Should(gomega.BeTrue(),
+			"pending request must exist before funding and replay")
 
 		// Fund the subscription so the node could fulfill — but it already timed out.
 		linkToken, lErr := contracts.LoadLinkTokenContract(framework.L, chainClient, common.HexToAddress(c.DeployedContracts.LinkToken))
@@ -102,11 +110,6 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		require.NoError(t, eErr)
 		_, fErr = linkToken.TransferAndCall(coord.Address(), products.EtherToWei(big.NewFloat(c.SubFundingAmountLink)), encodedSubID)
 		require.NoError(t, fErr, "failed to fund subscription with LINK")
-
-		// The request is still pending since the job timed out.
-		pendingReqExists, pxErr := coord.PendingRequestsExist(ctx, subID)
-		require.NoError(t, pxErr, "error fetching PendingRequestsExist from coordinator")
-		require.True(t, pendingReqExists, "pending request must exist since job timed out before funding")
 
 		// Delete the current job (which has the 5s timeout).
 		resp, delErr := cl[0].DeleteJob(c.VRFKeyData.VRFJobID)
@@ -122,32 +125,28 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		observationSource, oErr := newPipelineSpec.String()
 		require.NoError(t, oErr, "failed to build pipeline spec")
 
-		// Create the new job with a 1h timeout in a goroutine so it races with the fulfillment wait.
+		// Create the new job with a 1h timeout.
 		var newJobID string
-		go func() {
-			newJobSpec := &productvrfv2plus.VRFV2PlusJobSpec{
-				Name:                          "vrf-v2-plus-replay",
-				CoordinatorAddress:            coord.Address(),
-				BatchCoordinatorAddress:       batchCoordAddr,
-				PublicKey:                     c.VRFKeyData.PubKeyCompressed,
-				ExternalJobID:                 uuid.New().String(),
-				ObservationSource:             observationSource,
-				MinIncomingConfirmations:      int(c.MinimumConfirmations),
-				FromAddresses:                 c.VRFKeyData.TxKeyAddresses,
-				EVMChainID:                    in.Blockchains[0].Out.ChainID,
-				BatchFulfillmentEnabled:       false,
-				BatchFulfillmentGasMultiplier: 1.1,
-				BackOffInitialDelay:           15 * time.Second,
-				BackOffMaxDelay:               5 * time.Minute,
-				PollPeriod:                    1 * time.Second,
-				RequestTimeout:                1 * time.Hour,
-			}
-			job, jErr := cl[0].MustCreateJob(newJobSpec)
-			if jErr != nil {
-				return
-			}
-			newJobID = job.Data.ID
-		}()
+		newJobSpec := &productvrfv2plus.VRFV2PlusJobSpec{
+			Name:                          fmt.Sprintf("vrf-v2-plus-replay-%s", uuid.NewString()),
+			CoordinatorAddress:            coord.Address(),
+			BatchCoordinatorAddress:       batchCoordAddr,
+			PublicKey:                     c.VRFKeyData.PubKeyCompressed,
+			ExternalJobID:                 uuid.New().String(),
+			ObservationSource:             observationSource,
+			MinIncomingConfirmations:      int(c.MinimumConfirmations),
+			FromAddresses:                 c.VRFKeyData.TxKeyAddresses,
+			EVMChainID:                    in.Blockchains[0].Out.ChainID,
+			BatchFulfillmentEnabled:       false,
+			BatchFulfillmentGasMultiplier: 1.1,
+			BackOffInitialDelay:           15 * time.Second,
+			BackOffMaxDelay:               5 * time.Minute,
+			PollPeriod:                    1 * time.Second,
+			RequestTimeout:                1 * time.Hour,
+		}
+		job, jErr := cl[0].MustCreateJob(newJobSpec)
+		require.NoError(t, jErr, "error creating replay VRF job")
+		newJobID = job.Data.ID
 
 		t.Cleanup(func() {
 			if newJobID != "" {

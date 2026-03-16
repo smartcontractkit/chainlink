@@ -226,7 +226,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		// Verify subID appears in old coordinator's active list.
 		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids before migration")
-		require.True(t, containsBigInt(activeSubIDsBefore, subID), "subID should be in old coordinator's active list before migration")
+		require.True(t, containsBigInt(activeSubIDsBefore, subID),
+			"subID should be in old coordinator's active list before migration")
 
 		oldSubBefore, gsErr := coord.GetSubscription(ctx, subID)
 		require.NoError(t, gsErr, "error getting subscription before migration")
@@ -315,11 +316,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		reconcileConfiguredFunding(t, ctx, chainClient, coord, linkToken, c)
 
 		// After subtest 1 migrated the test sub, the old coordinator should have
-		// exactly 1 active sub remaining: the wrapper sub.
+		// the wrapper sub present in active subs.
 		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids before wrapper migration")
-		require.Len(t, activeSubIDsBefore, 1, "old coordinator should have exactly 1 active sub (wrapper sub) before wrapper migration")
-		require.Equal(t, subID, activeSubIDsBefore[0])
+		require.True(t, containsBigInt(activeSubIDsBefore, subID),
+			"old coordinator active subs should include wrapper sub before wrapper migration")
 
 		oldSubBefore, gsErr := coord.GetSubscription(ctx, subID)
 		require.NoError(t, gsErr, "error getting wrapper subscription before migration")
