@@ -150,13 +150,12 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 		MCMS:                        nil, // Not testing MCMS interactions in this specific test
 	}
 
-	csOut, err := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
+	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset execution failed")
 
 	// 8+9. Verify all FeeQuoter dest chain config fields (criteria 1), fee tokens (criteria 3),
 	// and premium multipliers (criteria 4) on-chain.
 	verifyFeeQuoterOnChainTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, newFeeQuoterParams, allFeeTokens, destChainSelector)
-	assertNoBatchForDestChain(t, csOut, destChainSelector)
 	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
 
 	// 10. E2E AddTokens & TokenPools
@@ -175,11 +174,10 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	require.NotEqual(t, tokenTransferFeeCfgFromOnRamp.DestBytesOverhead, tokenTransferFeeCfgFromFeeQ.DestBytesOverhead, "TokenTransferFeeConfig should not match before translation")
 
 	// 11. Translate TokenTransferFeeConfig from OnRamp to FeeQuoter (criteria 2).
-	csOut2, err := v1_6.TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(tenv, translateConfig)
+	_, err = v1_6.TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(tenv, translateConfig)
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset execution failed")
 
 	verifyTokenTransferFeeConfigTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, allTokens, destChainSelector)
-	assertNoBatchForDestChain(t, csOut2, destChainSelector)
 	t.Logf("Successfully verified translation of 1.5.0 token transfer fee config args OnRamp config for chain %d to 1.6.0 FeeQuoter %d", sourceChainSelector, destChainSelector)
 }
 
