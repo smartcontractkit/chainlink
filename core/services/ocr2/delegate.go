@@ -37,6 +37,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -78,8 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
@@ -2331,8 +2330,8 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 	)
 }
 
-func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, destStartBlock uint64) config.CommitPluginConfig {
-	return config.CommitPluginConfig{
+func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, destStartBlock uint64) ccipconfig.CommitPluginConfig {
+	return ccipconfig.CommitPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: sourceStartBlock,
 		DestStartBlock:   destStartBlock,
@@ -2595,8 +2594,8 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	return
 }
 
-func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
-	return config.ExecPluginConfig{
+func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) ccipconfig.ExecPluginConfig {
+	return ccipconfig.ExecPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: srcStartBlock,
 		DestStartBlock:   dstStartBlock,
