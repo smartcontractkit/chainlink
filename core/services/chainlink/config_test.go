@@ -904,6 +904,7 @@ func TestConfig_Marshal(t *testing.T) {
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
 				LogPollerCPIEventsEnabled: ptr(true),
+				LogPollerSlotsBatchSize:   ptr[int64](1000),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
@@ -1425,6 +1426,7 @@ ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
+LogPollerSlotsBatchSize = 1000
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'

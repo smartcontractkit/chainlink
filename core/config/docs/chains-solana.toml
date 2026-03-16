@@ -60,6 +60,8 @@ EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 # LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
 LogPollerCPIEventsEnabled = true # Default
+# LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
+LogPollerSlotsBatchSize = 1000 # Default
 
 [Solana.Workflow]
 # AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
