@@ -27,6 +27,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/latest/link_token"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -154,76 +155,85 @@ func (m *Configurator) GenerateNodesConfig(
 	_ []*nodeset.Input,
 ) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
-	// configure node set and generate CL nodes configs
 	node := bc[0].Out.Nodes[0]
 	chainID := bc[0].Out.ChainID
-	netConfig := fmt.Sprintf(`
-       [[EVM]]
-       LogPollInterval = '1s'
-       BlockBackfillDepth = 100
-       LinkContractAddress = '%s'
-       ChainID = '%s'
-       MinIncomingConfirmations = 1
-       MinContractPayment = '0.0000001 link'
-       FinalityDepth = %d
 
-       [[EVM.Nodes]]
-       Name = 'default'
-       WsUrl = '%s'
-       HttpUrl = '%s'
+	tmpl := `
+[[EVM]]
+LogPollInterval = '1s'
+BlockBackfillDepth = 100
+LinkContractAddress = '{{.LinkContractAddress}}'
+ChainID = '{{.ChainID}}'
+MinIncomingConfirmations = 1
+MinContractPayment = '0.0000001 link'
+FinalityDepth = {{.FinalityDepth}}
 
-       [EVM.Transactions]
-       Enabled = true
-       ForwardersEnabled = true
-       MaxInFlight = 16
-       MaxQueued = 250
-       ReaperInterval = '1h0m0s'
-       ReaperThreshold = '0s'
-       ResendAfterThreshold = '0s'
-       ConfirmationTimeout = '1m0s'
+[[EVM.Nodes]]
+Name = 'default'
+WsUrl = '{{.WSURL}}'
+HttpUrl = '{{.HTTPURL}}'
 
-       [Feature]
-       FeedsManager = true
-       MultiFeedsManagers = true
-       LogPoller = true
-       UICSAKeys = true
-       [OCR2]
-       Enabled = true
-       SimulateTransactions = false
-       DefaultTransactionQueueDepth = 1
-       [P2P.V2]
-       Enabled = true
-       ListenAddresses = ['0.0.0.0:6690']
+[EVM.Transactions]
+Enabled = true
+ForwardersEnabled = {{.ForwardersEnabled}}
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '0s'
+ResendAfterThreshold = '0s'
+ConfirmationTimeout = '1m0s'
 
-   	   [Log]
-   JSONConsole = true
-   Level = 'debug'
-   [Pyroscope]
-   ServerAddress = 'http://host.docker.internal:4040'
-   Environment = 'local'
-   [WebServer]
-          SessionTimeout = '999h0m0s'
-          HTTPWriteTimeout = '3m'
-   SecureCookies = false
-   HTTPPort = 6688
-   [WebServer.TLS]
-   HTTPSPort = 0
-       [WebServer.RateLimit]
-       Authenticated = 5000
-       Unauthenticated = 5000
-   [JobPipeline]
-   [JobPipeline.HTTPRequest]
-   DefaultTimeout = '1m'
-       [Log.File]
-       MaxSize = '0b'
-`, m.Config[0].LinkContractAddress,
-		chainID,
-		m.Config[0].ChainFinalityDepth,
-		node.InternalWSUrl,
-		node.InternalHTTPUrl,
-	)
-	L.Info().Msg("Nodes network configuration is finished")
-	return netConfig, nil
+[Feature]
+FeedsManager = true
+MultiFeedsManagers = true
+LogPoller = true
+UICSAKeys = true
+
+[OCR2]
+Enabled = true
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
+
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+
+[Log]
+JSONConsole = true
+Level = 'debug'
+
+[Pyroscope]
+ServerAddress = 'http://host.docker.internal:4040'
+Environment = 'local'
+
+[WebServer]
+SessionTimeout = '999h0m0s'
+HTTPWriteTimeout = '3m'
+SecureCookies = false
+HTTPPort = 6688
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[WebServer.RateLimit]
+Authenticated = 5000
+Unauthenticated = 5000
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m'
+
+[Log.File]
+MaxSize = '0b'
+`
+	return framework.RenderTemplate(tmpl, products.NodeConfigTemplate{
+		LinkContractAddress: m.Config[0].LinkContractAddress,
+		ChainID:             chainID,
+		FinalityDepth:       int(m.Config[0].ChainFinalityDepth),
+		WSURL:               node.InternalWSUrl,
+		HTTPURL:             node.InternalHTTPUrl,
+		ForwardersEnabled:   m.Forwarders,
+	})
 }
 
 func (m *Configurator) GenerateNodesSecrets(
@@ -528,7 +538,6 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	for _, account := range transmitterAccounts {
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
-
 
 	onChainConfig, err := median.StandardOnchainConfigCodec{}.Encode(context.Background(), median.OnchainConfig{Min: m.Config[0].OCR2.MinimumAnswer, Max: m.Config[0].OCR2.MaximumAnswer})
 	if err != nil {

@@ -76,7 +76,7 @@ jobs:
             logs_archive_name: "flux"
           - display_name: "Test DF1 (OCR2) Smoke"
             testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
-            envcmd: "cl u env.toml,products/ocr2/basic.toml,"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
             runner: "ubuntu-latest"
             tests_dir: "ocr2"
             logs_archive_name: "df1-smoke"
