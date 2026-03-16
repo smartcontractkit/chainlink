@@ -26,6 +26,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	prices2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/txmeta"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
 )
 

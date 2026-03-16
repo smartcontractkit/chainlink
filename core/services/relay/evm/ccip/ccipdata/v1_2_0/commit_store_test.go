@@ -89,48 +89,48 @@ func TestCommitStoreV120ffchainConfigEncoding(t *testing.T) {
 		},
 		{
 			name: "can omit finality depth",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.SourceFinalityDepth = 0
 				c.DestFinalityDepth = 0
 			}),
 		},
 		{
 			name: "can set PriceReportingDisabled",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.PriceReportingDisabled = true
 			}),
 		},
 		{
 			name: "must set GasPriceHeartBeat",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.GasPriceHeartBeat = *config.MustNewDuration(0)
 			}),
 			errPattern: "GasPriceHeartBeat",
 		},
 		{
 			name: "must set ExecGasPriceDeviationPPB",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.ExecGasPriceDeviationPPB = 0
 			}),
 			errPattern: "ExecGasPriceDeviationPPB",
 		},
 		{
 			name: "must set TokenPriceHeartBeat",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.TokenPriceHeartBeat = *config.MustNewDuration(0)
 			}),
 			errPattern: "TokenPriceHeartBeat",
 		},
 		{
 			name: "must set TokenPriceDeviationPPB",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.TokenPriceDeviationPPB = 0
 			}),
 			errPattern: "TokenPriceDeviationPPB",
 		},
 		{
 			name: "must set InflightCacheExpiry",
-			want: modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
+			want: v1_2_1.modifyCopy(validConfig, func(c *commitstore.JSONCommitOffchainConfig) {
 				c.InflightCacheExpiry = *config.MustNewDuration(0)
 			}),
 			errPattern: "InflightCacheExpiry",
