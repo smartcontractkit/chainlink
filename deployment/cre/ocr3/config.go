@@ -386,7 +386,7 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies
 	var solanaOnchainPublickey string
 	for details, cfg := range o.SelToOCRConfig {
 		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
-			if !familySet[family] {
+			if len(familySet) > 0 && !familySet[family] {
 				continue
 			}
 			if family == chainsel.FamilyAptos {
