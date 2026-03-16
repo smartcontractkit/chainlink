@@ -23,6 +23,10 @@ type Configurator struct {
 	// BHS node TX key (only when EnableBHSJob)
 	bhsKeyAddr    string
 	bhsKeyEncJSON []byte
+
+	// BHF node TX key (only when EnableBHFJob)
+	bhfKeyAddr    string
+	bhfKeyEncJSON []byte
 }
 
 // VRFv2Plus holds the per-instance configuration for the vrfv2_plus product.
@@ -75,6 +79,16 @@ type VRFv2Plus struct {
 	BHSJobPollPeriod     string `toml:"bhs_job_poll_period"`
 	BHSJobRunTimeout     string `toml:"bhs_job_run_timeout"`
 
+	// BHF job (only when EnableBHFJob = true)
+	EnableBHFJob         bool   `toml:"enable_bhf_job"`
+	BHFJobWaitBlocks     int    `toml:"bhf_job_wait_blocks"`
+	BHFJobLookbackBlocks int    `toml:"bhf_job_lookback_blocks"`
+	BHFJobPollPeriod     string `toml:"bhf_job_poll_period"`
+	BHFJobRunTimeout     string `toml:"bhf_job_run_timeout"`
+
+	// VRF job pipeline simulation block ("pending" or "")
+	VRFJobSimulationBlock string `toml:"vrf_job_simulation_block"`
+
 	DeployedContracts VRFDeployedContracts `toml:"deployed_contracts"`
 	VRFKeyData        VRFKeyOutput         `toml:"vrf_key_data"`
 }
@@ -94,11 +108,13 @@ type VRFDeployedContracts struct {
 
 // VRFKeyOutput holds VRF key data and the job ID, written to the output TOML.
 type VRFKeyOutput struct {
-	PubKeyCompressed string   `toml:"pub_key_compressed"`
-	KeyHash          string   `toml:"key_hash"`
-	VRFJobID         string   `toml:"vrf_job_id"`
-	TxKeyAddresses   []string `toml:"tx_key_addresses"` // [nodeEVMKey, ...extraKeys]; len = 1 + num_tx_keys
-	BHSJobID         string   `toml:"bhs_job_id"`       // populated if EnableBHSJob
+	PubKeyCompressed   string   `toml:"pub_key_compressed"`
+	PubKeyUncompressed string   `toml:"pub_key_uncompressed"` // full uncompressed key; needed for RegisterProvingKey
+	KeyHash            string   `toml:"key_hash"`
+	VRFJobID           string   `toml:"vrf_job_id"`
+	TxKeyAddresses     []string `toml:"tx_key_addresses"` // [nodeEVMKey, ...extraKeys]; len = 1 + num_tx_keys
+	BHSJobID           string   `toml:"bhs_job_id"`       // populated if EnableBHSJob
+	BHFJobID           string   `toml:"bhf_job_id"`       // populated if EnableBHFJob
 }
 
 func NewConfigurator() *Configurator {

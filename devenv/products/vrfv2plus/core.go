@@ -75,6 +75,17 @@ func (m *Configurator) GenerateNodesConfig(
 		L.Info().Str("addr", a.Hex()).Msg("Generated BHS TX key")
 	}
 
+	// Generate BHF key if needed
+	if cfg.EnableBHFJob {
+		enc, a, kErr := clclient.NewETHKey(txKeyPassword)
+		if kErr != nil {
+			return "", fmt.Errorf("failed to generate BHF key: %w", kErr)
+		}
+		m.bhfKeyAddr = a.Hex()
+		m.bhfKeyEncJSON = enc
+		L.Info().Str("addr", a.Hex()).Msg("Generated BHF TX key")
+	}
+
 	baseConfig := `[Feature]
 FeedsManager = true
 LogPoller = true
@@ -145,6 +156,9 @@ GasEstimator.PriceMax = '{{$.MaxGasPriceGWei}} gwei'
 	if m.bhsKeyAddr != "" {
 		allKeys = append(allKeys, m.bhsKeyAddr)
 	}
+	if m.bhfKeyAddr != "" {
+		allKeys = append(allKeys, m.bhfKeyAddr)
+	}
 
 	type data struct {
 		ChainID           string
@@ -209,6 +223,9 @@ func (m *Configurator) GenerateNodesSecrets(
 	if len(m.bhsKeyEncJSON) > 0 {
 		keys = append(keys, evmKey{JSON: string(m.bhsKeyEncJSON), Password: txKeyPassword, ID: chainID})
 	}
+	if len(m.bhfKeyEncJSON) > 0 {
+		keys = append(keys, evmKey{JSON: string(m.bhfKeyEncJSON), Password: txKeyPassword, ID: chainID})
+	}
 
 	doc := secretsDoc{EVM: evmSecrets{Keys: keys}}
 	out, err := toml.Marshal(doc)
@@ -258,6 +275,9 @@ func (m *Configurator) ConfigureJobsAndContracts(
 	addrsToFund := append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
 	if m.bhsKeyAddr != "" {
 		addrsToFund = append(addrsToFund, m.bhsKeyAddr)
+	}
+	if m.bhfKeyAddr != "" {
+		addrsToFund = append(addrsToFund, m.bhfKeyAddr)
 	}
 	for _, addr := range addrsToFund {
 		L.Info().Str("addr", addr).Float64("eth", cfg.CLNodesFundingETH).Msg("Funding EVM address")
@@ -361,6 +381,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		return fmt.Errorf("failed to get key hash: %w", err)
 	}
 	cfg.VRFKeyData.PubKeyCompressed = vrfKey.Data.ID
+	cfg.VRFKeyData.PubKeyUncompressed = vrfKey.Data.Attributes.Uncompressed
 	cfg.VRFKeyData.KeyHash = fmt.Sprintf("0x%x", keyHash)
 
 	// Build and create VRF job
@@ -379,6 +400,10 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		Address:               coord.Address(),
 		EstimateGasMultiplier: 1.1,
 		FromAddress:           fromAddresses[0],
+	}
+	if cfg.VRFJobSimulationBlock != "" {
+		s := cfg.VRFJobSimulationBlock
+		pipelineSpec.SimulationBlock = &s
 	}
 	observationSource, err := pipelineSpec.String()
 	if err != nil {
@@ -435,6 +460,34 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		}
 		cfg.VRFKeyData.BHSJobID = bhsJob.Data.ID
 		L.Info().Str("bhs_job_id", cfg.VRFKeyData.BHSJobID).Msg("BHS job created")
+	}
+
+	// Create BHF job if enabled (on node after BHS node)
+	if cfg.EnableBHFJob {
+		bhfNodeIdx := 1
+		if cfg.EnableBHSJob {
+			bhfNodeIdx++
+		}
+		bhfJob, bhfErr := cl[bhfNodeIdx].MustCreateJob(&BlockhashForwarderJobSpec{
+			Name:                       "bhf-vrf-v2-plus",
+			ExternalJobID:              uuid.New().String(),
+			ForwardingAllowed:          false,
+			CoordinatorV2Address:       coord.Address(),
+			CoordinatorV2PlusAddress:   coord.Address(),
+			BlockhashStoreAddress:      bhs.Address(),
+			BatchBlockhashStoreAddress: batchBHS.Address(),
+			FromAddresses:              []string{m.bhfKeyAddr},
+			EVMChainID:                 bc[0].Out.ChainID,
+			WaitBlocks:                 cfg.BHFJobWaitBlocks,
+			LookbackBlocks:             cfg.BHFJobLookbackBlocks,
+			PollPeriod:                 cfg.BHFJobPollPeriod,
+			RunTimeout:                 cfg.BHFJobRunTimeout,
+		})
+		if bhfErr != nil {
+			return fmt.Errorf("failed to create BHF job: %w", bhfErr)
+		}
+		cfg.VRFKeyData.BHFJobID = bhfJob.Data.ID
+		L.Info().Str("bhf_job_id", cfg.VRFKeyData.BHFJobID).Msg("BHF job created")
 	}
 
 	// Store all TX key addresses for use in tests
@@ -549,9 +602,12 @@ func validateTopology(cfg *VRFv2Plus, ns *nodeset.Input) error {
 	if cfg.EnableBHSJob {
 		want++
 	}
+	if cfg.EnableBHFJob {
+		want++
+	}
 	if got != want {
-		return fmt.Errorf("topology mismatch: nodeset has %d node(s), want %d (enable_bhs_job=%v)",
-			got, want, cfg.EnableBHSJob)
+		return fmt.Errorf("topology mismatch: nodeset has %d node(s), want %d (enable_bhs_job=%v, enable_bhf_job=%v)",
+			got, want, cfg.EnableBHSJob, cfg.EnableBHFJob)
 	}
 	return nil
 }

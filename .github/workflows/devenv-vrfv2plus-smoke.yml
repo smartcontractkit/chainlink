@@ -23,6 +23,7 @@ on:
         required: true
         type: string
         description: "The tag of the Chainlink image to use for the tests."
+  pull_request:
 
 defaults:
   run:
@@ -50,8 +51,21 @@ jobs:
           - environment: env-vrf2plus.toml,tests/vrfv2plus/batch.toml
             env_file: env-vrf2plus.toml
             test_filter: TestVRFv2PlusBatchFulfillment
+          - environment: tests/vrfv2plus/bhf.toml
+            env_file: env-vrf2plus-bhf.toml
+            test_filter: TestVRFV2PlusWithBHF
+          - environment: tests/vrfv2plus/replay.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2PlusReplayAfterTimeout
+          - environment: tests/vrfv2plus/pending_block.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays
+          - environment: tests/vrfv2plus/basic.toml
+            env_file: env-vrf2plus.toml
+            test_filter: TestVRFv2PlusMigration
     env:
-      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag }}
+      # CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag }}
+      CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:nightly-20260316
     permissions:
       id-token: write
       contents: read
