@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/txmeta"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
@@ -37,7 +38,6 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	ccipdbmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb/mocks"
@@ -1967,7 +1967,7 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			out, err := encodeCommitReport(report)
 			require.NoError(t, err)
 
-			fn, err := factory.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.5.0"))
+			fn, err := txmeta.CommitReportToEthTxMeta(ccipconfig.CommitStore, *semver.MustParse("1.5.0"))
 			require.NoError(t, err)
 			txMeta, err := fn(out)
 			require.NoError(t, err)

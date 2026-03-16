@@ -8,28 +8,24 @@ import (
 	"math/big"
 	"time"
 
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
-
-	"github.com/Masterminds/semver/v3"
-
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
@@ -265,10 +261,4 @@ func UnregisterExecPluginLpFilters(srcProvider types.CCIPExecProvider, dstProvid
 		}
 	}
 	return multiErr
-}
-
-// ExecReportToEthTxMeta generates a txmgr.EthTxMeta from the given report.
-// Only MessageIDs will be populated in the TxMeta.
-func ExecReportToEthTxMeta(ctx context.Context, typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	return factory.ExecReportToEthTxMeta(ctx, typ, ver)
 }

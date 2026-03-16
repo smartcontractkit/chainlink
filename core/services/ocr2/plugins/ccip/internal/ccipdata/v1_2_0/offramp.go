@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -538,82 +539,8 @@ func (o *OffRamp) EncodeExecutionReport(ctx context.Context, report cciptypes.Ex
 	return EncodeExecutionReport(ctx, o.ExecutionReportArgs, report)
 }
 
-func DecodeExecReport(ctx context.Context, args abi.Arguments, report []byte) (cciptypes.ExecReport, error) {
-	unpacked, err := args.Unpack(report)
-	if err != nil {
-		return cciptypes.ExecReport{}, err
-	}
-	if len(unpacked) == 0 {
-		return cciptypes.ExecReport{}, errors.New("assumptionViolation: expected at least one element")
-	}
-	// Must be anonymous struct here
-	erStruct, ok := unpacked[0].(struct {
-		Messages []struct {
-			SourceChainSelector uint64         `json:"sourceChainSelector"`
-			Sender              common.Address `json:"sender"`
-			Receiver            common.Address `json:"receiver"`
-			SequenceNumber      uint64         `json:"sequenceNumber"`
-			GasLimit            *big.Int       `json:"gasLimit"`
-			Strict              bool           `json:"strict"`
-			Nonce               uint64         `json:"nonce"`
-			FeeToken            common.Address `json:"feeToken"`
-			FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
-			Data                []uint8        `json:"data"`
-			TokenAmounts        []struct {
-				Token  common.Address `json:"token"`
-				Amount *big.Int       `json:"amount"`
-			} `json:"tokenAmounts"`
-			SourceTokenData [][]uint8 `json:"sourceTokenData"`
-			MessageId       [32]uint8 `json:"messageId"`
-		} `json:"messages"`
-		OffchainTokenData [][][]uint8 `json:"offchainTokenData"`
-		Proofs            [][32]uint8 `json:"proofs"`
-		ProofFlagBits     *big.Int    `json:"proofFlagBits"`
-	})
-	if !ok {
-		return cciptypes.ExecReport{}, fmt.Errorf("got %T", unpacked[0])
-	}
-	messages := make([]cciptypes.EVM2EVMMessage, 0, len(erStruct.Messages))
-	for _, msg := range erStruct.Messages {
-		var tokensAndAmounts []cciptypes.TokenAmount
-		for _, tokenAndAmount := range msg.TokenAmounts {
-			tokensAndAmounts = append(tokensAndAmounts, cciptypes.TokenAmount{
-				Token:  cciptypes.Address(tokenAndAmount.Token.String()),
-				Amount: tokenAndAmount.Amount,
-			})
-		}
-		messages = append(messages, cciptypes.EVM2EVMMessage{
-			SequenceNumber:      msg.SequenceNumber,
-			GasLimit:            msg.GasLimit,
-			Nonce:               msg.Nonce,
-			MessageID:           msg.MessageId,
-			SourceChainSelector: msg.SourceChainSelector,
-			Sender:              cciptypes.Address(msg.Sender.String()),
-			Receiver:            cciptypes.Address(msg.Receiver.String()),
-			Strict:              msg.Strict,
-			FeeToken:            cciptypes.Address(msg.FeeToken.String()),
-			FeeTokenAmount:      msg.FeeTokenAmount,
-			Data:                msg.Data,
-			TokenAmounts:        tokensAndAmounts,
-			SourceTokenData:     msg.SourceTokenData,
-			// TODO: Not needed for plugins, but should be recomputed for consistency.
-			// Requires the offramp knowing about onramp version
-			Hash: [32]byte{},
-		})
-	}
-
-	// Unpack will populate with big.Int{false, <allocated empty nat>} for 0 values,
-	// which is different from the expected big.NewInt(0). Rebuild to the expected value for this case.
-	return cciptypes.ExecReport{
-		Messages:          messages,
-		OffchainTokenData: erStruct.OffchainTokenData,
-		Proofs:            erStruct.Proofs,
-		ProofFlagBits:     new(big.Int).SetBytes(erStruct.ProofFlagBits.Bytes()),
-	}, nil
-}
-
 func (o *OffRamp) DecodeExecutionReport(ctx context.Context, report []byte) (cciptypes.ExecReport, error) {
-	return DecodeExecReport(ctx, o.ExecutionReportArgs, report)
+	return decode.DecodeExecReport(ctx, o.ExecutionReportArgs, report)
 }
 
 func NewOffRamp(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) (*OffRamp, error) {

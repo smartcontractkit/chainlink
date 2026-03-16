@@ -3,18 +3,14 @@ package factory
 import (
 	"context"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
@@ -68,36 +64,4 @@ func initOrCloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versi
 	default:
 		return nil, errors.Errorf("unsupported commit store version %v", version.String())
 	}
-}
-
-func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	if typ != ccipconfig.CommitStore {
-		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, typ)
-	}
-	switch ver.String() {
-	case ccipdata.V1_2_0, ccipdata.V1_5_0:
-		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-		return func(report []byte) (*txmgr.TxMeta, error) {
-			commitReport, err := v1_2_0.DecodeCommitReport(abihelpers.MustGetEventInputs(v1_2_0.ReportAccepted, commitStoreABI), report)
-			if err != nil {
-				return nil, err
-			}
-			return commitReportToEthTxMeta(commitReport)
-		}, nil
-	default:
-		return nil, errors.Errorf("got unexpected version %v", ver.String())
-	}
-}
-
-// CommitReportToEthTxMeta generates a txmgr.EthTxMeta from the given commit report.
-// sequence numbers of the committed messages will be added to tx metadata
-func commitReportToEthTxMeta(commitReport cciptypes.CommitStoreReport) (*txmgr.TxMeta, error) {
-	n := (commitReport.Interval.Max - commitReport.Interval.Min) + 1
-	seqRange := make([]uint64, n)
-	for i := range n {
-		seqRange[i] = i + commitReport.Interval.Min
-	}
-	return &txmgr.TxMeta{
-		SeqNumbers: seqRange,
-	}, nil
 }

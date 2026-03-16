@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -24,9 +23,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cciporm "github.com/smartcontractkit/chainlink/v2/core/services/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -34,13 +30,13 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	db "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 )
 
 var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
@@ -343,10 +339,6 @@ func initCommitPriceGetter(
 		}
 	}
 	return priceGetter, nil
-}
-
-func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	return factory.CommitReportToEthTxMeta(typ, ver)
 }
 
 // UnregisterCommitPluginLpFilters unregisters all the registered filters for both source and dest chains.

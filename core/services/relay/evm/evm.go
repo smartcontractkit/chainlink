@@ -52,14 +52,13 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
 	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/txmeta"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -545,7 +544,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 	if err != nil {
 		return nil, err
 	}
-	fn, err := ccipcommit.CommitReportToEthTxMeta(typ, ver)
+	fn, err := txmeta.CommitReportToEthTxMeta(typ, ver)
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +630,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 	if err != nil {
 		return nil, err
 	}
-	fn, err := ccipexec.ExecReportToEthTxMeta(ctx, typ, ver)
+	fn, err := txmeta.ExecReportToEthTxMeta(ctx, typ, ver)
 	if err != nil {
 		return nil, err
 	}

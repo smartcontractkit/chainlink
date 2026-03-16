@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
@@ -110,65 +111,8 @@ func EncodeCommitReport(commitReportArgs abi.Arguments, report cciptypes.CommitS
 	return commitReportArgs.PackValues([]any{rep})
 }
 
-func DecodeCommitReport(commitReportArgs abi.Arguments, report []byte) (cciptypes.CommitStoreReport, error) {
-	unpacked, err := commitReportArgs.Unpack(report)
-	if err != nil {
-		return cciptypes.CommitStoreReport{}, err
-	}
-	if len(unpacked) != 1 {
-		return cciptypes.CommitStoreReport{}, errors.New("expected single struct value")
-	}
-
-	commitReport, ok := unpacked[0].(struct {
-		PriceUpdates struct {
-			TokenPriceUpdates []struct {
-				SourceToken common.Address `json:"sourceToken"`
-				UsdPerToken *big.Int       `json:"usdPerToken"`
-			} `json:"tokenPriceUpdates"`
-			GasPriceUpdates []struct {
-				DestChainSelector uint64   `json:"destChainSelector"`
-				UsdPerUnitGas     *big.Int `json:"usdPerUnitGas"`
-			} `json:"gasPriceUpdates"`
-		} `json:"priceUpdates"`
-		Interval struct {
-			Min uint64 `json:"min"`
-			Max uint64 `json:"max"`
-		} `json:"interval"`
-		MerkleRoot [32]byte `json:"merkleRoot"`
-	})
-	if !ok {
-		return cciptypes.CommitStoreReport{}, errors.Errorf("invalid commit report got %T", unpacked[0])
-	}
-
-	var tokenPriceUpdates []cciptypes.TokenPrice
-	for _, u := range commitReport.PriceUpdates.TokenPriceUpdates {
-		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
-			Token: cciptypes.Address(u.SourceToken.String()),
-			Value: u.UsdPerToken,
-		})
-	}
-
-	var gasPrices []cciptypes.GasPrice
-	for _, u := range commitReport.PriceUpdates.GasPriceUpdates {
-		gasPrices = append(gasPrices, cciptypes.GasPrice{
-			DestChainSelector: u.DestChainSelector,
-			Value:             u.UsdPerUnitGas,
-		})
-	}
-
-	return cciptypes.CommitStoreReport{
-		TokenPrices: tokenPriceUpdates,
-		GasPrices:   gasPrices,
-		Interval: cciptypes.CommitStoreInterval{
-			Min: commitReport.Interval.Min,
-			Max: commitReport.Interval.Max,
-		},
-		MerkleRoot: commitReport.MerkleRoot,
-	}, nil
-}
-
 func (c *CommitStore) DecodeCommitReport(_ context.Context, report []byte) (cciptypes.CommitStoreReport, error) {
-	return DecodeCommitReport(c.commitReportArgs, report)
+	return decode.DecodeCommitReport(c.commitReportArgs, report)
 }
 
 func (c *CommitStore) IsBlessed(ctx context.Context, root [32]byte) (bool, error) {
