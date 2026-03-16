@@ -29,6 +29,7 @@ const (
 	defaultCleanUpPeriod = 5 * time.Second
 
 	// Re-exported from chainlink-common for local use and test convenience.
+	MethodSecretsGet     = relaytypes.MethodSecretsGet
 	MethodCapabilityExec = relaytypes.MethodCapabilityExec
 )
 
@@ -231,7 +232,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return []string{MethodCapabilityExec}
+	return []string{MethodSecretsGet, MethodCapabilityExec}
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {

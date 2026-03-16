@@ -92,7 +92,7 @@ func (m *respondingMockAggregator) Aggregate(resps map[string]jsonrpc.Response[j
 func TestConfidentialRelayHandler_Methods(t *testing.T) {
 	h, _, _, _ := setupHandler(t, 4)
 	methods := h.Methods()
-	assert.Equal(t, []string{MethodCapabilityExec}, methods)
+	assert.Equal(t, []string{MethodSecretsGet, MethodCapabilityExec}, methods)
 }
 
 func TestConfidentialRelayHandler_HandleLegacyUserMessage(t *testing.T) {

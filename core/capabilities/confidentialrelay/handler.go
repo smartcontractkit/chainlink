@@ -3,6 +3,7 @@ package confidentialrelay
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/confidentialrelay"
+	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -127,7 +129,7 @@ func (h *Handler) ID(_ context.Context) (string, error) {
 }
 
 func (h *Handler) Methods() []string {
-	return []string{confidentialrelaytypes.MethodCapabilityExec}
+	return []string{confidentialrelaytypes.MethodSecretsGet, confidentialrelaytypes.MethodCapabilityExec}
 }
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
@@ -135,6 +137,8 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
+	case confidentialrelaytypes.MethodSecretsGet:
+		response = h.handleSecretsGet(ctx, gatewayID, req)
 	case confidentialrelaytypes.MethodCapabilityExec:
 		response = h.handleCapabilityExecute(ctx, gatewayID, req)
 	default:
@@ -151,6 +155,157 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 		attribute.String("gateway_id", gatewayID),
 	))
 	return nil
+}
+
+func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+	var params confidentialrelaytypes.SecretsRequestParams
+	if err := json.Unmarshal(*req.Params, &params); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
+	}
+
+	att := params.Attestation
+	params.Attestation = ""
+	if err := h.verifyAttestationHash(att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
+
+	vaultCap, err := h.capRegistry.GetExecutable(ctx, vault.CapabilityID)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get vault capability: %w", err))
+	}
+
+	donID, err := h.resolveDONID(ctx, vaultCap)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
+
+	capConfig, err := h.capRegistry.ConfigForCapability(ctx, vault.CapabilityID, donID)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get vault config: %w", err))
+	}
+	var cfg vaultCapConfig
+	if err := capConfig.DefaultConfig.UnwrapTo(&cfg); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to unwrap vault config: %w", err))
+	}
+
+	vaultReq := &vault.GetSecretsRequest{
+		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
+	}
+	for _, s := range params.Secrets {
+		vaultReq.Requests = append(vaultReq.Requests, &vault.SecretRequest{
+			Id: &vault.SecretIdentifier{
+				Key:       s.Key,
+				Namespace: s.Namespace,
+			},
+			EncryptionKeys: []string{params.EnclavePublicKey},
+		})
+	}
+
+	anypbReq, err := anypb.New(vaultReq)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to wrap vault request: %w", err))
+	}
+
+	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
+		Payload:      anypbReq,
+		Method:       vault.MethodGetSecrets,
+		CapabilityId: vault.CapabilityID,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowID: params.WorkflowID,
+		},
+	})
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))
+	}
+
+	vaultResp := &vault.GetSecretsResponse{}
+	if err := capResp.Payload.UnmarshalTo(vaultResp); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to unmarshal vault response: %w", err))
+	}
+
+	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey, cfg.VaultPublicKey, cfg.Threshold)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
+	}
+
+	return h.jsonResponse(req, result)
+}
+
+// resolveDONID determines the DON ID for a capability.
+func (h *Handler) resolveDONID(ctx context.Context, cap capabilities.ExecutableCapability) (uint32, error) {
+	info, err := cap.Info(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get capability info: %w", err)
+	}
+	if info.IsLocal {
+		localNode, err := h.capRegistry.LocalNode(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("failed to get local node: %w", err)
+		}
+		return localNode.WorkflowDON.ID, nil
+	}
+	if info.DON == nil {
+		return 0, errors.New("capability is not associated with any DON")
+	}
+	return info.DON.ID, nil
+}
+
+type vaultCapConfig struct {
+	VaultPublicKey string
+	Threshold      int
+}
+
+// translateVaultResponse converts a vault GetSecretsResponse to the enclave relay protocol format.
+// Encoding conversion: hex (vault) -> base64 (enclave relay).
+func translateVaultResponse(vaultResp *vault.GetSecretsResponse, enclaveKey, masterPK string, threshold int) (*confidentialrelaytypes.SecretsResponseResult, error) {
+	result := &confidentialrelaytypes.SecretsResponseResult{
+		MasterPublicKey: "0x" + masterPK,
+		Threshold:       threshold,
+	}
+
+	for _, sr := range vaultResp.Responses {
+		if sr.GetError() != "" {
+			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
+		}
+
+		data := sr.GetData()
+		if data == nil {
+			return nil, fmt.Errorf("vault returned no data for secret %s/%s", sr.Id.GetNamespace(), sr.Id.GetKey())
+		}
+
+		encryptedBytes, err := hex.DecodeString(data.EncryptedValue)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode encrypted value for %s: %w", sr.Id.GetKey(), err)
+		}
+
+		var shares []string
+		for _, es := range data.EncryptedDecryptionKeyShares {
+			if es.EncryptionKey == enclaveKey {
+				for _, share := range es.Shares {
+					shareBytes, err := hex.DecodeString(share)
+					if err != nil {
+						return nil, fmt.Errorf("failed to decode share: %w", err)
+					}
+					shares = append(shares, base64.StdEncoding.EncodeToString(shareBytes))
+				}
+				break
+			}
+		}
+		if len(shares) == 0 {
+			return nil, fmt.Errorf("no shares found for enclave key in secret %s/%s", sr.Id.GetNamespace(), sr.Id.GetKey())
+		}
+
+		result.Secrets = append(result.Secrets, confidentialrelaytypes.SecretEntry{
+			ID: confidentialrelaytypes.SecretIdentifier{
+				Key:       sr.Id.GetKey(),
+				Namespace: sr.Id.GetNamespace(),
+			},
+			Ciphertext:      base64.StdEncoding.EncodeToString(encryptedBytes),
+			EncryptedShares: shares,
+		})
+	}
+
+	return result, nil
 }
 
 func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
