@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_lbtc_token_pool"
@@ -1385,7 +1386,7 @@ func (e *CCIPContractsDeployer) TypeAndVersion(addr common.Address) (string, err
 		Str("Contract Address", addr.Hex()).
 		Msg("TypeAndVersion")
 
-	_, versionStr, err := ccipconfig.ParseTypeAndVersion(tvStr)
+	_, versionStr, err := version.ParseTypeAndVersion(tvStr)
 	if err != nil {
 		return versionStr, err
 	}

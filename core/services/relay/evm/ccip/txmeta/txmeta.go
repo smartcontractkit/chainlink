@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/decode"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 )
 
 const (
@@ -25,9 +25,9 @@ const (
 
 // ExecReportToEthTxMeta generates a txmgr.EthTxMeta from the given report.
 // Only MessageIDs will be populated in the TxMeta.
-func ExecReportToEthTxMeta(ctx context.Context, typ config.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	if typ != config.EVM2EVMOffRamp {
-		return nil, errors.Errorf("expected %v got %v", config.EVM2EVMOffRamp, typ)
+func ExecReportToEthTxMeta(ctx context.Context, typ version.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
+	if typ != version.EVM2EVMOffRamp {
+		return nil, errors.Errorf("expected %v got %v", version.EVM2EVMOffRamp, typ)
 	}
 	switch ver.String() {
 	case V1_2_0, V1_5_0:
@@ -55,9 +55,9 @@ func execReportToEthTxMeta(execReport ccip.ExecReport) (*txmgr.TxMeta, error) {
 	}, nil
 }
 
-func CommitReportToEthTxMeta(typ config.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
-	if typ != config.CommitStore {
-		return nil, errors.Errorf("expected %v got %v", config.CommitStore, typ)
+func CommitReportToEthTxMeta(typ version.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
+	if typ != version.CommitStore {
+		return nil, errors.Errorf("expected %v got %v", version.CommitStore, typ)
 	}
 	switch ver.String() {
 	case V1_2_0, V1_5_0:

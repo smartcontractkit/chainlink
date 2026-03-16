@@ -54,6 +54,7 @@ import (
 	ccip2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/txmeta"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -540,7 +541,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		return nil, err
 	}
 	address := common.HexToAddress(relayOpts.ContractID)
-	typ, ver, err := ccipconfig.TypeAndVersion(address, r.chain.Client())
+	typ, ver, err := version.TypeAndVersion(address, r.chain.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -626,7 +627,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		return nil, err
 	}
 	address := common.HexToAddress(relayOpts.ContractID)
-	typ, ver, err := ccipconfig.TypeAndVersion(address, r.chain.Client())
+	typ, ver, err := version.TypeAndVersion(address, r.chain.Client())
 	if err != nil {
 		return nil, err
 	}
