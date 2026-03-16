@@ -4,8 +4,8 @@ go 1.25.5
 
 require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260315075612-521c1d565f4a
-	github.com/smartcontractkit/cre-sdk-go v1.5.1-0.20260315083720-88a05f057bb6
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/aptos v0.0.0-20260315083720-88a05f057bb6
+	github.com/smartcontractkit/cre-sdk-go v1.5.1-0.20260316094826-4504ee81ae29
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/aptos v0.0.0-20260316094826-4504ee81ae29
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
