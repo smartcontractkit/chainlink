@@ -47,10 +47,11 @@ var nodeURLs = []string{
 	"http://localhost:6689",
 	"http://localhost:6690",
 	"http://localhost:6691",
+	"http://localhost:6692",
 }
 
 var (
-	localDev = flag.Bool("local-dev", false, "Run node-4 on the host instead of Docker (uses localhost:6700 as bootstrapper for node-4)")
+	localDev = flag.Bool("local-dev", false, "Run node-5 on the host instead of Docker (nodes 1-4 in Docker, node-5 on host via localhost:6692)")
 	keysOnly = flag.Bool("keys-only", false, "Only create secondary ETH keys on each node, then exit. Use before restarting nodes so TXMv2 picks up the new keys.")
 )
 
@@ -246,7 +247,7 @@ func main() {
 		nc := newNodeClient(url)
 		bootstrapHost := "localdon-node-1:6690"
 		flashbotsEndpoint := flashbotsMockDockerURL
-		if *localDev && i == 3 {
+		if *localDev && i == 4 {
 			bootstrapHost = "localhost:6700"
 			flashbotsEndpoint = flashbotsMockHostURL
 		}

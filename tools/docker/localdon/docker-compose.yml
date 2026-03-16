@@ -101,5 +101,16 @@ services:
     ports:
       - "6691:6688"
 
+  node-5:
+    <<: *node-defaults
+    container_name: localdon-node-5
+    volumes:
+      - ./node-config.toml:/config/node-config.toml:ro
+      - ./secrets/node5-secrets.toml:/config/secrets.toml:ro
+      - ./secrets/password.txt:/config/password.txt:ro
+      - ./secrets/apicredentials:/config/apicredentials:ro
+    ports:
+      - "6692:6688"
+
 volumes:
   pg-data:

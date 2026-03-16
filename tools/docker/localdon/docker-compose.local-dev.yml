@@ -1,16 +1,15 @@
-# Local-dev mode: run node-4 on the host instead of Docker.
+# Local-dev mode: run node-5 on the host instead of Docker.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.local-dev.yml up -d
 #
 # This file:
-#   - Disables Docker node-4 (replicas: 0)
-#   - Exposes node-1's P2P port to the host (6700:6690)
-#     so the host-based node-4 can bootstrap
+#   - Disables Docker node-5 (replicas: 0) — node-5 runs via go run on the host
+#   - Exposes node-1's P2P port to the host (6700:6690) so the host node-5 can bootstrap
 services:
   node-1:
     ports:
       - "6688:6688"
       - "6700:6690"
 
-  node-4:
+  node-5:
     deploy:
       replicas: 0
