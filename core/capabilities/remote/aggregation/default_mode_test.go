@@ -14,7 +14,7 @@ import (
 const (
 	testPayloadSize = 2000
 	testDonSize     = 7
-	testMinResp     = uint32(2)
+	testMinResp     = uint32(3)
 )
 
 type aggregationScenario struct {
@@ -151,18 +151,19 @@ func aggregationScenarios(tb testing.TB) []aggregationScenario {
 			expectPayload: pA,
 		},
 		{
-			name:          "2 identical payloads - returns A",
-			payloads:      [][]byte{pA, pA},
+			name:          "3 identical payloads - returns A",
+			payloads:      [][]byte{pA, pA, pA},
 			minResponses:  testMinResp,
 			expectPayload: pA,
 		},
 		{
-			name: fmt.Sprintf("%d payloads: 2×A + %d different - returns A", testDonSize, testDonSize-2),
+			name: fmt.Sprintf("%d payloads: 3×A + %d different - returns A", testDonSize, testDonSize-2),
 			payloads: func() [][]byte {
 				p := make([][]byte, testDonSize)
 				p[0] = pA
 				p[1] = pA
-				for i := 2; i < testDonSize; i++ {
+				p[2] = pA
+				for i := 3; i < testDonSize; i++ {
 					p[i] = testPayload(tb, testDataString(testPayloadSize, i*7), fmt.Sprintf("diff-%d", i))
 				}
 				return p
