@@ -13,7 +13,7 @@ import (
 )
 
 // DeployForwarders deploys a forwarder factory and creates a number of operators and forwarders using it.
-func DeployForwarders(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, linkAddr common.Address, nodes int) ([]common.Address, []common.Address, error) {
+func DeployForwarders(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, linkAddr common.Address, nodes int) ([]common.Address, []common.Address, error) { //nolint:revive // not less confusing than using named imports at all
 	factoryAddr, tx, operatorFactory, err := operator_factory.DeployOperatorFactory(auth, c, linkAddr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to deploy forwarder factory: %w", err)
