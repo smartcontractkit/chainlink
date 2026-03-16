@@ -20,6 +20,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
+	v1_2_1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
@@ -132,7 +133,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 	commitAndGetBlockTs(ec) // Deploy these
 	pr12r, err := factory.NewPriceRegistryReader(ctx, lggr, versionfinder.NewEvmVersionFinder(), ccipcalc.EvmAddrToGeneric(addr2), lp, ec)
 	require.NoError(t, err)
-	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_0.PriceRegistry{}).String())
+	assert.Equal(t, reflect.TypeOf(pr12r).String(), reflect.TypeOf(&v1_2_1.PriceRegistry{}).String())
 	// Apply block1.
 	v1_2_0.ApplyPriceRegistryUpdate(t, user, addr2, ec, gasPriceUpdatesBlock1, tokenPriceUpdatesBlock1)
 	b1 := commitAndGetBlockTs(ec)
