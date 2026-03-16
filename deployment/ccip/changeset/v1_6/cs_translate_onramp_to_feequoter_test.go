@@ -155,7 +155,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 
 	// 8+9. Verify all FeeQuoter dest chain config fields (criteria 1), fee tokens (criteria 3),
 	// and premium multipliers (criteria 4) on-chain.
-	verifyFeeQuoterOnChainTranslation(t, ctx, onRamp1_5Contract, feeQuoterContract, newFeeQuoterParams, allFeeTokens, destChainSelector)
+	verifyFeeQuoterOnChainTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, newFeeQuoterParams, allFeeTokens, destChainSelector)
 	assertNoBatchForDestChain(t, csOut, destChainSelector)
 	t.Logf("Successfully verified translation of 1.5.0 OnRamp config for chain %d to 1.6.0 FeeQuoter DestChainConfig for destination %d", sourceChainSelector, destChainSelector)
 
@@ -178,7 +178,7 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset(t *testing.T) {
 	csOut2, err := v1_6.TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(tenv, translateConfig)
 	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset execution failed")
 
-	verifyTokenTransferFeeConfigTranslation(t, ctx, onRamp1_5Contract, feeQuoterContract, allTokens, destChainSelector)
+	verifyTokenTransferFeeConfigTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, allTokens, destChainSelector)
 	assertNoBatchForDestChain(t, csOut2, destChainSelector)
 	t.Logf("Successfully verified translation of 1.5.0 token transfer fee config args OnRamp config for chain %d to 1.6.0 FeeQuoter %d", sourceChainSelector, destChainSelector)
 }
@@ -301,6 +301,15 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 	)
 	require.NoError(t, err, "TransferToMCMSWithTimelockV2 failed")
 
+	// Inspect proposals before executing
+	csOut1, err := v1_6.TranslateEVM2EVMOnRampsToFeeQuoterChangeset(tenv, translateConfig)
+	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQuoterChangeset proposal generation failed")
+	assertNoBatchForDestChain(t, csOut1, destChainSelector)
+
+	csOut2, err := v1_6.TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset(tenv, translateConfig)
+	require.NoError(t, err, "TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset proposal generation failed")
+	assertNoBatchForDestChain(t, csOut2, destChainSelector)
+
 	// Execute both changesets through MCMS — Apply signs and submits proposals via the timelock.
 	tenv, err = commonchangeset.Apply(t, tenv,
 		commonchangeset.Configure(v1_6.TranslateEVM2EVMOnRampsToFQDestConfig, translateConfig),
@@ -323,16 +332,16 @@ func TestTranslateEVM2EVMOnRampsToFeeQuoterChangeset_WithMCMS(t *testing.T) {
 
 	// Same on-chain assertions as the direct-execution test — the only difference is that
 	// the writes went through the MCMS timelock.
-	verifyFeeQuoterOnChainTranslation(t, ctx, onRamp1_5Contract, feeQuoterContract, newFeeQuoterParams, allFeeTokens, destChainSelector)
-	verifyTokenTransferFeeConfigTranslation(t, ctx, onRamp1_5Contract, feeQuoterContract, allTokens, destChainSelector)
+	verifyFeeQuoterOnChainTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, newFeeQuoterParams, allFeeTokens, destChainSelector)
+	verifyTokenTransferFeeConfigTranslation(ctx, t, onRamp1_5Contract, feeQuoterContract, allTokens, destChainSelector)
 	t.Logf("WithMCMS: verified on-chain translation for source %d → dest %d", sourceChainSelector, destChainSelector)
 }
 
 // verifyFeeQuoterOnChainTranslation asserts all FeeQuoter DestChainConfig fields, fee tokens, and
 // premium multipliers
 func verifyFeeQuoterOnChainTranslation(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	onRamp1_5 *evm_2_evm_onramp.EVM2EVMOnRamp,
 	feeQuoter *fee_quoter.FeeQuoter,
 	newParams migrate_seq.NewFeeQuoterDestChainConfigParams,
@@ -359,7 +368,7 @@ func verifyFeeQuoterOnChainTranslation(
 	require.Equal(t, onRampDynCfg.DefaultTokenDestGasOverhead, actualFQDestCfg.DefaultTokenDestGasOverhead, "DefaultTokenDestGasOverhead")
 	require.Equal(t, onRampDynCfg.EnforceOutOfOrder, actualFQDestCfg.EnforceOutOfOrder, "EnforceOutOfOrder")
 	// NewFeeQuoterDestChainConfigParams fields (no 1.5 equivalent, supplied explicitly)
-	require.Equal(t, onRampDynCfg.DestGasPerPayloadByte, uint16(actualFQDestCfg.DestGasPerPayloadByteBase), "DestGasPerPayloadByteBase")
+	require.Equal(t, newParams.DestGasPerPayloadByteBase, actualFQDestCfg.DestGasPerPayloadByteBase, "DestGasPerPayloadByteBase")
 	require.Equal(t, newParams.DestGasPerPayloadByteHigh, actualFQDestCfg.DestGasPerPayloadByteHigh, "DestGasPerPayloadByteHigh")
 	require.Equal(t, newParams.DestGasPerPayloadByteThreshold, actualFQDestCfg.DestGasPerPayloadByteThreshold, "DestGasPerPayloadByteThreshold")
 	require.Equal(t, newParams.DefaultTxGasLimit, actualFQDestCfg.DefaultTxGasLimit, "DefaultTxGasLimit")
@@ -371,7 +380,7 @@ func verifyFeeQuoterOnChainTranslation(
 	// Criteria 3: fee tokens ported from PriceRegistry
 	feeTokensFromFQ, err := feeQuoter.GetFeeTokens(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
-	require.Len(t, feeTokensFromFQ, 3, "expected 3 fee tokens after translation (1 shared + 2 new)")
+	require.Len(t, feeTokensFromFQ, 3, "expected 3 fee tokens after translation (2 already in FeeQuoter + 1 migrated from PriceRegistry)")
 
 	// Criteria 4: all fee tokens have their PremiumMultiplierWeiPerEth correctly translated.
 	for _, ft := range allFeeTokens {
@@ -386,8 +395,8 @@ func verifyFeeQuoterOnChainTranslation(
 // verifyTokenTransferFeeConfigTranslation asserts all TokenTransferFeeConfig fields on-chain
 // after TranslateEVM2EVMOnRampsToFeeQTokenTransferFeeConfigChangeset
 func verifyTokenTransferFeeConfigTranslation(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	onRamp1_5 *evm_2_evm_onramp.EVM2EVMOnRamp,
 	feeQuoter *fee_quoter.FeeQuoter,
 	allTokens []common.Address,
