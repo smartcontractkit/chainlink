@@ -5,17 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -74,6 +81,9 @@ type Engine struct {
 	meterReports *metering.Reports
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
+	tracer trace.Tracer
 }
 
 type triggerCapability struct {
@@ -180,6 +190,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 	if cfg.DebugMode {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
+		engine.tracer = otel.Tracer("workflow_engine_v2")
+	} else {
+		engine.tracer = noop.NewTracerProvider().Tracer("")
 	}
 
 	// Store logger and other fields
@@ -222,6 +235,14 @@ func (e *Engine) start(ctx context.Context) error {
 }
 
 func (e *Engine) init(ctx context.Context) {
+	// Tracer is no-op if DebugMode is false
+	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
+		trace.WithAttributes(
+			attribute.String("version", "v2"),
+			attribute.String("component", "workflow_engine"),
+		))
+	defer span.End()
+
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
@@ -230,11 +251,11 @@ func (e *Engine) init(ctx context.Context) {
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
-				e.logger().Info("Per owner workflow count limit reached", "err", err)
+				e.logger().Infow("Per owner workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
 			case settings.ScopeGlobal:
-				e.logger().Info("Global workflow count limit reached", "err", err)
+				e.logger().Infow("Global workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
 			default:
@@ -571,6 +592,13 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			// Tracer is no-op if DebugMode is false
+			ctx, span := e.tracer.Start(ctx, "workflow_execution",
+				trace.WithAttributes(
+					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+					attribute.String("version", "v2"),
+				))
+			defer span.End()
 			e.startExecution(ctx, queueHead)
 		})
 	}
@@ -610,18 +638,27 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
 			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
 		} else {
 			executionTimestamp = donTime.UnixMilli()
 			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
 		}
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
 
-	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-	if err != nil {
-		lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-		return
+	var executionID string
+	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.Timestamp(executionTimestamp)) == nil {
+		executionID = fullExecutionID
+		e.metrics.IncrementExecutionIDFullCounter(ctx)
+	} else {
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		if err != nil {
+			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+			return
+		}
+		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
 	}
 
 	// disallow duplicate executions
@@ -854,6 +891,19 @@ func (e *Engine) close() error {
 	}
 
 	e.cfg.Module.Close()
+
+	if e.cfg.LocalLimiters != nil {
+		if err := e.cfg.LocalLimiters.EvictWorkflow(e.cfg.WorkflowID); err != nil {
+			e.logger().Errorw("Failed to evict workflow from scoped limiters", "err", err)
+		}
+	}
+
+	// Encourage the Go runtime to release memory back to the OS after tearing
+	// down the WASM module and execution state.  Without this, freed heap pages
+	// stay resident (MADV_FREE) and CGo/wasmtime freed pages remain in the C
+	// allocator's free-list, so RSS never drops even though the memory is unused.
+	runtime.GC()
+	debug.FreeOSMemory()
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)

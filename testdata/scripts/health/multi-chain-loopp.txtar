@@ -126,8 +126,7 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
@@ -189,8 +188,6 @@ ok WorkflowStore
 -- out-unhealthy.txt --
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
 
 -- out.json --
 {
@@ -398,8 +395,8 @@ ok WorkflowStore
       "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
+        "status": "passing",
+        "output": ""
       }
     },
     {
@@ -927,15 +924,6 @@ ok WorkflowStore
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
         "status": "failing",
         "output": "Listener connected = false, receiving heads = false"
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-      "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
       }
     }
   ]

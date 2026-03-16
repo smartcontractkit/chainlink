@@ -803,7 +803,6 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 			state.Chains[c.NewChainSelector].NonceManager,
 			state.Chains[c.NewChainSelector].TokenAdminRegistry,
 			state.Chains[c.NewChainSelector].Router,
-			state.Chains[c.NewChainSelector].RMNRemote,
 		}
 		addressesToTransfer := make([]common.Address, 0, len(allContracts))
 		for _, contract := range allContracts {
@@ -840,7 +839,8 @@ func connectNewChainLogic(env cldf.Environment, c ConnectNewChainConfig) (cldf.C
 		}
 		if hasRole {
 			out, err = commoncs.RenounceTimelockDeployer(env, commoncs.RenounceTimelockDeployerConfig{
-				ChainSel: c.NewChainSelector,
+				ChainSel:  c.NewChainSelector,
+				Qualifier: c.MCMSConfig.TimelockQualifierPerChain[c.NewChainSelector],
 			})
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to run RenounceTimelockDeployer on chain with selector %d: %w", c.NewChainSelector, err)

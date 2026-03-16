@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	otelpyroscope "github.com/grafana/otel-profiling-go"
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
@@ -419,6 +420,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
 		}
+
+		if cfg.Pyroscope().LinkTracesToProfiles() && cfg.Tracing().Enabled() {
+			// Enable span profiling - link OTel traces to Pyroscope profiles
+			// This wraps the global tracer provider to record span IDs alongside profile samples
+			otel.SetTracerProvider(
+				otelpyroscope.NewTracerProvider(
+					otel.GetTracerProvider(),
+					otelpyroscope.WithAppName("chainlink-node"),
+					otelpyroscope.WithPyroscopeURL(cfg.Pyroscope().ServerAddress()),
+				),
+			)
+		}
 	} else {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
 	}
@@ -666,9 +679,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {
-		err = creServices.SetDelegatesDeps(stdcapDelegate)
-		if err != nil {
-			return nil, fmt.Errorf("failed to set CRE delegates dependencies: %w", err)
+		depSvc, depErr := creServices.SetDelegatesDeps(stdcapDelegate)
+		if depErr != nil {
+			return nil, fmt.Errorf("failed to set CRE delegates dependencies: %w", depErr)
+		}
+		if depSvc != nil {
+			srvcs = append(srvcs, depSvc)
 		}
 	}
 

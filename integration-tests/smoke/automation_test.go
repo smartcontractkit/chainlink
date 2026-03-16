@@ -1,13 +1,10 @@
 package smoke
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -34,10 +31,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/gasprice"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
+
+/*
+ * !! Basic smoke tests were moved to devenv/tests/automation/smoke_test.go !!
+ */
 
 const (
 	automationDefaultUpkeepGasLimit = uint32(2500000)
@@ -58,195 +58,6 @@ func upgradeChainlinkNodeVersionsLocal(
 		}
 	}
 	return nil
-}
-
-// Deprecated: run tests from devenv/tests/automation/smoke_test.go
-func TestMain(m *testing.M) {
-	logging.Init()
-	// config, err := tc.GetConfig(tc.NoTest, tc.Smoke, tc.Automation)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// fmt.Printf("Running Smoke Test on %s\n", networks.MustGetSelectedNetworkConfig(config.Network)[0].Name) // Print to get around disabled logging
-	// fmt.Printf("Chainlink Image %v\n", config.ChainlinkImage.Image)                                         // Print to get around disabled logging
-	// fmt.Printf("Chainlink Version %v\n", config.ChainlinkImage.Version)                                     // Print to get around disabled logging
-	os.Exit(m.Run())
-}
-
-// Deprecated: run tests from devenv/tests/automation/smoke_test.go
-func TestAutomationBasic(t *testing.T) {
-	SetupAutomationBasic(t, false)
-}
-
-// Deprecated: run tests from devenv/tests/automation/smoke_test.go
-func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
-	t.Parallel()
-
-	// native, mercury_v02, mercury_v03 and logtrigger are reserved keywords, use them with caution
-	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                                      ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":                          ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":                           ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03":                     ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_1,
-		"registry_2_2_conditional":                          ethereum.RegistryVersion_2_2,
-		"registry_2_2_logtrigger":                           ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v02":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_mercury_v03":                     ethereum.RegistryVersion_2_2,
-		"registry_2_2_with_logtrigger_and_mercury_v02":      ethereum.RegistryVersion_2_2,
-		"registry_2_3_conditional_native":                   ethereum.RegistryVersion_2_3,
-		"registry_2_3_conditional_link":                     ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_native":                    ethereum.RegistryVersion_2_3,
-		"registry_2_3_logtrigger_link":                      ethereum.RegistryVersion_2_3,
-		"registry_2_3_with_mercury_v03_link":                ethereum.RegistryVersion_2_3,
-		"registry_2_3_with_logtrigger_and_mercury_v02_link": ethereum.RegistryVersion_2_3,
-	}
-
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			l := logging.GetTestLogger(t)
-
-			cfg, err := tc.GetConfig([]string{"Smoke"}, tc.Automation)
-			require.NoError(t, err, "Failed to get config")
-
-			if nodeUpgrade {
-				if cfg.GetChainlinkUpgradeImageConfig() == nil {
-					t.Fatal("[ChainlinkUpgradeImage] must be set in TOML config to upgrade nodes")
-				}
-			}
-
-			// Use the name to determine if this is a log trigger or mercury or billing token is native
-			isBillingTokenNative := strings.Contains(name, "native")
-			isLogTrigger := strings.Contains(name, "logtrigger")
-			isMercuryV02 := strings.Contains(name, "mercury_v02")
-			isMercuryV03 := strings.Contains(name, "mercury_v03")
-			isMercury := isMercuryV02 || isMercuryV03
-
-			a := setupAutomationTestDocker(
-				t, registryVersion, actions.ReadRegistryConfig(cfg), isMercuryV02, isMercuryV03, &cfg,
-			)
-
-			sb, err := a.ChainClient.Client.BlockNumber(t.Context())
-			require.NoError(t, err, "Failed to get start block")
-
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				a.ChainClient,
-				a.Registry,
-				a.Registrar,
-				a.LinkToken,
-				defaultAmountOfUpkeeps,
-				big.NewInt(automationDefaultLinkFunds),
-				automationDefaultUpkeepGasLimit,
-				isLogTrigger,
-				isMercury,
-				isBillingTokenNative,
-				a.WETHToken,
-				&cfg,
-			)
-
-			// Do it in two separate loops, so we don't end up setting up one upkeep, but starting the consumer for another one
-			// since we cannot be sure that consumers and upkeeps at the same index are related
-			if isMercury {
-				for i := range upkeepIDs {
-					// Set privilege config to enable mercury
-					privilegeConfigBytes, _ := json.Marshal(streams.UpkeepPrivilegeConfig{
-						MercuryEnabled: true,
-					})
-					if err := a.Registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
-						l.Error().Msg("Error when setting upkeep privilege config")
-						return
-					}
-					l.Info().Int("Upkeep index", i).Msg("Upkeep privilege config set")
-				}
-			}
-
-			if isLogTrigger || isMercuryV02 {
-				for i := range upkeepIDs {
-					if err := consumers[i].Start(); err != nil {
-						l.Error().Msg("Error when starting consumer")
-						return
-					}
-					l.Info().Int("Consumer index", i).Msg("Consumer started")
-				}
-			}
-
-			l.Info().Msg("Waiting 5m for all upkeeps to be performed")
-			gom := gomega.NewGomegaWithT(t)
-			startTime := time.Now()
-
-			t.Cleanup(func() {
-				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
-			})
-
-			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analyzing their counters
-				for i := range upkeepIDs {
-					counter, err := consumers[i].Counter(testcontext.Get(t))
-					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-					expect := 5
-					l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep Index", i).Msg("Number of upkeeps performed")
-					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-				}
-			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
-
-			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
-
-			if nodeUpgrade {
-				require.NotNil(t, cfg.GetChainlinkImageConfig(), "unable to upgrade node version, [ChainlinkUpgradeImage] was not set, must both a new image or a new version")
-				expect := 5
-				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
-				for i := range 5 {
-					err = upgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
-					require.NoError(t, err, "Error when upgrading node %d", i)
-					time.Sleep(time.Second * 10)
-					expect += 5
-					gom.Eventually(func(g gomega.Gomega) {
-						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
-						for i := range upkeepIDs {
-							counter, err := consumers[i].Counter(testcontext.Get(t))
-							require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-							l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep index", i).Msg("Number of upkeeps performed")
-							g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
-								"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
-						}
-					}, "5m", "1s").Should(gomega.Succeed())
-				}
-			}
-
-			// Cancel all the registered upkeeps via the registry
-			for i := range upkeepIDs {
-				err := a.Registry.CancelUpkeep(upkeepIDs[i])
-				require.NoError(t, err, "Could not cancel upkeep at index %d", i)
-			}
-
-			var countersAfterCancellation = make([]*big.Int, len(upkeepIDs))
-
-			for i := range upkeepIDs {
-				// Obtain the amount of times the upkeep has been executed so far
-				countersAfterCancellation[i], err = consumers[i].Counter(testcontext.Get(t))
-				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
-				l.Info().Int64("Upkeep Count", countersAfterCancellation[i].Int64()).Int("Upkeep Index", i).Msg("Cancelled upkeep")
-			}
-
-			l.Info().Msg("Making sure the counter stays consistent")
-			gom.Consistently(func(g gomega.Gomega) {
-				for i := range upkeepIDs {
-					// Expect the counter to remain constant (At most increase by 1 to account for stale performs) because the upkeep was cancelled
-					latestCounter, err := consumers[i].Counter(testcontext.Get(t))
-					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterCancellation[i].Int64()+1),
-						"Expected consumer counter to remain less than or equal to %d, but got %d",
-						countersAfterCancellation[i].Int64()+1, latestCounter.Int64())
-				}
-			}, "1m", "1s").Should(gomega.Succeed())
-		})
-	}
 }
 
 func TestSetUpkeepTriggerConfig(t *testing.T) {
@@ -340,7 +151,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
 			}
 
-			var countersAfterSetNoMatch = make([]*big.Int, len(upkeepIDs))
+			countersAfterSetNoMatch := make([]*big.Int, len(upkeepIDs))
 
 			// Wait for 10 seconds to let in-flight upkeeps finish
 			time.Sleep(10 * time.Second)
@@ -385,7 +196,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 				require.NoError(t, err, "Could not set upkeep trigger config at index %d", i)
 			}
 
-			var countersAfterSetMatch = make([]*big.Int, len(upkeepIDs))
+			countersAfterSetMatch := make([]*big.Int, len(upkeepIDs))
 
 			for i := range upkeepIDs {
 				// Obtain the amount of times the upkeep has been executed so far
@@ -534,7 +345,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 				require.NoError(t, err, "Could not pause upkeep at index %d", i)
 			}
 
-			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			countersAfterPause := make([]*big.Int, len(upkeepIDs))
 			for i := range upkeepIDs {
 				// Obtain the amount of times the upkeep has been executed so far
 				countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
@@ -604,7 +415,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 				actions.GetStalenessReportCleanupFn(t, a.Logger, a.ChainClient, sb, a.Registry, registryVersion)()
 			})
 
-			var initialCounters = make([]*big.Int, len(upkeepIDs))
+			initialCounters := make([]*big.Int, len(upkeepIDs))
 			gom := gomega.NewGomegaWithT(t)
 			// Observe that the upkeeps which are initially registered are performing and
 			// store the value of their initial counters in order to compare later on that the value increased.
@@ -703,7 +514,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 			require.NoError(t, err, "Error pausing registry")
 
 			// Store how many times each upkeep performed once the registry was successfully paused
-			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			countersAfterPause := make([]*big.Int, len(upkeepIDs))
 			for i := range upkeepIDs {
 				countersAfterPause[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -757,7 +568,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			gom := gomega.NewGomegaWithT(t)
 			nodesWithoutBootstrap := a.ChainlinkNodes[1:]
 
-			var initialCounters = make([]*big.Int, len(upkeepIDs))
+			initialCounters := make([]*big.Int, len(upkeepIDs))
 
 			// Watch upkeeps being performed and store their counters in order to compare them later in the test
 			gom.Eventually(func(g gomega.Gomega) {
@@ -798,7 +609,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			l.Info().Msg("Successfully managed to take down the second half of the nodes")
 
 			// See how many times each upkeep was executed
-			var countersAfterNoMoreNodes = make([]*big.Int, len(upkeepIDs))
+			countersAfterNoMoreNodes := make([]*big.Int, len(upkeepIDs))
 			for i := range upkeepIDs {
 				countersAfterNoMoreNodes[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -1180,7 +991,7 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 			}
 
 			// Store how many times each upkeep performed once their offchain config is set with maxGasPrice = 1 wei
-			var countersAfterSettingLowMaxGasPrice = make([]*big.Int, len(upkeepIDs))
+			countersAfterSettingLowMaxGasPrice := make([]*big.Int, len(upkeepIDs))
 			for i := range upkeepIDs {
 				countersAfterSettingLowMaxGasPrice[i], err = consumers[i].Counter(testcontext.Get(t))
 				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)

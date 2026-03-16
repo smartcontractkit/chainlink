@@ -529,7 +529,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9874c1f4ab4a4c70433df6d8f862044ca18456df # 2025-11-26
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -628,7 +628,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9874c1f4ab4a4c70433df6d8f862044ca18456df # 2025-11-26
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
