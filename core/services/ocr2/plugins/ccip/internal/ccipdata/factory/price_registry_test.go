@@ -15,12 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func TestPriceRegistry(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	for _, versionStr := range []string{ccipdata2.V1_2_0} {
 		lggr := logger.Test(t)
@@ -28,9 +26,9 @@ func TestPriceRegistry(t *testing.T) {
 		lp := lpmocks.NewLogPoller(t)
 
 		expFilterNames := []string{
-			logpoller.FilterName(ccipdata.COMMIT_PRICE_UPDATES, addr),
-			logpoller.FilterName(ccipdata.FEE_TOKEN_ADDED, addr),
-			logpoller.FilterName(ccipdata.FEE_TOKEN_REMOVED, addr),
+			logpoller.FilterName(ccipdata2.COMMIT_PRICE_UPDATES, addr),
+			logpoller.FilterName(ccipdata2.FEE_TOKEN_ADDED, addr),
+			logpoller.FilterName(ccipdata2.FEE_TOKEN_REMOVED, addr),
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.PriceRegistry, *semver.MustParse(versionStr), nil)
 

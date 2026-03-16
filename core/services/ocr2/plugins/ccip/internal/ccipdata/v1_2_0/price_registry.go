@@ -26,7 +26,6 @@ import (
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 )
 
@@ -64,19 +63,19 @@ func NewPriceRegistry(ctx context.Context, lggr logger.Logger, priceRegistryAddr
 	feeTokenAdded := abihelpers.MustGetEventID("FeeTokenAdded", priceRegABI)
 	var filters = []logpoller.Filter{
 		{
-			Name:      logpoller.FilterName(ccipdata.COMMIT_PRICE_UPDATES, priceRegistryAddr.String()),
+			Name:      logpoller.FilterName(ccipdata2.COMMIT_PRICE_UPDATES, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{UsdPerUnitGasUpdated, usdPerTokenUpdated},
 			Addresses: []common.Address{priceRegistryAddr},
 			Retention: ccipdata2.PriceUpdatesLogsRetention,
 		},
 		{
-			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_ADDED, priceRegistryAddr.String()),
+			Name:      logpoller.FilterName(ccipdata2.FEE_TOKEN_ADDED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenAdded},
 			Addresses: []common.Address{priceRegistryAddr},
 			Retention: ccipdata2.CacheEvictionLogsRetention,
 		},
 		{
-			Name:      logpoller.FilterName(ccipdata.FEE_TOKEN_REMOVED, priceRegistryAddr.String()),
+			Name:      logpoller.FilterName(ccipdata2.FEE_TOKEN_REMOVED, priceRegistryAddr.String()),
 			EventSigs: []common.Hash{feeTokenRemoved},
 			Addresses: []common.Address{priceRegistryAddr},
 			Retention: ccipdata2.CacheEvictionLogsRetention,
