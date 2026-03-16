@@ -1,4 +1,4 @@
-.PHONY: help build up setup down logs clean restart local-dev-up local-dev-setup local-dev-node
+.PHONY: help build up setup down logs clean restart local-dev-up local-dev-setup local-dev-setup-full local-dev-node
 
 COMPOSE := docker compose
 COMPOSE_LOCAL_DEV := docker compose -f docker-compose.yml -f docker-compose.local-dev.yml
@@ -73,6 +73,39 @@ local-dev-up: ## Start Docker services (postgres + anvil + 3 nodes; node-4 disab
 
 local-dev-setup: ## Run the setup script in local-dev mode
 	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --local-dev
+
+local-dev-setup-full: local-dev-up ## Full local-dev setup: start Docker nodes, wait for local node-4, create keys, restart, deploy
+	@echo ""
+	@echo ">>> Start node-4 locally in another terminal: make local-dev-node"
+	@echo ">>> Waiting for node-4 to become healthy on localhost:6691..."
+	@until curl -sf http://localhost:6691/readyz > /dev/null 2>&1; do \
+		printf "."; sleep 2; \
+	done
+	@echo " node-4 ready"
+	@echo ""
+	@echo "Creating secondary ETH keys on all 4 nodes..."
+	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --keys-only
+	@echo ""
+	@echo "Restarting Docker nodes 1-3 so TXMv2 picks up secondary keys..."
+	$(COMPOSE_LOCAL_DEV) restart node-1 node-2 node-3
+	@echo "Waiting for Docker nodes to become healthy after restart..."
+	@for i in 1 2 3; do \
+		printf "  node-$$i: "; \
+		until curl -sf http://localhost:$$(( 6687 + $$i ))/readyz > /dev/null 2>&1; do \
+			printf "."; sleep 2; \
+		done; \
+		echo " ready"; \
+	done
+	@echo ""
+	@echo ">>> Now restart node-4: Ctrl-C the local-dev-node process, then re-run: make local-dev-node"
+	@echo ">>> Waiting for node-4 to become healthy on localhost:6691..."
+	@until curl -sf http://localhost:6691/readyz > /dev/null 2>&1; do \
+		printf "."; sleep 2; \
+	done
+	@echo " node-4 ready"
+	@echo ""
+	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --local-dev
+	@echo "Local-dev full setup complete."
 
 local-dev-node: ## Run node-4 locally from source (logs to local-dev/node-4.log)
 	@echo "Node-4 logs: $(LOCALDON_DIR)/local-dev/node-4.log"

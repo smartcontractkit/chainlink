@@ -45,14 +45,26 @@ If you already have a DON with secondary keys (e.g. after a previous `setup-full
 
 Run node-4 from local source for fast iteration and debugging. The other 3 nodes + infra remain in Docker.
 
+For **dual transmission**, use the full flow (handles secondary key creation + restarts):
+
 ```bash
-# Start Docker services (postgres, anvil, flashbots mock, 3 nodes; node-4 disabled)
-make local-dev-up
+# Terminal 1: start Docker infra + nodes 1-3, then wait for you to start node-4
+make local-dev-setup-full
 
-# In a separate terminal: start node-4 from local source
+# Terminal 2 (when prompted): start node-4 from source
 make local-dev-node
+# The setup-full target will wait for node-4 to be healthy, create secondary keys,
+# then prompt you to restart node-4 (Ctrl-C + re-run make local-dev-node).
+# After node-4 is back, it deploys contracts and creates jobs automatically.
+```
 
-# Once node-4 is healthy, deploy contracts and create jobs
+For **primary-only** (or if keys already exist from a previous run):
+
+```bash
+make local-dev-up
+# In another terminal:
+make local-dev-node
+# Once node-4 is healthy:
 make local-dev-setup
 ```
 
@@ -72,6 +84,7 @@ To restart just node-4 after code changes, Ctrl-C the `local-dev-node` process a
 | `make build` | Build chainlink image from local source (optional) |
 | `make local-dev-up` | Start Docker services with node-4 disabled + P2P port exposed |
 | `make local-dev-setup` | Run setup script in local-dev mode |
+| `make local-dev-setup-full` | Full local-dev flow: up, wait for local node-4, create keys, restart all, deploy |
 | `make local-dev-node` | Run node-4 locally from source (`go run`) |
 
 ## Architecture
