@@ -2,6 +2,7 @@ package vrfv2plus
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -74,8 +75,8 @@ func createAndFundSub(
 
 // requestAndWait sends a VRF randomness request from a consumer and waits for it to be fulfilled.
 func requestAndWait(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	consumer *contracts.EthereumVRFv2PlusLoadTestConsumer,
 	coord *contracts.EthereumVRFCoordinatorV2_5,
 	keyHash [32]byte,
@@ -126,8 +127,8 @@ func requestAndWait(
 
 // requestAndWaitWrapper sends a VRF request via the wrapper consumer and waits for fulfillment.
 func requestAndWaitWrapper(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	consumer *contracts.EthereumVRFV2PlusWrapperLoadTestConsumer,
 	coord *contracts.EthereumVRFCoordinatorV2_5,
 	isNative bool,
@@ -168,7 +169,7 @@ func encodeSubID(subID *big.Int) ([]byte, error) {
 	b := make([]byte, 32)
 	subIDBytes := subID.Bytes()
 	if len(subIDBytes) > 32 {
-		return nil, fmt.Errorf("subID too large for uint256")
+		return nil, errors.New("subID too large for uint256")
 	}
 	copy(b[32-len(subIDBytes):], subIDBytes)
 	return b, nil
@@ -177,8 +178,8 @@ func encodeSubID(subID *big.Int) ([]byte, error) {
 // reconcileConfiguredFunding ensures wrapper subscription and wrapper consumer balances
 // are at least the configured funding levels before each subtest.
 func reconcileConfiguredFunding(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	chainClient *seth.Client,
 	coord *contracts.EthereumVRFCoordinatorV2_5,
 	linkToken contracts.LinkToken,
@@ -256,4 +257,3 @@ func reconcileConfiguredFunding(
 	require.NoError(t, err, "failed to re-read wrapper consumer LINK balance")
 	require.GreaterOrEqual(t, finalConsumerLink.Cmp(targetLink), 0, "wrapper consumer LINK below configured funding target")
 }
-

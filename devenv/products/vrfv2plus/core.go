@@ -396,7 +396,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 
 	fromAddresses := append([]string{m.nodeEVMKeyAddr}, m.txKeyAddrs...)
 
-	pipelineSpec := &VRFV2PlusTxPipelineSpec{
+	pipelineSpec := &TxPipelineSpec{
 		Address:               coord.Address(),
 		EstimateGasMultiplier: 1.1,
 		FromAddress:           fromAddresses[0],
@@ -415,7 +415,7 @@ func (m *Configurator) ConfigureJobsAndContracts(
 		gasMultiplier = 1.1
 	}
 
-	jobSpec := &VRFV2PlusJobSpec{
+	jobSpec := &JobSpec{
 		Name:                          "vrf-v2-plus",
 		CoordinatorAddress:            coord.Address(),
 		BatchCoordinatorAddress:       batchCoord.Address(),
@@ -617,7 +617,7 @@ func encodeSubID(subID *big.Int) ([]byte, error) {
 	b := make([]byte, 32)
 	subIDBytes := subID.Bytes()
 	if len(subIDBytes) > 32 {
-		return nil, fmt.Errorf("subID too large for uint256")
+		return nil, errors.New("subID too large for uint256")
 	}
 	copy(b[32-len(subIDBytes):], subIDBytes)
 	return b, nil

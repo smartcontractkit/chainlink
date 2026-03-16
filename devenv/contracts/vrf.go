@@ -192,7 +192,7 @@ func (v *EthereumVRFCoordinatorV2_5) GetSubscription(ctx context.Context, subID 
 	}, nil
 }
 
-func (v *EthereumVRFCoordinatorV2_5) GetActiveSubscriptionIds(ctx context.Context, startIndex, maxCount *big.Int) ([]*big.Int, error) {
+func (v *EthereumVRFCoordinatorV2_5) GetActiveSubscriptionIDs(ctx context.Context, startIndex, maxCount *big.Int) ([]*big.Int, error) {
 	return v.coordinator.GetActiveSubscriptionIds(&bind.CallOpts{
 		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
@@ -352,7 +352,7 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetSubscription(ctx contex
 	}, nil
 }
 
-func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetActiveSubscriptionIds(ctx context.Context, startIndex, maxCount *big.Int) ([]*big.Int, error) {
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetActiveSubscriptionIDs(ctx context.Context, startIndex, maxCount *big.Int) ([]*big.Int, error) {
 	return v.coordinator.GetActiveSubscriptionIds(&bind.CallOpts{
 		From:    v.client.MustGetRootKeyAddress(),
 		Context: ctx,
@@ -855,11 +855,10 @@ func EncodeOnChainVRFProvingKey(uncompressed string) ([2]*big.Int, error) {
 	}
 	if len(raw) != 128 {
 		// also accept 130 char uncompressed point (04 prefix + 128 hex)
-		if len(raw) == 130 && raw[:2] == "04" {
-			raw = raw[2:]
-		} else {
+		if len(raw) != 130 || raw[:2] != "04" {
 			return [2]*big.Int{}, fmt.Errorf("unexpected uncompressed key length %d (expected 128 hex chars after 0x)", len(raw))
 		}
+		raw = raw[2:]
 	}
 	if _, err := hex.DecodeString(raw); err != nil {
 		return [2]*big.Int{}, fmt.Errorf("invalid hex in VRF key: %w", err)

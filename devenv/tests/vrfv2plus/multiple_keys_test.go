@@ -67,7 +67,7 @@ func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	numKeys := len(c.VRFKeyData.TxKeyAddresses)
 	requestIDs := make([]*big.Int, numKeys)
 	for i := range numKeys {
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 		reqID, rErr := consumer.RequestRandomness(
 			keyHash, subID, c.MinimumConfirmations,
 			defaultCallbackGasLimit, false, defaultNumWords, defaultRequestCount,

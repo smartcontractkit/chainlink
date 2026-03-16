@@ -87,12 +87,12 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, qErr, "RequestRandomness failed")
 		require.NotNil(t, requested)
 		requestBlock := requested.Raw.BlockNumber
-		require.Greater(t, requestBlock, uint64(0), "request block must be non-zero")
+		require.Positive(t, requestBlock, "request block must be non-zero")
 
 		_, qErr = bhs.GetBlockhash(ctx, requestBlock)
 		require.Error(t, qErr, "blockhash should not exist in BHS immediately after request")
 
-		waitForBHSWindow(t, ctx, chainClient, requestBlock, c.BHSJobWaitBlocks, chainID, 10*time.Second)
+		waitForBHSWindow(ctx, t, chainClient, requestBlock, c.BHSJobWaitBlocks, chainID, 10*time.Second)
 
 		reqCount, cErr := consumer.RequestCount(ctx)
 		require.NoError(t, cErr)
@@ -136,10 +136,10 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 		require.NoError(t, qErr, "RequestRandomness failed")
 		require.NotNil(t, requested)
 		requestBlock := requested.Raw.BlockNumber
-		require.Greater(t, requestBlock, uint64(0), "request block must be non-zero")
+		require.Positive(t, requestBlock, "request block must be non-zero")
 
 		// On EVM BLOCKHASH can no longer serve the original request block hash after ~256 blocks, so fulfillment path must depend on BHS-stored hash
-		waitForBHSWindow(t, ctx, chainClient, requestBlock, c.BHSJobWaitBlocks+256, chainID, 5*time.Minute)
+		waitForBHSWindow(ctx, t, chainClient, requestBlock, c.BHSJobWaitBlocks+256, chainID, 5*time.Minute)
 
 		var storedHash [32]byte
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -182,8 +182,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 }
 
 func waitForBHSWindow(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	chainClient *seth.Client,
 	requestBlock uint64,
 	waitBlocks int,
@@ -191,8 +191,9 @@ func waitForBHSWindow(
 	timeout time.Duration,
 ) {
 	t.Helper()
+	require.GreaterOrEqual(t, waitBlocks, 0, "waitBlocks must be non-negative")
 
-	targetBlock := requestBlock + uint64(waitBlocks) + 10
+	targetBlock := requestBlock + uint64(waitBlocks) + 10 //nolint:gosec // waitBlocks is validated non-negative above
 	if chainID != 1337 {
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			blk, err := chainClient.Client.BlockNumber(ctx)

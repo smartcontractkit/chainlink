@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
-// VRFV2PlusTxPipelineSpec defines the observation source pipeline for a VRFv2Plus job.
-type VRFV2PlusTxPipelineSpec struct {
+// TxPipelineSpec defines the observation source pipeline for a VRFv2Plus job.
+type TxPipelineSpec struct {
 	Address               string
 	EstimateGasMultiplier float64
 	FromAddress           string
 	SimulationBlock       *string // nil, "latest", or "pending"
 }
 
-func (d *VRFV2PlusTxPipelineSpec) Type() string { return "vrf_pipeline_v2plus" }
+func (d *TxPipelineSpec) Type() string { return "vrf_pipeline_v2plus" }
 
-func (d *VRFV2PlusTxPipelineSpec) String() (string, error) {
+func (d *TxPipelineSpec) String() (string, error) {
 	optionalSimBlock := ""
 	if d.SimulationBlock != nil {
 		sb := *d.SimulationBlock
@@ -56,8 +56,8 @@ decode_log->generate_proof->estimate_gas->simulate_fulfillment`
 	return marshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
 }
 
-// VRFV2PlusJobSpec defines the full VRFv2Plus job for a Chainlink node.
-type VRFV2PlusJobSpec struct {
+// JobSpec defines the full VRFv2Plus job for a Chainlink node.
+type JobSpec struct {
 	Name                          string        `toml:"name"`
 	CoordinatorAddress            string        `toml:"coordinatorAddress"`
 	BatchCoordinatorAddress       string        `toml:"batchCoordinatorAddress"`
@@ -76,9 +76,9 @@ type VRFV2PlusJobSpec struct {
 	RequestTimeout                time.Duration `toml:"requestTimeout"`
 }
 
-func (v *VRFV2PlusJobSpec) Type() string { return "vrf" }
+func (v *JobSpec) Type() string { return "vrf" }
 
-func (v *VRFV2PlusJobSpec) String() (string, error) {
+func (v *JobSpec) String() (string, error) {
 	vrfTemplateString := `
 type                     = "vrf"
 schemaVersion            = 1

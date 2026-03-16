@@ -5,11 +5,12 @@ import (
 	"strconv"
 	"testing"
 
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"time"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 

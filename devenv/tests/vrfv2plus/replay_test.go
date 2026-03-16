@@ -117,7 +117,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		require.Equal(t, http.StatusNoContent, resp.StatusCode, "unexpected status code deleting job")
 
 		// Build a new pipeline spec identical to the original but using the default "latest" block.
-		newPipelineSpec := &productvrfv2plus.VRFV2PlusTxPipelineSpec{
+		newPipelineSpec := &productvrfv2plus.TxPipelineSpec{
 			Address:               coord.Address(),
 			EstimateGasMultiplier: 1.1,
 			FromAddress:           c.VRFKeyData.TxKeyAddresses[0],
@@ -127,8 +127,8 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 		// Create the new job with a 1h timeout.
 		var newJobID string
-		newJobSpec := &productvrfv2plus.VRFV2PlusJobSpec{
-			Name:                          fmt.Sprintf("vrf-v2-plus-replay-%s", uuid.NewString()),
+		newJobSpec := &productvrfv2plus.JobSpec{
+			Name:                          "vrf-v2-plus-replay-" + uuid.NewString(),
 			CoordinatorAddress:            coord.Address(),
 			BatchCoordinatorAddress:       batchCoordAddr,
 			PublicKey:                     c.VRFKeyData.PubKeyCompressed,
@@ -150,7 +150,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 
 		t.Cleanup(func() {
 			if newJobID != "" {
-				cl[0].MustDeleteJob(newJobID) //nolint:errcheck
+				cl[0].MustDeleteJob(newJobID) //nolint:errcheck // best-effort cleanup in test teardown
 			}
 		})
 

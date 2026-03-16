@@ -111,7 +111,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 			c.DeployedContracts.MockFeed,
 		), "error setting LINK and feed on new coordinator")
 
-		pipelineSpec := &productvrfv2plus.VRFV2PlusTxPipelineSpec{
+		pipelineSpec := &productvrfv2plus.TxPipelineSpec{
 			Address:               newCoord.Address(),
 			EstimateGasMultiplier: 1.1,
 			FromAddress:           c.VRFKeyData.TxKeyAddresses[0],
@@ -119,8 +119,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		observationSource, oErr := pipelineSpec.String()
 		require.NoError(t, oErr, "failed to build pipeline spec for new coordinator")
 
-		newJobSpec := &productvrfv2plus.VRFV2PlusJobSpec{
-			Name:                          fmt.Sprintf("vrf-v2-plus-migration-%s", uuid.NewString()),
+		newJobSpec := &productvrfv2plus.JobSpec{
+			Name:                          "vrf-v2-plus-migration-" + uuid.NewString(),
 			CoordinatorAddress:            newCoord.Address(),
 			BatchCoordinatorAddress:       "",
 			PublicKey:                     c.VRFKeyData.PubKeyCompressed,
@@ -141,7 +141,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		if job != nil && job.Data.ID != "" {
 			jobID := job.Data.ID
 			t.Cleanup(func() {
-				cl[0].MustDeleteJob(jobID) //nolint:errcheck
+				cl[0].MustDeleteJob(jobID) //nolint:errcheck // best-effort cleanup in test teardown
 			})
 		}
 
@@ -224,7 +224,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		}
 
 		// Verify subID appears in old coordinator's active list.
-		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids before migration")
 		require.True(t, containsBigInt(activeSubIDsBefore, subID),
 			"subID should be in old coordinator's active list before migration")
@@ -271,11 +271,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Error(t, gsErr, "should error when getting deleted sub from old coordinator")
 
 		// Migrated subID should no longer appear in old coordinator's active list.
-		activeSubIDsOldAfter, _ := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		activeSubIDsOldAfter, _ := coord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.False(t, containsBigInt(activeSubIDsOldAfter, subID), "migrated subID should not be in old coordinator's list after migration")
 
 		// New coordinator should have exactly 1 active sub.
-		activeSubIDsNew, asErr := newCoord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		activeSubIDsNew, asErr := newCoord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids from new coordinator")
 		require.Len(t, activeSubIDsNew, 1, "new coordinator should have exactly 1 active sub")
 		require.Equal(t, subID, activeSubIDsNew[0])
@@ -313,11 +313,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.True(t, ok, "failed to parse wrapper sub ID: %s", c.DeployedContracts.WrapperSubID)
 
 		subID := wrapperSubID
-		reconcileConfiguredFunding(t, ctx, chainClient, coord, linkToken, c)
+		reconcileConfiguredFunding(ctx, t, chainClient, coord, linkToken, c)
 
 		// After subtest 1 migrated the test sub, the old coordinator should have
 		// the wrapper sub present in active subs.
-		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		activeSubIDsBefore, asErr := coord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids before wrapper migration")
 		require.True(t, containsBigInt(activeSubIDsBefore, subID),
 			"old coordinator active subs should include wrapper sub before wrapper migration")
@@ -362,10 +362,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.Error(t, gsErr, "should error when getting deleted wrapper sub from old coordinator")
 
 		// Old coordinator should have no active subs (wrapper sub was the last one).
-		_, activeSubIDsOldAfterErr := coord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		_, activeSubIDsOldAfterErr := coord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.Error(t, activeSubIDsOldAfterErr, "old coordinator should have no active subs after wrapper sub migration")
 
-		activeSubIDsNew, asErr := newCoord.GetActiveSubscriptionIds(ctx, big.NewInt(0), big.NewInt(0))
+		activeSubIDsNew, asErr := newCoord.GetActiveSubscriptionIDs(ctx, big.NewInt(0), big.NewInt(0))
 		require.NoError(t, asErr, "error getting active sub ids from new coordinator")
 		require.Len(t, activeSubIDsNew, 1, "new coordinator should have exactly 1 active sub")
 		require.Equal(t, subID, activeSubIDsNew[0])

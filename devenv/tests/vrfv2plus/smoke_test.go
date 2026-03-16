@@ -71,18 +71,18 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 
 	runWithFunding := func(name string, fn func(t *testing.T)) {
 		t.Run(name, func(t *testing.T) {
-			reconcileConfiguredFunding(t, ctx, chainClient, coord, linkToken, c)
+			reconcileConfiguredFunding(ctx, t, chainClient, coord, linkToken, c)
 			fn(t)
 		})
 	}
 
 	runWithFunding("Link Billing", func(t *testing.T) {
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 		subBefore, gsErr := coord.GetSubscription(ctx, subID)
 		require.NoError(t, gsErr, "failed to get subscription before request")
 		subBalanceBefore := new(big.Int).Set(subBefore.Balance)
 
-		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, false,
+		fulfilled := requestAndWait(ctx, t, consumer, coord, keyHash, subID, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
 		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
@@ -103,12 +103,12 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 	})
 
 	runWithFunding("Native Billing", func(t *testing.T) {
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 		subBefore, gsErr := coord.GetSubscription(ctx, subID)
 		require.NoError(t, gsErr, "failed to get subscription before request")
 		subNativeBalanceBefore := new(big.Int).Set(subBefore.NativeBalance)
 
-		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, true,
+		fulfilled := requestAndWait(ctx, t, consumer, coord, keyHash, subID, true,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
 		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
@@ -141,7 +141,7 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 		require.NoError(t, sErr, "failed to get wrapper subscription before request")
 		wrapperSubLinkBefore := new(big.Int).Set(wrapperSubBefore.Balance)
 
-		fulfilled := requestAndWaitWrapper(t, ctx, wrapperConsumer, coord, false,
+		fulfilled := requestAndWaitWrapper(ctx, t, wrapperConsumer, coord, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
 		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
@@ -176,7 +176,7 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 		require.NoError(t, sErr, "failed to get wrapper subscription before request")
 		wrapperSubNativeBefore := new(big.Int).Set(wrapperSubBefore.NativeBalance)
 
-		fulfilled := requestAndWaitWrapper(t, ctx, wrapperConsumer, coord, true,
+		fulfilled := requestAndWaitWrapper(ctx, t, wrapperConsumer, coord, true,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 
 		require.False(t, fulfilled.OnlyPremium, "RandomWordsFulfilled.OnlyPremium should be false")
@@ -199,7 +199,7 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 	})
 
 	runWithFunding("Block Confirmation", func(t *testing.T) {
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 
 		const highConfirmations = uint16(10)
 		requested, rErr := consumer.RequestRandomnessWithEvent(
@@ -231,8 +231,8 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 		require.NoError(t, rErr)
 		beforeCount := len(runsBefore.Data)
 
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
-		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, false,
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
+		fulfilled := requestAndWait(ctx, t, consumer, coord, keyHash, subID, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 		require.True(t, fulfilled.Success)
 
@@ -243,7 +243,7 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 	})
 
 	runWithFunding("Cancel Sub", func(t *testing.T) {
-		_, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		_, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 
 		// Verify sub exists
 		sub, sErr := coord.GetSubscription(ctx, subID)
@@ -257,15 +257,15 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 	})
 
 	runWithFunding("Owner Cancel", func(t *testing.T) {
-		_, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		_, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 
 		err = coord.OwnerCancelSubscription(subID)
 		require.NoError(t, err, "OwnerCancelSubscription should succeed")
 	})
 
 	runWithFunding("Owner Withdraw", func(t *testing.T) {
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
-		fulfilled := requestAndWait(t, ctx, consumer, coord, keyHash, subID, false,
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
+		fulfilled := requestAndWait(ctx, t, consumer, coord, keyHash, subID, false,
 			c.MinimumConfirmations, defaultFulfillTimeout)
 		require.True(t, fulfilled.Success)
 
@@ -281,8 +281,8 @@ func TestVRFv2PlusSmoke(t *testing.T) {
 // newConsumerAndSub deploys a fresh load test consumer, creates and funds a subscription,
 // and adds the consumer to it. Returns the consumer and the subscription ID.
 func newConsumerAndSub(
-	t *testing.T,
 	ctx context.Context,
+	t *testing.T,
 	chainClient *seth.Client,
 	coord *contracts.EthereumVRFCoordinatorV2_5,
 	linkToken contracts.LinkToken,

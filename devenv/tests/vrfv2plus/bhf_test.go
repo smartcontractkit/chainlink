@@ -89,11 +89,11 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 		require.NoError(t, qErr, "RequestRandomness failed")
 		require.NotNil(t, requested)
 		requestBlock := requested.Raw.BlockNumber
-		require.Greater(t, requestBlock, uint64(0), "request block must be non-zero")
+		require.Positive(t, requestBlock, "request block must be non-zero")
 
 		// Wait at least 257 blocks so the BHF job can store the blockhash and
 		// the coordinator can verify it against the BatchBHS.
-		waitForBHSWindow(t, ctx, chainClient, requestBlock, 257, chainID, 5*time.Minute)
+		waitForBHSWindow(ctx, t, chainClient, requestBlock, 257, chainID, 5*time.Minute)
 
 		// Fund the subscription so the stuck request can be fulfilled.
 		nativeWei := products.EtherToWei(big.NewFloat(c.SubFundingAmountNative))

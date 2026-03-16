@@ -83,9 +83,9 @@ func TestVRFv2PlusBatchFulfillment(t *testing.T) {
 	expectedCountU32 := (batchTxGasBudget / callbackGasLimit) - 1
 	require.Greater(t, expectedCountU32, uint32(1), "expected batched fulfillment count should be > 1")
 	require.LessOrEqual(t, expectedCountU32, uint32(^uint16(0)), "expected count must fit uint16")
-	expectedCount := uint16(expectedCountU32)
+	expectedCount := uint16(expectedCountU32) //nolint:gosec // bounded by explicit <= uint16 max assertion above
 
-	consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+	consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 	requestID, rErr := consumer.RequestRandomness(
 		keyHash,
 		subID,
@@ -142,7 +142,7 @@ func TestVRFv2PlusBatchFulfillment(t *testing.T) {
 		requestTimeout = 24 * time.Hour
 	}
 
-	newPipelineSpec := &productvrfv2plus.VRFV2PlusTxPipelineSpec{
+	newPipelineSpec := &productvrfv2plus.TxPipelineSpec{
 		Address:               coord.Address(),
 		EstimateGasMultiplier: 1.1,
 		FromAddress:           c.VRFKeyData.TxKeyAddresses[0],
@@ -163,7 +163,7 @@ func TestVRFv2PlusBatchFulfillment(t *testing.T) {
 		if !batchFulfillmentEnabled {
 			namePrefix = "disabled"
 		}
-		newJobSpec := &productvrfv2plus.VRFV2PlusJobSpec{
+		newJobSpec := &productvrfv2plus.JobSpec{
 			Name:                          fmt.Sprintf("vrf-v2-plus-batch-%s-%s", namePrefix, uuid.NewString()),
 			CoordinatorAddress:            coord.Address(),
 			BatchCoordinatorAddress:       c.DeployedContracts.BatchCoordinator,
@@ -187,7 +187,7 @@ func TestVRFv2PlusBatchFulfillment(t *testing.T) {
 
 	t.Cleanup(func() {
 		if currentJobID != "" {
-			cl[0].MustDeleteJob(currentJobID) //nolint:errcheck
+			cl[0].MustDeleteJob(currentJobID) //nolint:errcheck // best-effort cleanup in test teardown
 		}
 	})
 
@@ -195,7 +195,7 @@ func TestVRFv2PlusBatchFulfillment(t *testing.T) {
 		t.Helper()
 		switchJob(t, batchFulfillmentEnabled)
 
-		consumer, subID := newConsumerAndSub(t, ctx, chainClient, coord, linkToken, c)
+		consumer, subID := newConsumerAndSub(ctx, t, chainClient, coord, linkToken, c)
 		requestID, rErr := consumer.RequestRandomness(
 			keyHash,
 			subID,
