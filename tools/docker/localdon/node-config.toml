@@ -33,6 +33,20 @@ Mode = 'FixedPrice'
 PriceDefault = '1 gwei'
 LimitDefault = 6000000
 
+[EVM.Transactions]
+ForwardersEnabled = true
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+Threshold = 5
+MinAttempts = 3
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = true
+BlockTime = '2s'
+CustomURL = 'http://flashbots-mock:8080/flashbots'
+DualBroadcast = true
+
 [[EVM.Nodes]]
 Name = 'anvil'
 WSURL = 'ws://anvil:8545'

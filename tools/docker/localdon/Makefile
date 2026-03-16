@@ -26,6 +26,26 @@ up: ## Start all services (postgres + anvil + 4 nodes)
 setup: ## Run the setup script (deploy contracts, create jobs)
 	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon
 
+setup-full: up _create-keys _restart-nodes setup ## Full setup: start, create keys, restart nodes, deploy+configure
+	@echo "Full setup complete."
+
+_create-keys:
+	@echo "Creating secondary ETH keys on each node..."
+	cd $(REPO_ROOT)/core/scripts && go run ./setup-localdon --keys-only
+
+_restart-nodes:
+	@echo "Restarting nodes so TXMv2 picks up secondary keys..."
+	$(COMPOSE) restart node-1 node-2 node-3 node-4
+	@echo "Waiting for nodes to become healthy after restart..."
+	@for i in 1 2 3 4; do \
+		printf "  node-$$i: "; \
+		until curl -sf http://localhost:$$(( 6687 + $$i ))/readyz > /dev/null 2>&1; do \
+			printf "."; sleep 2; \
+		done; \
+		echo " ready"; \
+	done
+	@echo "All nodes healthy."
+
 down: ## Stop all services
 	$(COMPOSE) down
 
@@ -35,7 +55,7 @@ logs: ## Follow logs from all services
 clean: ## Stop all services and remove volumes
 	$(COMPOSE) down -v --remove-orphans
 
-restart: clean up setup ## Full restart: clean + up + setup
+restart: clean setup-full ## Full restart: clean + full setup (with key creation + node restart)
 
 # --- Local-dev mode: run node-4 on the host ---
 

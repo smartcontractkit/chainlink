@@ -1,6 +1,8 @@
 # Override file for swapping node-4 to a different Chainlink version.
 # This file is automatically picked up by `docker compose`.
-# Comment out or delete to revert all nodes to the same version.
-services:
-  node-4:
-    image: smartcontract/chainlink:2.37.0
+# Uncomment the lines below to use a different image for node-4.
+# For Phase 3 (dual-tx) testing, keep this commented so all nodes use the same image.
+#
+# services:
+#   node-4:
+#     image: smartcontract/chainlink:2.37.0

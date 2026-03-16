@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -36,6 +37,9 @@ const (
 
 	apiEmail    = "local-test@chainlink.test"
 	apiPassword = "localdon-testing-only-not-a-real-password"
+
+	flashbotsMockDockerURL = "http://flashbots-mock:8080/flashbots"
+	flashbotsMockHostURL   = "http://localhost:9090/flashbots"
 )
 
 var nodeURLs = []string{
@@ -45,10 +49,19 @@ var nodeURLs = []string{
 	"http://localhost:6691",
 }
 
-var localDev = flag.Bool("local-dev", false, "Run node-4 on the host instead of Docker (uses localhost:6700 as bootstrapper for node-4)")
+var (
+	localDev = flag.Bool("local-dev", false, "Run node-4 on the host instead of Docker (uses localhost:6700 as bootstrapper for node-4)")
+	keysOnly = flag.Bool("keys-only", false, "Only create secondary ETH keys on each node, then exit. Use before restarting nodes so TXMv2 picks up the new keys.")
+)
 
 func main() {
 	flag.Parse()
+
+	if *keysOnly {
+		createSecondaryKeys()
+		return
+	}
+
 	ctx := context.Background()
 
 	// Connect to Anvil
@@ -69,7 +82,7 @@ func main() {
 	waitMined(ctx, client, linkTx.Hash(), "LINK token")
 	log.Printf("LINK token: %s", linkAddr)
 
-	// OCR2 Aggregator (zero-address access controllers are fine for local dev)
+	// OCR2 Aggregator (used for both primary and secondary transmission)
 	minAnswer, maxAnswer := new(big.Int), new(big.Int)
 	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
 	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
@@ -95,12 +108,14 @@ func main() {
 	// --- Gather node keys ---
 
 	type nodeInfo struct {
-		ethAddr       common.Address
-		ocrKeyID      string
-		onchainPubKey []byte
-		offchainPub   [32]byte
-		configPub     [32]byte
-		peerID        string
+		ethAddr          common.Address
+		secondaryAddr    common.Address
+		forwarderAddr    common.Address
+		ocrKeyID         string
+		onchainPubKey    []byte
+		offchainPub      [32]byte
+		configPub        [32]byte
+		peerID           string
 	}
 
 	nodes := make([]nodeInfo, len(nodeURLs))
@@ -108,9 +123,17 @@ func main() {
 		nc := newNodeClient(url)
 		log.Printf("Node %d (%s): connected", i+1, url)
 
-		// ETH key (auto-created on startup)
-		nodes[i].ethAddr = nc.getETHAddress()
-		log.Printf("  ETH address: %s", nodes[i].ethAddr)
+		// ETH keys: primary is auto-created at startup, secondary was created by --keys-only
+		existingAddrs := nc.getETHAddresses()
+		nodes[i].ethAddr = existingAddrs[0]
+		log.Printf("  Primary ETH address: %s", nodes[i].ethAddr)
+
+		if len(existingAddrs) >= 2 {
+			nodes[i].secondaryAddr = existingAddrs[1]
+		} else {
+			nodes[i].secondaryAddr = nc.createETHKey(existingAddrs)
+		}
+		log.Printf("  Secondary ETH address: %s", nodes[i].secondaryAddr)
 
 		// OCR2 key (must create)
 		nodes[i].ocrKeyID, nodes[i].onchainPubKey, nodes[i].offchainPub, nodes[i].configPub = nc.createOCR2Key()
@@ -121,37 +144,74 @@ func main() {
 		log.Printf("  P2P peer ID: %s", nodes[i].peerID)
 	}
 
-	// --- Fund node ETH addresses ---
+	// --- Fund node ETH addresses (both primary and secondary) ---
 
 	for i, n := range nodes {
-		fundTx, err := fundAddress(ctx, client, deployerKey, n.ethAddr, big.NewInt(1e18)) // 1 ETH
-		must(err, fmt.Sprintf("fund node %d", i+1))
-		waitMined(ctx, client, fundTx, fmt.Sprintf("fund node %d", i+1))
-		log.Printf("Funded node %d: %s", i+1, n.ethAddr)
+		fundTx, err := fundAddress(ctx, client, deployerKey, n.ethAddr, big.NewInt(1e18))
+		must(err, fmt.Sprintf("fund node %d primary", i+1))
+		waitMined(ctx, client, fundTx, fmt.Sprintf("fund node %d primary", i+1))
+		log.Printf("Funded node %d primary: %s", i+1, n.ethAddr)
+
+		fundTx, err = fundAddress(ctx, client, deployerKey, n.secondaryAddr, big.NewInt(1e18))
+		must(err, fmt.Sprintf("fund node %d secondary", i+1))
+		waitMined(ctx, client, fundTx, fmt.Sprintf("fund node %d secondary", i+1))
+		log.Printf("Funded node %d secondary: %s", i+1, n.secondaryAddr)
 	}
 
-	// --- SetPayees ---
+	// --- Deploy forwarder contracts (one per node) ---
 
-	transmitters := make([]common.Address, len(nodes))
+	for i := range nodes {
+		fwdAddr, fwdTx, fwdContract, err := authorized_forwarder.DeployAuthorizedForwarder(
+			deployer, client,
+			linkAddr,           // link token
+			deployer.From,      // owner
+			common.Address{},   // recipient (unused)
+			[]byte{},           // message (unused)
+		)
+		must(err, fmt.Sprintf("deploy forwarder for node %d", i+1))
+		waitMined(ctx, client, fwdTx.Hash(), fmt.Sprintf("forwarder deploy node %d", i+1))
+
+		// Authorize both primary and secondary EOAs as senders
+		authTx, err := fwdContract.SetAuthorizedSenders(deployer, []common.Address{
+			nodes[i].ethAddr,
+			nodes[i].secondaryAddr,
+		})
+		must(err, fmt.Sprintf("set authorized senders for node %d", i+1))
+		waitMined(ctx, client, authTx.Hash(), fmt.Sprintf("authorize senders node %d", i+1))
+
+		nodes[i].forwarderAddr = fwdAddr
+		log.Printf("Forwarder for node %d: %s (senders: %s, %s)", i+1, fwdAddr, nodes[i].ethAddr, nodes[i].secondaryAddr)
+	}
+
+	// --- Track forwarders on each node via API ---
+
+	for i, url := range nodeURLs {
+		nc := newNodeClient(url)
+		nc.trackForwarder(nodes[i].forwarderAddr, big.NewInt(chainID))
+		log.Printf("Tracked forwarder on node %d: %s", i+1, nodes[i].forwarderAddr)
+	}
+
+	// --- SetPayees (using forwarder addresses as transmitters) ---
+
+	forwarders := make([]common.Address, len(nodes))
 	for i, n := range nodes {
-		transmitters[i] = n.ethAddr
+		forwarders[i] = n.forwarderAddr
 	}
 
-	tx, err = ocrContract.SetPayees(deployer, transmitters, transmitters)
+	tx, err = ocrContract.SetPayees(deployer, forwarders, forwarders)
 	must(err, "SetPayees")
 	waitMined(ctx, client, tx.Hash(), "SetPayees")
 	log.Println("SetPayees done")
 
-	// --- SetConfig ---
+	// --- SetConfig (using forwarder addresses as transmitters) ---
 
 	oracles := make([]confighelper2.OracleIdentityExtra, len(nodes))
 	for i, n := range nodes {
-		// PeerID from API includes "p2p_" prefix, but OCR config expects bare ID
 		peerID := strings.TrimPrefix(n.peerID, "p2p_")
 		oracles[i] = confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  n.onchainPubKey,
-				TransmitAccount:   ocrtypes2.Account(n.ethAddr.Hex()),
+				TransmitAccount:   ocrtypes2.Account(n.forwarderAddr.Hex()),
 				OffchainPublicKey: n.offchainPub,
 				PeerID:            peerID,
 			},
@@ -185,12 +245,21 @@ func main() {
 	for i, url := range nodeURLs {
 		nc := newNodeClient(url)
 		bootstrapHost := "localdon-node-1:6690"
+		flashbotsEndpoint := flashbotsMockDockerURL
 		if *localDev && i == 3 {
-			// In local-dev mode, node-4 runs on the host and reaches
-			// node-1's P2P port via localhost:6700 (exposed by docker-compose.local-dev.yml).
 			bootstrapHost = "localhost:6700"
+			flashbotsEndpoint = flashbotsMockHostURL
 		}
-		spec := oracleJobSpec(ocrAddr, nodes[i].ocrKeyID, nodes[i].ethAddr, int64(blockNum), bootstrapPeerID, bootstrapHost)
+		spec := oracleJobSpec(
+			ocrAddr,
+			nodes[i].ocrKeyID,
+			nodes[i].ethAddr,
+			nodes[i].secondaryAddr,
+			int64(blockNum),
+			bootstrapPeerID,
+			bootstrapHost,
+			flashbotsEndpoint,
+		)
 		nc.createJob(spec)
 		log.Printf("Created oracle job on node %d", i+1)
 	}
@@ -198,9 +267,36 @@ func main() {
 	log.Println("Setup complete! The DON should start producing rounds shortly.")
 	log.Printf("OCR2Aggregator address: %s", ocrAddr)
 	log.Printf("Monitor with: cast call %s 'latestAnswer()(int256)' --rpc-url %s", ocrAddr, anvilURL)
+	log.Printf("Check flashbots mock: curl http://localhost:9090/health")
 }
 
-func oracleJobSpec(contractAddr common.Address, ocrKeyBundleID string, transmitterAddr common.Address, fromBlock int64, bootstrapPeerID string, bootstrapHost string) string {
+// createSecondaryKeys creates a secondary ETH key on each node.
+// Must be called before the main setup, and nodes must be restarted after,
+// so TXMv2 initializes InMemoryStores for the new keys.
+func createSecondaryKeys() {
+	for i, url := range nodeURLs {
+		nc := newNodeClient(url)
+		existing := nc.getETHAddresses()
+		if len(existing) > 1 {
+			log.Printf("Node %d: already has %d keys, skipping", i+1, len(existing))
+			continue
+		}
+		addr := nc.createETHKey(existing)
+		log.Printf("Node %d: created secondary key %s", i+1, addr)
+	}
+	log.Println("Secondary keys created. Restart the nodes, then run setup without --keys-only.")
+}
+
+func oracleJobSpec(
+	contractAddr common.Address,
+	ocrKeyBundleID string,
+	primaryAddr common.Address,
+	secondaryAddr common.Address,
+	fromBlock int64,
+	bootstrapPeerID string,
+	bootstrapHost string,
+	flashbotsEndpoint string,
+) string {
 	barePeerID := strings.TrimPrefix(bootstrapPeerID, "p2p_")
 	return fmt.Sprintf(`
 type               = "offchainreporting2"
@@ -211,6 +307,7 @@ name               = "localdon-median"
 contractID         = "%s"
 ocrKeyBundleID     = "%s"
 transmitterID      = "%s"
+forwardingAllowed  = true
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 p2pv2Bootstrappers = ["%s@%s"]
@@ -234,6 +331,16 @@ observationSource = """
 [relayConfig]
 chainID = "%d"
 fromBlock = %d
+enableDualTransmission = true
+
+[relayConfig.dualTransmission]
+contractAddress = "%s"
+transmitterAddress = "%s"
+endpoint = "%s"
+
+[relayConfig.dualTransmission.meta]
+hint = ["calldata"]
+refund = ["0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"]
 
 [pluginConfig]
 juelsPerFeeCoinSource = """
@@ -249,7 +356,10 @@ gasPriceSubunitsSource = """
 
 [pluginConfig.juelsPerFeeCoinCache]
 updateInterval = "1m"
-`, contractAddr.Hex(), ocrKeyBundleID, transmitterAddr.Hex(), barePeerID, bootstrapHost, chainID, fromBlock)
+`, contractAddr.Hex(), ocrKeyBundleID, primaryAddr.Hex(),
+		barePeerID, bootstrapHost,
+		chainID, fromBlock,
+		contractAddr.Hex(), secondaryAddr.Hex(), flashbotsEndpoint)
 }
 
 // --- Anvil helpers ---
@@ -336,14 +446,14 @@ func (nc *nodeClient) post(path string, payload interface{}) json.RawMessage {
 	must(err, "POST "+path)
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		log.Fatalf("POST %s failed (%d): %s", path, resp.StatusCode, b)
 	}
 	return b
 }
 
-// getETHAddress returns the first ETH key address from the node.
-func (nc *nodeClient) getETHAddress() common.Address {
+// getETHAddresses returns all ETH key addresses from the node.
+func (nc *nodeClient) getETHAddresses() []common.Address {
 	raw := nc.get("/v2/keys/eth")
 	var resp struct {
 		Data []struct {
@@ -353,10 +463,43 @@ func (nc *nodeClient) getETHAddress() common.Address {
 		} `json:"data"`
 	}
 	must(json.Unmarshal(raw, &resp), "parse ETH keys")
-	if len(resp.Data) == 0 {
+	addrs := make([]common.Address, len(resp.Data))
+	for i, d := range resp.Data {
+		addrs[i] = common.HexToAddress(d.Attributes.Address)
+	}
+	return addrs
+}
+
+// getETHAddress returns the first ETH key address from the node.
+func (nc *nodeClient) getETHAddress() common.Address {
+	addrs := nc.getETHAddresses()
+	if len(addrs) == 0 {
 		log.Fatal("no ETH keys found")
 	}
-	return common.HexToAddress(resp.Data[0].Attributes.Address)
+	return addrs[0]
+}
+
+// createETHKey creates a new ETH key on the node and returns its address.
+// The 2.36.0 API returns an empty body on key creation, so we list keys
+// before and after to find the newly created one.
+func (nc *nodeClient) createETHKey(existingAddrs []common.Address) common.Address {
+	nc.post(fmt.Sprintf("/v2/keys/eth?evmChainID=%d", chainID), nil)
+
+	allAddrs := nc.getETHAddresses()
+	for _, addr := range allAddrs {
+		found := false
+		for _, existing := range existingAddrs {
+			if addr == existing {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return addr
+		}
+	}
+	log.Fatal("createETHKey: no new key found after POST")
+	return common.Address{}
 }
 
 // createOCR2Key creates a new OCR2 EVM key bundle and returns its components.
@@ -375,7 +518,6 @@ func (nc *nodeClient) createOCR2Key() (id string, onchainPub []byte, offchainPub
 	must(json.Unmarshal(raw, &resp), "parse OCR2 key")
 	id = resp.Data.ID
 
-	// Keys come back as "ocr2on_evm_<hex>", "ocr2off_evm_<hex>", "ocr2cfg_evm_<hex>"
 	onchainPub = mustDecodeOCR2Key(resp.Data.Attributes.OnchainPublicKey, "ocr2on_evm_")
 
 	offBytes := mustDecodeOCR2Key(resp.Data.Attributes.OffchainPublicKey, "ocr2off_evm_")
@@ -402,6 +544,14 @@ func (nc *nodeClient) getP2PID() string {
 		log.Fatal("no P2P keys found")
 	}
 	return resp.Data[0].Attributes.PeerID
+}
+
+// trackForwarder registers a forwarder address on the node.
+func (nc *nodeClient) trackForwarder(addr common.Address, evmChainID *big.Int) {
+	nc.post("/v2/nodes/evm/forwarders/track", map[string]interface{}{
+		"evmChainId": evmChainID.String(),
+		"address":    addr.Hex(),
+	})
 }
 
 // createJob creates a job from a TOML spec.

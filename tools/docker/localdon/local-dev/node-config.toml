@@ -4,6 +4,7 @@
 #   - API port is 6691 (to match Docker port mapping)
 #   - P2P listens on 6694 and announces as host.docker.internal:6694
 #     so Docker nodes can reach this host node
+#   - Flashbots mock URL points to localhost:9090 (exposed port)
 
 [Log]
 Level = 'info'
@@ -44,6 +45,20 @@ MinContractPayment = '0 link'
 Mode = 'FixedPrice'
 PriceDefault = '1 gwei'
 LimitDefault = 6000000
+
+[EVM.Transactions]
+ForwardersEnabled = true
+
+[EVM.Transactions.AutoPurge]
+Enabled = true
+Threshold = 5
+MinAttempts = 3
+
+[EVM.Transactions.TransactionManagerV2]
+Enabled = true
+BlockTime = '2s'
+CustomURL = 'http://localhost:9090/flashbots'
+DualBroadcast = true
 
 [[EVM.Nodes]]
 Name = 'anvil'

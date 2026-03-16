@@ -30,6 +30,17 @@ services:
       timeout: 5s
       retries: 10
 
+  flashbots-mock:
+    build: ./flashbots-mock
+    container_name: localdon-flashbots-mock
+    ports:
+      - "9090:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
   node-1: &node-defaults
     container_name: localdon-node-1
     image: smartcontract/chainlink:2.36.0
@@ -47,6 +58,8 @@ services:
       postgres:
         condition: service_healthy
       anvil:
+        condition: service_healthy
+      flashbots-mock:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6688/readyz"]
