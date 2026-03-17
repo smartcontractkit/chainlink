@@ -2,6 +2,7 @@ package v1_5_0
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 )
 
 var (
@@ -107,7 +107,7 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	return &OnRamp{
 		lggr:                       lggr,
 		client:                     source,
-		destChainSelectorBytes:     ccipcommon.SelectorToBytes(destSelector),
+		destChainSelectorBytes:     selectorToBytes(destSelector),
 		lp:                         sourceLP,
 		leafHasher:                 NewLeafHasher(sourceSelector, destSelector, onRampAddress, hashutil.NewKeccak(), onRamp),
 		onRamp:                     onRamp,
@@ -260,4 +260,10 @@ func (o *OnRamp) logToMessage(log types.Log) (*cciptypes.EVM2EVMMessage, error) 
 		SourceTokenData:     msg.Message.SourceTokenData, // Breaking change 1.2
 		Hash:                h,
 	}, nil
+}
+
+func selectorToBytes(chainSelector uint64) [16]byte {
+	var b [16]byte
+	binary.BigEndian.PutUint64(b[:], chainSelector)
+	return b
 }
