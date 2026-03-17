@@ -299,8 +299,9 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
-          CRE_SMOKE_PARALLEL: false
-          CRE_SMOKE_CHIP_FANOUT: false
+          CRE_SMOKE_PARALLEL: true
+          CRE_SMOKE_CHIP_FANOUT: true
+          PARALLEL: 10
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
@@ -308,7 +309,7 @@ jobs:
             --junitfile=/tmp/junit-report.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL}" \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
           exit_code=$?
