@@ -31,7 +31,7 @@ func TestOnRamp(t *testing.T) {
 			logpoller.FilterName(ccipdata2.COMMIT_CCIP_SENDS, addr),
 			logpoller.FilterName(ccipdata2.CONFIG_CHANGED, addr),
 		}
-		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOnRamp, *semver.MustParse(versionStr), nil)
+		versionFinder := factory2.newMockVersionFinder(ccipconfig.EVM2EVMOnRamp, *semver.MustParse(versionStr), nil)
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Times(len(expFilterNames))
 		_, err := NewOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, addr, lp, nil)

@@ -2,52 +2,26 @@ package ccip
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
-	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr2/offchainaggregator"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 )
 
 const OffchainAggregator = "OffchainAggregator"
 const DecimalsMethodName = "decimals"
 const LatestRoundDataMethodName = "latestRoundData"
-
-func NewOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool, feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader) (types2.OffRampReader, error) {
-	return factory.NewOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, registerFilters, feeEstimatorConfig)
-}
-
-func CloseOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader) error {
-	return factory.CloseOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, feeEstimatorConfig)
-}
-
-func NewOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) (types2.OnRampReader, error) {
-	return factory.NewOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
-}
-
-func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, sourceSelector, destSelector uint64, onRampAddress ccip.Address, sourceLP logpoller.LogPoller, source client.Client) error {
-	return factory.CloseOnRampReader(ctx, lggr, versionFinder, sourceSelector, destSelector, onRampAddress, sourceLP, source)
-}
-
-type OffRampReader = types2.OffRampReader
 
 type DynamicPriceGetterClient = pricegetter.DynamicPriceGetterClient
 

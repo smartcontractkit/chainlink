@@ -32,7 +32,7 @@ func TestOffRamp(t *testing.T) {
 			logpoller.FilterName(v1_2_0.ExecTokenPoolAdded, addr),
 			logpoller.FilterName(v1_2_0.ExecTokenPoolRemoved, addr),
 		}
-		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOffRamp, *semver.MustParse(versionStr), nil)
+		versionFinder := factory2.newMockVersionFinder(ccipconfig.EVM2EVMOffRamp, *semver.MustParse(versionStr), nil)
 
 		lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Times(len(expFilterNames))
 		_, err := NewOffRampReader(ctx, lggr, versionFinder, addr, nil, lp, nil, nil, true, feeEstimatorConfig)

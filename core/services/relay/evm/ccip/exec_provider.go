@@ -116,7 +116,7 @@ func (s *SrcExecProvider) Close() error {
 		if s.seenOnRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOnRampReader(ctx, s.lggr, versionFinder, *s.seenSourceChainSelector, *s.seenDestChainSelector, *s.seenOnRampAddress, s.lp, s.client)
+		return export.CloseOnRampReader(ctx, s.lggr, versionFinder, *s.seenSourceChainSelector, *s.seenDestChainSelector, *s.seenOnRampAddress, s.lp, s.client)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
 		if s.usdcConfig.AttestationAPI == "" {
@@ -184,7 +184,7 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 	s.seenOnRampAddress = &onRampAddress
 
 	versionFinder := versionfinder.NewEvmVersionFinder()
-	onRampReader, err = ccip.NewOnRampReader(ctx, s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
+	onRampReader, err = export.NewOnRampReader(ctx, s.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, s.lp, s.client)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +334,7 @@ func (d *DstExecProvider) Close() error {
 		return export.CloseCommitStoreReader(ctx, d.lggr, versionFinder, *d.seenCommitStoreAddr, d.client, d.lp, d.feeEstimatorConfig)
 	})
 	unregisterFuncs = append(unregisterFuncs, func(ctx context.Context) error {
-		return ccip.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0), d.feeEstimatorConfig)
+		return export.CloseOffRampReader(ctx, d.lggr, versionFinder, d.offRampAddress, d.client, d.lp, nil, big.NewInt(0), d.feeEstimatorConfig)
 	})
 
 	var multiErr error
@@ -388,7 +388,7 @@ func (d *DstExecProvider) NewCommitStoreReader(ctx context.Context, addr cciptyp
 }
 
 func (d *DstExecProvider) NewOffRampReader(ctx context.Context, offRampAddress cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(ctx, d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true, d.feeEstimatorConfig)
+	offRampReader, err = export.NewOffRampReader(ctx, d.lggr, d.versionFinder, offRampAddress, d.client, d.lp, d.gasEstimator, &d.maxGasPrice, true, d.feeEstimatorConfig)
 	return
 }
 

@@ -125,7 +125,7 @@ func (p *SrcCommitProvider) Close() error {
 		if p.seenOnRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOnRampReader(context.Background(), p.lggr, versionFinder, *p.seenSourceChainSelector, *p.seenDestChainSelector, *p.seenOnRampAddress, p.lp, p.client)
+		return export.CloseOnRampReader(context.Background(), p.lggr, versionFinder, *p.seenSourceChainSelector, *p.seenDestChainSelector, *p.seenOnRampAddress, p.lp, p.client)
 	})
 
 	var multiErr error
@@ -190,7 +190,7 @@ func (p *DstCommitProvider) Close() error {
 		if p.seenOffRampAddress == nil {
 			return nil
 		}
-		return ccip.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0), p.feeEstimatorConfig)
+		return export.CloseOffRampReader(ctx, p.lggr, versionFinder, *p.seenOffRampAddress, p.client, p.lp, nil, big.NewInt(0), p.feeEstimatorConfig)
 	})
 
 	var multiErr error
@@ -281,7 +281,7 @@ func (p *SrcCommitProvider) NewOnRampReader(ctx context.Context, onRampAddress c
 
 	versionFinder := versionfinder.NewEvmVersionFinder()
 
-	onRampReader, err = ccip.NewOnRampReader(ctx, p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
+	onRampReader, err = export.NewOnRampReader(ctx, p.lggr, versionFinder, sourceChainSelector, destChainSelector, onRampAddress, p.lp, p.client)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func (p *SrcCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cc
 }
 
 func (p *DstCommitProvider) NewOffRampReader(ctx context.Context, offRampAddr cciptypes.Address) (offRampReader cciptypes.OffRampReader, err error) {
-	offRampReader, err = ccip.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true, p.feeEstimatorConfig)
+	offRampReader, err = export.NewOffRampReader(ctx, p.lggr, p.versionFinder, offRampAddr, p.client, p.lp, p.gasEstimator, &p.maxGasPrice, true, p.feeEstimatorConfig)
 	return
 }
 
