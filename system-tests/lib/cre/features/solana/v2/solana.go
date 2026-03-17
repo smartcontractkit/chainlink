@@ -104,6 +104,7 @@ func (s *Solana) PreEnvStartup(
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
+		ExtraSignerFamilies:     []string{chainselectors.FamilySolana},
 	}, nil
 }
 
