@@ -15,7 +15,7 @@ jobs:
   # CREcluster compatibility and upgrade test
   # TODO
 
-  # Data Feeds v1 upgrade test
+  # Data Feeds v1 upgrade test 
   # this verifies that all the versions existing in RANE SOT for Data Feeds v1 can be upgraded to the latest version
   df1-upgrade:
     uses: ./.github/workflows/devenv-compat.yml
