@@ -5,7 +5,7 @@ package rpclibmocks
 import (
 	context "context"
 
-	rpclib "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/internal/rpclib"
+	rpclib "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	mock "github.com/stretchr/testify/mock"
 )
 
