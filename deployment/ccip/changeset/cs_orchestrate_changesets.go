@@ -146,6 +146,7 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
+			MCMSTONState:    state.TONMCMSStateByChain(e),
 		},
 		finalOutput.MCMSTimelockProposals,
 		c.Description,
