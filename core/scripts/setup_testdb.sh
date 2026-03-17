@@ -1,12 +1,12 @@
-#/bin/sh
+#!/bin/bash
 
-function exit_error {
+exit_error() {
     echo "Error: $1"
     exit 1
 }
 # Create a new user and database for development
 # This script is intended to be run on a local development machine
-tdir=$(mktemp -d -t db-dev-user)
+tdir=$(mktemp -d)
 
 username="chainlink_dev"
 password="insecurepassword"
