@@ -7,6 +7,19 @@ on:
         description: "Strip image suffix from tag so it matches the registry tag"
         required: false
         type: string
+      product:
+        description: "Product name to query in RANE SOT (jq '.nodes[].jobs[].product')"
+        required: false
+        type: string
+      no-git-rollback:
+        description: "Skip git rollback during compatibility testing"
+        required: false
+        type: boolean
+        default: false
+      refs:
+        description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -19,10 +32,15 @@ on:
         description: "Test command to run"
         required: true
         type: string
-      nodes:
-        description: "Number of nodes for the test"
+      upgrade-nodes:
+        description: "Number of nodes to upgrade when testing"
         required: false
         default: "3"
+        type: string
+      don-nodes:
+        description: "Number of available DON nodes after envcmd"
+        required: false
+        default: "5"
         type: string
       node-name-template:
         description: "Template for the node name"
@@ -49,10 +67,6 @@ on:
         default: "info"
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: true
-
 jobs:
   compatibility:
     permissions:
@@ -63,10 +77,14 @@ jobs:
     environment: "integration"
     env:
       STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
+      PRODUCT: ${{ inputs.product }}
+      NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
+      REFS: ${{ inputs.refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
-      NODES: ${{ inputs.nodes }}
+      UPGRADE_NODES: ${{ inputs.upgrade-nodes }}
+      DON_NODES: ${{ inputs.don-nodes }}
       NODE_NAME_TEMPLATE: ${{ inputs.node-name-template }}
       VERSIONS_BACK: ${{ inputs.versions-back }}
       WORKING_DIR: ${{ inputs.working-directory }}
@@ -142,21 +160,44 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
+          PRODUCT: ${{ env.PRODUCT }}
+          NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
           NODES: ${{ env.NODES }}
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
         run: |
+          REFS_ARGS=""
+          if [ -n "${{ env.REFS }}" ]; then
+            REFS_ARGS="--refs ${{ env.REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
-            --nodes "${NODES}" \
+            --product "${PRODUCT}" \
+            ${REFS_ARGS} \
+            --upgrade-nodes "${UPGRADE_NODES}" \
+            --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
-            --versions-back "${VERSIONS_BACK}"
+            --versions-back "${VERSIONS_BACK}" \
+            ${{ env.NO_GIT_ROLLBACK }}
+
+      - name: Attach CI Summary
+        working-directory: ${{ env.WORKING_DIR }}
+        if: always()
+        run: |
+          if [ -f "ci_summary.txt" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Logs
         if: always()

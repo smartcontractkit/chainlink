@@ -145,7 +145,7 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.E
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	ks := keys.NewStore(keystore.NewEthSigner(keyStore, ec.ConfiguredChainID()))
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil, nil)
+		nil, txStore, nil, nil, nil, nil, nil, nil, false)
 
 	return txm
 }

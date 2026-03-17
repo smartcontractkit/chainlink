@@ -65,7 +65,7 @@ func Test_toNodeKeys(t *testing.T) {
 				KeyBundleID:      "aptos",
 			},
 		},
-	}, registryChainSel.Selector)
+	}, registryChainSel.Selector, []string{chainsel.FamilyAptos})
 
 	require.Equal(t, NodeKeys{
 		EthAddress:            admin_1.String(),
