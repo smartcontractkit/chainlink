@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 )
@@ -416,7 +415,7 @@ func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRamp
 		uint(rpclib.DefaultMaxParallelRpcCalls),
 	)
 
-	tokenPoolBatchedReader, err = ccip.NewEVMTokenPoolBatchedReader(d.lggr, sourceChainSelector, offRampAddress, batchCaller)
+	tokenPoolBatchedReader, err = export.NewEVMTokenPoolBatchedReader(d.lggr, sourceChainSelector, offRampAddress, batchCaller)
 	if err != nil {
 		return nil, fmt.Errorf("new token pool batched reader: %w", err)
 	}
