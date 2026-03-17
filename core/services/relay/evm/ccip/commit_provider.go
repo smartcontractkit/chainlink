@@ -23,8 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 )
 
 var _ commontypes.CCIPCommitProvider = (*SrcCommitProvider)(nil)
@@ -307,7 +305,7 @@ func (p *SrcCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cci
 }
 
 func (p *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	destPriceRegistry := export.NewEvmPriceRegistry(p.lp, p.client, p.lggr, ccip.CommitPluginLabel)
+	destPriceRegistry := export.NewEvmPriceRegistry(p.lp, p.client, p.lggr, "commit")
 	priceRegistryReader, err = destPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }
