@@ -1,5 +1,17 @@
 # Changelog Chainlink Core
 
+## 2.39.0
+
+### Minor Changes
+
+- [#21480](https://github.com/smartcontractkit/chainlink/pull/21480) [`a58e1d7`](https://github.com/smartcontractkit/chainlink/commit/a58e1d764d12d6af08161723c5676c32670db62f) - Minor bump to start next version
+
+- [#21548](https://github.com/smartcontractkit/chainlink/pull/21548) [`a893225`](https://github.com/smartcontractkit/chainlink/commit/a893225701cb64f6c34c6df9fb18acc0d7b6a7c1) - Add supportsDualBroadcast to txm/txmv2 to indicate if it can run SVR feeds
+
+### Patch Changes
+
+- [#21349](https://github.com/smartcontractkit/chainlink/pull/21349) [`2f048a6`](https://github.com/smartcontractkit/chainlink/commit/2f048a6cd4d5b2b28241512889c790d62f198906) - #bugfix llo outcome telemetry is only output for epochs where enough quourom is reached
+
 ## 2.38.0
 
 ### Minor Changes
