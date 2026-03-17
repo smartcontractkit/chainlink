@@ -33,7 +33,7 @@ on:
         required: true
         type: string
       upgrade-nodes:
-        description: "Number of nodes to upgradefor the test"
+        description: "Number of nodes to upgrade when testing"
         required: false
         default: "3"
         type: string
