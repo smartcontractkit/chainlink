@@ -499,7 +499,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260313162934-73fcb2020b93 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260311190822-5cbfc939dd16 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260311190822-5cbfc939dd16 // indirect
-	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260316104145-fdba71c13346 // indirect
+	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260317122336-d3e517f81612 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.12 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
