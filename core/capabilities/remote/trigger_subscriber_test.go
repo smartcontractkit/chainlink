@@ -454,7 +454,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 				continue
 			}
 			msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
-			if msg.Method == remotetypes.MethodUnRegisterTrigger {
+			if msg.Method == remotetypes.MethodUnregisterTrigger {
 				require.Equal(t, capInfo.ID, msg.CapabilityId)
 				require.Equal(t, capDon.ID, msg.CapabilityDonId)
 				require.Equal(t, workflowDon.ID, msg.CallerDonId)
@@ -466,7 +466,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 				break
 			}
 		}
-		require.True(t, found, "expected a MethodUnRegisterTrigger Send call")
+		require.True(t, found, "expected a MethodUnregisterTrigger Send call")
 	})
 
 	t.Run("sends unregister after trigger is unregistered locally", func(t *testing.T) {
@@ -495,7 +495,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		dispatcher.Calls = nil
 		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
 		dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
-			return m.Method == remotetypes.MethodUnRegisterTrigger
+			return m.Method == remotetypes.MethodUnregisterTrigger
 		}))
 	})
 
@@ -523,7 +523,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 			if call.Method == "Send" {
 				msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
 				require.NotEqual(t, remotetypes.MethodRegisterTrigger, msg.Method, "should not re-register from unknown sender")
-				require.NotEqual(t, remotetypes.MethodUnRegisterTrigger, msg.Method, "should not unregister from unknown sender")
+				require.NotEqual(t, remotetypes.MethodUnregisterTrigger, msg.Method, "should not unregister from unknown sender")
 			}
 		}
 	})

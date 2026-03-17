@@ -302,11 +302,15 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 	case types.MethodTriggerRegistrationCheck:
 		meta := msg.GetTriggerEventMetadata()
-		if meta == nil || len(meta.WorkflowIds) != len(meta.TriggerIds) {
-			s.lggr.Errorw("received registration check with mismatched or missing metadata",
+		if meta == nil {
+			s.lggr.Errorw("received registration check with nil metadata", "sender", sender)
+			return
+		}
+		if len(meta.WorkflowIds) != len(meta.TriggerIds) {
+			s.lggr.Errorw("received registration check with mismatched metadata",
 				"sender", sender,
-				"workflowIds", len(meta.GetWorkflowIds()),
-				"triggerIds", len(meta.GetTriggerIds()))
+				"workflowIdsLen", len(meta.WorkflowIds),
+				"triggerIdsLen", len(meta.TriggerIds))
 			return
 		}
 
@@ -330,10 +334,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 }
 
 func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
-	if s.dispatcher == nil {
-		return
-	}
-
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -361,10 +361,6 @@ func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
 }
 
 func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
-	if s.dispatcher == nil {
-		return
-	}
-
 	cfg := s.cfg.Load()
 
 	for _, peerID := range cfg.capDonInfo.Members {
@@ -372,7 +368,7 @@ func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
 			CapabilityId:     cfg.capInfo.ID,
 			CapabilityDonId:  cfg.capDonInfo.ID,
 			CallerDonId:      cfg.localDonID,
-			Method:           types.MethodUnRegisterTrigger,
+			Method:           types.MethodUnregisterTrigger,
 			CapabilityMethod: s.capMethodName,
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{

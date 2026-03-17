@@ -477,7 +477,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	// Send unregister
 	unregMsg := &remotetypes.MessageBody{
 		Sender:      peers[1][:],
-		Method:      remotetypes.MethodUnRegisterTrigger,
+		Method:      remotetypes.MethodUnregisterTrigger,
 		CallerDonId: workflowDONID,
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
@@ -623,7 +623,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	// Send unregister from a peer NOT in the workflow DON — should be ignored
 	unregMsg := &remotetypes.MessageBody{
 		Sender:      peers[2][:],
-		Method:      remotetypes.MethodUnRegisterTrigger,
+		Method:      remotetypes.MethodUnregisterTrigger,
 		CallerDonId: workflowDONID,
 		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
 			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
@@ -696,7 +696,7 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			msg := &remotetypes.MessageBody{
 				Sender:      peers[1][:],
-				Method:      remotetypes.MethodUnRegisterTrigger,
+				Method:      remotetypes.MethodUnregisterTrigger,
 				CallerDonId: 2,
 			}
 			if tc.meta != nil {

@@ -14,7 +14,7 @@ import (
 
 const (
 	MethodRegisterTrigger          = "RegisterTrigger"
-	MethodUnRegisterTrigger        = "UnregisterTrigger"
+	MethodUnregisterTrigger        = "UnregisterTrigger"
 	MethodTriggerRegistrationCheck = "TriggerRegistrationCheck"
 	MethodTriggerEvent             = "TriggerEvent"
 	MethodExecute                  = "Execute"

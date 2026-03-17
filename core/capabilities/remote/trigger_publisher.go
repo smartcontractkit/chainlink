@@ -253,10 +253,15 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			cancel()
 			p.lggr.Errorw("failed to register trigger", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 		}
-	case types.MethodUnRegisterTrigger:
+	case types.MethodUnregisterTrigger:
 		meta := msg.GetTriggerEventMetadata()
-		if meta == nil || len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
-			p.lggr.Error("invalid unregister metadata")
+		if meta == nil {
+			p.lggr.Errorw("received unregister with nil metadata", "sender", sender)
+			return
+		}
+		if len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
+			p.lggr.Errorw("received unregister with unexpected metadata sizes",
+				"sender", sender, "workflowIdsLen", len(meta.WorkflowIds), "triggerIdsLen", len(meta.TriggerIds))
 			return
 		}
 		if _, ok := cfg.workflowDONs[msg.CallerDonId]; !ok {
