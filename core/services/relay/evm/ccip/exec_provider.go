@@ -27,10 +27,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata/lbtc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata/usdc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/lbtc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
 )
 
 type SrcExecProvider struct {

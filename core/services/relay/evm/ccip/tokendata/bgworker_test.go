@@ -14,12 +14,11 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 )
 
 func TestBackgroundWorker(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	const numTokens = 100
 	const numWorkers = 20
@@ -28,14 +27,14 @@ func TestBackgroundWorker(t *testing.T) {
 	const percentOfTokensWithoutTokenData = 10
 
 	tokens := make([]cciptypes.Address, numTokens)
-	readers := make(map[cciptypes.Address]*tokendata.MockReader, numTokens)
-	tokenDataReaders := make(map[cciptypes.Address]tokendata.Reader, numTokens)
+	readers := make(map[cciptypes.Address]*tokendata2.MockReader, numTokens)
+	tokenDataReaders := make(map[cciptypes.Address]tokendata2.Reader, numTokens)
 	tokenData := make(map[cciptypes.Address][]byte)
 	delays := make(map[cciptypes.Address]time.Duration)
 
 	for i := range tokens {
 		tokens[i] = cciptypes.Address(utils.RandomAddress().String())
-		readers[tokens[i]] = tokendata.NewMockReader(t)
+		readers[tokens[i]] = tokendata2.NewMockReader(t)
 		if rand.Intn(100) >= percentOfTokensWithoutTokenData {
 			tokenDataReaders[tokens[i]] = readers[tokens[i]]
 			tokenData[tokens[i]] = fmt.Appendf(nil, "...token %x data...", tokens[i])
@@ -45,7 +44,7 @@ func TestBackgroundWorker(t *testing.T) {
 		readerLatency := rand.Intn(maxReaderLatencyMS)
 		delays[tokens[i]] = time.Duration(readerLatency) * time.Millisecond
 	}
-	w := tokendata.NewBackgroundWorker(tokenDataReaders, numWorkers, 5*time.Second, time.Hour)
+	w := tokendata2.NewBackgroundWorker(tokenDataReaders, numWorkers, 5*time.Second, time.Hour)
 	require.NoError(t, w.Start(ctx))
 
 	msgs := make([]cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, numMessages)
@@ -98,15 +97,15 @@ func TestBackgroundWorker(t *testing.T) {
 }
 
 func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
 	tk2 := cciptypes.Address(utils.RandomAddress().String())
 
-	rdr1 := tokendata.NewMockReader(t)
-	rdr2 := tokendata.NewMockReader(t)
+	rdr1 := tokendata2.NewMockReader(t)
+	rdr2 := tokendata2.NewMockReader(t)
 
-	w := tokendata.NewBackgroundWorker(map[cciptypes.Address]tokendata.Reader{
+	w := tokendata2.NewBackgroundWorker(map[cciptypes.Address]tokendata2.Reader{
 		tk1: rdr1,
 		tk2: rdr2,
 	}, 10, 5*time.Second, time.Hour)
@@ -166,16 +165,16 @@ func TestBackgroundWorker_RetryOnErrors(t *testing.T) {
 }
 
 func TestBackgroundWorker_Timeout(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	tk1 := cciptypes.Address(utils.RandomAddress().String())
 	tk2 := cciptypes.Address(utils.RandomAddress().String())
 
-	rdr1 := tokendata.NewMockReader(t)
-	rdr2 := tokendata.NewMockReader(t)
+	rdr1 := tokendata2.NewMockReader(t)
+	rdr2 := tokendata2.NewMockReader(t)
 
-	w := tokendata.NewBackgroundWorker(
-		map[cciptypes.Address]tokendata.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
+	w := tokendata2.NewBackgroundWorker(
+		map[cciptypes.Address]tokendata2.Reader{tk1: rdr1, tk2: rdr2}, 10, 5*time.Second, time.Hour)
 	require.NoError(t, w.Start(ctx))
 
 	ctx, cf := context.WithTimeout(ctx, 500*time.Millisecond)

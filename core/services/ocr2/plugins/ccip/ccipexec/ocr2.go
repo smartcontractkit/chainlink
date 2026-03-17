@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccipdata/batchreader"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
 const (

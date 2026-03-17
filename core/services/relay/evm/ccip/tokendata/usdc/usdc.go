@@ -22,10 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
+	http2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata/http"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
 )
 
 const (
@@ -92,7 +92,7 @@ func (m messageAndAttestation) Validate() error {
 type TokenDataReader struct {
 	lggr                  logger.Logger
 	usdcReader            ccipdata.USDCReader
-	httpClient            http.IHttpClient
+	httpClient            http2.IHttpClient
 	attestationApi        *url.URL
 	attestationApiTimeout time.Duration
 	usdcTokenAddress      common.Address
@@ -134,7 +134,7 @@ func NewUSDCTokenDataReader(
 	return &TokenDataReader{
 		lggr:                  lggr,
 		usdcReader:            usdcReader,
-		httpClient:            http.NewObservedUsdcIHttpClient(&http.HttpClient{}),
+		httpClient:            http2.NewObservedUsdcIHttpClient(&http2.HttpClient{}),
 		attestationApi:        usdcAttestationApi,
 		attestationApiTimeout: timeout,
 		usdcTokenAddress:      usdcTokenAddress,
@@ -145,7 +145,7 @@ func NewUSDCTokenDataReader(
 
 func NewUSDCTokenDataReaderWithHttpClient(
 	origin TokenDataReader,
-	httpClient http.IHttpClient,
+	httpClient http2.IHttpClient,
 	usdcTokenAddress common.Address,
 	requestInterval time.Duration,
 ) *TokenDataReader {

@@ -32,6 +32,7 @@ import (
 	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccipdata/batchreader"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
@@ -42,7 +43,6 @@ import (
 	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
 func TestExecutionReportingPlugin_Observation(t *testing.T) {
@@ -138,8 +138,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			p.inflightReports = newInflightExecReportsContainer(time.Minute)
 			p.inflightReports.reports = tc.inflightReports
 			p.lggr = logger.TestLogger(t)
-			p.tokenDataWorker = tokendata.NewBackgroundWorker(
-				make(map[cciptypes.Address]tokendata.Reader), 10, 5*time.Second, time.Hour)
+			p.tokenDataWorker = tokendata2.NewBackgroundWorker(
+				make(map[cciptypes.Address]tokendata2.Reader), 10, 5*time.Second, time.Hour)
 			p.metricsCollector = ccip.NoopMetricsCollector
 
 			commitStoreReader := ccipdatamocks.NewCommitStoreReader(t)

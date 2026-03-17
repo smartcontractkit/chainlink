@@ -19,11 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )
 
 // Batching strategies
@@ -47,7 +47,7 @@ type BatchContext struct {
 	sourceToDestToken          map[cciptypes.Address]cciptypes.Address
 	aggregateTokenLimit        *big.Int
 	tokenDataRemainingDuration time.Duration
-	tokenDataWorker            tokendata.Worker
+	tokenDataWorker            tokendata2.Worker
 	gasPriceEstimator          prices.GasPriceEstimatorExec
 	destWrappedNative          cciptypes.Address
 	offchainConfig             cciptypes.ExecOffchainConfig
@@ -246,7 +246,7 @@ func performCommonChecks(
 	tokenData, elapsed, err1 := getTokenDataWithTimeout(ctx, msg, batchCtx.tokenDataRemainingDuration, batchCtx.tokenDataWorker)
 	batchCtx.tokenDataRemainingDuration -= elapsed
 	if err1 != nil {
-		if errors.Is(err1, tokendata.ErrNotReady) {
+		if errors.Is(err1, tokendata2.ErrNotReady) {
 			msgLggr.Warnw("Skipping message - token data not ready", "err", err1)
 			return TokenDataNotReady, 0, nil, nil, nil
 		}
@@ -325,7 +325,7 @@ func getTokenDataWithTimeout(
 	ctx context.Context,
 	msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta,
 	timeout time.Duration,
-	tokenDataWorker tokendata.Worker,
+	tokenDataWorker tokendata2.Worker,
 ) ([][]byte, time.Duration, error) {
 	if len(msg.TokenAmounts) == 0 {
 		return nil, 0, nil

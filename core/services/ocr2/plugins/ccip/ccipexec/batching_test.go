@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 	mockstatuschecker "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks/statuschecker"
 )
 
@@ -117,7 +117,7 @@ func Test_validateSendRequests(t *testing.T) {
 
 type delayedTokenDataWorker struct {
 	delay time.Duration
-	tokendata.Worker
+	tokendata2.Worker
 }
 
 func (m delayedTokenDataWorker) GetMsgTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([][]byte, error) {
@@ -852,7 +852,7 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 				sourceToDestToken:          tc.srcToDestTokens,
 				aggregateTokenLimit:        tc.tokenLimit,
 				tokenDataRemainingDuration: 5 * time.Second,
-				tokenDataWorker:            tokendata.NewBackgroundWorker(map[cciptypes.Address]tokendata.Reader{}, 10, 5*time.Second, time.Hour),
+				tokenDataWorker:            tokendata2.NewBackgroundWorker(map[cciptypes.Address]tokendata2.Reader{}, 10, 5*time.Second, time.Hour),
 				gasPriceEstimator:          gasPriceEstimator,
 				destWrappedNative:          destNative,
 				offchainConfig: cciptypes.ExecOffchainConfig{

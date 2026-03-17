@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	observability2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 )
 
@@ -118,7 +118,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 	var commitStoreReader types2.CommitStoreReader
 	commitStoreReader = ccip.NewProviderProxyCommitStoreReader(srcCommitStore, dstCommitStore)
 
-	tokenDataProviders := make(map[cciptypes.Address]tokendata.Reader)
+	tokenDataProviders := make(map[cciptypes.Address]tokendata2.Reader)
 	// init usdc token data provider
 	if pluginConfig.USDCConfig.AttestationAPI != "" {
 		lggr.Infof("USDC token data provider enabled")
@@ -188,7 +188,7 @@ func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcPro
 		offRampConfig.OnRamp,
 	)
 
-	tokenBackgroundWorker := tokendata.NewBackgroundWorker(
+	tokenBackgroundWorker := tokendata2.NewBackgroundWorker(
 		tokenDataProviders,
 		tokenDataWorkerNumWorkers,
 		tokenDataWorkerTimeout,

@@ -16,9 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
+	http2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata/http"
 )
 
 const (
@@ -56,7 +56,7 @@ var (
 
 type TokenDataReader struct {
 	lggr                  logger.Logger
-	httpClient            http.IHttpClient
+	httpClient            http2.IHttpClient
 	attestationAPI        *url.URL
 	attestationAPITimeout time.Duration
 	lbtcTokenAddress      common.Address
@@ -136,7 +136,7 @@ func NewLBTCTokenDataReader(
 
 	return &TokenDataReader{
 		lggr:                  lggr,
-		httpClient:            http.NewObservedLbtcIHttpClient(&http.HttpClient{}),
+		httpClient:            http2.NewObservedLbtcIHttpClient(&http2.HttpClient{}),
 		attestationAPI:        lbtcAttestationAPI,
 		attestationAPITimeout: timeout,
 		lbtcTokenAddress:      lbtcTokenAddress,
