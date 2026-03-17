@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_4_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/version"
 
@@ -18,10 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_4_0"
 )
 
 var (
@@ -34,7 +33,7 @@ type EVMTokenPoolBatchedReader struct {
 	offRampAddress      common.Address
 	evmBatchCaller      rpclib.EvmBatchCaller
 
-	tokenPoolReaders  map[cciptypes.Address]ccipdata.TokenPoolReader
+	tokenPoolReaders  map[cciptypes.Address]ccipdata2.TokenPoolReader
 	tokenPoolReaderMu sync.RWMutex
 }
 
@@ -55,7 +54,7 @@ func NewEVMTokenPoolBatchedReader(lggr logger.Logger, remoteChainSelector uint64
 		remoteChainSelector: remoteChainSelector,
 		offRampAddress:      offRampAddrEvm,
 		evmBatchCaller:      evmBatchCaller,
-		tokenPoolReaders:    make(map[cciptypes.Address]ccipdata.TokenPoolReader),
+		tokenPoolReaders:    make(map[cciptypes.Address]ccipdata2.TokenPoolReader),
 	}, nil
 }
 
@@ -69,7 +68,7 @@ func (br *EVMTokenPoolBatchedReader) GetInboundTokenPoolRateLimits(ctx context.C
 		return nil, err
 	}
 
-	tokenPoolReaders := make([]ccipdata.TokenPoolReader, 0, len(tokenPools))
+	tokenPoolReaders := make([]ccipdata2.TokenPoolReader, 0, len(tokenPools))
 	for _, poolAddress := range tokenPools {
 		br.tokenPoolReaderMu.RLock()
 		tokenPoolReader, exists := br.tokenPoolReaders[poolAddress]
@@ -174,7 +173,7 @@ func getBatchedTypeAndVersion(ctx context.Context, evmBatchCaller rpclib.EvmBatc
 		if err1 != nil {
 			// typeAndVersion method do not exist for 1.0 pools. We are going to get an ErrEmptyOutput in that case.
 			// Some chains, like the simulated chains, will simply revert with "execution reverted"
-			if errors.Is(err1, rpclib.ErrEmptyOutput) || ccipcommon.IsTxRevertError(err1) {
+			if errors.Is(err1, rpclib.ErrEmptyOutput) || isTxRevertError(err1) {
 				return "LegacyPool " + ccipdata2.V1_0_0, nil
 			}
 			return "", err1
@@ -190,4 +189,15 @@ func getBatchedTypeAndVersion(ctx context.Context, evmBatchCaller rpclib.EvmBatc
 
 func (br *EVMTokenPoolBatchedReader) Close() error {
 	return nil
+}
+
+func isTxRevertError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Geth eth_call reverts with "execution reverted"
+	// Nethermind, Parity, OpenEthereum eth_call reverts with "VM execution error"
+	// See: https://github.com/ethereum/go-ethereum/issues/21886
+	return strings.Contains(err.Error(), "execution reverted") || strings.Contains(err.Error(), "VM execution error")
 }
