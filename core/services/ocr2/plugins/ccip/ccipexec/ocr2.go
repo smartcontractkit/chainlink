@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
@@ -56,11 +56,11 @@ type ExecutionPluginStaticConfig struct {
 	onRampReader                  types2.OnRampReader
 	offRampReader                 types2.OffRampReader
 	commitStoreReader             types2.CommitStoreReader
-	sourcePriceRegistryProvider   ccipdataprovider.PriceRegistry
+	sourcePriceRegistryProvider   export.PriceRegistry
 	sourceWrappedNativeToken      cciptypes.Address
 	tokenDataWorker               tokendata.Worker
 	destChainSelector             uint64
-	priceRegistryProvider         ccipdataprovider.PriceRegistry // destination price registry provider.
+	priceRegistryProvider         export.PriceRegistry // destination price registry provider.
 	tokenPoolBatchedReader        batchreader.TokenPoolBatchedReader
 	metricsCollector              ccip.PluginMetricsCollector
 	chainHealthcheck              cache.ChainHealthcheck
@@ -80,7 +80,7 @@ type ExecutionReportingPlugin struct {
 	// Source
 	gasPriceEstimator           prices.GasPriceEstimatorExec
 	sourcePriceRegistry         types2.PriceRegistryReader
-	sourcePriceRegistryProvider ccipdataprovider.PriceRegistry
+	sourcePriceRegistryProvider export.PriceRegistry
 	sourcePriceRegistryLock     sync.RWMutex
 	sourceWrappedNativeToken    cciptypes.Address
 	onRampReader                types2.OnRampReader

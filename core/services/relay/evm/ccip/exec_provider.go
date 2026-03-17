@@ -193,7 +193,7 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 }
 
 func (s *SrcExecProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	srcPriceRegistry := ccip.NewEvmPriceRegistry(s.lp, s.client, s.lggr, ccip.ExecPluginLabel)
+	srcPriceRegistry := export.NewEvmPriceRegistry(s.lp, s.client, s.lggr, ccip.ExecPluginLabel)
 	priceRegistryReader, err = srcPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }
@@ -397,7 +397,7 @@ func (d *DstExecProvider) NewOnRampReader(ctx context.Context, addr cciptypes.Ad
 }
 
 func (d *DstExecProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	destPriceRegistry := ccip.NewEvmPriceRegistry(d.lp, d.client, d.lggr, ccip.ExecPluginLabel)
+	destPriceRegistry := export.NewEvmPriceRegistry(d.lp, d.client, d.lggr, ccip.ExecPluginLabel)
 	priceRegistryReader, err = destPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }

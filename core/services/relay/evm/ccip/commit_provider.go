@@ -307,7 +307,7 @@ func (p *SrcCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cci
 }
 
 func (p *DstCommitProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	destPriceRegistry := ccip.NewEvmPriceRegistry(p.lp, p.client, p.lggr, ccip.CommitPluginLabel)
+	destPriceRegistry := export.NewEvmPriceRegistry(p.lp, p.client, p.lggr, ccip.CommitPluginLabel)
 	priceRegistryReader, err = destPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }

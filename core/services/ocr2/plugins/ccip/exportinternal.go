@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
@@ -31,10 +30,6 @@ import (
 const OffchainAggregator = "OffchainAggregator"
 const DecimalsMethodName = "decimals"
 const LatestRoundDataMethodName = "latestRoundData"
-
-func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.Logger, pluginLabel string) *ccipdataprovider.EvmPriceRegistry {
-	return ccipdataprovider.NewEvmPriceRegistry(lp, ec, lggr, pluginLabel)
-}
 
 func NewOffRampReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, addr ccip.Address, destClient client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator, destMaxGasPrice *big.Int, registerFilters bool, feeEstimatorConfig ccipdata2.FeeEstimatorConfigReader) (types2.OffRampReader, error) {
 	return factory.NewOffRampReader(ctx, lggr, versionFinder, addr, destClient, lp, estimator, destMaxGasPrice, registerFilters, feeEstimatorConfig)

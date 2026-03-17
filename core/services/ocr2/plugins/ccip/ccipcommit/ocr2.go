@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	types2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 
@@ -61,7 +61,7 @@ type CommitPluginStaticConfig struct {
 	offRamp               types2.OffRampReader
 	commitStore           types2.CommitStoreReader
 	destChainSelector     uint64
-	priceRegistryProvider ccipdataprovider.PriceRegistry
+	priceRegistryProvider export.PriceRegistry
 	// Offchain
 	metricsCollector ccip.PluginMetricsCollector
 	chainHealthcheck cache.ChainHealthcheck

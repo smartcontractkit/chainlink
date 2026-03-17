@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 )
@@ -35,4 +36,32 @@ func NewCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder
 
 func CloseCommitStoreReader(ctx context.Context, lggr logger.Logger, versionFinder versionfinder.VersionFinder, address ccip.Address, ec client.Client, lp logpoller.LogPoller, feeEstimatorConfig ccipdata.FeeEstimatorConfigReader) error {
 	return factory.CloseCommitStoreReader(ctx, lggr, versionFinder, address, ec, lp, feeEstimatorConfig)
+}
+
+type PriceRegistry interface {
+	NewPriceRegistryReader(ctx context.Context, addr ccip.Address) (ccip.PriceRegistryReader, error)
+}
+
+type EvmPriceRegistry struct {
+	lp          logpoller.LogPoller
+	ec          client.Client
+	lggr        logger.Logger
+	pluginLabel string
+}
+
+func NewEvmPriceRegistry(lp logpoller.LogPoller, ec client.Client, lggr logger.Logger, pluginLabel string) *EvmPriceRegistry {
+	return &EvmPriceRegistry{
+		lp:          lp,
+		ec:          ec,
+		lggr:        lggr,
+		pluginLabel: pluginLabel,
+	}
+}
+
+func (p *EvmPriceRegistry) NewPriceRegistryReader(ctx context.Context, addr ccip.Address) (ccip.PriceRegistryReader, error) {
+	destPriceRegistryReader, err := factory.NewPriceRegistryReader(ctx, p.lggr, versionfinder.NewEvmVersionFinder(), addr, p.lp, p.ec)
+	if err != nil {
+		return nil, err
+	}
+	return observability.NewPriceRegistryReader(destPriceRegistryReader, p.ec.ConfiguredChainID().Int64(), p.pluginLabel), nil
 }
