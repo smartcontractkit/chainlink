@@ -299,8 +299,8 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
-          CRE_SMOKE_PARALLEL: true
-          CRE_SMOKE_CHIP_FANOUT: true
+          CRE_SMOKE_PARALLEL: false
+          CRE_SMOKE_CHIP_FANOUT: false
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
