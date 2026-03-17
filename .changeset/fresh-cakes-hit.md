@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Bumps the chainlink-ccip reference and replaces all references to `latest` with version-locked imports
+#changed Bumps the chainlink-ccip reference and replaces all references to `latest` with version-locked imports
