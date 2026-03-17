@@ -153,6 +153,20 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "ocr2"
             logs_archive_name: "df1-chaos"
+
+          - display_name: "Test LogPoller Fixed Depth"
+            testcmd: "go test -v -timeout 30m -run TestLogPoller"
+            envcmd: "cl u env.toml,tests/logpoller/fixed_depth.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "logpoller"
+            logs_archive_name: "logpoller-fixed-depth"
+
+          - display_name: "Test LogPoller Finality Tag"
+            testcmd: "go test -v -timeout 30m -run TestLogPoller"
+            envcmd: "cl u env.toml,tests/logpoller/finality_tag.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "logpoller"
+            logs_archive_name: "logpoller-finality-tag"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
