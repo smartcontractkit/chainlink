@@ -27,14 +27,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/statuschecker"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
-	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
-	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccipdata/batchreader"
-
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -43,6 +35,13 @@ import (
 	ccipcachemocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache/mocks"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/batchreader"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
+	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
+	tokendata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/tokendata"
 )
 
 func TestExecutionReportingPlugin_Observation(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/batchreader"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccipdata/batchreader"
 )
 
 type JSONCommitOffchainConfigV1_2_0 = commitstore.JSONCommitOffchainConfig
