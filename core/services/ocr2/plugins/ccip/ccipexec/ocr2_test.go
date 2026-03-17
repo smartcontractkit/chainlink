@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	ccipdataprovidermocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/ccipdataprovider/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
@@ -40,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
 )

@@ -11,9 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 

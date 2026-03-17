@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/v1_2_0"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
@@ -25,7 +26,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
 
 var (

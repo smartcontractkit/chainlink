@@ -9,10 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
-
-	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
 )
 
 func TestHasherV1_2_0(t *testing.T) {

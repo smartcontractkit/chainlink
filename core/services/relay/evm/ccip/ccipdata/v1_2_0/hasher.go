@@ -1,6 +1,7 @@
 package v1_2_0
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -29,7 +29,7 @@ type LeafHasher struct {
 
 func GetMetaDataHash[H hashutil.Hash](ctx hashutil.Hasher[H], prefix [32]byte, sourceChainSelector uint64, onRampID common.Address, destChainSelector uint64) H {
 	paddedOnRamp := common.BytesToHash(onRampID[:])
-	return ctx.Hash(utils.ConcatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainSelector)), math.U256Bytes(big.NewInt(0).SetUint64(destChainSelector)), paddedOnRamp[:]))
+	return ctx.Hash(concatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainSelector)), math.U256Bytes(big.NewInt(0).SetUint64(destChainSelector)), paddedOnRamp[:]))
 }
 
 func NewLeafHasher(sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx hashutil.Hasher[[32]byte], onRamp *evm_2_evm_onramp_1_2_0.EVM2EVMOnRamp) *LeafHasher {
@@ -108,4 +108,8 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 	return t.ctx.Hash(packedValues), nil
+}
+
+func concatBytes(bufs ...[]byte) []byte {
+	return bytes.Join(bufs, []byte{})
 }

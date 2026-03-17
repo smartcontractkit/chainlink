@@ -66,7 +66,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -224,7 +223,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 	return log
 }
 
-func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_2_0.ExecOnchainConfig) logpoller.Log {
+func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg v1_2_1.ExecOnchainConfig) logpoller.Log {
 	cs, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	c, ok := cs.(legacyevm.Chain)
@@ -240,7 +239,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 			0,
 		)
 		require.NoError(t, err)
-		var latestCfg v1_2_0.ExecOnchainConfig
+		var latestCfg v1_2_1.ExecOnchainConfig
 		if log != nil {
 			latestCfg, err = DecodeExecOnChainConfig(log.Data)
 			require.NoError(t, err)
@@ -263,9 +262,9 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().LogsDataWordRange(
 			testutils.Context(t),
-			v1_2_0.CCIPSendRequestEventSig,
+			v1_2_1.CCIPSendRequestEventSig,
 			onRamp,
-			v1_2_0.CCIPSendRequestSeqNumIndex,
+			v1_2_1.CCIPSendRequestSeqNumIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
@@ -293,9 +292,9 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_2_0.ExecutionStateChangedEvent,
+			v1_2_1.ExecutionStateChangedEvent,
 			offRamp,
-			v1_2_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_1.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
@@ -324,9 +323,9 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_2_0.ExecutionStateChangedEvent,
+			v1_2_1.ExecutionStateChangedEvent,
 			offRamp,
-			v1_2_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_1.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
@@ -981,14 +980,14 @@ func DecodeCommitOnChainConfig(encoded []byte) (commitstore.CommitOnchainConfig,
 	return onchainConfig, nil
 }
 
-func DecodeExecOnChainConfig(encoded []byte) (v1_2_0.ExecOnchainConfig, error) {
-	var onchainConfig v1_2_0.ExecOnchainConfig
+func DecodeExecOnChainConfig(encoded []byte) (v1_2_1.ExecOnchainConfig, error) {
+	var onchainConfig v1_2_1.ExecOnchainConfig
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)
 	if err != nil {
 		return onchainConfig, errors.Wrap(err, "failed to unpack log data")
 	}
 	onChainCfg := unpacked.OnchainConfig
-	onchainConfig, err = abihelpers.DecodeAbiStruct[v1_2_0.ExecOnchainConfig](onChainCfg)
+	onchainConfig, err = abihelpers.DecodeAbiStruct[v1_2_1.ExecOnchainConfig](onChainCfg)
 	if err != nil {
 		return onchainConfig, err
 	}

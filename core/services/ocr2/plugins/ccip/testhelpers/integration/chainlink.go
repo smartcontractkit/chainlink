@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	ksMocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -264,9 +263,9 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().LogsDataWordRange(
 			testutils.Context(t),
-			v1_2_0.CCIPSendRequestEventSig,
+			v1_2_1.CCIPSendRequestEventSig,
 			onRamp,
-			v1_2_0.CCIPSendRequestSeqNumIndex,
+			v1_2_1.CCIPSendRequestSeqNumIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
@@ -293,9 +292,9 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_2_0.ExecutionStateChangedEvent,
+			v1_2_1.ExecutionStateChangedEvent,
 			offRamp,
-			v1_2_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_1.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
@@ -323,9 +322,9 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			testutils.Context(t),
-			v1_2_0.ExecutionStateChangedEvent,
+			v1_2_1.ExecutionStateChangedEvent,
 			offRamp,
-			v1_2_0.ExecutionStateChangedSeqNrIndex,
+			v1_2_1.ExecutionStateChangedSeqNrIndex,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,

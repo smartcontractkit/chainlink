@@ -24,8 +24,7 @@ import (
 
 	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/cache"
 )
 
 var (
@@ -58,7 +57,7 @@ type OnRamp struct {
 	address                    common.Address
 	lggr                       logger.Logger
 	lp                         logpoller.LogPoller
-	leafHasher                 ccipdata.LeafHasherInterface[[32]byte]
+	leafHasher                 ccipdata2.LeafHasherInterface[[32]byte]
 	client                     client.Client
 	sendRequestedEventSig      common.Hash
 	sendRequestedSeqNumberWord int
@@ -79,13 +78,13 @@ func NewOnRamp(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAd
 	// Note we can keep the same prefix across 1.0/1.1 and 1.2 because the onramp addresses will be different
 	filters := []logpoller.Filter{
 		{
-			Name:      logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, onRampAddress),
+			Name:      logpoller.FilterName(ccipdata2.COMMIT_CCIP_SENDS, onRampAddress),
 			EventSigs: []common.Hash{CCIPSendRequestEventSig},
 			Addresses: []common.Address{onRampAddress},
 			Retention: ccipdata2.CommitExecLogsRetention,
 		},
 		{
-			Name:      logpoller.FilterName(ccipdata.CONFIG_CHANGED, onRampAddress),
+			Name:      logpoller.FilterName(ccipdata2.CONFIG_CHANGED, onRampAddress),
 			EventSigs: []common.Hash{ConfigSetEventSig},
 			Addresses: []common.Address{onRampAddress},
 			Retention: ccipdata2.CacheEvictionLogsRetention,

@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func TestOnRamp(t *testing.T) {
@@ -29,8 +28,8 @@ func TestOnRamp(t *testing.T) {
 		destSelector := uint64(2000)
 
 		expFilterNames := []string{
-			logpoller.FilterName(ccipdata.COMMIT_CCIP_SENDS, addr),
-			logpoller.FilterName(ccipdata.CONFIG_CHANGED, addr),
+			logpoller.FilterName(ccipdata2.COMMIT_CCIP_SENDS, addr),
+			logpoller.FilterName(ccipdata2.CONFIG_CHANGED, addr),
 		}
 		versionFinder := newMockVersionFinder(ccipconfig.EVM2EVMOnRamp, *semver.MustParse(versionStr), nil)
 
