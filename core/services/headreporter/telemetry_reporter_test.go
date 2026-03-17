@@ -12,12 +12,13 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	solanaTypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/solana"
 
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
-	relaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -119,35 +119,25 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=100")
 }
 
-type mockSolanaService struct {
-	types.UnimplementedSolanaService
-	finalizedHeight uint64
-	err             error
-}
-
-func (m *mockSolanaService) GetSlotHeight(_ context.Context, req solanaTypes.GetSlotHeightRequest) (*solanaTypes.GetSlotHeightReply, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &solanaTypes.GetSlotHeightReply{Height: m.finalizedHeight}, nil
-}
-
 type mockRelayer struct {
 	testutils2.MockRelayer
 	latestHead    types.Head
-	solanaService types.SolanaService
-	solanaErr     error
+	finalizedHead *types.Head
+	finalizedErr  error
 }
 
 func (m *mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 	return m.latestHead, nil
 }
 
-func (m *mockRelayer) Solana() (types.SolanaService, error) {
-	if m.solanaService != nil || m.solanaErr != nil {
-		return m.solanaService, m.solanaErr
+func (m *mockRelayer) FinalizedHead(_ context.Context) (types.Head, error) {
+	if m.finalizedErr != nil {
+		return types.Head{}, m.finalizedErr
 	}
-	return m.MockRelayer.Solana()
+	if m.finalizedHead != nil {
+		return *m.finalizedHead, nil
+	}
+	return types.Head{}, status.Errorf(codes.Unimplemented, "method FinalizedHead not implemented")
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
@@ -241,10 +231,10 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T)
 		Hash:      blockHash[:],
 		Timestamp: 1000,
 	}
-	mockSolSvc := &mockSolanaService{finalizedHeight: 40}
-	r := &mockRelayer{latestHead: head, solanaService: mockSolSvc}
+	fHead := &types.Head{Height: "40"}
+	r := &mockRelayer{latestHead: head, finalizedHead: fHead}
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		{Network: relaynetwork.NetworkSolana, ChainID: "testchain"}: r,
+		{Network: "Solana", ChainID: "testchain"}: r,
 	}
 
 	request := telem.HeadReportRequest{
@@ -266,7 +256,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T)
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
-		On("GenMonitoringEndpoint", relaynetwork.NetworkSolana, "testchain", "", synchronization.HeadReport).
+		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
@@ -285,10 +275,9 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T
 		Hash:      blockHash[:],
 		Timestamp: 1000,
 	}
-	mockSolSvc := &mockSolanaService{err: errors.New("rpc error")}
-	r := &mockRelayer{latestHead: head, solanaService: mockSolSvc}
+	r := &mockRelayer{latestHead: head, finalizedErr: errors.New("rpc error")}
 	solanaRelays := map[types.RelayID]loop.Relayer{
-		{Network: relaynetwork.NetworkSolana, ChainID: "testchain"}: r,
+		{Network: "Solana", ChainID: "testchain"}: r,
 	}
 
 	request := telem.HeadReportRequest{
@@ -307,7 +296,7 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T
 
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
-		On("GenMonitoringEndpoint", relaynetwork.NetworkSolana, "testchain", "", synchronization.HeadReport).
+		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
 		Return(monitoringEndpoint)
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)

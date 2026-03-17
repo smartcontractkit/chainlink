@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/exampl
 go 1.25.7
 
 require (
-	github.com/smartcontractkit/chainlink-common v0.9.6-0.20260202175443-ee6c9d2f8935
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260317155523-ac1087d2cd26
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -49,7 +49,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20251124151448-0448aefdaab9 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20251212213002-0a5e2f907dda // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

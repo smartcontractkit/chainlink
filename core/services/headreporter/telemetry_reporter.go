@@ -9,8 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	solana "github.com/smartcontractkit/chainlink-common/pkg/types/chains/solana"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -18,7 +19,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	relayservice "github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -130,10 +130,7 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 		return fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
 	}
 
-	var finalized *telem.Block
-	if relayID.Network == relayservice.NetworkSolana {
-		finalized = fetchSolanaFinalizedHead(ctx, lggr, relayID, relay)
-	}
+	finalized := fetchFinalizedHead(ctx, lggr, relayID, relay)
 
 	request := &telem.HeadReportRequest{
 		ChainID: relayID.ChainID,
@@ -152,22 +149,26 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 	return nil
 }
 
-func fetchSolanaFinalizedHead(ctx context.Context, lggr logger.Logger, relayID types.RelayID, relay loop.Relayer) *telem.Block {
-	solSvc, err := relay.Solana()
+func fetchFinalizedHead(ctx context.Context, lggr logger.Logger, relayID types.RelayID, relay loop.Relayer) *telem.Block {
+	head, err := relay.FinalizedHead(ctx)
 	if err != nil {
-		lggr.Warnw("Failed to get Solana service for finalized head", "chainID", relayID.ChainID, "err", err)
+		if status.Code(err) == codes.Unimplemented {
+			return nil
+		}
+		lggr.Warnw("Failed to get finalized head", "chainID", relayID.ChainID, "network", relayID.Network, "err", err)
 		return nil
 	}
-
-	slotReply, err := solSvc.GetSlotHeight(ctx, solana.GetSlotHeightRequest{
-		Commitment: solana.CommitmentFinalized,
-	})
-	if err != nil {
-		lggr.Warnw("Failed to get finalized slot height", "chainID", relayID.ChainID, "err", err)
+	if head.Height == "" {
 		return nil
 	}
-
+	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
+	if err != nil {
+		lggr.Warnw("Failed to parse finalized block height", "chainID", relayID.ChainID, "height", head.Height, "err", err)
+		return nil
+	}
 	return &telem.Block{
-		Number: slotReply.Height,
+		Timestamp: head.Timestamp,
+		Number:    blockNum,
+		Hash:      hex.EncodeToString(head.Hash),
 	}
 }
