@@ -45,12 +45,6 @@ func NewDynamicPriceGetter(cfg config.DynamicPriceGetterConfig, contractReaders 
 	return pricegetter.NewDynamicPriceGetter(cfg, contractReaders)
 }
 
-func NewDynamicLimitedBatchCaller(
-	lggr logger.Logger, batchSender rpclib.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
-) *rpclib.DynamicLimitedBatchCaller {
-	return rpclib.NewDynamicLimitedBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit)
-}
-
 var DefaultRpcBatchSizeLimit = rpclib.DefaultRpcBatchSizeLimit
 var DefaultRpcBatchBackOffMultiplier = rpclib.DefaultRpcBatchBackOffMultiplier
 var DefaultMaxParallelRpcCalls = rpclib.DefaultMaxParallelRpcCalls

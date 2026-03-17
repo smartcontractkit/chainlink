@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata/factory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/commitstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/observability"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 )
@@ -97,3 +98,9 @@ func CloseUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, tran
 }
 
 type USDCReaderImpl = ccipdata.USDCReaderImpl
+
+func NewDynamicLimitedBatchCaller(
+	lggr logger.Logger, batchSender rpclib.BatchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+) *rpclib.DynamicLimitedBatchCaller {
+	return rpclib.NewDynamicLimitedBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit)
+}

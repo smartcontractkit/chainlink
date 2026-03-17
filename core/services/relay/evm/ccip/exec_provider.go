@@ -408,7 +408,7 @@ func (d *DstExecProvider) NewTokenDataReader(ctx context.Context, tokenAddress c
 }
 
 func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRampAddress cciptypes.Address, sourceChainSelector uint64) (tokenPoolBatchedReader cciptypes.TokenPoolBatchedReader, err error) {
-	batchCaller := ccip.NewDynamicLimitedBatchCaller(
+	batchCaller := export.NewDynamicLimitedBatchCaller(
 		d.lggr,
 		d.client,
 		uint(rpclib.DefaultRpcBatchSizeLimit),
