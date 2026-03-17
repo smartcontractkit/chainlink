@@ -53,6 +53,26 @@ var (
 	fanoutSubs  = make(map[string]chiptestsink.PublishFn)
 )
 
+func safeSendUserLogs(ch chan *workflowevents.UserLogs, msg *workflowevents.UserLogs) {
+	// In fanout mode, tests may close their log channels immediately after
+	// unsubscribing during cleanup. An in-flight publish can race with that close,
+	// which would panic on send. We recover to treat delivery as best-effort.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
+func safeSendBaseMessage(ch chan *commonevents.BaseMessage, msg *commonevents.BaseMessage) {
+	// Same race as safeSendUserLogs; avoid panic on send to closed channel.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
 func chipFanoutEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_SMOKE_CHIP_FANOUT")))
 	return v == "1" || v == "true" || v == "yes"
@@ -171,7 +191,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 				return &chippb.PublishResponse{}, nil
 			}
 
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -181,7 +201,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 		default:
 			// ignore
@@ -324,7 +344,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -333,7 +353,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		default:
