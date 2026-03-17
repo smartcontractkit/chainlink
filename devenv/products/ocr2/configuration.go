@@ -27,10 +27,13 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/latest/link_token"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink/devenv/products"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 
 	nodeset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
@@ -121,7 +124,8 @@ type OCRv2Config struct {
 }
 
 type Configurator struct {
-	Config []*OCR2 `toml:"ocr2"`
+	Config     []*OCR2 `toml:"ocr2"`
+	Forwarders bool    `toml:"forwarders"`
 }
 
 func NewConfigurator() *Configurator {
@@ -133,7 +137,7 @@ func (m *Configurator) Load() error {
 	if err != nil {
 		return fmt.Errorf("failed to load product config: %w", err)
 	}
-	m.Config = cfg.Config
+	*m = *cfg
 	return nil
 }
 
@@ -151,66 +155,85 @@ func (m *Configurator) GenerateNodesConfig(
 	_ []*nodeset.Input,
 ) (string, error) {
 	L.Info().Msg("Applying default CL nodes configuration")
-	// configure node set and generate CL nodes configs
 	node := bc[0].Out.Nodes[0]
 	chainID := bc[0].Out.ChainID
-	netConfig := fmt.Sprintf(`
-       [[EVM]]
-       LogPollInterval = '1s'
-       BlockBackfillDepth = 100
-       LinkContractAddress = '%s'
-       ChainID = '%s'
-       MinIncomingConfirmations = 1
-       MinContractPayment = '0.0000001 link'
-       FinalityDepth = %d
 
-       [[EVM.Nodes]]
-       Name = 'default'
-       WsUrl = '%s'
-       HttpUrl = '%s'
+	tmpl := `
+[[EVM]]
+LogPollInterval = '1s'
+BlockBackfillDepth = 100
+LinkContractAddress = '{{.LinkContractAddress}}'
+ChainID = '{{.ChainID}}'
+MinIncomingConfirmations = 1
+MinContractPayment = '0.0000001 link'
+FinalityDepth = {{.FinalityDepth}}
 
-       [Feature]
-       FeedsManager = true
-       MultiFeedsManagers = true
-       LogPoller = true
-       UICSAKeys = true
-       [OCR2]
-       Enabled = true
-       SimulateTransactions = false
-       DefaultTransactionQueueDepth = 1
-       [P2P.V2]
-       Enabled = true
-       ListenAddresses = ['0.0.0.0:6690']
+[[EVM.Nodes]]
+Name = 'default'
+WsUrl = '{{.WSURL}}'
+HttpUrl = '{{.HTTPURL}}'
 
-   	   [Log]
-   JSONConsole = true
-   Level = 'debug'
-   [Pyroscope]
-   ServerAddress = 'http://host.docker.internal:4040'
-   Environment = 'local'
-   [WebServer]
-          SessionTimeout = '999h0m0s'
-          HTTPWriteTimeout = '3m'
-   SecureCookies = false
-   HTTPPort = 6688
-   [WebServer.TLS]
-   HTTPSPort = 0
-       [WebServer.RateLimit]
-       Authenticated = 5000
-       Unauthenticated = 5000
-   [JobPipeline]
-   [JobPipeline.HTTPRequest]
-   DefaultTimeout = '1m'
-       [Log.File]
-       MaxSize = '0b'
-`, m.Config[0].LinkContractAddress,
-		chainID,
-		m.Config[0].ChainFinalityDepth,
-		node.InternalWSUrl,
-		node.InternalHTTPUrl,
-	)
-	L.Info().Msg("Nodes network configuration is finished")
-	return netConfig, nil
+[EVM.Transactions]
+Enabled = true
+ForwardersEnabled = {{.ForwardersEnabled}}
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '0s'
+ResendAfterThreshold = '0s'
+ConfirmationTimeout = '1m0s'
+
+[Feature]
+FeedsManager = true
+MultiFeedsManagers = true
+LogPoller = true
+UICSAKeys = true
+
+[OCR2]
+Enabled = true
+SimulateTransactions = false
+DefaultTransactionQueueDepth = 1
+
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+
+[Log]
+JSONConsole = true
+Level = 'debug'
+
+[Pyroscope]
+ServerAddress = 'http://host.docker.internal:4040'
+Environment = 'local'
+
+[WebServer]
+SessionTimeout = '999h0m0s'
+HTTPWriteTimeout = '3m'
+SecureCookies = false
+HTTPPort = 6688
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[WebServer.RateLimit]
+Authenticated = 5000
+Unauthenticated = 5000
+
+[JobPipeline]
+[JobPipeline.HTTPRequest]
+DefaultTimeout = '1m'
+
+[Log.File]
+MaxSize = '0b'
+`
+	return framework.RenderTemplate(tmpl, products.NodeConfigTemplate{
+		LinkContractAddress: m.Config[0].LinkContractAddress,
+		ChainID:             chainID,
+		FinalityDepth:       int(m.Config[0].ChainFinalityDepth),
+		WSURL:               node.InternalWSUrl,
+		HTTPURL:             node.InternalHTTPUrl,
+		ForwardersEnabled:   m.Forwarders,
+	})
 }
 
 func (m *Configurator) GenerateNodesSecrets(
@@ -402,6 +425,9 @@ func UpdateOCR2ConfigOffChainValues(ctx context.Context, bc *blockchain.Input, o
 }
 
 func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Client, auth *bind.TransactOpts, cl []*clclient.ChainlinkClient, rootAddr string, transmitters []common.Address, linkFunding float64) (*OCRv2Config, string, error) {
+	if len(m.Config) == 0 {
+		return nil, "", errors.New("no OCR2 config provided")
+	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	L.Info().Msg("Deploying LINK token contract")
@@ -409,6 +435,40 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create link token contract and mint: %w", err)
 	}
+
+	// Forwarders, deploy contracts and use forwarders as transmitters
+	if m.Forwarders {
+		ops, fwds, err := DeployForwarders(ctx, c, auth, lt.Address(), 5)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to deploy forwarders: %w", err)
+		}
+		L.Info().
+			Any("Operators", ops).
+			Any("Forwarders", fwds).
+			Msg("Deployed forwarders")
+
+		for i, n := range cl {
+			o, err := operator.NewOperator(ops[i], c)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to create operator: %w", err)
+			}
+			acceptTx, err := o.AcceptAuthorizedReceivers(auth, []common.Address{fwds[i]}, []common.Address{transmitters[i]})
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to accept authorized receivers: %w", err)
+			}
+			_, err = products.WaitMinedFast(ctx, c, acceptTx.Hash())
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to wait for accept authorized receivers tx to be mined: %w", err)
+			}
+			if _, _, err := n.TrackForwarder(big.NewInt(1337), fwds[i]); err != nil {
+				return nil, "", fmt.Errorf("failed to track forwarder: %w", err)
+			}
+		}
+		// // in case of forwarders replace transmitters with forwarders
+		transmitters = make([]common.Address, 0)
+		transmitters = append(transmitters, fwds...)
+	}
+
 	// OCRv2 Aggregator
 	L.Info().Msg("Deploying OCRv2 aggregator contract")
 	opts := m.Config[0].OCR2
@@ -469,14 +529,16 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", fmt.Errorf("could not set config: %w", err)
 	}
+
 	signerAddresses := make([]common.Address, 0)
+	transmitterAddresses := make([]common.Address, 0)
 	for _, signer := range signerKeys {
 		signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
 	}
-	transmitterAddresses := make([]common.Address, 0)
 	for _, account := range transmitterAccounts {
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
+
 	onChainConfig, err := median.StandardOnchainConfigCodec{}.Encode(context.Background(), median.OnchainConfig{Min: m.Config[0].OCR2.MinimumAnswer, Max: m.Config[0].OCR2.MaximumAnswer})
 	if err != nil {
 		return nil, "", fmt.Errorf("could not encode onchain config: %w", err)
@@ -489,6 +551,7 @@ func (m *Configurator) configureContracts(ctx context.Context, c *ethclient.Clie
 	if err != nil {
 		return nil, "", err
 	}
+
 	return &OCRv2Config{
 		F:                     f,
 		Signers:               signerAddresses,
@@ -635,7 +698,7 @@ func (m *Configurator) configureJobs(ctx context.Context, fake *fake.Input, bc *
 			JobType:           "offchainreporting2",
 			MaxTaskDuration:   (time.Duration(m.Config[0].Jobs.MaxTaskDurationSec) * time.Second).String(),
 			ObservationSource: clclient.ObservationSourceSpecBridge(ea),
-			ForwardingAllowed: false,
+			ForwardingAllowed: m.Forwarders,
 			OCR2OracleSpec: OracleSpec{
 				PluginType: "median",
 				Relay:      "evm",

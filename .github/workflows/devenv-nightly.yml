@@ -29,7 +29,7 @@ jobs:
           IMAGE_VERSION="nightly-$(date +%Y%m%d)"
           FULL_IMAGE_HINT="<sdlc_registry>/chainlink:${IMAGE_VERSION}"
           echo "**Image:** \`${FULL_IMAGE_HINT}\`" >> $GITHUB_STEP_SUMMARY
-  
+
   test-nightly:
     name: ${{ matrix.display_name }}
     permissions:
@@ -41,7 +41,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # # quick feature tests
+          # quick feature tests
           - display_name: "Test Multiple JobDistributors"
             testcmd: "go test -v -run TestMultipleJobDistributors"
             envcmd: "cl u env.toml,products/ocr2/basic.toml"
@@ -73,6 +73,18 @@ jobs:
             runner: "ubuntu-latest"
             tests_dir: "flux"
             logs_archive_name: "flux"
+          - display_name: "Test DF1 (OCR2) Smoke"
+            testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-smoke"
+          - display_name: "Test DF1 (OCR2, Forwarders) Smoke"
+            testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/forwarders.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-smoke-forwarders"
           # smoke tests, medium legacy products
           - display_name: "Automation Smoke Test, Registry 2.0"
             testcmd: "go test -v -timeout 30m -run TestRegistry_2_0"
@@ -175,7 +187,7 @@ jobs:
       - name: Download Go dependencies
         run: |
           go mod download
-      
+
       - name: Set environment variables
         run: |
           IMAGE_VERSION="nightly-$(date +%Y%m%d)"

@@ -43,6 +43,7 @@ func deployCurseMCMS(b operations.Bundle, deps dependency.AptosDeps, in DeployCu
 			"mcms":                      in.MCMSAddress,
 			"mcms_register_entrypoints": aptos.AccountOne,
 		},
+		aptos.MaxGasAmount(5_000_000),
 	)
 	if err != nil {
 		return aptos.AccountAddress{}, fmt.Errorf("failed to deploy CurseMCMS: %w", err)

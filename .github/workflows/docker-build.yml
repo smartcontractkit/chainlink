@@ -276,7 +276,6 @@ jobs:
     uses: ./.github/workflows/cre-soak-memory-leak.yml
     with:
       chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
 
   deploy-nightly-core:
