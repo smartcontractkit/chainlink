@@ -15,7 +15,6 @@ import (
 func TestEngineRegistry(t *testing.T) {
 	var srv services.Service = &fakeService{}
 
-	const id1 = "foo"
 	owner := []byte{1, 2, 3, 4, 5}
 	name := "my-workflow"
 	workflowID := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
