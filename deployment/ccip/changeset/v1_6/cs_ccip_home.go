@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -184,29 +185,43 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			if !ok {
 				return fmt.Errorf("chain %d does not exist in EVM chain state but provided in USDCCCTPObserverConfig", sel)
 			}
-			if onchainState.USDCTokenPools == nil && onchainState.USDCTokenPoolsV1_6 == nil && onchainState.USDCTokenPoolProxies == nil {
-				return fmt.Errorf("chain %d does not have any USDC token pools deployed", sel)
+			validSourcePools := make([]common.Address, 0, 3)
+			if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
+				validSourcePools = append(validSourcePools, pool.Address())
 			}
-
-			var sourcePoolAddress common.Address
+			if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
+				validSourcePools = append(validSourcePools, pool.Address())
+			}
 			if proxy, ok := onchainState.USDCTokenPoolProxies[deployment.Version1_7_0]; ok {
-				sourcePoolAddress = proxy
-			} else if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
-				sourcePoolAddress = pool.Address()
-			} else if pool, ok := onchainState.USDCTokenPools[deployment.Version1_5_1]; ok {
-				sourcePoolAddress = pool.Address()
-			} else {
+				validSourcePools = append(validSourcePools, proxy)
+			}
+			if len(validSourcePools) == 0 {
 				return fmt.Errorf(
 					"chain %d does not have USDC token pool deployed with version %s, %s, or %s",
 					sel, deployment.Version1_5_1, deployment.Version1_6_2, deployment.Version1_7_0,
 				)
 			}
 
-			if common.HexToAddress(token.SourcePoolAddress) != sourcePoolAddress {
-				return fmt.Errorf("chain %d has latest USDC token pool deployed at %s, "+
-					"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
-					sel, sourcePoolAddress.String(), token.SourcePoolAddress)
+			configuredSourcePool := common.HexToAddress(token.SourcePoolAddress)
+			matchesDeployedPool := false
+			for _, sourcePoolAddress := range validSourcePools {
+				if configuredSourcePool == sourcePoolAddress {
+					matchesDeployedPool = true
+					break
+				}
 			}
+			if matchesDeployedPool {
+				break
+			}
+
+			expectedAddresses := make([]string, 0, len(validSourcePools))
+			for _, sourcePoolAddress := range validSourcePools {
+				expectedAddresses = append(expectedAddresses, sourcePoolAddress.String())
+			}
+			return fmt.Errorf(
+				"chain %d SourcePoolAddress %s is not one of the deployed USDC pools %v",
+				sel, token.SourcePoolAddress, expectedAddresses,
+			)
 		case chain_selectors.FamilySolana:
 			onchainState, ok := state.SolChains[uint64(sel)]
 			if !ok {
@@ -265,6 +280,31 @@ func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserve
 		}
 	}
 	return nil
+}
+
+func loadOnchainStateForCandidateChangesets(e cldf.Environment) (stateview.CCIPOnChainState, error) {
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return stateview.CCIPOnChainState{}, err
+	}
+	if e.DataStore == nil {
+		return state, nil
+	}
+
+	for chainSelector, chain := range e.BlockChains.EVMChains() {
+		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
+		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+			return stateview.CCIPOnChainState{}, fmt.Errorf("failed to get merged addresses for chain %d: %w", chainSelector, err)
+		}
+
+		chainState, err := stateview.LoadChainState(e.GetContext(), chain, addresses)
+		if err != nil {
+			return stateview.CCIPOnChainState{}, err
+		}
+		state.WriteEVMChainState(chainSelector, chainState)
+	}
+
+	return state, state.Validate()
 }
 
 type CCIPOCRParams struct {
@@ -330,7 +370,7 @@ type PromoteCandidateChangesetConfig struct {
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e cldf.Environment) (map[uint64]uint32, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := loadOnchainStateForCandidateChangesets(e)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +456,7 @@ func PromoteCandidateChangeset(
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", cldf.ErrInvalidConfig, err)
 	}
-	state, err := stateview.LoadOnchainState(e)
+	state, err := loadOnchainStateForCandidateChangesets(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -648,7 +688,7 @@ func AddDonAndSetCandidateChangeset(
 	e cldf.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := loadOnchainStateForCandidateChangesets(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -781,7 +821,7 @@ func SetCandidateChangeset(
 	e cldf.Environment,
 	cfg SetCandidateChangesetConfig,
 ) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+	state, err := loadOnchainStateForCandidateChangesets(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
