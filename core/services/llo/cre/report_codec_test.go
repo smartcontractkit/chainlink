@@ -23,6 +23,7 @@ func Test_ReportCodec(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
 
+		optsCache := datastreamsllo.NewOptsCache()
 		r := datastreamsllo.Report{
 			ConfigDigest:                    types.ConfigDigest{1, 2, 3},
 			SeqNr:                           32,
@@ -32,12 +33,13 @@ func Test_ReportCodec(t *testing.T) {
 			Values:                          []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36))},
 			Specimen:                        false,
 		}
+		optsCache.Set(r.ChannelID, []byte{})
 		encoded, err := c.Encode(r, llotypes.ChannelDefinition{
 			Streams: []llotypes.Stream{
 				{StreamID: 1},
 				{StreamID: 2},
 			},
-		})
+		}, optsCache)
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport
@@ -85,6 +87,8 @@ func Test_ReportCodec(t *testing.T) {
 		multiplier3, err := decimal.NewFromString("1000000") // 10^6
 		require.NoError(t, err)
 
+		cache := datastreamsllo.NewOptsCache()
+
 		opts, err := (&ReportCodecCapabilityTriggerOpts{
 			Multipliers: []ReportCodecCapabilityTriggerMultiplier{
 				{Multiplier: multiplier1, StreamID: 1},
@@ -92,6 +96,7 @@ func Test_ReportCodec(t *testing.T) {
 				{Multiplier: multiplier3, StreamID: 3},
 			},
 		}).Encode()
+		cache.Set(r.ChannelID, opts)
 		require.NoError(t, err)
 		encoded, err := c.Encode(r, llotypes.ChannelDefinition{
 			Streams: []llotypes.Stream{
@@ -100,7 +105,7 @@ func Test_ReportCodec(t *testing.T) {
 				{StreamID: 3},
 			},
 			Opts: opts,
-		})
+		}, cache)
 		require.NoError(t, err)
 
 		var pbuf capabilitiespb.OCRTriggerReport
