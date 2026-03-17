@@ -41,7 +41,7 @@ jobs:
   df1-compat:
     uses: ./.github/workflows/devenv-compat.yml
     with:
-            # bash command to build your environment, omit if you are using 'devenv'
+      # bash command to build your environment, omit if you are using 'devenv'
       buildcmd: "just cli"
       # bash command to spin up your environment and product orchestration
       envcmd: "cl u env.toml,products/ocr2/basic.toml"
