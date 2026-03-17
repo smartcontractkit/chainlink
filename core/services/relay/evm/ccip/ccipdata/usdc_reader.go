@@ -11,11 +11,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
-	ccipdata2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/ccipdata"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/abihelpers"
 )
 
 var (
@@ -146,7 +144,7 @@ func NewUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transm
 			Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, jobID, transmitter.Hex()),
 			EventSigs: []common.Hash{eventSig},
 			Addresses: []common.Address{transmitter},
-			Retention: ccipdata2.CommitExecLogsRetention,
+			Retention: CommitExecLogsRetention,
 		},
 		transmitterAddress:  transmitter,
 		shortLivedInMemLogs: cache.New(shortLivedInMemLogsCacheExpiration, 2*shortLivedInMemLogsCacheExpiration),

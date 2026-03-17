@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/estimatorconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/export"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/ccip/versionfinder"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
@@ -41,7 +42,7 @@ type SrcExecProvider struct {
 	startBlock    uint64
 	estimator     gas.EvmFeeEstimator
 	maxGasPrice   *big.Int
-	usdcReader    *ccip.USDCReaderImpl
+	usdcReader    *export.USDCReaderImpl
 	usdcConfig    config.USDCConfig
 	lbtcConfigs   []config.LBTCConfig
 
@@ -69,10 +70,10 @@ func NewSrcExecProvider(
 	lbtcConfigs []config.LBTCConfig,
 	feeEstimatorConfig estimatorconfig.FeeEstimatorConfigProvider,
 ) (commontypes.CCIPExecProvider, error) {
-	var usdcReader *ccip.USDCReaderImpl
+	var usdcReader *export.USDCReaderImpl
 	var err error
 	if usdcConfig.AttestationAPI != "" {
-		usdcReader, err = ccip.NewUSDCReader(ctx, lggr, jobID, usdcConfig.SourceMessageTransmitterAddress, lp, true)
+		usdcReader, err = export.NewUSDCReader(ctx, lggr, jobID, usdcConfig.SourceMessageTransmitterAddress, lp, true)
 		if err != nil {
 			return nil, fmt.Errorf("new usdc reader: %w", err)
 		}
@@ -122,7 +123,7 @@ func (s *SrcExecProvider) Close() error {
 		if s.usdcConfig.AttestationAPI == "" {
 			return nil
 		}
-		return ccip.CloseUSDCReader(ctx, s.lggr, s.lggr.Name(), s.usdcConfig.SourceMessageTransmitterAddress, s.lp)
+		return export.CloseUSDCReader(ctx, s.lggr, s.lggr.Name(), s.usdcConfig.SourceMessageTransmitterAddress, s.lp)
 	})
 	var multiErr error
 	for _, fn := range unregisterFuncs {
@@ -193,7 +194,7 @@ func (s *SrcExecProvider) NewOnRampReader(ctx context.Context, onRampAddress cci
 }
 
 func (s *SrcExecProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	srcPriceRegistry := export.NewEvmPriceRegistry(s.lp, s.client, s.lggr, ccip.ExecPluginLabel)
+	srcPriceRegistry := export.NewEvmPriceRegistry(s.lp, s.client, s.lggr, "exec")
 	priceRegistryReader, err = srcPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }
@@ -397,7 +398,7 @@ func (d *DstExecProvider) NewOnRampReader(ctx context.Context, addr cciptypes.Ad
 }
 
 func (d *DstExecProvider) NewPriceRegistryReader(ctx context.Context, addr cciptypes.Address) (priceRegistryReader cciptypes.PriceRegistryReader, err error) {
-	destPriceRegistry := export.NewEvmPriceRegistry(d.lp, d.client, d.lggr, ccip.ExecPluginLabel)
+	destPriceRegistry := export.NewEvmPriceRegistry(d.lp, d.client, d.lggr, "exec")
 	priceRegistryReader, err = destPriceRegistry.NewPriceRegistryReader(ctx, addr)
 	return
 }
@@ -410,9 +411,9 @@ func (d *DstExecProvider) NewTokenPoolBatchedReader(ctx context.Context, offRamp
 	batchCaller := ccip.NewDynamicLimitedBatchCaller(
 		d.lggr,
 		d.client,
-		uint(ccip.DefaultRpcBatchSizeLimit),
-		uint(ccip.DefaultRpcBatchBackOffMultiplier),
-		uint(ccip.DefaultMaxParallelRpcCalls),
+		uint(rpclib.DefaultRpcBatchSizeLimit),
+		uint(rpclib.DefaultRpcBatchBackOffMultiplier),
+		uint(rpclib.DefaultMaxParallelRpcCalls),
 	)
 
 	tokenPoolBatchedReader, err = ccip.NewEVMTokenPoolBatchedReader(d.lggr, sourceChainSelector, offRampAddress, batchCaller)

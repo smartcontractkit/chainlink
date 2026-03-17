@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -85,3 +87,13 @@ func CloseOnRampReader(ctx context.Context, lggr logger.Logger, versionFinder ve
 }
 
 type OffRampReader = types.OffRampReader
+
+func NewUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*ccipdata.USDCReaderImpl, error) {
+	return ccipdata.NewUSDCReader(ctx, lggr, jobID, transmitter, lp, registerFilters)
+}
+
+func CloseUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
+	return ccipdata.CloseUSDCReader(ctx, lggr, jobID, transmitter, lp)
+}
+
+type USDCReaderImpl = ccipdata.USDCReaderImpl

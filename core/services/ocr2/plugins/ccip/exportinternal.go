@@ -3,15 +3,12 @@ package ccip
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr2/offchainaggregator"
-	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/batchreader"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -53,16 +50,6 @@ func NewDynamicLimitedBatchCaller(
 ) *rpclib.DynamicLimitedBatchCaller {
 	return rpclib.NewDynamicLimitedBatchCaller(lggr, batchSender, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit)
 }
-
-func NewUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller, registerFilters bool) (*ccipdata.USDCReaderImpl, error) {
-	return ccipdata.NewUSDCReader(ctx, lggr, jobID, transmitter, lp, registerFilters)
-}
-
-func CloseUSDCReader(ctx context.Context, lggr logger.Logger, jobID string, transmitter common.Address, lp logpoller.LogPoller) error {
-	return ccipdata.CloseUSDCReader(ctx, lggr, jobID, transmitter, lp)
-}
-
-type USDCReaderImpl = ccipdata.USDCReaderImpl
 
 var DefaultRpcBatchSizeLimit = rpclib.DefaultRpcBatchSizeLimit
 var DefaultRpcBatchBackOffMultiplier = rpclib.DefaultRpcBatchBackOffMultiplier
