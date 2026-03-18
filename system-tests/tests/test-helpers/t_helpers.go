@@ -651,7 +651,9 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Str("workflow_file_location", workflowFileLocation).
 		Msgf("compiling and registering workflow '%s'", workflowName)
 	artifactDir := workflowArtifactsDir(t, testEnv)
-	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	evmChain := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain)
+	registryChainSelector := evmChain.ChainSelector()
 
 	workflowDONs := make([]*cre.Don, 0)
 	for _, don := range testEnv.Dons.List() {
@@ -676,10 +678,9 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
-		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
+		SethClient:              evmChain.SethClient,
 	}
-	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, evmChain.SethClient, testLogger)
 	return workflowID
 }
 
