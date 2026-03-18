@@ -42,7 +42,7 @@ import (
 
 const flag = cre.WriteEVMCapability
 
-type EVM struct{}
+type EVM struct{ cre.NoopPostDONStartup }
 
 func (o *EVM) Flag() cre.CapabilityFlag {
 	return flag

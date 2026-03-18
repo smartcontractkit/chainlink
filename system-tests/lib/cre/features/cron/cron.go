@@ -14,7 +14,7 @@ import (
 
 const flag = cre.CronCapability
 
-type Cron struct{}
+type Cron struct{ cre.NoopPostDONStartup }
 
 func (c *Cron) Flag() cre.CapabilityFlag {
 	return flag

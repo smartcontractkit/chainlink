@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -56,6 +57,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -238,6 +240,20 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+	if raw := os.Getenv(fakes.EnableFakeStreamsTriggerEnvVar); raw != "" {
+		enabled, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			return nil, fmt.Errorf("failed to parse %s: %w", fakes.EnableFakeStreamsTriggerEnvVar, parseErr)
+		}
+		if enabled {
+			trigger, registerErr := fakes.RegisterFakeStreamsTrigger(ctx, globalLogger, opts.CapabilitiesRegistry, 4)
+			if registerErr != nil {
+				return nil, fmt.Errorf("failed to register fake streams trigger: %w", registerErr)
+			}
+			srvcs = append(srvcs, trigger)
+			globalLogger.Infow("enabled fake streams trigger", "envVar", fakes.EnableFakeStreamsTriggerEnvVar)
+		}
 	}
 
 	if opts.DonTimeStore == nil {

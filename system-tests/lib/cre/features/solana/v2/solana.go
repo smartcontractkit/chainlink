@@ -62,7 +62,7 @@ type SolChain interface {
 	SolChainID() string
 }
 
-type Solana struct{}
+type Solana struct{ cre.NoopPostDONStartup }
 
 func (s *Solana) Flag() cre.CapabilityFlag {
 	return flag
@@ -101,10 +101,14 @@ func (s *Solana) PreEnvStartup(
 	}
 	// 4. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
+	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
+	for _, capability := range capabilities {
+		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilySolana}
+	}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig: capabilities,
-		ExtraSignerFamilies:     []string{chainselectors.FamilySolana},
+		DONCapabilityWithConfig:         capabilities,
+		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}, nil
 }
 

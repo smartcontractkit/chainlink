@@ -50,7 +50,7 @@ const (
 	ContractQualifier = "vault"
 )
 
-type Vault struct{}
+type Vault struct{ cre.NoopPostDONStartup }
 
 func (o *Vault) Flag() cre.CapabilityFlag {
 	return flag

@@ -28,7 +28,7 @@ import (
 
 const flag = cre.CustomComputeCapability
 
-type CustomCompute struct{}
+type CustomCompute struct{ cre.NoopPostDONStartup }
 
 func (o *CustomCompute) Flag() cre.CapabilityFlag {
 	return flag

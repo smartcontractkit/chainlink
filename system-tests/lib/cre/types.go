@@ -70,6 +70,7 @@ const (
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
 	SolanaCapability          CapabilityFlag = "solana"
+	WriteAptosCapability      CapabilityFlag = "write-aptos"
 	// Add more capabilities as needed
 )
 
@@ -229,9 +230,10 @@ type CapabilityConfig struct {
 }
 
 // mergeCapabilityConfigs copies entries from src to dst only for keys that
-// do not already exist in dst. This is NOT a deep merge - if a key exists
-// in dst, its entire CapabilityConfig is preserved without modification.
-// Users who override a capability config must provide all required values.
+// do not already exist in dst. This is NOT a deep merge - when a key exists
+// in dst, only BinaryName may be backfilled from src and Values are preserved
+// exactly as provided by the override. Users who override a capability config
+// must still provide all required Values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {
@@ -395,9 +397,10 @@ type ConfigureCapabilityRegistryInput struct {
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 
-	// Non-EVM chain families whose signing keys should be included in OCR3
-	// config signers (e.g. ["solana"]). EVM is always included.
-	ExtraSignerFamilies []string
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1286,6 +1289,11 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	return out
 }
 
+// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, write-aptos-4).
+func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
+	return c.chainCapabilityIDs()
+}
+
 func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
@@ -1627,13 +1635,43 @@ type Feature interface {
 		dons *Dons,
 		creEnv *Environment,
 	) error
+	PostDONStartup(
+		ctx context.Context,
+		testLogger zerolog.Logger,
+		don *Don,
+		dons *Dons,
+		creEnv *Environment,
+	) (*PostDONStartupOutput, error)
+}
+
+type NoopPostDONStartup struct{}
+
+func (NoopPostDONStartup) PostDONStartup(
+	context.Context,
+	zerolog.Logger,
+	*Don,
+	*Dons,
+	*Environment,
+) (*PostDONStartupOutput, error) {
+	return nil, nil
 }
 
 type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
-	// Non-EVM chain families whose signing keys should be included in OCR3
-	// config signers (e.g. ["solana"]). EVM is always included.
-	ExtraSignerFamilies []string
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
+}
+
+type PostDONStartupOutput struct {
+	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
+	// keyed by LabelledName
+	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }
