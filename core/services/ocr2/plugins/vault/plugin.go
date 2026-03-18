@@ -989,12 +989,8 @@ func (u *userError) Is(target error) bool {
 	return ok
 }
 
-func isUserError(err error) bool {
-	return errors.Is(err, &userError{})
-}
-
 func userFacingError(err error, fallback string) string {
-	if isUserError(err) {
+	if errors.Is(err, &userError{}) {
 		return err.Error()
 	}
 
@@ -1003,7 +999,7 @@ func userFacingError(err error, fallback string) string {
 
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...interface{}) {
 	keysAndValues = append(keysAndValues, "error", err)
-	if isUserError(err) {
+	if errors.Is(err, &userError{}) {
 		l.Debugw(msg, keysAndValues...)
 		return
 	}
