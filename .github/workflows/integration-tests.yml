@@ -108,36 +108,21 @@ jobs:
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
+          # This is a valid input, see https://github.com/dorny/paths-filter/pull/226
           predicate-quantifier: "every"
           filters: |
             general_changes:
-              - '.github/workflows/integration-tests.yml'
-              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
-              - '.github/workflows/cre-system-tests.yaml'
-              - '.github/e2e-tests.yml'
-              - 'GNUmakefile'
-              - 'core/chainlink.Dockerfile'
-              - 'plugins/chainlink.Dockerfile'
-            core_changes: &core_changes
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
-              - '**/*Dockerfile'
+              - '{.github/workflows/integration-tests.yml,.github/workflows/run-e2e-tests-reusable-workflow.yml,.github/workflows/cre-system-tests.yaml,.github/e2e-tests.yml,GNUmakefile,core/chainlink.Dockerfile,plugins/chainlink.Dockerfile}'
+            core_changes:
+              - '{**/*.go,**/*go.sum,**/*go.mod,**/*Dockerfile,core/**/migrations/*.sql,core/**/config/**/*.toml,integration-tests/**/*.toml}'
               - '!system-tests/**'
               - '!devenv/**'
               - '!core/scripts/cre/**'
-              - 'core/**/migrations/*.sql'
-              - 'core/**/config/**/*.toml'
-              - 'integration-tests/**/*.toml'
             cre_changes:
-              - *core_changes
-              - 'core/scripts/cre/**'
-              - 'system-tests/**'
-              - 'plugins/plugins.private.yaml'
-              - 'plugins/plugins.public.yaml'
+              - '{**/*.go,**/*go.sum,**/*go.mod,**/*Dockerfile,core/**/migrations/*.sql,core/**/config/**/*.toml,core/scripts/cre/**,system-tests/**,plugins/plugins.private.yaml,plugins/plugins.public.yaml}'
+              - '!integration-tests/**'
             ccip_changes:
-              - '**/*ccip*'
-              - '**/*ccip*/**'
+              - '{**/*ccip*,**/*ccip*/**}'
 
   labels:
     name: Get PR labels and set runner labels
