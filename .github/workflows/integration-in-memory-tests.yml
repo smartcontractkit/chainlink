@@ -30,9 +30,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     outputs:
-      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
-      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
-      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.changes }}
       should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
@@ -45,19 +43,20 @@ jobs:
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: changes
         with:
+          predicate-quantifier: "every"
           filters: |
-            github_ci_changes:
+            changes:
               - '.github/workflows/integration-in-memory-tests.yml'
               - '.github/integration-in-memory-tests.yml'
-            core_changes:
               - '**/*.go'
               - '**/*go.sum'
               - '**/*go.mod'
               - '**/*Dockerfile'
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
-              - 'integration-tests/**/*.toml'
-            ccip_changes:
+              - '!system-tests/**'
+              - '!devenv/**'
+              - '!core/scripts/cre/**'
               - '**/*ccip*'
               - '**/*ccip*/**'
 
@@ -81,7 +80,7 @@ jobs:
       id-token: write
       contents: read
     needs: changes
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.changes == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For PR
@@ -113,7 +112,7 @@ jobs:
       id-token: write
       contents: read
     needs: changes
-    if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.changes == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
