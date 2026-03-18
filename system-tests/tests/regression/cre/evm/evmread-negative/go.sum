@@ -243,8 +243,8 @@ github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251022073203-7d8ae8cf67c1/go.mod h1:oyfOm4k0uqmgZIfxk1elI/59B02shbbJQiiUdPdbMgI=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396 h1:03tbcwjyIEjvHba1IWOj1sfThwebm2XNzyFHSuZtlWc=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396/go.mod h1:Jqt53s27Tr0jDl8mdBXg1xhu6F8Fci8JOuq43tgHOM8=
-github.com/smartcontractkit/cre-sdk-go v1.5.0 h1:kepW3QDKARrOOHjXwWAZ9j5KLk6bxLzvi6OMrLsFwVo=
-github.com/smartcontractkit/cre-sdk-go v1.5.0/go.mod h1:yYrQFz1UH7hhRbPO0q4fgo1tfsJNd4yXnI3oCZE0RzM=
+github.com/smartcontractkit/cre-sdk-go v1.6.0 h1:lu0j8//xfI2ZkCzcZZ6tb4j1KyWyb496NWY5FKYUSME=
+github.com/smartcontractkit/cre-sdk-go v1.6.0/go.mod h1:yYrQFz1UH7hhRbPO0q4fgo1tfsJNd4yXnI3oCZE0RzM=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0 h1:G0w0cLzHy/5m74IzSGz1Ynjffym4ZxLeUrRLp8EFP5w=
 github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0/go.mod h1:VVJ4mvA7wOU1Ic5b/vTaBMHEUysyxd0gdPPXkAu8CmY=
 github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0 h1:qBZ4y6qlTOynSpU1QAi2Fgr3tUZQ332b6hit9EVZqkk=
