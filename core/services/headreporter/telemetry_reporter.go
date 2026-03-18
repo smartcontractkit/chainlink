@@ -106,7 +106,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("no relay found for chain=%s", relayID)
 		}
-		err := reportLatestHead(ctx, t.lggr, endpoint, relayID, relay)
+		err := reportLatestHead(ctx, endpoint, relayID, relay)
 		if err != nil {
 			return err
 		}
@@ -115,7 +115,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	return nil
 }
 
-func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
+func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)
@@ -130,7 +130,10 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 		return fmt.Errorf("failed to parse %s block height %s: %w", relayID, head.Height, err)
 	}
 
-	finalized := fetchFinalizedHead(ctx, lggr, relayID, relay)
+	finalized, err := fetchFinalizedHead(ctx, relayID, relay)
+	if err != nil {
+		return err
+	}
 
 	request := &telem.HeadReportRequest{
 		ChainID: relayID.ChainID,
@@ -149,26 +152,25 @@ func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commonty
 	return nil
 }
 
-func fetchFinalizedHead(ctx context.Context, lggr logger.Logger, relayID types.RelayID, relay loop.Relayer) *telem.Block {
+func fetchFinalizedHead(ctx context.Context, relayID types.RelayID, relay loop.Relayer) (*telem.Block, error) {
 	head, err := relay.FinalizedHead(ctx)
 	if err != nil {
 		if status.Code(err) == codes.Unimplemented {
-			return nil
+			return nil, nil
 		}
-		lggr.Warnw("Failed to get finalized head", "chainID", relayID.ChainID, "network", relayID.Network, "err", err)
-		return nil
+		return nil, fmt.Errorf("failed to fetch finalized head: %w", err)
 	}
 	if head.Height == "" {
-		return nil
+		return nil, fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
 	}
 	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
 	if err != nil {
-		lggr.Warnw("Failed to parse finalized block height", "chainID", relayID.ChainID, "height", head.Height, "err", err)
-		return nil
+		return nil, fmt.Errorf("failed to parse %s finalized block height %s: %w", relayID, head.Height, err)
+
 	}
 	return &telem.Block{
 		Timestamp: head.Timestamp,
 		Number:    blockNum,
 		Hash:      hex.EncodeToString(head.Hash),
-	}
+	}, nil
 }
