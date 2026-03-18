@@ -92,7 +92,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
 		case pluginconfig.USDCCCTPHandlerType:
-			if err := validateUSDCConfig(observerConfig.USDCCPTPObserverConfig, state); err != nil {
+			if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
 				return fmt.Errorf("invalid USDC config: %w", err)
 			}
 		case pluginconfig.LBTCHandlerType:
