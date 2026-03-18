@@ -280,13 +280,26 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T
 		{Network: "Solana", ChainID: "testchain"}: r,
 	}
 
+	requestBytes, err := proto.Marshal(&telem.HeadReportRequest{
+		ChainID: "testchain",
+		Latest: &telem.Block{
+			Timestamp: head.Timestamp,
+			Number:    42,
+			Hash:      hex.EncodeToString(head.Hash),
+		},
+	})
+	require.NoError(t, err)
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpoint.On("SendLog", requestBytes).Return()
+
 	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
 	monitoringEndpointGen.
 		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
-		Return(mocks2.NewMonitoringEndpoint(t))
+		Return(monitoringEndpoint)
 
 	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
 
 	err = reporter.ReportPeriodic(testutils.Context(t))
-	assert.ErrorContains(t, err, "failed to fetch finalized head")
+	assert.NoError(t, err)
 }

@@ -106,7 +106,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("no relay found for chain=%s", relayID)
 		}
-		err := reportLatestHead(ctx, endpoint, relayID, relay)
+		err := reportLatestHead(ctx, t.lggr, endpoint, relayID, relay)
 		if err != nil {
 			return err
 		}
@@ -115,7 +115,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	return nil
 }
 
-func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
+func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)
@@ -132,7 +132,7 @@ func reportLatestHead(ctx context.Context, endpoint commontypes.MonitoringEndpoi
 
 	finalized, err := fetchFinalizedHead(ctx, relayID, relay)
 	if err != nil {
-		return err
+		lggr.Warnw("Failed to fetch finalized head", "chainID", relayID.ChainID, "network", relayID.Network, "err", err)
 	}
 
 	request := &telem.HeadReportRequest{
