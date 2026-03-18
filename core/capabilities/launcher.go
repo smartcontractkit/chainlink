@@ -46,7 +46,7 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 
 type launcher struct {
 	services.StateMachine
-	lggr                logger.Logger
+	lggr                logger.SugaredLogger
 	myPeerID            p2ptypes.PeerID
 	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
@@ -106,7 +106,7 @@ func NewLauncher(
 		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
 	return &launcher{
-		lggr:        logger.Named(lggr, "CapabilitiesLauncher"),
+		lggr:        logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		cachedShims: cachedShims{
@@ -342,9 +342,12 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	for family := range myDONFamiliesSet {
 		myDONFamilies = append(myDONFamilies, family)
 	}
-	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies), "myDONFamilies", myDONFamilies)
-	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs), "myWorkflowDONs", myWorkflowDONs)
-	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies))
+	w.lggr.Tracew("My DON families", "myDONFamilies", myDONFamilies)
+	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs))
+	w.lggr.Tracew("My workflow DONs", "myWorkflowDONs", myWorkflowDONs)
+	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs))
+	w.lggr.Tracew("All remote workflow DONs", "remoteWorkflowDONs", remoteWorkflowDONs)
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
@@ -359,14 +362,18 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
-	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs), "myCapabilityDONs", myCapabilityDONs)
-	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs))
+	w.lggr.Tracew("My capability DONs", "myCapabilityDONs", myCapabilityDONs)
+	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs))
+	w.lggr.Tracew("All remote capability DONs", "remoteCapabilityDONs", remoteCapabilityDONs)
 
 	if len(myDONFamilies) > 0 {
 		remoteWorkflowDONs = filterDONsByFamilies(remoteWorkflowDONs, myDONFamilies)
 		remoteCapabilityDONs = filterDONsByFamilies(remoteCapabilityDONs, myDONFamilies)
-		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
-		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs))
+		w.lggr.Tracew("Filtered remote workflow DONs to my families", "remoteWorkflowDONs", remoteWorkflowDONs)
+		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs))
+		w.lggr.Tracew("Filtered remote capability DONs to my families", "remoteCapabilityDONs", remoteCapabilityDONs)
 	} else {
 		// legacy / Keystone setting
 		w.lggr.Debug("My node doesn't belong to any DON families. No filtering will be applied.")
