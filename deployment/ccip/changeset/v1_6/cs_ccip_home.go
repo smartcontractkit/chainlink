@@ -13,6 +13,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
 
+	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
@@ -43,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -291,20 +292,42 @@ func loadOnchainStateForCandidateChangesets(e cldf.Environment) (stateview.CCIPO
 		return state, nil
 	}
 
-	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		addresses, err := commonstate.AddressesForChain(e, chainSelector, "")
-		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
-			return stateview.CCIPOnChainState{}, fmt.Errorf("failed to get merged addresses for chain %d: %w", chainSelector, err)
+	for chainSelector := range e.BlockChains.EVMChains() {
+		refs := e.DataStore.Addresses().Filter(
+			datastore.AddressRefByChainSelector(chainSelector),
+			datastore.AddressRefByType(datastore.ContractType(shared.USDCTokenPoolProxy)),
+			datastore.AddressRefByVersion(&deployment.Version1_7_0),
+		)
+		if len(refs) == 0 {
+			continue
+		}
+		if len(refs) > 1 {
+			return stateview.CCIPOnChainState{}, fmt.Errorf(
+				"multiple datastore entries found for %s %s on chain %d; qualifiers=%v",
+				shared.USDCTokenPoolProxy, deployment.Version1_7_0, chainSelector, maps.Keys(refsByQualifier(refs)),
+			)
 		}
 
-		chainState, err := stateview.LoadChainState(e.GetContext(), chain, addresses)
-		if err != nil {
-			return stateview.CCIPOnChainState{}, err
+		chainState, ok := state.EVMChainState(chainSelector)
+		if !ok {
+			return stateview.CCIPOnChainState{}, fmt.Errorf("chain %d not found in state", chainSelector)
 		}
+		if chainState.USDCTokenPoolProxies == nil {
+			chainState.USDCTokenPoolProxies = make(map[semver.Version]common.Address)
+		}
+		chainState.USDCTokenPoolProxies[deployment.Version1_7_0] = common.HexToAddress(refs[0].Address)
 		state.WriteEVMChainState(chainSelector, chainState)
 	}
 
 	return state, state.Validate()
+}
+
+func refsByQualifier(refs []datastore.AddressRef) map[string]struct{} {
+	out := make(map[string]struct{}, len(refs))
+	for _, ref := range refs {
+		out[ref.Qualifier] = struct{}{}
+	}
+	return out
 }
 
 type CCIPOCRParams struct {
