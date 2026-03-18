@@ -5,7 +5,7 @@ go 1.25.7
 require (
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.14.0
-	github.com/smartcontractkit/chain-selectors v1.0.91
+	github.com/smartcontractkit/chain-selectors v1.0.97
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
@@ -18,7 +18,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
