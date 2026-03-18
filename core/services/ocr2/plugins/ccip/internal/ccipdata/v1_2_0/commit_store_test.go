@@ -10,19 +10,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
 func TestCommitReportEncoding(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	report := cciptypes.CommitStoreReport{
 		TokenPrices: []cciptypes.TokenPrice{
 			{
@@ -50,7 +49,7 @@ func TestCommitReportEncoding(t *testing.T) {
 
 	feeEstimatorConfig := ccipdatamocks.NewFeeEstimatorConfigReader(t)
 
-	c, err := NewCommitStore(logger.TestLogger(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), feeEstimatorConfig)
+	c, err := NewCommitStore(logger.Test(t), utils.RandomAddress(), nil, mocks.NewLogPoller(t), feeEstimatorConfig)
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(ctx, report)

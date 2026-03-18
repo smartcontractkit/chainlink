@@ -13,14 +13,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -30,7 +30,7 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 	onRampAddr := utils.RandomAddress()
 	seqNum := uint64(100)
 	limit := uint64(10)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	tests := []struct {
 		name          string
@@ -68,12 +68,12 @@ func TestLogPollerClient_GetSendRequestsBetweenSeqNums1_4_0(t *testing.T) {
 
 func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 	user, bc := ccipdata.NewSimulation(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	destChainSelector := uint64(100)
 	sourceChainSelector := uint64(200)
 	onRampAddress, mockRMN, mockRMNAddress := setupOnRampV1_5_0(t, user, bc)
 
-	onRamp, err := NewOnRamp(logger.TestLogger(t), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(t), bc)
+	onRamp, err := NewOnRamp(logger.Test(t), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(t), bc)
 	require.NoError(t, err)
 
 	onRamp.cachedStaticConfig = func(ctx context.Context) (evm_2_evm_onramp.EVM2EVMOnRampStaticConfig, error) {
@@ -118,11 +118,11 @@ func Test_ProperlyRecognizesPerLaneCurses(t *testing.T) {
 // This is written to benchmark before and after the caching of StaticConfig and RMNContract
 func BenchmarkIsSourceCursedWithCache(b *testing.B) {
 	user, bc := ccipdata.NewSimulation(b)
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 	destChainSelector := uint64(100)
 	onRampAddress, _, _ := setupOnRampV1_5_0(b, user, bc)
 
-	onRamp, err := NewOnRamp(logger.TestLogger(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
+	onRamp, err := NewOnRamp(logger.Test(b), 1, destChainSelector, onRampAddress, mocks.NewLogPoller(b), bc)
 	require.NoError(b, err)
 
 	for b.Loop() {
