@@ -29,7 +29,6 @@ import (
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
 	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
-
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
@@ -259,12 +258,12 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	initializeAllArbiterStates(t, testEnv, shardZero, 1)
 
 	logger.Info().Msg("Step 3: Verify Arbiter WantShards equals contract shard count")
-	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second)
+	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second) //nolint:gosec // G115: test only uses 1 or 2 shards
 	ctxShort, cancel := context.WithTimeout(ctx, 5*time.Second)
 	arbiterResp, err := arbiterClient.GetDesiredReplicas(ctxShort, &ringpb.ShardStatusRequest{})
 	cancel()
 	require.NoError(t, err)
-	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()")
+	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()") //nolint:gosec // G115: test only uses 1 or 2 shards
 
 	logger.Info().Msg("Step 4: Wait for all workflows to be remapped to shard 0")
 	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, 0)
@@ -283,12 +282,12 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	initializeAllArbiterStates(t, testEnv, shardZero, 2)
 
 	logger.Info().Msg("Step 6: Verify Arbiter WantShards equals contract shard count")
-	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second)
+	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second) //nolint:gosec // G115: test only uses 1 or 2 shards
 	ctxShort, cancel = context.WithTimeout(ctx, 5*time.Second)
 	arbiterResp, err = arbiterClient.GetDesiredReplicas(ctxShort, &ringpb.ShardStatusRequest{})
 	cancel()
 	require.NoError(t, err)
-	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()")
+	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()") //nolint:gosec // G115: test only uses 1 or 2 shards
 
 	logger.Info().Msg("Step 7: Wait for workflow redistribution after scaling")
 	waitForWorkflowsDistributed(t, shardOrchClient, workflowIDs, 2)
