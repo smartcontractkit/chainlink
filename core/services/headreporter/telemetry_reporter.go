@@ -160,14 +160,16 @@ func fetchFinalizedHead(ctx context.Context, relayID types.RelayID, relay loop.R
 		}
 		return nil, fmt.Errorf("failed to fetch finalized head: %w", err)
 	}
+
 	if head.Height == "" {
 		return nil, fmt.Errorf("latest block height returned by relayer is empty for %s", relayID)
 	}
+
 	blockNum, err := strconv.ParseUint(head.Height, 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s finalized block height %s: %w", relayID, head.Height, err)
-
 	}
+
 	return &telem.Block{
 		Timestamp: head.Timestamp,
 		Number:    blockNum,
