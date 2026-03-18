@@ -187,7 +187,13 @@ func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironm
 
 		testName := "[v2] HTTP Action " + testCase.name
 		t.Run(testName, func(t *testing.T) {
-			HTTPActionSuccessTest(t, testEnv, testCase)
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+			// Each case gets its own per-test execution context to avoid shared-signer nonce collisions
+			// while still reusing the shared environment cache (sync.Once) for admin sessions.
+			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			HTTPActionSuccessTest(t, perCaseEnv, testCase)
 		})
 	}
 }

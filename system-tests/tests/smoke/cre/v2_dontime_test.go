@@ -18,7 +18,7 @@ import (
 func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time_consensus/main.go"
-	workflowName := "timebeholder"
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "timebeholder")
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)

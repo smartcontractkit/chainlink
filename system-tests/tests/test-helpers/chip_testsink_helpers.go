@@ -30,6 +30,101 @@ import (
 
 const testSinkStartupTimeout = 10 * time.Second
 
+type ChipSink interface {
+	Shutdown(ctx context.Context)
+}
+
+type fanoutSubscription struct {
+	id string
+}
+
+func (s *fanoutSubscription) Shutdown(_ context.Context) {
+	fanoutSubMu.Lock()
+	defer fanoutSubMu.Unlock()
+	delete(fanoutSubs, s.id)
+}
+
+var (
+	fanoutOnce   sync.Once
+	fanoutServer *chiptestsink.Server
+	errFanout    error
+
+	fanoutSubMu sync.Mutex
+	fanoutSubs  = make(map[string]chiptestsink.PublishFn)
+)
+
+func safeSendUserLogs(ch chan *workflowevents.UserLogs, msg *workflowevents.UserLogs) {
+	// In fanout mode, tests may close their log channels immediately after
+	// unsubscribing during cleanup. An in-flight publish can race with that close,
+	// which would panic on send. We recover to treat delivery as best-effort.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
+func safeSendBaseMessage(ch chan *commonevents.BaseMessage, msg *commonevents.BaseMessage) {
+	// Same race as safeSendUserLogs; avoid panic on send to closed channel.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
+func ChipSinkFanoutEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_CHIP_SINK_FANOUT_ENABLED")))
+	return v == "1" || v == "true" || v == "yes"
+}
+
+func ensureFanoutServer(t *testing.T) {
+	t.Helper()
+
+	fanoutOnce.Do(func() {
+		grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
+		startCh := make(chan struct{}, 1)
+		fanoutServer, errFanout = chiptestsink.NewServer(chiptestsink.Config{
+			GRPCListen: grpcListenAddr,
+			Started:    startCh,
+			PublishFunc: func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+				fanoutSubMu.Lock()
+				snapshot := make([]chiptestsink.PublishFn, 0, len(fanoutSubs))
+				for _, fn := range fanoutSubs {
+					snapshot = append(snapshot, fn)
+				}
+				fanoutSubMu.Unlock()
+
+				for _, fn := range snapshot {
+					if _, err := fn(ctx, event); err != nil {
+						// Best-effort delivery: one subscriber must not fail all.
+						continue
+					}
+				}
+				return &chippb.PublishResponse{}, nil
+			},
+		})
+		if errFanout != nil {
+			return
+		}
+
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- fanoutServer.Run()
+		}()
+
+		select {
+		case <-startCh:
+		case err := <-errCh:
+			errFanout = err
+		case <-time.After(testSinkStartupTimeout):
+			errFanout = errors.New("timeout waiting for fanout sink server to start")
+		}
+	})
+
+	require.NoError(t, errFanout, "failed to start fanout sink server")
+}
+
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
 func WaitForUserLog(
 	ctx context.Context,
@@ -71,7 +166,11 @@ func FailOnBaseMessage(
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-publishCh:
+		case msg, ok := <-publishCh:
+			// Channel can be closed during cleanup; closed or nil messages should exit.
+			if !ok || msg == nil {
+				return
+			}
 			if strings.Contains(msg.Msg, needle) {
 				testLogger.Error().
 					Str("expected_log", needle).
@@ -96,7 +195,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 				return &chippb.PublishResponse{}, nil
 			}
 
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -106,7 +205,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 		default:
 			// ignore
@@ -249,7 +348,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -258,7 +357,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		default:
@@ -270,7 +369,18 @@ func GetLoggingPublishFn(
 }
 
 // StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
-func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptestsink.Server {
+// In fanout mode (CRE_TEST_CHIP_SINK_FANOUT_ENABLED=1), a singleton sink is started and each test
+// registers its own publish function as a fanout subscriber.
+func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink {
+	if ChipSinkFanoutEnabled() {
+		ensureFanoutServer(t)
+		subID := t.Name() + "-" + time.Now().Format("150405.000000000")
+		fanoutSubMu.Lock()
+		fanoutSubs[subID] = publishFn
+		fanoutSubMu.Unlock()
+		return &fanoutSubscription{id: subID}
+	}
+
 	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
 	if !isPortAvailable(grpcListenAddr) {
 		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.

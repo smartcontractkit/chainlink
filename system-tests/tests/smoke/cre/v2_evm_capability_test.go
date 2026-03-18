@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
+
 	"slices"
 	"testing"
 	"time"
@@ -62,43 +64,89 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 
 	lggr := framework.L
 	const workflowFileLocation = "./evm/evmread/main.go"
-	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
-	baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
+	for _, tc := range testCases {
+		t.Run("Read "+tc.String(), func(t *testing.T) {
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
 
-	// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/evm_read_workflow_test.log"))
-	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
-	})
+			// Each case uses a fresh per-test execution context to avoid shared-signer nonce collisions,
+			// while still reusing the shared environment cache (sync.Once) for admin sessions.
+			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
 
-	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
-		chainID := bcOutput.CtfOutput().ChainID
-		if _, ok := enabledChains[chainID]; !ok {
-			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
-			continue
-		}
+			userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
+			baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
 
-		for _, tc := range testCases {
-			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
-				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
-				lggr.Info().
-					Str("workflow_name", workflowName).
-					Str("chain_id", chainID).
-					Str("test_case", tc.String()).
-					Msg("Creating EVM Read workflow configuration...")
-				require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-				evmChain := bcOutput.(*evm.Blockchain)
-				workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
-				t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
-				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+			// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
+			server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, evmReadLogFilePath(t, perCaseEnv)))
+			t.Cleanup(func() {
+				server.Shutdown(t.Context())
+				close(userLogsCh)
+				close(baseMessageCh)
 			})
+
+			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
+				chainID := bcOutput.CtfOutput().ChainID
+				if _, ok := enabledChains[chainID]; !ok {
+					lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
+					continue
+				}
+
+				t.Run("on chain "+chainID, func(t *testing.T) {
+					workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
+					lggr.Info().
+						Str("workflow_name", workflowName).
+						Str("chain_id", chainID).
+						Str("test_case", tc.String()).
+						Msg("Creating EVM Read workflow configuration...")
+					require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+					evmChain := bcOutput.(*evm.Blockchain)
+					workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
+					t_helpers.CompileAndDeployWorkflow(t, perCaseEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+					validateWorkflowExecution(t, lggr, perCaseEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+				})
+			}
+		})
+	}
+}
+
+func evmReadLogFilePath(t *testing.T, testEnv *ttypes.TestEnvironment) string {
+	t.Helper()
+	suffix := t.Name()
+	if testEnv != nil && testEnv.Execution != nil && testEnv.Execution.TestID != "" {
+		suffix = testEnv.Execution.TestID
+	}
+
+	safeSuffix := sanitizeLogToken(suffix)
+	if safeSuffix == "" {
+		safeSuffix = "default"
+	}
+
+	return fmt.Sprintf("./logs/evm_read_workflow_%s.log", safeSuffix)
+}
+
+func sanitizeLogToken(input string) string {
+	var b strings.Builder
+	b.Grow(len(input))
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
 		}
 	}
+
+	return b.String()
 }
 
 func makeSinkCh[T any]() chan T {
