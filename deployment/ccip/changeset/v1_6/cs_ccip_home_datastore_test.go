@@ -7,12 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -110,8 +109,8 @@ func setCandidateExecConfig(homeChainSel, feedChainSel, dest uint64, sourcePoolA
 								AttestationConfig: pluginconfig.AttestationConfig{
 									AttestationAPI: "http://example.com",
 								},
-								Tokens: map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
-									cciptypes.ChainSelector(dest): {
+								Tokens: map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+									ccipocr3.ChainSelector(dest): {
 										SourcePoolAddress:            sourcePoolAddress,
 										SourceMessageTransmitterAddr: common.HexToAddress("0x3000000000000000000000000000000000000003").Hex(),
 									},
