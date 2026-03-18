@@ -92,7 +92,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
 		case pluginconfig.USDCCCTPHandlerType:
-			if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
+			if err := validateUSDCConfig(observerConfig.USDCCPTPObserverConfig, state); err != nil {
 				return fmt.Errorf("invalid USDC config: %w", err)
 			}
 		case pluginconfig.LBTCHandlerType:
@@ -100,7 +100,7 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 			// If wrong pool addresses are provided, the plugin won't treat it as Lombard message and fail to commit which can be easily detected and fixed.
 			// Previously, we had some validations which really doesn't makes sense because there is no standard Lombard token or
 			// pool stored in our state, and the validation might give false confidence to users. So we decided to remove those validations for now.
-			return nil
+			// Intentionally no-op: we do not perform additional validation for LBTC handlers but still validate any subsequent observers.
 		default:
 			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
 		}
