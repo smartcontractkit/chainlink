@@ -10,12 +10,14 @@ import (
 
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
@@ -86,59 +88,37 @@ func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspe
 		opt(&options)
 	}
 
-	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
-	}
-
-	switch chainFamily {
-	case chain_selectors.FamilyEVM:
-		return mcmsevmsdk.NewInspector(env.BlockChains.EVMChains()[chain].Client), nil
-	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.NewInspector(env.BlockChains.SolanaChains()[chain].Client), nil
-	case chain_selectors.FamilyAptos:
-		// NOTE: Aptos changesets do not use this function. They construct inspectors
-		// directly in utils/mcms.go (GenerateProposal / GenerateCurseMCMSProposal)
-		// because they need finer control over isCurseMCMS.
-		if options.AptosRole.String() == "unknown" {
-			return nil, fmt.Errorf("aptos role not properly set for chain: %d", chain)
+	action := mcmstypes.TimelockActionSchedule
+	if options.AptosRole.String() != "unknown" {
+		var err error
+		action, err = mcmsaptossdk.ActionFromAptosRole(options.AptosRole)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get action from aptos role %s: %w", options.AptosRole, err)
 		}
-		inspector := mcmsaptossdk.NewInspector(env.BlockChains.AptosChains()[chain].Client, options.AptosRole)
-
-		return inspector, nil
-	default:
-		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
+
+	chainAccessor := cldfmcmsadapters.Wrap(env.BlockChains)
+
+	return mcmschainwrappers.BuildInspector(&chainAccessor, mcmstypes.ChainSelector(chain), action,
+		mcmstypes.ChainMetadata{})
 }
 
 func McmsInspectors(env cldf.Environment) (map[uint64]mcmssdk.Inspector, error) {
-	evmChains := env.BlockChains.EVMChains()
-	solanaChains := env.BlockChains.SolanaChains()
-	aptosChains := env.BlockChains.AptosChains()
-	inspectors := make(map[uint64]mcmssdk.Inspector, len(evmChains)+len(solanaChains)+len(aptosChains))
-
-	for _, chain := range evmChains {
-		var err error
-		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
-		}
+	chainsMetadata := map[mcmstypes.ChainSelector]mcmstypes.ChainMetadata{}
+	for chainSelector := range env.BlockChains.All() {
+		chainsMetadata[mcmstypes.ChainSelector(chainSelector)] = mcmstypes.ChainMetadata{}
 	}
 
-	for _, chain := range solanaChains {
-		var err error
-		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
-		}
+	chainAccessor := cldfmcmsadapters.Wrap(env.BlockChains)
+
+	mcmsInspectors, err := mcmschainwrappers.BuildInspectors(&chainAccessor, chainsMetadata, mcmstypes.TimelockActionSchedule)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build inspectors: %w", err)
 	}
 
-	for _, chain := range aptosChains {
-		var err error
-		inspectors[chain.Selector], err = McmsInspectorForChain(env, chain.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
-		}
+	inspectors := make(map[uint64]mcmssdk.Inspector, len(mcmsInspectors))
+	for chainSelector, inspector := range mcmsInspectors {
+		inspectors[uint64(chainSelector)] = inspector
 	}
 
 	return inspectors, nil
@@ -188,17 +168,8 @@ func BatchOperationForChain(
 }
 
 func GetAptosRoleFromAction(action mcmstypes.TimelockAction) (mcmsaptossdk.TimelockRole, error) {
-	switch action {
-	case mcmstypes.TimelockActionSchedule:
+	if action == "" {
 		return mcmsaptossdk.TimelockRoleProposer, nil
-	case mcmstypes.TimelockActionBypass:
-		return mcmsaptossdk.TimelockRoleBypasser, nil
-	case mcmstypes.TimelockActionCancel:
-		return mcmsaptossdk.TimelockRoleCanceller, nil
-	case "":
-		// Default case for empty action to avoid breaking changes
-		return mcmsaptossdk.TimelockRoleProposer, nil
-	default:
-		return mcmsaptossdk.TimelockRoleProposer, fmt.Errorf("invalid action: %s", action)
 	}
+	return mcmsaptossdk.AptosRoleFromAction(action)
 }

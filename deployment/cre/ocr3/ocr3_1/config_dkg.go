@@ -32,8 +32,8 @@ func oCR3CapabilityCompatibleOnchainPublicKey(offchainPublicKey types.OffchainPu
 	return result
 }
 
-func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig) (ocr3.OCR2OracleConfig, error) {
-	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel)
+func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
+	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel, extraSignerFamilies)
 	return GenerateDKGConfig(cfg, nca, secrets, dkgCfg)
 }
 

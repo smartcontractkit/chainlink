@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -11,14 +12,15 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
+	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_adapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -182,16 +184,47 @@ func (tc *TimelockConfig) ValidateAptos(chain cldf_aptos.Chain, mcmsAddress apto
 	return nil
 }
 
+type ChainMetadata map[uint64]map[string]any
+
+func (c *ChainMetadata) Set(chainSelector uint64, key string, value any) *ChainMetadata {
+	_, exists := (*c)[chainSelector]
+	if !exists {
+		(*c)[chainSelector] = make(map[string]any)
+	}
+
+	(*c)[chainSelector][key] = value
+
+	return c
+}
+
+type BuildProposalOption func(*buildProposalOptions)
+
+type buildProposalOptions struct {
+	chainMetadata ChainMetadata
+}
+
+func WithChainMetadata(chainMetadata ChainMetadata) BuildProposalOption {
+	return func(opts *buildProposalOptions) {
+		opts.chainMetadata = chainMetadata
+	}
+}
+
 // BuildProposalFromBatchesV2 uses the new MCMS library which replaces the implementation in BuildProposalFromBatches.
 func BuildProposalFromBatchesV2(
 	e cldf.Environment,
 	timelockAddressPerChain map[uint64]string,
 	mcmsAddressPerChain map[uint64]string,
-	inspectorPerChain map[uint64]mcmssdk.Inspector,
+	inspectorPerChain map[uint64]mcmssdk.Inspector, // optional
 	batches []types.BatchOperation,
 	description string,
 	mcmsCfg TimelockConfig,
+	opts ...BuildProposalOption,
 ) (*mcmslib.TimelockProposal, error) {
+	buildOptions := buildProposalOptions{}
+	for _, opt := range opts {
+		opt(&buildOptions)
+	}
+
 	// default to schedule if not set, this is to be consistent with the old implementation
 	// and to avoid breaking changes
 	if mcmsCfg.MCMSAction == "" {
@@ -209,7 +242,8 @@ func BuildProposalFromBatchesV2(
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
-	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain, mcmsCfg.MCMSAction)
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain,
+		mcmsCfg.MCMSAction, buildOptions.chainMetadata)
 	if err != nil {
 		return nil, err
 	}
@@ -243,31 +277,30 @@ func BuildProposalFromBatchesV2(
 func buildProposalMetadataV2(
 	env cldf.Environment,
 	chainSelectors []uint64,
-	inspectorPerChain map[uint64]mcmssdk.Inspector,
-	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
+	inspectorPerChain map[uint64]mcmssdk.Inspector, // optional
+	mcmAddresses map[uint64]string, // can be proposer, canceller or bypasser
 	mcmsAction types.TimelockAction,
+	additionalChainMetadata ChainMetadata,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
-	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
+	proposalChainMetadata := make(map[types.ChainSelector]types.ChainMetadata)
+
+	if len(additionalChainMetadata) == 0 {
+		additionalChainMetadata = make(ChainMetadata)
+	}
+
 	for _, selector := range chainSelectors {
-		proposerMcms, ok := mcmsPerChain[selector]
+		mcmAddress, ok := mcmAddresses[selector]
 		if !ok {
-			return nil, fmt.Errorf("missing proposer mcm for chain %d", selector)
+			return nil, fmt.Errorf("missing mcm address for chain %d", selector)
 		}
+
 		chainID := types.ChainSelector(selector)
-		opCount, err := inspectorPerChain[selector].GetOpCount(env.GetContext(), proposerMcms)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get op count for chain %d: %w", selector, err)
-		}
 		family, err := chain_selectors.GetSelectorFamily(selector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get family for chain %d: %w", selector, err)
 		}
+
 		switch family {
-		case chain_selectors.FamilyEVM:
-			metaDataPerChain[chainID] = types.ChainMetadata{
-				StartingOpCount: opCount,
-				MCMAddress:      proposerMcms,
-			}
 		case chain_selectors.FamilySolana:
 			solanaState, err := getSolanaState(env, selector)
 			if err != nil {
@@ -286,8 +319,8 @@ func buildProposalMetadataV2(
 				return nil, fmt.Errorf("invalid MCMS action %s", mcmsAction)
 			}
 
-			metaDataPerChain[chainID], err = mcmssolanasdk.NewChainMetadata(
-				opCount,
+			proposalChainMetadata[chainID], err = mcmssolanasdk.NewChainMetadata(
+				0, // opCount is set later
 				solanaState.McmProgram,
 				instanceSeed,
 				solanaState.ProposerAccessControllerAccount,
@@ -296,25 +329,59 @@ func buildProposalMetadataV2(
 			if err != nil {
 				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
 			}
+
 		case chain_selectors.FamilyAptos:
-			// Get role from action
 			role, err := GetAptosRoleFromAction(mcmsAction)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get role from action: %w", err)
 			}
-			jsonRole, err := json.Marshal(mcmsaptossdk.AdditionalFieldsMetadata{Role: role})
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal role for chain %d: %w", selector, err)
-			}
-			metaDataPerChain[chainID] = types.ChainMetadata{
-				StartingOpCount:  opCount,
-				MCMAddress:       proposerMcms,
-				AdditionalFields: jsonRole,
-			}
+			additionalChainMetadata.Set(selector, "role", role)
+
+			proposalChainMetadata[chainID] = types.ChainMetadata{MCMAddress: mcmAddress}
+
+		default:
+			proposalChainMetadata[chainID] = types.ChainMetadata{MCMAddress: mcmAddress}
 		}
 	}
 
-	return metaDataPerChain, nil
+	if len(inspectorPerChain) == 0 {
+		mcmsChains := cldf_adapters.Wrap(env.BlockChains)
+		inspectors, err := mcmschainwrappers.BuildInspectors(&mcmsChains, proposalChainMetadata, mcmsAction)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build inspectors: %w", err)
+		}
+
+		inspectorPerChain = make(map[uint64]mcmssdk.Inspector)
+		for selector, inspector := range inspectors {
+			inspectorPerChain[uint64(selector)] = inspector
+		}
+	}
+
+	for selector, metadata := range proposalChainMetadata {
+		inspector, ok := inspectorPerChain[uint64(selector)]
+		if !ok {
+			return nil, fmt.Errorf("failed to get inspector for chain %d", selector)
+		}
+
+		opCount, err := inspector.GetOpCount(env.GetContext(), metadata.MCMAddress)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get op count for chain %d: %w", selector, err)
+		}
+		metadata.StartingOpCount = opCount
+
+		additionalMetadata, exists := additionalChainMetadata[uint64(selector)]
+		if exists {
+			marshalledAdditionalMetadata, err := json.Marshal(additionalMetadata)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal extra chain metadata for chain %d: %w", selector, err)
+			}
+			metadata.AdditionalFields = marshalledAdditionalMetadata
+		}
+
+		proposalChainMetadata[selector] = metadata
+	}
+
+	return proposalChainMetadata, nil
 }
 
 func getSolanaState(env cldf.Environment, selector uint64) (*state.MCMSWithTimelockStateSolana, error) {
@@ -375,16 +442,29 @@ func AggregateProposalsV2(
 	proposals []mcmslib.TimelockProposal,
 	description string,
 	mcmsConfig *TimelockConfig,
+	opts ...BuildProposalOption,
 ) (*mcmslib.TimelockProposal, error) {
 	if mcmsConfig == nil {
 		return nil, nil
 	}
 
 	var batches []types.BatchOperation
+	chainMetadata := make(map[types.ChainSelector]types.ChainMetadata)
 
 	// Add proposals to the aggregate.
 	for _, proposal := range proposals {
 		batches = append(batches, proposal.Operations...)
+
+		for selector, metadata := range proposal.ChainMetadata {
+			existingMetadata, exists := chainMetadata[selector]
+			if exists {
+				if !jsonEqual(existingMetadata.AdditionalFields, metadata.AdditionalFields) {
+					return nil, fmt.Errorf("conflicting metadata for chain selector %d: %#v vs %#v", selector, existingMetadata, metadata)
+				}
+			} else {
+				chainMetadata[selector] = metadata
+			}
+		}
 	}
 
 	// Return early if there are no operations.
@@ -392,14 +472,12 @@ func AggregateProposalsV2(
 		return nil, nil
 	}
 
-	// Store the timelocks, proposers, and inspectors for each chain.
+	// Store the timelock and mcm addresses for each chain.
 	timelocks := make(map[uint64]string)
 	mcmsPerChain := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
 	for _, op := range batches {
 		chainSel := uint64(op.ChainSelector)
 		var err error
-		var inspectorOpts []MCMSInspectorOption
 
 		family, err := chain_selectors.GetSelectorFamily(chainSel)
 		if err != nil {
@@ -439,17 +517,6 @@ func AggregateProposalsV2(
 			}
 			timelocks[chainSel] = aptosMCMSAddress.StringLong()
 			mcmsPerChain[chainSel] = aptosMCMSAddress.StringLong()
-			// Getting inspector parameters for Aptos
-			role, err := GetAptosRoleFromAction(mcmsConfig.MCMSAction)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get role from action: %w", err)
-			}
-			inspectorOpts = append(inspectorOpts, WithAptosRole(role))
-		}
-
-		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel, inspectorOpts...)
-		if err != nil {
-			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
 		}
 	}
 
@@ -457,9 +524,30 @@ func AggregateProposalsV2(
 		env,
 		timelocks,
 		mcmsPerChain,
-		inspectors,
+		nil, // inspectors will be set automatically
 		batches,
 		description,
 		*mcmsConfig,
+		opts...,
 	)
+}
+
+func jsonEqual(messageA, messageB json.RawMessage) bool {
+	var unmarshalledA any
+	if len(messageA) > 0 {
+		err := json.Unmarshal(messageA, &unmarshalledA)
+		if err != nil {
+			return false
+		}
+	}
+
+	var unmarshalledB any
+	if len(messageB) > 0 {
+		err := json.Unmarshal(messageB, &unmarshalledB)
+		if err != nil {
+			return false
+		}
+	}
+
+	return reflect.DeepEqual(unmarshalledA, unmarshalledB)
 }

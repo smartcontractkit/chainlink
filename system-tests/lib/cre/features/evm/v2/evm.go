@@ -288,14 +288,14 @@ func createJobs(
 			}
 
 			var configBuffer bytes.Buffer
-			if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-				return errors.Wrapf(err, "failed to execute %s config template", flag)
+			if execErr := tmpl.Execute(&configBuffer, templateData); execErr != nil {
+				return errors.Wrapf(execErr, "failed to execute %s config template", flag)
 			}
 
 			configStr := configBuffer.String()
 
-			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
+			if validateErr := credon.ValidateTemplateSubstitution(configStr, flag); validateErr != nil {
+				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, validateErr, configStr)
 			}
 
 			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain

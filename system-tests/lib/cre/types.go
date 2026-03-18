@@ -394,6 +394,10 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1216,6 +1220,8 @@ type NodeSet struct {
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
 
+	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
+	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
@@ -1627,4 +1633,7 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }
