@@ -25,7 +25,7 @@ import (
 
 const flag = cre.WebAPITriggerCapability
 
-type WebAPITrigger struct{}
+type WebAPITrigger struct{ cre.NoopPostDONStartup }
 
 func (o *WebAPITrigger) Flag() cre.CapabilityFlag {
 	return flag

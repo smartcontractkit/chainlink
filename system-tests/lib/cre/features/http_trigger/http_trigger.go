@@ -29,7 +29,7 @@ import (
 
 const flag = cre.HTTPTriggerCapability
 
-type HTTPTrigger struct{}
+type HTTPTrigger struct{ cre.NoopPostDONStartup }
 
 func (o *HTTPTrigger) Flag() cre.CapabilityFlag {
 	return flag

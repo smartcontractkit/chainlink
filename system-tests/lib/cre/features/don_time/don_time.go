@@ -28,7 +28,7 @@ const flag = cre.DONTimeCapability
 
 const donTimeLabelledName = "dontime"
 
-type DONTime struct{}
+type DONTime struct{ cre.NoopPostDONStartup }
 
 func (o *DONTime) Flag() cre.CapabilityFlag {
 	return flag

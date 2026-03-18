@@ -294,7 +294,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	return &ttypes.TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
 		EnvironmentDirPath:     environmentDirPath,
-		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
+		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath),
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
 	}
@@ -303,7 +303,6 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
-	// we call our own Load function because it executes a couple of crucial extra input transformations
 	in := &envconfig.Config{}
 	err := in.Load(os.Getenv("CTF_CONFIGS"))
 	require.NoError(t, err, "couldn't load environment state")
@@ -336,18 +335,13 @@ func setConfigurationIfMissing(configName string) error {
 
 func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, environmentDir string, flags ...string) error {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
+		framework.L.Info().
+			Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).
+			Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).
+			Msg("Local CRE state file does not exist, starting environment...")
 
-		args := []string{"run", ".", "env", "start"}
-		args = append(args, flags...)
-
-		cmd := exec.CommandContext(ctx, "go", args...)
-		cmd.Dir = environmentDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmdErr := cmd.Run()
-		if cmdErr != nil {
-			return errors.Wrap(cmdErr, "failed to start environment")
+		if err := startEnvironment(ctx, environmentDir, flags...); err != nil {
+			return err
 		}
 	}
 
@@ -395,5 +389,19 @@ func setCldfEVMDeployerKey(env *cldf.Environment, chainSelector uint64, deployer
 	}
 
 	env.BlockChains = cldf_chain.NewBlockChainsFromSlice(chainCopies)
+	return nil
+}
+
+func startEnvironment(ctx context.Context, environmentDir string, flags ...string) error {
+	args := []string{"run", ".", "env", "start"}
+	args = append(args, flags...)
+
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = environmentDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to start environment")
+	}
 	return nil
 }

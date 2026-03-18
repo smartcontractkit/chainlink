@@ -28,7 +28,7 @@ import (
 
 const flag = cre.WebAPITargetCapability
 
-type WebAPITarget struct{}
+type WebAPITarget struct{ cre.NoopPostDONStartup }
 
 func (o *WebAPITarget) Flag() cre.CapabilityFlag {
 	return flag

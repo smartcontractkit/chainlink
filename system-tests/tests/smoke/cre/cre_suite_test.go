@@ -66,7 +66,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 		"failed to start Billing stack",
 	)
 
-	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
+	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }
@@ -242,6 +242,12 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	})
 }
 
+func Test_CRE_V2_Aptos_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
+	t.Run("[v2] Aptos", func(t *testing.T) {
+		ExecuteAptosTest(t, testEnv)
+	})
+}
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
