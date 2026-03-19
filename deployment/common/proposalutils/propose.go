@@ -11,6 +11,12 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	"github.com/smartcontractkit/mcms/types"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -20,11 +26,6 @@ import (
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	mcmslib "github.com/smartcontractkit/mcms"
-	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
-	"github.com/smartcontractkit/mcms/types"
 )
 
 const (
@@ -303,7 +304,7 @@ func buildProposalMetadataV2(
 	env cldf.Environment,
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]mcmssdk.Inspector, // optional
-	mcmAddresses map[uint64]string,                 // can be proposer, canceller or bypasser
+	mcmAddresses map[uint64]string, // can be proposer, canceller or bypasser
 	mcmsAction types.TimelockAction,
 	additionalChainMetadata ChainMetadata,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
