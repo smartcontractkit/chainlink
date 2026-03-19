@@ -567,6 +567,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
+				AptosEnabled:    HasFlag(c.Capabilities, WriteAptosCapability),
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
@@ -1147,6 +1148,13 @@ func (n *NodeMetadata) PeerID() string {
 	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
 }
 
+func (n *NodeMetadata) AptosAccount() string {
+	if n.Keys == nil {
+		return ""
+	}
+	return n.Keys.AptosAccount()
+}
+
 const (
 	DefaultShardOrchestratorPort uint16 = 50051
 	DefaultArbiterPort           uint16 = 9876
@@ -1426,6 +1434,7 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 type NodeKeyInput struct {
 	EVMChainIDs    []uint64
 	SolanaChainIDs []string
+	AptosEnabled   bool
 	Password       string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
@@ -1441,6 +1450,9 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		importedKeys, err := secrets.ImportNodeKeys(input.ImportedSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse imported secrets")
+		}
+		if input.AptosEnabled && importedKeys.Aptos == nil {
+			return nil, errors.New("imported secrets are missing an Aptos key; regenerate node secrets with Aptos support")
 		}
 
 		return importedKeys, nil
@@ -1474,6 +1486,13 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 			return nil, fmt.Errorf("failed to generate Sol keys: %w", err)
 		}
 		out.Solana[chainID] = k
+	}
+	if input.AptosEnabled {
+		k, err := crypto.NewAptosKey(input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Aptos key: %w", err)
+		}
+		out.Aptos = k
 	}
 	return out, nil
 }

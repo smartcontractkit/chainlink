@@ -280,35 +280,6 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features after DON startup")))
-	for _, feature := range input.Features.List() {
-		for _, don := range dons.DonsWithFlag(feature.Flag()) {
-			testLogger.Info().Msgf("Executing PostDONStartup for feature %s for don '%s'", feature.Flag(), don.Name)
-			output, err := feature.PostDONStartup(
-				ctx,
-				testLogger,
-				don,
-				dons,
-				creEnvironment,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to execute PostDONStartup for feature %s: %w", feature.Flag(), err)
-			}
-			if output != nil {
-				if donsCapabilities[don.ID] == nil {
-					donsCapabilities[don.ID] = []keystone_changeset.DONCapabilityWithConfig{}
-				}
-				donsCapabilities[don.ID] = append(donsCapabilities[don.ID], output.DONCapabilityWithConfig...)
-				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
-				for capability, families := range output.CapabilityToExtraSignerFamilies {
-					capabilityToExtraSignerFamilies[capability] = append([]string(nil), families...)
-				}
-			}
-			testLogger.Info().Msgf("PostDONStartup for feature %s executed successfully", feature.Flag())
-		}
-	}
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Features applied in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
 	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)

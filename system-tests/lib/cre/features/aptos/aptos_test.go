@@ -8,14 +8,12 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 func TestSetRuntimeSpecConfig_ReplacesLegacyKey(t *testing.T) {
@@ -156,28 +154,22 @@ func TestNormalizeTransmitter(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestP2PToTransmitterMapForChainSelector(t *testing.T) {
-	selector := uint64(4457093679053095497)
-	chainDetails, err := chainselectors.GetChainDetails(selector)
-	require.NoError(t, err)
-
+func TestP2PToTransmitterMapForWorkers(t *testing.T) {
 	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	transmitAccount := ocrtypes.Account("0xa")
-
-	nodes := deployment.Nodes{
+	workers := []*cre.NodeMetadata{
 		{
-			Name:   "node-1",
-			PeerID: key.PeerID(),
-			SelToOCRConfig: map[chainselectors.ChainDetails]deployment.OCRConfig{
-				chainDetails: {
-					PeerID:          key.PeerID(),
-					TransmitAccount: transmitAccount,
+			Keys: &secrets.NodeKeys{
+				P2PKey: &crypto.P2PKey{
+					PeerID: key.PeerID(),
+				},
+				Aptos: &crypto.AptosKey{
+					Account: "0xa",
 				},
 			},
 		},
 	}
 
-	got, err := p2pToTransmitterMapForChainSelector(nodes, selector)
+	got, err := p2pToTransmitterMapForWorkers(workers)
 	require.NoError(t, err)
 
 	peerID := key.PeerID()

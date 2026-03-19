@@ -254,6 +254,9 @@ func nodeAddress(ctx context.Context, node *cre.Node, chainFamily string, bc blo
 		}
 		return solKey.PublicAddress.String(), nil
 	case chainselectors.FamilyAptos:
+		if node.Keys != nil && node.Keys.AptosAccount() != "" {
+			return node.Keys.AptosAccount(), nil
+		}
 		if len(node.Addresses.AptosAddresses) > 0 {
 			return node.Addresses.AptosAddresses[0], nil
 		}
