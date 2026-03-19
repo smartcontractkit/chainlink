@@ -3,6 +3,7 @@ package secrets
 import (
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -289,11 +290,23 @@ func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 	}
 
 	if sSecrets.Aptos.JSON != nil {
+		aptosJSON := strings.TrimSpace(*sSecrets.Aptos.JSON)
+		if aptosJSON == "" {
+			sSecrets.Aptos.JSON = nil
+			sSecrets.Aptos.Password = nil
+		}
+	}
+
+	if sSecrets.Aptos.JSON != nil {
 		if sSecrets.Aptos.Password == nil {
 			return nil, errors.New("aptos key password is nil")
 		}
+		aptosPassword := strings.TrimSpace(*sSecrets.Aptos.Password)
+		if aptosPassword == "" {
+			return nil, errors.New("aptos key password is empty")
+		}
 
-		aptosKeyValue, err := aptoskey.FromEncryptedJSON([]byte(*sSecrets.Aptos.JSON), *sSecrets.Aptos.Password)
+		aptosKeyValue, err := aptoskey.FromEncryptedJSON([]byte(*sSecrets.Aptos.JSON), aptosPassword)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to decrypt aptos key from encrypted JSON")
 		}
@@ -307,7 +320,7 @@ func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 			EncryptedJSON: []byte(*sSecrets.Aptos.JSON),
 			PublicKey:     aptosKeyValue.PublicKeyStr(),
 			Account:       account,
-			Password:      *sSecrets.Aptos.Password,
+			Password:      aptosPassword,
 		}
 	}
 
