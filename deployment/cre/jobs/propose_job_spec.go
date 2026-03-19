@@ -334,8 +334,7 @@ func requiresOracleFactory(template job_types.JobSpecTemplate, job pkg.StandardC
 		return true
 	}
 
-	// Aptos worker jobs now use the ReadContract template path.
-	// Preserve prior behavior from the dedicated Aptos template by enabling oracle
-	// factory generation whenever an Aptos chain selector is present.
-	return template == job_types.ReadContract && job.ChainSelectorAptos > 0
+	// Aptos ReadContract jobs need oracle-factory generation so we can add the
+	// Aptos OCR key bundle to the multi-chain signing strategy.
+	return template == job_types.ReadContract && job.ChainSelectorAptos != 0
 }
