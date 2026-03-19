@@ -401,8 +401,23 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 
 	belongsToACapabilityDON := len(myCapabilityDONs) > 0
 	if belongsToACapabilityDON {
+		// Include both remote workflow DONs and the node's own workflow DONs.
+		// In single-DON topologies (e.g. local CRE), the same DON is both a
+		// workflow DON and a capability DON, so remoteWorkflowDONs is empty.
+		// Without including myWorkflowDONs, capabilities fail to serve with
+		// "empty workflowDONs provided".
+		allWorkflowDONs := make([]registrysyncer.DON, 0, len(remoteWorkflowDONs)+len(myWorkflowDONs))
+		allWorkflowDONs = append(allWorkflowDONs, remoteWorkflowDONs...)
+		allWorkflowDONs = append(allWorkflowDONs, myWorkflowDONs...)
 		for _, myDON := range myCapabilityDONs {
-			w.serveCapabilities(ctx, w.myPeerID, myDON, localRegistry, remoteWorkflowDONs)
+			w.serveCapabilities(ctx, w.myPeerID, myDON, localRegistry, allWorkflowDONs)
+
+			// Capability DONs also need remote capabilities (e.g. relay DON
+			// needs vault for secret fetching). Without this, only workflow
+			// DONs discover cross-DON capabilities.
+			for _, rcd := range remoteCapabilityDONs {
+				w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
+			}
 		}
 	}
 

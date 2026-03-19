@@ -233,6 +233,73 @@ func TestLauncher(t *testing.T) {
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
 	})
 
+	t.Run("OK-single_DON_serves_capabilities", func(t *testing.T) {
+		// Regression test: in single-DON topologies (e.g. local CRE), the same
+		// DON is both a workflow DON and a capability DON. The DON appears in
+		// myWorkflowDONs (not remoteWorkflowDONs). Previously, serveCapabilities
+		// only received remoteWorkflowDONs, causing executable.Server.SetConfig
+		// to fail with "empty workflowDONs provided".
+		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
+		registry := NewRegistry(lggr)
+		dispatcher := remoteMocks.NewDispatcher(t)
+
+		nodes := newNodes(4)
+		peer := mocks.NewPeer(t)
+		peer.On("UpdateConnections", mock.Anything).Return(nil)
+		peer.On("ID").Return(nodes[0])
+		peer.On("IsBootstrap").Return(false)
+		wrapper := mocks.NewPeerWrapper(t)
+		wrapper.On("GetPeer").Return(peer)
+
+		fullTriggerCapID := "streams-trigger@1.0.0"
+		mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
+			fullTriggerCapID,
+			capabilities.CapabilityTypeTrigger,
+			"streams trigger",
+		))
+		require.NoError(t, registry.Add(t.Context(), mt))
+
+		fullTargetID := "write-chain_evm_1@1.0.0"
+		mtarg := &mockCapability{
+			CapabilityInfo: capabilities.MustNewCapabilityInfo(
+				fullTargetID,
+				capabilities.CapabilityTypeTarget,
+				"write chain",
+			),
+		}
+		require.NoError(t, registry.Add(t.Context(), mtarg))
+
+		triggerCapID := RandomUTF8BytesWord()
+		targetCapID := RandomUTF8BytesWord()
+
+		// Single DON: acceptsWorkflows=true AND has capability configurations.
+		// This puts it in both myWorkflowDONs and myCapabilityDONs.
+		dID := uint32(1)
+		localRegistry := buildLocalRegistry()
+		addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID, targetCapID})
+		addCapabilityToDON(localRegistry, dID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
+		addCapabilityToDON(localRegistry, dID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+
+		launcher, err := NewLauncher(
+			lggr,
+			wrapper,
+			nil,
+			nil,
+			dispatcher,
+			registry,
+			&mockDonNotifier{},
+		)
+		require.NoError(t, err)
+		require.NoError(t, launcher.Start(t.Context()))
+		defer launcher.Close()
+
+		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
+		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*executable.server")).Return(nil)
+
+		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+		assert.Equal(t, 0, observedLogs.FilterMessage("failed to serve capability").Len())
+	})
+
 	t.Run("start and close with nil peer wrapper", func(t *testing.T) {
 		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)

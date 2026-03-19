@@ -311,6 +311,7 @@ type WorkflowRegistrationConfig struct {
 	ConfigFilePath          string
 	CompressedWasmPath      string
 	SecretsURL              string
+	Attributes              []byte
 	WorkflowRegistryAddr    common.Address
 	WorkflowRegistryVersion *semver.Version
 	ChainID                 uint64
@@ -599,6 +600,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
+		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
@@ -670,6 +672,51 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
+		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
+		Blockchains:             testEnv.CreEnvironment.Blockchains,
+	}
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
+	return workflowID
+}
+
+// CompileAndDeployConfidentialWorkflow compiles a workflow WASM binary, copies it to Docker
+// containers, and registers it with confidential attributes on the workflow registry.
+func CompileAndDeployConfidentialWorkflow[T WorkflowConfig](t *testing.T,
+	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
+	workflowConfig *T, workflowFileLocation string, attributes []byte,
+) string {
+	t.Helper()
+
+	testLogger.Info().
+		Str("workflow_name", workflowName).
+		Str("workflow_file_location", workflowFileLocation).
+		Msgf("compiling and registering confidential workflow '%s'", workflowName)
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
+
+	workflowDONs := make([]*cre.Don, 0)
+	for _, don := range testEnv.Dons.List() {
+		if !don.HasFlag(cre.WorkflowDON) {
+			continue
+		}
+		workflowDONs = append(workflowDONs, don)
+	}
+
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
+
+	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+
+	workflowRegConfig := &WorkflowRegistrationConfig{
+		WorkflowName:            workflowName,
+		WorkflowLocation:        workflowFileLocation,
+		ConfigFilePath:          workflowConfigPath,
+		CompressedWasmPath:      compressedWorkflowWasmPath,
+		Attributes:              attributes,
+		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
+		WorkflowRegistryVersion: workflowRegistryAddress.Version,
+		ChainID:                 registryChainSelector,
+		DonID:                   testEnv.Dons.List()[0].ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}

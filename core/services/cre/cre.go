@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -169,6 +170,17 @@ func (s *Services) newSubservices(
 		}
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
+
+		if relayConfig := cfg.CRE().ConfidentialRelay(); relayConfig.Enabled() {
+			relayService := confidentialrelay.NewService(
+				gatewayConnectorWrapper,
+				opts.CapabilitiesRegistry,
+				[]byte(relayConfig.TrustedPCRs()),
+				relayConfig.CARootsPEM(),
+				lggr,
+			)
+			srvs = append(srvs, relayService)
+		}
 	}
 
 	if cfg.CRE().Linking().URL() != "" {
