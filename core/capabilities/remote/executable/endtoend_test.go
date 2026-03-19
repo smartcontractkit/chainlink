@@ -309,7 +309,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil)
+		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil, nil)
 		require.NoError(t, err)
 		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)

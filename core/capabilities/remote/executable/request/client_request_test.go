@@ -8,14 +8,19 @@ import (
 	"testing"
 	"time"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	pbvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	"google.golang.org/protobuf/proto"
@@ -83,7 +88,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		defer req.Cancel(errors.New("test end"))
 
 		require.NoError(t, err)
@@ -134,7 +139,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -168,7 +173,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -199,7 +204,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -237,7 +242,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -298,7 +303,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -330,6 +335,92 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		assert.Equal(t, resp, values.NewString("response1"))
 	})
+	t.Run("Execute Request With Valid Attestation", func(t *testing.T) {
+		ctx := t.Context()
+		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
+
+		configDigest := ocrtypes.ConfigDigest{1, 2, 3, 4, 5}
+		kb1, err := ocr2key.New(corekeys.EVM)
+		require.NoError(t, err)
+		kb2, err := ocr2key.New(corekeys.EVM)
+		require.NoError(t, err)
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", map[string]ocrtypes.ContractConfig{
+				pb.OCR3ConfigDefaultKey: {
+					ConfigDigest: configDigest,
+					Signers:      []ocrtypes.OnchainPublicKey{kb1.PublicKey(), kb2.PublicKey()},
+					F:            1,
+				},
+			})
+		require.NoError(t, err)
+		defer req.Cancel(errors.New("test end"))
+
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		seqNr := uint64(100)
+
+		payload, err := values.NewMap(map[string]int{
+			"number": 42,
+		})
+		require.NoError(t, err)
+		payloadAsAny, err := anypb.New(values.Proto(payload))
+		require.NoError(t, err)
+
+		spendUnit, spendValue := "testunit", "42"
+		reportData := commoncap.ResponseToReportData(capabilityRequest.Metadata.WorkflowExecutionID, capabilityRequest.Metadata.ReferenceID, payloadAsAny.Value, spendUnit, spendValue)
+
+		sig1, err := kb1.Sign3(configDigest, seqNr, reportData)
+		require.NoError(t, err)
+		sig2, err := kb2.Sign3(configDigest, seqNr, reportData)
+		require.NoError(t, err)
+
+		rawResponseWithAttestation, err := pb.MarshalCapabilityResponse(commoncap.CapabilityResponse{
+			Metadata: commoncap.ResponseMetadata{
+				Metering: []commoncap.MeteringNodeDetail{
+					{SpendUnit: spendUnit, SpendValue: spendValue},
+				},
+				OCRAttestation: &commoncap.ResponseOCRAttestation{
+					ConfigDigest:   configDigest,
+					SequenceNumber: seqNr,
+					Sigs: []commoncap.AttributedSignature{
+						{Signer: 0, Signature: sig1},
+						{Signer: 1, Signature: sig2},
+					},
+				},
+			},
+			Payload: payloadAsAny,
+		})
+		require.NoError(t, err)
+
+		msg := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResponseWithAttestation,
+			MessageId:       []byte("messageID"),
+		}
+		msg.Sender = capabilityPeers[0][:]
+		err = req.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-req.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		var pbValue pbvalues.Value
+		require.NoError(t, capResponse.Payload.UnmarshalTo(&pbValue))
+		receivedValue, err := values.FromProto(&pbValue)
+		require.NoError(t, err)
+
+		var receivedMap map[string]int
+		require.NoError(t, receivedValue.UnwrapTo(&receivedMap))
+
+		assert.Equal(t, 42, receivedMap["number"])
+	})
 
 	t.Run("Executes full schedule", func(t *testing.T) {
 		beholderTester := beholdertest.NewObserver(t)
@@ -357,6 +448,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			10*time.Minute,
 			nil,
 			"",
+			nil,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -476,6 +568,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			10*time.Minute,
 			nil,
 			"",
+			nil,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
@@ -568,7 +661,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
@@ -633,6 +726,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 				DeltaStage: 1000 * time.Millisecond,
 			},
 			"",
+			nil,
 		)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))

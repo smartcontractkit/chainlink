@@ -10,10 +10,12 @@ import (
 	"sync"
 	"time"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -33,16 +35,19 @@ type clientResponse struct {
 }
 
 type ClientRequest struct {
-	id                string
-	cancelFn          context.CancelFunc
-	responseCh        chan clientResponse
-	createdAt         time.Time
-	responseIDCount   map[[32]byte]int
-	meteringResponses map[[32]byte][]commoncap.MeteringNodeDetail
-	errorCount        map[string]int
-	totalErrorCount   int
-	responseReceived  map[p2ptypes.PeerID]bool
-	lggr              logger.Logger
+	id                  string
+	cancelFn            context.CancelFunc
+	responseCh          chan clientResponse
+	createdAt           time.Time
+	responseIDCount     map[[32]byte]int
+	meteringResponses   map[[32]byte][]commoncap.MeteringNodeDetail
+	errorCount          map[string]int
+	totalErrorCount     int
+	responseReceived    map[p2ptypes.PeerID]bool
+	lggr                logger.Logger
+	ocr3Configs         map[string]ocrtypes.ContractConfig
+	workflowExecutionID string
+	referenceID         string
 
 	requiredIdenticalResponses int
 	remoteNodeCount            int
@@ -58,6 +63,7 @@ type ClientRequest struct {
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+	ocr3Configs map[string]ocrtypes.ContractConfig,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -87,7 +93,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, ocr3Configs)
 }
 
 var defaultDelayMargin = 10 * time.Second
@@ -95,6 +101,7 @@ var defaultDelayMargin = 10 * time.Second
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
 	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	ocr3Configs map[string]ocrtypes.ContractConfig,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -200,6 +207,9 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		responseCh:                 make(chan clientResponse, 1),
 		wg:                         &wg,
 		lggr:                       lggr,
+		ocr3Configs:                ocr3Configs,
+		workflowExecutionID:        workflowExecutionID,
+		referenceID:                stepRef,
 	}, nil
 }
 
@@ -301,6 +311,34 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.responseReceived[sender] = true
 
 	if msg.Error == types.Error_OK {
+		resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal capability response: %w", err)
+		}
+
+		if resp.Metadata.OCRAttestation != nil {
+			rpt, err := extractMeteringFromMetadata(sender, resp.Metadata)
+			if err != nil {
+				return fmt.Errorf("failed to extract metering detail from metadata: %w", err)
+			}
+			// Since signatures are provided switch to OCR based validation. It's enough to get 1 response with F+1 signatures
+			// to be confident that the response is honest.
+			err = c.verifyAttestation(resp, rpt)
+			if err != nil {
+				c.lggr.Errorw("failed to verify capability response OCR attestation", "peer", sender, "err", err, "requestID", c.id, "msgPayload", hex.EncodeToString(msg.Payload))
+				return fmt.Errorf("failed to verify capability response OCR attestation: %w", err)
+			}
+
+			var payload []byte
+			payload, err = c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: []commoncap.MeteringNodeDetail{rpt}})
+			if err != nil {
+				return fmt.Errorf("failed to encode payload with metadata: %w", err)
+			}
+
+			c.sendResponse(clientResponse{Result: payload})
+			return nil
+		}
+
 		// metering reports per node are aggregated into a single array of values. for any single node message, the
 		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
 		// is marshalled without the metering value to get the hash. each node could have a different metering value
@@ -317,13 +355,11 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
 		}
 
-		if len(metadata.Metering) == 1 {
-			rpt := metadata.Metering[0]
-			rpt.Peer2PeerID = sender.String()
-
-			nodeReports = append(nodeReports, rpt)
+		rpt, err := extractMeteringFromMetadata(sender, metadata)
+		if err != nil {
+			lggr.Warnw("invalid metering detail", "err", err)
 		} else {
-			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
+			nodeReports = append(nodeReports, rpt)
 		}
 
 		c.responseIDCount[responseID]++
@@ -356,6 +392,53 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
 		}
 	}
+	return nil
+}
+
+func extractMeteringFromMetadata(sender p2ptypes.PeerID, metadata commoncap.ResponseMetadata) (commoncap.MeteringNodeDetail, error) {
+	if len(metadata.Metering) != 1 {
+		return commoncap.MeteringNodeDetail{}, fmt.Errorf("unexpected number of metering records received from pperi %s: got %d, want 1", sender, len(metadata.Metering))
+	}
+
+	rpt := metadata.Metering[0]
+	rpt.Peer2PeerID = sender.String()
+	return rpt, nil
+}
+
+func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse, metering commoncap.MeteringNodeDetail) error {
+	if c.ocr3Configs == nil {
+		return errors.New("OCR3 configs not provided, cannot verify signatures")
+	}
+
+	cfg, ok := c.ocr3Configs[pb.OCR3ConfigDefaultKey]
+	if !ok {
+		return fmt.Errorf("OCR3 config with key %s not found", pb.OCR3ConfigDefaultKey)
+	}
+
+	attestation := resp.Metadata.OCRAttestation
+	if len(attestation.Sigs) < int(cfg.F)+1 {
+		return fmt.Errorf("not enough signatures: got %d, need at least %d", len(attestation.Sigs), cfg.F+1)
+	}
+
+	reportData := commoncap.ResponseToReportData(c.workflowExecutionID, c.referenceID, resp.Payload.Value, metering.SpendUnit, metering.SpendValue)
+	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData)
+	signed := make([]bool, len(cfg.Signers))
+	for _, sig := range attestation.Sigs {
+		if int(sig.Signer) > len(cfg.Signers) {
+			return fmt.Errorf("invalid signer index: %d", sig.Signer)
+		}
+
+		if signed[sig.Signer] {
+			return fmt.Errorf("duplicate signature from signer index: %d", sig.Signer)
+		}
+
+		if !ocr2key.EvmVerifyBlob(cfg.Signers[sig.Signer], sigData, sig.Signature) {
+			return fmt.Errorf("invalid signature from signer index: %d", sig.Signer)
+		}
+
+		signed[sig.Signer] = true
+	}
+
 	return nil
 }
 

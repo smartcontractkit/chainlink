@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -46,12 +48,14 @@ type dynamicConfig struct {
 	requestTimeout       time.Duration
 	// Has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 	transmissionConfig *transmission.TransmissionConfig
+	// Has to be set only for V2 capabilities using OCR.
+	ocr3Configs map[string]ocrtypes.ContractConfig
 }
 
 type Client interface {
 	commoncap.ExecutableCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
-	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) error
+	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, ocr3Configs map[string]ocrtypes.ContractConfig) error
 }
 
 var _ Client = &client{}
@@ -78,7 +82,7 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 
 // SetConfig sets the remote capability configuration dynamically
 // TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig) error {
+func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, ocr3Configs map[string]ocrtypes.ContractConfig) error {
 	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
 		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
 	}
@@ -98,8 +102,9 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		localDONInfo:         localDonInfo,
 		requestTimeout:       requestTimeout,
 		transmissionConfig:   transmissionConfig,
+		ocr3Configs:          ocr3Configs,
 	})
-	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig)
+	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig, "ocr3Configs", ocr3Configs)
 	return nil
 }
 
@@ -234,7 +239,7 @@ func (c *client) Execute(ctx context.Context, capReq commoncap.CapabilityRequest
 	}
 
 	req, err := request.NewClientExecuteRequest(ctx, c.lggr, capReq, cfg.remoteCapabilityInfo, cfg.localDONInfo, c.dispatcher,
-		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName)
+		cfg.requestTimeout, cfg.transmissionConfig, c.capMethodName, cfg.ocr3Configs)
 	if err != nil {
 		return commoncap.CapabilityResponse{}, fmt.Errorf("failed to create client request: %w", err)
 	}
