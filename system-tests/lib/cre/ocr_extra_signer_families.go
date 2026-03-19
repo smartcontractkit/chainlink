@@ -8,9 +8,9 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 )
 
-// NonEVMOCRSignerFamilies returns the non-EVM OCR signer families present in the
-// environment. EVM is always included separately by OCR config generation.
-func NonEVMOCRSignerFamilies(blockchains []blockchains.Blockchain) []string {
+// OCRExtraSignerFamilies returns the additional signer families that should be
+// included in OCR3 config generation beyond the default EVM signer family.
+func OCRExtraSignerFamilies(blockchains []blockchains.Blockchain) []string {
 	familiesSet := make(map[string]struct{})
 	for _, blockchain := range blockchains {
 		switch {
