@@ -13,25 +13,6 @@ runner-test-matrix:
 
   # START: Automation tests
 
-  - id: load/automationv2_1/automationv2_1_test.go:TestLogTrigger
-    path: integration-tests/load/automationv2_1/automationv2_1_test.go
-    runs_on: ubuntu-latest
-    test_env_type: k8s-remote-runner
-    test_cmd: |
-      cd load/automationv2_1 && \
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "TestLogTrigger" -parallel=1 -timeout 60m -count=1
-    remote_runner_memory: 4Gi
-    test_secrets_required: true
-    test_env_vars:
-      TEST_LOG_LEVEL: info
-      TEST_SUITE: automationv2_1
-    pyroscope_env: automation-load-test
-    test_go_project_path: integration-tests
-
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_0
     path: integration-tests/reorg/automation_reorg_test.go
     runs_on: ubuntu-latest
@@ -196,82 +177,6 @@ runner-test-matrix:
     test_secrets_required: true
     triggers:
       - On Demand VRFV2 Smoke Test (Ethereum clients)
-    test_go_project_path: integration-tests
-
-  - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusPerformance$Smoke
-    path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
-    test_env_type: docker
-    test_cmd: |
-      cd load/vrfv2plus && \
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^TestVRFV2PlusPerformance$" -parallel=1 -timeout 24h -count=1
-    test_config_override_required: true
-    test_secrets_required: true
-    test_env_vars:
-      TEST_TYPE: Smoke
-    triggers:
-      - On Demand VRFV2 Plus Performance Test
-    test_go_project_path: integration-tests
-
-  - id: load/vrfv2plus/vrfv2plus_test.go:^TestVRFV2PlusBHSPerformance$Smoke
-    path: integration-tests/load/vrfv2plus/vrfv2plus_test.go
-    runs_on: ubuntu22.04-8cores-32GB
-    test_env_type: docker
-    test_cmd: |
-      cd load/vrfv2plus && \
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
-    test_config_override_required: true
-    test_secrets_required: true
-    test_env_vars:
-      TEST_TYPE: Smoke
-    triggers:
-      - On Demand VRFV2 Plus Performance Test
-    test_go_project_path: integration-tests
-
-  - id: load/vrfv2/vrfv2_test.go:^TestVRFV2Performance$Smoke
-    path: integration-tests/load/vrfv2/vrfv2_test.go
-    runs_on: ubuntu22.04-8cores-32GB
-    test_env_type: docker
-    test_cmd: |
-      cd load/vrfv2 && \
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^TestVRFV2Performance$" -parallel=1 -timeout 24h -count=1
-    test_config_override_required: true
-    test_secrets_required: true
-    test_env_vars:
-      TEST_TYPE: Smoke
-    triggers:
-      - On Demand VRFV2 Performance Test
-    test_go_project_path: integration-tests
-
-  - id: load/vrfv2/vrfv2_test.go:^TestVRFV2PlusBHSPerformance$Smoke
-    path: integration-tests/load/vrfv2/vrfv2_test.go
-    runs_on: ubuntu22.04-8cores-32GB
-    test_env_type: docker
-    test_cmd: |
-      cd load/vrfv2 && \
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^TestVRFV2PlusBHSPerformance$" -parallel=1 -timeout 24h -count=1
-    test_config_override_required: true
-    test_secrets_required: true
-    test_env_vars:
-      TEST_TYPE: Smoke
-    triggers:
-      - On Demand VRFV2 Performance Test
     test_go_project_path: integration-tests
 
   - id: smoke/vrf_test.go:*
