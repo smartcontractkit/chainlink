@@ -38,3 +38,28 @@ func TestNodeKeysAptosSecretsRoundTrip(t *testing.T) {
 	require.Equal(t, p2pKey.PeerID, imported.P2PKey.PeerID)
 	require.Equal(t, dkgKey.PubKey, imported.DKGKey.PubKey)
 }
+
+func TestImportNodeKeys_IgnoresEmptyAptosSecret(t *testing.T) {
+	t.Parallel()
+
+	p2pKey, err := crypto.NewP2PKey("dev-password")
+	require.NoError(t, err)
+	dkgKey, err := crypto.NewDKGRecipientKey("dev-password")
+	require.NoError(t, err)
+
+	keys := &NodeKeys{
+		P2PKey: p2pKey,
+		DKGKey: dkgKey,
+		EVM:    map[uint64]*crypto.EVMKey{},
+		Solana: map[string]*crypto.SolKey{},
+	}
+
+	secretsTOML, err := keys.ToNodeSecretsTOML()
+	require.NoError(t, err)
+
+	imported, err := ImportNodeKeys(secretsTOML)
+	require.NoError(t, err)
+	require.Nil(t, imported.Aptos)
+	require.Equal(t, p2pKey.PeerID, imported.P2PKey.PeerID)
+	require.Equal(t, dkgKey.PubKey, imported.DKGKey.PubKey)
+}
