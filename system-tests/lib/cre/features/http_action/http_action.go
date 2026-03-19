@@ -29,7 +29,7 @@ import (
 
 const flag = cre.HTTPActionCapability
 
-type HTTPAction struct{ cre.NoopPostDONStartup }
+type HTTPAction struct{}
 
 func (o *HTTPAction) Flag() cre.CapabilityFlag {
 	return flag

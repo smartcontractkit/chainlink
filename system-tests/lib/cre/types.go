@@ -1654,38 +1654,9 @@ type Feature interface {
 		dons *Dons,
 		creEnv *Environment,
 	) error
-	PostDONStartup(
-		ctx context.Context,
-		testLogger zerolog.Logger,
-		don *Don,
-		dons *Dons,
-		creEnv *Environment,
-	) (*PostDONStartupOutput, error)
-}
-
-type NoopPostDONStartup struct{}
-
-func (NoopPostDONStartup) PostDONStartup(
-	context.Context,
-	zerolog.Logger,
-	*Don,
-	*Dons,
-	*Environment,
-) (*PostDONStartupOutput, error) {
-	return nil, nil
 }
 
 type PreEnvStartupOutput struct {
-	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
-	// keyed by LabelledName
-	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
-	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
-	// included in OCR3 config signers for that capability (e.g. ["solana"]).
-	// EVM is always included.
-	CapabilityToExtraSignerFamilies map[string][]string
-}
-
-type PostDONStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig

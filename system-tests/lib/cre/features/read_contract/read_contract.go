@@ -29,7 +29,7 @@ import (
 
 const flag = cre.ReadContractCapability
 
-type ReadContract struct{ cre.NoopPostDONStartup }
+type ReadContract struct{}
 
 func (o *ReadContract) Flag() cre.CapabilityFlag {
 	return flag

@@ -34,7 +34,7 @@ import (
 const flag = cre.ConsensusCapabilityV2
 const consensusLabelledName = "consensus"
 
-type Consensus struct{ cre.NoopPostDONStartup }
+type Consensus struct{}
 
 func (c *Consensus) Flag() cre.CapabilityFlag {
 	return flag

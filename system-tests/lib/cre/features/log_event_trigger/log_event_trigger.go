@@ -26,7 +26,7 @@ import (
 
 const flag = cre.LogEventTriggerCapability
 
-type LogEventTrigger struct{ cre.NoopPostDONStartup }
+type LogEventTrigger struct{}
 
 func (o *LogEventTrigger) Flag() cre.CapabilityFlag {
 	return flag
