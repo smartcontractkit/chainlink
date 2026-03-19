@@ -15,6 +15,7 @@ import (
 type DeployCurseMCMSConfig struct {
 	CurseMCMSConfigPerChain    map[uint64]types.MCMSWithTimelockConfigV2
 	MCMSTimelockConfigPerChain map[uint64]proposalutils.TimelockConfig
+	MaxGasAmountPerChain       map[uint64]uint64
 }
 
 func (c DeployCurseMCMSConfig) Validate() error {

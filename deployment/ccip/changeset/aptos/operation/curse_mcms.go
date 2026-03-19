@@ -19,8 +19,9 @@ import (
 
 // OP: DeployCurseMCMSOp deploys CurseMCMS to a new resource account.
 type DeployCurseMCMSInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
+	MCMSAddress  aptos.AccountAddress
+	CCIPAddress  aptos.AccountAddress
+	MaxGasAmount uint64
 }
 
 var DeployCurseMCMSOp = operations.NewOperation(
@@ -43,7 +44,7 @@ func deployCurseMCMS(b operations.Bundle, deps dependency.AptosDeps, in DeployCu
 			"mcms":                      in.MCMSAddress,
 			"mcms_register_entrypoints": aptos.AccountOne,
 		},
-		aptos.MaxGasAmount(1_000_000),
+		aptos.MaxGasAmount(in.MaxGasAmount),
 	)
 	if err != nil {
 		return aptos.AccountAddress{}, fmt.Errorf("failed to deploy CurseMCMS: %w", err)

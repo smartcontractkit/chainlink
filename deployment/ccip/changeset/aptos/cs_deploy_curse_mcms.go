@@ -80,9 +80,10 @@ func (cs DeployCurseMCMS) Apply(env cldf.Environment, cfg config.DeployCurseMCMS
 		}
 
 		seqInput := seq.DeployCurseMCMSSeqInput{
-			MCMSAddress: chainState.MCMSAddress,
-			CCIPAddress: chainState.CCIPAddress,
-			CurseMCMS:   curseMCMSConfig,
+			MCMSAddress:  chainState.MCMSAddress,
+			CCIPAddress:  chainState.CCIPAddress,
+			CurseMCMS:    curseMCMSConfig,
+			MaxGasAmount: cfg.MaxGasAmountPerChain[chainSel],
 		}
 
 		curseMCMSSeqReport, err := operations.ExecuteSequence(env.OperationsBundle, seq.DeployCurseMCMSSequence, deps, seqInput)

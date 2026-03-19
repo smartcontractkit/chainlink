@@ -13,9 +13,10 @@ import (
 
 // DeployCurseMCMSSeqInput holds the configuration for deploying CurseMCMS.
 type DeployCurseMCMSSeqInput struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
-	CurseMCMS   types.MCMSWithTimelockConfigV2
+	MCMSAddress  aptos.AccountAddress
+	CCIPAddress  aptos.AccountAddress
+	CurseMCMS    types.MCMSWithTimelockConfigV2
+	MaxGasAmount uint64
 }
 
 // DeployCurseMCMSSeqOutput holds the deployed address and a CurseMCMS
@@ -43,8 +44,9 @@ func deployCurseMCMSSequence(b operations.Bundle, deps dependency.AptosDeps, in 
 
 	// Deploy CurseMCMS
 	deployReport, err := operations.ExecuteOperation(b, operation.DeployCurseMCMSOp, deps, operation.DeployCurseMCMSInput{
-		MCMSAddress: in.MCMSAddress,
-		CCIPAddress: in.CCIPAddress,
+		MCMSAddress:  in.MCMSAddress,
+		CCIPAddress:  in.CCIPAddress,
+		MaxGasAmount: in.MaxGasAmount,
 	})
 	if err != nil {
 		return DeployCurseMCMSSeqOutput{}, err
