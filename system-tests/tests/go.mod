@@ -133,7 +133,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260319130508-864ab5791bdc // indirect
+	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260319152407-57c347dca95d // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260318003508-442c25062e9a // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075 // indirect
 	github.com/stellar/go-stellar-sdk v0.1.0 // indirect

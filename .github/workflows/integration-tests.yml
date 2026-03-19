@@ -286,6 +286,7 @@ jobs:
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
+            DOCKER_TAG=${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           go-get-overrides: |
             github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}

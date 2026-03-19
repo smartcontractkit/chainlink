@@ -202,6 +202,7 @@ type ApplicationOpts struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 	VersionTag               string
+	DockerTag                string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator

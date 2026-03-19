@@ -176,6 +176,7 @@ build_docker_image: check_github_token
 	docker build -f ../core/chainlink.Dockerfile \
 		--build-arg COMMIT_SHA=$(git rev-parse HEAD) \
 		--build-arg VERSION_TAG=$(git describe --always) \
+		--build-arg DOCKER_TAG=$(tag) \
 		--build-arg CHAINLINK_USER=chainlink \
 		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../
@@ -215,4 +216,3 @@ push-ccip-test-image:
 	aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com
 	docker tag chainlink-tests:latest $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
 	docker push $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
-

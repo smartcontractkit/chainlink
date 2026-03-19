@@ -34,6 +34,7 @@ type NodePlatformBuildInfoConfig struct {
 	Lggr         logger.Logger
 	CSAPublicKey string
 	CommitSHA    string
+	DockerTag    string
 	VersionTag   string
 	Version      string
 }
@@ -61,11 +62,17 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 		versionTag = static.VersionTag
 	}
 
+	dockerTag := opts.DockerTag
+	if dockerTag == "" {
+		dockerTag = static.DockerTag
+	}
+
 	return NodePlatformBuildInfoConfig{
 		Beat:         opts.Config.Telemetry().HeartbeatInterval(),
 		Lggr:         opts.Logger,
 		CSAPublicKey: csaKey,
 		CommitSHA:    static.Sha,
+		DockerTag:    dockerTag,
 		VersionTag:   versionTag,
 		Version:      version,
 	}
@@ -107,6 +114,7 @@ func (h *NodePlatformBuildInfo) emit(ctx context.Context) {
 	payloadBytes, err := proto.Marshal(&commonv1.NodeBuildInfo{
 		CsaPublicKey: h.opts.CSAPublicKey,
 		CommitSha:    h.opts.CommitSHA,
+		DockerTag:    h.opts.DockerTag,
 		VersionTag:   h.opts.VersionTag,
 		Version:      h.opts.Version,
 	})

@@ -33,6 +33,7 @@ ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
+ARG DOCKER_TAG
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token

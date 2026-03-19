@@ -80,6 +80,7 @@ jobs:
           docker-additional-build-args: |
             CL_INSTALL_PRIVATE_PLUGINS=true
             CL_INSTALL_TESTING_PLUGINS=true
+            DOCKER_TAG=${{ format('PR-{0}-{1}', github.event.pull_request.number, github.sha) }}
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

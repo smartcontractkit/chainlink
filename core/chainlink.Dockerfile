@@ -27,6 +27,7 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
+ARG DOCKER_TAG
 # Flag to control whether this is a prod build (default: true)
 ARG CL_IS_PROD_BUILD=true
 

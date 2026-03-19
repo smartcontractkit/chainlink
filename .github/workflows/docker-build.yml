@@ -35,6 +35,7 @@ jobs:
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
+      docker-tag-base: ${{ steps.docker-tag.outputs.docker-tag-base }}
     steps:
       - name: Get PR Labels
         id: pr-labels
@@ -65,6 +66,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ inputs.git-ref || github.sha }}
 
       - name: Version Info
         id: version-info
@@ -72,6 +74,44 @@ jobs:
           pkg_version=$(jq -r '.version' ./package.json)
           version_tag="${pkg_version}-dev"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Compute Docker tag
+        id: docker-tag
+        shell: bash
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          short_sha="$(git rev-parse --short=7 HEAD)"
+
+          case "${GITHUB_EVENT_NAME}" in
+            pull_request)
+              docker_tag="pr-${PR_NUMBER}-${short_sha}"
+              ;;
+            schedule)
+              docker_tag="nightly-$(date +%Y%m%d)"
+              ;;
+            workflow_dispatch)
+              docker_tag="manual-${short_sha}"
+              ;;
+            push)
+              if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+                docker_tag="${GITHUB_REF_NAME}"
+              elif [[ -n "${GITHUB_REF_NAME}" ]]; then
+                ref_name="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')"
+                docker_tag="${ref_name}-${short_sha}"
+              else
+                docker_tag="sha-${short_sha}"
+              fi
+              ;;
+            *)
+              docker_tag="sha-${short_sha}"
+              ;;
+          esac
+
+          echo "docker-tag-base=${docker_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
     needs: [init]
@@ -89,6 +129,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
       git-sha: ${{ inputs.git-ref || github.sha }}
@@ -121,6 +162,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
@@ -155,6 +197,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins-testing
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
@@ -190,6 +233,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
@@ -225,6 +269,7 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
+        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config

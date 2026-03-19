@@ -22,6 +22,7 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
 		CommitSHA:    "commit-sha",
+		DockerTag:    "docker-tag",
 		VersionTag:   "version-tag",
 		Version:      "1.2.3",
 	})
@@ -46,6 +47,7 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
 	require.Equal(t, "csa-public-key", payload.CsaPublicKey)
 	require.Equal(t, "commit-sha", payload.CommitSha)
+	require.Equal(t, "docker-tag", payload.DockerTag)
 	require.Equal(t, "version-tag", payload.VersionTag)
 	require.Equal(t, "1.2.3", payload.Version)
 }
