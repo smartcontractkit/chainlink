@@ -594,21 +594,7 @@ func AptosAccountsForNode(_ context.Context, n *Node) ([]string, error) {
 		n.Addresses.AptosAddresses = []string{n.Keys.AptosAccount()}
 		return append([]string(nil), n.Addresses.AptosAddresses...), nil
 	}
-	if n.Clients.RestClient == nil {
-		return nil, fmt.Errorf("missing cached aptos addresses for node %s and node has no rest client", n.Name)
-	}
-
-	accounts, err := n.Clients.RestClient.MustReadAptosAccounts()
-	if err != nil {
-		return nil, fmt.Errorf("fetch aptos accounts for node %s: %w", n.Name, err)
-	}
-	if len(accounts) == 0 {
-		return nil, fmt.Errorf("no aptos accounts found for node %s", n.Name)
-	}
-
-	n.Addresses.AptosAddresses = append([]string(nil), accounts...)
-
-	return append([]string(nil), n.Addresses.AptosAddresses...), nil
+	return nil, fmt.Errorf("missing cached aptos addresses for node %s", n.Name)
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec

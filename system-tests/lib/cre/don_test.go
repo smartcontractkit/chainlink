@@ -28,7 +28,7 @@ func TestAptosAccountsForNode_ReturnsCachedAddresses(t *testing.T) {
 	require.Equal(t, []string{"0x1", "0x2"}, node.Addresses.AptosAddresses)
 }
 
-func TestAptosAccountsForNode_RequiresClientWhenCacheMissing(t *testing.T) {
+func TestAptosAccountsForNode_RequiresCachedMetadataWhenCacheMissing(t *testing.T) {
 	t.Parallel()
 
 	node := &Node{
@@ -37,7 +37,7 @@ func TestAptosAccountsForNode_RequiresClientWhenCacheMissing(t *testing.T) {
 
 	_, err := AptosAccountsForNode(context.Background(), node)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "missing cached aptos addresses for node node-1 and node has no rest client")
+	require.ErrorContains(t, err, "missing cached aptos addresses for node node-1")
 }
 
 func TestAptosAccountsForNode_ReturnsMetadataKeyWhenCacheMissing(t *testing.T) {

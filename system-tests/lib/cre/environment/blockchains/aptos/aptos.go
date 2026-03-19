@@ -286,11 +286,6 @@ func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 }
 
 func (a *Blockchain) faucetURL() (string, error) {
-	if a.ctfOutput != nil && a.ctfOutput.NetworkSpecificData != nil && a.ctfOutput.NetworkSpecificData.AptosNetwork != nil {
-		if faucetURL := strings.TrimSpace(a.ctfOutput.NetworkSpecificData.AptosNetwork.FaucetURL); faucetURL != "" {
-			return faucetURL, nil
-		}
-	}
 	if a.ctfOutput == nil || len(a.ctfOutput.Nodes) == 0 {
 		return "", errors.New("missing chain nodes output")
 	}
