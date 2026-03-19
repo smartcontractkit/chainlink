@@ -22,6 +22,7 @@ ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
+ok NodePlatformBuildInfo
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
