@@ -2,6 +2,7 @@ package confidentialrelay
 
 import (
 	"context"
+	"fmt"
 
 	tomlser "github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -9,10 +10,10 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 const flag = cre.ConfidentialRelayCapability

@@ -111,7 +111,7 @@ type confidentialRelayConfig struct {
 	caRootsPEM  string
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool      { return cr.enabled }
+func (cr *confidentialRelayConfig) Enabled() bool       { return cr.enabled }
 func (cr *confidentialRelayConfig) TrustedPCRs() string { return cr.trustedPCRs }
 func (cr *confidentialRelayConfig) CARootsPEM() string  { return cr.caRootsPEM }
 

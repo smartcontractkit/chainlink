@@ -310,7 +310,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			reg := tt.registry(t)
 			h := newTestHandler(t, reg, gwConn)
 			err := h.HandleGatewayMessage(t.Context(), "gw-1", tt.req(t))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			require.NotNil(t, gwConn.lastResp)
 			tt.checkResp(t, gwConn.lastResp)
 			if tt.checkExecutable != nil {

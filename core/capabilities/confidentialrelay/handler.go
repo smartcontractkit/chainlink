@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -227,7 +227,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	}
 
 	vaultResp := &vault.GetSecretsResponse{}
-	if err := capResp.Payload.UnmarshalTo(vaultResp); err != nil {
+	if err = capResp.Payload.UnmarshalTo(vaultResp); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to unmarshal vault response: %w", err))
 	}
 
@@ -241,8 +241,8 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 // resolveDONID determines the DON ID for a capability.
 // Keeping for potential future use by handleCapabilityExecute.
-func (h *Handler) resolveDONID(ctx context.Context, cap capabilities.ExecutableCapability) (uint32, error) { //nolint:unused
-	info, err := cap.Info(ctx)
+func (h *Handler) resolveDONID(ctx context.Context, capability capabilities.ExecutableCapability) (uint32, error) { //nolint:unused
+	info, err := capability.Info(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get capability info: %w", err)
 	}
@@ -321,7 +321,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
-	cap, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
+	capability, err := h.capRegistry.GetExecutable(ctx, params.CapabilityID)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("capability not found: %w", err))
 	}
@@ -358,7 +358,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		}
 	}
 
-	capResp, execErr := cap.Execute(ctx, capReq)
+	capResp, execErr := capability.Execute(ctx, capReq)
 
 	var result confidentialrelaytypes.CapabilityResponseResult
 	if execErr != nil {

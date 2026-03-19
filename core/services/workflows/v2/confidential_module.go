@@ -97,8 +97,8 @@ func NewConfidentialModule(
 	}
 }
 
-func (m *ConfidentialModule) Start() {}
-func (m *ConfidentialModule) Close() {}
+func (m *ConfidentialModule) Start()            {}
+func (m *ConfidentialModule) Close()            {}
 func (m *ConfidentialModule) IsLegacyDAG() bool { return false }
 
 func (m *ConfidentialModule) Execute(
@@ -141,7 +141,7 @@ func (m *ConfidentialModule) Execute(
 		return nil, fmt.Errorf("failed to marshal capability payload: %w", err)
 	}
 
-	cap, err := m.capRegistry.GetExecutable(ctx, confidentialWorkflowsCapabilityID)
+	executable, err := m.capRegistry.GetExecutable(ctx, confidentialWorkflowsCapabilityID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get confidential-workflows capability: %w", err)
 	}
@@ -159,7 +159,7 @@ func (m *ConfidentialModule) Execute(
 		},
 	}
 
-	capResp, err := cap.Execute(ctx, capReq)
+	capResp, err := executable.Execute(ctx, capReq)
 	if err != nil {
 		return nil, fmt.Errorf("confidential-workflows capability execution failed: %w", err)
 	}
