@@ -61,11 +61,17 @@ func (o *ConfidentialRelay) PreEnvStartup(
 			enabled := true
 			relayConf := &coretoml.ConfidentialRelayConfig{Enabled: &enabled}
 			if v, exists := capConfig.Values["trustedPCRs"]; exists {
-				s := v.(string)
+				s, ok := v.(string)
+				if !ok {
+					return nil, fmt.Errorf("trustedPCRs must be a string, got %T", v)
+				}
 				relayConf.TrustedPCRs = &s
 			}
 			if v, exists := capConfig.Values["caRootsPEM"]; exists {
-				s := v.(string)
+				s, ok := v.(string)
+				if !ok {
+					return nil, fmt.Errorf("caRootsPEM must be a string, got %T", v)
+				}
 				relayConf.CARootsPEM = &s
 			}
 			typedConfig.CRE.ConfidentialRelay = relayConf

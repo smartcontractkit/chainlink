@@ -220,11 +220,10 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		var nodeResponses string
-		for nodeKey, nodeResponse := range er.responses {
-			nodeResponses += fmt.Sprintf("%s ---::: %v               ", nodeKey, nodeResponse)
-		}
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponses), []byte(nodeResponses)))
+		responses := er.copiedResponses()
+		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
+		errMsg := fmt.Sprintf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New(errMsg), nil))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
