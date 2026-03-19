@@ -480,3 +480,5 @@ func verifyTriggerEventACKs(t *testing.T, lggr zerolog.Logger, triggerDB *sql.DB
 		return newInserts > 0 && newDeletes > 0
 	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
 }
+
+var _ = verifyTriggerEventACKs
