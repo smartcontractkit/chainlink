@@ -31,11 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -87,6 +85,8 @@ func CapabilityLabel(chainSelector uint64) string {
 	return capabilityLabelPrefix + strconv.FormatUint(chainSelector, 10)
 }
 
+// ForwarderAddress returns the Aptos forwarder address cached in the CRE
+// datastore for the given chain selector.
 func ForwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, bool) {
 	key := datastore.NewAddressRefKey(
 		chainSelector,
@@ -101,6 +101,8 @@ func ForwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, boo
 	return ref.Address, true
 }
 
+// MustForwarderAddress returns the cached Aptos forwarder address for the given
+// chain selector and panics if it has not been recorded yet.
 func MustForwarderAddress(ds datastore.DataStore, chainSelector uint64) string {
 	addr, ok := ForwarderAddress(ds, chainSelector)
 	if !ok {
@@ -126,65 +128,39 @@ func (a *Aptos) PreEnvStartup(
 
 	forwardersByChainID := make(map[uint64]string, len(enabledChainIDs))
 	for _, chainID := range enabledChainIDs {
-		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
-		if err != nil {
-			return nil, err
+		aptosChain, findErr := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if findErr != nil {
+			return nil, findErr
 		}
 
-		forwarderAddress, err := ensureForwarder(ctx, testLogger, creEnv, aptosChain)
-		if err != nil {
-			return nil, err
+		forwarderAddress, ensureErr := ensureForwarder(ctx, testLogger, creEnv, aptosChain)
+		if ensureErr != nil {
+			return nil, ensureErr
 		}
 		forwardersByChainID[chainID] = forwarderAddress
 	}
 
-	if err := patchNodeTOML(don, forwardersByChainID); err != nil {
-		return nil, err
+	if patchErr := patchNodeTOML(don, forwardersByChainID); patchErr != nil {
+		return nil, patchErr
 	}
 
-	return &cre.PreEnvStartupOutput{}, nil
-}
-
-func (a *Aptos) PostDONStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *cre.Don,
-	_ *cre.Dons,
-	creEnv *cre.Environment,
-) (*cre.PostDONStartupOutput, error) {
-	enabledChainIDs, err := don.GetEnabledChainIDsForCapability(flag)
-	if err != nil {
-		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
-	}
-	if len(enabledChainIDs) == 0 {
-		return nil, nil
-	}
-
-	workerNodeIDs, err := workerJDNodeIDs(don)
+	workers, err := don.Workers()
 	if err != nil {
 		return nil, err
 	}
-	nodes, err := deployment.NodeInfo(workerNodeIDs, creEnv.CldfEnvironment.Offchain)
+	p2pToTransmitterMap, err := p2pToTransmitterMapForWorkers(workers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Aptos worker node info for DON %q: %w", don.Name, err)
+		return nil, fmt.Errorf("failed to collect Aptos worker transmitters for DON %q from metadata: %w", don.Name, err)
 	}
 
 	caps := make([]keystone_changeset.DONCapabilityWithConfig, 0, len(enabledChainIDs))
-	ocrConfigs := make(map[string]*ocr3.OracleConfig, len(enabledChainIDs))
-	capabilityToExtraSignerFamilies := make(map[string][]string, len(enabledChainIDs))
 	for _, chainID := range enabledChainIDs {
 		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
 		if err != nil {
 			return nil, err
 		}
-		selector := aptosChain.ChainSelector()
-		labelledName := CapabilityLabel(selector)
-
-		p2pToTransmitterMap, err := p2pToTransmitterMapForChainSelector(nodes, selector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect Aptos p2p transmitter map for capability %s: %w", labelledName, err)
-		}
-		capabilityConfig, err := cre.ResolveCapabilityConfig(don, flag, cre.ChainCapabilityScope(chainID))
+		labelledName := CapabilityLabel(aptosChain.ChainSelector())
+		capabilityConfig, err := cre.ResolveCapabilityConfig(don.MustNodeSet(), flag, cre.ChainCapabilityScope(chainID))
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, err)
 		}
@@ -199,17 +175,12 @@ func (a *Aptos) PostDONStartup(
 				Version:        capabilityVersion,
 				CapabilityType: 1,
 			},
-			Config:             capConfig,
-			UseCapRegOCRConfig: true,
+			Config: capConfig,
 		})
-		ocrConfigs[labelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
-		capabilityToExtraSignerFamilies[labelledName] = []string{chainselectors.FamilyAptos}
 	}
 
-	return &cre.PostDONStartupOutput{
-		DONCapabilityWithConfig:         caps,
-		CapabilityToOCR3Config:          ocrConfigs,
-		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
+	return &cre.PreEnvStartupOutput{
+		DONCapabilityWithConfig: caps,
 	}, nil
 }
 
@@ -345,10 +316,9 @@ func (a *Aptos) PostEnvStartup(
 	return nil
 }
 
-// BuildCapabilityConfig builds the Aptos capability config using the same config
-// split as runtime capabilities: method execution policy in MethodConfigs and
-// Aptos-specific runtime inputs in SpecConfig. OCR contract config remains
-// separate and is only attached through UseCapRegOCRConfig.
+// BuildCapabilityConfig builds the Aptos capability config passed directly
+// through the capability manager: method execution policy in MethodConfigs and
+// Aptos-specific runtime inputs in SpecConfig.
 func BuildCapabilityConfig(values map[string]any, p2pToTransmitterMap map[string]string, localOnly bool) (*capabilitiespb.CapabilityConfig, error) {
 	methodSettings, err := resolveMethodConfigSettings(values)
 	if err != nil {
@@ -528,6 +498,10 @@ func setForwarderAddress(cfg *corechainlink.Config, chainID, forwarderAddress st
 	return fmt.Errorf("Aptos chain %s not found in node config", chainID)
 }
 
+// ensureForwarder makes sure a forwarder exists for the Aptos chain selector and
+// returns its address. In local Docker environments it will deploy the forwarder
+// once and cache the resulting address in the CRE datastore; in non-Docker
+// environments it only reuses an address that has already been injected.
 func ensureForwarder(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -619,6 +593,8 @@ func ensureForwarder(
 	return addr, nil
 }
 
+// addForwarderToDataStore seals a new datastore snapshot with the Aptos
+// forwarder address so later setup phases can reuse it without redeploying.
 func addForwarderToDataStore(creEnv *cre.Environment, chainSelector uint64, address string) error {
 	memoryDatastore, err := crecontracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
 	if err != nil {
@@ -640,6 +616,8 @@ func addForwarderToDataStore(creEnv *cre.Environment, chainSelector uint64, addr
 	return nil
 }
 
+// configureForwarders writes the final DON membership and signer set to each
+// Aptos forwarder after the DON has started and contract DON IDs are known.
 func configureForwarders(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -796,46 +774,33 @@ func donOraclePublicKeys(ctx context.Context, don *cre.Don) ([][]byte, error) {
 	return oracles, nil
 }
 
-func workerJDNodeIDs(don *cre.Don) ([]string, error) {
-	workers, err := don.Workers()
-	if err != nil {
-		return nil, err
-	}
-
-	nodeIDs := make([]string, 0, len(workers))
-	for _, worker := range workers {
-		if worker.JobDistributorDetails.NodeID == "" {
-			return nil, fmt.Errorf("missing Job Distributor node id for worker %q in DON %q", worker.Name, don.Name)
-		}
-		nodeIDs = append(nodeIDs, worker.JobDistributorDetails.NodeID)
-	}
-
-	return nodeIDs, nil
-}
-
-func p2pToTransmitterMapForChainSelector(nodes deployment.Nodes, chainSelector uint64) (map[string]string, error) {
-	if len(nodes) == 0 {
+func p2pToTransmitterMapForWorkers(workers []*cre.NodeMetadata) (map[string]string, error) {
+	if len(workers) == 0 {
 		return nil, pkgerrors.New("no DON worker nodes provided")
 	}
 
 	p2pToTransmitterMap := make(map[string]string)
-	for _, node := range nodes {
-		ocrCfg, ok := node.OCRConfigForChainSelector(chainSelector)
-		if !ok {
-			continue
+	for _, worker := range workers {
+		if worker.Keys == nil || worker.Keys.P2PKey == nil {
+			return nil, fmt.Errorf("missing P2P key for worker index %d", worker.Index)
 		}
 
-		transmitter, err := normalizeTransmitter(string(ocrCfg.TransmitAccount))
+		account := worker.AptosAccount()
+		if account == "" {
+			return nil, fmt.Errorf("missing Aptos account for worker index %d", worker.Index)
+		}
+
+		transmitter, err := normalizeTransmitter(account)
 		if err != nil {
-			return nil, fmt.Errorf("invalid Aptos transmitter for node %s: %w", node.Name, err)
+			return nil, fmt.Errorf("invalid Aptos transmitter for worker index %d: %w", worker.Index, err)
 		}
 
-		peerKey := hex.EncodeToString(node.PeerID[:])
+		peerKey := hex.EncodeToString(worker.Keys.P2PKey.PeerID[:])
 		p2pToTransmitterMap[peerKey] = transmitter
 	}
 
 	if len(p2pToTransmitterMap) == 0 {
-		return nil, fmt.Errorf("no Aptos OCR config/transmitters found for chain selector %d", chainSelector)
+		return nil, pkgerrors.New("no Aptos transmitters found for DON workers")
 	}
 
 	return p2pToTransmitterMap, nil
@@ -981,6 +946,9 @@ func aptosDonIDUint32(donID uint64) (uint32, error) {
 	return uint32(donID), nil
 }
 
+// ensureAccountVisible best-effort funds an Aptos account and waits for the node
+// API to acknowledge it. This smooths over localnet timing where deployer
+// accounts can exist before the node API can query them reliably.
 func ensureAccountVisible(
 	ctx context.Context,
 	testLogger zerolog.Logger,

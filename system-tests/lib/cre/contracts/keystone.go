@@ -396,7 +396,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
+		// add capabilities that were passed directly via feature startup hooks
 		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donMetadata.ID] != nil {
 			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donMetadata.ID]...)
 		}

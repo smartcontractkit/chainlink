@@ -426,6 +426,10 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		}
 	}
 
+	if account := nodeMetadata.AptosAccount(); account != "" {
+		node.Addresses.AptosAddresses = []string{account}
+	}
+
 	return node, nil
 }
 
@@ -437,7 +441,7 @@ type JobDistributorDetails struct {
 type Addresses struct {
 	AdminAddress   string   `toml:"admin_address" json:"admin_address"`     // address used to pay for transactions, applicable only for worker nodes
 	MultiAddress   string   `toml:"multi_address" json:"multi_address"`     // multi address used by OCR2, applicable only for bootstrap nodes
-	AptosAddresses []string `toml:"aptos_addresses" json:"aptos_addresses"` // Aptos public addresses cached from the node key API
+	AptosAddresses []string `toml:"aptos_addresses" json:"aptos_addresses"` // Aptos public addresses cached from node metadata or the node key API
 }
 
 type NodeClients struct {
@@ -584,6 +588,10 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 
 func AptosAccountsForNode(_ context.Context, n *Node) ([]string, error) {
 	if len(n.Addresses.AptosAddresses) > 0 {
+		return append([]string(nil), n.Addresses.AptosAddresses...), nil
+	}
+	if n.Keys != nil && n.Keys.AptosAccount() != "" {
+		n.Addresses.AptosAddresses = []string{n.Keys.AptosAccount()}
 		return append([]string(nil), n.Addresses.AptosAddresses...), nil
 	}
 	if n.Clients.RestClient == nil {
