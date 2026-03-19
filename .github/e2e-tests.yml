@@ -11,45 +11,6 @@ runner-test-matrix:
   # All the OCR smoke/soak/chaostests were moved to https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-ocr2-soak.yml
   # and https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-ocr2-chaos.yml
 
-  - id: smoke/forwarder_ocr_test.go:*
-    path: integration-tests/smoke/forwarder_ocr_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E Core Tests
-      - Workflow Dispatch E2E Core Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^(TestForwarderOCRBasic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
-    pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-    test_go_project_path: integration-tests
-
-  - id: smoke/forwarders_ocr2_test.go:*
-    path: integration-tests/smoke/forwarders_ocr2_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E Core Tests
-      - Workflow Dispatch E2E Core Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "^(TestForwarderOCR2Basic)$" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
-    pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-    test_go_project_path: integration-tests
-  # END: OCR tests
-
   # START: Automation tests
 
   - id: load/automationv2_1/automationv2_1_test.go:TestLogTrigger

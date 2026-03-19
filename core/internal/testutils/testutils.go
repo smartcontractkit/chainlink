@@ -98,6 +98,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 }
 
 // Context returns a context with the test's deadline, if available.
+// Deprecated: use [testing.TB.Context] directly
 func Context(tb testing.TB) context.Context {
 	return tb.Context()
 }

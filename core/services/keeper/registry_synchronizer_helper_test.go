@@ -53,7 +53,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 		ListenerConfig: cfg.Database().Listener(),
 		KeyStore:       keyStore.Eth(),
 	})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
+	jpv2 := NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
 	switch version {

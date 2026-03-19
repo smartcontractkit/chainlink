@@ -140,13 +140,8 @@ Refer [Test config README](../testconfig/README.md) for more details about Soak 
 
 Refer [COMMON COMMANDS#Kubernetes](#kubernetes). Override path as follows:
 
-- With forwarders:
-  `-run 'TestForwarderOCRv1Soak' ./soak` or `make test_soak_forwarder_ocr1`
-  `-run 'TestForwarderOCRv2Soak' ./soak` or `make test_soak_forwarder_ocr2`
-
-- No forwarders:
-  `-run 'TestOCRv1Soak' ./soak` or `make test_soak_ocr`
-  `-run 'TestOCRv2Soak' ./soak` or `make test_soak_ocr2`
+`-run 'TestOCRv1Soak' ./soak` or `make test_soak_ocr`
+`-run 'TestOCRv2Soak' ./soak` or `make test_soak_ocr2`
 
 - With reorg below finality and `FinalityTagEnabled=false`:
   `-run 'TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled' ./soak` or `make test_soak_ocr_reorg_1`

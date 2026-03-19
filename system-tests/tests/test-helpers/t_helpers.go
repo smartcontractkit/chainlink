@@ -669,7 +669,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
-		DonID:                   testEnv.Dons.List()[0].ID,
+		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		Blockchains:             testEnv.CreEnvironment.Blockchains,
 	}

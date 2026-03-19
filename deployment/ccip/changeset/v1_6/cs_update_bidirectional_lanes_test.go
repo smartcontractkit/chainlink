@@ -1,6 +1,7 @@
 package v1_6_test
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
 	fqv2seq "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/sequences"
@@ -25,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -448,22 +451,21 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// Register v2 FeeQuoter in the address book
-	e, err = commonchangeset.Apply(t, e,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.SaveExistingContractsChangeset),
-			commoncs.ExistingContractsConfig{
-				ExistingContracts: []commoncs.Contract{
-					{
-						Address:        fqV2Addr.Hex(),
-						TypeAndVersion: cldf.NewTypeAndVersion(fqv2ops.ContractType, *fqv2ops.Version),
-						ChainSelector:  v2ChainSel,
-					},
-				},
-			},
-		),
-	)
-	require.NoError(t, err, "must save v2 FeeQuoter to address book")
+	// AddressBook does NOT contain FeeQuoter v2
+	// Add FeeQuoter v2 only to the DataStore
+	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
+	require.NoError(t, err, "must populate datastore from existing addresses")
+
+	err = ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: v2ChainSel,
+		Address:       fqV2Addr.Hex(),
+		Type:          datastore.ContractType(fqv2ops.ContractType),
+		Version:       fqv2ops.Version,
+		Qualifier:     fmt.Sprintf("%s-%s", fqV2Addr.Hex(), fqv2ops.ContractType),
+	})
+	require.NoError(t, err, "must add v2 FeeQuoter to datastore")
+
+	e.DataStore = ds.Seal()
 
 	chains := make([]v1_6.ChainDefinition, len(selectors))
 	for i, selector := range selectors {
@@ -581,22 +583,21 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	_, err = evmChain.Confirm(tx)
 	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
 
-	// Register v2 FeeQuoter in the address book
-	e, err = commonchangeset.Apply(t, e,
-		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.SaveExistingContractsChangeset),
-			commoncs.ExistingContractsConfig{
-				ExistingContracts: []commoncs.Contract{
-					{
-						Address:        fqV2Addr.Hex(),
-						TypeAndVersion: cldf.NewTypeAndVersion(fqv2ops.ContractType, *fqv2ops.Version),
-						ChainSelector:  v2ChainSel,
-					},
-				},
-			},
-		),
-	)
-	require.NoError(t, err, "must save v2 FeeQuoter to address book")
+	// AddressBook does NOT contain FeeQuoter v2
+	// Add FeeQuoter v2 only to the DataStore
+	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
+	require.NoError(t, err, "must populate datastore from existing addresses")
+
+	err = ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: v2ChainSel,
+		Address:       fqV2Addr.Hex(),
+		Type:          datastore.ContractType(fqv2ops.ContractType),
+		Version:       fqv2ops.Version,
+		Qualifier:     fmt.Sprintf("%s-%s", fqV2Addr.Hex(), fqv2ops.ContractType),
+	})
+	require.NoError(t, err, "must add v2 FeeQuoter to datastore")
+
+	e.DataStore = ds.Seal()
 
 	// Transfer contracts to MCMS timelock
 	mcmsConfig := &proposalutils.TimelockConfig{

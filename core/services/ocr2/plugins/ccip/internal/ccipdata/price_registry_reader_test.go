@@ -28,7 +28,6 @@ import (
 
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -64,7 +63,7 @@ func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
 		},
 	}, simulated.WithBlockGasLimit(10e6))
-	ec := client.NewSimulatedBackendClient(t, sim, testutils.SimulatedChainID)
+	ec := client.NewSimulatedBackendClient(t, sim, evmtestutils.SimulatedChainID)
 	return user, ec
 }
 
@@ -85,7 +84,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		lpOpts.PollPeriod = 1 * time.Hour
 	}
 	// TODO: We should be able to use an in memory log poller ORM here to speed up the tests.
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, headTracker, lpOpts)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(evmtestutils.SimulatedChainID, pgtest.NewSqlxDB(t), lggr), ec, lggr, headTracker, lpOpts)
 
 	feeTokens := []common.Address{utils.RandomAddress(), utils.RandomAddress()}
 	dest1 := uint64(10)
@@ -124,7 +123,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 			Value: big.NewInt(12), // Intentionally set a same value different token
 		},
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	addr2, _, _, err := price_registry_1_2_0.DeployPriceRegistry(user, ec, nil, feeTokens, 1000)
 	require.NoError(t, err)
 	commitAndGetBlockTs(ec) // Deploy these
@@ -164,7 +163,7 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 }
 
 func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.PriceRegistryReader) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Assert have expected fee tokens.
 	gotFeeTokens, err := pr.GetFeeTokens(ctx)
 	require.NoError(t, err)
@@ -269,7 +268,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			expectedErr:    "unsupported price registry version 2.0.0",
 		},
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	for _, tc := range tt {
 		t.Run(tc.typeAndVersion, func(t *testing.T) {
 			b, err := utils.ABIEncode(`[{"type":"string"}]`, tc.typeAndVersion)
