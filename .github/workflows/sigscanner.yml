@@ -1,25 +1,83 @@
-name: 'SigScanner Check'
+name: SigScanner Check
 
 on:
   merge_group:
   push:
 
+permissions: {}
+
 jobs:
   sigscanner-check:
     runs-on: ubuntu-latest
+
     steps:
       - name: "SigScanner checking ${{ github.sha }} by ${{ github.actor }}"
         env:
           API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
           API_URL: ${{ secrets.SIGSCANNER_API_URL }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          AUTHOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          MAX_ATTEMPTS: 3
+        shell: bash
         run: |
-          echo "🔎 Checking commit ${{ github.sha }} by ${{ github.actor }} in ${{ github.repository }} - ${{ github.event_name }}"
-          CODE=`curl --write-out '%{http_code}' -X POST -H "Content-Type: application/json" -H "Authorization: $API_TOKEN" --silent --output /dev/null --url "$API_URL" --data '{"commit":"${{ github.sha }}","repository":"${{ github.repository }}","author":"${{ github.actor }}"}'`
-          echo "Received $CODE"
-          if [[ "$CODE" == "200" ]]; then
-            echo "✅ Commit is verified"
-            exit 0
-          else
+          set -uo pipefail
+
+          echo "🔎 Checking commit ${COMMIT_SHA} by ${AUTHOR} in ${REPOSITORY} - ${EVENT_NAME}"
+
+          payload="$(jq -nc \
+            --arg commit "$COMMIT_SHA" \
+            --arg repository "$REPOSITORY" \
+            --arg author "$AUTHOR" \
+            '{
+              commit: $commit,
+              repository: $repository,
+              author: $author
+            }')"
+
+          MAX_ATTEMPTS=3
+          base_delay=2
+
+          for ((attempt=1; attempt<=MAX_ATTEMPTS; attempt++)); do
+            echo "Attempt ${attempt}/${MAX_ATTEMPTS}"
+
+            http_code="$(curl \
+              --silent \
+              --show-error \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              --request POST \
+              --header "Content-Type: application/json" \
+              --header "Authorization: ${API_TOKEN}" \
+              --url "${API_URL}" \
+              --data "${payload}")" || curl_exit=$?
+
+            curl_exit="${curl_exit:-0}"
+
+            if [[ "$curl_exit" -ne 0 ]]; then
+              echo "curl failed with exit code ${curl_exit}"
+              http_code="000"
+            fi
+
+            echo "Received HTTP ${http_code}"
+
+            if [[ "${http_code}" == "200" ]]; then
+              echo "✅ Commit is verified"
+              exit 0
+            fi
+
+            if { [[ "${http_code}" == "000" ]] || [[ "${http_code}" =~ ^5[0-9][0-9]$ ]]; } \
+              && [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+
+              delay=$(( base_delay * (2 ** (attempt - 1)) ))
+              echo "⚠️ Transient failure. Retrying in ${delay}s..."
+              sleep "$delay"
+              curl_exit=0
+              continue
+            fi
+
+            echo "::error::SigScanner check failed after ${attempt} attempt(s). Last result: HTTP ${http_code}"
             echo "❌ Commit is NOT verified"
             exit 1
-          fi
+          done
