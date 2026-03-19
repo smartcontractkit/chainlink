@@ -446,8 +446,9 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
 		emitCancelFn()
+		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
 
-		verifyTriggerEventACKs(t, triggerDB, baselineStats)
+		verifyTriggerEventACKs(t, lggr, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -464,16 +465,17 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 // by checking cumulative insert/delete counters in pg_stat_user_tables.
 // This works for both local triggers (where ACK is near-instant) and remote
 // triggers (where there's a network round-trip).
-func verifyTriggerEventACKs(t *testing.T, triggerDB *sql.DB, baselineStats tableStats) {
+func verifyTriggerEventACKs(t *testing.T, lggr zerolog.Logger, triggerDB *sql.DB, baselineStats tableStats) {
+	t.Helper()
 	require.Eventually(t, func() bool {
 		cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
 		if sErr != nil {
-			t.Logf("stats query error: %v", sErr)
+			lggr.Error().Msgf("stats query error: %v", sErr)
 			return false
 		}
 		newInserts := cur.inserts - baselineStats.inserts
 		newDeletes := cur.deletes - baselineStats.deletes
-		t.Logf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
+		lggr.Info().Msgf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
 		return newInserts > 0 && newDeletes > 0
 	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
 }
