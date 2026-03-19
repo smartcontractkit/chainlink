@@ -1,12 +1,8 @@
 package aptos
 
 import (
-	"context"
 	"encoding/hex"
 	"math/big"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -244,88 +240,4 @@ func TestResolveMethodConfigSettings_InvalidTransmissionSchedule(t *testing.T) {
 		transmissionScheduleKey: "staggered",
 	})
 	require.Error(t, err)
-}
-
-func TestPrepareAptosCLI_UsesHostBinaryWhenAvailable(t *testing.T) {
-	t.Setenv("PATH", "/usr/bin")
-
-	originalLookPath := aptosLookPath
-	originalContainerImage := aptosContainerImage
-	aptosLookPath = func(file string) (string, error) {
-		require.Equal(t, "aptos", file)
-		return "/usr/bin/aptos", nil
-	}
-	aptosContainerImage = func(context.Context, string) (string, error) {
-		t.Fatal("container fallback should not be used when host aptos exists")
-		return "", nil
-	}
-	t.Cleanup(func() {
-		aptosLookPath = originalLookPath
-		aptosContainerImage = originalContainerImage
-	})
-
-	restore, err := prepareAptosCLI(context.Background(), "aptos-node")
-	require.NoError(t, err)
-	require.Equal(t, "/usr/bin", os.Getenv("PATH"))
-
-	restore()
-	require.Equal(t, "/usr/bin", os.Getenv("PATH"))
-}
-
-func TestPrepareAptosCLI_BuildsContainerWrapperWhenHostBinaryMissing(t *testing.T) {
-	t.Setenv("PATH", "/usr/bin")
-
-	originalLookPath := aptosLookPath
-	originalContainerImage := aptosContainerImage
-	aptosLookPath = func(file string) (string, error) {
-		require.Equal(t, "aptos", file)
-		return "", os.ErrNotExist
-	}
-	aptosContainerImage = func(ctx context.Context, containerName string) (string, error) {
-		require.Equal(t, "aptos-node", containerName)
-		return "ghcr.io/example/aptos:latest", nil
-	}
-	t.Cleanup(func() {
-		aptosLookPath = originalLookPath
-		aptosContainerImage = originalContainerImage
-	})
-
-	restore, err := prepareAptosCLI(context.Background(), "aptos-node")
-	require.NoError(t, err)
-	t.Cleanup(restore)
-
-	pathParts := strings.Split(os.Getenv("PATH"), string(os.PathListSeparator))
-	require.Len(t, pathParts, 2)
-	require.Equal(t, "/usr/bin", pathParts[1])
-
-	wrapperPath := filepath.Join(pathParts[0], "aptos")
-	content, err := os.ReadFile(wrapperPath)
-	require.NoError(t, err)
-	require.Contains(t, string(content), `--entrypoint aptos \`)
-	require.Contains(t, string(content), `"ghcr.io/example/aptos:latest" "$@"`)
-
-	restore()
-	require.Equal(t, "/usr/bin", os.Getenv("PATH"))
-	_, err = os.Stat(wrapperPath)
-	require.ErrorIs(t, err, os.ErrNotExist)
-}
-
-func TestPrepareAptosCLI_RequiresContainerWhenHostBinaryMissing(t *testing.T) {
-	originalLookPath := aptosLookPath
-	originalContainerImage := aptosContainerImage
-	aptosLookPath = func(string) (string, error) {
-		return "", os.ErrNotExist
-	}
-	aptosContainerImage = func(context.Context, string) (string, error) {
-		t.Fatal("container image lookup should not be used without a container name")
-		return "", nil
-	}
-	t.Cleanup(func() {
-		aptosLookPath = originalLookPath
-		aptosContainerImage = originalContainerImage
-	})
-
-	restore, err := prepareAptosCLI(context.Background(), "")
-	require.Nil(t, restore)
-	require.ErrorContains(t, err, "aptos CLI not found on PATH")
 }

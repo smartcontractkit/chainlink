@@ -578,10 +578,6 @@ func deployAptosDataFeedsReceiverForWrite(
 	require.NoError(t, err, "failed to parse primary forwarder address")
 
 	owner := deployer.AccountAddress()
-	restoreAptosCLI, err := aptosfeature.PrepareAptosCLI(t.Context(), containerName)
-	require.NoError(t, err, "failed to prepare Aptos CLI for local package deploys")
-	t.Cleanup(restoreAptosCLI)
-
 	secondaryAddress, secondaryTx, _, err := aptosplatformsecondary.DeployToObject(deployer, client, owner)
 	require.NoError(t, err, "failed to deploy Aptos secondary platform package")
 	require.NoError(t, aptosfeature.WaitForTransactionSuccess(client, secondaryTx.Hash, "platform_secondary deployment"))
