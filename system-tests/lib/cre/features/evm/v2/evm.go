@@ -137,7 +137,7 @@ func (o *EVM) PreEnvStartup(
 		DONCapabilityWithConfig: capabilities,
 		CapabilityToOCR3Config:  capabilityToOCR3Config,
 		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
-			cre.NonEVMOCRSignerFamilies(creEnv.Blockchains),
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
 			capabilityLabels...,
 		),
 	}, nil

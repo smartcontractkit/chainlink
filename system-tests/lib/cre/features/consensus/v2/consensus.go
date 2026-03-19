@@ -66,7 +66,7 @@ func (c *Consensus) PreEnvStartup(
 			consensusLabelledName: contracts.DefaultOCR3Config(),
 		},
 		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
-			cre.NonEVMOCRSignerFamilies(creEnv.Blockchains),
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
 			consensusLabelledName,
 		),
 	}, nil
