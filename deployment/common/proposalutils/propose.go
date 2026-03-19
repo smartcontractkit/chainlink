@@ -543,12 +543,6 @@ func AggregateProposalsV2(
 			}
 			timelocks[chainSel] = aptosMCMSAddress.StringLong()
 			mcmsPerChain[chainSel] = aptosMCMSAddress.StringLong()
-			// Getting inspector parameters for Aptos
-			role, err := GetAptosRoleFromAction(mcmsConfig.MCMSAction)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get role from action: %w", err)
-			}
-			inspectorOpts = append(inspectorOpts, WithAptosRole(role))
 		case chain_selectors.FamilyTon:
 			tonMCMS, exists := mcmsTimelockStates.MCMSTONState[chainSel]
 			if !exists {
@@ -570,11 +564,6 @@ func AggregateProposalsV2(
 				return nil, err
 			}
 			mcmsPerChain[chainSel] = mcmsAddr
-		}
-
-		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel, inspectorOpts...)
-		if err != nil {
-			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
 		}
 	}
 
