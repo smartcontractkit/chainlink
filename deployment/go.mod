@@ -47,7 +47,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260317233127-178dd2eeaa87
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260318010722-59d4165024f1
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260318175623-59b01b048e67
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
