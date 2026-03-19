@@ -64,7 +64,7 @@ type SolChain interface {
 	SolChainID() string
 }
 
-type Solana struct{ cre.NoopPostDONStartup }
+type Solana struct{}
 
 func (s *Solana) Flag() cre.CapabilityFlag {
 	return flag

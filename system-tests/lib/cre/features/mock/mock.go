@@ -26,7 +26,7 @@ import (
 
 const flag = cre.MockCapability
 
-type Mock struct{ cre.NoopPostDONStartup }
+type Mock struct{}
 
 func (o *Mock) Flag() cre.CapabilityFlag {
 	return flag
