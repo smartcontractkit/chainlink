@@ -49,7 +49,7 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 	keeper.Registry,
 	keeper.UpkeepRegistration,
 	job.Job,
-	cltest.JobPipelineV2TestHelper,
+	JobPipelineV2TestHelper,
 	*txmmocks.MockEvmTxManager,
 	keystore.Master,
 	legacyevm.Chain,
@@ -78,7 +78,7 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
 	})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
+	jpv2 := NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
 	orm := keeper.NewORM(db, logger.TestLogger(t))
 	registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
