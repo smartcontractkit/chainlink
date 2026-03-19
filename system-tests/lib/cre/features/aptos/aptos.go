@@ -634,14 +634,19 @@ func prepareAptosCLI(ctx context.Context, containerName string) (func(), error) 
 set -eu
 pwd_path="$(pwd -P)"
 exec docker run --rm \
+  --user "$(id -u):$(id -g)" \
   -v "$pwd_path:$pwd_path" \
   -w "$pwd_path" \
   --entrypoint aptos \
   %q "$@"
 `, image)
-	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o600); err != nil {
 		_ = os.RemoveAll(wrapperDir)
 		return nil, fmt.Errorf("write Aptos CLI wrapper script: %w", err)
+	}
+	if err := os.Chmod(wrapperPath, 0o700); err != nil {
+		_ = os.RemoveAll(wrapperDir)
+		return nil, fmt.Errorf("mark Aptos CLI wrapper script executable: %w", err)
 	}
 
 	oldPath := os.Getenv("PATH")
@@ -661,6 +666,12 @@ exec docker run --rm \
 		_ = os.Setenv("PATH", oldPath)
 		_ = os.RemoveAll(wrapperDir)
 	}, nil
+}
+
+// PrepareAptosCLI ensures the aptos CLI is available for local smoke tests and
+// setup phases that compile Move packages on the host.
+func PrepareAptosCLI(ctx context.Context, containerName string) (func(), error) {
+	return prepareAptosCLI(ctx, containerName)
 }
 
 func aptosContainerImageFromDocker(ctx context.Context, containerName string) (string, error) {
