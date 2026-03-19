@@ -28,6 +28,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -74,6 +75,8 @@ import (
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
 const maxWorkflowNameLen = 64
+
+var deleteWorkflowsMu sync.Mutex
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -635,6 +638,9 @@ func deleteWorkflows(
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
+	deleteWorkflowsMu.Lock()
+	defer deleteWorkflowsMu.Unlock()
+
 	deleteErr := creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
@@ -651,9 +657,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		Str("workflow_file_location", workflowFileLocation).
 		Msgf("compiling and registering workflow '%s'", workflowName)
 	artifactDir := workflowArtifactsDir(t, testEnv)
-	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	evmChain := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain)
-	registryChainSelector := evmChain.ChainSelector()
+	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
 	workflowDONs := make([]*cre.Don, 0)
 	for _, don := range testEnv.Dons.List() {
@@ -678,9 +682,10 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
-		SethClient:              evmChain.SethClient,
+		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
 	}
-	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, evmChain.SethClient, testLogger)
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
+	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
 }
 
