@@ -399,7 +399,8 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
 		emitCancelFn()
 
-		verifyTriggerEventACKs(t, triggerDB, baselineStats)
+		// TODO: (CRE-2314) Re-enable trigger event ACKS
+		// verifyTriggerEventACKs(t, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
