@@ -7,6 +7,9 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/url"
+	"os"
+	osexec "os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"text/template"
@@ -68,6 +71,9 @@ const (
 )
 
 var forwarderContractVersion = semver.MustParse("1.0.0")
+
+var aptosLookPath = osexec.LookPath
+var aptosContainerImage = aptosContainerImageFromDocker
 
 type Aptos struct{}
 
@@ -545,6 +551,12 @@ func ensureForwarder(
 			Msg("Aptos deployer account not confirmed visible yet; proceeding with deploy retries")
 	}
 
+	restoreAptosCLI, err := prepareAptosCLI(ctx, containerName)
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare Aptos CLI for forwarder deploy on chain selector %d: %w", chain.ChainSelector(), err)
+	}
+	defer restoreAptosCLI()
+
 	var deployedAddress string
 	var pendingTxHash string
 	var lastDeployErr error
@@ -591,6 +603,78 @@ func ensureForwarder(
 		Msg("Aptos platform forwarder deployed")
 
 	return addr, nil
+}
+
+// prepareAptosCLI makes the host aptos CLI available for Move package
+// compilation. Local CRE runners do not always have aptos installed, so fall
+// back to a thin wrapper that runs the CLI from the existing Aptos container
+// image with the current working directory bind-mounted.
+func prepareAptosCLI(ctx context.Context, containerName string) (func(), error) {
+	if _, err := aptosLookPath("aptos"); err == nil {
+		return func() {}, nil
+	}
+
+	containerName = strings.TrimSpace(containerName)
+	if containerName == "" {
+		return nil, pkgerrors.New("aptos CLI not found on PATH and no Aptos container is available for fallback")
+	}
+
+	image, err := aptosContainerImage(ctx, containerName)
+	if err != nil {
+		return nil, err
+	}
+
+	wrapperDir, err := os.MkdirTemp("", "aptos-cli-wrapper-*")
+	if err != nil {
+		return nil, fmt.Errorf("create Aptos CLI wrapper directory: %w", err)
+	}
+
+	wrapperPath := filepath.Join(wrapperDir, "aptos")
+	script := fmt.Sprintf(`#!/bin/sh
+set -eu
+pwd_path="$(pwd -P)"
+exec docker run --rm \
+  -v "$pwd_path:$pwd_path" \
+  -w "$pwd_path" \
+  --entrypoint aptos \
+  %q "$@"
+`, image)
+	if err := os.WriteFile(wrapperPath, []byte(script), 0o755); err != nil {
+		_ = os.RemoveAll(wrapperDir)
+		return nil, fmt.Errorf("write Aptos CLI wrapper script: %w", err)
+	}
+
+	oldPath := os.Getenv("PATH")
+	if oldPath == "" {
+		if err := os.Setenv("PATH", wrapperDir); err != nil {
+			_ = os.RemoveAll(wrapperDir)
+			return nil, fmt.Errorf("prepend Aptos CLI wrapper to PATH: %w", err)
+		}
+	} else {
+		if err := os.Setenv("PATH", wrapperDir+string(os.PathListSeparator)+oldPath); err != nil {
+			_ = os.RemoveAll(wrapperDir)
+			return nil, fmt.Errorf("prepend Aptos CLI wrapper to PATH: %w", err)
+		}
+	}
+
+	return func() {
+		_ = os.Setenv("PATH", oldPath)
+		_ = os.RemoveAll(wrapperDir)
+	}, nil
+}
+
+func aptosContainerImageFromDocker(ctx context.Context, containerName string) (string, error) {
+	out, err := osexec.CommandContext(ctx, "docker", "inspect", "--format", "{{.Config.Image}}", containerName).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("inspect Aptos container image for %q: %w (%s)", containerName, err, strings.TrimSpace(string(out)))
+	}
+
+	image := strings.TrimSpace(string(out))
+	if image == "" {
+		return "", fmt.Errorf("inspect Aptos container image for %q: empty image reference", containerName)
+	}
+
+	return image, nil
 }
 
 // addForwarderToDataStore seals a new datastore snapshot with the Aptos
