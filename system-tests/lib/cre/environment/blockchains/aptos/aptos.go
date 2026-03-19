@@ -18,7 +18,6 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -136,41 +135,22 @@ func (a *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 		return fmt.Errorf("cannot fund Aptos address %q: parse error: %w", address, parseErr)
 	}
 
-	// Fast path: use the faucet URL surfaced by CTF. Keep node-URL derivation only as
-	// a compatibility fallback for older cached outputs that predate that field.
-	if faucetURL, ferr := a.faucetURL(); ferr == nil {
-		if faucetClient, cErr := aptoslib.NewFaucetClient(client, faucetURL); cErr == nil {
-			if fundErr := faucetClient.Fund(account, amount); fundErr == nil {
-				if waitErr := waitForAptosAccountVisible(ctx, client, account, 15*time.Second); waitErr == nil {
-					a.testLogger.Info().Msgf("Funded Aptos account %s via host faucet (%d octas)", account.StringLong(), amount)
-					return nil
-				}
-			}
-		}
-	}
-
-	containerName := strings.TrimSpace(a.ctfOutput.ContainerName)
-	if containerName == "" {
-		return fmt.Errorf("failed to fund Aptos address %s via host faucet and no container fallback available", address)
-	}
-
-	dc, err := framework.NewDockerClient()
+	faucetURL, err := a.faucetURL()
 	if err != nil {
-		return fmt.Errorf("failed to create docker client for Aptos funding fallback: %w", err)
+		return fmt.Errorf("failed to derive Aptos faucet URL for %s: %w", address, err)
 	}
-	_, execErr := dc.ExecContainerWithContext(ctx, containerName, []string{
-		"aptos", "account", "fund-with-faucet",
-		"--account", account.StringLong(),
-		"--amount", strconv.FormatUint(amount, 10),
-	})
-	if execErr != nil {
-		return fmt.Errorf("failed to fund Aptos address %s via container faucet fallback: %w", address, execErr)
+	faucetClient, err := aptoslib.NewFaucetClient(client, faucetURL)
+	if err != nil {
+		return fmt.Errorf("failed to create Aptos faucet client for %s: %w", address, err)
 	}
-	if waitErr := waitForAptosAccountVisible(ctx, client, account, 20*time.Second); waitErr != nil {
-		return fmt.Errorf("aptos funding fallback completed but account still not visible: %w", waitErr)
+	if err := faucetClient.Fund(account, amount); err != nil {
+		return fmt.Errorf("failed to fund Aptos address %s via host faucet: %w", address, err)
+	}
+	if err := waitForAptosAccountVisible(ctx, client, account, 15*time.Second); err != nil {
+		return fmt.Errorf("aptos funding request completed but account is still not visible: %w", err)
 	}
 
-	a.testLogger.Info().Msgf("Funded Aptos account %s via container faucet fallback (%d octas)", account.StringLong(), amount)
+	a.testLogger.Info().Msgf("Funded Aptos account %s via host faucet (%d octas)", account.StringLong(), amount)
 	return nil
 }
 
