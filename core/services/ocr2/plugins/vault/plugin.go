@@ -999,12 +999,13 @@ func userFacingError(err error, fallback string) string {
 
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...interface{}) {
 	keysAndValues = append(keysAndValues, "error", err)
+	lggr := l.Helper(1)
 	if errors.Is(err, &userError{}) {
-		l.Debugw(msg, keysAndValues...)
+		lggr.Debugw(msg, keysAndValues...)
 		return
 	}
 
-	l.Errorw(msg, keysAndValues...)
+	lggr.Errorw(msg, keysAndValues...)
 }
 
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {
