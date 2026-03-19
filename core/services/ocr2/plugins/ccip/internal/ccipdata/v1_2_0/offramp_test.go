@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
@@ -275,7 +274,7 @@ func Test_GetSendersNonce(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			offramp := OffRamp{evmBatchCaller: test.batchCaller, Logger: logger.Test(t)}
-			nonce, err := offramp.ListSenderNonces(testutils.Context(t), test.addresses)
+			nonce, err := offramp.ListSenderNonces(t.Context(), test.addresses)
 
 			if test.expectedError {
 				require.Error(t, err)

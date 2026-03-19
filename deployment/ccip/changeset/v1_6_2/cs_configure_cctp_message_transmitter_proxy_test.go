@@ -14,8 +14,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
