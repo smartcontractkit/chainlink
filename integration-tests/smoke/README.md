@@ -1,9 +1,6 @@
 ## Smoke tests (local environments)
 
 These products are using local `testcontainers-go` environments:
-- RunLog (Direct request)
-- Cron
-- Flux
 - VRFv1
 - VRFv2
 

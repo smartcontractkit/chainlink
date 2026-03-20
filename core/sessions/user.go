@@ -8,13 +8,14 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // User holds the credentials for API user.
 type User struct {
 	Email             string
-	HashedPassword    string
+	HashedPassword    config.SecretString
 	Role              UserRole
 	CreatedAt         time.Time
 	TokenKey          null.String
@@ -50,7 +51,7 @@ func NewUser(email string, plainPwd string, role UserRole) (User, error) {
 
 	return User{
 		Email:          email,
-		HashedPassword: pwd,
+		HashedPassword: *config.NewSecretString(pwd),
 		Role:           role,
 	}, nil
 }

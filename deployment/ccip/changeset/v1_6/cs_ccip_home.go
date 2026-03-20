@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -97,9 +96,11 @@ func validateExecOffchainConfig(e cldf.Environment, c *pluginconfig.ExecuteOffch
 				return fmt.Errorf("invalid USDC config: %w", err)
 			}
 		case pluginconfig.LBTCHandlerType:
-			if err := validateLBTCConfig(e, observerConfig.LBTCObserverConfig, state); err != nil {
-				return fmt.Errorf("invalid LBTC config: %w", err)
-			}
+			// There is no specific validation for LBTC handler config yet since it's up to the user to provide correct source pool addresses.
+			// If wrong pool addresses are provided, the plugin won't treat it as Lombard message and fail to commit which can be easily detected and fixed.
+			// Previously, we had some validations which really doesn't makes sense because there is no standard Lombard token or
+			// pool stored in our state, and the validation might give false confidence to users. So we decided to remove those validations for now.
+			// Intentionally no-op: we do not perform additional validation for LBTC handlers but still validate any subsequent observers.
 		default:
 			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
 		}
@@ -243,25 +244,6 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			}
 		default:
 			return fmt.Errorf("USDC configs not supported for chain family %s", family)
-		}
-	}
-	return nil
-}
-
-func validateLBTCConfig(e cldf.Environment, lbtcConfig *pluginconfig.LBTCObserverConfig, state stateview.CCIPOnChainState) error {
-	for sel, sourcePool := range lbtcConfig.SourcePoolAddressByChain {
-		_, ok := state.Chains[uint64(sel)]
-		if !ok {
-			return fmt.Errorf("chain %d does not exist in state but provided in LBTCObserverConfig", sel)
-		}
-		sourcePoolAddr := common.HexToAddress(sourcePool)
-		sourcePool, err := token_pool.NewTokenPool(sourcePoolAddr, e.BlockChains.EVMChains()[uint64(sel)].Client)
-		if err != nil {
-			return fmt.Errorf("chain %d has an error while requesting LBTC source token pool %s: %w", sel, sourcePoolAddr, err)
-		}
-		_, err = sourcePool.GetToken(nil)
-		if err != nil {
-			return fmt.Errorf("chain %d has an error while requesting LBTC token address: %w", sel, err)
 		}
 	}
 	return nil

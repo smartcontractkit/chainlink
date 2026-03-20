@@ -128,7 +128,9 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	}
 
 	// Encode the report to bytes
-	reportBytes, err := reportCodec.Encode(report, channelDef)
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(report.ChannelID, opts)
+	reportBytes, err := reportCodec.Encode(report, channelDef, cache)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to encode report: %w", err)
 	}

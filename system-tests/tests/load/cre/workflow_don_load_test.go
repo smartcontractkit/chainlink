@@ -701,9 +701,11 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 		Values:                          values,
 	}
 
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(report.ChannelID, []byte{})
 	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
 		Streams: streams,
-	})
+	}, cache)
 	if err != nil {
 		return nil, "", err
 	}
