@@ -13,7 +13,7 @@ jobs:
       - name: Clean up integration environment
         uses: smartcontractkit/.github/actions/delete-deployments@delete-deployments/v1
         with:
-          environment: integration
+           integration
           # Delete 300 deployments at a time
           num-of-pages: 3
           # We start with page 2 because usually the first 200 deployments are still active, so we cannot delete them
