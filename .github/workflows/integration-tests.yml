@@ -149,6 +149,7 @@ jobs:
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
+      skip-cre-label-found: ${{ steps.label-skip-cre.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -169,6 +170,13 @@ jobs:
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
           check-label: "skip-e2e-regression"
+
+      - name: Get PR Labels (skip-cre)
+        if: github.event_name == 'pull_request'
+        id: label-skip-cre
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "skip-cre"
 
       - name: Set runner labels
         id: runner-labels
@@ -366,14 +374,14 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, labels]
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.labels.outputs.skip-cre-label-found != 'true'
     uses: ./.github/workflows/cre-system-tests.yaml
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
