@@ -17,7 +17,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Connect to Tailscale
-        uses: tailscale/github-action@a392da0a182bba0e9613b6243ebd69529b1878aa #v4.1.0 
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
           audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
