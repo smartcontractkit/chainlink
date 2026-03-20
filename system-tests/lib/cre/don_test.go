@@ -2,6 +2,7 @@ package cre
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -48,10 +49,16 @@ func TestAptosAccountForNode_FallsBackToNodeAPIAndCachesKey(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v2/keys/aptos", r.URL.Path)
+		if r.URL.Path != "/v2/keys/aptos" {
+			t.Errorf("unexpected path: got %q want %q", r.URL.Path, "/v2/keys/aptos")
+			http.Error(w, fmt.Sprintf("unexpected path %q", r.URL.Path), http.StatusBadRequest)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte(`{"data":[{"attributes":{"account":"0x1","publicKey":"0xabc123"}}]}`))
-		require.NoError(t, err)
+		if err != nil {
+			t.Errorf("failed to write response: %v", err)
+		}
 	}))
 	t.Cleanup(server.Close)
 
