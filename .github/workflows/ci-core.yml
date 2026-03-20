@@ -24,77 +24,73 @@ jobs:
       pull-requests: read
     outputs:
       affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
-      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
-      should-run-deployment-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-some.outputs.deployment == 'true' ||
-          steps.match-every.outputs.core-non-ignored == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
-      # Runs on workflow changes, and any (non-ignored) core changes
-      should-run-core-tests: >-
-        ${{
-          steps.match-some.outputs.workflow == 'true' ||
-          steps.match-every.outputs.core-non-ignored == 'true' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch'
-        }}
+      core-tests: ${{ steps.triggers.outputs.core-tests }}
+      core-fuzz-tests: ${{ steps.triggers.outputs.core-fuzz-tests }}
+      core-race-tests: ${{ steps.triggers.outputs.core-race-tests }}
+      core-integ-tests: ${{ steps.triggers.outputs.core-integration-tests }}
+      deployment-tests: ${{ steps.triggers.outputs.deployment-tests }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: match-some
+
+      - name: Advanced trigger filters
+        id: triggers
+        uses: smartcontractkit/.github/actions/changed-files-filter@feat/changed-files
         with:
-          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
-          predicate-quantifier: some
-          # deployment - any changes in the deployment module
-          # workflow - any changes that could affect this workflow definition
-          #  - Assume any repository action changes affect this workflow
-          filters: |
-            deployment:
-              - 'deployment/**'
-            workflow:
-              - '.github/workflows/ci-core.yml'
-              - '.github/actions/**'
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: match-every
-        with:
-          # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
-          #   - Enables listing of files matching each filter.
-          #   - Paths to files will be available in `${FILTER_NAME}_files` output variable.
-          #   - Paths will be formatted as JSON array
-          predicate-quantifier: every
-          # core-non-ignored - all changes except for paths which do not affect core module
-          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
-          #  - For example: core module does not depend on deployment or integration-tests module.
-          # all - changes in any directory
-          #  - This is used resolve all affected modules based on changed files
-          list-files: json
-          filters: |
-            core-non-ignored:
-              - '**'
-              - '!deployment/**'
-              - '!integration-tests/**'
-              - '!tools/secrets/**'
-              - '!tools/docker/**'
-              - '!tools/benchmark/**'
-              - '!**/README.md'
-              - '!**/CHANGELOG.md'
-              - '!*.nix'
-              - '!sonar-project.properties'
-              - '!nix.conf'
-              - '!nix-darwin-shell-hook.sh'
-              - '!LICENSE'
-              - '!.github/**'
-              - '!core/scripts/cre/environment/examples/workflows/**'
-            all:
-              - '**'
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "core/**"
+            all-test-files:
+              - "**/testdata/**"
+              - "**/*_test.go"
+            core-test-files:
+              - "testdata/**.go"
+              - "core/**/testdata/**"
+              - "core/**_test.go"
+            workflow-files:
+              - ".github/workflows/ci-core.y*ml"
+              - ".github/actions/**/*.y*ml"
+            e2e-tests-files:
+              - "system-tests/**"
+              - "integration-tests/**"
+            deployment-files:
+              - "deployment/**"
+          triggers: |
+            # Note: exclusion sets are applied first, and therefore filter all changed files before inclusion sets are applied.
+            core-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files ]
+              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests"
+            core-fuzz-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files ]
+              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "**/fuzz/**"
+                - "tools/bin/go_core_fuzz"
+            core-race-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files ]
+              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_race_tests"
+            core-integration-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files ]
+              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests_integration"
+            deployment-tests:
+              exclusion-sets: [ e2e-tests-files, core-test-files ]
+              inclusion-sets: [ go-files, core-files, deployment-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_ccip_deployment_tests"
 
       - name: Changed modules
         id: changed-modules
@@ -112,7 +108,7 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency, runner-config]
+    needs: [filter, run-frequency ]
     # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
     permissions:
@@ -121,7 +117,7 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: ${{ needs.runner-config.outputs.lint-runner }}
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/cpu=8/ram=16/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -206,28 +202,28 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            os: ${{ needs.runner-config.outputs.core-tests-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            should-run: ${{ needs.filter.outputs.core-tests }}
             trunk-auto-quarantine: "true"
 
           - cmd: go_core_tests_integration
-            os: ${{ needs.runner-config.outputs.core-tests-integration-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            os: runs-on=${{ github.run_id }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            should-run: ${{ needs.filter.outputs.core-integ-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
 
           - cmd: go_core_fuzz
-            os: ${{ needs.runner-config.outputs.core-fuzz-tests-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            os: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.core-fuzz-tests }}
 
           - cmd: go_core_race_tests
-            os: ${{ needs.runner-config.outputs.core-race-tests-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            os: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.core-race-tests }}
 
           - cmd: go_core_ccip_deployment_tests
-            os: ${{ needs.runner-config.outputs.deployment-tests-runner }}
-            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
             setup-solana: "true"
@@ -238,7 +234,7 @@ jobs:
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency, runner-config]
+    needs: [filter, run-frequency ]
     timeout-minutes: 60
     runs-on: ${{ matrix.type.os }}
     permissions:
@@ -247,9 +243,9 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,memory,disk
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
@@ -407,7 +403,7 @@ jobs:
     name: test-scripts
     needs: [filter]
     runs-on: ubuntu-latest
-    if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
+    if: ${{  needs.filter.outputs.core-tests == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -597,116 +593,6 @@ jobs:
           if [ "$current_hour" -eq "00" ]; then
             echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
           fi
-
-  # This chooses which runner labels we pass for the matrix jobs above.
-  # General Criteria:
-  # 1. If we are going to 'skip' a test suite, we use the base Github-hosted runner.
-  #   - This is based off `should-run-core-tests`, and `should-run-deployment-tests`
-  # 2. If we are not skipping, we check if the PR has the "runs-on-opt-out" label.
-  #   - If the PR has the label, we use the larger Github-hosted runners.
-  #   - If the PR does not have the label, we use the self-hosted runners.
-  runner-config:
-    name: Runner Config
-    needs: [filter]
-    runs-on: ubuntu-latest
-    env:
-      # include unique label (core/deployment/etc...) to ensure jobs are not competing for the same runner
-      SH_TEST_RUNNER: runs-on=${{ github.run_id }}-core/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-      SH_DEPLOYMENT_TEST_RUNNER: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_FUZZ_RUNNER: runs-on=${{ github.run_id}}-fuzz/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_RACE_TEST_RUNNER: runs-on=${{ github.run_id}}-race/cpu=64+128/ram=128+128/family=c7+m7/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-      SH_LINT_RUNNER: runs-on=${{ github.run_id }}-lint/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
-      GH_TEST_RUNNER: ubuntu22.04-32cores-128GB
-      GH_FUZZ_RUNNER: ubuntu22.04-8cores-32GB
-      GH_BASE_RUNNER: ubuntu-latest
-      GH_LINT_RUNNER: ubuntu-24.04-8cores-32GB-ARM
-    outputs:
-      # go_core_tests / go_core_race_tests / go_core_tests_integration
-      core-tests-runner: ${{ steps.core-tests.outputs.core-tests-runner }}
-      core-tests-integration-runner: ${{ steps.core-tests.outputs.core-tests-integration-runner }}
-      core-fuzz-tests-runner: ${{ steps.core-tests.outputs.core-fuzz-tests-runner }}
-      core-race-tests-runner: ${{ steps.core-tests.outputs.core-race-tests-runner }}
-      # go_core_ccip_deployment_tests
-      deployment-tests-runner: ${{ steps.deployment-tests.outputs.deployment-tests-runner }}
-      # linting
-      lint-runner: ${{ steps.linting.outputs.lint-runner }}
-    steps:
-      - name: Get PR Labels
-        id: pr-labels
-        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
-        with:
-          check-label: "runs-on-opt-out"
-
-      - name: Select runners for deployment tests
-        id: deployment-tests
-        shell: bash
-        env:
-          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
-          SHOULD_RUN_DEPLOYMENT_TESTS: ${{ needs.filter.outputs.should-run-deployment-tests }}
-        run: |
-          if [[ "${SHOULD_RUN_DEPLOYMENT_TESTS}" == "false" ]]; then
-            echo "Deployment tests will be skipped, using base Github-hosted runner."
-            echo "deployment-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [[ "$OPT_OUT" == "true" ]]; then
-            echo "Opt-out is true for current run. Using gh-hosted runner for deployment tests."
-            echo "deployment-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Opt-out is false for current run. Using self-hosted runner for deployment tests."
-          echo "deployment-tests-runner=${SH_DEPLOYMENT_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-
-      - name: Select runners for core tests
-        id: core-tests
-        shell: bash
-        env:
-          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
-          SHOULD_RUN_CORE_TESTS: ${{ needs.filter.outputs.should-run-core-tests }}
-        run: |
-          if [[ "${SHOULD_RUN_CORE_TESTS}" == "false" ]]; then
-            echo "Core tests will be skipped, using base Github-hosted runner."
-
-            echo "core-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-tests-integration-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-fuzz-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-race-tests-runner=${GH_BASE_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [[ "$OPT_OUT" == "true" ]]; then
-            echo "Opt-out is true for current run. Using gh-hosted runner for core tests."
-
-            echo "core-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-tests-integration-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-fuzz-tests-runner=${GH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
-            echo "core-race-tests-runner=${GH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Opt-out is false for current run. Using self-hosted runner for core tests."
-
-          echo "core-tests-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-          echo "core-tests-integration-runner=${SH_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-          echo "core-fuzz-tests-runner=${SH_FUZZ_RUNNER}" | tee -a $GITHUB_OUTPUT
-          echo "core-race-tests-runner=${SH_RACE_TEST_RUNNER}" | tee -a $GITHUB_OUTPUT
-
-      - name: Select runners for linting
-        id: linting
-        shell: bash
-        env:
-          OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
-        run: |
-          if [[ "$OPT_OUT" == "true" ]]; then
-            echo "Opt-out is true for current run. Using gh-hosted runner for linting."
-            echo "lint-runner=${GH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Opt-out is false for current run. Using self-hosted runner for linting."
-          echo "lint-runner=${SH_LINT_RUNNER}" | tee -a $GITHUB_OUTPUT
 
   misc:
     # Catchall job for miscellaneous steps.
