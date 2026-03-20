@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -205,14 +206,7 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			}
 
 			configuredSourcePool := common.HexToAddress(token.SourcePoolAddress)
-			matchesDeployedPool := false
-			for _, sourcePoolAddress := range validSourcePools {
-				if configuredSourcePool == sourcePoolAddress {
-					matchesDeployedPool = true
-					break
-				}
-			}
-			if matchesDeployedPool {
+			if slices.Contains(validSourcePools, configuredSourcePool) {
 				break
 			}
 
