@@ -27,7 +27,7 @@ func TestNewNodeKeys_IgnoresEmptyImportedAptosSecretWhenAptosDisabled(t *testing
 
 	keys, err := NewNodeKeys(NodeKeyInput{
 		ImportedSecrets: baseSecrets,
-		AptosEnabled:    false,
+		AptosChainIDs:   nil,
 	})
 	require.NoError(t, err)
 	require.Nil(t, keys.Aptos)
@@ -52,7 +52,7 @@ func TestNewNodeKeys_RejectsMissingImportedAptosSecretWhenAptosEnabled(t *testin
 
 	_, err = NewNodeKeys(NodeKeyInput{
 		ImportedSecrets: baseSecrets,
-		AptosEnabled:    true,
+		AptosChainIDs:   []uint64{4},
 	})
 	require.ErrorContains(t, err, "missing an Aptos key")
 }

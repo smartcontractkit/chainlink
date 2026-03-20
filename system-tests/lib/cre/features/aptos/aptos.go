@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	stderrors "errors"
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -83,32 +80,6 @@ func (a *Aptos) Flag() cre.CapabilityFlag {
 
 func CapabilityLabel(chainSelector uint64) string {
 	return capabilityLabelPrefix + strconv.FormatUint(chainSelector, 10)
-}
-
-// ForwarderAddress returns the Aptos forwarder address cached in the CRE
-// datastore for the given chain selector.
-func ForwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, bool) {
-	key := datastore.NewAddressRefKey(
-		chainSelector,
-		datastore.ContractType(forwarderContractType),
-		forwarderContractVersion,
-		forwarderQualifier,
-	)
-	ref, err := ds.Addresses().Get(key)
-	if err != nil {
-		return "", false
-	}
-	return ref.Address, true
-}
-
-// MustForwarderAddress returns the cached Aptos forwarder address for the given
-// chain selector and panics if it has not been recorded yet.
-func MustForwarderAddress(ds datastore.DataStore, chainSelector uint64) string {
-	addr, ok := ForwarderAddress(ds, chainSelector)
-	if !ok {
-		panic(fmt.Sprintf("missing Aptos forwarder address for chain selector %d", chainSelector))
-	}
-	return addr
 }
 
 func (a *Aptos) PreEnvStartup(
@@ -164,7 +135,7 @@ func (a *Aptos) PreEnvStartup(
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, err)
 		}
-		capConfig, err := BuildCapabilityConfig(capabilityConfig.Values, p2pToTransmitterMap, false)
+		capConfig, err := BuildCapabilityConfig(capabilityConfig.Values, p2pToTransmitterMap, don.HasOnlyLocalCapabilities())
 		if err != nil {
 			return nil, fmt.Errorf("failed to build Aptos capability config for capability %s: %w", labelledName, err)
 		}
@@ -250,7 +221,7 @@ func (a *Aptos) PostEnvStartup(
 			return pkgerrors.Wrap(tmplErr, "failed to parse Aptos config template")
 		}
 
-		forwarderAddress := MustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
+		forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
 		templateData := map[string]string{
 			"ChainID":             strconv.FormatUint(chainID, 10),
 			"CREForwarderAddress": forwarderAddress,
@@ -314,6 +285,28 @@ func (a *Aptos) PostEnvStartup(
 		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
 	}
 	return nil
+}
+
+func forwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, bool) {
+	key := datastore.NewAddressRefKey(
+		chainSelector,
+		datastore.ContractType(forwarderContractType),
+		forwarderContractVersion,
+		forwarderQualifier,
+	)
+	ref, err := ds.Addresses().Get(key)
+	if err != nil {
+		return "", false
+	}
+	return ref.Address, true
+}
+
+func mustForwarderAddress(ds datastore.DataStore, chainSelector uint64) string {
+	addr, ok := forwarderAddress(ds, chainSelector)
+	if !ok {
+		panic(fmt.Sprintf("missing Aptos forwarder address for chain selector %d", chainSelector))
+	}
+	return addr
 }
 
 // BuildCapabilityConfig builds the Aptos capability config passed directly
@@ -508,7 +501,7 @@ func ensureForwarder(
 	creEnv *cre.Environment,
 	chain *aptoschain.Blockchain,
 ) (string, error) {
-	if addr, ok := ForwarderAddress(creEnv.CldfEnvironment.DataStore, chain.ChainSelector()); ok {
+	if addr, ok := forwarderAddress(creEnv.CldfEnvironment.DataStore, chain.ChainSelector()); ok {
 		return addr, nil
 	}
 	if !creEnv.Provider.IsDocker() {
@@ -533,16 +526,14 @@ func ensureForwarder(
 	}
 
 	owner := deployerAccount.AccountAddress()
-	containerName := ""
-	if output := chain.CtfOutput(); output != nil {
-		containerName = output.ContainerName
-	}
-	if ensureErr := ensureAccountVisible(ctx, testLogger, client, nodeURL, owner, chain.ChainSelector(), containerName); ensureErr != nil {
-		testLogger.Warn().
-			Uint64("chainSelector", chain.ChainSelector()).
-			Str("nodeURL", nodeURL).
-			Err(ensureErr).
-			Msg("Aptos deployer account not confirmed visible yet; proceeding with deploy retries")
+	if _, accountErr := client.Account(owner); accountErr != nil {
+		if fundErr := chain.Fund(ctx, owner.StringLong(), 100_000_000); fundErr != nil {
+			testLogger.Warn().
+				Uint64("chainSelector", chain.ChainSelector()).
+				Str("nodeURL", nodeURL).
+				Err(fundErr).
+				Msg("Aptos deployer account not confirmed visible yet; proceeding with deploy retries")
+		}
 	}
 
 	var deployedAddress string
@@ -667,20 +658,17 @@ func configureForwarders(
 		}
 		deployerAddress := deployerAccount.AccountAddress()
 
-		containerName := ""
-		if output := aptosChain.CtfOutput(); output != nil {
-			containerName = output.ContainerName
+		if _, accountErr := client.Account(deployerAddress); accountErr != nil {
+			if fundErr := aptosChain.Fund(ctx, deployerAddress.StringLong(), 100_000_000); fundErr != nil {
+				testLogger.Warn().
+					Uint64("chainSelector", aptosChain.ChainSelector()).
+					Str("nodeURL", nodeURL).
+					Err(fundErr).
+					Msg("Aptos deployer account not confirmed visible yet; proceeding with forwarder set_config retries")
+			}
 		}
 
-		if err := ensureAccountVisible(ctx, testLogger, client, nodeURL, deployerAddress, aptosChain.ChainSelector(), containerName); err != nil {
-			testLogger.Warn().
-				Uint64("chainSelector", aptosChain.ChainSelector()).
-				Str("nodeURL", nodeURL).
-				Err(err).
-				Msg("Aptos deployer account not confirmed visible yet; proceeding with forwarder set_config retries")
-		}
-
-		forwarderHex := MustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
+		forwarderHex := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
 		var forwarderAddr aptossdk.AccountAddress
 		if err := forwarderAddr.ParseStringRelaxed(forwarderHex); err != nil {
 			return fmt.Errorf("invalid Aptos forwarder address for chain selector %d: %w", aptosChain.ChainSelector(), err)
@@ -785,7 +773,7 @@ func p2pToTransmitterMapForWorkers(workers []*cre.NodeMetadata) (map[string]stri
 			return nil, fmt.Errorf("missing P2P key for worker index %d", worker.Index)
 		}
 
-		account := worker.AptosAccount()
+		account := worker.Keys.AptosAccount()
 		if account == "" {
 			return nil, fmt.Errorf("missing Aptos account for worker index %d", worker.Index)
 		}
@@ -888,183 +876,11 @@ func findAptosChainByChainID(chains []creblockchains.Blockchain, chainID uint64)
 	return nil, fmt.Errorf("Aptos blockchain for chain id %d not found", chainID)
 }
 
-func normalizeNodeURL(rawURL string) (string, error) {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return "", err
-	}
-	if u.Scheme == "" || u.Host == "" {
-		return "", fmt.Errorf("aptos node URL %q must include scheme and host", rawURL)
-	}
-	path := strings.TrimRight(u.Path, "/")
-	if path == "" || path != "/v1" {
-		u.Path = "/v1"
-	}
-	return u.String(), nil
-}
-
-func NormalizeNodeURL(rawURL string) (string, error) {
-	return normalizeNodeURL(rawURL)
-}
-
-func faucetURLFromNodeURL(nodeURL string) (string, error) {
-	parsed, err := url.Parse(nodeURL)
-	if err != nil {
-		return "", err
-	}
-	host := parsed.Hostname()
-	if host == "" {
-		return "", fmt.Errorf("aptos node URL %q has empty host", nodeURL)
-	}
-	parsed.Host = fmt.Sprintf("%s:%s", host, blockchain.DefaultAptosFaucetPort)
-	parsed.Path = ""
-	parsed.RawPath = ""
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return parsed.String(), nil
-}
-
-func FaucetURLFromNodeURL(nodeURL string) (string, error) {
-	return faucetURLFromNodeURL(nodeURL)
-}
-
-func aptosChainIDUint8(chainID uint64) (uint8, error) {
-	if chainID > 255 {
-		return 0, fmt.Errorf("aptos chain id %d does not fit in uint8", chainID)
-	}
-	return uint8(chainID), nil
-}
-
-func ChainIDUint8(chainID uint64) (uint8, error) {
-	return aptosChainIDUint8(chainID)
-}
-
 func aptosDonIDUint32(donID uint64) (uint32, error) {
 	if donID > uint64(^uint32(0)) {
 		return 0, fmt.Errorf("don id %d exceeds u32", donID)
 	}
 	return uint32(donID), nil
-}
-
-// ensureAccountVisible best-effort funds an Aptos account and waits for the node
-// API to acknowledge it. This smooths over localnet timing where deployer
-// accounts can exist before the node API can query them reliably.
-func ensureAccountVisible(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	client *aptossdk.NodeClient,
-	nodeURL string,
-	address aptossdk.AccountAddress,
-	chainSelector uint64,
-	containerName string,
-) error {
-	if err := FundAccountBestEffort(ctx, testLogger, client, nodeURL, containerName, address, 0, 100_000_000); err == nil {
-		return nil
-	}
-
-	testLogger.Warn().
-		Uint64("chainSelector", chainSelector).
-		Str("nodeURL", nodeURL).
-		Str("account", address.StringLong()).
-		Msg("Aptos account not confirmed visible after funding attempts")
-	return fmt.Errorf("aptos account %s not visible yet on %s", address.StringLong(), nodeURL)
-}
-
-func waitForAccountVisible(ctx context.Context, client *aptossdk.NodeClient, address aptossdk.AccountAddress) error {
-	var lastErr error
-	err := retry.Do(ctx, retry.WithMaxDuration(20*time.Second, retry.NewFibonacci(250*time.Millisecond)), func(context.Context) error {
-		if _, err := client.Account(address); err != nil {
-			lastErr = err
-			return retry.RetryableError(err)
-		}
-		return nil
-	})
-	if err != nil {
-		if lastErr != nil {
-			return lastErr
-		}
-		return err
-	}
-	return nil
-}
-
-func WaitForAccountVisible(ctx context.Context, client *aptossdk.NodeClient, address aptossdk.AccountAddress, timeout time.Duration) error {
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	return waitForAccountVisible(waitCtx, client, address)
-}
-
-func fundAccountInContainer(ctx context.Context, containerName, address string, amount uint64) error {
-	dc, err := framework.NewDockerClient()
-	if err != nil {
-		return fmt.Errorf("failed to create docker client: %w", err)
-	}
-	cmd := []string{
-		"aptos", "account", "fund-with-faucet",
-		"--account", address,
-		"--amount", strconv.FormatUint(amount, 10),
-	}
-	if _, err = dc.ExecContainerWithContext(ctx, containerName, cmd); err != nil {
-		return fmt.Errorf("failed to execute aptos faucet funding command in container %s: %w", containerName, err)
-	}
-	return nil
-}
-
-func FundAccountInContainer(ctx context.Context, containerName, address string, amount uint64) error {
-	return fundAccountInContainer(ctx, containerName, address, amount)
-}
-
-func FundAccountBestEffort(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	client *aptossdk.NodeClient,
-	nodeURL string,
-	containerName string,
-	address aptossdk.AccountAddress,
-	minBalance uint64,
-	fundingAmount uint64,
-) error {
-	if _, err := client.Account(address); err == nil {
-		if minBalance == 0 {
-			return nil
-		}
-		if balance, balErr := client.AccountAPTBalance(address); balErr == nil && balance >= minBalance {
-			return nil
-		}
-	}
-
-	if faucetURL, err := faucetURLFromNodeURL(nodeURL); err == nil {
-		if faucetClient, err := aptossdk.NewFaucetClient(client, faucetURL); err == nil {
-			if fundErr := faucetClient.Fund(address, fundingAmount); fundErr != nil {
-				testLogger.Warn().
-					Err(fundErr).
-					Str("faucet_url", faucetURL).
-					Str("account", address.StringLong()).
-					Msg("Aptos host faucet funding failed")
-			} else if waitErr := WaitForAccountVisible(ctx, client, address, 8*time.Second); waitErr == nil {
-				return nil
-			}
-		}
-	}
-
-	if strings.TrimSpace(containerName) == "" {
-		return fmt.Errorf("aptos account %s not visible after host funding attempts", address.StringLong())
-	}
-	if err := fundAccountInContainer(ctx, containerName, address.StringLong(), fundingAmount); err != nil {
-		return err
-	}
-	return WaitForAccountVisible(ctx, client, address, 8*time.Second)
-}
-
-func WaitForTransactionSuccess(client *aptossdk.NodeClient, txHash, label string) error {
-	tx, err := client.WaitForTransaction(txHash)
-	if err != nil {
-		return fmt.Errorf("failed waiting for Aptos tx %s: %w", label, err)
-	}
-	if !tx.Success {
-		return fmt.Errorf("aptos tx failed: %s vm_status=%s", label, tx.VmStatus)
-	}
-	return nil
 }
 
 func parseOCR2OnchainPublicKey(hexValue string) ([]byte, error) {

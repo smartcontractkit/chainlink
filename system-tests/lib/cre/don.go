@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -426,10 +427,6 @@ func NewNode(ctx context.Context, name string, nodeMetadata *NodeMetadata, ctfNo
 		}
 	}
 
-	if account := nodeMetadata.AptosAccount(); account != "" {
-		node.Addresses.AptosAddresses = []string{account}
-	}
-
 	return node, nil
 }
 
@@ -439,9 +436,8 @@ type JobDistributorDetails struct {
 }
 
 type Addresses struct {
-	AdminAddress   string   `toml:"admin_address" json:"admin_address"`     // address used to pay for transactions, applicable only for worker nodes
-	MultiAddress   string   `toml:"multi_address" json:"multi_address"`     // multi address used by OCR2, applicable only for bootstrap nodes
-	AptosAddresses []string `toml:"aptos_addresses" json:"aptos_addresses"` // Aptos public addresses cached from node metadata or the node key API
+	AdminAddress string `toml:"admin_address" json:"admin_address"` // address used to pay for transactions, applicable only for worker nodes
+	MultiAddress string `toml:"multi_address" json:"multi_address"` // multi address used by OCR2, applicable only for bootstrap nodes
 }
 
 type NodeClients struct {
@@ -496,11 +492,11 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
-			accounts, err := AptosAccountsForNode(ctx, n)
-			if err != nil {
-				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, err)
+			aptosAccount, aptosErr := aptosAccountForNode(ctx, n)
+			if aptosErr != nil {
+				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, aptosErr)
 			}
-			account = accounts[0]
+			account = aptosAccount
 			// Deployment parsing prefers AccountAddressPublicKey for Aptos chain configs.
 			// Mirror transmitter into this field so OCRConfigForChainSelector always resolves it.
 			accountAddrPubKey = account
@@ -586,15 +582,47 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 	return nil
 }
 
-func AptosAccountsForNode(_ context.Context, n *Node) ([]string, error) {
-	if len(n.Addresses.AptosAddresses) > 0 {
-		return append([]string(nil), n.Addresses.AptosAddresses...), nil
-	}
+func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
 	if n.Keys != nil && n.Keys.AptosAccount() != "" {
-		n.Addresses.AptosAddresses = []string{n.Keys.AptosAccount()}
-		return append([]string(nil), n.Addresses.AptosAddresses...), nil
+		return n.Keys.AptosAccount(), nil
 	}
-	return nil, fmt.Errorf("missing cached aptos addresses for node %s", n.Name)
+
+	var runtimeKeys struct {
+		Data []struct {
+			Attributes struct {
+				Account   string `json:"account"`
+				PublicKey string `json:"publicKey"`
+			} `json:"attributes"`
+		} `json:"data"`
+	}
+	resp, err := n.Clients.RestClient.APIClient.R().
+		SetContext(ctx).
+		SetResult(&runtimeKeys).
+		Get("/v2/keys/aptos")
+	if err != nil {
+		return "", fmt.Errorf("failed to read Aptos keys from node API: %w", err)
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return "", fmt.Errorf("aptos keys endpoint returned status %d", resp.StatusCode())
+	}
+	if len(runtimeKeys.Data) == 0 {
+		return "", fmt.Errorf("no Aptos keys found on node %s", n.Name)
+	}
+
+	account, err := crypto.NormalizeAptosAccount(runtimeKeys.Data[0].Attributes.Account)
+	if err != nil {
+		return "", fmt.Errorf("invalid Aptos account returned by node API: %w", err)
+	}
+
+	if n.Keys != nil {
+		if n.Keys.Aptos == nil {
+			n.Keys.Aptos = &crypto.AptosKey{}
+		}
+		n.Keys.Aptos.Account = account
+		n.Keys.Aptos.PublicKey = runtimeKeys.Data[0].Attributes.PublicKey
+	}
+
+	return account, nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec

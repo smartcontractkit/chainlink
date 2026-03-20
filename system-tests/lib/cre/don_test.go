@@ -2,58 +2,74 @@ package cre
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
+	"github.com/go-resty/resty/v2"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
-func TestAptosAccountsForNode_ReturnsCachedAddresses(t *testing.T) {
+func TestAptosAccountForNode_UsesMetadataKeyWithoutCallingNodeAPI(t *testing.T) {
 	t.Parallel()
 
-	node := &Node{
-		Name: "node-1",
-		Addresses: Addresses{
-			AptosAddresses: []string{"0x1", "0x2"},
-		},
-	}
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(server.Close)
 
-	addresses, err := AptosAccountsForNode(context.Background(), node)
+	expected, err := crecrypto.NormalizeAptosAccount("0x1")
 	require.NoError(t, err)
-	require.Equal(t, []string{"0x1", "0x2"}, addresses)
-
-	addresses[0] = "0xdead"
-	require.Equal(t, []string{"0x1", "0x2"}, node.Addresses.AptosAddresses)
-}
-
-func TestAptosAccountsForNode_RequiresCachedMetadataWhenCacheMissing(t *testing.T) {
-	t.Parallel()
-
-	node := &Node{
-		Name: "node-1",
-	}
-
-	_, err := AptosAccountsForNode(context.Background(), node)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "missing cached aptos addresses for node node-1")
-}
-
-func TestAptosAccountsForNode_ReturnsMetadataKeyWhenCacheMissing(t *testing.T) {
-	t.Parallel()
 
 	node := &Node{
 		Name: "node-1",
 		Keys: &secrets.NodeKeys{
-			Aptos: &crypto.AptosKey{
-				Account: "0x1",
-			},
+			Aptos: &crecrypto.AptosKey{Account: expected},
+		},
+		Clients: NodeClients{
+			RestClient: &clclient.ChainlinkClient{APIClient: resty.New().SetBaseURL(server.URL)},
 		},
 	}
 
-	addresses, err := AptosAccountsForNode(context.Background(), node)
+	account, err := aptosAccountForNode(context.Background(), node)
 	require.NoError(t, err)
-	require.Equal(t, []string{"0x1"}, addresses)
-	require.Equal(t, []string{"0x1"}, node.Addresses.AptosAddresses)
+	require.Equal(t, expected, account)
+	require.Zero(t, hits.Load(), "node API must not be called when metadata already has the Aptos key")
+}
+
+func TestAptosAccountForNode_FallsBackToNodeAPIAndCachesKey(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v2/keys/aptos", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(`{"data":[{"attributes":{"account":"0x1","publicKey":"0xabc123"}}]}`))
+		require.NoError(t, err)
+	}))
+	t.Cleanup(server.Close)
+
+	node := &Node{
+		Name: "node-1",
+		Keys: &secrets.NodeKeys{},
+		Clients: NodeClients{
+			RestClient: &clclient.ChainlinkClient{APIClient: resty.New().SetBaseURL(server.URL)},
+		},
+	}
+
+	account, err := aptosAccountForNode(context.Background(), node)
+	require.NoError(t, err)
+
+	expected, err := crecrypto.NormalizeAptosAccount("0x1")
+	require.NoError(t, err)
+	require.Equal(t, expected, account)
+	require.NotNil(t, node.Keys.Aptos)
+	require.Equal(t, expected, node.Keys.Aptos.Account)
+	require.Equal(t, "0xabc123", node.Keys.Aptos.PublicKey)
 }

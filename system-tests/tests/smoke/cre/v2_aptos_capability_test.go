@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	aptoslib "github.com/aptos-labs/aptos-go-sdk"
 	aptoscrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
 	"github.com/ethereum/go-ethereum/common"
@@ -28,10 +30,11 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchains_aptos "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	blockchains_evm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	aptosfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
+	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
 	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -41,6 +44,8 @@ import (
 const aptosLocalMaxGasAmount uint64 = 200_000
 const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
 const aptosWorkerMinBalanceOctas uint64 = 100_000_000
+
+var aptosForwarderVersion = semver.MustParse("1.0.0")
 
 // ExecuteAptosTest runs the Aptos CRE suite with the minimum CI scenarios that
 // still cover the end-to-end happy path and the expected-failure path.
@@ -83,7 +88,10 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/aptos_capability_workflow_test.log"))
+	writeDon := findWriteAptosDonForChain(t, tenv, aptosChain.ChainID())
+	assertAptosWorkerRuntimeKeysMatchMetadata(t, writeDon)
+
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
 		server.Shutdown(t.Context())
 		close(userLogsCh)
@@ -94,6 +102,45 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 		t.Run(scenario.name, func(t *testing.T) {
 			scenario.run(t, tenv, aptosChain, userLogsCh, baseMessageCh)
 		})
+	}
+}
+
+func assertAptosWorkerRuntimeKeysMatchMetadata(t *testing.T, writeDon *crelib.Don) {
+	t.Helper()
+
+	workers, err := writeDon.Workers()
+	require.NoError(t, err, "failed to list Aptos write DON workers")
+	require.NotEmpty(t, workers, "Aptos write DON workers list is empty")
+
+	for _, worker := range workers {
+		require.NotNil(t, worker.Keys, "worker %q is missing metadata keys", worker.Name)
+		require.NotNil(t, worker.Keys.Aptos, "worker %q is missing metadata Aptos key", worker.Name)
+
+		expectedAccount, err := crecrypto.NormalizeAptosAccount(worker.Keys.Aptos.Account)
+		require.NoError(t, err, "worker %q has invalid metadata Aptos account", worker.Name)
+		expectedPublicKey := normalizeHexValue(worker.Keys.Aptos.PublicKey)
+		require.NotEmpty(t, expectedPublicKey, "worker %q is missing metadata Aptos public key", worker.Name)
+
+		var runtimeKeys struct {
+			Data []struct {
+				Attributes struct {
+					Account   string `json:"account"`
+					PublicKey string `json:"publicKey"`
+				} `json:"attributes"`
+			} `json:"data"`
+		}
+		resp, err := worker.Clients.RestClient.APIClient.R().
+			SetResult(&runtimeKeys).
+			Get("/v2/keys/aptos")
+		require.NoError(t, err, "failed to read runtime Aptos keys for worker %q", worker.Name)
+		require.Equal(t, http.StatusOK, resp.StatusCode(), "worker %q Aptos keys endpoint returned unexpected status", worker.Name)
+		require.Len(t, runtimeKeys.Data, 1, "worker %q must expose exactly one Aptos runtime key", worker.Name)
+
+		runtimeKey := runtimeKeys.Data[0].Attributes
+		actualAccount, err := crecrypto.NormalizeAptosAccount(runtimeKey.Account)
+		require.NoError(t, err, "worker %q exposed invalid runtime Aptos account", worker.Name)
+		require.Equal(t, expectedAccount, actualAccount, "worker %q runtime Aptos account does not match metadata-generated account", worker.Name)
+		require.Equal(t, expectedPublicKey, normalizeHexValue(runtimeKey.PublicKey), "worker %q runtime Aptos public key does not match metadata-generated key", worker.Name)
 	}
 }
 
@@ -261,8 +308,7 @@ func prepareAptosWriteScenarioWithBenchmark(
 ) aptosWriteScenario {
 	t.Helper()
 
-	forwarderHex, ok := aptosfeature.ForwarderAddress(tenv.CreEnvironment.CldfEnvironment.DataStore, aptosChain.ChainSelector())
-	require.True(t, ok, "Aptos write test requires forwarder address in datastore for chainSelector=%d", aptosChain.ChainSelector())
+	forwarderHex := aptosForwarderAddress(tenv, aptosChain.ChainSelector())
 	require.NotEmpty(t, forwarderHex, "Aptos write test requires forwarder address for chainSelector=%d", aptosChain.ChainSelector())
 	require.False(t, isZeroAptosAddress(forwarderHex), "Aptos write test requires non-zero forwarder address for chainSelector=%d", aptosChain.ChainSelector())
 
@@ -315,6 +361,16 @@ func isZeroAptosAddress(addr string) bool {
 		}
 	}
 	return true
+}
+
+func aptosForwarderAddress(tenv *configuration.TestEnvironment, chainSelector uint64) string {
+	return crecontracts.MustGetAddressFromDataStore(
+		tenv.CreEnvironment.CldfEnvironment.DataStore,
+		chainSelector,
+		"AptosForwarder",
+		aptosForwarderVersion,
+		"",
+	)
 }
 
 var aptosTxHashInLogRe = regexp.MustCompile(`txHash=([^\s"]+)`)
@@ -406,12 +462,12 @@ func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Block
 
 	nodeURL := bc.CtfOutput().Nodes[0].ExternalHTTPUrl
 	require.NotEmpty(t, nodeURL, "Aptos node URL is required for onchain verification")
-	nodeURL, err := aptosfeature.NormalizeNodeURL(nodeURL)
+	nodeURL, err := blockchains_aptos.NormalizeNodeURL(nodeURL)
 	require.NoError(t, err, "failed to normalize Aptos node URL for onchain verification")
 
 	chainID := bc.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	chainIDUint8, err := aptosfeature.ChainIDUint8(chainID)
+	chainIDUint8, err := blockchains_aptos.ChainIDUint8(chainID)
 	require.NoError(t, err, "failed to convert Aptos chain id")
 
 	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
@@ -430,12 +486,12 @@ func assertAptosWriteTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, 
 
 	nodeURL := bc.CtfOutput().Nodes[0].ExternalHTTPUrl
 	require.NotEmpty(t, nodeURL, "Aptos node URL is required for onchain verification")
-	nodeURL, err := aptosfeature.NormalizeNodeURL(nodeURL)
+	nodeURL, err := blockchains_aptos.NormalizeNodeURL(nodeURL)
 	require.NoError(t, err, "failed to normalize Aptos node URL for onchain verification")
 
 	chainID := bc.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	chainIDUint8, err := aptosfeature.ChainIDUint8(chainID)
+	chainIDUint8, err := blockchains_aptos.ChainIDUint8(chainID)
 	require.NoError(t, err, "failed to convert Aptos chain id")
 
 	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
@@ -478,12 +534,12 @@ func assertAptosReceiverUpdatedOnChain(
 	require.True(t, ok, "expected aptos blockchain type")
 	nodeURL := aptosBC.CtfOutput().Nodes[0].ExternalHTTPUrl
 	require.NotEmpty(t, nodeURL, "Aptos node URL is required for onchain verification")
-	nodeURL, err := aptosfeature.NormalizeNodeURL(nodeURL)
+	nodeURL, err := blockchains_aptos.NormalizeNodeURL(nodeURL)
 	require.NoError(t, err, "failed to normalize Aptos node URL for onchain verification")
 
 	chainID := aptosBC.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	chainIDUint8, err := aptosfeature.ChainIDUint8(chainID)
+	chainIDUint8, err := blockchains_aptos.ChainIDUint8(chainID)
 	require.NoError(t, err, "failed to convert Aptos chain id")
 	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
@@ -535,6 +591,10 @@ func normalizeTxHashLikeHex(input string) string {
 	return "0x" + s
 }
 
+func normalizeHexValue(input string) string {
+	return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(input)), "0x")
+}
+
 func deployAptosDataFeedsReceiverForWrite(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
@@ -548,39 +608,29 @@ func deployAptosDataFeedsReceiverForWrite(
 	require.True(t, ok, "expected aptos blockchain type")
 	nodeURL := aptosBC.CtfOutput().Nodes[0].ExternalHTTPUrl
 	require.NotEmpty(t, nodeURL, "Aptos node URL is required for receiver deployment")
-	nodeURL, err := aptosfeature.NormalizeNodeURL(nodeURL)
+	nodeURL, err := blockchains_aptos.NormalizeNodeURL(nodeURL)
 	require.NoError(t, err, "failed to normalize Aptos node URL for receiver deployment")
-	containerName := aptosBC.CtfOutput().ContainerName
 
 	chainID := aptosBC.ChainID()
 	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	chainIDUint8, err := aptosfeature.ChainIDUint8(chainID)
+	chainIDUint8, err := blockchains_aptos.ChainIDUint8(chainID)
 	require.NoError(t, err, "failed to convert Aptos chain id")
 	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
 	require.NoError(t, err, "failed to create Aptos client")
 
 	deployer, err := aptosDeployerAccount()
 	require.NoError(t, err, "failed to create Aptos deployer account")
-
-	require.NoError(
-		t,
-		aptosfeature.FundAccountBestEffort(t.Context(), framework.L, client, nodeURL, containerName, deployer.AccountAddress(), aptosWorkerMinBalanceOctas, aptosWorkerFundingAmountOctas),
-		"failed to fund Aptos deployer account",
-	)
-	require.NoError(
-		t,
-		aptosfeature.WaitForAccountVisible(t.Context(), client, deployer.AccountAddress(), 45*time.Second),
-		"Aptos deployer account must be visible before deploy",
-	)
+	deployerAddress := deployer.AccountAddress()
+	require.NoError(t, aptosBC.Fund(t.Context(), deployerAddress.StringLong(), aptosWorkerFundingAmountOctas), "failed to fund Aptos deployer account")
 
 	var primaryForwarderAddr aptoslib.AccountAddress
 	err = primaryForwarderAddr.ParseStringRelaxed(primaryForwarderHex)
 	require.NoError(t, err, "failed to parse primary forwarder address")
 
-	owner := deployer.AccountAddress()
+	owner := deployerAddress
 	secondaryAddress, secondaryTx, _, err := aptosplatformsecondary.DeployToObject(deployer, client, owner)
 	require.NoError(t, err, "failed to deploy Aptos secondary platform package")
-	require.NoError(t, aptosfeature.WaitForTransactionSuccess(client, secondaryTx.Hash, "platform_secondary deployment"))
+	require.NoError(t, blockchains_aptos.WaitForTransactionSuccess(client, secondaryTx.Hash, "platform_secondary deployment"))
 
 	dataFeedsAddress, dataFeedsTx, dataFeeds, err := aptosdatafeeds.DeployToObject(
 		deployer,
@@ -591,7 +641,7 @@ func deployAptosDataFeedsReceiverForWrite(
 		secondaryAddress,
 	)
 	require.NoError(t, err, "failed to deploy Aptos data feeds receiver package")
-	require.NoError(t, aptosfeature.WaitForTransactionSuccess(client, dataFeedsTx.Hash, "data_feeds deployment"))
+	require.NoError(t, blockchains_aptos.WaitForTransactionSuccess(client, dataFeedsTx.Hash, "data_feeds deployment"))
 
 	workflowOwner := workflowRegistryOwnerBytes(t, tenv)
 	tx, err := dataFeeds.Registry().SetWorkflowConfig(
@@ -600,7 +650,7 @@ func deployAptosDataFeedsReceiverForWrite(
 		[][]byte{},
 	)
 	require.NoError(t, err, "failed to set data feeds workflow config")
-	require.NoError(t, aptosfeature.WaitForTransactionSuccess(client, tx.Hash, "data_feeds set_workflow_config"))
+	require.NoError(t, blockchains_aptos.WaitForTransactionSuccess(client, tx.Hash, "data_feeds set_workflow_config"))
 
 	// Configure the feed that the write workflow will update.
 	// Without this, registry::perform_update emits WriteSkippedFeedNotSet and benchmark remains unchanged.
@@ -611,7 +661,7 @@ func deployAptosDataFeedsReceiverForWrite(
 		[]byte{0x99},
 	)
 	require.NoError(t, err, "failed to set data feeds feed config")
-	require.NoError(t, aptosfeature.WaitForTransactionSuccess(client, tx.Hash, "data_feeds set_feeds"))
+	require.NoError(t, blockchains_aptos.WaitForTransactionSuccess(client, tx.Hash, "data_feeds set_feeds"))
 
 	return dataFeedsAddress.StringLong()
 }
@@ -638,53 +688,19 @@ func ensureAptosWriteWorkersFunded(t *testing.T, aptosChain blockchains.Blockcha
 
 	aptosBC, ok := aptosChain.(*blockchains_aptos.Blockchain)
 	require.True(t, ok, "expected aptos blockchain type")
-
-	nodeURL := aptosBC.CtfOutput().Nodes[0].ExternalHTTPUrl
-	require.NotEmpty(t, nodeURL, "Aptos node URL is required for worker funding")
-	nodeURL, err := aptosfeature.NormalizeNodeURL(nodeURL)
-	require.NoError(t, err, "failed to normalize Aptos node URL for worker funding")
-
-	chainID := aptosBC.ChainID()
-	require.LessOrEqual(t, chainID, uint64(255), "Aptos chain id must fit in uint8")
-	chainIDUint8, err := aptosfeature.ChainIDUint8(chainID)
-	require.NoError(t, err, "failed to convert Aptos chain id")
-	client, err := aptoslib.NewNodeClient(nodeURL, chainIDUint8)
-	require.NoError(t, err, "failed to create Aptos client")
-
-	containerName := aptosBC.CtfOutput().ContainerName
 	workers, workerErr := writeDon.Workers()
 	require.NoError(t, workerErr, "failed to list Aptos write DON workers for funding")
 	require.NotEmpty(t, workers, "Aptos write DON workers list is empty")
 
 	for _, worker := range workers {
-		addresses, fetchErr := crelib.AptosAccountsForNode(t.Context(), worker)
-		require.NoError(t, fetchErr, "failed to fetch Aptos key for worker %q", worker.Name)
-		require.NotEmpty(t, addresses, "missing Aptos key for worker %q", worker.Name)
-		for _, rawAddress := range addresses {
-			rawAddress = strings.TrimSpace(rawAddress)
-			if rawAddress == "" {
-				continue
-			}
+		require.NotNil(t, worker.Keys, "worker %q is missing metadata keys", worker.Name)
+		require.NotNil(t, worker.Keys.Aptos, "worker %q is missing metadata Aptos key", worker.Name)
 
-			var account aptoslib.AccountAddress
-			parseErr := account.ParseStringRelaxed(rawAddress)
-			require.NoError(t, parseErr, "failed to parse Aptos worker account for worker %q", worker.Name)
+		var account aptoslib.AccountAddress
+		parseErr := account.ParseStringRelaxed(worker.Keys.Aptos.Account)
+		require.NoError(t, parseErr, "failed to parse Aptos worker account for worker %q", worker.Name)
 
-			require.NoError(
-				t,
-				aptosfeature.FundAccountBestEffort(t.Context(), framework.L, client, nodeURL, containerName, account, aptosWorkerMinBalanceOctas, aptosWorkerFundingAmountOctas),
-				"failed to fund Aptos worker account %s for worker %q",
-				account.StringLong(),
-				worker.Name,
-			)
-			require.NoError(
-				t,
-				aptosfeature.WaitForAccountVisible(t.Context(), client, account, 45*time.Second),
-				"Aptos worker account %s must be visible/funded before write workflow for worker %q",
-				account.StringLong(),
-				worker.Name,
-			)
-		}
+		require.NoError(t, aptosBC.Fund(t.Context(), account.StringLong(), aptosWorkerFundingAmountOctas), "failed to fund Aptos worker account %s for worker %q", account.StringLong(), worker.Name)
 	}
 }
 
