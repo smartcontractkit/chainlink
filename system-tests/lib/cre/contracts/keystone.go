@@ -137,7 +137,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 
 // embedOCR3Config computes the full OCR3 configuration for a consensus V2 DON
 // and embeds it in the capability config proto's Ocr3Configs map.
-func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig) error {
+func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig, extraSignerFamilies []string) error {
 	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
 
 	var allNodeIDs []string
@@ -150,7 +150,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		return fmt.Errorf("failed to get node info: %w", err)
 	}
 
-	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil)
+	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil, extraSignerFamilies)
 	if err != nil {
 		return fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
@@ -178,7 +178,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 	return nil
 }
 
-func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, extraSignerFamilies []string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
 	capabilities := make([]contracts.RegisterableCapability, 0)
@@ -264,7 +264,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 					if ocrConfig == nil {
 						panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
 					}
-					if err := d.embedOCR3Config(cap.Config, don, chainSelector, ocrConfig); err != nil {
+					if err := d.embedOCR3Config(cap.Config, don, chainSelector, ocrConfig, extraSignerFamilies); err != nil {
 						panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
 					}
 				}
@@ -455,7 +455,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 				if ocrConfig == nil {
 					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)
 				}
-				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig); err != nil {
+				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig, input.ExtraSignerFamilies); err != nil {
 					return nil, fmt.Errorf("failed to embed OCR3 config for capability %s: %w", cap.Capability.LabelledName, err)
 				}
 			}
@@ -490,7 +490,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 	}
 
 	// Transform dons data to V2 sequence input format
-	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config)
+	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.ExtraSignerFamilies)
 	_, seqErr := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,

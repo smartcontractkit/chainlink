@@ -394,6 +394,10 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1629,4 +1633,7 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }

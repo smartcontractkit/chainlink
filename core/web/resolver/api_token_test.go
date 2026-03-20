@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -61,7 +62,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 
 				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
 				f.Mocks.authProvider.On("TestPassword", mock.Anything, session.User.Email, defaultPassword).Return(nil)
@@ -119,7 +120,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 
 				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, gError)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
@@ -147,7 +148,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 
 				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
 				f.Mocks.authProvider.On("TestPassword", mock.Anything, session.User.Email, defaultPassword).Return(nil)
@@ -217,7 +218,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 				err = session.User.TokenKey.UnmarshalText([]byte("new-access-key"))
 				require.NoError(t, err)
 
@@ -273,7 +274,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 
 				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, gError)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
@@ -301,7 +302,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				pwd, err := utils.HashPassword(defaultPassword)
 				require.NoError(t, err)
 
-				session.User.HashedPassword = pwd
+				session.User.HashedPassword = *config.NewSecretString(pwd)
 
 				f.Mocks.authProvider.On("FindUser", mock.Anything, session.User.Email).Return(*session.User, nil)
 				f.Mocks.authProvider.On("TestPassword", mock.Anything, session.User.Email, defaultPassword).Return(nil)

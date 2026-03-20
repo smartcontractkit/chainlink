@@ -15,7 +15,7 @@ require (
 	github.com/BurntSushi/toml v1.5.0
 	github.com/Khan/genqlient v0.8.1
 	github.com/Masterminds/semver/v3 v3.4.0
-	github.com/aptos-labs/aptos-go-sdk v1.12.0
+	github.com/aptos-labs/aptos-go-sdk v1.12.1-0.20260318141106-21b6ef4ed363
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/block-vision/sui-go-sdk v1.1.4
 	github.com/cosmos/gogoproto v1.7.0
@@ -38,33 +38,33 @@ require (
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260311150311-2d0c9b95fbc9
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260311190822-5cbfc939dd16
-	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260311190822-5cbfc939dd16
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260318173523-755cafb24200
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70
+	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260317185256-d5f7db87ae70
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260224214816-cb23ec38649f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260311190822-5cbfc939dd16
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260312174130-8651b6078ed9
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260317175207-e9ff89561326
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260319155722-325b0156b188
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260316184837-e63656f0d9dd
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260318010722-59d4165024f1
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20251021173435-e86785845942
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260223222711-2fa6b0e07db0
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260320011913-f2205f8506c7
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260304150206-c64e48eb0cb0
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260309192839-c93b1af6a35a
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260309192839-c93b1af6a35a
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260318210736-c3f360fd19a8
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260318210736-c3f360fd19a8
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e
-	github.com/smartcontractkit/mcms v0.38.1
+	github.com/smartcontractkit/mcms v0.38.2
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
@@ -224,7 +224,7 @@ require (
 	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/ethereum/c-kzg-4844/v2 v2.1.6 // indirect
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/expr-lang/expr v1.17.7 // indirect
 	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
@@ -424,10 +424,10 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260313162934-73fcb2020b93 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260317124520-6b2931b8cd0a // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.12 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.13 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563 // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20251210101658-1c5c8e4c4f15 // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260317132927-e8bc2c7b01f1 // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20251210101658-1c5c8e4c4f15 // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
@@ -486,7 +486,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0 // indirect
-	go.opentelemetry.io/otel v1.41.0 // indirect
+	go.opentelemetry.io/otel v1.42.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.12.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.12.2 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.38.0 // indirect
@@ -498,11 +498,11 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.36.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0 // indirect
 	go.opentelemetry.io/otel/log v0.15.0 // indirect
-	go.opentelemetry.io/otel/metric v1.41.0 // indirect
+	go.opentelemetry.io/otel/metric v1.42.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.41.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.15.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.41.0 // indirect
-	go.opentelemetry.io/otel/trace v1.41.0 // indirect
+	go.opentelemetry.io/otel/trace v1.42.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/atomic v1.11.0 // indirect

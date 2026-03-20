@@ -38,23 +38,27 @@ import (
 type httpNegativeTest struct {
 	name          string
 	testCase      string
+	keyToUse      string
 	expectedError string
 }
 
 var httpNegativeTests = []httpNegativeTest{
 	{
 		name:          "invalid AuthorizedKey.Type",
-		testCase:      "invalid-key-type",
+		testCase:      http_config.TestCaseInvalidKeyType,
+		keyToUse:      mustDKGKey(),
 		expectedError: "unsupported key type",
 	},
 	{
 		name:          "invalid AuthorizedKey.PublicKey format",
-		testCase:      "invalid-public-key",
+		testCase:      http_config.TestCaseInvalidPublicKey,
+		keyToUse:      "invalid-public-key-format",
 		expectedError: "invalid public key",
 	},
 	{
 		name:          "non-existing AuthorizedKey.PublicKey",
-		testCase:      "non-existing-public-key",
+		testCase:      http_config.TestCaseNonExistingPublicKey,
+		keyToUse:      "0x0000000000000000000000000000000000000000",
 		expectedError: "Auth failure",
 	},
 }
@@ -113,31 +117,21 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	t_helpers.IgnoreUserLogs(t.Context(), userLogsCh)
 	testLogger.Info().Msg("Creating HTTP negative test workflow configuration...")
 
-	// Determine the authorized key to use based on test case
-	var authorizedKeyToUse string
-	switch httpNegativeTest.testCase {
-	case "invalid-public-key":
-		authorizedKeyToUse = "0x000000000000000000000000000000000000000"
-	case "non-existing-public-key":
-		authorizedKeyToUse = "0x0000000000000000000000000000000000000000"
-	default:
-		dkgKey, dErr := dkgrecipientkey.New()
-		require.NoError(t, dErr, "failed to generate new DKG recipient key")
-		authorizedKeyToUse = dkgKey.PublicKeyString()
-	}
-
 	workflowConfig := http_config.Config{
-		AuthorizedKey: authorizedKeyToUse,
+		AuthorizedKey: httpNegativeTest.keyToUse,
 		URL:           fakeServer.BaseURLHost + "/orders-" + testID,
 		TestCase:      httpNegativeTest.testCase,
 	}
 
-	workflowName := "http-trigger-fail-workflow-" + httpNegativeTest.testCase
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowName := t_helpers.UniqueWorkflowName(
+		testEnv,
+		"http-trigger-fail-"+httpNegativeTest.testCase+"-"+httpNegativeTest.name,
+	)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// For invalid key type and invalid public key format, we expect the workflow deployment/trigger setup to fail
 	// For non-existing public key, we expect the trigger execution to fail with unauthorized error at gateway level
-	if httpNegativeTest.testCase == "non-existing-public-key" {
+	if httpNegativeTest.testCase == http_config.TestCaseNonExistingPublicKey {
 		// Try to execute the trigger with a valid signing key but unauthorized public key
 		testLogger.Info().Msg("Attempting to execute HTTP trigger with unauthorized key...")
 		authFailureDetected := executeHTTPTriggerRequestExpectingFailure(t, testEnv, workflowName, signingKey)
@@ -149,11 +143,16 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	}
 
 	// expect engine initialisation failure due to incorrect trigger configuration
-	baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
-	require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
-	require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
-	require.Contains(t, baseMsg.Labels["err"], httpNegativeTest.expectedError, "expected error message to contain "+httpNegativeTest.expectedError)
-	testLogger.Info().Msgf("Found expected error - %s - in base message's labels", httpNegativeTest.expectedError)
+	_ = t_helpers.WatchBaseMessages(
+		t,
+		testLogger,
+		baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog,
+		2*time.Minute,
+		t_helpers.WithBaseMessageWorkflowID(workflowID),
+		t_helpers.WithBaseMessageLabelContains("err", httpNegativeTest.expectedError),
+	)
+	testLogger.Info().Msgf("Found expected error - %s - in base message", httpNegativeTest.expectedError)
 	testLogger.Info().Msg("HTTP Trigger Fail test successfully completed")
 }
 
@@ -313,4 +312,12 @@ func startTestOrderServer(t *testing.T, port int, testID string) (*fake.Output, 
 
 	framework.L.Info().Msgf("Test order server started on port %d at: %s with endpoint %s", port, fakeOutput.BaseURLHost, endpoint)
 	return fakeOutput, nil
+}
+
+func mustDKGKey() string {
+	dkgKey, dErr := dkgrecipientkey.New()
+	if dErr != nil {
+		panic(dErr)
+	}
+	return dkgKey.PublicKeyString()
 }

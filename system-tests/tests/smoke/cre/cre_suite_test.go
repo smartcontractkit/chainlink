@@ -20,6 +20,13 @@ import (
 
 var v1RegistriesFlags = []string{"--with-contracts-version", "v1"}
 
+var (
+	parallelEnabled = t_helpers.ParallelEnabled()
+	fanoutEnabled   = t_helpers.ChipSinkFanoutEnabled()
+	// topology is used in test names
+	topology = os.Getenv("TOPOLOGY_NAME")
+)
+
 /*
 To execute tests locally start the local CRE first:
 Inside `core/scripts/cre/environment` directory
@@ -96,7 +103,6 @@ func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
 }
 
 func runV2SuiteBucket(t *testing.T, bucket v2suite_config.SuiteBucket) {
-	topology := os.Getenv("TOPOLOGY_NAME")
 	require.NoError(t, v2suite_config.ValidateSuiteBucketRegistry(), "invalid V2 suite bucket registry")
 
 	scenarios, err := v2suite_config.ScenariosForSuiteBucket(bucket)
@@ -127,38 +133,58 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 	switch scenario {
 	case v2suite_config.SuiteScenarioProofOfReserve:
 		t.Run("[v2] Proof Of Reserve - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			priceProvider, wfConfig := BeforePoRTest(t, testEnv, "por-workflow-v2", PoRWFV2Location)
 			ExecutePoRTest(t, testEnv, priceProvider, wfConfig, false)
 		})
 	case v2suite_config.SuiteScenarioVaultDON:
 		t.Run("[v2] Vault DON - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteVaultTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioCronBeholder:
+		// NOTE: this test is not easily parallelisable, because it uses "real" ChIP Ingress stack
+		// we don't want to plug it into ChIP fanout, at least not yet
 		t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteCronBeholderTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPTriggerAction:
 		t.Run("[v2] HTTP Trigger Action - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPTriggerActionTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioHTTPActionCRUD:
 		t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioDONTime:
 		t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteDonTimeTest(t, testEnv)
 		})
 	case v2suite_config.SuiteScenarioConsensus:
 		t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteConsensusTest(t, testEnv)
 		})
 	default:
@@ -167,15 +193,20 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 }
 
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
-	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
+		if parallelEnabled && fanoutEnabled {
+			t.Parallel()
+		}
+		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 		priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2", PoRWFV2Location)
 		ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
 	})
 
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
+		if parallelEnabled && fanoutEnabled {
+			t.Parallel()
+		}
+		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 		ExecuteEVMLogTriggerTest(t, testEnv)
 	})
 }
@@ -193,8 +224,7 @@ func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
 }
 
 func runV2EVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
-	topology := os.Getenv("TOPOLOGY_NAME")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
+	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 	require.NoError(t, evm_config.ValidateReadBucketRegistry(), "invalid EVM read bucket registry")
 
 	testCases, err := evm_config.CasesForReadBucket(bucket)
@@ -210,12 +240,6 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	t.Run("[v2] Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
-}
-
-func Test_CRE_V2_HTTP_Action_Suite(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-
-	ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
 }
 
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {

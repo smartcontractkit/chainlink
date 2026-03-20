@@ -17,9 +17,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	http2 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/http"
@@ -61,7 +61,7 @@ func TestUSDCClientMonitoring(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			testMonitoring(t, test.name, test.server, test.requests, test.expected, logger.TestLogger(t))
+			testMonitoring(t, test.name, test.server, test.requests, test.expected, logger.Test(t))
 		})
 	}
 }

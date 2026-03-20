@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	lock_release_token_pool_1_0_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store"
@@ -40,6 +39,7 @@ import (
 	burn_mint_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/burn_mint_token_pool"
 	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"

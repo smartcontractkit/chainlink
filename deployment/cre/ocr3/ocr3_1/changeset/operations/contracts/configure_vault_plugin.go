@@ -11,8 +11,10 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -39,7 +41,8 @@ type ConfigureVaultPluginInput struct {
 	InstanceID            InstanceIDComponents         `json:"instanceID" yaml:"instanceID"`
 	ReportingPluginConfig *vault.ReportingPluginConfig `json:"reportingPluginConfig,omitempty" yaml:"reportingPluginConfig,omitempty"`
 
-	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig          *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ExtraSignerFamilies []string                 `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 type ConfigureVaultPlugin struct{}
@@ -144,6 +147,7 @@ func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPlug
 		DryRun:                        input.DryRun,
 		MCMSConfig:                    input.MCMSConfig,
 		ReportingPluginConfigOverride: cfgb,
+		ExtraSignerFamilies:           input.ExtraSignerFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)
