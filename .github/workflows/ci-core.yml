@@ -71,24 +71,24 @@ jobs:
           triggers: |
             core-tests:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
-              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
               paths:
                 - "tools/bin/go_core_tests"
             core-fuzz-tests:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
-              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
               paths:
                 - "!**/testdata/**"
                 - "**/fuzz/**"
                 - "tools/bin/go_core_fuzz"
             core-race-tests:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
-              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
               paths:
                 - "tools/bin/go_core_race_tests"
             core-integration-tests:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
-              inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
               paths:
                 - "tools/bin/go_core_tests_integration"
             deployment-tests:

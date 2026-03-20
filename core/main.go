@@ -15,6 +15,7 @@ import (
 
 func init() {
 	// check version
+	// change this file
 	if static.Version == static.Unset {
 		if !build.IsProd() {
 			return
