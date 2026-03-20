@@ -242,6 +242,15 @@ func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	})
 }
 
+func Test_CRE_V2_Aptos_Suite(t *testing.T) {
+	_, err := t_helpers.PreferHostAptosCLI()
+	require.NoError(t, err, "failed to locate a working host Aptos CLI")
+
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
+	t.Run("[v2] Aptos", func(t *testing.T) {
+		ExecuteAptosTest(t, testEnv)
+	})
+}
 func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 

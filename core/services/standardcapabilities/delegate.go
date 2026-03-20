@@ -159,6 +159,19 @@ func (d *Delegate) NewServices(
 	externalJobID uuid.UUID,
 	oracleFactoryConfig job.OracleFactoryConfig,
 ) ([]job.ServiceCtx, error) {
+	return d.NewServicesForCapability(ctx, "", command, configJSON, jobID, jobName, externalJobID, oracleFactoryConfig)
+}
+
+func (d *Delegate) NewServicesForCapability(
+	ctx context.Context,
+	capabilityIDOverride string,
+	command string,
+	configJSON string,
+	jobID int32,
+	jobName string,
+	externalJobID uuid.UUID,
+	oracleFactoryConfig job.OracleFactoryConfig,
+) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
 	kvStore := job.NewKVStore(jobID, d.ds)
@@ -366,7 +379,7 @@ func (d *Delegate) NewServices(
 		CRESettings:        d.creSettings,
 		TriggerEventStore:  triggercap.NewTriggerEventStore(d.ds),
 	}
-	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
+	standardCapability := NewStandardCapabilitiesWithOverride(log, command, configJSON, d.cfg, dependencies, capabilityIDOverride)
 
 	return []job.ServiceCtx{standardCapability}, nil
 }

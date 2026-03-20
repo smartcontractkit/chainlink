@@ -336,18 +336,13 @@ func setConfigurationIfMissing(configName string) error {
 
 func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, environmentDir string, flags ...string) error {
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
-		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
+		framework.L.Info().
+			Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).
+			Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).
+			Msg("Local CRE state file does not exist, starting environment...")
 
-		args := []string{"run", ".", "env", "start"}
-		args = append(args, flags...)
-
-		cmd := exec.CommandContext(ctx, "go", args...)
-		cmd.Dir = environmentDir
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmdErr := cmd.Run()
-		if cmdErr != nil {
-			return errors.Wrap(cmdErr, "failed to start environment")
+		if err := startEnvironment(ctx, environmentDir, flags...); err != nil {
+			return err
 		}
 	}
 
@@ -395,5 +390,19 @@ func setCldfEVMDeployerKey(env *cldf.Environment, chainSelector uint64, deployer
 	}
 
 	env.BlockChains = cldf_chain.NewBlockChainsFromSlice(chainCopies)
+	return nil
+}
+
+func startEnvironment(ctx context.Context, environmentDir string, flags ...string) error {
+	args := []string{"run", ".", "env", "start"}
+	args = append(args, flags...)
+
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = environmentDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return errors.Wrap(err, "failed to start environment")
+	}
 	return nil
 }

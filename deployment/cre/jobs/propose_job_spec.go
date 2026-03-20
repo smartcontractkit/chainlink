@@ -91,11 +91,11 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
 	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana:
-		// Only consensus generates an oracle factory, for now...
-		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName, input.Template == job_types.Consensus)
+		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
 		}
+		job.GenerateOracleFactory = requiresOracleFactory(input.Template, job)
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
@@ -327,4 +327,14 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	return cldf.ChangesetOutput{
 		Reports: []operations.Report[any, any]{report},
 	}, nil
+}
+
+func requiresOracleFactory(template job_types.JobSpecTemplate, job pkg.StandardCapabilityJob) bool {
+	if template == job_types.Consensus {
+		return true
+	}
+
+	// Aptos ReadContract jobs need oracle-factory generation so we can add the
+	// Aptos OCR key bundle to the multi-chain signing strategy.
+	return template == job_types.ReadContract && job.ChainSelectorAptos != 0
 }

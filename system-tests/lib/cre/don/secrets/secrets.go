@@ -3,6 +3,7 @@ package secrets
 import (
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
@@ -18,6 +20,7 @@ import (
 type nodeSecret struct {
 	EthKeys         nodeEthKeyWrapper   `toml:"EVM"`
 	SolKeys         nodeSolKeyWrapper   `toml:"Solana"`
+	AptosKey        nodeAptosKey        `toml:"Aptos"`
 	P2PKey          nodeP2PKey          `toml:"P2PKey"`
 	DKGRecipientKey nodeDKGRecipientKey `toml:"DKGRecipientKey"`
 
@@ -42,6 +45,11 @@ type nodeP2PKey struct {
 	Password string `toml:"Password"`
 }
 
+type nodeAptosKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+}
+
 type nodeDKGRecipientKey struct {
 	JSON     string `toml:"JSON"`
 	Password string `toml:"Password"`
@@ -61,6 +69,7 @@ type NodeKeys struct {
 	CSAKey        *crypto.CSAKey
 	EVM           map[uint64]*crypto.EVMKey
 	Solana        map[string]*crypto.SolKey
+	Aptos         *crypto.AptosKey
 	P2PKey        *crypto.P2PKey
 	DKGKey        *crypto.DKGRecipientKey
 	OCR2BundleIDs map[ChainFamily]string
@@ -73,6 +82,13 @@ func (n NodeKeys) PeerID() string {
 	return n.P2PKey.PeerID.String()
 }
 
+func (n NodeKeys) AptosAccount() string {
+	if n.Aptos == nil {
+		return ""
+	}
+	return n.Aptos.Account
+}
+
 func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
 	ns := nodeSecret{}
 
@@ -80,6 +96,13 @@ func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
 		ns.P2PKey = nodeP2PKey{
 			JSON:     string(n.P2PKey.EncryptedJSON),
 			Password: n.P2PKey.Password,
+		}
+	}
+
+	if n.Aptos != nil {
+		ns.AptosKey = nodeAptosKey{
+			JSON:     string(n.Aptos.EncryptedJSON),
+			Password: n.Aptos.Password,
 		}
 	}
 
@@ -125,6 +148,7 @@ type secrets struct {
 	EVM             ethKeys         `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey          p2PKey          `toml:",omitempty"`
 	Solana          solKeys         `toml:",omitempty"`
+	Aptos           aptosKey        `toml:",omitempty"`
 	DKGRecipientKey dkgRecipientKey `toml:",omitempty"`
 }
 
@@ -134,6 +158,11 @@ type p2PKey struct {
 }
 
 type dkgRecipientKey struct {
+	JSON     *string
+	Password *string
+}
+
+type aptosKey struct {
 	JSON     *string
 	Password *string
 }
@@ -258,6 +287,41 @@ func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 		EncryptedJSON: []byte(*sSecrets.P2PKey.JSON),
 		Password:      *sSecrets.P2PKey.Password,
 		PeerID:        *p,
+	}
+
+	if sSecrets.Aptos.JSON != nil {
+		aptosJSON := strings.TrimSpace(*sSecrets.Aptos.JSON)
+		if aptosJSON == "" {
+			sSecrets.Aptos.JSON = nil
+			sSecrets.Aptos.Password = nil
+		}
+	}
+
+	if sSecrets.Aptos.JSON != nil {
+		if sSecrets.Aptos.Password == nil {
+			return nil, errors.New("aptos key password is nil")
+		}
+		aptosPassword := strings.TrimSpace(*sSecrets.Aptos.Password)
+		if aptosPassword == "" {
+			return nil, errors.New("aptos key password is empty")
+		}
+
+		aptosKeyValue, err := aptoskey.FromEncryptedJSON([]byte(*sSecrets.Aptos.JSON), aptosPassword)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decrypt aptos key from encrypted JSON")
+		}
+
+		account, err := crypto.NormalizeAptosAccount(aptosKeyValue.Account())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to normalize aptos account")
+		}
+
+		keys.Aptos = &crypto.AptosKey{
+			EncryptedJSON: []byte(*sSecrets.Aptos.JSON),
+			PublicKey:     aptosKeyValue.PublicKeyStr(),
+			Account:       account,
+			Password:      aptosPassword,
+		}
 	}
 
 	if sSecrets.DKGRecipientKey.JSON != nil {

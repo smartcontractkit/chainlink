@@ -127,13 +127,19 @@ func (o *EVM) PreEnvStartup(
 	}
 
 	capabilityToOCR3Config := make(map[string]*ocr3.OracleConfig, len(capabilities))
+	capabilityLabels := make([]string, 0, len(capabilities))
 	for _, cap := range capabilities {
 		capabilityToOCR3Config[cap.Capability.LabelledName] = contracts.DefaultChainCapabilityOCR3Config()
+		capabilityLabels = append(capabilityLabels, cap.Capability.LabelledName)
 	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
 		CapabilityToOCR3Config:  capabilityToOCR3Config,
+		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			capabilityLabels...,
+		),
 	}, nil
 }
 

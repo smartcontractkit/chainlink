@@ -146,6 +146,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+	Aptos      AptosKey                 `toml:",omitempty"`
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
@@ -161,6 +162,11 @@ type SolKeys struct {
 type SolKey struct {
 	JSON     *models.Secret
 	ID       *string
+	Password *models.Secret
+}
+
+type AptosKey struct {
+	JSON     *models.Secret
 	Password *models.Secret
 }
 
@@ -241,6 +247,37 @@ func (e *SolKey) ValidateConfig() (err error) {
 		if err2 != nil {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
 		}
+	}
+	return err
+}
+
+func (p *AptosKey) SetFrom(f *AptosKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *AptosKey) validateMerge(f *AptosKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *AptosKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AptosKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
 	}
 	return err
 }
