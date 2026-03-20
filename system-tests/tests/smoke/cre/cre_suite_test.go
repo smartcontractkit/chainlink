@@ -66,7 +66,7 @@ func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
 		"failed to start Billing stack",
 	)
 
-	priceProvider, porWfCfg := beforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
+	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
 	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
 	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
 }
