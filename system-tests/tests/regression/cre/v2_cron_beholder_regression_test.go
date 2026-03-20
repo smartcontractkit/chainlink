@@ -24,6 +24,8 @@ var cronInvalidSchedulesTests = []struct {
 	{"inappropriately formatted", "*MON/1 * * * * *"},
 }
 
+// haha
+
 func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.TestEnvironment, invalidSchedule string) {
 	testLogger := framework.L
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
