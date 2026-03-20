@@ -37,9 +37,9 @@ jobs:
           persist-credentials: false
           repository: smartcontractkit/chainlink
 
-      - name: Advanced trigger filters
+      - name: Advanced Triggers
         id: triggers
-        uses: smartcontractkit/.github/actions/changed-files-filter@feat/changed-files
+        uses: smartcontractkit/.github/actions/advanced-triggers@feat/advanced-triggers # todo
         with:
           file-sets: |
             go-files:
