@@ -1,0 +1,30 @@
+name: Test RANE SOT Connectivity
+run-name: Test internal service connectivity
+
+on:
+  push:
+
+jobs:
+  connect-sot:
+    name: Test RANE SOT Connectivity
+    runs-on: ubuntu-latest
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # Test the endpoint is reachable
+          curl -v ${SERVICE_URL}
+          echo "✅ Service is accessible via Tailscale"
