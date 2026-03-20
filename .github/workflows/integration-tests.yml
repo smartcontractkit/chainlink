@@ -848,237 +848,29 @@ jobs:
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
 
-  solana-test-image-exists:
-    environment: integration
+  run-solana-smoke-tests:
+    name: Run Solana Smoke Tests
+    needs: [build-chainlink, get-solana-sha, solana-smoke-tests-setup]
     permissions:
-      checks: write
-      pull-requests: write
       id-token: write
       contents: read
-    name: Check If Solana Test Image Exists
-    runs-on: ubuntu-latest
-    needs: [get-solana-sha]
-    outputs:
-      exists: ${{ steps.check-image.outputs.exists }}
-    steps:
-      - name: Check if image exists
-        id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
-        with:
-          repository: chainlink-solana-tests
-          tag: ${{ needs.get-solana-sha.outputs.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
-  solana-build-contracts:
-    name: Solana Build Artifacts
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu22.04-8cores-32GB
-    needs:
-      [
-        changes,
-        solana-test-image-exists,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    steps:
-      - name: Checkout the solana repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Build contracts
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
-        with:
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-          runner-os: ${{ runner.os }}
-
-  solana-build-test-image:
-    name: Solana Build Test Image
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu22.04-8cores-32GB
-    needs:
-      [
-        solana-build-contracts,
-        solana-test-image-exists,
-        changes,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    env:
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-      GOTOOLCHAIN: auto
-    steps:
-      - name: Checkout the repo
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Download Artifacts
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
-        with:
-          name: artifacts
-          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-      - name: Build Test Image
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
-        with:
-          repository: chainlink-solana-tests
-          tag: ${{ needs.get-solana-sha.outputs.sha }}
-          suites: smoke
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-
-  solana-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Solana Smoke Tests
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
-    needs:
-      [
-        build-chainlink,
-        solana-build-contracts,
-        solana-build-test-image,
-        labels,
-        changes,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    env:
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-    steps:
-      - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Run Setup
-        uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@ctf-setup-run-tests-environment/0.8.0
-        with:
-          go_mod_path: ./integration-tests/go.mod
-          cache_restore_only: true
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          enable-gap: "false"
-      - name: Pull Artifacts
-        run: |
-          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }}
-          # Pull the Docker image
-          docker pull "$IMAGE_NAME"
-
-          # Create a container without starting it
-          CONTAINER_ID=$(docker create "$IMAGE_NAME")
-
-          # Copy the artifacts from the container
-          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
-          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
-
-          # Remove the created container
-          docker rm "$CONTAINER_ID"
-      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
-        run: ./scripts/install-solana-ci.sh
-
-      - name: Install gauntlet
-        run: |
-          yarn --cwd ./gauntlet install --frozen-lockfile
-          yarn --cwd ./gauntlet build
-          yarn --cwd ./gauntlet gauntlet
-      - name: Generate config overrides
-        env:
-          VERSION: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
-        run:
-          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
-          cat << EOF > config.toml
-          [ChainlinkImage]
-          version="${{ env.VERSION }}"
-          [Common]
-          user="${{ github.actor }}"
-          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
-          EOF
-          # shellcheck disable=SC2002
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          # shellcheck disable=SC2086
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          # shellcheck disable=SC2086
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-      - name: Run Tests
-        uses: smartcontractkit/.github/actions/ctf-run-tests@ctf-run-tests/0.11.0
-        env:
-          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
-          CHAINLINK_USER_TEAM: "BIX"
-        with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }} && make test_smoke
-          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: test-${{ inputs.evm-ref || env.CHAINLINK_REF }}
-          publish_check_name: Solana Smoke Test Results
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: solana-test-artifacts
-          artifacts_location: |
-            ./integration-tests/smoke/logs
-            ./integration-tests/smoke/db_dumps
-            ./integration-tests/smoke/seth_artifacts
-            /tmp/gotest.log
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          run_setup: false
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@v4
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl_node_coverage_data_solana_tests
-          path: .covdata
-          retention-days: 1
+    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e_custom_cl_reusable.yml@f2205f8506c7441d805fa779a198b52163a05bfd
+    with:
+      solana_ref: ${{ needs.get-solana-sha.outputs.sha }}
+      ecr_repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+    secrets:
+      aws_account_id: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      aws_region: ${{ secrets.QA_AWS_REGION }}
+      aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   notify-test-failure:
     name: Notify Test Failure
     # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
     if: false
     # if: ${{ github.ref_name == 'develop' && failure() }}
-    needs: [check-e2e-test-results, solana-smoke-tests]
+    needs: [check-e2e-test-results, run-solana-smoke-tests]
     runs-on: ubuntu-latest
     steps:
       - name: Send slack notification for failed migration tests
