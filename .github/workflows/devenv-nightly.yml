@@ -222,7 +222,7 @@ jobs:
             logs_archive_name: "vrfv2-with-bhs"
           - display_name: "Test VRFv2 Batch Fulfillment"
             testcmd: "go test -v -timeout 30m -run TestVRFv2BatchFulfillmentEnabledDisabled"
-            envcmd: "cl u env-vrfv2.toml,products/vrfv2/batch.toml"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/basic.toml"
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "vrfv2"
             logs_archive_name: "vrfv2-batch-fulfillment"
