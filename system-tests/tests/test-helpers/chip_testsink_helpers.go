@@ -34,6 +34,83 @@ type ChipSink interface {
 	Shutdown(ctx context.Context)
 }
 
+type baseMessageWatchCfg struct {
+	workflowID string
+	labelEq    map[string]string
+	labelIn    map[string]map[string]struct{}
+	labelHas   map[string]string
+}
+
+type userLogWatchCfg struct {
+	workflowID string
+}
+
+// BaseMessageWatchOpt customizes base message watchers.
+type BaseMessageWatchOpt func(*baseMessageWatchCfg)
+
+// UserLogWatchOpt customizes user log watchers.
+type UserLogWatchOpt func(*userLogWatchCfg)
+
+// WithBaseMessageWorkflowID filters base messages to a specific workflow ID.
+func WithBaseMessageWorkflowID(workflowID string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		cfg.workflowID = normalizeWorkflowID(workflowID)
+	}
+}
+
+// WithBaseMessageLabelEquals requires a base message label to be exactly equal to value.
+func WithBaseMessageLabelEquals(key, value string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" {
+			return
+		}
+		if cfg.labelEq == nil {
+			cfg.labelEq = make(map[string]string)
+		}
+		cfg.labelEq[k] = strings.TrimSpace(value)
+	}
+}
+
+// WithBaseMessageLabelIn requires a base message label to match one of the allowed values.
+func WithBaseMessageLabelIn(key string, allowedValues ...string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" || len(allowedValues) == 0 {
+			return
+		}
+		if cfg.labelIn == nil {
+			cfg.labelIn = make(map[string]map[string]struct{})
+		}
+		values := make(map[string]struct{}, len(allowedValues))
+		for _, v := range allowedValues {
+			values[strings.TrimSpace(v)] = struct{}{}
+		}
+		cfg.labelIn[k] = values
+	}
+}
+
+// WithBaseMessageLabelContains requires a base message label to contain the provided substring.
+func WithBaseMessageLabelContains(key, substring string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" {
+			return
+		}
+		if cfg.labelHas == nil {
+			cfg.labelHas = make(map[string]string)
+		}
+		cfg.labelHas[k] = strings.TrimSpace(substring)
+	}
+}
+
+// WithUserLogWorkflowID filters user logs to a specific workflow ID.
+func WithUserLogWorkflowID(workflowID string) UserLogWatchOpt {
+	return func(cfg *userLogWatchCfg) {
+		cfg.workflowID = normalizeWorkflowID(workflowID)
+	}
+}
+
 type fanoutSubscription struct {
 	id string
 }
@@ -131,14 +208,27 @@ func WaitForUserLog(
 	testLogger zerolog.Logger,
 	publishCh <-chan *workflowevents.UserLogs,
 	needle string,
+	opts ...UserLogWatchOpt,
 ) (*workflowevents.LogLine, error) {
+	cfg := userLogWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Cause(ctx)
 		case logs := <-publishCh:
+			if logs == nil {
+				continue
+			}
+			if cfg.workflowID != "" && !userLogsHasWorkflowID(logs, cfg.workflowID) {
+				continue
+			}
 			for _, line := range logs.LogLines {
 				if strings.Contains(line.Message, needle) {
+					testLogger.Info().Str("expected_log", needle).Str("actual_log", strings.TrimSpace(line.Message)).Msg("Found expected user log")
 					return line, nil
 				}
 
@@ -159,8 +249,13 @@ func FailOnBaseMessage(
 	testLogger zerolog.Logger,
 	publishCh <-chan *commonevents.BaseMessage,
 	needle string,
+	opts ...BaseMessageWatchOpt,
 ) {
 	t.Helper()
+	cfg := baseMessageWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
 	for {
 		select {
@@ -171,7 +266,19 @@ func FailOnBaseMessage(
 			if !ok || msg == nil {
 				return
 			}
+			if cfg.workflowID != "" && !baseMessageHasWorkflowID(msg, cfg.workflowID) {
+				continue
+			}
 			if strings.Contains(msg.Msg, needle) {
+				ok, reason := baseMessageMatchesLabelFilters(msg, cfg)
+				if !ok {
+					testLogger.Warn().
+						Str("expected_log", needle).
+						Str("found_message", strings.TrimSpace(msg.Msg)).
+						Str("filter_reason", reason).
+						Msg("[soft assertion] Ignoring poison BaseMessage because source labels do not match")
+					continue
+				}
 				testLogger.Error().
 					Str("expected_log", needle).
 					Str("found_message", strings.TrimSpace(msg.Msg)).
@@ -431,19 +538,29 @@ func WatchWorkflowLogs(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	failingBeholderLog string,
 	expectedBeholderLog string,
-	timeout time.Duration) {
+	timeout time.Duration,
+	opts ...UserLogWatchOpt,
+) {
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected user log message"))
 	defer cancelFn()
 
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
 	defer cancelCauseFn(nil)
+	userCfg := userLogWatchCfg{}
+	for _, opt := range opts {
+		opt(&userCfg)
+	}
 
 	if failingBeholderLog != "" {
 		go func() {
+			if userCfg.workflowID != "" {
+				FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog, WithBaseMessageWorkflowID(userCfg.workflowID))
+				return
+			}
 			FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog)
 		}()
 	}
-	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog)
+	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog, opts...)
 	require.NoError(t, err, "failed to find expected user log message")
 }
 
@@ -453,13 +570,34 @@ func WaitForBaseMessage(
 	testLogger zerolog.Logger,
 	publishCh <-chan *commonevents.BaseMessage,
 	needle string,
+	opts ...BaseMessageWatchOpt,
 ) (*commonevents.BaseMessage, error) {
+	cfg := baseMessageWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Cause(ctx)
 		case msg := <-publishCh:
+			if msg == nil {
+				continue
+			}
+			if cfg.workflowID != "" && !baseMessageHasWorkflowID(msg, cfg.workflowID) {
+				continue
+			}
 			if strings.Contains(msg.Msg, needle) {
+				ok, reason := baseMessageMatchesLabelFilters(msg, cfg)
+				if !ok {
+					testLogger.Warn().
+						Str("expected_log", needle).
+						Str("found_message", strings.TrimSpace(msg.Msg)).
+						Str("filter_reason", reason).
+						Msg("[soft assertion] Received BaseMessage with expected message, but source labels do not match")
+					continue
+				}
 				return msg, nil
 			}
 			if strings.Contains(msg.Msg, "heartbeat") {
@@ -480,14 +618,84 @@ func WatchBaseMessages(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	expectedMessage string,
 	timeout time.Duration,
+	opts ...BaseMessageWatchOpt,
 ) *commonevents.BaseMessage {
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected base message"))
 	defer cancelFn()
 
-	msg, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage)
+	msg, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage, opts...)
 	require.NoError(t, err, "failed to find expected base message")
+	testLogger.Info().Msgf("Found expected base message: %s", expectedMessage)
 
 	return msg
+}
+
+func normalizeWorkflowID(workflowID string) string {
+	return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(workflowID)), "0x")
+}
+
+func baseMessageHasWorkflowID(msg *commonevents.BaseMessage, workflowID string) bool {
+	if msg == nil || workflowID == "" {
+		return false
+	}
+
+	for _, key := range []string{"workflowID", "workflow_id", "workflowId"} {
+		if value, ok := msg.Labels[key]; ok && normalizeWorkflowID(value) == workflowID {
+			return true
+		}
+	}
+
+	// Some messages carry workflow id only inside the "err" label payload.
+	if errLabel, ok := msg.Labels["err"]; ok && strings.Contains(strings.ToLower(errLabel), workflowID) {
+		return true
+	}
+
+	return false
+}
+
+func baseMessageMatchesLabelFilters(msg *commonevents.BaseMessage, cfg baseMessageWatchCfg) (bool, string) {
+	if msg == nil {
+		return false, "base message is nil"
+	}
+
+	for key, expected := range cfg.labelEq {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if actual != expected {
+			return false, "label " + key + " value mismatch"
+		}
+	}
+
+	for key, allowedSet := range cfg.labelIn {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if _, ok := allowedSet[actual]; !ok {
+			return false, "label " + key + " not in allowed values"
+		}
+	}
+
+	for key, needle := range cfg.labelHas {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if !strings.Contains(actual, needle) {
+			return false, "label " + key + " does not contain expected substring"
+		}
+	}
+
+	return true, ""
+}
+
+func userLogsHasWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
+	if logs == nil || logs.M == nil || workflowID == "" {
+		return false
+	}
+	return normalizeWorkflowID(logs.M.WorkflowID) == workflowID
 }
 
 // IgnoreUserLogs drains user log traffic so publishers never block when tests do not care about logs.

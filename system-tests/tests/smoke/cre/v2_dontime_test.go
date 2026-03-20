@@ -35,9 +35,9 @@ func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	workflowConfig := crontypes.WorkflowConfig{
 		Schedule: "*/30 * * * * *", // every 30 seconds
 	}
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedBeholderLog := "Verified consensus on DON Time"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedBeholderLog, 2*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 	testLogger.Info().Msg("DON Time test completed")
 }

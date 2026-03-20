@@ -416,7 +416,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 		message := "Data for log trigger chain " + chainID
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
@@ -444,7 +444,7 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
 
-		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
+		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 		emitCancelFn()
 		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
 

@@ -649,8 +649,15 @@ func deleteWorkflows(
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
+	opts ...CompileAndDeployWorkflowOpt,
 ) string {
 	t.Helper()
+	cfg := compileAndDeployWorkflowCfg{
+		artifactCopyDONTypes: []cre.CapabilityFlag{cre.WorkflowDON},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
 	testLogger.Info().
 		Str("workflow_name", workflowName).
@@ -659,13 +666,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	artifactDir := workflowArtifactsDir(t, testEnv)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDONs := make([]*cre.Don, 0)
-	for _, don := range testEnv.Dons.List() {
-		if !don.HasFlag(cre.WorkflowDON) {
-			continue
-		}
-		workflowDONs = append(workflowDONs, don)
-	}
+	workflowDONs := selectArtifactTargetDONs(testEnv, cfg.artifactCopyDONTypes)
 
 	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation, artifactDir)
 	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
@@ -687,6 +688,44 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+type compileAndDeployWorkflowCfg struct {
+	artifactCopyDONTypes []cre.CapabilityFlag
+}
+
+// CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
+type CompileAndDeployWorkflowOpt func(*compileAndDeployWorkflowCfg)
+
+// WithArtifactCopyDONTypes sets DON types where workflow artifacts should be copied.
+func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		if len(donTypes) == 0 {
+			return
+		}
+		cfg.artifactCopyDONTypes = append([]cre.CapabilityFlag{}, donTypes...)
+	}
+}
+
+func selectArtifactTargetDONs(testEnv *ttypes.TestEnvironment, donTypes []cre.CapabilityFlag) []*cre.Don {
+	if len(donTypes) == 0 {
+		donTypes = []cre.CapabilityFlag{cre.WorkflowDON}
+	}
+	allow := make(map[cre.CapabilityFlag]struct{}, len(donTypes))
+	for _, donType := range donTypes {
+		allow[donType] = struct{}{}
+	}
+
+	targetDONs := make([]*cre.Don, 0)
+	for _, don := range testEnv.Dons.List() {
+		for donType := range allow {
+			if don.HasFlag(donType) {
+				targetDONs = append(targetDONs, don)
+				break
+			}
+		}
+	}
+	return targetDONs
 }
 
 func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string {
