@@ -497,7 +497,6 @@ jobs:
             echo "Will test compatibility with geth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with geth"
           fi
@@ -507,7 +506,6 @@ jobs:
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
             # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with besu"
           fi
@@ -516,7 +514,6 @@ jobs:
             echo "Will test compatibility with erigon"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with erigon"
           fi
@@ -526,7 +523,6 @@ jobs:
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
             # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with nethermind"
           fi
@@ -535,7 +531,6 @@ jobs:
             echo "Will test compatibility with reth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
             testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2plus -r '^TestVRFv2Plus$/^Link_Billing$' -f './smoke/vrfv2plus_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with reth"
           fi

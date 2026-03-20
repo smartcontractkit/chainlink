@@ -1,7 +1,10 @@
 package configuration
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -25,4 +28,11 @@ type TestEnvironment struct {
 	Logger         zerolog.Logger
 	CreEnvironment *cre.Environment
 	Dons           *cre.Dons
+	Execution      *ExecutionContext
+}
+
+type ExecutionContext struct {
+	TestID       string
+	ChainClient  *seth.Client
+	OwnerAddress common.Address
 }

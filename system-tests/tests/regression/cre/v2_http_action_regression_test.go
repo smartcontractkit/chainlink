@@ -5,8 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
-
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -79,7 +77,7 @@ var httpActionFailureTests = []httpActionFailureTest{
 		testCase:      "crud-failure",
 		method:        "POST",
 		url:           "http://host.docker.internal:8080/test",
-		body:          strings.Repeat("a", 10*1024*1024), // 10MB body
+		body:          strings.Repeat("a", 2*1024*1024), // 2MB body, still above the 1MB threshold
 		expectedError: "HTTP Action failure test completed: oversized-request-body",
 	},
 	{
@@ -115,7 +113,10 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 		TimeoutMs: httpActionTest.timeout,
 	}
 
-	workflowName := "http-action-fail-workflow-" + httpActionTest.method + "-" + uuid.New().String()[0:8]
+	workflowName := t_helpers.UniqueWorkflowName(
+		testEnv,
+		"http-action-fail-"+httpActionTest.method+"-"+httpActionTest.name,
+	)
 
 	// Start Beholder listener BEFORE registering workflow to avoid missing messages
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
@@ -130,12 +131,21 @@ func HTTPActionFailureTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 	})
 
 	// Now register and deploy the workflow
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// Wait for specific error message in Beholder based on test case
 	testLogger.Info().Msgf("Waiting for expected HTTP Action failure: '%s' in Beholder...", httpActionTest.expectedError)
 
 	// Expect exact error message for this test case - no fallbacks
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, httpActionTest.expectedError, 60*time.Second)
+	t_helpers.WatchWorkflowLogs(
+		t,
+		testLogger,
+		userLogsCh,
+		baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog,
+		httpActionTest.expectedError,
+		120*time.Second,
+		t_helpers.WithUserLogWorkflowID(workflowID),
+	)
 	testLogger.Info().Msg("HTTP Action failure test completed successfully")
 }

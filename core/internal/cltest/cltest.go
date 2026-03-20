@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -163,6 +162,7 @@ func init() {
 	}
 }
 
+// Deprecated: use rand/v2
 func NewRandomPositiveInt64() int64 {
 	id := rand.Int63()
 	return id
@@ -181,30 +181,6 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 
 func FormatWithPrefixedChainID(chainID, id string) string {
 	return fmt.Sprintf("%s/%s", chainID, id)
-}
-
-type JobPipelineV2TestHelper struct {
-	Prm pipeline.ORM
-	Jrm job.ORM
-	Pr  pipeline.Runner
-}
-
-type JobPipelineConfig interface {
-	pipeline.Config
-	MaxSuccessfulRuns() uint64
-}
-
-func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, legacyChains legacyevm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
-	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, jpcfg.MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db)
-	jrm := job.NewORM(db, prm, btORM, keyStore, lggr)
-	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
-	return JobPipelineV2TestHelper{
-		prm,
-		jrm,
-		pr,
-	}
 }
 
 // TestApplication holds the test application and test servers
