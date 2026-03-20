@@ -64,7 +64,7 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 
 	dockerTag := opts.DockerTag
 	if dockerTag == "" {
-		dockerTag = static.DockerTag
+		dockerTag = static.Unset
 	}
 
 	return NodePlatformBuildInfoConfig{

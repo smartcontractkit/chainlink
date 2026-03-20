@@ -73,6 +73,8 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
+const dockerTagEnvVar = "CL_DOCKER_TAG"
+
 func metricViews() []sdkmetric.View {
 	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews(), ocr3_1beholderwrapper.MetricViews())
 }
@@ -246,6 +248,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			return nil, fmt.Errorf("failed to create workflow fetcher: %w", err)
 		}
 	}
+
+	dockerTag := static.Unset
+	if envTag, ok := os.LookupEnv(dockerTagEnvVar); ok && envTag != "" {
+		dockerTag = envTag
+	}
+
 	return chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts:                     creOpts,
 		Config:                   cfg,
@@ -257,7 +265,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		ExternalInitiatorManager: webhook.NewExternalInitiatorManager(ds, unrestrictedClient),
 		Version:                  static.Version,
 		VersionTag:               static.VersionTag,
-		DockerTag:                static.DockerTag,
+		DockerTag:                dockerTag,
 		RestrictedHTTPClient:     clhttp.NewRestrictedClient(cfg.Database(), appLggr),
 		UnrestrictedHTTPClient:   unrestrictedClient,
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},

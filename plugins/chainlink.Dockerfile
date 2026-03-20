@@ -33,7 +33,6 @@ ARG GO_GCFLAGS
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
 ARG VERSION_TAG
-ARG DOCKER_TAG
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
@@ -90,6 +89,8 @@ USER ${CHAINLINK_USER}
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 # Set plugin environment variable configuration.
+ARG DOCKER_TAG=unset
+ENV CL_DOCKER_TAG=${DOCKER_TAG}
 ENV CL_MEDIAN_CMD=chainlink-feeds
 ARG CL_SOLANA_CMD=chainlink-solana
 ENV CL_SOLANA_CMD=${CL_SOLANA_CMD}

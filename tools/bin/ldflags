@@ -4,7 +4,6 @@ cd "$(dirname "$0")"
 
 COMMIT_SHA=${COMMIT_SHA:-$(git rev-parse HEAD)}
 VERSION_TAG=${VERSION_TAG:-$(git describe --always)}
-DOCKER_TAG=${DOCKER_TAG:-unset}
 VERSION=${VERSION:-$(jq -r '.version' ../../package.json)}
 
-echo "-X github.com/smartcontractkit/chainlink/v2/core/static.Version=$VERSION -X github.com/smartcontractkit/chainlink/v2/core/static.VersionTag=$VERSION_TAG -X github.com/smartcontractkit/chainlink/v2/core/static.DockerTag=$DOCKER_TAG -X github.com/smartcontractkit/chainlink/v2/core/static.Sha=$COMMIT_SHA"
+echo "-X github.com/smartcontractkit/chainlink/v2/core/static.Version=$VERSION -X github.com/smartcontractkit/chainlink/v2/core/static.VersionTag=$VERSION_TAG -X github.com/smartcontractkit/chainlink/v2/core/static.Sha=$COMMIT_SHA"

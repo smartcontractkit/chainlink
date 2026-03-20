@@ -16,8 +16,6 @@ var (
 	Version = Unset
 	// VersionTag is the complete version string, including all suffixes (-ccip, -beta1, etc)
 	VersionTag = Unset
-	// DockerTag is the Docker image tag used to build the binary or Unset.
-	DockerTag = Unset
 	// Sha is the commit hash of the build or Unset.
 	Sha = Unset
 )
