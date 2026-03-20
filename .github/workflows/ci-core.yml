@@ -115,7 +115,7 @@ jobs:
     name: GolangCI Lint
     needs: [filter, run-frequency ]
     # We don't directly merge dependabot PRs to not waste the resources.
-    if: ${{ (github.event_name == 'pull_request' ||  github.event_name == 'schedule') && github.actor != 'dependabot[bot]' }}
+    if: ${{ needs.filter.outputs.affected-modules != '[]' && github.actor != 'dependabot[bot]' }}
     permissions:
       # To annotate code in the PR.
       checks: write
