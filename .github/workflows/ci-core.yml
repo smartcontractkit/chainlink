@@ -56,15 +56,19 @@ jobs:
               - "core/**/testdata/**"
               - "core/**_test.go"
             workflow-files:
-              - ".github/workflows/ci-core.y*ml"
-              - ".github/actions/**/*.y*ml"
+              - temporary-testing.txt
+              # - ".github/workflows/ci-core.y*ml"
+              # - ".github/actions/**/*.y*ml"
             e2e-tests-files:
               - "system-tests/**"
               - "integration-tests/**"
             deployment-files:
               - "deployment/**"
+          # Note:
+          # - pull_request, merge_group, and push events will resolve to true if any changed files match the path/glob patterns
+          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
+          # - by default these will resolve to true for schedule, and workflow_dispatch events
           triggers: |
-            # Note: exclusion sets are applied first, and therefore filter all changed files before inclusion sets are applied.
             core-tests:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
               inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
