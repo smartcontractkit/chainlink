@@ -252,6 +252,9 @@ func (v *EthereumVRFCoordinatorV2) CancelSubscription(subID uint64, to common.Ad
 			}
 		}
 	}
+	if canceled == nil {
+		return tx, nil, errors.New("no SubscriptionCanceled event in transaction receipt logs")
+	}
 	return tx, canceled, nil
 }
 
@@ -270,6 +273,9 @@ func (v *EthereumVRFCoordinatorV2) OwnerCancelSubscription(subID uint64) (*seth.
 				}
 			}
 		}
+	}
+	if canceled == nil {
+		return tx, nil, errors.New("no SubscriptionCanceled event in transaction receipt logs")
 	}
 	return tx, canceled, nil
 }
@@ -427,18 +433,24 @@ func parseRequestRandomnessLogs(coordinator CoordinatorV2Log, logs []*types.Log)
 			}
 		}
 	}
+	if requested == nil {
+		return nil, errors.New("no RandomWordsRequested event in transaction receipt logs")
+	}
 	return requested, nil
 }
 
-// FindVRFv2SubscriptionID returns the uint64 sub ID from a CreateSubscription receipt (first log topic[1]).
+// FindVRFv2SubscriptionID returns the uint64 sub ID from a CreateSubscription receipt by locating SubscriptionCreated.
 func FindVRFv2SubscriptionID(receipt *types.Receipt) (uint64, error) {
-	if len(receipt.Logs) == 0 {
-		return 0, errors.New("no logs in receipt")
+	wantTopic := vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated{}.Topic()
+	for _, lg := range receipt.Logs {
+		if len(lg.Topics) < 2 {
+			continue
+		}
+		if lg.Topics[0].Cmp(wantTopic) == 0 {
+			return lg.Topics[1].Big().Uint64(), nil
+		}
 	}
-	if len(receipt.Logs[0].Topics) < 2 {
-		return 0, errors.New("not enough topics in SubscriptionCreated log")
-	}
-	return receipt.Logs[0].Topics[1].Big().Uint64(), nil
+	return 0, errors.New("no SubscriptionCreated event in transaction receipt logs")
 }
 
 // FallbackWeiBigInt parses decimal string fallback wei per unit LINK.
