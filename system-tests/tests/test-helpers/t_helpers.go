@@ -17,6 +17,8 @@ package helpers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -26,6 +28,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -71,6 +74,9 @@ import (
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
+const maxWorkflowNameLen = 64
+
+var deleteWorkflowsMu sync.Mutex
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -316,7 +322,7 @@ type WorkflowRegistrationConfig struct {
 	ChainID                 uint64
 	DonID                   uint64
 	ContainerTargetDir      string
-	Blockchains             []blockchains.Blockchain
+	SethClient              *seth.Client
 }
 
 /*
@@ -329,11 +335,11 @@ It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation, artifactDir string) (string, string) {
 	t.Helper()
 
-	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(t.Context(), workflowFileLocation, workflowName)
+	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig, artifactDir)
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflowToDir(t.Context(), workflowFileLocation, workflowName, artifactDir)
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 
@@ -354,7 +360,7 @@ Pass `nil` to skip workflow config file creation.
 
 Returns the path to the workflow config file.
 */
-func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T) (filePath string) {
+func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T, outputDir string) (filePath string) {
 	t.Helper()
 
 	var workflowConfigFilePath string
@@ -367,7 +373,7 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("Workflow config file is not requested and will not be created.")
 
 		case *portypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create PoR workflow config file")
 			testLogger.Info().Msg("PoR workflow config file created.")
@@ -382,78 +388,78 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 				cleanID = cleanID[:32]
 			}
 			cfg.FeedID = "0x" + cleanID
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
 			testLogger.Info().Msg("PoR v2 workflow config file created.")
 
 		case *HTTPWorkflowConfig:
-			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP workflow config file created.")
 
 		case *crontypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
 
 		case *consensus_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create consensus workflow config file")
 			testLogger.Info().Msg("Consensus workflow config file created.")
 
 		case *evmread_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread workflow config file")
 			testLogger.Info().Msg("EVM Read workflow config file created.")
 
 		case *logtrigger_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create logtrigger workflow config file")
 			testLogger.Info().Msg("EVM LogTrigger workflow config file created.")
 
 		case *evmread_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
 
 		case *evmwrite_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
 			testLogger.Info().Msg("EVM Write negative workflow config file created.")
 
 		case *logtrigger_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create logtrigger-negative workflow config file")
 			testLogger.Info().Msg("EVM LogTrigger negative workflow config file created.")
 
 		case *http_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create http-negative workflow config file")
 			testLogger.Info().Msg("HTTP negative workflow config file created.")
 
 		case *httpaction_smoke_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction smoke workflow config file")
 			testLogger.Info().Msg("HTTP Action smoke workflow config file created.")
 
 		case *httpaction_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
 			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
 		case *solwrite_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
@@ -472,14 +478,14 @@ It stores the values used by a workflow (main.go),
 The values are written to types.WorkflowConfig.
 The method returns the absolute path to the created config file.
 */
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig) (string, error) {
+func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig, outputDir string) (string, error) {
 	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
 	if fIDerr != nil {
 		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
 	}
 	workflowConfig.FeedID = feedIDToUse
 
-	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig)
+	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig, outputDir)
 }
 
 func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
@@ -501,7 +507,7 @@ func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, e
 	return feedIDToUse, nil
 }
 
-func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
+func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig, outputDir string) (string, error) {
 	testLogger := framework.L
 	mockServerURL := cfg.URL
 	parsedURL, urlErr := url.Parse(mockServerURL)
@@ -521,7 +527,7 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 	}
 
 	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
-	configPath := filepath.Join(os.TempDir(), configFileName)
+	configPath := filepath.Join(outputDir, configFileName)
 
 	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
 	if writeErr != nil {
@@ -534,21 +540,23 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 /*
 Creates .yaml workflow configuration file and returns the absolute path to the created config file.
 */
-func CreateWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
+func CreateWorkflowYamlConfigFile(workflowName string, workflowConfig any, outputDir string) (string, error) {
 	// Write workflow config to a .yaml file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")
 	}
-	workflowSuffix := "_config.yaml"
-	workflowConfigOutputFile := workflowName + workflowSuffix
+	if mkErr := os.MkdirAll(outputDir, 0o755); mkErr != nil {
+		return "", errors.Wrap(mkErr, "failed to create output directory")
+	}
 
-	// remove the duplicate if it already exists
-	_, statErr := os.Stat(workflowConfigOutputFile)
-	if statErr == nil {
-		if err := os.Remove(workflowConfigOutputFile); err != nil {
-			return "", errors.Wrap(err, "failed to remove existing output file")
-		}
+	workflowConfigFile, tempErr := os.CreateTemp(outputDir, workflowName+"-*_config.yaml")
+	if tempErr != nil {
+		return "", errors.Wrap(tempErr, "failed to create workflow config file")
+	}
+	workflowConfigOutputFile := workflowConfigFile.Name()
+	if closeErr := workflowConfigFile.Close(); closeErr != nil {
+		return "", errors.Wrap(closeErr, "failed to close workflow config file")
 	}
 
 	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
@@ -574,8 +582,8 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 
 	t.Cleanup(func() {
 		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
-			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
-			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion,
+			wfRegCfg.CompressedWasmPath,
+			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion, wfRegCfg.SethClient,
 		)
 	})
 
@@ -619,9 +627,9 @@ func deleteWorkflows(
 	uniqueWorkflowName string,
 	workflowConfigFilePath string,
 	compressedWorkflowWasmPath string,
-	blockchains []blockchains.Blockchain,
 	workflowRegistryAddress common.Address,
 	version *semver.Version,
+	sethClient *seth.Client,
 ) {
 	t.Helper()
 
@@ -630,8 +638,10 @@ func deleteWorkflows(
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, version, uniqueWorkflowName)
+	deleteWorkflowsMu.Lock()
+	defer deleteWorkflowsMu.Unlock()
+
+	deleteErr := creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
 	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
@@ -639,24 +649,26 @@ func deleteWorkflows(
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
+	opts ...CompileAndDeployWorkflowOpt,
 ) string {
 	t.Helper()
+	cfg := compileAndDeployWorkflowCfg{
+		artifactCopyDONTypes: []cre.CapabilityFlag{cre.WorkflowDON},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
 	testLogger.Info().
 		Str("workflow_name", workflowName).
 		Str("workflow_file_location", workflowFileLocation).
 		Msgf("compiling and registering workflow '%s'", workflowName)
+	artifactDir := workflowArtifactsDir(t, testEnv)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDONs := make([]*cre.Don, 0)
-	for _, don := range testEnv.Dons.List() {
-		if !don.HasFlag(cre.WorkflowDON) {
-			continue
-		}
-		workflowDONs = append(workflowDONs, don)
-	}
+	workflowDONs := selectArtifactTargetDONs(testEnv, cfg.artifactCopyDONTypes)
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation, artifactDir)
 	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
 
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -671,9 +683,93 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
-		Blockchains:             testEnv.CreEnvironment.Blockchains,
+		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+type compileAndDeployWorkflowCfg struct {
+	artifactCopyDONTypes []cre.CapabilityFlag
+}
+
+// CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
+type CompileAndDeployWorkflowOpt func(*compileAndDeployWorkflowCfg)
+
+// WithArtifactCopyDONTypes sets DON types where workflow artifacts should be copied.
+func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		if len(donTypes) == 0 {
+			return
+		}
+		cfg.artifactCopyDONTypes = append([]cre.CapabilityFlag{}, donTypes...)
+	}
+}
+
+func selectArtifactTargetDONs(testEnv *ttypes.TestEnvironment, donTypes []cre.CapabilityFlag) []*cre.Don {
+	if len(donTypes) == 0 {
+		donTypes = []cre.CapabilityFlag{cre.WorkflowDON}
+	}
+	allow := make(map[cre.CapabilityFlag]struct{}, len(donTypes))
+	for _, donType := range donTypes {
+		allow[donType] = struct{}{}
+	}
+
+	targetDONs := make([]*cre.Don, 0)
+	for _, don := range testEnv.Dons.List() {
+		for donType := range allow {
+			if don.HasFlag(donType) {
+				targetDONs = append(targetDONs, don)
+				break
+			}
+		}
+	}
+	return targetDONs
+}
+
+func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string {
+	t.Helper()
+	if testEnv.Execution == nil || testEnv.Execution.TestID == "" {
+		dir, err := os.MkdirTemp("", "cre-workflow-artifacts-*")
+		require.NoError(t, err, "failed to create artifacts directory")
+		return dir
+	}
+
+	dir := filepath.Join(os.TempDir(), "cre-workflow-artifacts", testEnv.Execution.TestID)
+	require.NoError(t, os.MkdirAll(dir, 0o755), "failed to create artifacts directory")
+	return dir
+}
+
+func UniqueWorkflowName(testEnv *ttypes.TestEnvironment, baseName string) string {
+	testID := ""
+	if testEnv != nil && testEnv.Execution != nil {
+		testID = testEnv.Execution.TestID
+	}
+	if testID == "" {
+		return truncateWorkflowName(baseName, baseName)
+	}
+	return truncateWorkflowName(fmt.Sprintf("%s-%s", baseName, testID), fmt.Sprintf("%s:%s", baseName, testID))
+}
+
+func truncateWorkflowName(name, uniquenessSeed string) string {
+	if len(name) <= maxWorkflowNameLen {
+		return name
+	}
+
+	sum := sha256.Sum256([]byte(uniquenessSeed))
+	suffix := hex.EncodeToString(sum[:])[:8]
+	prefixLen := maxWorkflowNameLen - len(suffix) - 1 // include hyphen
+	if prefixLen < 1 {
+		return suffix[:maxWorkflowNameLen]
+	}
+	if prefixLen > len(name) {
+		prefixLen = len(name)
+	}
+	return fmt.Sprintf("%s-%s", name[:prefixLen], suffix)
+}
+
+func ParallelEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_PARALLEL_ENABLED")))
+	return v == "1" || v == "true" || v == "yes"
 }

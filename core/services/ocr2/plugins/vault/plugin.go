@@ -523,11 +523,8 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	for _, secretRequest := range tp.Requests {
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
 		if ierr != nil {
-			r.lggr.Errorw("failed to observe get secret request item", "id", secretRequest.Id, "error", ierr)
-			errorMsg := "failed to handle get secret request"
-			if errors.Is(ierr, &userError{}) {
-				errorMsg = ierr.Error()
-			}
+			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
+			errorMsg := userFacingError(ierr, "failed to handle get secret request")
 			resps = append(resps, &vaultcommon.SecretResponse{
 				Id: secretRequest.Id,
 				Result: &vaultcommon.SecretResponse_Error{
@@ -667,11 +664,8 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-			l.Errorw("failed to handle create secret request item", "id", sr.Id, "error", ierr)
-			errorMsg := "failed to handle create secret request"
-			if errors.Is(ierr, &userError{}) {
-				errorMsg = ierr.Error()
-			}
+			logUserErrorAware(l, "failed to handle create secret request item", ierr, "id", sr.Id)
+			errorMsg := userFacingError(ierr, "failed to handle create secret request")
 			resps = append(resps, &vaultcommon.CreateSecretResponse{
 				Id:      sr.Id,
 				Success: false,
@@ -749,11 +743,8 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	for _, sr := range tp.EncryptedSecrets {
 		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
 		if ierr != nil {
-			l.Errorw("failed to observe update secret request item", "id", sr.Id, "error", ierr)
-			errorMsg := "failed to handle update secret request"
-			if errors.Is(ierr, &userError{}) {
-				errorMsg = ierr.Error()
-			}
+			logUserErrorAware(l, "failed to observe update secret request item", ierr, "id", sr.Id)
+			errorMsg := userFacingError(ierr, "failed to handle update secret request")
 			resps = append(resps, &vaultcommon.UpdateSecretResponse{
 				Id:      sr.Id,
 				Success: false,
@@ -878,11 +869,8 @@ func (r *ReportingPlugin) observeDeleteSecrets(ctx context.Context, reader ReadK
 	for _, id := range tp.Ids {
 		validatedID, ierr := r.observeDeleteSecretRequest(ctx, reader, id, requestsCountForID)
 		if ierr != nil {
-			l.Errorw("failed to handle delete secret request item", "id", id, "error", ierr)
-			errorMsg := "failed to handle delete secret request"
-			if errors.Is(ierr, &userError{}) {
-				errorMsg = ierr.Error()
-			}
+			logUserErrorAware(l, "failed to handle delete secret request item", ierr, "id", id)
+			errorMsg := userFacingError(ierr, "failed to handle delete secret request")
 			resps = append(resps, &vaultcommon.DeleteSecretResponse{
 				Id:      id,
 				Success: false,
@@ -999,6 +987,25 @@ func (u *userError) Error() string {
 func (u *userError) Is(target error) bool {
 	_, ok := target.(*userError)
 	return ok
+}
+
+func userFacingError(err error, fallback string) string {
+	if errors.Is(err, &userError{}) {
+		return err.Error()
+	}
+
+	return fallback
+}
+
+func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...interface{}) {
+	keysAndValues = append(keysAndValues, "error", err)
+	lggr := l.Helper(1)
+	if errors.Is(err, &userError{}) {
+		lggr.Debugw(msg, keysAndValues...)
+		return
+	}
+
+	lggr.Errorw(msg, keysAndValues...)
 }
 
 func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) error {
@@ -1783,11 +1790,8 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 		}
 		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
-			r.lggr.Errorw("failed to handle create secret request", "id", req.Id, "requestID", reqID, "error", err)
-			errorMsg := "failed to handle create secret request"
-			if errors.Is(err, &userError{}) {
-				errorMsg = err.Error()
-			}
+			logUserErrorAware(r.lggr, "failed to handle create secret request", err, "id", req.Id, "requestID", reqID)
+			errorMsg := userFacingError(err, "failed to handle create secret request")
 			sortedResps = append(sortedResps, &vaultcommon.CreateSecretResponse{
 				Id:      req.Id,
 				Success: false,
@@ -1902,11 +1906,8 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 		}
 		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
-			r.lggr.Errorw("failed to handle update secret request", "id", req.Id, "requestID", reqID, "error", err)
-			errorMsg := "failed to handle update secret request"
-			if errors.Is(err, &userError{}) {
-				errorMsg = err.Error()
-			}
+			logUserErrorAware(r.lggr, "failed to handle update secret request", err, "id", req.Id, "requestID", reqID)
+			errorMsg := userFacingError(err, "failed to handle update secret request")
 			sortedResps = append(sortedResps, &vaultcommon.UpdateSecretResponse{
 				Id:      req.Id,
 				Success: false,
@@ -2007,11 +2008,8 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 		}
 		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
 		if err != nil {
-			r.lggr.Errorw("failed to handle delete secret request", "id", id, "requestId", reqID, "error", err)
-			errorMsg := "failed to handle delete secret request"
-			if errors.Is(err, &userError{}) {
-				errorMsg = err.Error()
-			}
+			logUserErrorAware(r.lggr, "failed to handle delete secret request", err, "id", id, "requestId", reqID)
+			errorMsg := userFacingError(err, "failed to handle delete secret request")
 			sortedResps = append(sortedResps, &vaultcommon.DeleteSecretResponse{
 				Id:      req,
 				Success: false,
