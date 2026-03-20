@@ -214,7 +214,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	testID := uuid.New().String()[0:8]
 	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
@@ -238,7 +238,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 		expectedMessage = "HTTP Action CRUD success test completed: " + httpActionTest.testCase
 	}
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")
 }

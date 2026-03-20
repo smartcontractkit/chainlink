@@ -102,9 +102,8 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
 			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
 			if !foundPanics {
-				var lastLines uint64 = 30
-				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs. Displaying last %d lines of logs for debugging:", lastLines)
-				infra.PrintFailedContainerLogs(framework.L, lastLines)
+				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
+				infra.PrintFailedContainerLogs(framework.L, 30)
 			}
 		}
 	})
