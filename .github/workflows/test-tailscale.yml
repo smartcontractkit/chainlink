@@ -9,6 +9,7 @@ jobs:
   connect-sot:
     name: Test RANE SOT Connectivity
     runs-on: ubuntu-latest
+    environment: integration
     permissions:
       id-token: write
       contents: read
@@ -16,9 +17,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Connect to Tailscale
-        uses: tailscale/github-action@v2
+        uses: tailscale/github-action@a392da0a182bba0e9613b6243ebd69529b1878aa
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
           tags: tag:chainlink-gha
       - name: Test Service Connectivity
         env:
