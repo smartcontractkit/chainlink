@@ -629,7 +629,7 @@ func (l *ldapAuthenticator) localLoginFallback(ctx context.Context, sr sessions.
 		return user, errors.New("invalid email")
 	}
 
-	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+	if !utils.CheckPasswordHash(sr.Password, string(user.HashedPassword)) {
 		l.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
 		return user, errors.New("invalid password")
 	}
