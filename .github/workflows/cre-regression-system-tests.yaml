@@ -183,6 +183,11 @@ jobs:
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
+          PARALLEL_COUNT: "10"
+          # parallelisation flags for tests
+          # fanout is necessary, because multiple tests would otherwise start chip test sinks at the same port, causing conflicts
+          CRE_TEST_PARALLEL_ENABLED: "true"
+          CRE_TEST_CHIP_SINK_FANOUT_ENABLED: "true"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
@@ -192,7 +197,7 @@ jobs:
             --junitfile=/tmp/junit-report-regression.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
+            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=${PARALLEL_COUNT} \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"

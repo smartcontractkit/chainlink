@@ -47,6 +47,25 @@ type Blockchain struct {
 	SethClient    *seth.Client
 }
 
+// CloneWithSethClient returns a copy of the blockchain handle with a different Seth client.
+// This lets tests use per-test keys while preserving immutable chain metadata.
+func (e *Blockchain) CloneWithSethClient(sc *seth.Client) *Blockchain {
+	return &Blockchain{
+		testLogger:    e.testLogger,
+		chainSelector: e.chainSelector,
+		chainID:       e.chainID,
+		ctfOutput:     e.ctfOutput,
+		SethClient:    sc,
+	}
+}
+
+func (e *Blockchain) WSURL() string {
+	if len(e.ctfOutput.Nodes) == 0 {
+		return ""
+	}
+	return e.ctfOutput.Nodes[0].ExternalWSUrl
+}
+
 func (e *Blockchain) ChainSelector() uint64 {
 	return e.chainSelector
 }

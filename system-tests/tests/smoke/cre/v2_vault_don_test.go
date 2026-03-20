@@ -72,7 +72,8 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 	ownerAddr := sethClient.MustGetRootKeyAddress().Hex()
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, "consensustest", &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "consensustest")
+	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
 	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(workflowRegistryAddress), sethClient.Client)
 	require.NoError(t, err, "failed to get workflow registry contract wrapper")
 
@@ -235,84 +236,6 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	require.Contains(t, result1.Error, "key does not exist")
 
 	framework.L.Info().Msg("Secret updated successfully")
-}
-
-func executeVaultSecretsGetTest(t *testing.T, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	uniqueRequestID := uuid.New().String()
-	framework.L.Info().Msg("Getting secret...")
-	secretsGetRequest := jsonrpc.Request[vault_helpers.GetSecretsRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		Method:  vaulttypes.MethodSecretsGet,
-		Params: &vault_helpers.GetSecretsRequest{
-			Requests: []*vault_helpers.SecretRequest{
-				{
-					Id: &vault_helpers.SecretIdentifier{
-						Key:   secretID,
-						Owner: owner,
-					},
-				},
-			},
-		},
-		ID: uniqueRequestID,
-	}
-	requestBody, err := json.Marshal(secretsGetRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[json.RawMessage]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal http response body")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodSecretsGet, jsonResponse.Method)
-
-	/*
-	 * The json unmarshaling is not compatible with the proto oneof in vault_helpers.SecretResponse
-	 * The Data and Error fields are oneof fields in the proto definition, but when unmarshaling to JSON,
-	 * the JSON unmarshaler does not handle oneof fields correctly, leading to issues.
-	 * To work around this, we define custom response types that match the expected structure.
-	 * This allows us to unmarshal the JSON response correctly and access the fields as expected.
-	 */
-	type EncryptedShares struct {
-		Shares        []string `protobuf:"bytes,1,rep,name=shares,proto3" json:"shares,omitempty"`
-		EncryptionKey string   `protobuf:"bytes,2,opt,name=encryption_key,json=encryptionKey,proto3" json:"encryption_key,omitempty"`
-	}
-	type SecretData struct {
-		EncryptedValue               string             `protobuf:"bytes,2,opt,name=encrypted_value,json=encryptedValue,proto3" json:"encrypted_value,omitempty"`
-		EncryptedDecryptionKeyShares []*EncryptedShares `protobuf:"bytes,3,rep,name=encrypted_decryption_key_shares,json=encryptedDecryptionKeyShares,proto3" json:"encrypted_decryption_key_shares,omitempty"`
-	}
-	type SecretResponse struct {
-		ID    *vault_helpers.SecretIdentifier `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-		Data  *SecretData                     `protobuf:"bytes,2,opt,name=data,proto3"`
-		Error string                          `protobuf:"bytes,3,opt,name=error,proto3"`
-	}
-	type GetSecretsResponse struct {
-		Responses []*SecretResponse `protobuf:"bytes,1,rep,name=responses,proto3" json:"responses,omitempty"`
-	}
-	/*
-	 *
-	 *
-	 *
-	 *
-	 */
-
-	var getSecretsResponse GetSecretsResponse
-	err = json.Unmarshal(*jsonResponse.Result, &getSecretsResponse)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-
-	require.Len(t, getSecretsResponse.Responses, 1, "Expected one secret in the response")
-	result0 := getSecretsResponse.Responses[0]
-	require.Empty(t, result0.Error)
-	require.Equal(t, secretID, result0.ID.Key)
-	require.Equal(t, owner, result0.ID.Owner)
-	require.Equal(t, vaulttypes.DefaultNamespace, result0.ID.Namespace)
-
-	framework.L.Info().Msg("Secret get successful")
 }
 
 func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

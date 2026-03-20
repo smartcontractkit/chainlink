@@ -62,7 +62,7 @@ func PrintFailedContainerLogs(logger zerolog.Logger, logLinesCount uint64) {
 
 		content = strings.TrimSpace(content)
 		if len(content) > 0 {
-			logger.Info().Str("Container", cName).Msgf("Last 100 lines of logs")
+			logger.Info().Str("Container", cName).Msgf("Last %d lines of logs", logLinesCount)
 			fmt.Println(text.RedText("%s\n", content))
 		}
 		_ = ioReader.Close() // can't do much about the error here
