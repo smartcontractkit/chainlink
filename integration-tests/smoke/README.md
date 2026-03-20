@@ -2,7 +2,8 @@
 
 These products are using local `testcontainers-go` environments:
 - VRFv1
-- VRFv2
+
+Classic **VRFv2** (coordinator v2) smoke scenarios run under [`devenv/tests/vrfv2/`](../../devenv/tests/vrfv2/); see [`devenv/README.md`](../../devenv/README.md).
 
 ### Usage
 ```
