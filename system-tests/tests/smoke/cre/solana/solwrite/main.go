@@ -24,7 +24,7 @@ import (
 func RunSolWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider cre.SecretsProvider) (cre.Workflow[config.Config], error) {
 	return cre.Workflow[config.Config]{
 		cre.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/60 * * * * *"}), // every 30 seconds
+			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}), // every 30 seconds
 			onTrigger,
 		),
 	}, nil

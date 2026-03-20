@@ -187,7 +187,13 @@ func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironm
 
 		testName := "[v2] HTTP Action " + testCase.name
 		t.Run(testName, func(t *testing.T) {
-			HTTPActionSuccessTest(t, testEnv, testCase)
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+			// Each case gets its own per-test execution context to avoid shared-signer nonce collisions
+			// while still reusing the shared environment cache (sync.Once) for admin sessions.
+			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			HTTPActionSuccessTest(t, perCaseEnv, testCase)
 		})
 	}
 }
@@ -208,7 +214,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 
 	testID := uuid.New().String()[0:8]
 	workflowName := "http-action-success-workflow-" + httpActionTest.testCase + "-" + testID
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
@@ -232,7 +238,7 @@ func HTTPActionSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpAc
 		expectedMessage = "HTTP Action CRUD success test completed: " + httpActionTest.testCase
 	}
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute)
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedMessage, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 
 	testLogger.Info().Msg("HTTP Action CRUD success test completed")
 }
