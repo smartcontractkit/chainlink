@@ -1,4 +1,4 @@
-name: System Tests (Nightly)
+name: (Nightly) System Tests
 
 on:
   schedule:
