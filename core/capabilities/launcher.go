@@ -418,7 +418,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	}
 	if w.don2donSharedPeer != nil {
 		donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
-		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, defaultStreamConfig)
+		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, w.p2pStreamConfig)
 		if err != nil {
 			return fmt.Errorf("failed to update peer connections: %w", err)
 		}
