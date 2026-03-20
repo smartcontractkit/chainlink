@@ -55,13 +55,13 @@ jobs:
               - "testdata/**.go"
               - "core/**/testdata/**"
               - "core/**_test.go"
+            e2e-tests-files:
+              - "system-tests/**"
+              - "integration-tests/**"
             workflow-files:
               - temporary-testing.txt
               # - ".github/workflows/ci-core.y*ml"
               # - ".github/actions/**/*.y*ml"
-            e2e-tests-files:
-              - "system-tests/**"
-              - "integration-tests/**"
             deployment-files:
               - "deployment/**"
           # Note:
@@ -78,6 +78,7 @@ jobs:
               exclusion-sets: [ e2e-tests-files, deployment-files ]
               inclusion-sets: [go-files, core-files, all-test-files, workflow-files ]
               paths:
+                - "!**/testdata/**"
                 - "**/fuzz/**"
                 - "tools/bin/go_core_fuzz"
             core-race-tests:
