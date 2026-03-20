@@ -193,7 +193,6 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 }
 
 // Remove after testing
-
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
 		if parallelEnabled && fanoutEnabled {

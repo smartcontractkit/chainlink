@@ -347,7 +347,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		c.totalErrorCount++
 
 		if len(c.errorCount) > 1 {
-			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
+			c.lggr.Warnw("received multiple different errors for the same request", "numDifferentErrors", len(c.errorCount))
 		}
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {

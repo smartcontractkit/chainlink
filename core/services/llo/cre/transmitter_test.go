@@ -96,7 +96,9 @@ func encodeReport(t *testing.T, timestamp uint64) ocr3types.ReportWithInfo[lloty
 			{StreamID: 2},
 		},
 	}
-	rawReport, err := codec.Encode(rep, cd)
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(rep.ChannelID, []byte{})
+	rawReport, err := codec.Encode(rep, cd, cache)
 	require.NoError(t, err)
 
 	return ocr3types.ReportWithInfo[llotypes.ReportInfo]{

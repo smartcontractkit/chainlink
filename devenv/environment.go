@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/flux"
 	"github.com/smartcontractkit/chainlink/devenv/products/keepers"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
+	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2plus"
 )
 
 type ProductInfo struct {
@@ -48,6 +49,9 @@ func newProduct(name string) (Product, error) {
 		return automation.NewConfigurator(), nil
 	case "keepers":
 		return keepers.NewConfigurator(), nil
+	case "vrfv2_plus":
+		return vrfv2plus.NewConfigurator(), nil
+
 	default:
 		return nil, fmt.Errorf("unknown product type: %s", name)
 	}
