@@ -257,10 +257,7 @@ func nodeAddress(ctx context.Context, node *cre.Node, chainFamily string, bc blo
 		if node.Keys != nil && node.Keys.AptosAccount() != "" {
 			return node.Keys.AptosAccount(), nil
 		}
-		if len(node.Addresses.AptosAddresses) > 0 {
-			return node.Addresses.AptosAddresses[0], nil
-		}
-		return "", nil // Skip nodes without cached Aptos keys
+		return "", nil // Skip nodes without Aptos keys for this chain
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}

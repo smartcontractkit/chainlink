@@ -65,7 +65,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 	return &ttypes.TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
 		EnvironmentDirPath:     environmentDirPath,
-		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath),
+		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
 	}
@@ -74,6 +74,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 func getEnvironmentConfig(t *testing.T) *envconfig.Config {
 	t.Helper()
 
+	// we call our own Load function because it executes a couple of crucial extra input transformations
 	in := &envconfig.Config{}
 	err := in.Load(os.Getenv("CTF_CONFIGS"))
 	require.NoError(t, err, "couldn't load environment state")

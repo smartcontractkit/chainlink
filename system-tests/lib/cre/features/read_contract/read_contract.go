@@ -123,10 +123,6 @@ type blockchainOutput interface {
 	ChainFamily() string
 }
 
-type familyMatcher interface {
-	IsFamily(chainFamily string) bool
-}
-
 const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
 
 func (o *ReadContract) PostEnvStartup(
@@ -159,7 +155,10 @@ func (o *ReadContract) PostEnvStartup(
 		if findErr != nil {
 			return findErr
 		}
-		if shouldSkipPostEnvStartup(don, blockchainOutput) {
+		// Aptos write owns the Aptos ReadContract worker jobs because it needs the
+		// Aptos-specific OCR/bootstrap inputs that the generic read-contract path
+		// does not supply. Skip the duplicate generic proposal on those DONs.
+		if blockchainOutput.IsFamily(blockchain.FamilyAptos) && don.HasFlag(cre.WriteAptosCapability) {
 			continue
 		}
 
@@ -247,8 +246,4 @@ func findBlockchainByChainID(creEnv *cre.Environment, chainID uint64) (creblockc
 	}
 
 	return nil, fmt.Errorf("could not find blockchain for read-contract chainID %d", chainID)
-}
-
-func shouldSkipPostEnvStartup(don *cre.Don, bc familyMatcher) bool {
-	return bc.IsFamily(blockchain.FamilyAptos) && don.HasFlag(cre.WriteAptosCapability)
 }

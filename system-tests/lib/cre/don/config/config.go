@@ -543,7 +543,7 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
+		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: ptr.Ptr(gateway.AuthGatewayID),

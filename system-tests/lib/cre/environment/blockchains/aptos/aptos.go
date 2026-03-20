@@ -58,7 +58,7 @@ func (a *Blockchain) NodeURL() (string, error) {
 	if a.ctfOutput == nil || len(a.ctfOutput.Nodes) == 0 {
 		return "", fmt.Errorf("no nodes found for Aptos chain %s-%d", a.ChainFamily(), a.chainID)
 	}
-	return aptosNodeURLWithV1(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
+	return NormalizeNodeURL(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
 }
 
 func (a *Blockchain) NodeClient() (*aptoslib.NodeClient, error) {
@@ -268,6 +268,10 @@ func aptosNodeURLWithV1(rawURL string) (string, error) {
 	return u.String(), nil
 }
 
+func NormalizeNodeURL(rawURL string) (string, error) {
+	return aptosNodeURLWithV1(rawURL)
+}
+
 func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 	u, err := url.Parse(nodeURL)
 	if err != nil {
@@ -285,15 +289,19 @@ func aptosFaucetURLFromNodeURL(nodeURL string) (string, error) {
 	return u.String(), nil
 }
 
+func FaucetURLFromNodeURL(nodeURL string) (string, error) {
+	return aptosFaucetURLFromNodeURL(nodeURL)
+}
+
 func (a *Blockchain) faucetURL() (string, error) {
 	if a.ctfOutput == nil || len(a.ctfOutput.Nodes) == 0 {
 		return "", errors.New("missing chain nodes output")
 	}
-	nodeURL, err := aptosNodeURLWithV1(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
+	nodeURL, err := NormalizeNodeURL(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
 	if err != nil {
 		return "", err
 	}
-	return aptosFaucetURLFromNodeURL(nodeURL)
+	return FaucetURLFromNodeURL(nodeURL)
 }
 
 func waitForAptosAccountVisible(ctx context.Context, client *aptoslib.NodeClient, account aptoslib.AccountAddress, timeout time.Duration) error {
@@ -324,4 +332,19 @@ func aptosChainIDUint8(chainID uint64) (uint8, error) {
 	}
 
 	return uint8(chainID), nil
+}
+
+func ChainIDUint8(chainID uint64) (uint8, error) {
+	return aptosChainIDUint8(chainID)
+}
+
+func WaitForTransactionSuccess(client *aptoslib.NodeClient, txHash, label string) error {
+	tx, err := client.WaitForTransaction(txHash)
+	if err != nil {
+		return fmt.Errorf("failed waiting for Aptos tx %s: %w", label, err)
+	}
+	if !tx.Success {
+		return fmt.Errorf("aptos tx failed: %s vm_status=%s", label, tx.VmStatus)
+	}
+	return nil
 }

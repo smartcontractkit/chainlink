@@ -8,29 +8,38 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	aptosfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
 )
 
-type familyMatcherStub struct {
-	family string
+type blockchainOutputStub struct {
+	chainSelector uint64
+	chainFamily   string
 }
 
-func (s familyMatcherStub) IsFamily(chainFamily string) bool {
-	return s.family == chainFamily
+func (s blockchainOutputStub) ChainSelector() uint64 {
+	return s.chainSelector
 }
 
-func TestShouldSkipPostEnvStartup(t *testing.T) {
+func (s blockchainOutputStub) ChainFamily() string {
+	return s.chainFamily
+}
+
+func TestAptosCapabilityLabel(t *testing.T) {
+	bc := blockchainOutputStub{chainSelector: 1, chainFamily: chainselectors.FamilyAptos}
+
 	t.Run("skips aptos when write aptos feature owns the don", func(t *testing.T) {
-		don := &cre.Don{Flags: []cre.CapabilityFlag{cre.ReadContractCapability, cre.WriteAptosCapability}}
-		require.True(t, shouldSkipPostEnvStartup(don, familyMatcherStub{family: chainselectors.FamilyAptos}))
+		don := &cre.DonMetadata{Flags: []string{cre.ReadContractCapability, cre.WriteAptosCapability}}
+		label, skip, err := aptosCapabilityLabel(don, bc)
+		require.NoError(t, err)
+		require.Empty(t, label)
+		require.True(t, skip)
 	})
 
-	t.Run("does not skip aptos for read-only dons", func(t *testing.T) {
-		don := &cre.Don{Flags: []cre.CapabilityFlag{cre.ReadContractCapability}}
-		require.False(t, shouldSkipPostEnvStartup(don, familyMatcherStub{family: chainselectors.FamilyAptos}))
-	})
-
-	t.Run("does not skip non-aptos chains", func(t *testing.T) {
-		don := &cre.Don{Flags: []cre.CapabilityFlag{cre.ReadContractCapability, cre.WriteAptosCapability}}
-		require.False(t, shouldSkipPostEnvStartup(don, familyMatcherStub{family: chainselectors.FamilyEVM}))
+	t.Run("uses aptos label for read-only dons", func(t *testing.T) {
+		don := &cre.DonMetadata{Flags: []string{cre.ReadContractCapability}}
+		label, skip, err := aptosCapabilityLabel(don, bc)
+		require.NoError(t, err)
+		require.Equal(t, aptosfeature.CapabilityLabel(1), label)
+		require.False(t, skip)
 	})
 }

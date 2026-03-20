@@ -214,11 +214,11 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		for i, nop := range don.Nops {
 			nopName := nop.Name
 
-			ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
-			if err != nil {
-				panic(err)
-			}
 			if _, exists := nopMap[nopName]; !exists {
+				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
+				if err != nil {
+					panic(err)
+				}
 				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
 					Admin: adminAddrs[i],
 					Name:  nopName,

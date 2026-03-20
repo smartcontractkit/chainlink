@@ -562,12 +562,16 @@ type DonMetadata struct {
 
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
+	aptosChainIDs, err := c.GetEnabledChainIDsForCapability(WriteAptosCapability)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve Aptos chain ids for node metadata: %w", err)
+	}
 	for i, nodeSpec := range c.NodeSpecs {
 		cfg := NodeMetadataConfig{
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
-				AptosEnabled:    HasFlag(c.Capabilities, WriteAptosCapability),
+				AptosChainIDs:   aptosChainIDs,
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
@@ -1148,13 +1152,6 @@ func (n *NodeMetadata) PeerID() string {
 	return strings.TrimPrefix(n.Keys.PeerID(), "p2p_")
 }
 
-func (n *NodeMetadata) AptosAccount() string {
-	if n.Keys == nil {
-		return ""
-	}
-	return n.Keys.AptosAccount()
-}
-
 const (
 	DefaultShardOrchestratorPort uint16 = 50051
 	DefaultArbiterPort           uint16 = 9876
@@ -1434,7 +1431,7 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 type NodeKeyInput struct {
 	EVMChainIDs    []uint64
 	SolanaChainIDs []string
-	AptosEnabled   bool
+	AptosChainIDs  []uint64
 	Password       string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
@@ -1451,7 +1448,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse imported secrets")
 		}
-		if input.AptosEnabled && importedKeys.Aptos == nil {
+		if len(input.AptosChainIDs) > 0 && importedKeys.Aptos == nil {
 			return nil, errors.New("imported secrets are missing an Aptos key; regenerate node secrets with Aptos support")
 		}
 
@@ -1487,7 +1484,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		}
 		out.Solana[chainID] = k
 	}
-	if input.AptosEnabled {
+	if len(input.AptosChainIDs) > 0 {
 		k, err := crypto.NewAptosKey(input.Password)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate Aptos key: %w", err)
