@@ -30,7 +30,7 @@ var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 type ExecutionHelper struct {
 	*Engine
 	WorkflowExecutionID string
-	ExecutionTimestamp  int64
+	ExecutionTimestamp  time.Time
 	UserLogChan         chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
