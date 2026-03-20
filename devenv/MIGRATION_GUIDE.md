@@ -114,19 +114,17 @@ The test file should only contain assertion logic. All setup (contract deploymen
 
 ## Step 5: Verify the Build
 
-From the `devenv/` directory, run targeted builds on the new packages only:
+From the `devenv/` directory, run targeted builds and lints on the new packages only:
 
 ```bash
+# Overall checks
+just build-fakes
+
+# Package specific checks
 go build ./products/<name>/...
 go build ./tests/<name>/...
-go vet ./products/<name>/...
-go vet ./tests/<name>/...
-```
-
-Verify no forbidden imports slipped in and linting:
-
-```bash
-just lint
+golangci-lint run ./products/<name>/... --fix
+golangci-lint run ./tests/<name>/... --fix
 ```
 
 Both grep commands should return no results.

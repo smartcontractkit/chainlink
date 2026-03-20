@@ -1,4 +1,4 @@
-name: (Nightly) System Tests
+name: System Tests (Nightly)
 
 on:
   schedule:
@@ -258,15 +258,6 @@ jobs:
           else
             echo "should_run=true" >> "$GITHUB_OUTPUT"
           fi
-
-      # DEBUG: Run monitor for tests
-      - name: Monitor
-        if: steps.gate.outputs.should_run == 'true'
-        uses: kalverra/octometrics-action@v0.0.10
-        with:
-          job_name: ${{ matrix.display_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout code
         if: steps.gate.outputs.should_run == 'true'

@@ -2,6 +2,18 @@
 
 This file documents conventions and constraints for the `devenv` module. Follow these rules when generating, modifying, or reviewing code under `devenv/`.
 
+## Building and Linting
+
+After making large changes to the code, verify the code still builds and lints properly.
+
+```sh
+# Build
+just build-fakes
+
+# Lint
+golangci-lint run ./... --fix
+```
+
 ## Module Isolation
 
 `devenv` is a standalone Go module: `github.com/smartcontractkit/chainlink/devenv`.
