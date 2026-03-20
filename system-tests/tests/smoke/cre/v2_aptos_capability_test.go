@@ -43,7 +43,6 @@ import (
 
 const aptosLocalMaxGasAmount uint64 = 200_000
 const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
-const aptosWorkerMinBalanceOctas uint64 = 100_000_000
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 
