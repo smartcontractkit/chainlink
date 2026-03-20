@@ -9,7 +9,6 @@ jobs:
   connect-sot:
     name: Test RANE SOT Connectivity
     runs-on: ubuntu-latest
-    environment: integration
     permissions:
       id-token: write
       contents: read
