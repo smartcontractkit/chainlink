@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -17,7 +18,7 @@ import (
 func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 	obs := beholdertest.NewObserver(t)
 
-	service := chainlink.NewNodePlatformBuildInfo(chainlink.NodePlatformBuildInfoConfig{
+	servicetest.Run(t, chainlink.NewNodePlatformBuildInfoService(chainlink.NodePlatformBuildInfoConfig{
 		Beat:         10 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
@@ -25,12 +26,7 @@ func TestNodePlatformBuildInfo_EmitsNodeBuildInfo(t *testing.T) {
 		DockerTag:    "docker-tag",
 		VersionTag:   "version-tag",
 		Version:      "1.2.3",
-	})
-
-	require.NoError(t, service.Start(t.Context()))
-	t.Cleanup(func() {
-		require.NoError(t, service.Close())
-	})
+	}))
 
 	require.Eventually(t, func() bool {
 		return obs.Len(t, beholder.AttrKeyEntity, "common.v1.NodeBuildInfo") > 0

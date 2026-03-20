@@ -224,7 +224,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
-	nodePlatformBuildInfo := NewNodePlatformBuildInfo(NewNodePlatformBuildInfoConfig(opts))
+	nodePlatformBuildInfo := NewNodePlatformBuildInfoService(NewNodePlatformBuildInfoConfig(opts))
 	srvcs = append(srvcs, &heartbeat, &nodePlatformBuildInfo)
 
 	auditLogger := opts.AuditLogger

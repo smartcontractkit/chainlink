@@ -20,7 +20,7 @@ const (
 	nodePlatformDataSchema = "/node-platform/common/v1"
 )
 
-type NodePlatformBuildInfo struct {
+type NodePlatformBuildInfoService struct {
 	commonservices.Service
 	eng *commonservices.Engine
 
@@ -78,52 +78,40 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 	}
 }
 
-type NodePlatformBuildInfoOpt func(*NodePlatformBuildInfo)
-
-func WithNodePlatformBuildInfoEmitter(emitter beholder.Emitter) NodePlatformBuildInfoOpt {
-	return func(h *NodePlatformBuildInfo) {
-		h.emitter = emitter
-	}
-}
-
-func NewNodePlatformBuildInfo(cfg NodePlatformBuildInfoConfig, opts ...NodePlatformBuildInfoOpt) NodePlatformBuildInfo {
-	h := NodePlatformBuildInfo{
+func NewNodePlatformBuildInfoService(cfg NodePlatformBuildInfoConfig) NodePlatformBuildInfoService {
+	s := NodePlatformBuildInfoService{
 		opts:    cfg,
 		beat:    cfg.Beat,
 		emitter: beholder.GetEmitter(),
 	}
 
-	for _, opt := range opts {
-		opt(&h)
-	}
-
-	h.Service, h.eng = commonservices.Config{
+	s.Service, s.eng = commonservices.Config{
 		Name:  "NodePlatformBuildInfo",
-		Start: h.start,
+		Start: s.start,
 	}.NewServiceEngine(cfg.Lggr)
 
-	return h
+	return s
 }
 
-func (h *NodePlatformBuildInfo) start(_ context.Context) error {
-	h.eng.GoTick(timeutil.NewTicker(h.GetBeat), h.emit)
+func (s *NodePlatformBuildInfoService) start(_ context.Context) error {
+	s.eng.GoTick(timeutil.NewTicker(s.GetBeat), s.emit)
 	return nil
 }
 
-func (h *NodePlatformBuildInfo) emit(ctx context.Context) {
+func (s *NodePlatformBuildInfoService) emit(ctx context.Context) {
 	payloadBytes, err := proto.Marshal(&commonv1.NodeBuildInfo{
-		CsaPublicKey: h.opts.CSAPublicKey,
-		CommitSha:    h.opts.CommitSHA,
-		DockerTag:    h.opts.DockerTag,
-		VersionTag:   h.opts.VersionTag,
-		Version:      h.opts.Version,
+		CsaPublicKey: s.opts.CSAPublicKey,
+		CommitSha:    s.opts.CommitSHA,
+		DockerTag:    s.opts.DockerTag,
+		VersionTag:   s.opts.VersionTag,
+		Version:      s.opts.Version,
 	})
 	if err != nil {
-		h.eng.Errorw("failed to marshal node-platform build info", "err", err)
+		s.eng.Errorw("failed to marshal node-platform build info", "err", err)
 		return
 	}
 
-	emitter := h.emitter
+	emitter := s.emitter
 	if emitter == nil {
 		emitter = beholder.GetEmitter()
 	}
@@ -134,10 +122,10 @@ func (h *NodePlatformBuildInfo) emit(ctx context.Context) {
 		beholder.AttrKeyDataSchema, nodePlatformDataSchema,
 	)
 	if err != nil {
-		h.eng.Errorw("failed to emit node-platform build info", "err", err)
+		s.eng.Errorw("failed to emit node-platform build info", "err", err)
 	}
 }
 
-func (h *NodePlatformBuildInfo) GetBeat() time.Duration {
-	return h.beat
+func (s *NodePlatformBuildInfoService) GetBeat() time.Duration {
+	return s.beat
 }

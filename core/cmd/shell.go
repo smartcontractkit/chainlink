@@ -73,8 +73,6 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-const dockerTagEnvVar = "CL_DOCKER_TAG"
-
 func metricViews() []sdkmetric.View {
 	return slices.Concat(workflowsmonitoring.MetricViews(), ccvcommon.MetricViews(), ocr3_1beholderwrapper.MetricViews())
 }
@@ -250,7 +248,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	dockerTag := static.Unset
-	if envTag, ok := os.LookupEnv(dockerTagEnvVar); ok && envTag != "" {
+	if envTag, ok := env.DockerTag.Lookup(); ok && envTag != "" {
 		dockerTag = envTag
 	}
 
