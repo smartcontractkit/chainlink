@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 )
 
 const defaultStartTimeout = 3 * time.Minute
+const initialiseRetryInterval = 500 * time.Millisecond
 
 var (
 	ErrServiceStopped  = errors.New("service stopped")
@@ -132,7 +134,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				CRESettings:        s.creSettings,
 				TriggerEventStore:  s.triggerEventStore,
 			}
-			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
+			if err = s.initialiseWithRetry(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				return
 			}
@@ -155,6 +157,55 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 		return nil
 	})
+}
+
+func (s *StandardCapabilities) initialiseWithRetry(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
+	return retryInitialiseUntilReady(ctx, s.log, s.command, func(ctx context.Context) error {
+		return s.capabilitiesLoop.Service.Initialise(ctx, dependencies)
+	})
+}
+
+func retryInitialiseUntilReady(ctx context.Context, lggr logger.Logger, command string, initialise func(context.Context) error) error {
+	var lastErr error
+
+	for attempt := 1; ; attempt++ {
+		err := initialise(ctx)
+		if err == nil {
+			return nil
+		}
+		if !isRetryableInitialiseError(err) {
+			return err
+		}
+
+		lastErr = err
+		if attempt == 1 || attempt%10 == 0 {
+			lggr.Warnw("standard capability initialisation waiting for startup dependencies",
+				"command", command,
+				"attempt", attempt,
+				"retryIn", initialiseRetryInterval,
+				"err", err,
+			)
+		}
+
+		timer := time.NewTimer(initialiseRetryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("timed out retrying standard capability initialisation after transient startup dependency errors: %w", lastErr)
+		case <-timer.C:
+		}
+	}
+}
+
+func isRetryableInitialiseError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := err.Error()
+	return strings.Contains(msg, "metadataRegistry information not available") ||
+		strings.Contains(msg, "empty local registry") ||
+		strings.Contains(msg, "peerWrapper hasn't started yet")
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not

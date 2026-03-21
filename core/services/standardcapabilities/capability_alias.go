@@ -43,8 +43,8 @@ func (a aliasedExecutableAndTriggerCapability) Info(context.Context) (capabiliti
 	return a.info, nil
 }
 
-func aliasCapabilityID(cap capabilities.BaseCapability, overrideInfo capabilities.CapabilityInfo) (capabilities.BaseCapability, error) {
-	switch c := cap.(type) {
+func aliasCapabilityID(baseCap capabilities.BaseCapability, overrideInfo capabilities.CapabilityInfo) (capabilities.BaseCapability, error) {
+	switch c := baseCap.(type) {
 	case capabilities.ExecutableAndTriggerCapability:
 		return aliasedExecutableAndTriggerCapability{ExecutableAndTriggerCapability: c, info: overrideInfo}, nil
 	case capabilities.TriggerCapability:
@@ -54,6 +54,6 @@ func aliasCapabilityID(cap capabilities.BaseCapability, overrideInfo capabilitie
 	case capabilities.BaseCapability:
 		return aliasedBaseCapability{BaseCapability: c, info: overrideInfo}, nil
 	default:
-		return nil, fmt.Errorf("unsupported capability type %T for alias %q", cap, overrideInfo.ID)
+		return nil, fmt.Errorf("unsupported capability type %T for alias %q", baseCap, overrideInfo.ID)
 	}
 }

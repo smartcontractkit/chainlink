@@ -127,6 +127,11 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		return nil, err
 	}
 
+	creReport, err := sdk.X_GeneratedCodeOnly_WrapReport(reportResp)
+	if err != nil {
+		return nil, fmt.Errorf("wrap report for Aptos write: %w", err)
+	}
+
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
 	runtime.Logger().Info(
 		"Aptos write: using gas config",
@@ -135,9 +140,9 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		"maxGasAmount", cfg.MaxGasAmount,
 		"gasUnitPrice", cfg.GasUnitPrice,
 	)
-	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
 		Receiver: receiver,
-		Report:   reportResp,
+		Report:   creReport,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,
@@ -176,13 +181,23 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			)
 			return nil, fmt.Errorf("expected non-success tx status, got %s", reply.TxStatus.String())
 		}
+
+		errorMsg := ""
+		if reply.ErrorMessage != nil {
+			errorMsg = *reply.ErrorMessage
+		}
+
 		txHashRaw := reply.GetTxHash()
 		if txHashRaw == "" {
 			runtime.Logger().Info(
-				"Aptos write failed: expected failed tx hash but got empty hash",
+				"Aptos write failure observed as expected",
 				"workflow", cfg.WorkflowName,
+				"txStatus", reply.TxStatus.String(),
+				"txHash", "",
+				"error", errorMsg,
+				"hasTxHash", false,
 			)
-			return nil, fmt.Errorf("expected failed tx hash in WriteReport reply")
+			return nil, nil
 		}
 
 		txHash, err := normalizeTxHash(txHashRaw)
@@ -191,10 +206,6 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			return nil, fmt.Errorf("invalid failed tx hash format: %w", err)
 		}
 
-		errorMsg := ""
-		if reply.ErrorMessage != nil {
-			errorMsg = *reply.ErrorMessage
-		}
 		runtime.Logger().Info(
 			fmt.Sprintf("Aptos write failure observed as expected txHash=%s", txHash),
 			"workflow", cfg.WorkflowName,

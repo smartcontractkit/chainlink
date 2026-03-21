@@ -2,6 +2,7 @@ package aptos
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -69,11 +70,12 @@ func aptosCLICandidates() []string {
 func firstWorkingAptosCLI(candidates []string) (string, error) {
 	var problems []string
 	for _, candidate := range candidates {
-		if err := validateAptosCLI(candidate); err == nil {
+		err := validateAptosCLI(candidate)
+		if err == nil {
 			return candidate, nil
-		} else {
-			problems = append(problems, fmt.Sprintf("%s (%v)", candidate, err))
 		}
+
+		problems = append(problems, fmt.Sprintf("%s (%v)", candidate, err))
 	}
 
 	return "", fmt.Errorf("failed to find a working Aptos CLI; set %s or install a valid aptos binary. Checked: %s", aptosCLIPathEnvVar, strings.Join(problems, ", "))
@@ -85,10 +87,10 @@ func validateAptosCLI(path string) error {
 		return err
 	}
 	if info.IsDir() {
-		return fmt.Errorf("is a directory")
+		return errors.New("is a directory")
 	}
 	if info.Mode()&0o111 == 0 {
-		return fmt.Errorf("is not executable")
+		return errors.New("is not executable")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -124,7 +126,7 @@ func DeployDataFeeds(chain cldf_aptos.Chain, owner aptos.AccountAddress, platfor
 	}
 
 	if !tx.Success {
-		return nil, fmt.Errorf("ChainlinkDataFeeds deployment transaction failed: %s", tx.VmStatus)
+		return nil, errors.New("ChainlinkDataFeeds deployment transaction failed: " + tx.VmStatus)
 	}
 
 	// ChainlinkDataFeeds package contracts don't implement typeAndVersion interface, so we have to set it manually
@@ -165,7 +167,7 @@ func DeployPlatform(chain cldf_aptos.Chain, owner aptos.AccountAddress, labels [
 	}
 
 	if !tx.Success {
-		return nil, fmt.Errorf("ChainlinkPlatform deployment transaction failed: %s", tx.Hash)
+		return nil, errors.New("ChainlinkPlatform deployment transaction failed: " + tx.Hash)
 	}
 	// ChainlinkPlatform package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkPlatform 1.0.0"
@@ -205,7 +207,7 @@ func DeployPlatformSecondary(chain cldf_aptos.Chain, owner aptos.AccountAddress,
 	}
 
 	if !tx.Success {
-		return nil, fmt.Errorf("ChainlinkPlatformSecondary deployment transaction failed: %s", tx.Hash)
+		return nil, errors.New("ChainlinkPlatformSecondary deployment transaction failed: " + tx.Hash)
 	}
 	// ChainlinkPlatformSecondary package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkPlatformSecondary 1.0.0"

@@ -64,6 +64,11 @@ var (
 	defaultCapabilitiesConfigFile = "configs/capability_defaults.toml"
 )
 
+const (
+	defaultCLIEnvironmentSetupTimeout = 20 * time.Minute
+	cliEnvironmentSetupTimeoutEnvVar  = "CL_CRE_ENV_SETUP_TIMEOUT"
+)
+
 // DX tracking
 var (
 	dxTracker             tracking.Tracker
@@ -726,7 +731,19 @@ func StartCLIEnvironment(
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
-	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
+	setupTimeout := defaultCLIEnvironmentSetupTimeout
+	if rawTimeout := strings.TrimSpace(os.Getenv(cliEnvironmentSetupTimeoutEnvVar)); rawTimeout != "" {
+		parsedTimeout, err := time.ParseDuration(rawTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s=%q: %w", cliEnvironmentSetupTimeoutEnvVar, rawTimeout, err)
+		}
+		if parsedTimeout <= 0 {
+			return nil, fmt.Errorf("%s must be greater than 0, got %q", cliEnvironmentSetupTimeoutEnvVar, rawTimeout)
+		}
+		setupTimeout = parsedTimeout
+	}
+
+	ctx, cancel := context.WithTimeout(cmdContext, setupTimeout)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {

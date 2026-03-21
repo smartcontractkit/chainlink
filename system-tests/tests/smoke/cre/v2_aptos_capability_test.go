@@ -15,6 +15,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	aptoslib "github.com/aptos-labs/aptos-go-sdk"
+	aptosapi "github.com/aptos-labs/aptos-go-sdk/api"
 	aptoscrypto "github.com/aptos-labs/aptos-go-sdk/crypto"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -269,10 +270,14 @@ func ExecuteAptosWriteExpectedFailureTest(
 	}
 
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
+	searchStart := time.Now().Add(-30 * time.Second)
 	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, 4*time.Minute)
+	if txHash == "" {
+		txHash = recoverAptosWriteFailureTxHash(t, tenv, aptosChain, scenario.writeDon, workflowConfig.ReceiverHex, searchStart)
+	}
 	assertAptosWriteFailureTxOnChain(t, aptosChain, txHash)
 
 	lggr.Info().
@@ -382,7 +387,7 @@ func waitForAptosWriteSuccessLogAndTxHash(
 	timeout time.Duration,
 ) string {
 	t.Helper()
-	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write capability succeeded", timeout)
+	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write capability succeeded", timeout, true)
 }
 
 func waitForAptosWriteExpectedFailureLogAndTxHash(
@@ -393,7 +398,7 @@ func waitForAptosWriteExpectedFailureLogAndTxHash(
 	timeout time.Duration,
 ) string {
 	t.Helper()
-	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write failure observed as expected", timeout)
+	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write failure observed as expected", timeout, false)
 }
 
 func waitForAptosLogAndTxHash(
@@ -403,10 +408,15 @@ func waitForAptosLogAndTxHash(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	expectedLog string,
 	timeout time.Duration,
+	requireTxHash bool,
 ) string {
 	t.Helper()
 
-	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, fmt.Errorf("failed to find Aptos workflow log with non-empty tx hash: %s", expectedLog))
+	errMsg := fmt.Sprintf("failed to find Aptos workflow log: %s", expectedLog)
+	if requireTxHash {
+		errMsg = fmt.Sprintf("failed to find Aptos workflow log with non-empty tx hash: %s", expectedLog)
+	}
+	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, fmt.Errorf("%s", errMsg))
 	defer cancelFn()
 
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
@@ -420,7 +430,7 @@ func waitForAptosLogAndTxHash(
 	for {
 		select {
 		case <-cancelCtx.Done():
-			require.NoError(t, context.Cause(cancelCtx), "failed to observe Aptos log with non-empty tx hash: %s", expectedLog)
+			require.NoError(t, context.Cause(cancelCtx), "%s", errMsg)
 			return ""
 		case logs := <-userLogsCh:
 			for _, line := range logs.LogLines {
@@ -443,6 +453,9 @@ func waitForAptosLogAndTxHash(
 						return txHash
 					}
 				}
+				if !requireTxHash {
+					return ""
+				}
 
 				lggr.Warn().
 					Str("message", strings.TrimSpace(line.Message)).
@@ -451,6 +464,114 @@ func waitForAptosLogAndTxHash(
 			}
 		}
 	}
+}
+
+func recoverAptosWriteFailureTxHash(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	aptosChain blockchains.Blockchain,
+	writeDon *crelib.Don,
+	receiverHex string,
+	notBefore time.Time,
+) string {
+	t.Helper()
+
+	aptosBC, ok := aptosChain.(*blockchains_aptos.Blockchain)
+	require.True(t, ok, "expected aptos blockchain type")
+
+	client, err := aptosBC.NodeClient()
+	require.NoError(t, err, "failed to create Aptos node client for failed-write hash recovery")
+
+	workers, err := writeDon.Workers()
+	require.NoError(t, err, "failed to list Aptos write DON workers for failed-write hash recovery")
+	require.NotEmpty(t, workers, "Aptos write DON workers list is empty")
+
+	expectedReceiver, err := crecrypto.NormalizeAptosAccount(receiverHex)
+	require.NoError(t, err, "invalid expected Aptos receiver for failed-write hash recovery")
+
+	expectedForwarder, err := crecrypto.NormalizeAptosAccount(aptosForwarderAddress(tenv, aptosChain.ChainSelector()))
+	require.NoError(t, err, "invalid Aptos forwarder address for failed-write hash recovery")
+
+	var recoveredHash string
+	var recoveredVersion uint64
+	notBeforeMicros := uint64(max(notBefore.UnixMicro(), 0))
+
+	for _, worker := range workers {
+		require.NotNil(t, worker.Keys, "worker %q is missing metadata keys", worker.Name)
+		require.NotNil(t, worker.Keys.Aptos, "worker %q is missing metadata Aptos key", worker.Name)
+
+		var account aptoslib.AccountAddress
+		parseErr := account.ParseStringRelaxed(worker.Keys.Aptos.Account)
+		require.NoError(t, parseErr, "failed to parse Aptos worker account for hash recovery on worker %q", worker.Name)
+
+		txs, txErr := client.AccountTransactions(account, nil, nil)
+		require.NoError(t, txErr, "failed to fetch Aptos account transactions for worker %q", worker.Name)
+
+		for _, tx := range txs {
+			userTx, userErr := tx.UserTransaction()
+			if userErr != nil || userTx == nil {
+				continue
+			}
+			if userTx.Success || userTx.Timestamp < notBeforeMicros || userTx.Payload == nil {
+				continue
+			}
+			if userTx.Payload.Type != aptosapi.TransactionPayloadVariantEntryFunction {
+				continue
+			}
+
+			payload, ok := userTx.Payload.Inner.(*aptosapi.TransactionPayloadEntryFunction)
+			if !ok || !matchesAptosForwarderReportFunction(payload.Function, expectedForwarder) || !matchesAptosWriteReceiver(payload.Arguments, expectedReceiver) {
+				continue
+			}
+
+			txHash := normalizeTxHash(string(userTx.Hash))
+			if txHash == "" {
+				continue
+			}
+
+			if recoveredHash == "" || userTx.Version > recoveredVersion {
+				recoveredHash = txHash
+				recoveredVersion = userTx.Version
+			}
+		}
+	}
+
+	require.NotEmpty(t, recoveredHash, "failed to recover expected Aptos failed write tx hash since %s", notBefore.UTC().Format(time.RFC3339))
+	return recoveredHash
+}
+
+func matchesAptosForwarderReportFunction(functionName, expectedForwarder string) bool {
+	const functionSuffix = "::forwarder::report"
+
+	trimmed := strings.TrimSpace(functionName)
+	if !strings.HasSuffix(trimmed, functionSuffix) {
+		return false
+	}
+
+	forwarderAddress, err := crecrypto.NormalizeAptosAccount(strings.TrimSuffix(trimmed, functionSuffix))
+	if err != nil {
+		return false
+	}
+
+	return forwarderAddress == expectedForwarder
+}
+
+func matchesAptosWriteReceiver(arguments []any, expectedReceiver string) bool {
+	if len(arguments) == 0 {
+		return false
+	}
+
+	receiverArg, ok := arguments[0].(string)
+	if !ok {
+		return false
+	}
+
+	receiverAddress, err := crecrypto.NormalizeAptosAccount(receiverArg)
+	if err != nil {
+		return false
+	}
+
+	return receiverAddress == expectedReceiver
 }
 
 func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash string) {

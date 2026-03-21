@@ -88,10 +88,15 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 		reportResp.Sigs = reportResp.Sigs[:requiredSignatures]
 	}
 
+	creReport, err := sdk.X_GeneratedCodeOnly_WrapReport(reportResp)
+	if err != nil {
+		return nil, fmt.Errorf("wrap report for Aptos roundtrip: %w", err)
+	}
+
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
-	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
 		Receiver: receiverBytes,
-		Report:   reportResp,
+		Report:   creReport,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,
