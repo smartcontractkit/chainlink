@@ -412,9 +412,9 @@ func waitForAptosLogAndTxHash(
 ) string {
 	t.Helper()
 
-	errMsg := fmt.Sprintf("failed to find Aptos workflow log: %s", expectedLog)
+	errMsg := "failed to find Aptos workflow log: " + expectedLog
 	if requireTxHash {
-		errMsg = fmt.Sprintf("failed to find Aptos workflow log with non-empty tx hash: %s", expectedLog)
+		errMsg = "failed to find Aptos workflow log with non-empty tx hash: " + expectedLog
 	}
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New(errMsg))
 	defer cancelFn()
@@ -494,7 +494,10 @@ func recoverAptosWriteFailureTxHash(
 
 	var recoveredHash string
 	var recoveredVersion uint64
-	notBeforeMicros := uint64(max(notBefore.UnixMicro(), 0))
+	var notBeforeMicros uint64
+	if micros := notBefore.UnixMicro(); micros > 0 {
+		notBeforeMicros = uint64(micros)
+	}
 
 	for _, worker := range workers {
 		require.NotNil(t, worker.Keys, "worker %q is missing metadata keys", worker.Name)
@@ -524,7 +527,7 @@ func recoverAptosWriteFailureTxHash(
 				continue
 			}
 
-			txHash := normalizeTxHash(string(userTx.Hash))
+			txHash := normalizeTxHash(userTx.Hash)
 			if txHash == "" {
 				continue
 			}
