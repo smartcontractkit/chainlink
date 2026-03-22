@@ -416,7 +416,7 @@ func waitForAptosLogAndTxHash(
 	if requireTxHash {
 		errMsg = fmt.Sprintf("failed to find Aptos workflow log with non-empty tx hash: %s", expectedLog)
 	}
-	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, fmt.Errorf("%s", errMsg))
+	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New(errMsg))
 	defer cancelFn()
 
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
