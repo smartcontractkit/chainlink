@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -329,7 +329,7 @@ func TestResolver_CreateJob(t *testing.T) {
 		},
 	}
 	jb, err := directrequest.ValidatedDirectRequestSpec(spec)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
 		"createJob": map[string]any{
@@ -343,7 +343,7 @@ func TestResolver_CreateJob(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	gError := errors.New("error")
@@ -443,7 +443,7 @@ func TestResolver_DeleteJob(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	gError := errors.New("error")

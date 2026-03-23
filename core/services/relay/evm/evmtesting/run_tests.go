@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
@@ -63,7 +62,7 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 				SubmitTransactionToCW(t, it, cw, "triggerEventWithDynamicTopic", DynamicEvent{Field: anyString}, bindings[0], types.Unconfirmed)
 
 				input := struct{ Field string }{Field: anyString}
-				tp := cr.(clcommontypes.ContractTypeProvider)
+				tp := cr.(types.ContractTypeProvider)
 
 				readName := types.BoundContract{
 					Address: bindings[0].Address,
@@ -162,9 +161,9 @@ func RunContractReaderEvmTests[T TestingT[T]](t T, it *EVMChainComponentsInterfa
 				addr := common.BigToAddress(big.NewInt(42))
 
 				ctx := it.Helper.Context(t)
-				err := reader.Bind(ctx, []clcommontypes.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
+				err := reader.Bind(ctx, []types.BoundContract{{Name: AnyContractName, Address: addr.Hex()}})
 
-				require.ErrorIs(t, err, read.NoContractExistsError{Err: clcommontypes.ErrInternal, Address: addr})
+				require.ErrorIs(t, err, read.NoContractExistsError{Err: types.ErrInternal, Address: addr})
 			},
 		},
 	}
@@ -338,7 +337,7 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 	}
 }
 
-func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, i1, i2, i3 int32) {
+func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw types.ContractWriter, bindings []types.BoundContract, i1, i2, i3 int32) {
 	type DynamicEvent struct {
 		Field1 int32
 		Field2 int32
@@ -347,7 +346,7 @@ func triggerFourTopics[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester
 	SubmitTransactionToCW(t, it, cw, "triggerWithFourTopics", DynamicEvent{Field1: i1, Field2: i2, Field3: i3}, bindings[0], types.Unconfirmed)
 }
 
-func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, i1 string, i2 [32]uint8, i3 [32]byte) {
+func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInterfaceTester[T], cw types.ContractWriter, bindings []types.BoundContract, i1 string, i2 [32]uint8, i3 [32]byte) {
 	type DynamicEvent struct {
 		Field1 string
 		Field2 [32]uint8
@@ -357,7 +356,7 @@ func triggerFourTopicsWithHashed[T TestingT[T]](t T, it *EVMChainComponentsInter
 }
 
 // triggerStaticBytes emits a staticBytes events and returns the expected event bytes.
-func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], cw clcommontypes.ContractWriter, bindings []clcommontypes.BoundContract, val1, val2, val3 uint32, val4 uint64, val5, val6, val7 [32]byte, raw []byte) {
+func triggerStaticBytes[T TestingT[T]](t T, it ChainComponentsInterfaceTester[T], cw types.ContractWriter, bindings []types.BoundContract, val1, val2, val3 uint32, val4 uint64, val5, val6, val7 [32]byte, raw []byte) {
 	type StaticBytesEvent struct {
 		Val1 uint32
 		Val2 uint32

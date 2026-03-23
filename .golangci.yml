@@ -1,6 +1,10 @@
 version: "2"
 run:
   allow-parallel-runners: true
+  build-tags:
+    - integration
+    - dev
+    - trace
 linters:
   enable:
     - containedctx

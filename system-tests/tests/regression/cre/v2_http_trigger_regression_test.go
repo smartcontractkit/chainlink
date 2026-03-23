@@ -123,8 +123,11 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		TestCase:      httpNegativeTest.testCase,
 	}
 
-	workflowName := "http-trigger-fail-workflow-" + httpNegativeTest.testCase
-	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	workflowName := t_helpers.UniqueWorkflowName(
+		testEnv,
+		"http-trigger-fail-"+httpNegativeTest.testCase+"-"+httpNegativeTest.name,
+	)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 	// For invalid key type and invalid public key format, we expect the workflow deployment/trigger setup to fail
 	// For non-existing public key, we expect the trigger execution to fail with unauthorized error at gateway level
@@ -140,11 +143,16 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	}
 
 	// expect engine initialisation failure due to incorrect trigger configuration
-	baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
-	require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
-	require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
-	require.Contains(t, baseMsg.Labels["err"], httpNegativeTest.expectedError, "expected error message to contain "+httpNegativeTest.expectedError)
-	testLogger.Info().Msgf("Found expected error - %s - in base message's labels", httpNegativeTest.expectedError)
+	_ = t_helpers.WatchBaseMessages(
+		t,
+		testLogger,
+		baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog,
+		2*time.Minute,
+		t_helpers.WithBaseMessageWorkflowID(workflowID),
+		t_helpers.WithBaseMessageLabelContains("err", httpNegativeTest.expectedError),
+	)
+	testLogger.Info().Msgf("Found expected error - %s - in base message", httpNegativeTest.expectedError)
 	testLogger.Info().Msg("HTTP Trigger Fail test successfully completed")
 }
 

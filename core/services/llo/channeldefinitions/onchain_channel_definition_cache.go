@@ -184,7 +184,6 @@ type HTTPClient interface {
 // sets up the initial state, and applies any provided options. The cache must be started via Start()
 // before it begins polling and fetching definitions.
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
-
 	cdc := &channelDefinitionCache{
 		orm:             orm,
 		client:          client,

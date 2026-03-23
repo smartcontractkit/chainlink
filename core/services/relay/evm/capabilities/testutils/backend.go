@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
@@ -63,7 +62,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 	}
 
 	// Setup simulated go-ethereum EVM backend
-	genesisData := core.GenesisAlloc{
+	genesisData := ethtypes.GenesisAlloc{
 		ownerAddress: {Balance: assets.Ether(100000).ToInt()},
 	}
 

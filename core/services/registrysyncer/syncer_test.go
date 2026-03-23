@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
-	captestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
 var writeChainCapability = kcr_v1.CapabilitiesRegistryCapability{
@@ -589,16 +588,6 @@ func TestSyncer_LocalNode(t *testing.T) {
 		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
-}
-
-// Add this helper struct to implement the ContractReaderFactory interface
-type testContractReaderFactory struct {
-	backendTH *captestutils.EVMBackendTH
-	t         *testing.T
-}
-
-func (f *testContractReaderFactory) NewContractReader(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-	return f.backendTH.NewContractReader(ctx, f.t, bytes)
 }
 
 func newTestSyncer(
