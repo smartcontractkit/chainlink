@@ -14,9 +14,11 @@ const (
 	GatewayHandlerTypeWebAPICapabilities = "web-api-capabilities"
 	GatewayHandlerTypeHTTPCapabilities   = "http-capabilities"
 	GatewayHandlerTypeVault              = "vault"
+	GatewayHandlerTypeConfidentialRelay  = "confidential-compute-relay"
 
-	ServiceNameWorkflows = "workflows"
-	ServiceNameVault     = "vault"
+	ServiceNameWorkflows     = "workflows"
+	ServiceNameVault         = "vault"
+	ServiceNameConfidential  = "confidential"
 
 	minimumRequestTimeoutSec = 5
 )
@@ -28,6 +30,8 @@ func HandlerServiceName(handlerType string) string {
 		return ServiceNameVault
 	case GatewayHandlerTypeHTTPCapabilities, GatewayHandlerTypeWebAPICapabilities:
 		return ServiceNameWorkflows
+	case GatewayHandlerTypeConfidentialRelay:
+		return ServiceNameConfidential
 	default:
 		return handlerType
 	}
@@ -226,6 +230,8 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
+			case GatewayHandlerTypeConfidentialRelay:
+				hs = append(hs, newDefaultConfidentialRelayHandler())
 			default:
 				return nil, errors.New("unknown handler type: " + ht)
 			}
@@ -266,6 +272,8 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec))
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
+			case GatewayHandlerTypeConfidentialRelay:
+				handlers = append(handlers, newDefaultConfidentialRelayHandler())
 			default:
 				return nil, nil, errors.New("unknown handler type: " + ht)
 			}
@@ -440,6 +448,25 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 				GlobalRPS:      500,
 				PerSenderBurst: 100,
 				PerSenderRPS:   100,
+			},
+		},
+	}
+}
+
+type confidentialRelayHandlerConfig struct {
+	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+}
+
+func newDefaultConfidentialRelayHandler() handler {
+	return handler{
+		Name:        GatewayHandlerTypeConfidentialRelay,
+		ServiceName: "confidential",
+		Config: confidentialRelayHandlerConfig{
+			NodeRateLimiter: nodeRateLimiterConfig{
+				GlobalBurst:    10,
+				GlobalRPS:      50,
+				PerSenderBurst: 10,
+				PerSenderRPS:   10,
 			},
 		},
 	}

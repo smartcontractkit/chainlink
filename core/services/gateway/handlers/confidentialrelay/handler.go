@@ -1,0 +1,431 @@
+package confidentialrelay
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"maps"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/jonboulle/clockwork"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+)
+
+const (
+	defaultCleanUpPeriod = 5 * time.Second
+
+	// Re-exported from chainlink-common for local use and test convenience.
+	MethodSecretsGet     = relaytypes.MethodSecretsGet
+	MethodCapabilityExec = relaytypes.MethodCapabilityExec
+)
+
+var _ gwhandlers.Handler = (*handler)(nil)
+
+type metrics struct {
+	requestInternalError metric.Int64Counter
+	requestUserError     metric.Int64Counter
+	requestSuccess       metric.Int64Counter
+}
+
+func newMetrics() (*metrics, error) {
+	requestInternalError, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_internal_error")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
+	}
+
+	requestUserError, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_user_error")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register user error counter: %w", err)
+	}
+
+	requestSuccess, err := beholder.GetMeter().Int64Counter("confidential_relay_gateway_request_success")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register success counter: %w", err)
+	}
+
+	return &metrics{
+		requestInternalError: requestInternalError,
+		requestUserError:     requestUserError,
+		requestSuccess:       requestSuccess,
+	}, nil
+}
+
+type activeRequest struct {
+	req       jsonrpc.Request[json.RawMessage]
+	responses map[string]*jsonrpc.Response[json.RawMessage]
+	mu        sync.Mutex
+
+	createdAt time.Time
+	gwhandlers.Callback
+}
+
+func (ar *activeRequest) addResponseForNode(nodeAddr string, resp *jsonrpc.Response[json.RawMessage]) bool {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	_, exists := ar.responses[nodeAddr]
+	if exists {
+		return false
+	}
+
+	ar.responses[nodeAddr] = resp
+	return true
+}
+
+func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawMessage] {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	copied := make(map[string]jsonrpc.Response[json.RawMessage], len(ar.responses))
+	for k, response := range ar.responses {
+		var copiedResponse jsonrpc.Response[json.RawMessage]
+		if response != nil {
+			copiedResponse = *response
+			if response.Result != nil {
+				copiedResult := *response.Result
+				copiedResponse.Result = &copiedResult
+			}
+			if response.Error != nil {
+				copiedError := *response.Error
+				copiedResponse.Error = &copiedError
+			}
+		}
+		copied[k] = copiedResponse
+	}
+	return copied
+}
+
+type relayAggregator interface {
+	Aggregate(resps map[string]jsonrpc.Response[json.RawMessage], donF int, donMembersCount int, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error)
+}
+
+type Config struct {
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
+}
+
+type handler struct {
+	services.StateMachine
+	donConfig *config.DONConfig
+	don       gwhandlers.DON
+	codec     api.JsonRPCCodec
+	lggr      logger.Logger
+	mu        sync.RWMutex
+	stopCh    services.StopChan
+
+	nodeRateLimiter *ratelimit.RateLimiter
+	requestTimeout  time.Duration
+
+	activeRequests map[string]*activeRequest
+	metrics        *metrics
+
+	aggregator relayAggregator
+
+	clock clockwork.Clock
+}
+
+func (h *handler) HealthReport() map[string]error {
+	return map[string]error{h.Name(): h.Healthy()}
+}
+
+func (h *handler) Name() string {
+	return h.lggr.Name()
+}
+
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock) (*handler, error) {
+	var cfg Config
+	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
+	}
+
+	if cfg.RequestTimeoutSec == 0 {
+		cfg.RequestTimeoutSec = 30
+	}
+
+	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
+	}
+
+	metrics, err := newMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics: %w", err)
+	}
+
+	return &handler{
+		donConfig:       donConfig,
+		don:             don,
+		lggr:            logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
+		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter: nodeRateLimiter,
+		activeRequests:  make(map[string]*activeRequest),
+		mu:              sync.RWMutex{},
+		stopCh:          make(services.StopChan),
+		metrics:         metrics,
+		aggregator:      &aggregator{},
+		clock:           clock,
+	}, nil
+}
+
+func (h *handler) Start(_ context.Context) error {
+	return h.StartOnce("ConfidentialRelayHandler", func() error {
+		h.lggr.Info("starting confidential relay handler")
+		go func() {
+			ctx, cancel := h.stopCh.NewCtx()
+			defer cancel()
+			ticker := h.clock.NewTicker(defaultCleanUpPeriod)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.Chan():
+					h.removeExpiredRequests(ctx)
+				case <-h.stopCh:
+					return
+				}
+			}
+		}()
+		return nil
+	})
+}
+
+func (h *handler) Close() error {
+	return h.StopOnce("ConfidentialRelayHandler", func() error {
+		h.lggr.Info("closing confidential relay handler")
+		close(h.stopCh)
+		return nil
+	})
+}
+
+func (h *handler) removeExpiredRequests(ctx context.Context) {
+	h.mu.RLock()
+	var expiredRequests []*activeRequest
+	now := h.clock.Now()
+	for _, userRequest := range h.activeRequests {
+		if now.Sub(userRequest.createdAt) > h.requestTimeout {
+			expiredRequests = append(expiredRequests, userRequest)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, er := range expiredRequests {
+		responses := er.copiedResponses()
+		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
+		errMsg := fmt.Sprintf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New(errMsg), nil))
+		if err != nil {
+			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
+		}
+	}
+}
+
+func (h *handler) Methods() []string {
+	return []string{MethodSecretsGet, MethodCapabilityExec}
+}
+
+func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
+	return errors.New("confidential relay handler does not support legacy messages")
+}
+
+func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
+	if req.ID == "" {
+		return errors.New("request ID cannot be empty")
+	}
+	if len(req.ID) > 200 {
+		return errors.New("request ID is too long: " + strconv.Itoa(len(req.ID)) + ". max is 200 characters")
+	}
+
+	l := logger.With(h.lggr, "method", req.Method, "requestID", req.ID)
+	l.Debugw("handling confidential relay request")
+
+	ar, err := h.newActiveRequest(req, callback)
+	if err != nil {
+		return err
+	}
+
+	return h.fanOutToNodes(ctx, l, ar)
+}
+
+func (h *handler) newActiveRequest(req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) (*activeRequest, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.activeRequests[req.ID] != nil {
+		h.lggr.Errorw("request id already exists", "requestID", req.ID)
+		return nil, errors.New("request ID already exists: " + req.ID)
+	}
+	ar := &activeRequest{
+		Callback:  callback,
+		req:       req,
+		createdAt: h.clock.Now(),
+		responses: map[string]*jsonrpc.Response[json.RawMessage]{},
+	}
+	h.activeRequests[req.ID] = ar
+	return ar, nil
+}
+
+func (h *handler) getActiveRequest(requestID string) *activeRequest {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.activeRequests[requestID]
+}
+
+func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error {
+	l := logger.With(h.lggr, "method", resp.Method, "requestID", resp.ID, "nodeAddr", nodeAddr)
+	l.Debugw("handling node response")
+
+	if !h.nodeRateLimiter.Allow(nodeAddr) {
+		l.Debugw("node is rate limited", "nodeAddr", nodeAddr)
+		return nil
+	}
+
+	ar := h.getActiveRequest(resp.ID)
+	if ar == nil {
+		l.Debugw("no pending request found for ID")
+		return nil
+	}
+
+	ok := ar.addResponseForNode(nodeAddr, resp)
+	if !ok {
+		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
+		return nil
+	}
+
+	copiedResponses := ar.copiedResponses()
+	aggregatedResp, err := h.aggregator.Aggregate(copiedResponses, h.donConfig.F, len(h.donConfig.Members), l)
+	switch {
+	case errors.Is(err, errInsufficientResponsesForQuorum):
+		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
+		return nil
+	case err != nil:
+		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+	}
+
+	return h.sendSuccessResponse(ctx, l, ar, aggregatedResp)
+}
+
+func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
+	var nodeErrors []error
+	for _, node := range h.donConfig.Members {
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		if err != nil {
+			nodeErrors = append(nodeErrors, err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
+	}
+
+	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
+	}
+
+	l.Debugw("successfully forwarded request to relay nodes")
+	return nil
+}
+
+func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
+	rawResponse, err := jsonrpc.EncodeResponse(resp)
+	if err != nil {
+		l.Errorw("failed to encode response", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
+	}
+
+	var errorCode api.ErrorCode
+	if resp.Error != nil {
+		errorCode = api.FromJSONRPCErrorCode(resp.Error.Code)
+	} else {
+		errorCode = api.NoError
+	}
+
+	l.Debugw("issued user callback", "errorCode", errorCode)
+	successResp := gwhandlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   errorCode,
+	}
+	return h.sendResponse(ctx, ar, successResp)
+}
+
+func (h *handler) errorResponse(
+	req jsonrpc.Request[json.RawMessage],
+	errorCode api.ErrorCode,
+	err error,
+	data []byte,
+) gwhandlers.UserCallbackPayload {
+	switch errorCode {
+	case api.FatalError:
+	case api.NodeReponseEncodingError:
+		h.lggr.Errorw(err.Error(), "requestID", req.ID)
+		err = errors.New(errorCode.String())
+	case api.InvalidParamsError:
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
+		err = errors.New("invalid params error: " + err.Error())
+	case api.UnsupportedMethodError:
+		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
+		err = errors.New("unsupported method(" + req.Method + "): " + err.Error())
+	case api.UserMessageParseError:
+		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
+		err = errors.New("user message parse error: " + err.Error())
+	case api.NoError:
+	case api.UnsupportedDONIdError:
+	case api.HandlerError:
+	case api.RequestTimeoutError:
+	case api.StaleNodeResponseError:
+	}
+
+	return gwhandlers.UserCallbackPayload{
+		RawResponse: h.codec.EncodeNewErrorResponse(
+			req.ID,
+			api.ToJSONRPCErrorCode(errorCode),
+			err.Error(),
+			data,
+		),
+		ErrorCode: errorCode,
+	}
+}
+
+func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
+	switch resp.ErrorCode {
+	case api.StaleNodeResponseError:
+	case api.FatalError:
+	case api.NodeReponseEncodingError:
+	case api.RequestTimeoutError:
+	case api.HandlerError:
+		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("error", resp.ErrorCode.String()),
+		))
+	case api.InvalidParamsError:
+	case api.UnsupportedMethodError:
+	case api.UserMessageParseError:
+	case api.UnsupportedDONIdError:
+		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
+	case api.NoError:
+		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
+	}
+
+	err := userRequest.SendResponse(resp)
+	if err != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
+		return err
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.activeRequests, userRequest.req.ID)
+	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
+	return nil
+}
