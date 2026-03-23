@@ -121,7 +121,7 @@ jobs:
       contents: read
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
-    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/cpu=8/ram=16/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -218,7 +218,7 @@ jobs:
             install-loopps: "true"
 
           - cmd: go_core_fuzz
-            os: runs-on=${{ github.run_id}}-fuzz/cpu=8/ram=32/family=m6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            os: runs-on=${{ github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
@@ -226,7 +226,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6i+c7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
@@ -241,12 +241,7 @@ jobs:
     needs: [filter, run-frequency ]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
-    runs-on: >-
-      ${{
-        matrix.type.should-run == 'true' &&
-        matrix.type.os ||
-        'ubuntu-latest'
-      }}
+    runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os || 'ubuntu-latest' }}
     permissions:
       id-token: write
       contents: read
