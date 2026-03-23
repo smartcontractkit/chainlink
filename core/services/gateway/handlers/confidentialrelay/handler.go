@@ -380,6 +380,8 @@ func (h *handler) errorResponse(
 	case api.HandlerError:
 	case api.RequestTimeoutError:
 	case api.StaleNodeResponseError:
+	case api.ConflictError:
+	case api.LimitExceededError:
 	}
 
 	return gwhandlers.UserCallbackPayload{
@@ -415,6 +417,8 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
+	case api.ConflictError:
+	case api.LimitExceededError:
 	}
 
 	err := userRequest.SendResponse(resp)
