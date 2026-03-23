@@ -489,11 +489,13 @@ func configureTokenPool(
 				}
 			}
 
-			// Check if the remote token has changed - this always requires chain removal/re-addition
-			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) {
+			// Determine the action based on token and pool status
+			switch {
+			case !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken):
+				// Remote token has changed - this always requires chain removal/re-addition
 				chainRemovals = append(chainRemovals, remoteChainSelector)
 				addChain = true
-			} else if !isRemotePoolSupported {
+			case !isRemotePoolSupported:
 				// Remote pool is not supported - behavior depends on AllowAdditiveRemotePools flag
 				if poolUpdate.AllowAdditiveRemotePools {
 					// Add the new remote pool without removing the chain
@@ -507,7 +509,7 @@ func configureTokenPool(
 					chainRemovals = append(chainRemovals, remoteChainSelector)
 					addChain = true
 				}
-			} else {
+			default:
 				// Remote pool is already supported, just update the rate limits
 				remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
 				updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
