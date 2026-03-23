@@ -731,7 +731,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "FeeQuoter 1.6.2", typeAndVersion)
+	require.Equal(t, "FeeQuoter 1.6.1", typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)
