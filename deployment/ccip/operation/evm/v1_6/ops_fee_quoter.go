@@ -1,7 +1,6 @@
 package v1_6
 
 import (
-	"encoding/hex"
 	"errors"
 	"math/big"
 
@@ -11,14 +10,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 type DeployFeeQInput struct {
@@ -200,36 +196,3 @@ const (
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
 )
-
-func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
-	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
-	if len(destChainSelector) > 0 {
-		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		switch destFamily {
-		case chain_selectors.FamilySolana:
-			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
-		case chain_selectors.FamilyAptos:
-			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
-		}
-	}
-	return fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         configEnabled,
-		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      30_000,
-		MaxPerMsgGasLimit:                 3_000_000, // TODO: this needs to be updated based on RMN sig verification per chain?! 220/250K
-		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           25,
-		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    16,
-		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       90_000,
-		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                10,
-		ChainFamilySelector:               [4]byte(familySelector),
-		GasPriceStalenessThreshold:        90000,
-	}
-}

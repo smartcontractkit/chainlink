@@ -183,6 +183,7 @@ type CCIPChainState struct {
 // It cross-references the config across CCIPHome and OffRamps to ensure they are in sync
 // This should be called after the complete deployment is done
 func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.Nodes, offRampsByChain map[uint64]offramp.OffRampInterface) error {
+	// 1. Prerequisites
 	if c.RMNHome == nil {
 		return errors.New("no RMNHome contract found in the state for home chain")
 	}
@@ -192,16 +193,17 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 	if c.CapabilityRegistry == nil {
 		return errors.New("no CapabilityRegistry contract found in the state for home chain")
 	}
-	// get capReg from CCIPHome
-	capReg, err := c.CCIPHome.GetCapabilityRegistry(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
+	callOpts := &bind.CallOpts{Context: e.GetContext()}
+
+	capReg, err := c.CCIPHome.GetCapabilityRegistry(callOpts)
 	if err != nil {
 		return fmt.Errorf("failed to get capability registry from CCIPHome contract: %w", err)
 	}
 	if capReg != c.CapabilityRegistry.Address() {
-		return fmt.Errorf("capability registry mismatch: expected %s, got %s", capReg.Hex(), c.CapabilityRegistry.Address().Hex())
+		return fmt.Errorf("capability registry mismatch: expected %s, got %s",
+			capReg.Hex(), c.CapabilityRegistry.Address().Hex())
 	}
+
 	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(e.GetContext(), c.CapabilityRegistry)
 	if err != nil {
 		return fmt.Errorf("failed to get CCIP Dons from capability registry: %w", err)
@@ -209,31 +211,99 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 	if len(ccipDons) == 0 {
 		return errors.New("no CCIP Dons found in capability registry")
 	}
-	// validate for all ccipDons
+
+	// 2. HomeChain: build DON→chain mapping, validate P2P IDs
+	donIDByChainSel := make(map[uint64]uint32, len(ccipDons))
+	var allErrs []error
 	for _, don := range ccipDons {
 		if err := nodes.P2PIDsPresentInJD(don.NodeP2PIds); err != nil {
-			return fmt.Errorf("failed to find Capability Registry p2pIDs in JD: %w", err)
+			allErrs = append(allErrs, fmt.Errorf("DON %d: P2P IDs not found in JD: %w", don.Id, err))
+			continue
 		}
-		commitConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
-			Context: e.GetContext(),
-		}, don.Id, uint8(types.PluginTypeCCIPCommit))
+
+		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
 		if err != nil {
-			return fmt.Errorf("failed to get commit config for don %d: %w", don.Id, err)
+			allErrs = append(allErrs, fmt.Errorf("DON %d: failed to get commit configs: %w", don.Id, err))
+			continue
 		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfig.ActiveConfig, offRampsByChain); err != nil {
-			return fmt.Errorf("failed to validate active commit config for don %d: %w", don.Id, err)
-		}
-		execConfig, err := c.CCIPHome.GetAllConfigs(&bind.CallOpts{
-			Context: e.GetContext(),
-		}, don.Id, uint8(types.PluginTypeCCIPExec))
+		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
 		if err != nil {
-			return fmt.Errorf("failed to get exec config for don %d: %w", don.Id, err)
+			allErrs = append(allErrs, fmt.Errorf("DON %d: failed to get exec configs: %w", don.Id, err))
+			continue
 		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfig.ActiveConfig, offRampsByChain); err != nil {
-			return fmt.Errorf("failed to validate active exec config for don %d: %w", don.Id, err)
+
+		// Resolve chain selector: prefer active, fall back to candidate if not yet promoted.
+		chainSel := commitConfigs.ActiveConfig.Config.ChainSelector
+		if chainSel == 0 {
+			chainSel = commitConfigs.CandidateConfig.Config.ChainSelector
+		}
+		if chainSel == 0 {
+			chainSel = execConfigs.ActiveConfig.Config.ChainSelector
+			if chainSel == 0 {
+				chainSel = execConfigs.CandidateConfig.Config.ChainSelector
+			}
+		}
+		if chainSel != 0 {
+			donIDByChainSel[chainSel] = don.Id
 		}
 	}
-	return nil
+
+	// 3: Per-chain validation
+	for chainSel := range offRampsByChain {
+		donID, ok := donIDByChainSel[chainSel]
+		if !ok || donID == 0 {
+			allErrs = append(allErrs, fmt.Errorf("chain %d: no DON ID found in CCIPHome", chainSel))
+			continue
+		}
+
+		chainConfig, err := c.CCIPHome.GetChainConfig(callOpts, chainSel)
+		if err != nil {
+			allErrs = append(allErrs, fmt.Errorf("chain %d: failed to get CCIPHome chain config: %w", chainSel, err))
+			continue
+		}
+		if len(chainConfig.Readers) == 0 {
+			allErrs = append(allErrs, fmt.Errorf("chain %d: CCIPHome chain config has no readers", chainSel))
+		}
+		if chainConfig.FChain == 0 {
+			allErrs = append(allErrs, fmt.Errorf("chain %d: CCIPHome chain config FChain is 0", chainSel))
+		}
+
+		commitCandidateDigest, err := c.CCIPHome.GetCandidateDigest(callOpts, donID, uint8(types.PluginTypeCCIPCommit))
+		if err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: failed to get commit candidate digest: %w", donID, chainSel, err))
+		} else if commitCandidateDigest != [32]byte{} {
+			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: stale commit candidate digest: %x", donID, chainSel, commitCandidateDigest))
+		}
+
+		execCandidateDigest, err := c.CCIPHome.GetCandidateDigest(callOpts, donID, uint8(types.PluginTypeCCIPExec))
+		if err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: failed to get exec candidate digest: %w", donID, chainSel, err))
+		} else if execCandidateDigest != [32]byte{} {
+			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: stale exec candidate digest: %x", donID, chainSel, execCandidateDigest))
+		}
+	}
+
+	// 4: OCR3 config validation
+	for _, don := range ccipDons {
+		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
+		if err != nil {
+			// Already reported in 2
+			continue
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfigs.ActiveConfig, offRampsByChain); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d: active commit config validation failed: %w", don.Id, err))
+		}
+
+		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
+		if err != nil {
+			continue
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfigs.ActiveConfig, offRampsByChain); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d: active exec config validation failed: %w", don.Id, err))
+		}
+	}
+
+	return errors.Join(allErrs...)
 }
 
 // validateCCIPHomeVersionedActiveConfig validates the CCIPHomeVersionedConfig based on the corresponding chain selector and its state
@@ -400,37 +470,17 @@ func (c CCIPChainState) ValidateOnRamp(
 			return fmt.Errorf("failed to get dest chain config from source chain %d onRamp %s for dest chain %d: %w",
 				selector, c.OnRamp.Address(), otherChainSel, err)
 		}
-		// if not blank, the dest chain config should be enabled
-		if destChainCfg != (onramp.GetDestChainConfig{}) {
-			if destChainCfg.Router != c.Router.Address() && destChainCfg.Router != c.TestRouter.Address() {
-				return fmt.Errorf("onRamp %s router mismatch in dest chain config: expected router %s or test router %s, got %s",
-					c.OnRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), destChainCfg.Router.Hex())
-			}
+		// dest chain config must be configured (non-blank means a router is set)
+		if destChainCfg == (onramp.GetDestChainConfig{}) {
+			return fmt.Errorf("onRamp %s dest chain config is blank for dest chain %d",
+				c.OnRamp.Address().Hex(), otherChainSel)
+		}
+		if destChainCfg.Router != c.Router.Address() && destChainCfg.Router != c.TestRouter.Address() {
+			return fmt.Errorf("onRamp %s router mismatch in dest chain config: expected router %s or test router %s, got %s",
+				c.OnRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), destChainCfg.Router.Hex())
 		}
 	}
 
-	return nil
-}
-
-// ValidateFeeQuoter validates whether the fee quoter contract address configured in static config is in sync with state
-func (c CCIPChainState) ValidateFeeQuoter(e cldf.Environment) error {
-	if c.FeeQuoter == nil {
-		return errors.New("no FeeQuoter contract found in the state")
-	}
-	staticConfig, err := c.FeeQuoter.GetStaticConfig(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get static config for FeeQuoter %s: %w", c.FeeQuoter.Address().Hex(), err)
-	}
-	linktokenAddr, err := c.LinkTokenAddress()
-	if err != nil {
-		return fmt.Errorf("failed to get link token address for from state: %w", err)
-	}
-	if staticConfig.LinkToken != linktokenAddr {
-		return fmt.Errorf("feeQuoter %s LinkToken mismatch: expected either linktoken %s or static link token %s, got %s",
-			c.FeeQuoter.Address().Hex(), c.LinkToken.Address().Hex(), c.StaticLinkToken.Address(), staticConfig.LinkToken.Hex())
-	}
 	return nil
 }
 
@@ -597,24 +647,28 @@ func (c CCIPChainState) ValidateOffRamp(
 		if err != nil {
 			return fmt.Errorf("failed to get source chain config for chain %d: %w", chainSel, err)
 		}
-		if config.IsEnabled {
-			// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
-			if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
-				return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
-					chainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
-			}
-			// The address of router should be accurate
-			if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
-				return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
-					chainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
-			}
-			// if RMN is enabled for the source chain, the RMNRemote and RMNHome should be configured to enable RMN
-			// the reverse is not always true, as RMN verification can be disable at offRamp but enabled in RMNRemote and RMNHome
-			if !config.IsRMNVerificationDisabled && !isRMNEnabledBySource[chainSel] {
-				return fmt.Errorf("RMN verification is enabled in offRamp %s for source chain %d, "+
-					"but RMN is not enabled in RMNHome and RMNRemote for the chain",
-					c.OffRamp.Address().Hex(), chainSel)
-			}
+		// Source chain must be enabled
+		if !config.IsEnabled {
+			return fmt.Errorf("source chain %d is not enabled on OffRamp %s",
+				chainSel, c.OffRamp.Address().Hex())
+		}
+		// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
+		if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
+			return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
+				chainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
+		}
+		// The address of router should be accurate
+		if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
+			return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
+				chainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
+		}
+		// RMN verification disabled flag check:
+		// if RMN is enabled for the source chain, the RMNRemote and RMNHome should be configured to enable RMN
+		// the reverse is not always true, as RMN verification can be disabled at offRamp but enabled in RMNRemote and RMNHome
+		if !config.IsRMNVerificationDisabled && !isRMNEnabledBySource[chainSel] {
+			return fmt.Errorf("RMN verification is enabled in offRamp %s for source chain %d, "+
+				"but RMN is not enabled in RMNHome and RMNRemote for the chain",
+				c.OffRamp.Address().Hex(), chainSel)
 		}
 	}
 	return nil

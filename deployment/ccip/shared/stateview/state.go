@@ -166,6 +166,17 @@ func (c CCIPOnChainState) WriteEVMChainState(selector uint64, chainState evm.CCI
 // in environment is complete.
 // It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
 func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, validateHomeChain bool) error {
+	return c.validatePostDeploymentState(e, validateHomeChain, true)
+}
+
+// ValidatePostDeploymentStateWithoutOwnership performs the same validation as ValidatePostDeploymentState
+// but skips contract ownership checks. This is intended for test infrastructure that validates
+// deployment wiring before ownership has been transferred to the MCMS Timelock.
+func (c CCIPOnChainState) ValidatePostDeploymentStateWithoutMCMSOwnership(e cldf.Environment, validateHomeChain bool) error {
+	return c.validatePostDeploymentState(e, validateHomeChain, false)
+}
+
+func (c CCIPOnChainState) validatePostDeploymentState(e cldf.Environment, validateHomeChain bool, validateOwnership bool) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 
@@ -186,9 +197,10 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 		return fmt.Errorf("failed to get home chain selector: %w", err)
 	}
 	homeChainState := c.MustGetEVMChainState(homeChain)
+	var allErrs []error
 	if validateHomeChain {
 		if err := homeChainState.ValidateHomeChain(e, nodes, offRampsBySelector); err != nil {
-			return fmt.Errorf("failed to validate home chain %d: %w", homeChain, err)
+			allErrs = append(allErrs, fmt.Errorf("failed to validate home chain %d: %w", homeChain, err))
 		}
 	}
 	rmnHomeActiveDigest, err := homeChainState.RMNHome.GetActiveDigest(&bind.CallOpts{
@@ -212,39 +224,53 @@ func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, valida
 		chainState := c.MustGetEVMChainState(selector)
 		isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, selector, rmnHomeActiveDigest)
 		if err != nil {
-			return fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err)
-		}
-		// check whether RMNRemote and RMNHome are in sync in terms of RMNEnabled
-		if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
-			return fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
-				chainState.RMNRemote.Address().Hex(), selector, isRMNEnabledInRMNHomeBySourceChain[selector], isRMNEnabledInRmnRemote)
+			allErrs = append(allErrs, fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err))
+		} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
+			// check whether RMNRemote and RMNHome are in sync in terms of RMNEnabled
+			allErrs = append(allErrs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
+				chainState.RMNRemote.Address().Hex(), selector, isRMNEnabledInRMNHomeBySourceChain[selector], isRMNEnabledInRmnRemote))
 		}
 		otherOnRamps := make(map[uint64]common.Address)
-		isTestRouter := true
+		useTestRouter := true
 		if chainState.Router != nil {
-			isTestRouter = false
+			useTestRouter = false
 		}
-		connectedChains, err := chainState.ValidateRouter(e, isTestRouter)
+		connectedChains, err := chainState.ValidateRouter(e, useTestRouter)
 		if err != nil {
-			return fmt.Errorf("failed to validate router %s for chain %d: %w", chainState.Router.Address().Hex(), selector, err)
+			allErrs = append(allErrs, fmt.Errorf("failed to validate router for chain %d: %w", selector, err))
 		}
-		for _, connectedChain := range connectedChains {
-			if connectedChain == selector {
-				continue
+		if len(connectedChains) > 0 {
+			for _, connectedChain := range connectedChains {
+				if connectedChain == selector {
+					continue
+				}
+				otherOnRamps[connectedChain] = c.MustGetEVMChainState(connectedChain).OnRamp.Address()
 			}
-			otherOnRamps[connectedChain] = c.MustGetEVMChainState(connectedChain).OnRamp.Address()
+			if err := chainState.ValidateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err))
+			}
+			if err := chainState.ValidateOnRamp(e, selector, connectedChains); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err))
+			}
+			if err := chainState.ValidateNonceManager(e, selector, connectedChains); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("failed to validate nonce manager for chain %d: %w", selector, err))
+			}
 		}
-		if err := chainState.ValidateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
-			return fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err)
+		if err := chainState.ValidateFeeQuoter(e, selector, connectedChains); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", chainState.FeeQuoter.Address().Hex(), selector, err))
 		}
-		if err := chainState.ValidateOnRamp(e, selector, connectedChains); err != nil {
-			return fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err)
+		// Validate contract ownership: all contracts should be owned by the MCMS Timelock
+		if validateOwnership && chainState.Timelock != nil {
+			if err := chainState.ValidateContractOwnership(e); err != nil {
+				allErrs = append(allErrs, fmt.Errorf("failed to validate contract ownership for chain %d: %w", selector, err))
+			}
 		}
-		if err := chainState.ValidateFeeQuoter(e); err != nil {
-			return fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", chainState.FeeQuoter.Address().Hex(), selector, err)
+		// Validate RMNProxy points to RMNRemote
+		if err := chainState.ValidateRMNProxy(e); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("failed to validate RMNProxy for chain %d: %w", selector, err))
 		}
 	}
-	return nil
+	return errors.Join(allErrs...)
 }
 
 // HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
