@@ -1,4 +1,4 @@
-package types
+package types //nolint:revive // meaningless name already referenced
 
 import (
 	"github.com/ethereum/go-ethereum/common"

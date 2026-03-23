@@ -743,7 +743,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS1BridgeName:      bridge2.Name.String(),
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
-		TransmitterAddress: app.Keys[0].EIP55Address.String(),
+		TransmitterAddress: app.Keys[0].String(),
 		EVMChainID:         cltest.FixtureChainID.String(),
 	})
 	require.NoError(t, err)

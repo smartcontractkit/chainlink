@@ -11,24 +11,24 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
-
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -250,12 +250,19 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 
 	logger.Info().Msg("Step 2: Set ShardConfig to 1 shard (only shard-zero)")
 	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 1)
+	contractCount := getShardCountFromContract(t, testEnv, chainSelector, shardConfigRef)
+	require.Equal(t, uint64(1), contractCount, "ShardConfig contract should report 1 shard")
 
 	shardZero := getShardZeroDon(t, testEnv)
 	initializeAllArbiterStates(t, testEnv, shardZero, 1)
 
-	logger.Info().Msg("Step 3: Verify Arbiter returns WantShards=1")
-	waitForArbiterShardCount(t, arbiterClient, 1, 60*time.Second)
+	logger.Info().Msg("Step 3: Verify Arbiter WantShards equals contract shard count")
+	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second) //nolint:gosec // G115: test only uses 1 or 2 shards
+	ctxShort, cancel := context.WithTimeout(ctx, 5*time.Second)
+	arbiterResp, err := arbiterClient.GetDesiredReplicas(ctxShort, &ringpb.ShardStatusRequest{})
+	cancel()
+	require.NoError(t, err)
+	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()") //nolint:gosec // G115: test only uses 1 or 2 shards
 
 	logger.Info().Msg("Step 4: Wait for all workflows to be remapped to shard 0")
 	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, 0)
@@ -268,11 +275,18 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 
 	logger.Info().Msg("Step 5: Scale up - Set ShardConfig to 2 shards")
 	updateShardCount(t, testEnv, chainSelector, shardConfigRef, 2)
+	contractCount = getShardCountFromContract(t, testEnv, chainSelector, shardConfigRef)
+	require.Equal(t, uint64(2), contractCount, "ShardConfig contract should report 2 shards")
 
 	initializeAllArbiterStates(t, testEnv, shardZero, 2)
 
-	logger.Info().Msg("Step 6: Verify Arbiter returns WantShards=2")
-	waitForArbiterShardCount(t, arbiterClient, 2, 60*time.Second)
+	logger.Info().Msg("Step 6: Verify Arbiter WantShards equals contract shard count")
+	waitForArbiterShardCount(t, arbiterClient, uint32(contractCount), 60*time.Second) //nolint:gosec // G115: test only uses 1 or 2 shards
+	ctxShort, cancel = context.WithTimeout(ctx, 5*time.Second)
+	arbiterResp, err = arbiterClient.GetDesiredReplicas(ctxShort, &ringpb.ShardStatusRequest{})
+	cancel()
+	require.NoError(t, err)
+	require.Equal(t, uint32(contractCount), arbiterResp.WantShards, "Arbiter WantShards must equal contract getDesiredShardCount()") //nolint:gosec // G115: test only uses 1 or 2 shards
 
 	logger.Info().Msg("Step 7: Wait for workflow redistribution after scaling")
 	waitForWorkflowsDistributed(t, shardOrchClient, workflowIDs, 2)
@@ -342,6 +356,19 @@ func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.
 		semver.MustParse("1"),
 		"",
 	)
+}
+
+func getShardCountFromContract(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelector uint64, shardConfigRef datastore.AddressRefKey) uint64 {
+	t.Helper()
+	addrRef, err := testEnv.CreEnvironment.CldfEnvironment.DataStore.Addresses().Get(shardConfigRef)
+	require.NoError(t, err)
+	chain, ok := testEnv.CreEnvironment.CldfEnvironment.BlockChains.EVMChains()[chainSelector]
+	require.True(t, ok, "EVM chain %d not found", chainSelector)
+	contract, err := shard_config.NewShardConfig(common.HexToAddress(addrRef.Address), chain.Client)
+	require.NoError(t, err)
+	count, err := contract.GetDesiredShardCount(nil)
+	require.NoError(t, err)
+	return count.Uint64()
 }
 
 func updateShardCount(t *testing.T, testEnv *ttypes.TestEnvironment, chainSelector uint64, shardConfigRef datastore.AddressRefKey, count uint64) {

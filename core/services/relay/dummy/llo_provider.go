@@ -8,12 +8,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
-var _ commontypes.LLOProvider = (*lloProvider)(nil)
+var _ types.LLOProvider = (*lloProvider)(nil)
 
 type Transmitter interface {
 	services.Service
@@ -21,7 +20,7 @@ type Transmitter interface {
 }
 
 type lloProvider struct {
-	cp                     commontypes.ConfigProvider
+	cp                     types.ConfigProvider
 	transmitter            Transmitter
 	logger                 logger.Logger
 	channelDefinitionCache llotypes.ChannelDefinitionCache
@@ -32,11 +31,11 @@ type lloProvider struct {
 
 func NewLLOProvider(
 	lggr logger.Logger,
-	cp commontypes.ConfigProvider,
+	cp types.ConfigProvider,
 	transmitter Transmitter,
 	channelDefinitionCache llotypes.ChannelDefinitionCache,
 	shouldRetireCache llotypes.ShouldRetireCache,
-) relaytypes.LLOProvider {
+) types.LLOProvider {
 	return &lloProvider{
 		cp,
 		transmitter,
