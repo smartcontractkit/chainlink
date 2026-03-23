@@ -253,6 +253,19 @@ jobs:
       chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
     secrets: inherit
 
+  call-system-tests-nightly:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [docker-core]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/system-tests-nightly.yml
+    with:
+      chainlink_version: ${{ inputs.git-ref || github.sha }}
+      chainlink_image_repo: "chainlink"
+      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+    secrets: inherit
+
   call-cre-workflow-don-benchmark:
     if: false
     # temporarily disabled CRE-962

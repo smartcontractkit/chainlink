@@ -3,15 +3,21 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
-      ecr_name:
-        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+      chainlink_image_repo:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
         required: false
         type: string
         default: "chainlink"
       chainlink_image_tag:
-        required: true
+        required: false
         type: string
-        description: "The tag of the Chainlink image to use for the tests."
+        default: ""
+        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
+      chainlink_full_image:
+        required: false
+        type: string
+        default: ""
+        description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
       chainlink_version:
         required: true
         type: string
@@ -19,15 +25,21 @@ on:
         default: "develop"
   workflow_call:
     inputs:
-      ecr_name:
-        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
+      chainlink_image_repo:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
         required: false
         type: string
         default: "chainlink"
       chainlink_image_tag:
-        required: true
+        required: false
         type: string
-        description: "The tag of the Chainlink image to use for the tests."
+        default: ""
+        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
+      chainlink_full_image:
+        required: false
+        type: string
+        default: ""
+        description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
       chainlink_version:
         required: true
         type: string
@@ -213,12 +225,51 @@ jobs:
           chmod +x bin/ctf
           echo "::endgroup::"
 
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        shell: bash
+        env:
+          INPUT_CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          INPUT_CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
+          INPUT_CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
+          INPUT_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          full_image="${INPUT_CHAINLINK_FULL_IMAGE}"
+          explicit_repo="${INPUT_CHAINLINK_IMAGE_REPO}"
+          tag="${INPUT_CHAINLINK_IMAGE_TAG}"
+          version="${INPUT_CHAINLINK_VERSION}"
+
+          if [[ -n "${full_image}" ]]; then
+            if [[ -n "${tag}" || -n "${explicit_repo}" ]]; then
+              echo "::error::'chainlink_full_image' is mutually exclusive with 'chainlink_image_tag' and 'chainlink_image_repo'."
+              exit 1
+            fi
+            if [[ ! "${full_image}" =~ .+/.+(:[^@]+|@sha256:[a-f0-9]{64})$ ]]; then
+              echo "::error::Invalid 'chainlink_full_image' format: '${full_image}'. Expected '<registry>/<repo>:<tag>' or '<registry>/<repo>@sha256:<digest>'."
+              exit 1
+            fi
+            resolved_image="${full_image}"
+          else
+            resolved_tag="${tag:-$version}"
+            if [[ -z "${resolved_tag}" ]]; then
+              echo "::error::Either provide 'chainlink_full_image' or provide a tag via 'chainlink_image_tag' (or 'chainlink_version')."
+              exit 1
+            fi
+            resolved_image="${QA_AWS_ACCOUNT_NUMBER}.dkr.ecr.${QA_AWS_REGION}.amazonaws.com/${explicit_repo}:${resolved_tag}"
+          fi
+
+          echo "resolved-image=${resolved_image}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
         env:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
+          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved-image }}"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
