@@ -114,7 +114,7 @@ jobs:
     name: GolangCI Lint
     needs: [filter, run-frequency ]
     # We don't directly merge dependabot PRs to not waste the resources.
-    if: ${{ needs.filter.outputs.affected-modules != '[]' && github.actor != 'dependabot[bot]' }}
+    if: ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name != 'merge_group' && github.actor != 'dependabot[bot]' }}
     permissions:
       # To annotate code in the PR.
       checks: write
@@ -240,7 +240,13 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency ]
     timeout-minutes: 60
-    runs-on: ${{ matrix.type.os }}
+    # Use ubuntu-latest for jobs that will be skipped
+    runs-on: >-
+      ${{
+        matrix.type.should-run == 'true' &&
+        matrix.type.os ||
+        'ubuntu-latest'
+      }}
     permissions:
       id-token: write
       contents: read
