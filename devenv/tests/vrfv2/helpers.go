@@ -163,25 +163,6 @@ func deleteAllJobs(node *clclient.ChainlinkClient) error {
 	return nil
 }
 
-func waitUntilBlock(ctx context.Context, chainClient *seth.Client, target uint64, poll time.Duration, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	for time.Now().Before(deadline) {
-		n, err := chainClient.Client.BlockNumber(ctx)
-		if err != nil {
-			return err
-		}
-		if n >= target {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(poll):
-		}
-	}
-	return fmt.Errorf("timeout waiting for block >= %d", target)
-}
-
 func getTxFromAddress(tx *types.Transaction) (string, error) {
 	from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	if err != nil {
