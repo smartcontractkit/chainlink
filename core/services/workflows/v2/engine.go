@@ -74,7 +74,7 @@ type Engine struct {
 	// used to separate registration and unregistration phases
 	triggersRegMu sync.Mutex
 
-	allTriggerEventsQueueCh limits.QueueLimiter[enqueuedTriggerEvent]
+	allTriggerEventsQueueCh SubjectQueueLimiter[enqueuedTriggerEvent]
 	executionsSemaphore     limits.ResourcePoolLimiter[int]
 	capCallsSemaphore       limits.ResourcePoolLimiter[int]
 
@@ -230,7 +230,11 @@ func (e *Engine) start(ctx context.Context) error {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
-	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
+	e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
+		e.allTriggerEventsQueueCh.Register(e.observe)
+		e.allTriggerEventsQueueCh.Run(ctx)
+	},
+	)
 	return nil
 }
 
@@ -566,42 +570,36 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
-	for {
-		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
-		if err != nil {
-			return
-		}
-		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
-		eventID := queueHead.event.Event.ID
-		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
-		if err != nil {
-			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
-			continue
-		}
-		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-			continue
-		}
-		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
-		if err != nil {
-			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
-			continue
-		}
-		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
-		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
-			defer free()
-			// Tracer is no-op if DebugMode is false
-			ctx, span := e.tracer.Start(ctx, "workflow_execution",
-				trace.WithAttributes(
-					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
-					attribute.String("version", "v2"),
-				))
-			defer span.End()
-			e.startExecution(ctx, queueHead)
-		})
+func (e *Engine) observe(ctx context.Context, queueHead enqueuedTriggerEvent) {
+	eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+	eventID := queueHead.event.Event.ID
+	e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+	triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
+	if err != nil {
+		e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
+		return
 	}
+	if eventAge > triggerEventMaxAge {
+		e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		return
+	}
+	free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
+	if err != nil {
+		e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
+		return
+	}
+	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
+	e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
+		defer free()
+		// Tracer is no-op if DebugMode is false
+		ctx, span := e.tracer.Start(ctx, "workflow_execution",
+			trace.WithAttributes(
+				attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+				attribute.String("version", "v2"),
+			))
+		defer span.End()
+		e.startExecution(ctx, queueHead)
+	})
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
