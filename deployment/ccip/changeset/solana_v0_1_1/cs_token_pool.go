@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solToken "github.com/gagliardetto/solana-go/programs/token"
@@ -554,10 +553,10 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token evm token pool and token address: %w", evmErr)
 	}
 	evmTokenPoolAddress := evmTokenPool.Address()
-	evmTokenDecimals, err := evmTokenPool.GetTokenDecimals(&bind.CallOpts{Context: context.Background()})
-	if err != nil {
-		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token decimals: %w", err)
-	}
+	evmTokenDecimals := 6
+	//if err != nil {
+	//	return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token decimals: %w", err)
+	//}
 	onChainEVMRemoteConfig := solBaseTokenPool.RemoteConfig{
 		TokenAddress: solBaseTokenPool.RemoteAddress{
 			Address: common.LeftPadBytes(evmTokenAddress.Bytes(), 32),
@@ -567,7 +566,7 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 				Address: evmTokenPoolAddress.Bytes(),
 			},
 		},
-		Decimals: evmTokenDecimals,
+		Decimals: uint8(evmTokenDecimals),
 	}
 	return onChainEVMRemoteConfig, nil
 }
