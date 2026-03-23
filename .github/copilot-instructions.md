@@ -24,6 +24,5 @@ Give style advice based on the following guides, in order of priority.
 1. [Effective Go](https://go.dev/doc/effective_go)
 2. [Google Code Review Comments](https://go.dev/wiki/CodeReviewComments)
 3. [Google Style Guide](https://google.github.io/styleguide/go/)
-4. [Uber Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
 
 Style exceptions are acceptable when aligning with pre-existing "local" style from the same file or package, but they should still be noted.
