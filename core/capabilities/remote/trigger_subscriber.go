@@ -385,6 +385,10 @@ func (s *triggerSubscriber) registrationLoop() {
 }
 
 func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
+	if s.dispatcher == nil {
+		return
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -412,6 +416,10 @@ func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
 }
 
 func (s *triggerSubscriber) sendUnregister(workflowID, triggerID string) {
+	if s.dispatcher == nil {
+		return
+	}
+
 	cfg := s.cfg.Load()
 
 	for _, peerID := range cfg.capDonInfo.Members {
