@@ -242,6 +242,13 @@ jobs:
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
     steps:
+      - name: Monitor
+        uses: kalverra/octometrics-action@v0.1.0
+        with:
+          job_name: Build Chainlink Image ${{ matrix.image.name }}
+          skip_comment: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Enable S3 Cache for Self-Hosted Runners
         # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
         if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
