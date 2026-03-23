@@ -16,9 +16,9 @@ const (
 	GatewayHandlerTypeVault              = "vault"
 	GatewayHandlerTypeConfidentialRelay  = "confidential-compute-relay"
 
-	ServiceNameWorkflows     = "workflows"
-	ServiceNameVault         = "vault"
-	ServiceNameConfidential  = "confidential"
+	ServiceNameWorkflows    = "workflows"
+	ServiceNameVault        = "vault"
+	ServiceNameConfidential = "confidential"
 
 	minimumRequestTimeoutSec = 5
 )
