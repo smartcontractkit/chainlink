@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -56,8 +57,13 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 	// registered.  Subsequent calls to setupFakeDataProvider would overwrite the
 	// HTTP handler and make previously-registered feeds return 400.
 	allFeedIDs := smokecre.GenerateSoakFeedIDs(numWorkflows)
+
+	soakPPLogger := framework.L.Sample(zerolog.LevelSampler{
+		InfoSampler: &zerolog.BasicSampler{N: 20}, // keep every 20th Info
+	}).With().Str("component", "soak-fake-price-provider").Logger()
+
 	priceProvider, err := smokecre.NewFakePriceProviderForSoak(
-		framework.L, testEnv.Config.Fake, "", allFeedIDs,
+		soakPPLogger, testEnv.Config.Fake, "", allFeedIDs,
 	)
 	require.NoError(t, err, "failed to create soak price provider")
 
