@@ -166,17 +166,17 @@ func (c CCIPOnChainState) WriteEVMChainState(selector uint64, chainState evm.CCI
 // in environment is complete.
 // It validates the state of the contracts and ensures that they are correctly configured and wired with each other.
 func (c CCIPOnChainState) ValidatePostDeploymentState(e cldf.Environment, validateHomeChain bool) error {
-	return c.validatePostDeploymentState(e, validateHomeChain, true)
+	return c.runPostDeploymentValidation(e, validateHomeChain, true)
 }
 
-// ValidatePostDeploymentStateWithoutOwnership performs the same validation as ValidatePostDeploymentState
+// ValidatePostDeploymentStateWithoutMCMSOwnership performs the same validation as ValidatePostDeploymentState
 // but skips contract ownership checks. This is intended for test infrastructure that validates
 // deployment wiring before ownership has been transferred to the MCMS Timelock.
 func (c CCIPOnChainState) ValidatePostDeploymentStateWithoutMCMSOwnership(e cldf.Environment, validateHomeChain bool) error {
-	return c.validatePostDeploymentState(e, validateHomeChain, false)
+	return c.runPostDeploymentValidation(e, validateHomeChain, false)
 }
 
-func (c CCIPOnChainState) validatePostDeploymentState(e cldf.Environment, validateHomeChain bool, validateOwnership bool) error {
+func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, validateHomeChain bool, validateOwnership bool) error {
 	onRampsBySelector := make(map[uint64]common.Address)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 
@@ -224,7 +224,7 @@ func (c CCIPOnChainState) validatePostDeploymentState(e cldf.Environment, valida
 		chainState := c.MustGetEVMChainState(selector)
 		isRMNEnabledInRmnRemote, err := chainState.ValidateRMNRemote(e, selector, rmnHomeActiveDigest)
 		if err != nil {
-			allErrs = append(allErrs, fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", chainState.RMNRemote.Address().Hex(), selector, err))
+			allErrs = append(allErrs, fmt.Errorf("failed to validate RMNRemote %s for chain %d: %w", safeAddr(chainState.RMNRemote), selector, err))
 		} else if isRMNEnabledInRmnRemote != isRMNEnabledInRMNHomeBySourceChain[selector] {
 			// check whether RMNRemote and RMNHome are in sync in terms of RMNEnabled
 			allErrs = append(allErrs, fmt.Errorf("RMNRemote %s rmnEnabled mismatch with RMNHome for chain %d: expected %v, got %v",
@@ -247,21 +247,23 @@ func (c CCIPOnChainState) validatePostDeploymentState(e cldf.Environment, valida
 				otherOnRamps[connectedChain] = c.MustGetEVMChainState(connectedChain).OnRamp.Address()
 			}
 			if err := chainState.ValidateOffRamp(e, selector, otherOnRamps, isRMNEnabledInRMNHomeBySourceChain); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("failed to validate offramp %s for chain %d: %w", chainState.OffRamp.Address().Hex(), selector, err))
+				allErrs = append(allErrs, fmt.Errorf("failed to validate offramp %s for chain %d: %w", safeAddr(chainState.OffRamp), selector, err))
 			}
 			if err := chainState.ValidateOnRamp(e, selector, connectedChains); err != nil {
-				allErrs = append(allErrs, fmt.Errorf("failed to validate onramp %s for chain %d: %w", chainState.OnRamp.Address().Hex(), selector, err))
+				allErrs = append(allErrs, fmt.Errorf("failed to validate onramp %s for chain %d: %w", safeAddr(chainState.OnRamp), selector, err))
 			}
 			if err := chainState.ValidateNonceManager(e, selector, connectedChains); err != nil {
 				allErrs = append(allErrs, fmt.Errorf("failed to validate nonce manager for chain %d: %w", selector, err))
 			}
 		}
 		if err := chainState.ValidateFeeQuoter(e, selector, connectedChains); err != nil {
-			allErrs = append(allErrs, fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", chainState.FeeQuoter.Address().Hex(), selector, err))
+			allErrs = append(allErrs, fmt.Errorf("failed to validate fee quoter %s for chain %d: %w", safeAddr(chainState.FeeQuoter), selector, err))
 		}
 		// Validate contract ownership: all contracts should be owned by the MCMS Timelock
-		if validateOwnership && chainState.Timelock != nil {
-			if err := chainState.ValidateContractOwnership(e); err != nil {
+		if validateOwnership {
+			if chainState.Timelock == nil {
+				allErrs = append(allErrs, fmt.Errorf("failed to validate contract ownership for chain %d: timelock not configured", selector))
+			} else if err := chainState.ValidateContractOwnership(e); err != nil {
 				allErrs = append(allErrs, fmt.Errorf("failed to validate contract ownership for chain %d: %w", selector, err))
 			}
 		}
@@ -271,6 +273,14 @@ func (c CCIPOnChainState) validatePostDeploymentState(e cldf.Environment, valida
 		}
 	}
 	return errors.Join(allErrs...)
+}
+
+// safeAddr returns the hex address of a contract if non-nil, or "<nil>" otherwise.
+func safeAddr(c interface{ Address() common.Address }) string {
+	if c == nil {
+		return "<nil>"
+	}
+	return c.Address().Hex()
 }
 
 // HomeChainSelector returns the selector of the home chain based on the presence of RMNHome, CapabilityRegistry and CCIPHome contracts.
