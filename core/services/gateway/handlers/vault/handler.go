@@ -646,27 +646,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
-			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err := h.ValidateGetSecretsRequest(secretsGetRequest)
-	if err != nil {
-		l.Warnw("failed to validate get secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
-	}
-
-	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
 func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 

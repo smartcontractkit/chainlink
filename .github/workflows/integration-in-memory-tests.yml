@@ -24,7 +24,10 @@ concurrency:
 
 jobs:
   changes:
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -82,7 +85,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -114,7 +117,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -156,22 +159,3 @@ jobs:
       - name: Fail the job if ccip tests in merge queue not successful
         if: always() && needs.run-ccip-integration-in-memory-tests-for-merge-queue.result == 'failure'
         run: exit 1
-
-  cleanup:
-    name: Clean up integration environment deployments
-    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
-    # By always running this, it delays the start of the next workflow run due to concurrency rules.
-    if: always() && !cancelled()
-    needs:
-      [
-        run-ccip-integration-in-memory--tests-for-pr,
-        run-ccip-integration-in-memory-tests-for-merge-queue,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧼 Clean up Environment
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: smartcontractkit/.github/actions/delete-deployments@delete-deployments/v1
-        with:
-          environment: integration
-          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
