@@ -16,3 +16,6 @@ push-fakes registry:
 # Rebuild CLI
 cli:
     cd cmd/cl && go install -ldflags="-X main.Version=1.0.0" . && cd - > /dev/null || exit 1
+
+lint:
+    golangci-lint run ./... --fix
