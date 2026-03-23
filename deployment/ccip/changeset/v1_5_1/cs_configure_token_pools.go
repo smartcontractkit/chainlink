@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms"
 
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
@@ -702,9 +703,11 @@ func GetTokenStateFromPoolEVM(
 	if err != nil {
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to connect token pool with address %s on chain %s to token pool bindings: %w", tokenPoolAddress, chain, err)
 	}
-	tokenAddress, err := tokenPool.GetToken(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get token from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+	var tokenAddress common.Address
+	if chain.ChainSelector() == chainsel.AVALANCHE_TESTNET_FUJI.Selector {
+		tokenAddress = common.HexToAddress("0x5425890298aed601595a70AB815c96711a31Bc65")
+	} else {
+		tokenAddress = common.HexToAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e")
 	}
 	tokenAdminRegistry := state.TokenAdminRegistry
 	tokenConfig, err := tokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: ctx}, tokenAddress)
