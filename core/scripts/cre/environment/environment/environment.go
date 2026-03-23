@@ -64,11 +64,6 @@ var (
 	defaultCapabilitiesConfigFile = "configs/capability_defaults.toml"
 )
 
-const (
-	defaultCLIEnvironmentSetupTimeout = 20 * time.Minute
-	cliEnvironmentSetupTimeoutEnvVar  = "CL_CRE_ENV_SETUP_TIMEOUT"
-)
-
 // DX tracking
 var (
 	dxTracker             tracking.Tracker
@@ -341,16 +336,8 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
-			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
-			if in.Fake != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
-			}
-			if in.FakeHTTP != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
-			}
-
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   extraAllowedPorts,
+				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
@@ -731,19 +718,7 @@ func StartCLIEnvironment(
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
 	}
 
-	setupTimeout := defaultCLIEnvironmentSetupTimeout
-	if rawTimeout := strings.TrimSpace(os.Getenv(cliEnvironmentSetupTimeoutEnvVar)); rawTimeout != "" {
-		parsedTimeout, err := time.ParseDuration(rawTimeout)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %s=%q: %w", cliEnvironmentSetupTimeoutEnvVar, rawTimeout, err)
-		}
-		if parsedTimeout <= 0 {
-			return nil, fmt.Errorf("%s must be greater than 0, got %q", cliEnvironmentSetupTimeoutEnvVar, rawTimeout)
-		}
-		setupTimeout = parsedTimeout
-	}
-
-	ctx, cancel := context.WithTimeout(cmdContext, setupTimeout)
+	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {

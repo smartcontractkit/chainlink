@@ -23,12 +23,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/e
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger => ./smoke/cre/evm/logtrigger
 
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptosread => ./smoke/cre/aptos/aptosread
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite => ./smoke/cre/aptos/aptoswrite
-
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip => ./smoke/cre/aptos/aptoswriteroundtrip
-
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction => ./smoke/cre/httpaction
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus => ./regression/cre/consensus
@@ -60,12 +54,12 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260319222221-2bac99c7a470
+	github.com/smartcontractkit/chainlink-common v0.11.0
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.13
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260320124844-e1bd696c40a6
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260128151123-605e9540b706
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260217043601-5cc966896c4f
@@ -85,8 +79,6 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http v0.0.0-20251008094352-f74459c46e8c
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8
@@ -197,7 +189,7 @@ require (
 	github.com/alitto/pond/v2 v2.5.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/apache/arrow-go/v18 v18.4.0 // indirect
-	github.com/aptos-labs/aptos-go-sdk v1.12.1-0.20260318141106-21b6ef4ed363
+	github.com/aptos-labs/aptos-go-sdk v1.12.1-0.20260318141106-21b6ef4ed363 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
@@ -590,7 +582,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260318173523-755cafb24200
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260318173523-755cafb24200 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20251211140724-319861e514c4

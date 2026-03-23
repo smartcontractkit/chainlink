@@ -30,9 +30,10 @@ func (j JobSpecInput) UnmarshalFrom(source any) error {
 	return yaml.Unmarshal(bytes, &j)
 }
 
-func (j JobSpecInput) ToStandardCapabilityJob(jobName string) (pkg.StandardCapabilityJob, error) {
+func (j JobSpecInput) ToStandardCapabilityJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJob, error) {
 	out := pkg.StandardCapabilityJob{
-		JobName: jobName,
+		JobName:               jobName,
+		GenerateOracleFactory: generateOracleFactory,
 	}
 	err := j.UnmarshalTo(&out)
 	if err != nil {

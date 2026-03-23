@@ -3,7 +3,6 @@ package standardcapabilities
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
@@ -59,92 +58,6 @@ func TestStandardCapabilityStart(t *testing.T) {
 
 		standardCapability.wg.Wait()
 	})
-}
-
-func TestRetryInitialiseUntilReady(t *testing.T) {
-	t.Run("retries transient registry errors until success", func(t *testing.T) {
-		t.Parallel()
-
-		attempts := 0
-		err := retryInitialiseUntilReady(t.Context(), logger.TestLogger(t), "test-command", func(ctx context.Context) error {
-			attempts++
-			if attempts < 3 {
-				return errors.New("rpc error: code = Unknown desc = empty local registry. no DONs registered in the local registry")
-			}
-			return nil
-		})
-		require.NoError(t, err)
-		require.Equal(t, 3, attempts)
-	})
-
-	t.Run("does not retry non transient errors", func(t *testing.T) {
-		t.Parallel()
-
-		attempts := 0
-		expectedErr := errors.New("bad config")
-		err := retryInitialiseUntilReady(t.Context(), logger.TestLogger(t), "test-command", func(ctx context.Context) error {
-			attempts++
-			return expectedErr
-		})
-		require.ErrorIs(t, err, expectedErr)
-		require.Equal(t, 1, attempts)
-	})
-
-	t.Run("returns timeout context after repeated transient errors", func(t *testing.T) {
-		t.Parallel()
-
-		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
-		defer cancel()
-
-		err := retryInitialiseUntilReady(ctx, logger.TestLogger(t), "test-command", func(ctx context.Context) error {
-			return errors.New("metadataRegistry information not available")
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "timed out retrying standard capability initialisation")
-	})
-}
-
-func TestIsRetryableInitialiseError(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{
-			name: "metadata registry unavailable",
-			err:  errors.New("metadataRegistry information not available"),
-			want: true,
-		},
-		{
-			name: "empty local registry",
-			err:  errors.New("rpc error: code = Unknown desc = empty local registry. no DONs registered in the local registry"),
-			want: true,
-		},
-		{
-			name: "peer wrapper unavailable",
-			err:  errors.New("rpc error: code = Unknown desc = unable to get local node: peerWrapper hasn't started yet"),
-			want: true,
-		},
-		{
-			name: "other error",
-			err:  errors.New("bad config"),
-			want: false,
-		},
-		{
-			name: "nil",
-			err:  nil,
-			want: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			require.Equal(t, tt.want, isRetryableInitialiseError(tt.err))
-		})
-	}
 }
 
 type telemetryServiceMock struct{}

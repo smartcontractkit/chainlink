@@ -124,7 +124,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			jobSpec, err := ValidatedStandardCapabilitiesSpec(tc.tomlString)
 
 			if tc.expectedError != "" {
-				require.ErrorContains(t, err, tc.expectedError)
+				assert.ErrorContains(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
 			}

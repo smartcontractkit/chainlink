@@ -767,69 +767,6 @@ PerSenderBurst = 100
 		}
 	})
 
-	t.Run("successful aptos readcontract job distribution includes oracle factory", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
-		ds := datastore.NewMemoryDataStore()
-
-		err := ds.Addresses().Add(datastore.AddressRef{
-			ChainSelector: chainSelector,
-			Type:          datastore.ContractType(ocr3.OCR3Capability),
-			Version:       semver.MustParse("1.0.0"),
-			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-			Qualifier:     "ocr3-contract-qualifier",
-		})
-		require.NoError(t, err)
-
-		env.DataStore = ds.Seal()
-
-		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
-			Domain:      "cre",
-			JobName:     "aptos-readcontract-cap-job",
-			DONName:     test.DONName,
-			Template:    job_types.ReadContract,
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
-				{Key: "product", Value: offchain.ProductLabel},
-			},
-			Inputs: job_types.JobSpecInput{
-				"command":           "/usr/bin/aptos",
-				"config":            `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
-				"contractQualifier": "ocr3-contract-qualifier",
-				"chainSelectorEVM":  strconv.FormatUint(chainSelector, 10),
-				"chainSelectorAptos": strconv.FormatUint(
-					testEnv.AptosSelector,
-					10,
-				),
-				"bootstrapPeers": []string{
-					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
-				},
-			},
-		}
-
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
-		require.NoError(t, err)
-		assert.Len(t, out.Reports, 1)
-
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
-		require.NoError(t, err)
-
-		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
-			return !strings.Contains(s.Spec, `name = "aptos-readcontract-cap-job"`)
-		})
-		assert.Len(t, filteredReqs, 4)
-
-		for _, req := range filteredReqs {
-			assert.Contains(t, req.Spec, `name = "aptos-readcontract-cap-job"`)
-			assert.Contains(t, req.Spec, `command = "/usr/bin/aptos"`)
-			assert.Contains(t, req.Spec, `[oracle_factory]`)
-			assert.Contains(t, req.Spec, `enabled = true`)
-			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
-			assert.Contains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
-		}
-	})
-
 	t.Run("failed cron job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
 			Environment: "test",

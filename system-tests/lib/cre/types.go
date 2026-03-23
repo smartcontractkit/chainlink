@@ -230,10 +230,9 @@ type CapabilityConfig struct {
 }
 
 // mergeCapabilityConfigs copies entries from src to dst only for keys that
-// do not already exist in dst. This is NOT a deep merge - when a key exists
-// in dst, only BinaryName may be backfilled from src and Values are preserved
-// exactly as provided by the override. Users who override a capability config
-// must still provide all required Values.
+// do not already exist in dst. This is NOT a deep merge - if a key exists
+// in dst, its entire CapabilityConfig is preserved without modification.
+// Users who override a capability config must provide all required values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {
@@ -397,10 +396,9 @@ type ConfigureCapabilityRegistryInput struct {
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 
-	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
-	// included in OCR3 config signers for that capability (e.g. ["solana"]).
-	// EVM is always included.
-	CapabilityToExtraSignerFamilies map[string][]string
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -1294,11 +1292,6 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	return out
 }
 
-// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, write-aptos-4).
-func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
-	return c.chainCapabilityIDs()
-}
-
 func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
@@ -1657,8 +1650,7 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
-	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
-	// included in OCR3 config signers for that capability (e.g. ["solana"]).
-	// EVM is always included.
-	CapabilityToExtraSignerFamilies map[string][]string
+	// Non-EVM chain families whose signing keys should be included in OCR3
+	// config signers (e.g. ["solana"]). EVM is always included.
+	ExtraSignerFamilies []string
 }

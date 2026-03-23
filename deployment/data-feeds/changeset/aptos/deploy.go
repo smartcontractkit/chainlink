@@ -1,7 +1,6 @@
 package aptos
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/aptos-labs/aptos-go-sdk"
@@ -26,7 +25,7 @@ func DeployDataFeeds(chain cldf_aptos.Chain, owner aptos.AccountAddress, platfor
 	}
 
 	if !tx.Success {
-		return nil, errors.New("ChainlinkDataFeeds deployment transaction failed: " + tx.VmStatus)
+		return nil, fmt.Errorf("ChainlinkDataFeeds deployment transaction failed: %s", tx.VmStatus)
 	}
 
 	// ChainlinkDataFeeds package contracts don't implement typeAndVersion interface, so we have to set it manually
@@ -64,7 +63,7 @@ func DeployPlatform(chain cldf_aptos.Chain, owner aptos.AccountAddress, labels [
 	}
 
 	if !tx.Success {
-		return nil, errors.New("ChainlinkPlatform deployment transaction failed: " + tx.Hash)
+		return nil, fmt.Errorf("ChainlinkPlatform deployment transaction failed: %s", tx.Hash)
 	}
 	// ChainlinkPlatform package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkPlatform 1.0.0"
@@ -101,7 +100,7 @@ func DeployPlatformSecondary(chain cldf_aptos.Chain, owner aptos.AccountAddress,
 	}
 
 	if !tx.Success {
-		return nil, errors.New("ChainlinkPlatformSecondary deployment transaction failed: " + tx.Hash)
+		return nil, fmt.Errorf("ChainlinkPlatformSecondary deployment transaction failed: %s", tx.Hash)
 	}
 	// ChainlinkPlatformSecondary package contracts don't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "ChainlinkPlatformSecondary 1.0.0"

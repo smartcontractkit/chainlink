@@ -214,7 +214,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 			}
 
 			for _, node := range don.Nodes {
-				address, addrErr := nodeAddress(ctx, node, chainFamily, bc)
+				address, addrErr := nodeAddress(node, chainFamily, bc)
 				if addrErr != nil {
 					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
 				}
@@ -237,7 +237,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 	return nil
 }
 
-func nodeAddress(ctx context.Context, node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
+func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
 	switch chainFamily {
 	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
 		evmKey, ok := node.Keys.EVM[bc.ChainID()]
@@ -253,11 +253,6 @@ func nodeAddress(ctx context.Context, node *cre.Node, chainFamily string, bc blo
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
 		return solKey.PublicAddress.String(), nil
-	case chainselectors.FamilyAptos:
-		if node.Keys != nil && node.Keys.AptosAccount() != "" {
-			return node.Keys.AptosAccount(), nil
-		}
-		return "", nil // Skip nodes without Aptos keys for this chain
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
