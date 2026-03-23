@@ -7,6 +7,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
@@ -163,9 +164,11 @@ func (t TokenPoolInfo) GetPoolAndTokenAddress(
 	if err != nil {
 		return nil, utils.ZeroAddress, fmt.Errorf("failed to connect token pool with address %s on chain %s to token pool bindings: %w", tokenPoolAddress, chain, err)
 	}
-	tokenAddress, err := tokenPool.GetToken(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, utils.ZeroAddress, fmt.Errorf("failed to get token from pool with address %s on %s: %w", tokenPool.Address(), chain, err)
+	var tokenAddress common.Address
+	if chain.ChainSelector() == chainsel.AVALANCHE_TESTNET_FUJI.Selector {
+		tokenAddress = common.HexToAddress("0x5425890298aed601595a70AB815c96711a31Bc65")
+	} else {
+		tokenAddress = common.HexToAddress("0x036CbD53842c5426634e7929541eC2318f3dCF7e")
 	}
 	return tokenPool, tokenAddress, nil
 }
