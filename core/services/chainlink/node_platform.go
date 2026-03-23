@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -32,6 +33,7 @@ type NodePlatformBuildInfoService struct {
 type NodePlatformBuildInfoConfig struct {
 	Beat         time.Duration
 	Lggr         logger.Logger
+	CSAKeyStore  keystore.CSA
 	CSAPublicKey string
 	CommitSHA    string
 	DockerTag    string
@@ -40,18 +42,6 @@ type NodePlatformBuildInfoConfig struct {
 }
 
 func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoConfig {
-	csaKey := ""
-	csaKeys, err := opts.KeyStore.CSA().GetAll()
-	if err != nil {
-		opts.Logger.Errorw("failed to get CSA keys for node-platform build info", "err", err)
-	}
-
-	if len(csaKeys) > 0 {
-		csaKey = csaKeys[0].PublicKeyString()
-	} else {
-		opts.Logger.Warn("no CSA key found for node-platform build info")
-	}
-
 	version := opts.Version
 	if version == "" {
 		version = static.Version
@@ -68,13 +58,13 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 	}
 
 	return NodePlatformBuildInfoConfig{
-		Beat:         opts.Config.Telemetry().HeartbeatInterval(),
-		Lggr:         opts.Logger,
-		CSAPublicKey: csaKey,
-		CommitSHA:    static.Sha,
-		DockerTag:    dockerTag,
-		VersionTag:   versionTag,
-		Version:      version,
+		Beat:        opts.Config.Telemetry().HeartbeatInterval(),
+		Lggr:        opts.Logger,
+		CSAKeyStore: opts.KeyStore.CSA(),
+		CommitSHA:   static.Sha,
+		DockerTag:   dockerTag,
+		VersionTag:  versionTag,
+		Version:     version,
 	}
 }
 
@@ -93,9 +83,24 @@ func NewNodePlatformBuildInfoService(cfg NodePlatformBuildInfoConfig) NodePlatfo
 	return s
 }
 
-func (s *NodePlatformBuildInfoService) start(_ context.Context) error {
+func (s *NodePlatformBuildInfoService) start(ctx context.Context) error {
+	s.resolveCSAPublicKey(ctx)
 	s.eng.GoTick(timeutil.NewTicker(s.GetBeat), s.emit)
 	return nil
+}
+
+func (s *NodePlatformBuildInfoService) resolveCSAPublicKey(ctx context.Context) {
+	if s.opts.CSAKeyStore == nil {
+		return
+	}
+
+	csaKey, err := keystore.GetDefault(ctx, s.opts.CSAKeyStore)
+	if err != nil {
+		s.eng.Errorw("failed to resolve CSA key for node-platform build info", "err", err)
+		return
+	}
+
+	s.opts.CSAPublicKey = csaKey.PublicKeyString()
 }
 
 func (s *NodePlatformBuildInfoService) emit(ctx context.Context) {
