@@ -18,10 +18,20 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-// transferOwnershipToTimelock transfers all CCIP contract ownership to the
-// MCMS Timelock using the standard test helper. After the transfer, the MCMS
-// multisig contracts (ProposerMcm, CancellerMcm, BypasserMcm) are nil-ed out
-// because they cannot be made self-governed in the test environment.
+func buildV16ActiveChains(
+	t *testing.T,
+	tenv testhelpers.DeployedEnv,
+	state stateview.CCIPOnChainState,
+) map[uint64]bool {
+	t.Helper()
+	homeChainState := state.MustGetEVMChainState(tenv.HomeChainSel)
+	v16Active, err := homeChainState.V16ActiveChainSelectors(tenv.Env.GetContext())
+	require.NoError(t, err)
+	return v16Active
+}
+
+// transferOwnershipToTimelock transfers ownership and nils out MCMS multisig
+// contracts that can't be self-governed in test environments.
 func transferOwnershipToTimelock(
 	t *testing.T,
 	tenv testhelpers.DeployedEnv,
@@ -30,9 +40,6 @@ func transferOwnershipToTimelock(
 ) {
 	t.Helper()
 	testhelpers.TransferToTimelock(t, tenv, state, selectors, false)
-	// MCMS multisig contracts are deployed by the deployer key and cannot
-	// easily be made self-governed in the memory test environment.
-	// Nil them out so ValidateContractOwnership skips the self-governance checks.
 	for _, sel := range selectors {
 		cs := state.MustGetEVMChainState(sel)
 		cs.ProposerMcm = nil
@@ -42,9 +49,6 @@ func transferOwnershipToTimelock(
 	}
 }
 
-// TestValidatePostDeploymentState_HappyPath uses a full memory environment
-// to verify that ValidatePostDeploymentState passes on a correctly-wired deployment.
-// Contract ownership is transferred to the MCMS Timelock before validation.
 func TestValidatePostDeploymentState_HappyPath(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
@@ -54,12 +58,10 @@ func TestValidatePostDeploymentState_HappyPath(t *testing.T) {
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	transferOwnershipToTimelock(t, tenv, state, evmChains)
 
-	err = state.ValidatePostDeploymentState(tenv.Env, true)
-	require.NoError(t, err, "expected no errors on a correctly-deployed environment")
+	chainErrs := state.ValidatePostDeploymentState(tenv.Env, true, nil)
+	require.Empty(t, chainErrs, "expected no errors on a correctly-deployed environment")
 }
 
-// TestValidatePostDeploymentState_CollectsMultipleErrors verifies that the
-// validation collects all errors rather than returning early on the first one.
 func TestValidatePostDeploymentState_CollectsMultipleErrors(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
@@ -70,8 +72,6 @@ func TestValidatePostDeploymentState_CollectsMultipleErrors(t *testing.T) {
 	transferOwnershipToTimelock(t, tenv, state, evmChains)
 	require.GreaterOrEqual(t, len(evmChains), 2, "need at least 2 chains for this test")
 
-	// Intentionally break multiple chains' state to force multiple errors:
-	// Nil out the RMNProxy on one chain and the FeeQuoter on another.
 	chainState0 := state.MustGetEVMChainState(evmChains[0])
 	chainState0.RMNProxy = nil
 	state.WriteEVMChainState(evmChains[0], chainState0)
@@ -80,20 +80,22 @@ func TestValidatePostDeploymentState_CollectsMultipleErrors(t *testing.T) {
 	chainState1.FeeQuoter = nil
 	state.WriteEVMChainState(evmChains[1], chainState1)
 
-	err = state.ValidatePostDeploymentState(tenv.Env, false)
-	require.Error(t, err, "expected validation errors")
+	chainErrs := state.ValidatePostDeploymentState(tenv.Env, false, nil)
+	require.NotEmpty(t, chainErrs, "expected validation errors")
 
-	// The error should contain mentions of both chains' issues.
-	errMsg := err.Error()
+	var allErrs []string
+	for _, errs := range chainErrs {
+		for _, e := range errs {
+			allErrs = append(allErrs, e.Error())
+		}
+	}
+	errMsg := strings.Join(allErrs, "; ")
 	assert.True(t, strings.Contains(errMsg, "RMNProxy") || strings.Contains(errMsg, "rmnProxy"),
 		"expected error to mention RMNProxy issue, got: %s", errMsg)
 	assert.True(t, strings.Contains(errMsg, "fee quoter") || strings.Contains(errMsg, "FeeQuoter"),
 		"expected error to mention FeeQuoter issue, got: %s", errMsg)
 }
 
-// TestValidateContractOwnership_DetectsWrongOwner verifies that ownership
-// validation detects contracts owned by the deployer rather than the timelock.
-// In the memory environment, MCMS is deployed but ownership is NOT transferred.
 func TestValidateContractOwnership_DetectsWrongOwner(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -109,8 +111,6 @@ func TestValidateContractOwnership_DetectsWrongOwner(t *testing.T) {
 	assert.Contains(t, err.Error(), "not owned by expected owner")
 }
 
-// TestValidateContractOwnership_NoTimelock returns early with an error
-// when timelock is nil.
 func TestValidateContractOwnership_NoTimelock(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -125,8 +125,6 @@ func TestValidateContractOwnership_NoTimelock(t *testing.T) {
 	assert.Contains(t, err.Error(), "timelock not found")
 }
 
-// TestValidateRMNProxy_HappyPath validates that the RMNProxy correctly
-// points to RMNRemote on a fresh deployment.
 func TestValidateRMNProxy_HappyPath(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -140,7 +138,6 @@ func TestValidateRMNProxy_HappyPath(t *testing.T) {
 	}
 }
 
-// TestValidateRMNProxy_MissingContracts returns errors when RMNProxy or RMNRemote is nil.
 func TestValidateRMNProxy_MissingContracts(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -166,7 +163,6 @@ func TestValidateRMNProxy_MissingContracts(t *testing.T) {
 	})
 }
 
-// TestValidateNonceManager_HappyPath validates the NonceManager on a full deployment.
 func TestValidateNonceManager_HappyPath(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
@@ -176,8 +172,8 @@ func TestValidateNonceManager_HappyPath(t *testing.T) {
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	for _, sel := range evmChains {
 		chainState := state.MustGetEVMChainState(sel)
-		// Build connected chains from router
-		connectedChains, err := chainState.ValidateRouter(tenv.Env, false)
+		v16Active := buildV16ActiveChains(t, tenv, state)
+		connectedChains, err := chainState.ValidateRouter(tenv.Env, false, v16Active)
 		require.NoError(t, err, "router validation failed for chain %d", sel)
 
 		err = chainState.ValidateNonceManager(tenv.Env, sel, connectedChains)
@@ -185,7 +181,6 @@ func TestValidateNonceManager_HappyPath(t *testing.T) {
 	}
 }
 
-// TestValidateNonceManager_NilNonceManager returns error when NonceManager is nil.
 func TestValidateNonceManager_NilNonceManager(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -200,8 +195,6 @@ func TestValidateNonceManager_NilNonceManager(t *testing.T) {
 	assert.Contains(t, err.Error(), "no NonceManager")
 }
 
-// TestValidateFeeQuoter_HappyPath validates FeeQuoter chain-level and lane-level
-// configurations pass on a correctly-deployed environment.
 func TestValidateFeeQuoter_HappyPath(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
@@ -211,15 +204,15 @@ func TestValidateFeeQuoter_HappyPath(t *testing.T) {
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	for _, sel := range evmChains {
 		chainState := state.MustGetEVMChainState(sel)
-		connectedChains, err := chainState.ValidateRouter(tenv.Env, false)
+		v16Active := buildV16ActiveChains(t, tenv, state)
+		connectedChains, err := chainState.ValidateRouter(tenv.Env, false, v16Active)
 		require.NoError(t, err, "router validation failed for chain %d", sel)
 
-		err = chainState.ValidateFeeQuoter(tenv.Env, sel, connectedChains)
+		err = chainState.ValidateFeeQuoter(tenv.Env, sel, connectedChains, nil)
 		require.NoError(t, err, "FeeQuoter validation failed for chain %d", sel)
 	}
 }
 
-// TestValidateFeeQuoter_NilFeeQuoter returns error when FeeQuoter is nil.
 func TestValidateFeeQuoter_NilFeeQuoter(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
@@ -229,12 +222,11 @@ func TestValidateFeeQuoter_NilFeeQuoter(t *testing.T) {
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chainState := state.MustGetEVMChainState(evmChains[0])
 	chainState.FeeQuoter = nil
-	err = chainState.ValidateFeeQuoter(tenv.Env, evmChains[0], evmChains[1:])
+	err = chainState.ValidateFeeQuoter(tenv.Env, evmChains[0], evmChains[1:], nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no FeeQuoter")
 }
 
-// buildHomeChainTestArgs builds the nodes and offRampsByChain arguments needed to call ValidateHomeChain.
 func buildHomeChainTestArgs(
 	t *testing.T,
 	tenv testhelpers.DeployedEnv,
@@ -251,7 +243,6 @@ func buildHomeChainTestArgs(
 	return nodes, offRamps
 }
 
-// TestValidateHomeChain_HappyPath validates home chain + per-chain DON config on a full deployment.
 func TestValidateHomeChain_HappyPath(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
@@ -264,7 +255,6 @@ func TestValidateHomeChain_HappyPath(t *testing.T) {
 	require.NoError(t, err, "home chain validation failed")
 }
 
-// TestValidateHomeChain_MissingContracts returns errors when CCIPHome or CapReg is nil.
 func TestValidateHomeChain_MissingContracts(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))

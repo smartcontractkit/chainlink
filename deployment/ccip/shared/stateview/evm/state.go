@@ -232,7 +232,6 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 			continue
 		}
 
-		// Resolve chain selector: prefer active, fall back to candidate if not yet promoted.
 		chainSel := commitConfigs.ActiveConfig.Config.ChainSelector
 		if chainSel == 0 {
 			chainSel = commitConfigs.CandidateConfig.Config.ChainSelector
@@ -248,11 +247,13 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 		}
 	}
 
-	// 3: Per-chain validation
-	for chainSel := range offRampsByChain {
-		donID, ok := donIDByChainSel[chainSel]
-		if !ok || donID == 0 {
-			allErrs = append(allErrs, fmt.Errorf("chain %d: no DON ID found in CCIPHome", chainSel))
+	// 3: Per-chain validation — only validate chains that have an active DON in CCIPHome.
+	// offRampsByChain may contain chains from the state that are not actively managed by v1.6 DONs.
+	for chainSel, donID := range donIDByChainSel {
+		if donID == 0 {
+			continue
+		}
+		if _, ok := offRampsByChain[chainSel]; !ok {
 			continue
 		}
 
@@ -411,10 +412,12 @@ func (c CCIPChainState) ValidateOnRamp(
 	e cldf.Environment,
 	selector uint64,
 	connectedChains []uint64,
+	fqV2Addr common.Address,
 ) error {
 	if c.OnRamp == nil {
 		return errors.New("no OnRamp contract found in the state")
 	}
+	e.Logger.Debugw("Validating OnRamp", "chain", selector, "onRamp", c.OnRamp.Address().Hex(), "connectedChains", len(connectedChains))
 	staticCfg, err := c.OnRamp.GetStaticConfig(&bind.CallOpts{
 		Context: e.GetContext(),
 	})
@@ -444,9 +447,13 @@ func (c CCIPChainState) ValidateOnRamp(
 	if err != nil {
 		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, c.OnRamp.Address().Hex(), err)
 	}
-	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() {
+	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() && (fqV2Addr == common.Address{} || dynamicCfg.FeeQuoter != fqV2Addr) {
+		expected := c.FeeQuoter.Address().Hex()
+		if fqV2Addr != (common.Address{}) {
+			expected += " or " + fqV2Addr.Hex()
+		}
 		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
-			c.OnRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicCfg.FeeQuoter.Hex())
+			c.OnRamp.Address().Hex(), expected, dynamicCfg.FeeQuoter.Hex())
 	}
 	// if the fee aggregator is set, it should match the one in the dynamic config
 	// otherwise the fee aggregator should be the timelock address
@@ -470,7 +477,6 @@ func (c CCIPChainState) ValidateOnRamp(
 			return fmt.Errorf("failed to get dest chain config from source chain %d onRamp %s for dest chain %d: %w",
 				selector, c.OnRamp.Address(), otherChainSel, err)
 		}
-		// dest chain config must be configured (non-blank means a router is set)
 		if destChainCfg == (onramp.GetDestChainConfig{}) {
 			return fmt.Errorf("onRamp %s dest chain config is blank for dest chain %d",
 				c.OnRamp.Address().Hex(), otherChainSel)
@@ -484,11 +490,55 @@ func (c CCIPChainState) ValidateOnRamp(
 	return nil
 }
 
-// ValidateRouter validates the router contract to check if all wired contracts are synced with state
-// and returns all connected chains with respect to the router
-func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([]uint64, error) {
+// V16ActiveChainSelectors returns chain selectors with an active or candidate
+// v1.6 DON config in CCIPHome. Home chain only.
+func (c CCIPChainState) V16ActiveChainSelectors(ctx context.Context) (map[uint64]bool, error) {
+	if c.CCIPHome == nil {
+		return nil, errors.New("no CCIPHome contract found in the state")
+	}
+	if c.CapabilityRegistry == nil {
+		return nil, errors.New("no CapabilityRegistry contract found in the state")
+	}
+	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(ctx, c.CapabilityRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CCIP DONs from capability registry: %w", err)
+	}
+	callOpts := &bind.CallOpts{Context: ctx}
+	active := make(map[uint64]bool, len(ccipDons))
+	for _, don := range ccipDons {
+		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
+		if err != nil {
+			continue
+		}
+		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
+		if err != nil {
+			continue
+		}
+		chainSel := commitConfigs.ActiveConfig.Config.ChainSelector
+		if chainSel == 0 {
+			chainSel = commitConfigs.CandidateConfig.Config.ChainSelector
+		}
+		if chainSel == 0 {
+			chainSel = execConfigs.ActiveConfig.Config.ChainSelector
+			if chainSel == 0 {
+				chainSel = execConfigs.CandidateConfig.Config.ChainSelector
+			}
+		}
+		if chainSel != 0 {
+			active[chainSel] = true
+		}
+	}
+	return active, nil
+}
+
+// ValidateRouter validates the router contract and returns all connected v1.6 chains.
+// v16ActiveChains filters out legacy v1.5 lane entries in mixed environments.
+func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v16ActiveChains map[uint64]bool) ([]uint64, error) {
 	if c.Router == nil && c.TestRouter == nil {
 		return nil, errors.New("no Router or TestRouter contract found in the state")
+	}
+	if c.RMNProxy == nil {
+		return nil, errors.New("no RMNProxy contract found in the state: cannot validate router")
 	}
 	routerC := c.Router
 	if isTestRouter {
@@ -523,19 +573,18 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([
 		return nil, fmt.Errorf("failed to get offRamps from router %s: %w", routerC.Address().Hex(), err)
 	}
 	for _, d := range offRampDetails {
-		// skip if solana - solana state is maintained in solana
 		if _, exists := e.BlockChains.SolanaChains()[d.SourceChainSelector]; exists {
 			continue
 		}
-		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)
-		// check if offRamp is valid
-		if d.OffRamp != c.OffRamp.Address() {
-			return nil, fmt.Errorf("offRamp %s mismatch for source %d in router %s: expected %s, got %s",
-				d.OffRamp.Hex(), d.SourceChainSelector, routerC.Address().Hex(), c.OffRamp.Address().Hex(), d.OffRamp)
+		if len(v16ActiveChains) > 0 && !v16ActiveChains[d.SourceChainSelector] {
+			continue
 		}
+		if d.OffRamp != c.OffRamp.Address() {
+			continue
+		}
+		allConnectedChains = append(allConnectedChains, d.SourceChainSelector)
 	}
-	// all lanes are bi-directional, if we have a lane from A to B, we also have a lane from B to A
-	// source to offRamp should be same as dest to onRamp
+	v16ConnectedChains := make([]uint64, 0, len(allConnectedChains))
 	for _, dest := range allConnectedChains {
 		onRamp, err := routerC.GetOnRamp(&bind.CallOpts{
 			Context: context.Background(),
@@ -543,12 +592,11 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool) ([
 		if err != nil {
 			return nil, fmt.Errorf("failed to get onRamp for dest %d from router %s: %w", dest, routerC.Address().Hex(), err)
 		}
-		if onRamp != c.OnRamp.Address() {
-			return nil, fmt.Errorf("onRamp %s mismatch for dest chain %d in router %s: expected %s, got %s",
-				onRamp.Hex(), dest, routerC.Address().Hex(), c.OnRamp.Address().Hex(), onRamp)
+		if onRamp == c.OnRamp.Address() {
+			v16ConnectedChains = append(v16ConnectedChains, dest)
 		}
 	}
-	return allConnectedChains, nil
+	return v16ConnectedChains, nil
 }
 
 // ValidateRMNRemote validates the RMNRemote contract to check if all wired contracts are synced with state
@@ -594,10 +642,12 @@ func (c CCIPChainState) ValidateOffRamp(
 	selector uint64,
 	onRampsBySelector map[uint64]common.Address,
 	isRMNEnabledBySource map[uint64]bool,
+	fqV2Addr common.Address,
 ) error {
 	if c.OffRamp == nil {
 		return errors.New("no OffRamp contract found in the state")
 	}
+	e.Logger.Debugw("Validating OffRamp", "chain", selector, "offRamp", c.OffRamp.Address().Hex(), "sourceChains", len(onRampsBySelector))
 	// staticConfig chainSelector matches the selector key for the CCIPChainState
 	staticConfig, err := c.OffRamp.GetStaticConfig(&bind.CallOpts{
 		Context: e.GetContext(),
@@ -632,9 +682,13 @@ func (c CCIPChainState) ValidateOffRamp(
 		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, c.OffRamp.Address().Hex(), err)
 	}
 	// FeeQuoter address for chain should be the same as the one in the static config
-	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() {
+	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() && (fqV2Addr == common.Address{} || dynamicConfig.FeeQuoter != fqV2Addr) {
+		expected := c.FeeQuoter.Address().Hex()
+		if fqV2Addr != (common.Address{}) {
+			expected += " or " + fqV2Addr.Hex()
+		}
 		return fmt.Errorf("offRamp %s feeQuoter mismatch: expected %s, got %s",
-			c.OffRamp.Address().Hex(), c.FeeQuoter.Address().Hex(), dynamicConfig.FeeQuoter.Hex())
+			c.OffRamp.Address().Hex(), expected, dynamicConfig.FeeQuoter.Hex())
 	}
 	if dynamicConfig.PermissionLessExecutionThresholdSeconds != uint32(globals.PermissionLessExecutionThreshold.Seconds()) {
 		return fmt.Errorf("offRamp %s permissionless execution threshold mismatch: expected %f, got %d",
@@ -647,24 +701,18 @@ func (c CCIPChainState) ValidateOffRamp(
 		if err != nil {
 			return fmt.Errorf("failed to get source chain config for chain %d: %w", chainSel, err)
 		}
-		// Source chain must be enabled
 		if !config.IsEnabled {
 			return fmt.Errorf("source chain %d is not enabled on OffRamp %s",
 				chainSel, c.OffRamp.Address().Hex())
 		}
-		// For all configured sources, the address of configured onRamp for chain A must be the Address() of the onramp on chain A
 		if srcChainOnRamp != common.BytesToAddress(config.OnRamp) {
 			return fmt.Errorf("onRamp address mismatch for source chain %d on OffRamp %s : expected %s, got %x",
 				chainSel, c.OffRamp.Address().Hex(), srcChainOnRamp.Hex(), config.OnRamp)
 		}
-		// The address of router should be accurate
 		if c.Router.Address() != config.Router && c.TestRouter.Address() != config.Router {
 			return fmt.Errorf("router address mismatch for source chain %d on OffRamp %s : expected either router %s or test router %s, got %s",
 				chainSel, c.OffRamp.Address().Hex(), c.Router.Address().Hex(), c.TestRouter.Address().Hex(), config.Router.Hex())
 		}
-		// RMN verification disabled flag check:
-		// if RMN is enabled for the source chain, the RMNRemote and RMNHome should be configured to enable RMN
-		// the reverse is not always true, as RMN verification can be disabled at offRamp but enabled in RMNRemote and RMNHome
 		if !config.IsRMNVerificationDisabled && !isRMNEnabledBySource[chainSel] {
 			return fmt.Errorf("RMN verification is enabled in offRamp %s for source chain %d, "+
 				"but RMN is not enabled in RMNHome and RMNRemote for the chain",
