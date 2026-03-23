@@ -68,11 +68,9 @@ func TestVRFV2WithBHS(t *testing.T) {
 		require.NoError(t, err, "error requesting randomness before long BHS wait")
 		reqBlock := req.Raw.BlockNumber
 
-		// Past BLOCKHASH window + BHS job wait blocks (chain advancement: poll or Anvil tx-spam).
+		// On EVM BLOCKHASH can no longer serve the original request block hash after ~256 blocks, so fulfillment path must depend on BHS-stored hash
 		products.WaitUntilChainHead(ctx, t, chainClient, reqBlock, c.BHSJobWaitBlocks+256, chainID, 5*time.Minute)
 
-		// On Anvil, tx-spam reaches the target block height in seconds; the BHS job still needs wall-clock
-		// time to write the hash. Wait until BHS has the blockhash before funding (same as vrfv2plus BHS E2E).
 		var storedHash [32]byte
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			hash, hErr := bhs.GetBlockhash(ctx, reqBlock)
@@ -81,7 +79,7 @@ func TestVRFV2WithBHS(t *testing.T) {
 			}
 			storedHash = hash
 			return true
-		}, 2*time.Minute, time.Second).Should(gomega.BeTrue(),
+		}, 3*time.Minute, time.Second).Should(gomega.BeTrue(),
 			"BHS should store blockhash for request block %d before funding", reqBlock)
 		require.Equal(t, 0, req.Raw.BlockHash.Cmp(common.BytesToHash(storedHash[:])),
 			"BHS stored blockhash should match RandomWordsRequested blockhash")
