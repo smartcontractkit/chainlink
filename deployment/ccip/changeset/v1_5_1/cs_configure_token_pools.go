@@ -499,7 +499,7 @@ func configureTokenPool(
 				// Remote pool is not supported - behavior depends on AllowAdditiveRemotePools flag
 				if poolUpdate.AllowAdditiveRemotePools {
 					// Add the new remote pool without removing the chain
-					remotePoolAddressAdditions[remoteChainSelector] = remotePoolAddress.Bytes()
+					remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress.Bytes(), 32)
 					// Also update rate limits
 					remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
 					updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
@@ -522,8 +522,8 @@ func configureTokenPool(
 				RemoteChainSelector:       remoteChainSelector,
 				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
 				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
-				RemoteTokenAddress:        remoteTokenAddress.Bytes(),
-				RemotePoolAddresses:       [][]byte{remotePoolAddress.Bytes()},
+				RemoteTokenAddress:        common.LeftPadBytes(remoteTokenAddress.Bytes(), 32),
+				RemotePoolAddresses:       [][]byte{common.LeftPadBytes(remotePoolAddress.Bytes(), 32)},
 			})
 		}
 	}
