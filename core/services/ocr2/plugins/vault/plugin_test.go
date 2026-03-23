@@ -185,7 +185,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
 	require.NoError(t, err)
 
-	instanceIDString := string(instanceID)
+	instanceIDString := instanceID
 	rpCfg := vaultcommon.ReportingPluginConfig{
 		DKGInstanceID: &instanceIDString,
 	}

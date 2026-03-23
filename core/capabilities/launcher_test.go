@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -892,10 +893,24 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	addCapabilityToDON(localRegistry, zoneBDonID, fullExecutableCapID, capabilities.CapabilityTypeTarget, execCfg)
 	addCapabilityToDON(localRegistry, capDonID, fullLocalCapID, capabilities.CapabilityTypeAction, localCfg) // should be skipped
 
+	customStreamConfig := p2ptypes.StreamConfig{
+		IncomingMessageBufferSize: 999,
+		OutgoingMessageBufferSize: 888,
+		MaxMessageLenBytes:        777777,
+		MessageRateLimiter: ragep2p.TokenBucketParams{
+			Rate:     50.0,
+			Capacity: 250,
+		},
+		BytesRateLimiter: ragep2p.TokenBucketParams{
+			Rate:     2500000.0,
+			Capacity: 5000000,
+		},
+	}
+
 	sharedPeer := mocks.NewSharedPeer(t)
 	sharedPeer.On("ID").Return(workflowDonNodes[0])
 	sharedPeer.On("IsBootstrap").Return(false)
-	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, customStreamConfig).Return(nil)
 
 	launcher, err := NewLauncher(
 		lggr,
@@ -907,6 +922,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		&mockDonNotifier{},
 	)
 	require.NoError(t, err)
+	launcher.p2pStreamConfig = customStreamConfig
 	servicetest.Run(t, launcher)
 
 	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)

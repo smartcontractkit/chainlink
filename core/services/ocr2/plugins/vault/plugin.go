@@ -1080,7 +1080,6 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 			return errors.New("duplicate item found in pending queue item observation")
 		}
 		seen[sha] = true
-
 	}
 
 	return nil
