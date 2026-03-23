@@ -63,13 +63,13 @@ func DecodeInput(in, out any) error {
 
 // PendingJobProposal represents a job proposal with a pending latest spec
 type PendingJobProposal struct {
-	ProposalID     string `json:"proposalId"`
-	SpecID         string `json:"specId"`
-	Name           string `json:"name"`
-	Status         string `json:"status"`
-	Definition     string `json:"definition"`
-	Version        int    `json:"version"`
-	JobDistributor string `json:"jobDistributor"`
+	ProposalID       string `json:"proposalId"`
+	SpecID           string `json:"specId"`
+	ProposalStatus   string `json:"proposalStatus"`
+	SpecStatus       string `json:"specStatus"`
+	Definition       string `json:"definition"`
+	Version          int    `json:"version"`
+	JobDistributorID string `json:"jobDistributorId"`
 }
 
 type OCR2ChainType = string

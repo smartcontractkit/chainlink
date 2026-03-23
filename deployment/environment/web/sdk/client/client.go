@@ -415,7 +415,7 @@ func (c *client) ListPendingJobProposals(ctx context.Context) ([]PendingJobPropo
 		return nil, fmt.Errorf("failed to list job distributors: %w", err)
 	}
 	if resp == nil {
-		return nil, nil
+		return nil, errors.New("unexpected nil response from list job distributors")
 	}
 
 	var pending []PendingJobProposal
@@ -423,13 +423,13 @@ func (c *client) ListPendingJobProposals(ctx context.Context) ([]PendingJobPropo
 		for _, jp := range fm.JobProposals {
 			if jp.LatestSpec.Status == generated.SpecStatusPending {
 				pending = append(pending, PendingJobProposal{
-					ProposalID:     jp.Id,
-					SpecID:         jp.LatestSpec.Id,
-					Name:           "",
-					Status:         string(jp.Status),
-					Definition:     jp.LatestSpec.Definition,
-					Version:        jp.LatestSpec.Version,
-					JobDistributor: fm.Id,
+					ProposalID:       jp.Id,
+					SpecID:           jp.LatestSpec.Id,
+					ProposalStatus:   string(jp.Status),
+					SpecStatus:       string(jp.LatestSpec.Status),
+					Definition:       jp.LatestSpec.Definition,
+					Version:          jp.LatestSpec.Version,
+					JobDistributorID: fm.Id,
 				})
 			}
 		}
@@ -443,9 +443,6 @@ func (c *client) ApproveJobProposalByID(ctx context.Context, proposalID string, 
 	proposal, err := c.GetJobProposal(ctx, proposalID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get job proposal %s: %w", proposalID, err)
-	}
-	if proposal == nil {
-		return nil, fmt.Errorf("job proposal %s not found", proposalID)
 	}
 	return c.ApproveJobProposalSpec(ctx, proposal.LatestSpec.Id, force)
 }
