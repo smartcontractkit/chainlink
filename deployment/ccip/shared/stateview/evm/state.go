@@ -212,7 +212,8 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 		return errors.New("no CCIP Dons found in capability registry")
 	}
 
-	// 2. HomeChain: build DON→chain mapping, validate P2P IDs
+	// 2. HomeChain: build DON→chain mapping, validate P2P IDs, and validate OCR3 configs.
+	// Configs are fetched once per DON and reused for both chain mapping and OCR3 validation.
 	donIDByChainSel := make(map[uint64]uint32, len(ccipDons))
 	var allErrs []error
 	for _, don := range ccipDons {
@@ -232,18 +233,18 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 			continue
 		}
 
-		chainSel := commitConfigs.ActiveConfig.Config.ChainSelector
-		if chainSel == 0 {
-			chainSel = commitConfigs.CandidateConfig.Config.ChainSelector
-		}
-		if chainSel == 0 {
-			chainSel = execConfigs.ActiveConfig.Config.ChainSelector
-			if chainSel == 0 {
-				chainSel = execConfigs.CandidateConfig.Config.ChainSelector
-			}
-		}
+		// Build DON→chain mapping from configs.
+		chainSel := chainSelFromConfigs(commitConfigs, execConfigs)
 		if chainSel != 0 {
 			donIDByChainSel[chainSel] = don.Id
+		}
+
+		// OCR3 config validation — reuse the configs already fetched above.
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfigs.ActiveConfig, offRampsByChain); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d: active commit config validation failed: %w", don.Id, err))
+		}
+		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfigs.ActiveConfig, offRampsByChain); err != nil {
+			allErrs = append(allErrs, fmt.Errorf("DON %d: active exec config validation failed: %w", don.Id, err))
 		}
 	}
 
@@ -281,26 +282,6 @@ func (c CCIPChainState) ValidateHomeChain(e cldf.Environment, nodes deployment.N
 			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: failed to get exec candidate digest: %w", donID, chainSel, err))
 		} else if execCandidateDigest != [32]byte{} {
 			allErrs = append(allErrs, fmt.Errorf("DON %d chain %d: stale exec candidate digest: %x", donID, chainSel, execCandidateDigest))
-		}
-	}
-
-	// 4: OCR3 config validation
-	for _, don := range ccipDons {
-		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
-		if err != nil {
-			// Already reported in 2
-			continue
-		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, commitConfigs.ActiveConfig, offRampsByChain); err != nil {
-			allErrs = append(allErrs, fmt.Errorf("DON %d: active commit config validation failed: %w", don.Id, err))
-		}
-
-		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
-		if err != nil {
-			continue
-		}
-		if err := c.validateCCIPHomeVersionedActiveConfig(e, nodes, execConfigs.ActiveConfig, offRampsByChain); err != nil {
-			allErrs = append(allErrs, fmt.Errorf("DON %d: active exec config validation failed: %w", don.Id, err))
 		}
 	}
 
@@ -455,17 +436,20 @@ func (c CCIPChainState) ValidateOnRamp(
 		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
 			c.OnRamp.Address().Hex(), expected, dynamicCfg.FeeQuoter.Hex())
 	}
-	// if the fee aggregator is set, it should match the one in the dynamic config
-	// otherwise the fee aggregator should be the timelock address
+	// if the fee aggregator is explicitly set, it should match the one in the dynamic config
+	// otherwise the fee aggregator should be the timelock address (production) or deployer key (test)
 	if c.FeeAggregator != (common.Address{}) {
 		if c.FeeAggregator != dynamicCfg.FeeAggregator {
 			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected %s, got %s",
 				c.OnRamp.Address().Hex(), c.FeeAggregator.Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	} else {
-		if dynamicCfg.FeeAggregator != e.BlockChains.EVMChains()[selector].DeployerKey.From {
-			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected deployer key %s, got %s",
-				c.OnRamp.Address().Hex(), e.BlockChains.EVMChains()[selector].DeployerKey.From.Hex(), dynamicCfg.FeeAggregator.Hex())
+		if c.Timelock == nil {
+			return errors.New("no Timelock contract found in the state for fee aggregator validation")
+		}
+		if dynamicCfg.FeeAggregator != c.Timelock.Address() {
+			return fmt.Errorf("onRamp %s feeAggregator mismatch in dynamic config: expected Timelock %s, got %s",
+				c.OnRamp.Address().Hex(), c.Timelock.Address().Hex(), dynamicCfg.FeeAggregator.Hex())
 		}
 	}
 
@@ -488,6 +472,22 @@ func (c CCIPChainState) ValidateOnRamp(
 	}
 
 	return nil
+}
+
+// chainSelFromConfigs extracts the chain selector from CCIPHome configs,
+// falling back through active→candidate for both commit and exec.
+func chainSelFromConfigs(commit, exec ccip_home.GetAllConfigs) uint64 {
+	sel := commit.ActiveConfig.Config.ChainSelector
+	if sel == 0 {
+		sel = commit.CandidateConfig.Config.ChainSelector
+	}
+	if sel == 0 {
+		sel = exec.ActiveConfig.Config.ChainSelector
+		if sel == 0 {
+			sel = exec.CandidateConfig.Config.ChainSelector
+		}
+	}
+	return sel
 }
 
 // V16ActiveChainSelectors returns chain selectors with an active or candidate
@@ -514,17 +514,7 @@ func (c CCIPChainState) V16ActiveChainSelectors(ctx context.Context) (map[uint64
 		if err != nil {
 			continue
 		}
-		chainSel := commitConfigs.ActiveConfig.Config.ChainSelector
-		if chainSel == 0 {
-			chainSel = commitConfigs.CandidateConfig.Config.ChainSelector
-		}
-		if chainSel == 0 {
-			chainSel = execConfigs.ActiveConfig.Config.ChainSelector
-			if chainSel == 0 {
-				chainSel = execConfigs.CandidateConfig.Config.ChainSelector
-			}
-		}
-		if chainSel != 0 {
+		if chainSel := chainSelFromConfigs(commitConfigs, execConfigs); chainSel != 0 {
 			active[chainSel] = true
 		}
 	}
@@ -544,9 +534,8 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 	if isTestRouter {
 		routerC = c.TestRouter
 	}
-	armProxy, err := routerC.GetArmProxy(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
+	callOpts := &bind.CallOpts{Context: e.GetContext()}
+	armProxy, err := routerC.GetArmProxy(callOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get armProxy from router : %w", err)
 	}
@@ -554,9 +543,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 		return nil, fmt.Errorf("armProxy %s mismatch in router %s: expected %s, got %s",
 			armProxy.Hex(), routerC.Address().Hex(), c.RMNProxy.Address().Hex(), armProxy)
 	}
-	native, err := routerC.GetWrappedNative(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
+	native, err := routerC.GetWrappedNative(callOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get wrapped native from router %s: %w", routerC.Address().Hex(), err)
 	}
@@ -566,9 +553,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 	}
 	allConnectedChains := make([]uint64, 0)
 	// get offRamps
-	offRampDetails, err := routerC.GetOffRamps(&bind.CallOpts{
-		Context: context.Background(),
-	})
+	offRampDetails, err := routerC.GetOffRamps(callOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get offRamps from router %s: %w", routerC.Address().Hex(), err)
 	}
@@ -586,9 +571,7 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 	}
 	v16ConnectedChains := make([]uint64, 0, len(allConnectedChains))
 	for _, dest := range allConnectedChains {
-		onRamp, err := routerC.GetOnRamp(&bind.CallOpts{
-			Context: context.Background(),
-		}, dest)
+		onRamp, err := routerC.GetOnRamp(callOpts, dest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get onRamp for dest %d from router %s: %w", dest, routerC.Address().Hex(), err)
 		}

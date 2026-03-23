@@ -230,6 +230,7 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 	})
 	if err != nil {
 		chainErrs[homeChain] = append(chainErrs[homeChain], fmt.Errorf("failed to get active digest for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err))
+		return chainErrs
 	}
 	isRMNEnabledInRMNHomeBySourceChain := make(map[uint64]bool)
 	rmnHomeConfig, err := homeChainState.RMNHome.GetConfig(&bind.CallOpts{
@@ -237,6 +238,7 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 	}, rmnHomeActiveDigest)
 	if err != nil {
 		chainErrs[homeChain] = append(chainErrs[homeChain], fmt.Errorf("failed to get config for RMNHome %s at home chain %d: %w", homeChainState.RMNHome.Address().Hex(), homeChain, err))
+		return chainErrs
 	}
 	// if Fobserve is greater than 0, RMN is enabled for the source chain in RMNHome
 	for _, rmnHomeChain := range rmnHomeConfig.VersionedConfig.DynamicConfig.SourceChains {
