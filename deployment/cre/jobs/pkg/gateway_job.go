@@ -231,7 +231,7 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
-				hs = append(hs, newDefaultConfidentialRelayHandler())
+				hs = append(hs, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec))
 			default:
 				return nil, errors.New("unknown handler type: " + ht)
 			}
@@ -273,7 +273,7 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
-				handlers = append(handlers, newDefaultConfidentialRelayHandler())
+				handlers = append(handlers, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec))
 			default:
 				return nil, nil, errors.New("unknown handler type: " + ht)
 			}
@@ -315,8 +315,8 @@ type vaultHandlerConfig struct {
 
 func newDefaultVaultHandler(requestTimeoutSec int) handler {
 	return handler{
-		Name:        "vault",
-		ServiceName: "vault",
+		Name:        GatewayHandlerTypeVault,
+		ServiceName: ServiceNameVault,
 		Config: vaultHandlerConfig{
 			// must be lower than the overall gateway request timeout.
 			// so we allow for the response to be sent back.
@@ -440,7 +440,7 @@ type httpCapabilitiesHandlerConfig struct {
 func newDefaultHTTPCapabilitiesHandler() handler {
 	return handler{
 		Name:        GatewayHandlerTypeHTTPCapabilities,
-		ServiceName: "workflows",
+		ServiceName: ServiceNameWorkflows,
 		Config: httpCapabilitiesHandlerConfig{
 			CleanUpPeriodMs: 10 * 60 * 1000, // 10 minutes
 			NodeRateLimiter: nodeRateLimiterConfig{
@@ -454,14 +454,16 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 }
 
 type confidentialRelayHandlerConfig struct {
-	NodeRateLimiter nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	RequestTimeoutSec int                   `toml:"requestTimeoutSec"`
+	NodeRateLimiter   nodeRateLimiterConfig `toml:"NodeRateLimiter"`
 }
 
-func newDefaultConfidentialRelayHandler() handler {
+func newDefaultConfidentialRelayHandler(requestTimeoutSec int) handler {
 	return handler{
 		Name:        GatewayHandlerTypeConfidentialRelay,
-		ServiceName: "confidential",
+		ServiceName: ServiceNameConfidential,
 		Config: confidentialRelayHandlerConfig{
+			RequestTimeoutSec: requestTimeoutSec - 1,
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
 				GlobalRPS:      50,
