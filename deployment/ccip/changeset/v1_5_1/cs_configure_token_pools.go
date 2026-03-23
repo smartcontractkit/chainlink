@@ -262,6 +262,12 @@ type TokenPoolConfig struct {
 
 	// SkipOwnershipValidation, if true, skips validation of ownership on the token pool. Optional, defaults to false.
 	SkipOwnershipValidation bool `json:"skipOwnershipValidation,omitempty"`
+
+	// AllowAdditiveRemotePools, if true, allows adding additional remote pools to existing chain configurations
+	// without removing and re-adding the chain selector. When false (default), the behavior is to remove
+	// the chain selector and re-add it with the new pool configuration (spot replacement).
+	// This is particularly useful for Solana and other chains where multiple pools may need to coexist.
+	AllowAdditiveRemotePools bool `json:"allowAdditiveRemotePools,omitempty"`
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, ccipState stateview.CCIPOnChainState, useMcms bool, tokenSymbol shared.TokenSymbol) error {
@@ -482,13 +488,27 @@ func configureTokenPool(
 					break
 				}
 			}
-			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) || !isRemotePoolSupported {
-				// Remove & later re-add the chain if the remote token has changed OR the remote pool address is not supported
+
+			// Check if the remote token has changed - this always requires chain removal/re-addition
+			if !bytes.Equal(remoteTokenAddress.Bytes(), remoteToken) {
 				chainRemovals = append(chainRemovals, remoteChainSelector)
 				addChain = true
+			} else if !isRemotePoolSupported {
+				// Remote pool is not supported - behavior depends on AllowAdditiveRemotePools flag
+				if poolUpdate.AllowAdditiveRemotePools {
+					// Add the new remote pool without removing the chain
+					remotePoolAddressAdditions[remoteChainSelector] = remotePoolAddress.Bytes()
+					// Also update rate limits
+					remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
+					updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+					updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+				} else {
+					// Default behavior: Remove & later re-add the chain (spot replacement)
+					chainRemovals = append(chainRemovals, remoteChainSelector)
+					addChain = true
+				}
 			} else {
-				// Update the rate limits if the chain is already supported
-				// We dont need to add a new remote pool because solana only supports one remote pool per token
+				// Remote pool is already supported, just update the rate limits
 				remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
 				updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
 				updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
@@ -587,7 +607,9 @@ func configureTokenPool(
 				}
 			}
 			// Check if the remote pool to-be-set is non-empty and not already configured on the token pool
-			if len(remotePoolAddress) == 0 && !isRemotePoolSupported {
+			// For Sui, the default behavior has always been additive, so we maintain backward compatibility
+			// The AllowAdditiveRemotePools flag doesn't change Sui's existing behavior
+			if len(remotePoolAddress) > 0 && !isRemotePoolSupported {
 				remotePoolAddressAdditions[remoteChainSelector] = common.LeftPadBytes(remotePoolAddress, 32)
 			}
 		} else {
