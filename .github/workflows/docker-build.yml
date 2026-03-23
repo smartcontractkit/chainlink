@@ -79,7 +79,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-docker-tag # todo: https://github.com/smartcontractkit/.github/pull/1480
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -111,7 +111,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-docker-tag # todo: https://github.com/smartcontractkit/.github/pull/1480
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -145,7 +145,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-docker-tag # todo: https://github.com/smartcontractkit/.github/pull/1480
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -180,7 +180,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-docker-tag # todo: https://github.com/smartcontractkit/.github/pull/1480
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -215,7 +215,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-docker-tag # todo: https://github.com/smartcontractkit/.github/pull/1480
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
