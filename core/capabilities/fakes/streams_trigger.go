@@ -2,7 +2,6 @@ package fakes
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,12 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
@@ -25,6 +23,7 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 )
 
@@ -33,7 +32,7 @@ type fakeStreamsTrigger struct {
 	eng  *services.Engine
 	lggr logger.Logger
 
-	signers []fakeStreamsTriggerSigner
+	signers []ocr2key.KeyBundle
 	codec   datastreams.ReportCodec
 	meta    datastreams.Metadata
 
@@ -46,10 +45,6 @@ type fakeStreamsTrigger struct {
 type regState struct {
 	cfg     commonStreams.TriggerConfig
 	eventCh chan commonCap.TriggerResponse
-}
-
-type fakeStreamsTriggerSigner struct {
-	privateKey *ecdsa.PrivateKey
 }
 
 var _ services.Service = (*fakeStreamsTrigger)(nil)
@@ -113,16 +108,10 @@ func (st *fakeStreamsTrigger) UnregisterTrigger(ctx context.Context, request com
 }
 
 func NewFakeStreamsTrigger(lggr logger.Logger, nSigners int) *fakeStreamsTrigger {
-	signers := make([]fakeStreamsTriggerSigner, nSigners)
+	signers := make([]ocr2key.KeyBundle, nSigners)
 	rawSigners := make([][]byte, nSigners)
 	for i := range nSigners {
-		keyMaterial := make([]byte, 32)
-		keyMaterial[31] = byte(i + 1)
-		privateKey, err := crypto.ToECDSA(keyMaterial)
-		if err != nil {
-			panic(err)
-		}
-		signers[i] = fakeStreamsTriggerSigner{privateKey: privateKey}
+		signers[i], _ = ocr2key.New(corekeys.EVM)
 		rawSigners[i] = signers[i].PublicKey()
 	}
 
@@ -234,20 +223,6 @@ func newReport(ctx context.Context, lggr logger.Logger, feedID [32]byte, price i
 		ExpiresAt:          timestampSec + 3600,
 	})
 	return raw
-}
-
-func (s fakeStreamsTriggerSigner) PublicKey() ocrTypes.OnchainPublicKey {
-	address := crypto.PubkeyToAddress(s.privateKey.PublicKey)
-	return common.CopyBytes(address[:])
-}
-
-func (s fakeStreamsTriggerSigner) Sign(reportCtx ocrTypes.ReportContext, report ocrTypes.Report) ([]byte, error) {
-	rawReportContext := evmutil.RawReportContext(reportCtx)
-	sigData := crypto.Keccak256(report)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	sigData = append(sigData, rawReportContext[2][:]...)
-	return crypto.Sign(crypto.Keccak256(sigData), s.privateKey)
 }
 
 func rawReportContext(reportCtx ocrTypes.ReportContext) []byte {
