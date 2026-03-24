@@ -91,7 +91,10 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     outputs:
       general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
@@ -193,7 +196,10 @@ jobs:
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
     if: github.actor != 'dependabot[bot]'
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     runs-on: ${{ matrix.image.runner }}
     needs:
       [
@@ -463,7 +469,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -562,7 +568,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -695,27 +701,6 @@ jobs:
         if: always() && needs.build-chainlink.result == 'failure'
         run: exit 1
 
-  cleanup:
-    name: Clean up integration environment deployments
-    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
-    # By always running this, it delays the start of the next workflow run due to concurrency rules.
-    if: always() && !cancelled()
-    needs:
-      [
-        run-core-e2e-tests,
-        run-ccip-e2e-tests,
-        run-core-cre-e2e-tests,
-        run-core-cre-e2e-regression-tests,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧼 Clean up Environment
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: smartcontractkit/.github/actions/delete-deployments@delete-deployments/v1
-        with:
-          environment: integration
-          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
-
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
     if: false
@@ -795,7 +780,10 @@ jobs:
   get-solana-sha:
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
     name: Get Solana Sha From Go Mod
-    environment: Integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     runs-on: ubuntu-latest
     needs: [solana-smoke-tests-setup]
     permissions:
