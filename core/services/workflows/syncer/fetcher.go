@@ -177,20 +177,12 @@ func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 		if err != nil {
 			return nil, fmt.Errorf("invalid URL: %w", err)
 		}
+		fullPath := filepath.Clean(u.Path)
 
-		var fullPath string
-		if u.Scheme == "http" || u.Scheme == "https" {
-			// For HTTP(S) URLs, extract just the filename and resolve against basePath.
-			// This supports confidential workflows where the on-chain URL must be HTTP
-			// (so the enclave can fetch the binary), but the syncer reads from the local filesystem.
-			fullPath = filepath.Join(basePath, filepath.Base(u.Path))
-		} else {
-			fullPath = filepath.Clean(u.Path)
-			// ensure that the incoming request URL is either relative or absolute but within the basePath
-			if !filepath.IsAbs(fullPath) {
-				// If it's not absolute, we assume it's relative to the basePath
-				fullPath = filepath.Join(basePath, fullPath)
-			}
+		// ensure that the incoming request URL is either relative or absolute but within the basePath
+		if !filepath.IsAbs(fullPath) {
+			// If it's not absolute, we assume it's relative to the basePath
+			fullPath = filepath.Join(basePath, fullPath)
 		}
 		if !strings.HasPrefix(fullPath, basePath) {
 			return nil, fmt.Errorf("request URL %s is not within the basePath %s", fullPath, basePath)
