@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -395,15 +396,5 @@ func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (str
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal master public key")
 	}
-	var label [32]byte
-	copy(label[12:], owner.Bytes()) // left-pad with 12 zero
-	cipher, err := tdh2easy.EncryptWithLabel(&masterPublicKey, []byte(secret), label)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt secret")
-	}
-	cipherBytes, err := cipher.Marshal()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal encrypted secrets to bytes")
-	}
-	return hex.EncodeToString(cipherBytes), nil
+	return vaultutils.EncryptSecretWithWorkflowOwner(secret, &masterPublicKey, owner)
 }

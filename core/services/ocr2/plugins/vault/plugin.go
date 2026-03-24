@@ -575,7 +575,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	}
 
 	es := hex.EncodeToString(encryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, owner)
+	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, owner, "")
 	if err != nil {
 		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
@@ -704,7 +704,7 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError(ierr.Error())
 	}
 
-	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner)
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner, "")
 	if err != nil {
 		return id, newUserError("failed to verify ciphertext: " + err.Error())
 	}
