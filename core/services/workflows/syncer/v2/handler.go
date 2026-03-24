@@ -776,6 +776,9 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to parse workflow attributes: %w", err)
 	}
 
+	// Create a channel to receive the initialization result.
+	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
+	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 	var engine services.Service
 
