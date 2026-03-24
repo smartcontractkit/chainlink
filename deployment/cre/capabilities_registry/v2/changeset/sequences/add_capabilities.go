@@ -96,29 +96,6 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, err
 		}
 
-		// for i := range input.CapabilityConfigs {
-		// 	sel, isAptos, parseErr := ParseAptosChainSelectorFromCapabilityID(input.CapabilityConfigs[i].Capability.CapabilityID)
-		// 	if parseErr != nil {
-		// 		return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, parseErr)
-		// 	}
-		// 	if !isAptos {
-		// 		continue
-		// 	}
-		// 	if deps.Env.Offchain == nil {
-		// 		return AddCapabilitiesOutput{}, errors.New("AddCapabilities: Aptos capabilities require Env.Offchain (Job Distributor client)")
-		// 	}
-		// 	if input.CapabilityConfigs[i].Config == nil {
-		// 		input.CapabilityConfigs[i].Config = make(map[string]any)
-		// 	}
-		// 	p2pMap, mapErr := BuildAptosP2PToTransmitterMap(deps.Env.Offchain, p2pIDs, sel)
-		// 	if mapErr != nil {
-		// 		return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mapErr)
-		// 	}
-		// 	if mergeErr := MergeAptosP2PToTransmitterIntoConfig(input.CapabilityConfigs[i].Config, p2pMap); mergeErr != nil {
-		// 		return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mergeErr)
-		// 	}
-		// }
-
 		// Create the appropriate strategy
 		strategy, err := strategies.CreateStrategy(
 			chain,
@@ -169,6 +146,29 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			p2pIDs := make([]p2pkey.PeerID, 0, len(nodes))
 			for _, node := range nodes {
 				p2pIDs = append(p2pIDs, node.P2pId)
+			}
+
+			for i := range input.CapabilityConfigs {
+				sel, isAptos, parseErr := ParseAptosChainSelectorFromCapabilityID(input.CapabilityConfigs[i].Capability.CapabilityID)
+				if parseErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, parseErr)
+				}
+				if !isAptos {
+					continue
+				}
+				if deps.Env.Offchain == nil {
+					return AddCapabilitiesOutput{}, errors.New("AddCapabilities: Aptos capabilities require Env.Offchain (Job Distributor client)")
+				}
+				if input.CapabilityConfigs[i].Config == nil {
+					input.CapabilityConfigs[i].Config = make(map[string]any)
+				}
+				p2pMap, mapErr := BuildAptosP2PToTransmitterMap(deps.Env.Offchain, p2pIDs, sel)
+				if mapErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mapErr)
+				}
+				if mergeErr := MergeAptosP2PToTransmitterIntoConfig(input.CapabilityConfigs[i].Config, p2pMap); mergeErr != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mergeErr)
+				}
 			}
 
 			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, input.CapabilityConfigs)
