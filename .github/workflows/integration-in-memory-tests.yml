@@ -30,12 +30,14 @@ jobs:
       deployment: false
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     outputs:
-      github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
-      core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
-      ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
+      run-tests: ${{ steps.advanced-triggers.outputs.run-tests }}
       should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
@@ -45,29 +47,43 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
 
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
+      - name: Advanced Triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        id: advanced-triggers
         with:
-          filters: |
-            github_ci_changes:
-              - '.github/workflows/integration-in-memory-tests.yml'
-              - '.github/integration-in-memory-tests.yml'
-            core_changes:
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
-              - '**/*Dockerfile'
-              - 'core/**/migrations/*.sql'
-              - 'core/**/config/**/*.toml'
-              - 'integration-tests/**/*.toml'
-            ccip_changes:
-              - '**/*ccip*'
-              - '**/*ccip*/**'
-
-      - name: Ignore Filter On Workflow Dispatch
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        id: ignore-filter
-        run: echo "changes=true" >> $GITHUB_OUTPUT
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "core/**"
+            deployment-files:
+              - "deployment/**"
+            workflow-files:
+              - ".github/workflows/integration-in-memory-tests.yml"
+              - ".github/integration-in-memory-tests.yml"
+              - ".github/actions/**/*.y*ml"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            deployment-test-files:
+              - "deployment/**/*_test.go"
+              - "deployment/**/testdata/**"
+            to-ignore-files:
+              - "system-tests/**"
+              - "devenv/**"
+              - "core/scripts/cre/**"
+          triggers: |
+            run-tests:
+              exclusion-sets: [ core-test-files, deployment-test-files, to-ignore-files ]
+              inclusion-sets: [ go-files, core-files, deployment-files, workflow-files ]
+              paths:
+                - "integration-tests/**"
+                - "**/*Dockerfile"
+                - '**/ccip/**'
+                - '**/*ccip*/**'
 
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -75,7 +91,7 @@ jobs:
         with:
           check-label: "runs-on-opt-out"
 
-  run-ccip-integration-in-memory--tests-for-pr:
+  run-ccip-integration-in-memory-tests-for-pr:
     name: Run CCIP integration In Memory Tests For PR
     permissions:
       actions: read
@@ -84,7 +100,7 @@ jobs:
       id-token: write
       contents: read
     needs: changes
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && needs.changes.outputs.run-tests == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For PR
@@ -116,7 +132,7 @@ jobs:
       id-token: write
       contents: read
     needs: changes
-    if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'merge_group' && needs.changes.outputs.run-tests == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
@@ -148,12 +164,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
-        run-ccip-integration-in-memory--tests-for-pr,
+        run-ccip-integration-in-memory-tests-for-pr,
         run-ccip-integration-in-memory-tests-for-merge-queue,
       ]
     steps:
       - name: Fail the job if ccip tests in PR not successful
-        if: always() && needs.run-ccip-integration-in-memory--tests-for-pr.result == 'failure'
+        if: always() && needs.run-ccip-integration-in-memory-tests-for-pr.result == 'failure'
         run: exit 1
 
       - name: Fail the job if ccip tests in merge queue not successful
