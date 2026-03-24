@@ -6,56 +6,6 @@
 # - The triggers (e.g., Run PR E2E Tests, Nightly E2E Tests) that should trigger these tests.
 #
 runner-test-matrix:
-  # START: OCR tests
-
-  # All the OCR smoke/soak/chaostests were moved to https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-ocr2-soak.yml
-  # and https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-ocr2-chaos.yml
-
-  # START: VRF tests (VRFv2 classic smoke lives in devenv nightly; see .github/workflows/devenv-nightly.yml)
-
-  - id: smoke/vrf_test.go:*
-    path: integration-tests/smoke/vrf_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E Core Tests
-      - Workflow Dispatch E2E Core Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "TestVRFBasic|TestVRFJobReplacement" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
-    pyroscope_env: ci-smoke-vrf-evm-simulated
-    test_go_project_path: integration-tests
-
-  # END: VRF tests
-
-  # START: Other tests
-
-  - id: smoke/reorg_above_finality_test.go:*
-    path: integration-tests/smoke/reorg_above_finality_test.go
-    test_env_type: docker
-    runs_on: ubuntu-latest
-    triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E Core Tests
-      - Workflow Dispatch E2E Core Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "TestRegisteringMultipleJobDistributor" -timeout 30m -count=1 -parallel=2 github.com/smartcontractkit/chainlink/integration-tests/smoke
-    pyroscope_env: ci-smoke-reorg-above-finality-evm-simulated
-    test_go_project_path: integration-tests
-  # END: Other tests
-
   # START: CCIPv1.6 tests
 
   - id: smoke/ccip/ccip_reorg_test.go:LessThanFinalityTests
