@@ -56,7 +56,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260320011913-f2205f8506c7
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260324012836-be55b0930910
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260324212333-a62f88f2e99e
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
