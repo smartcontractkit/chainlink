@@ -88,6 +88,10 @@ USER ${CHAINLINK_USER}
 # Copy Delve debugger from build stage.
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
+# Expose image metadata to the running node.
+ARG CL_AUTO_DOCKER_TAG=unset
+ENV CL_DOCKER_TAG=${CL_AUTO_DOCKER_TAG}
+
 # Set plugin environment variable configuration.
 ENV CL_MEDIAN_CMD=chainlink-feeds
 ARG CL_SOLANA_CMD=chainlink-solana
