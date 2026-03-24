@@ -15,9 +15,9 @@ inputs:
     default: ""
     description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
   chainlink_version:
-    required: true
-    description: "The version of Chainlink repository to use for the tests."
-    default: "develop"
+    required: false
+    description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+    default: ""
 outputs:
   resolved_image:
     description: "Fully qualified image reference"
@@ -33,7 +33,7 @@ runs:
         INPUT_CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
         INPUT_CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
         INPUT_CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
-        INPUT_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
+        INPUT_CHAINLINK_VERSION: ${{ inputs.chainlink_version != '' && inputs.chainlink_version || github.sha }}
       run: |
         set -euo pipefail
 
