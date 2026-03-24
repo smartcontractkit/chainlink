@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 )
@@ -139,6 +140,32 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 		RegistryQualifier: "qual",
 		DonNames:          []string{"don-1", "don-2"},
 		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+	})
+	require.NoError(t, err)
+
+	// Override DON name not in donNames list
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+		DonCapabilityConfigOverrides: map[string][]sequences.CapabilityConfigOverride{
+			"unknown-don": {{Config: map[string]any{"k": "v2"}}},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown-don")
+	assert.Contains(t, err.Error(), "not in the DON names list")
+
+	// Valid with overrides
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1", "don-2"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+		DonCapabilityConfigOverrides: map[string][]sequences.CapabilityConfigOverride{
+			"don-2": {{Config: map[string]any{"k": "v2"}}},
+		},
 	})
 	require.NoError(t, err)
 }

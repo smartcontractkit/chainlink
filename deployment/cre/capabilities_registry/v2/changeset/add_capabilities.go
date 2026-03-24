@@ -27,6 +27,11 @@ type AddCapabilitiesInput struct {
 	DonNames          []string                     `json:"donNames" yaml:"donNames"` // multiple DONs to update
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
 
+	// DonCapabilityConfigOverrides maps DON name to a list of config overrides.
+	// Each override's Config is deep-merged into the base CapabilityConfig.Config for the matching capability.
+	// If an override's CapabilityID is empty, it applies to all capabilities for that DON.
+	DonCapabilityConfigOverrides map[string][]sequences.CapabilityConfigOverride `json:"donCapabilityConfigOverrides,omitempty" yaml:"donCapabilityConfigOverrides,omitempty"`
+
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool `json:"force" yaml:"force"`
@@ -47,6 +52,11 @@ func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapab
 	}
 	if len(config.CapabilityConfigs) == 0 {
 		return errors.New("capabilityConfigs is required")
+	}
+	for overrideDon := range config.DonCapabilityConfigOverrides {
+		if !slices.Contains(donNames, overrideDon) {
+			return fmt.Errorf("donCapabilityConfigOverrides contains DON name %q which is not in the DON names list", overrideDon)
+		}
 	}
 	return nil
 }
@@ -79,11 +89,12 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilities,
 		sequences.AddCapabilitiesDeps{Env: &e, MCMSContracts: mcmsContracts},
 		sequences.AddCapabilitiesInput{
-			RegistryRef:       registryRef,
-			DonNames:          u.donNames(config),
-			CapabilityConfigs: config.CapabilityConfigs,
-			Force:             config.Force,
-			MCMSConfig:        config.MCMSConfig,
+			RegistryRef:                  registryRef,
+			DonNames:                     u.donNames(config),
+			CapabilityConfigs:            config.CapabilityConfigs,
+			DonCapabilityConfigOverrides: config.DonCapabilityConfigOverrides,
+			Force:                        config.Force,
+			MCMSConfig:                   config.MCMSConfig,
 		},
 	)
 	if err != nil {

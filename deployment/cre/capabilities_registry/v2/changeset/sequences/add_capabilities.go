@@ -32,6 +32,10 @@ type AddCapabilitiesDeps struct {
 type AddCapabilitiesInput struct {
 	CapabilityConfigs []contracts.CapabilityConfig // if Config subfield is nil, a default config is used
 
+	// DonCapabilityConfigOverrides maps DON name to per-DON config overrides that are
+	// deep-merged into the base CapabilityConfigs. See CapabilityConfigOverride for details.
+	DonCapabilityConfigOverrides map[string][]CapabilityConfigOverride
+
 	// DonNames are the DONs to update. At least one is required.
 	DonNames []string
 
@@ -148,7 +152,12 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				p2pIDs = append(p2pIDs, node.P2pId)
 			}
 
-			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, input.CapabilityConfigs)
+			donCapConfigs, err := resolveCapabilityConfigsForDON(input.CapabilityConfigs, input.DonCapabilityConfigOverrides[donName])
+			if err != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to resolve capability configs for DON %s: %w", donName, err)
+			}
+
+			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, donCapConfigs)
 			if err != nil {
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
 			}
@@ -182,7 +191,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				contracts.UpdateDONInput{
 					ChainSelector:                     chainSel,
 					P2PIDs:                            p2pIDs,
-					CapabilityConfigs:                 input.CapabilityConfigs,
+					CapabilityConfigs:                 donCapConfigs,
 					MergeCapabilityConfigsWithOnChain: true,
 					DonName:                           donName,
 					F:                                 don.F,
