@@ -1,8 +1,10 @@
 package v1_6
 
 import (
+	"encoding/hex"
 	"errors"
 	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -10,11 +12,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
 type DeployFeeQInput struct {
@@ -195,4 +200,54 @@ const (
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
+	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
+
+// DefaultFeeQuoterDestChainConfig returns the default FeeQuoter dest chain config.
+// If destChainSelector is provided, family-specific values (ChainFamilySelector,
+// NetworkFeeUSDCents, DefaultTokenFeeUSDCents) are set accordingly.
+func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
+	familySelector, _ := hex.DecodeString(EVMFamilySelector)
+	networkFeeUSDCents := uint32(10)
+	defaultTokenFeeUSDCents := uint16(25)
+	if len(destChainSelector) > 0 {
+		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
+		switch destFamily {
+		case chain_selectors.FamilySolana:
+			familySelector, _ = hex.DecodeString(SVMFamilySelector)
+			defaultTokenFeeUSDCents = 35
+		case chain_selectors.FamilyAptos:
+			familySelector, _ = hex.DecodeString(AptosFamilySelector)
+		case chain_selectors.FamilyTon:
+			familySelector, _ = hex.DecodeString(TVMFamilySelector)
+		case chain_selectors.FamilySui:
+			familySelector, _ = hex.DecodeString(SuiFamilySelector)
+		case chain_selectors.FamilyEVM:
+			name, _ := chain_selectors.GetChainNameFromSelector(destChainSelector[0])
+			if strings.HasPrefix(name, "ethereum") {
+				networkFeeUSDCents = 50
+				defaultTokenFeeUSDCents = 150
+			}
+		}
+	}
+	return fee_quoter.FeeQuoterDestChainConfig{
+		IsEnabled:                         configEnabled,
+		MaxNumberOfTokensPerMsg:           10,
+		MaxDataBytes:                      30_000,
+		MaxPerMsgGasLimit:                 3_000_000,
+		DestGasOverhead:                   ccipevm.DestGasOverhead,
+		DefaultTokenFeeUSDCents:           defaultTokenFeeUSDCents,
+		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
+		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
+		DestDataAvailabilityOverheadGas:   100,
+		DestGasPerDataAvailabilityByte:    16,
+		DestDataAvailabilityMultiplierBps: 1,
+		DefaultTokenDestGasOverhead:       90_000,
+		DefaultTxGasLimit:                 200_000,
+		GasMultiplierWeiPerEth:            11e17,
+		NetworkFeeUSDCents:                networkFeeUSDCents,
+		ChainFamilySelector:               [4]byte(familySelector),
+	}
+}

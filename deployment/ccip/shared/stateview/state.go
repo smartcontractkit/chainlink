@@ -318,14 +318,13 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 					errs = append(errs, fmt.Errorf("nonce manager: %w", err))
 				}
 			}
-			if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2); err != nil {
-				errs = append(errs, fmt.Errorf("fee quoter %s: %w", safeAddr(chainState.FeeQuoter), err))
-			}
-			if fqV2 != nil {
+			{
+				var backend bind.ContractBackend
 				if evmChain, ok := e.BlockChains.EVMChains()[sel]; ok {
-					if err := chainState.ValidateFeeQuoterV2(e, sel, connectedChains, fqV2, evmChain.Client); err != nil {
-						errs = append(errs, fmt.Errorf("FeeQuoter v2.0 %s: %w", fqV2.Address().Hex(), err))
-					}
+					backend = evmChain.Client
+				}
+				if err := chainState.ValidateFeeQuoter(e, sel, connectedChains, fqV2, backend); err != nil {
+					errs = append(errs, fmt.Errorf("fee quoter: %w", err))
 				}
 			}
 			if validateOwnership {

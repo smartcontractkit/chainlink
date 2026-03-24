@@ -208,7 +208,7 @@ func TestValidateFeeQuoter_HappyPath(t *testing.T) {
 		connectedChains, err := chainState.ValidateRouter(tenv.Env, false, v16Active)
 		require.NoError(t, err, "router validation failed for chain %d", sel)
 
-		err = chainState.ValidateFeeQuoter(tenv.Env, sel, connectedChains, nil)
+		err = chainState.ValidateFeeQuoter(tenv.Env, sel, connectedChains, nil, nil)
 		require.NoError(t, err, "FeeQuoter validation failed for chain %d", sel)
 	}
 }
@@ -222,7 +222,7 @@ func TestValidateFeeQuoter_NilFeeQuoter(t *testing.T) {
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chainState := state.MustGetEVMChainState(evmChains[0])
 	chainState.FeeQuoter = nil
-	err = chainState.ValidateFeeQuoter(tenv.Env, evmChains[0], evmChains[1:], nil)
+	err = chainState.ValidateFeeQuoter(tenv.Env, evmChains[0], evmChains[1:], nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no FeeQuoter")
 }

@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"golang.org/x/sync/errgroup"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -490,37 +492,6 @@ func chainSelFromConfigs(commit, exec ccip_home.GetAllConfigs) uint64 {
 	return sel
 }
 
-// V16ActiveChainSelectors returns chain selectors with an active or candidate
-// v1.6 DON config in CCIPHome. Home chain only.
-func (c CCIPChainState) V16ActiveChainSelectors(ctx context.Context) (map[uint64]bool, error) {
-	if c.CCIPHome == nil {
-		return nil, errors.New("no CCIPHome contract found in the state")
-	}
-	if c.CapabilityRegistry == nil {
-		return nil, errors.New("no CapabilityRegistry contract found in the state")
-	}
-	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(ctx, c.CapabilityRegistry)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CCIP DONs from capability registry: %w", err)
-	}
-	callOpts := &bind.CallOpts{Context: ctx}
-	active := make(map[uint64]bool, len(ccipDons))
-	for _, don := range ccipDons {
-		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
-		if err != nil {
-			continue
-		}
-		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
-		if err != nil {
-			continue
-		}
-		if chainSel := chainSelFromConfigs(commitConfigs, execConfigs); chainSel != 0 {
-			active[chainSel] = true
-		}
-	}
-	return active, nil
-}
-
 // ValidateRouter validates the router contract and returns all connected v1.6 chains.
 // v16ActiveChains filters out legacy v1.5 lane entries in mixed environments.
 func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v16ActiveChains map[uint64]bool) ([]uint64, error) {
@@ -558,7 +529,8 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 		return nil, fmt.Errorf("failed to get offRamps from router %s: %w", routerC.Address().Hex(), err)
 	}
 	for _, d := range offRampDetails {
-		if _, exists := e.BlockChains.SolanaChains()[d.SourceChainSelector]; exists {
+		// skip if solana - solana state is maintained in solana
+		if family, err := chain_selectors.GetSelectorFamily(d.SourceChainSelector); err != nil || family != chain_selectors.FamilyEVM {
 			continue
 		}
 		if len(v16ActiveChains) > 0 && !v16ActiveChains[d.SourceChainSelector] {
@@ -580,6 +552,37 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 		}
 	}
 	return v16ConnectedChains, nil
+}
+
+// V16ActiveChainSelectors returns chain selectors with an active or candidate
+// v1.6 DON config in CCIPHome. Home chain only.
+func (c CCIPChainState) V16ActiveChainSelectors(ctx context.Context) (map[uint64]bool, error) {
+	if c.CCIPHome == nil {
+		return nil, errors.New("no CCIPHome contract found in the state")
+	}
+	if c.CapabilityRegistry == nil {
+		return nil, errors.New("no CapabilityRegistry contract found in the state")
+	}
+	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(ctx, c.CapabilityRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CCIP DONs from capability registry: %w", err)
+	}
+	callOpts := &bind.CallOpts{Context: ctx}
+	active := make(map[uint64]bool, len(ccipDons))
+	for _, don := range ccipDons {
+		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
+		if err != nil {
+			continue
+		}
+		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
+		if err != nil {
+			continue
+		}
+		if chainSel := chainSelFromConfigs(commitConfigs, execConfigs); chainSel != 0 {
+			active[chainSel] = true
+		}
+	}
+	return active, nil
 }
 
 // ValidateRMNRemote validates the RMNRemote contract to check if all wired contracts are synced with state

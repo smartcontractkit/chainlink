@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"strings"
 
 	"golang.org/x/sync/errgroup"
 
@@ -50,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -1745,49 +1743,7 @@ func isOCR3ConfigSetOnOffRamp(
 //   - Any → other:       NetworkFee=10, TokenFee=25
 //   - Ethereum -> any:   NetworkFee=50, TokenFee=50 ( Source-chain-dependent override that must be applied by the caller)
 func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
-	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
-	networkFeeUSDCents := uint32(10)
-	defaultTokenFeeUSDCents := uint16(25)
-	if len(destChainSelector) > 0 {
-		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		switch destFamily {
-		case chain_selectors.FamilySolana:
-			familySelector, _ = hex.DecodeString(SVMFamilySelector)
-			defaultTokenFeeUSDCents = 35
-		case chain_selectors.FamilyAptos:
-			familySelector, _ = hex.DecodeString(AptosFamilySelector)
-		case chain_selectors.FamilyTon:
-			familySelector, _ = hex.DecodeString(TVMFamilySelector)
-		case chain_selectors.FamilySui:
-			familySelector, _ = hex.DecodeString(SuiFamilySelector)
-		case chain_selectors.FamilyEVM:
-			// Ethereum destinations have higher fees
-			name, _ := chain_selectors.GetChainNameFromSelector(destChainSelector[0])
-			if strings.HasPrefix(name, "ethereum") {
-				networkFeeUSDCents = 50
-				defaultTokenFeeUSDCents = 150
-			}
-		}
-	}
-	return fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         configEnabled,
-		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      30_000,
-		MaxPerMsgGasLimit:                 3_000_000,
-		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           defaultTokenFeeUSDCents,
-		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    16,
-		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       90_000,
-		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                networkFeeUSDCents,
-		ChainFamilySelector:               [4]byte(familySelector),
-	}
+	return ccipops.DefaultFeeQuoterDestChainConfig(configEnabled, destChainSelector...)
 }
 
 type ApplyFeeTokensUpdatesConfig struct {
