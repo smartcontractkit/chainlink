@@ -390,17 +390,18 @@ func (c CCIPChainState) validateAllFeeTokenConfigs(
 					feeToken.Hex(), fqAddr, err))
 				continue
 			}
-			if premium == 0 {
-				errs = append(errs, fmt.Errorf("FeeQuoter %s PremiumMultiplierWeiPerEth is 0 for fee token %s",
-					fqAddr, feeToken.Hex()))
-			}
 			if anyLegacyOnRamp != nil {
+				// Cross-check against v1.5 first — legacy mismatch is the most actionable signal.
 				legacyFeeTokenCfg, err := anyLegacyOnRamp.GetFeeTokenConfig(callOpts, feeToken)
 				if err == nil && legacyFeeTokenCfg.Enabled && premium != legacyFeeTokenCfg.PremiumMultiplierWeiPerEth {
 					errs = append(errs, fmt.Errorf("FeeQuoter %s PremiumMultiplierWeiPerEth mismatch for fee token %s: "+
 						"v1.6 has %d, v1.5 OnRamp had %d",
 						fqAddr, feeToken.Hex(), premium, legacyFeeTokenCfg.PremiumMultiplierWeiPerEth))
 				}
+			} else if premium == 0 {
+				// No legacy to compare — flag zero as standalone issue.
+				errs = append(errs, fmt.Errorf("FeeQuoter %s PremiumMultiplierWeiPerEth is 0 for fee token %s",
+					fqAddr, feeToken.Hex()))
 			}
 		}
 	}
@@ -515,11 +516,12 @@ func (c CCIPChainState) validateV16DestChainConfig(
 	feeTokens []common.Address,
 ) error {
 	header := fmt.Sprintf("FeeQuoter v1.6 %s dest chain %d", c.FeeQuoter.Address().Hex(), destChainSel)
-	var errs []error
 
 	if !destCfg.IsEnabled {
-		errs = append(errs, errors.New("not enabled"))
+		return groupErrors(header, []error{errors.New("not enabled — dest chain not configured, skipping field checks")})
 	}
+
+	var errs []error
 
 	// Cross-version field mapping: v1.6 <-> v1.5
 	if legacyCfg != nil {
@@ -609,11 +611,12 @@ func (c CCIPChainState) validateV20DestChainConfig(
 	fqV2 *fqv2ops.FeeQuoterContract,
 ) error {
 	header := fmt.Sprintf("FeeQuoter v2.0 %s dest chain %d", fqV2.Address().Hex(), destChainSel)
-	var errs []error
 
 	if !destCfgV2.IsEnabled {
-		errs = append(errs, errors.New("not enabled"))
+		return groupErrors(header, []error{errors.New("not enabled — dest chain not configured, skipping field checks")})
 	}
+
+	var errs []error
 
 	// v2.0 business-rule fields
 	if destCfgV2.ChainFamilySelector == [4]byte{} {
