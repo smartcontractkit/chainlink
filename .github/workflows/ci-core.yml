@@ -35,6 +35,7 @@ jobs:
       # Runs on workflow changes, and any (non-ignored) core changes
       should-run-core-tests: >-
         ${{
+          steps.match-some.outputs.workflow == 'true' ||
           steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
