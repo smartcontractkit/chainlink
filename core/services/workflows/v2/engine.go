@@ -592,11 +592,15 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",
 				trace.WithAttributes(
 					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
 					attribute.String("version", "v2"),
+					attribute.String("org_id", creCtx.Org),
+					attribute.String("owner_id", creCtx.Owner),
+					attribute.String("workflow_id", creCtx.Workflow),
 				))
 			defer span.End()
 			e.startExecution(ctx, queueHead)
@@ -660,6 +664,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
 	}
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
