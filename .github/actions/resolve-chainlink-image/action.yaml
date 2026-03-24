@@ -18,6 +18,10 @@ inputs:
     required: true
     description: "The version of Chainlink repository to use for the tests."
     default: "develop"
+outputs:
+  resolved_image:
+    description: "Fully qualified image reference"
+    value: ${{ steps.resolve-chainlink-image.outputs.resolved_image }}
 
 runs:
   using: composite
@@ -59,4 +63,4 @@ runs:
           resolved_image="${QA_AWS_ACCOUNT_NUMBER}.dkr.ecr.${QA_AWS_REGION}.amazonaws.com/${resolved_repo}:${resolved_tag}"
         fi
 
-        echo "resolved-image=${resolved_image}" | tee -a "${GITHUB_OUTPUT}"
+        echo "resolved_image=${resolved_image}" | tee -a "${GITHUB_OUTPUT}"
