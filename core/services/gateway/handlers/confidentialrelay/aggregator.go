@@ -3,7 +3,7 @@ package confidentialrelay
 import (
 	"encoding/json"
 	"errors"
-	"strconv"
+	"fmt"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -46,7 +46,7 @@ func (a *aggregator) Aggregate(resps map[string]jsonrpc.Response[json.RawMessage
 	remainingResponses := donMembersCount - len(resps)
 	if maxShaToCount+remainingResponses < requiredQuorum {
 		l.Warnw("quorum unattainable for request", "requiredQuorum", requiredQuorum, "remainingResponses", remainingResponses, "maxShaToCount", maxShaToCount)
-		return nil, errors.New(errQuorumUnobtainable.Error() + ". RequiredQuorum=" + strconv.Itoa(requiredQuorum) + ". maxShaToCount=" + strconv.Itoa(maxShaToCount) + " remainingResponses=" + strconv.Itoa(remainingResponses))
+		return nil, fmt.Errorf("%w: requiredQuorum=%d, maxShaToCount=%d, remainingResponses=%d", errQuorumUnobtainable, requiredQuorum, maxShaToCount, remainingResponses)
 	}
 
 	return nil, errInsufficientResponsesForQuorum

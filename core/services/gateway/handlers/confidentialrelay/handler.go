@@ -222,8 +222,8 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		errMsg := fmt.Sprintf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New(errMsg), nil))
+		// sendResponse deletes the request from activeRequests after sending.
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -368,13 +368,13 @@ func (h *handler) errorResponse(
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
 		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
-		err = errors.New("invalid params error: " + err.Error())
+		err = fmt.Errorf("invalid params error: %w", err)
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
-		err = errors.New("unsupported method(" + req.Method + "): " + err.Error())
+		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
 	case api.UserMessageParseError:
 		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
-		err = errors.New("user message parse error: " + err.Error())
+		err = fmt.Errorf("user message parse error: %w", err)
 	case api.NoError:
 	case api.UnsupportedDONIdError:
 	case api.HandlerError:
