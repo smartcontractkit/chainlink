@@ -35,6 +35,7 @@ jobs:
       # Runs on workflow changes, and any (non-ignored) core changes
       should-run-core-tests: >-
         ${{
+          steps.match-some.outputs.workflow == 'true' ||
           steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
@@ -224,7 +225,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6id/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6i+c7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
