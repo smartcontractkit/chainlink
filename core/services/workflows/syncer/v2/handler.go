@@ -558,6 +558,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
+		Attributes:    payload.Attributes,
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -819,6 +820,15 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
 
+	confidential, err := v2.IsConfidential(spec.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+	if confidential {
+		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
+		return h.tryConfidentialEngineCreate(ctx, spec, wid, workflowName, decodedBinary, source)
+	}
+
 	// Create a channel to receive the initialization result.
 	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
@@ -841,7 +851,21 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	if err = engine.Start(ctx); err != nil {
+	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
+}
+
+// startAndRegisterEngine starts a workflow engine, waits for initialization to
+// complete, and registers it in the engine registry. Used by both the normal
+// and confidential engine creation paths.
+func (h *eventHandler) startAndRegisterEngine(
+	ctx context.Context,
+	engine services.Service,
+	initDone <-chan error,
+	wid types.WorkflowID,
+	workflowID string,
+	source string,
+) error {
+	if err := engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
@@ -849,32 +873,25 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
-		// Context cancelled while waiting for initialization
 		if closeErr := engine.Close(); closeErr != nil {
-			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", workflowID)
 		}
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
 		if initErr != nil {
-			// Engine initialization failed (e.g., trigger subscription failed)
 			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
-			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
-			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
-			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
-				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", workflowID)
 			}
 			return fmt.Errorf("engine initialization failed: %w", initErr)
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
 	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
 
-		// Check for WorkflowID collision across sources
 		if errors.Is(err, ErrAlreadyExists) {
 			existingEntry, found := h.engineRegistry.Get(wid)
 			if found {
@@ -886,11 +903,89 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 			}
 		}
 
-		// This shouldn't happen because we call the handler serially and
-		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
 	}
 	return nil
+}
+
+// tryConfidentialEngineCreate creates a V2 engine backed by a ConfidentialModule
+// instead of a local WASM module. The ConfidentialModule delegates execution to
+// the confidential-workflows capability which runs the WASM inside a TEE.
+func (h *eventHandler) tryConfidentialEngineCreate(
+	ctx context.Context,
+	spec *job.WorkflowSpec,
+	wid types.WorkflowID,
+	workflowName types.WorkflowName,
+	decodedBinary []byte,
+	source string,
+) error {
+	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+
+	binaryHash := v2.ComputeBinaryHash(decodedBinary)
+
+	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
+
+	module := v2.NewConfidentialModule(
+		h.capRegistry,
+		spec.BinaryURL,
+		binaryHash,
+		spec.WorkflowID,
+		spec.WorkflowOwner,
+		workflowName.String(),
+		spec.WorkflowTag,
+		attrs.VaultDonSecrets,
+		lggr,
+	)
+
+	initDone := make(chan error, 1)
+
+	cfg := &v2.EngineConfig{
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        []byte(spec.Config),
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
+		WorkflowID:            spec.WorkflowID,
+		WorkflowOwner:         spec.WorkflowOwner,
+		WorkflowName:          workflowName,
+		WorkflowTag:           spec.WorkflowTag,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
+
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     h.engineLimiters,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+
+		BeholderEmitter: h.emitter,
+		BillingClient:   h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
+		FeatureFlags:                  h.featureFlags,
+	}
+
+	existingHook := cfg.Hooks.OnInitialized
+	cfg.Hooks.OnInitialized = func(err error) {
+		initDone <- err
+		if existingHook != nil {
+			existingHook(err)
+		}
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create confidential workflow engine: %w", err)
+	}
+
+	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.
