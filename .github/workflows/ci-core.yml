@@ -27,7 +27,6 @@ jobs:
       # Runs on workflow changes, any deployment change, or any (non-ignored) core change
       should-run-deployment-tests: >-
         ${{
-          steps.match-some.outputs.workflow == 'true' ||
           steps.match-some.outputs.deployment == 'true' ||
           steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
@@ -36,7 +35,6 @@ jobs:
       # Runs on workflow changes, and any (non-ignored) core changes
       should-run-core-tests: >-
         ${{
-          steps.match-some.outputs.workflow == 'true' ||
           steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
