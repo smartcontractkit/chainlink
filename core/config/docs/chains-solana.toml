@@ -114,6 +114,8 @@ FinalityDepth = 0 # Default
 FinalityTagEnabled = true # Default
 # FinalizedBlockOffset is the offset from the finalized block to use for finality tags.
 FinalizedBlockOffset = 0 # Default
+# FinalizedStateCheckFailureThreshold defines the number of consecutive finalized state check failures before declaring a node unhealthy. 0 means disabled.
+FinalizedStateCheckFailureThreshold = 0 # Default
 
 [[Solana.Nodes]]
 # Name is a unique (per-chain) identifier for this node.

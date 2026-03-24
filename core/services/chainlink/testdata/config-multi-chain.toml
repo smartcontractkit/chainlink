@@ -99,6 +99,7 @@ NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 0
+FinalizedStateCheckFailureThreshold = 0
 
 [[Solana.Nodes]]
 Name = 'primary'
@@ -128,6 +129,7 @@ NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 0
+FinalizedStateCheckFailureThreshold = 0
 
 [[Solana.Nodes]]
 Name = 'secondary'

@@ -172,15 +172,16 @@ var (
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
 						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
+						FinalizedBlockPollInterval:          &second,
+						EnforceRepeatableRead:               ptr(true),
+						DeathDeclarationDelay:                &minute,
+						VerifyChainID:                        ptr(true),
+						NodeNoNewHeadsThreshold:              &minute,
+						NoNewFinalizedHeadsThreshold:         &minute,
+						FinalityDepth:                        ptr[uint32](0),
+						FinalityTagEnabled:                   ptr(true),
+						FinalizedBlockOffset:                 ptr[uint32](0),
+						FinalizedStateCheckFailureThreshold:  ptr[uint32](0),
 					},
 				},
 				Nodes: []*solcfg.Node{
@@ -202,15 +203,16 @@ var (
 						NodeIsSyncingEnabled:         ptr(false),
 						LeaseDuration:                &minute,
 						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
+						FinalizedBlockPollInterval:          &second,
+						EnforceRepeatableRead:               ptr(true),
+						DeathDeclarationDelay:                &minute,
+						VerifyChainID:                        ptr(true),
+						NodeNoNewHeadsThreshold:              &minute,
+						NoNewFinalizedHeadsThreshold:         &minute,
+						FinalityDepth:                        ptr[uint32](0),
+						FinalityTagEnabled:                   ptr(true),
+						FinalizedBlockOffset:                 ptr[uint32](0),
+						FinalizedStateCheckFailureThreshold:  ptr[uint32](0),
 					},
 				},
 				Nodes: []*solcfg.Node{
@@ -810,12 +812,14 @@ func TestConfig_Marshal(t *testing.T) {
 					SyncThreshold:                  ptr[uint32](13),
 					LeaseDuration:                  &zeroSeconds,
 					NodeIsSyncingEnabled:           ptr(true),
-					FinalizedBlockPollInterval:     &second,
-					EnforceRepeatableRead:          ptr(true),
-					DeathDeclarationDelay:          &minute,
-					VerifyChainID:                  ptr(true),
-					NewHeadsPollInterval:           &zeroSeconds,
-					ExternalRequestMaxResponseSize: ptr[uint32](10),
+					FinalizedBlockPollInterval:          &second,
+					HistoricalBalanceCheckAddress:       ptr(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
+					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
+					EnforceRepeatableRead:               ptr(true),
+					DeathDeclarationDelay:               &minute,
+					VerifyChainID:                       ptr(true),
+					NewHeadsPollInterval:                &zeroSeconds,
+					ExternalRequestMaxResponseSize:      ptr[uint32](10),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -833,6 +837,7 @@ func TestConfig_Marshal(t *testing.T) {
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
 						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
+						FinalizedStateUnavailable:         ptr[string](""),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -914,16 +919,17 @@ func TestConfig_Marshal(t *testing.T) {
 					SyncThreshold:                ptr[uint32](5),
 					NodeIsSyncingEnabled:         ptr(false),
 					LeaseDuration:                &minute,
-					NewHeadsPollInterval:         &second,
-					FinalizedBlockPollInterval:   &second,
-					EnforceRepeatableRead:        ptr(true),
-					DeathDeclarationDelay:        &minute,
-					VerifyChainID:                ptr(true),
-					NodeNoNewHeadsThreshold:      &minute,
-					NoNewFinalizedHeadsThreshold: &minute,
-					FinalityDepth:                ptr[uint32](0),
-					FinalityTagEnabled:           ptr(true),
-					FinalizedBlockOffset:         ptr[uint32](0),
+					NewHeadsPollInterval:                &second,
+					FinalizedBlockPollInterval:          &second,
+					EnforceRepeatableRead:               ptr(true),
+					DeathDeclarationDelay:               &minute,
+					VerifyChainID:                       ptr(true),
+					NodeNoNewHeadsThreshold:             &minute,
+					NoNewFinalizedHeadsThreshold:        &minute,
+					FinalityDepth:                       ptr[uint32](0),
+					FinalityTagEnabled:                  ptr(true),
+					FinalizedBlockOffset:                ptr[uint32](0),
+					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
 				},
 			},
 			Nodes: []*solcfg.Node{
@@ -1339,6 +1345,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -1362,6 +1370,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = ''
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -1454,6 +1463,7 @@ NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 0
+FinalizedStateCheckFailureThreshold = 0
 
 [[Solana.Nodes]]
 Name = 'primary'

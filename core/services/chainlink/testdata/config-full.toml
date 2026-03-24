@@ -556,6 +556,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -579,6 +581,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = ''
 
 [EVM.OCR]
 ContractConfirmations = 11
@@ -671,6 +674,7 @@ NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 0
+FinalizedStateCheckFailureThreshold = 0
 
 [[Solana.Nodes]]
 Name = 'primary'

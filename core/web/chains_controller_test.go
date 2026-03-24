@@ -305,6 +305,7 @@ NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 50
+FinalizedStateCheckFailureThreshold = 0
 `,
 				}
 			},
