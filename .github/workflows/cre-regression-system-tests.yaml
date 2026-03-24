@@ -165,7 +165,7 @@ jobs:
 
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@fccd02303df8c265a1943e07cb7780b7cb806673
+        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@062674df308456d6a6283743e7ddab89f02dc994
         with:
           chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
           chainlink_image_tag: ${{ inputs.chainlink_image_tag }}
@@ -180,7 +180,7 @@ jobs:
         id: start-local-cre
         env:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved-image }}"
+          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
