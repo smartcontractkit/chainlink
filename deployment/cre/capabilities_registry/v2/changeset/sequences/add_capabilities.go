@@ -93,7 +93,69 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		// Build capabilities list once (registry-level; same for all DONs).
 		capabilities, err := buildCapabilitiesFromConfigs(input.CapabilityConfigs)
 		if err != nil {
+<<<<<<< Updated upstream
 			return AddCapabilitiesOutput{}, err
+=======
+			return AddCapabilitiesOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", input.DonName, err)
+		}
+
+		p2pIDs := make([]p2pkey.PeerID, 0)
+		for _, node := range nodes {
+			p2pIDs = append(p2pIDs, node.P2pId)
+		}
+
+		for i := range input.CapabilityConfigs {
+			sel, isAptos, parseErr := ParseAptosChainSelectorFromCapabilityID(input.CapabilityConfigs[i].Capability.CapabilityID)
+			if parseErr != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, parseErr)
+			}
+			if !isAptos {
+				continue
+			}
+			if deps.Env.Offchain == nil {
+				return AddCapabilitiesOutput{}, errors.New("AddCapabilities: Aptos capabilities require Env.Offchain (Job Distributor client)")
+			}
+			if input.CapabilityConfigs[i].Config == nil {
+				input.CapabilityConfigs[i].Config = make(map[string]any)
+			}
+			p2pMap, mapErr := BuildAptosP2PToTransmitterMap(deps.Env.Offchain, p2pIDs, sel)
+			if mapErr != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mapErr)
+			}
+			if mergeErr := MergeAptosP2PToTransmitterIntoConfig(input.CapabilityConfigs[i].Config, p2pMap); mergeErr != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("capability %q: %w", input.CapabilityConfigs[i].Capability.CapabilityID, mergeErr)
+			}
+		}
+
+		nodeUpdates := make(map[string]contracts.NodeConfig, len(p2pIDs))
+		capabilities := make([]contracts.RegisterableCapability, len(input.CapabilityConfigs))
+		for i, cfg := range input.CapabilityConfigs {
+			metadataBytes, err := json.Marshal(cfg.Capability.Metadata)
+			if err != nil {
+				return AddCapabilitiesOutput{}, fmt.Errorf("failed to marshal capability metadata for capability %s: %w", cfg.Capability.CapabilityID, err)
+			}
+			capability := capabilities_registry_v2.CapabilitiesRegistryCapability{
+				CapabilityId:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+				Metadata:              metadataBytes,
+			}
+			capabilities[i] = contracts.RegisterableCapability{
+				Metadata:              cfg.Capability.Metadata,
+				CapabilityID:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+			}
+			for _, p2pID := range p2pIDs {
+				p2pIDStr := p2pID.String()
+				nodeUpdate, exists := nodeUpdates[p2pIDStr]
+				if !exists {
+					nodeUpdate = contracts.NodeConfig{
+						Capabilities: make([]capabilities_registry_v2.CapabilitiesRegistryCapability, 0, len(input.CapabilityConfigs)),
+					}
+				}
+				nodeUpdate.Capabilities = append(nodeUpdates[p2pIDStr].Capabilities, capability)
+				nodeUpdates[p2pIDStr] = nodeUpdate
+			}
+>>>>>>> Stashed changes
 		}
 
 		// Create the appropriate strategy
