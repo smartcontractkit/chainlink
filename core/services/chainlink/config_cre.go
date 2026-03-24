@@ -105,6 +105,35 @@ func (c *creConfig) Linking() config.CRELinking {
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
 }
 
+type confidentialRelayConfig struct {
+	enabled     bool
+	trustedPCRs string
+	caRootsPEM  string
+}
+
+func (cr *confidentialRelayConfig) Enabled() bool       { return cr.enabled }
+func (cr *confidentialRelayConfig) TrustedPCRs() string { return cr.trustedPCRs }
+func (cr *confidentialRelayConfig) CARootsPEM() string  { return cr.caRootsPEM }
+
+func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
+	if c.c.ConfidentialRelay == nil {
+		return &confidentialRelayConfig{}
+	}
+	enabled := false
+	if c.c.ConfidentialRelay.Enabled != nil {
+		enabled = *c.c.ConfidentialRelay.Enabled
+	}
+	trustedPCRs := ""
+	if c.c.ConfidentialRelay.TrustedPCRs != nil {
+		trustedPCRs = *c.c.ConfidentialRelay.TrustedPCRs
+	}
+	caRootsPEM := ""
+	if c.c.ConfidentialRelay.CARootsPEM != nil {
+		caRootsPEM = *c.c.ConfidentialRelay.CARootsPEM
+	}
+	return &confidentialRelayConfig{enabled: enabled, trustedPCRs: trustedPCRs, caRootsPEM: caRootsPEM}
+}
+
 func (c *creConfig) LocalSecrets() map[string]string {
 	return c.s.LocalSecrets
 }
