@@ -16,6 +16,12 @@ on:
         description: "The ref to checkout, defaults to the calling branch"
         required: false
         type: string
+  workflow_call:
+    inputs:
+      cl_ref:
+        description: "The ref to checkout, defaults to the calling branch"
+        required: false
+        type: string
 
 # Only run 1 of this workflow at a time per PR
 concurrency:
@@ -84,7 +90,7 @@ jobs:
       id-token: write
       contents: read
     needs: changes
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: (github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')) || github.event_name == 'workflow_call'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: Run CCIP Integration Tests For PR

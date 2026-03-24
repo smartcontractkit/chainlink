@@ -220,23 +220,8 @@ jobs:
       chainlink_full_image: ${{ format('public.ecr.aws/chainlink/chainlink:{0}', needs.docker-core.outputs.docker-manifest-tag) }}
     secrets: inherit
 
-  run-cre-smoke-system-tests:
-    name: Run CRE Smoke System Tests
-    needs: [docker-core]
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    uses: ./.github/workflows/cre-system-tests.yaml
-    with:
-      chainlink_version: ${{ github.sha }}
-      chainlink_full_image: ${{ format('public.ecr.aws/chainlink/chainlink:{0}', needs.docker-core.outputs.docker-manifest-tag) }}
-    secrets: inherit
-
-  run-system-tests-nightly:
-    name: Run Nightly System Tests
+  run-legacy-system:
+    name: Run Legacy System Tests
     needs: [docker-core]
     permissions:
       id-token: write
@@ -246,6 +231,20 @@ jobs:
     with:
       chainlink_version: ${{ github.sha }}
       chainlink_full_image: ${{ format('public.ecr.aws/chainlink/chainlink:{0}', needs.docker-core.outputs.docker-manifest-tag) }}
+    secrets: inherit
+
+  run-ccip16-e2e-tests:
+    name: Run CCIP v1.6 E2E Tests
+    needs: [docker-ccip]
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/integration-in-memory-tests.yml
+    with:
+      cl_ref: ${{ github.sha }}
     secrets: inherit
 
   # Notify Slack channel for new git tags associated with pre-releases.
