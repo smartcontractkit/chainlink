@@ -574,10 +574,11 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"mcms":         state.SuiChains[sourceChain].MCMSPackageID,
 		"mcms_owner":   "0x1",
 
-		"latest_ccip_pkg":      state.SuiChains[sourceChain].CCIPMockV2PackageId,
-		"original_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
-		"upgrade_cap":          state.SuiChains[sourceChain].OffRampUpgradeCapId,
-		"signer":               signerAddr,
+		"latest_ccip_pkg":           state.SuiChains[sourceChain].CCIPMockV2PackageId,
+		"original_ccip_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
+		"original_offramp_pkg":      state.SuiChains[sourceChain].OffRampAddress,
+		"upgrade_cap":               state.SuiChains[sourceChain].OffRampUpgradeCapId,
+		"signer":                    signerAddr,
 	}, true, suiChain.URL)
 	require.NoError(t, err)
 
