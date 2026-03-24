@@ -116,7 +116,7 @@ func TestDigestReplayGuard_ConcurrentAccess(t *testing.T) {
 		if err == nil {
 			successCount++
 		} else {
-			assert.ErrorIs(t, err, ErrDigestAlreadySeen)
+			require.ErrorIs(t, err, ErrDigestAlreadySeen)
 			duplicateCount++
 		}
 	}
@@ -146,6 +146,32 @@ func TestDigestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
 	for i, err := range errors {
 		assert.NoError(t, err, "goroutine %d should succeed for unique digest", i)
 	}
+}
+
+func TestDigestReplayGuard_ClearExpiredIndependently(t *testing.T) {
+	guard := NewDigestReplayGuard()
+	now := time.Now()
+	guard.nowFunc = func() time.Time { return now }
+
+	shortExpiry := now.UTC().Unix() + 5
+	longExpiry := now.UTC().Unix() + 200
+
+	require.NoError(t, guard.CheckAndRecord("ephemeral", shortExpiry))
+	require.NoError(t, guard.CheckAndRecord("durable", longExpiry))
+
+	// Advance past the short expiry
+	guard.nowFunc = func() time.Time { return now.Add(30 * time.Second) }
+
+	// ClearExpired should prune without needing a CheckAndRecord call
+	guard.ClearExpired()
+
+	guard.mu.Lock()
+	_, ephemeralPresent := guard.seen["ephemeral"]
+	_, durablePresent := guard.seen["durable"]
+	guard.mu.Unlock()
+
+	assert.False(t, ephemeralPresent, "expired entry should have been pruned")
+	assert.True(t, durablePresent, "non-expired entry should remain")
 }
 
 func TestDigestReplayGuard_EmptyDigest(t *testing.T) {

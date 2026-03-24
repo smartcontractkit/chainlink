@@ -45,6 +45,14 @@ func (g *DigestReplayGuard) CheckAndRecord(digest string, expiresAtUnix int64) e
 	return nil
 }
 
+// ClearExpired removes all entries whose expiry timestamp is in the past.
+// Call this to eagerly reclaim memory even when CheckAndRecord is not invoked.
+func (g *DigestReplayGuard) ClearExpired() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.clearExpiredLocked()
+}
+
 func (g *DigestReplayGuard) clearExpiredLocked() {
 	now := g.nowFunc().UTC().Unix()
 	for digest, expiry := range g.seen {
