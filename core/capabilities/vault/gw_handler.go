@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
@@ -62,25 +63,27 @@ type GatewayHandler struct {
 	services.Service
 	eng *services.Engine
 
-	capRegistry      core.CapabilitiesRegistry
-	secretsService   vaulttypes.SecretsService
-	gatewayConnector gatewayConnector
-	lggr             logger.Logger
-	metrics          *metrics
+	capRegistry       core.CapabilitiesRegistry
+	secretsService    vaulttypes.SecretsService
+	gatewayConnector  gatewayConnector
+	requestAuthorizer RequestAuthorizer
+	lggr              logger.Logger
+	metrics           *metrics
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, connector gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
+func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, connector gatewayConnector, requestAuthorizer RequestAuthorizer, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
 	gh := &GatewayHandler{
-		capRegistry:      capabilitiesRegistry,
-		secretsService:   secretsService,
-		gatewayConnector: connector,
-		lggr:             lggr.Named(HandlerName),
-		metrics:          metrics,
+		capRegistry:       capabilitiesRegistry,
+		secretsService:    secretsService,
+		gatewayConnector:  connector,
+		requestAuthorizer: requestAuthorizer,
+		lggr:              lggr.Named(HandlerName),
+		metrics:           metrics,
 	}
 	gh.Service, gh.eng = services.Config{
 		Name:  "GatewayHandler",
@@ -118,15 +121,35 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
-		response = h.handleSecretsCreate(ctx, gatewayID, req)
+		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		if authErr != nil {
+			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			break
+		}
+		response = h.handleSecretsCreate(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsGet:
 		response = h.handleSecretsGet(ctx, gatewayID, req)
 	case vaulttypes.MethodSecretsUpdate:
-		response = h.handleSecretsUpdate(ctx, gatewayID, req)
+		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		if authErr != nil {
+			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			break
+		}
+		response = h.handleSecretsUpdate(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsDelete:
-		response = h.handleSecretsDelete(ctx, gatewayID, req)
+		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		if authErr != nil {
+			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			break
+		}
+		response = h.handleSecretsDelete(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsList:
-		response = h.handleSecretsList(ctx, gatewayID, req)
+		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		if authErr != nil {
+			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			break
+		}
+		response = h.handleSecretsList(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodPublicKeyGet:
 		response = h.handlePublicKeyGet(ctx, gatewayID, req)
 	default:
@@ -145,13 +168,45 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	return nil
 }
 
-func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) (string, error) {
+	if h.requestAuthorizer == nil {
+		return "", errors.New("request authorizer is nil")
+	}
+
+	originalRequestID := req.ID
+	incomingOwner := ""
+	if idx := strings.Index(req.ID, vaulttypes.RequestIDSeparator); idx != -1 {
+		incomingOwner = req.ID[:idx]
+		originalRequestID = req.ID[idx+len(vaulttypes.RequestIDSeparator):]
+	}
+
+	authReq := *req
+	authReq.ID = originalRequestID
+
+	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, authReq)
+	if !isAuthorized {
+		return "", fmt.Errorf("request not authorized: %w", err)
+	}
+	if incomingOwner != "" && normalizeOwner(incomingOwner) != normalizeOwner(owner) {
+		return "", fmt.Errorf("request owner prefix %q does not match authorized owner %q", incomingOwner, owner)
+	}
+
+	req.ID = owner + vaulttypes.RequestIDSeparator + originalRequestID
+	return owner, nil
+}
+
+func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
 	vaultCapRequest := vaultcommon.CreateSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
 	vaultCapRequest.RequestId = req.ID
+	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
+		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, owner, idx))
+		}
+	}
 
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
@@ -165,10 +220,16 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	return jsonResponse
 }
 
-func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
 	vaultCapRequest := vaultcommon.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+	vaultCapRequest.RequestId = req.ID
+	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
+		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, owner, idx))
+		}
 	}
 
 	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, &vaultCapRequest)
@@ -228,10 +289,16 @@ func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string,
 	}
 }
 
-func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.DeleteSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
+	}
+	r.RequestId = req.ID
+	for idx, secretID := range r.Ids {
+		if secretID != nil && normalizeOwner(secretID.Owner) != normalizeOwner(owner) {
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", secretID.Owner, owner, idx))
+		}
 	}
 
 	resp, err := h.secretsService.DeleteSecrets(ctx, r)
@@ -252,11 +319,13 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
-func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+	r.RequestId = req.ID
+	r.Owner = owner
 
 	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
 	if err != nil {
