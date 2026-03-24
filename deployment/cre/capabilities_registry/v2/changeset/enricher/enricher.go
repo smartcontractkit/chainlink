@@ -1,18 +1,73 @@
-package sequences
+package enricher
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+
+	"encoding/json"
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 )
+
+// DonCapabilityEnrichContext carries shared inputs for per-DON capability config enrichment.
+// Extend with new fields when additional enrichers need them; enrichers ignore unused fields.
+type CapabilityConfigEnrichContext struct {
+	Env     *cldf.Environment
+	DonName string
+	P2PIDs  []p2pkey.PeerID
+	// Configs is a per-DON clone of the caller's capability configs; enrichers mutate in place.
+	Configs []contracts.CapabilityConfig
+}
+
+// DonCapabilityEnricher applies chain- or capability-specific changes to Config (e.g. specConfig).
+type CapabilityConfigEnricher interface {
+	Enrich(ctx CapabilityConfigEnrichContext) error
+}
+
+func DefaultCapabilityConfigEnrichers() []CapabilityConfigEnricher {
+	return []CapabilityConfigEnricher{
+		aptosDonEnricher{},
+	}
+}
+
+// aptos
+
+type aptosDonEnricher struct{}
+
+func (aptosDonEnricher) Enrich(ctx CapabilityConfigEnrichContext) error {
+	for i := range ctx.Configs {
+		sel, isAptos, parseErr := parseAptosChainSelectorFromCapabilityID(ctx.Configs[i].Capability.CapabilityID)
+		if parseErr != nil {
+			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, parseErr)
+		}
+		if !isAptos {
+			continue
+		}
+		if ctx.Env == nil || ctx.Env.Offchain == nil {
+			return errors.New("AddCapabilities: Aptos capabilities require Env.Offchain (Job Distributor client)")
+		}
+		if ctx.Configs[i].Config == nil {
+			ctx.Configs[i].Config = make(map[string]any)
+		}
+		p2pMap, mapErr := buildAptosP2PToTransmitterMap(ctx.Env.Offchain, ctx.P2PIDs, sel)
+		if mapErr != nil {
+			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, mapErr)
+		}
+		if mergeErr := mergeAptosP2PToTransmitterIntoConfig(ctx.Configs[i].Config, p2pMap); mergeErr != nil {
+			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, mergeErr)
+		}
+	}
+	return nil
+}
 
 // aptosCapabilityIDPrefix is the capability id form used for Aptos chain capabilities
 // (label before optional "@<version>"), e.g. aptos:ChainSelector:12345@1.0.0.
@@ -25,7 +80,7 @@ const aptosCapabilityIDPrefix = "aptos:ChainSelector:"
 // Returns isAptos false and no error when the id does not start with aptosCapabilityIDPrefix
 // (after stripping "@…"). Returns isAptos true and an error if the prefix is present but the
 // selector is empty or not a base-10 uint64.
-func ParseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint64, isAptos bool, err error) {
+func parseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint64, isAptos bool, err error) {
 	capID := capabilityID
 	if i := strings.LastIndex(capabilityID, "@"); i >= 0 {
 		capID = capabilityID[:i]
@@ -51,7 +106,7 @@ func ParseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint
 //
 // It walks only the nodes returned by NodeInfo. Each must have OCR config for
 // aptosChainSelector and a non-empty transmit account after trim, or this returns an error.
-func BuildAptosP2PToTransmitterMap(
+func buildAptosP2PToTransmitterMap(
 	offChainClient deployment.NodeChainConfigsLister,
 	donPeerIDs []p2pkey.PeerID,
 	aptosChainSelector uint64,
@@ -91,7 +146,7 @@ func BuildAptosP2PToTransmitterMap(
 // NOTE: we can make this smarter later if needed. Add overwriting / merging logic etc.
 //
 // specConfig is protobuf values.v1.Map JSON; we build it with values.Wrap so pkg.MarshalProto succeeds.
-func MergeAptosP2PToTransmitterIntoConfig(cfg map[string]any, p2pMap map[string]string) error {
+func mergeAptosP2PToTransmitterIntoConfig(cfg map[string]any, p2pMap map[string]string) error {
 	if cfg == nil {
 		return errors.New("nil capability config map")
 	}
