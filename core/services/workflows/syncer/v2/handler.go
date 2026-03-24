@@ -792,21 +792,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
-}
-
-// startAndRegisterEngine starts a workflow engine, waits for initialization to
-// complete, and registers it in the engine registry. Used by both the normal
-// and confidential engine creation paths.
-func (h *eventHandler) startAndRegisterEngine(
-	ctx context.Context,
-	engine services.Service,
-	initDone <-chan error,
-	wid types.WorkflowID,
-	workflowID string,
-	source string,
-) error {
-	if err := engine.Start(ctx); err != nil {
+	if err = engine.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
@@ -816,7 +802,7 @@ func (h *eventHandler) startAndRegisterEngine(
 	case <-ctx.Done():
 		// Context cancelled while waiting for initialization
 		if closeErr := engine.Close(); closeErr != nil {
-			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", workflowID)
+			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", spec.WorkflowID)
 		}
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
@@ -827,7 +813,7 @@ func (h *eventHandler) startAndRegisterEngine(
 			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
 			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
-				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", workflowID)
+				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
 			}
 			return fmt.Errorf("engine initialization failed: %w", initErr)
 		}
