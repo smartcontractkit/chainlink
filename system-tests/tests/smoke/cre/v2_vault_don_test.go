@@ -14,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -47,9 +46,6 @@ import (
 )
 
 func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
-	/*
-		BUILD ENVIRONMENT FROM SAVED STATE
-	*/
 	var testLogger = framework.L
 
 	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
@@ -76,71 +72,78 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	require.NoError(t, err, "failed to parse gateway URL")
 	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 
-	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
-	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-	ownerAddr := sethClient.MustGetRootKeyAddress().Hex()
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, "consensustest")
-	t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &t_helpers.None{}, "../../../../core/scripts/cre/environment/examples/workflows/v2/node-mode/main.go")
-	wfRegistryContract, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(workflowRegistryAddress), sethClient.Client)
-	require.NoError(t, err, "failed to get workflow registry contract wrapper")
-
-	secretID := strconv.Itoa(rand.Intn(10000)) // generate a random secret ID for testing
-	secretValue := "Secret Value to be stored"
 	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	encryptedSecret, err := crevault.EncryptSecret(secretValue, vaultPublicKey, sethClient.MustGetRootKeyAddress())
-	require.NoError(t, err, "failed to encrypt secret")
-
 	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
 
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
-	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
-	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+	gwURL := gatewayURL.String()
+
+	t.Run("basic_crud", func(t *testing.T) {
+		if parallelEnabled && fanoutEnabled {
+			t.Parallel()
+		}
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		secretID := strconv.Itoa(rand.Intn(10000))
+		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() { sink.Shutdown(t.Context()); close(ulCh); close(bmCh) })
+
+		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget1", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget2", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsListTest(t, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "bdel1", secretID, "main", ulCh, bmCh)
 	})
 
-	// Wait for the node to be up.
-	framework.L.Info().Msg("Waiting 30 seconds for the Vault DON to be ready...")
-	time.Sleep(30 * time.Second)
+	t.Run("cross_namespace", func(t *testing.T) {
+		if parallelEnabled && fanoutEnabled {
+			t.Parallel()
+		}
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		secretID := strconv.Itoa(rand.Intn(10000))
+		enc, err := crevault.EncryptSecret("secret-xns", vaultPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() { sink.Shutdown(t.Context()); close(ulCh); close(bmCh) })
 
-	altNamespace := "alt"
+		altNS := "alt"
 
-	// Create secrets with the same ID in two different namespaces
-	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), "main", sethClient, wfRegistryContract)
-	executeVaultSecretsCreateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), altNamespace, sethClient, wfRegistryContract)
+		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, altNS, sc, wfReg)
 
-	// Get both via workflow to verify they exist independently
-	executeVaultSecretsGetViaWorkflowTest(t, testEnv, "vaultget1", secretID, "main", userLogsCh, baseMessageCh)
-	executeVaultSecretsGetViaWorkflowTest(t, testEnv, "vgetalt1", secretID, altNamespace, userLogsCh, baseMessageCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xget1", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta1", secretID, altNS, ulCh, bmCh)
 
-	// Update only the "main" namespace secret
-	executeVaultSecretsUpdateTest(t, encryptedSecret, secretID, ownerAddr, gatewayURL.String(), "main", sethClient, wfRegistryContract)
+		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xget2", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta2", secretID, altNS, ulCh, bmCh)
 
-	// Verify "main" is still accessible after update
-	executeVaultSecretsGetViaWorkflowTest(t, testEnv, "vaultget2", secretID, "main", userLogsCh, baseMessageCh)
-	// Verify "alt" is still accessible (update on "main" should not affect "alt")
-	executeVaultSecretsGetViaWorkflowTest(t, testEnv, "vgetalt2", secretID, altNamespace, userLogsCh, baseMessageCh)
+		executeVaultSecretsListTest(t, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsListTest(t, secretID, owner, gwURL, altNS, sc, wfReg)
 
-	// List both namespaces - each should contain the secret
-	executeVaultSecretsListTest(t, secretID, ownerAddr, gatewayURL.String(), "main", sethClient, wfRegistryContract)
-	executeVaultSecretsListTest(t, secretID, ownerAddr, gatewayURL.String(), altNamespace, sethClient, wfRegistryContract)
+		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "xdel1", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta3", secretID, altNS, ulCh, bmCh)
 
-	// Delete only the "main" namespace secret
-	executeVaultSecretsDeleteTest(t, secretID, ownerAddr, gatewayURL.String(), "main", sethClient, wfRegistryContract)
-
-	// Verify "main" is gone
-	executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "vdelmain", secretID, "main", userLogsCh, baseMessageCh)
-	// Verify "alt" is still accessible after deleting "main"
-	executeVaultSecretsGetViaWorkflowTest(t, testEnv, "vgetalt3", secretID, altNamespace, userLogsCh, baseMessageCh)
-
-	// Delete the "alt" namespace secret
-	executeVaultSecretsDeleteTest(t, secretID, ownerAddr, gatewayURL.String(), altNamespace, sethClient, wfRegistryContract)
-
-	// Verify "alt" is also gone
-	executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "vdelalt", secretID, altNamespace, userLogsCh, baseMessageCh)
+		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, altNS, sc, wfReg)
+		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "xdela1", secretID, altNS, ulCh, bmCh)
+	})
 }
 
 func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -515,13 +518,15 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0])
 	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 
-	deployerKey, err := crypto.HexToECDSA(ctfblockchain.DefaultAnvilPrivateKey)
-	require.NoError(t, err, "failed to parse deployer private key")
-	deployerOpts, err := bind.NewKeyedTransactorWithChainID(deployerKey, big.NewInt(sethClient.ChainID))
-	require.NoError(t, err, "failed to create deployer transact opts")
+	deployerClient, err := seth.NewClientBuilder().
+		WithRpcUrl(sethClient.URL).
+		WithPrivateKeys([]string{ctfblockchain.DefaultAnvilPrivateKey}).
+		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
+		Build()
+	require.NoError(t, err, "failed to create deployer seth client")
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		common.HexToAddress(capRegAddr), sethClient.Client,
+		common.HexToAddress(capRegAddr), deployerClient.Client,
 	)
 	require.NoError(t, err, "failed to create capabilities registry wrapper")
 
@@ -578,16 +583,11 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 		Config:                   don.Config,
 	}
 
-	tx, err := capReg.UpdateDONByName(deployerOpts, don.Name, updateParams)
-	require.NoError(t, err, "failed to submit UpdateDONByName tx")
-
-	receipt, err := sethClient.WaitMined(t.Context(), testLogger, sethClient.Client, tx)
-	require.NoError(t, err, "UpdateDONByName tx was not mined")
-	require.Equal(t, uint64(1), receipt.Status, "UpdateDONByName tx reverted on-chain")
-	testLogger.Info().Msgf("Registry update tx mined in block %d: %s", receipt.BlockNumber.Uint64(), tx.Hash().Hex())
+	_, err = deployerClient.Decode(capReg.UpdateDONByName(deployerClient.NewTXOpts(), don.Name, updateParams))
+	require.NoError(t, err, "UpdateDONByName tx failed")
 
 	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -600,7 +600,7 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
-	time.Sleep(10 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
+	time.Sleep(6 * time.Second) // allowlist syncer polls every 5s; one tick + margin
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
