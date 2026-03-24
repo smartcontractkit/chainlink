@@ -481,10 +481,10 @@ jobs:
                 {
                   "name": "evm-implementation-compatibility-test-68",
                   "os": "ubuntu-latest",
-                  "product": "vrfv2",
+                  "product": "vrf",
                   "eth_implementation": "erigon",
                   "docker_image": "thorax/erigon:v2.59.2",
-                  "run": "-run '^TestVRFv2Basic/Request_Randomness$' ./smoke/vrfv2_test.go"
+                  "run": "-run '^TestVRFBasic/Request_Randomness$' ./smoke/vrf_test.go"
                 }
               ]
           EOF
@@ -507,7 +507,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with geth"
           fi
@@ -515,8 +514,7 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            # VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
           else
             echo "Will not test compatibility with besu"
           fi
@@ -524,7 +522,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with erigon"
           fi
@@ -532,8 +529,7 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            # VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
           else
             echo "Will not test compatibility with nethermind"
           fi
@@ -541,7 +537,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
             echo "Will test compatibility with reth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with reth"
           fi
@@ -770,7 +765,6 @@ jobs:
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
@@ -812,7 +806,6 @@ jobs:
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
-          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
@@ -849,7 +842,6 @@ jobs:
           - keeper
           - log_poller
           - vrf
-          - vrfv2
           - vrfv2plus
     steps:
       - name: Checkout the repo
