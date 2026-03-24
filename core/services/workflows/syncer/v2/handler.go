@@ -890,14 +890,17 @@ func (h *eventHandler) newV2EngineConfig(
 }
 
 // wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
-// It composes with any existing hook to avoid overwriting test hooks.
+// This will be called when the engine completes initialization (including trigger subscriptions).
+// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
 	if initDone == nil {
 		return
 	}
 	existingHook := cfg.Hooks.OnInitialized
 	cfg.Hooks.OnInitialized = func(err error) {
+		// Signal completion to the handler first
 		initDone <- err
+		// Then call any existing hook (e.g., from tests)
 		if existingHook != nil {
 			existingHook(err)
 		}
