@@ -96,47 +96,71 @@ jobs:
       name: integration
       deployment: false
     outputs:
-      general-changes: ${{ steps.changes.outputs.general_changes }}
-      core-changes: ${{ steps.changes.outputs.core_changes }}
-      cre-changes: ${{ steps.changes.outputs.cre_changes }}
-      ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
+      cre-e2e: ${{ steps.advanced-triggers.outputs.cre-e2e }}
+      core-e2e: ${{ steps.advanced-triggers.outputs.core-e2e }}
+      ccip-e2e: ${{ steps.advanced-triggers.outputs.ccip-e2e }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
 
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
-        id: changes
+      - name: Advanced Triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        id: advanced-triggers
         with:
-          filters: |
-            general_changes:
-              - '.github/workflows/integration-tests.yml'
-              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
-              - '.github/workflows/cre-system-tests.yaml'
-              - '.github/e2e-tests.yml'
-              - 'GNUmakefile'
-              - 'core/chainlink.Dockerfile'
-              - 'plugins/chainlink.Dockerfile'
-            core_changes: &core_changes
-              - '**/*.go'
-              - '**/*go.sum'
-              - '**/*go.mod'
-              - '**/*Dockerfile'
-              - 'core/**/migrations/*.sql'
-              - 'core/**/config/**/*.toml'
-              - 'integration-tests/**/*.toml'
-            cre_changes:
-              - *core_changes
-              - 'core/scripts/cre/environment/**/*'
-              - 'system-tests/**'
-              - 'plugins/plugins.private.yaml'
-              - 'plugins/plugins.public.yaml'
-            ccip_changes:
-              - '**/*ccip*'
-              - '**/*ccip*/**'
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "GNUmakefile"
+              - "core/**/*.go"
+              - "core/**/migrations/*.sql"
+              - "core/**/config/**/*.toml"
+            workflow-files:
+              - ".github/workflows/integration-tests.yml"
+              - ".github/actions/**/*.y*ml"
+            docker-files:
+              - "**/*Dockerfile"
+              - "plugins/plugins.public.yaml"
+              - "plugins/plugins.private.yaml"
+            legacy-integ-test-files:
+              - "integration-tests/**"
+              - ".github/e2e-tests.yml"
+            system-test-files:
+              - "system-tests/**"
+              - "core/scripts/cre/**"
+              - ".github/workflows/cre-system-tests.yaml"
+              - ".github/workflows/cre-regression-system-tests.yaml"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            deployment-test-files:
+              - "deployment/**/*_test.go"
+              - "deployment/**/testdata/**"
+          triggers: |
+              cre-e2e:
+                exclusion-sets: [ core-test-files, deployment-test-files, legacy-integ-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, system-test-files ]
+                paths:
+                  - "!deployment/**"
+              core-e2e: # also triggers solana tests
+                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+                paths:
+                  - "!deployment/**"
+              ccip-e2e:
+                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+                paths:
+                  - "!deployment/**"
+                  - "**/*ccip*"
+                  - "**/*ccip*/**"
 
   labels:
     name: Get PR labels and set runner labels
@@ -312,7 +336,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.cre-e2e }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found }}
         run: |
           SHOULD_RUN="false"
@@ -420,7 +444,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.core-e2e }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
@@ -519,7 +543,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.ccip-e2e }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
@@ -740,7 +764,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.core-e2e }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
           INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
         run: |
