@@ -654,60 +654,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := &v2.EngineConfig{
-		Lggr:                  h.lggr,
-		Module:                module,
-		WorkflowConfig:        config,
-		CapRegistry:           h.capRegistry,
-		DonSubscriber:         h.workflowDonSubscriber,
-		UseLocalTimeProvider:  h.useLocalTimeProvider,
-		DonTimeStore:          h.donTimeStore,
-		ExecutionsStore:       h.workflowStore,
-		WorkflowID:            workflowID,
-		WorkflowOwner:         owner,
-		WorkflowName:          name,
-		WorkflowTag:           tag,
-		WorkflowEncryptionKey: h.workflowEncryptionKey,
+	cfg := h.newV2EngineConfig(module, workflowID, owner, name, tag, config)
+	cfg.DebugMode = h.debugMode
+	cfg.SdkName = sdkName
 
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
-
-		BeholderEmitter: func() custmsg.MessageEmitter {
-			h.emitterMu.RLock()
-			defer h.emitterMu.RUnlock()
-			return h.emitter
-		}(),
-		BillingClient: h.billingClient,
-
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		DebugMode:                     h.debugMode,
-		SecretsFetcher:                h.secretsFetcher,
-		SdkName:                       sdkName,
-
-		ShardOrchestratorClient: h.shardOrchestratorClient,
-		ShardingEnabled:         h.shardingEnabled,
-		MyShardID:               h.myShardID,
-		ShardRoutingSteady:      h.shardRoutingSteady,
-	}
-
-	// Wire the initDone channel to the OnInitialized lifecycle hook.
-	// This will be called when the engine completes initialization (including trigger subscriptions).
-	// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
-	if initDone != nil {
-		existingHook := cfg.Hooks.OnInitialized
-		cfg.Hooks.OnInitialized = func(err error) {
-			// Signal completion to the handler first
-			initDone <- err
-			// Then call any existing hook (e.g., from tests)
-			if existingHook != nil {
-				existingHook(err)
-			}
-		}
-	}
+	h.wireInitDoneHook(cfg, initDone)
 
 	return v2.NewEngine(cfg)
 }
@@ -873,13 +824,18 @@ func (h *eventHandler) startAndRegisterEngine(
 	// This ensures we don't emit workflowActivated events before the engine initializes successfully.
 	select {
 	case <-ctx.Done():
+		// Context cancelled while waiting for initialization
 		if closeErr := engine.Close(); closeErr != nil {
 			h.lggr.Errorw("failed to close engine after context cancellation", "error", closeErr, "workflowID", workflowID)
 		}
 		return fmt.Errorf("context cancelled while waiting for engine initialization: %w", ctx.Err())
 	case initErr := <-initDone:
 		if initErr != nil {
+			// Engine initialization failed (e.g., trigger subscription failed)
 			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
+			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
+			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
+			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
 				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", workflowID)
 			}
@@ -887,11 +843,13 @@ func (h *eventHandler) startAndRegisterEngine(
 		}
 	}
 
+	// Engine is fully initialized, add to registry with source tracking
 	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}
 
+		// Check for WorkflowID collision across sources
 		if errors.Is(err, ErrAlreadyExists) {
 			existingEntry, found := h.engineRegistry.Get(wid)
 			if found {
@@ -903,9 +861,71 @@ func (h *eventHandler) startAndRegisterEngine(
 			}
 		}
 
+		// This shouldn't happen because we call the handler serially and
+		// check for running engines above, see the call to engineRegistry.Contains.
 		return fmt.Errorf("invariant violation: %w", err)
 	}
 	return nil
+}
+
+// newV2EngineConfig builds the common EngineConfig shared by both the normal
+// WASM engine and the confidential engine paths. Caller supplies the module.
+func (h *eventHandler) newV2EngineConfig(
+	module host.ModuleV2,
+	workflowID string, owner string, name types.WorkflowName, tag string, config []byte,
+) *v2.EngineConfig {
+	h.emitterMu.RLock()
+	emitter := h.emitter
+	h.emitterMu.RUnlock()
+
+	return &v2.EngineConfig{
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        config,
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowTag:           tag,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
+
+		LocalLimits:                       v2.EngineLimits{},
+		LocalLimiters:                     h.engineLimiters,
+		FeatureFlags:                      h.featureFlags,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+
+		BeholderEmitter: emitter,
+		BillingClient:   h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
+	}
+}
+
+// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
+// It composes with any existing hook to avoid overwriting test hooks.
+func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
+	if initDone == nil {
+		return
+	}
+	existingHook := cfg.Hooks.OnInitialized
+	cfg.Hooks.OnInitialized = func(err error) {
+		initDone <- err
+		if existingHook != nil {
+			existingHook(err)
+		}
+	}
 }
 
 // tryConfidentialEngineCreate creates a V2 engine backed by a ConfidentialModule
@@ -941,44 +961,10 @@ func (h *eventHandler) tryConfidentialEngineCreate(
 		lggr,
 	)
 
+	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, []byte(spec.Config))
+
 	initDone := make(chan error, 1)
-
-	cfg := &v2.EngineConfig{
-		Lggr:                  h.lggr,
-		Module:                module,
-		WorkflowConfig:        []byte(spec.Config),
-		CapRegistry:           h.capRegistry,
-		DonSubscriber:         h.workflowDonSubscriber,
-		UseLocalTimeProvider:  h.useLocalTimeProvider,
-		DonTimeStore:          h.donTimeStore,
-		ExecutionsStore:       h.workflowStore,
-		WorkflowID:            spec.WorkflowID,
-		WorkflowOwner:         spec.WorkflowOwner,
-		WorkflowName:          workflowName,
-		WorkflowTag:           spec.WorkflowTag,
-		WorkflowEncryptionKey: h.workflowEncryptionKey,
-
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     h.engineLimiters,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
-
-		BeholderEmitter: h.emitter,
-		BillingClient:   h.billingClient,
-
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		SecretsFetcher:                h.secretsFetcher,
-		FeatureFlags:                  h.featureFlags,
-	}
-
-	existingHook := cfg.Hooks.OnInitialized
-	cfg.Hooks.OnInitialized = func(err error) {
-		initDone <- err
-		if existingHook != nil {
-			existingHook(err)
-		}
-	}
+	h.wireInitDoneHook(cfg, initDone)
 
 	engine, err := v2.NewEngine(cfg)
 	if err != nil {
