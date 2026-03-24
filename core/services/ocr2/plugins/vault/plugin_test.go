@@ -5394,6 +5394,87 @@ func TestPlugin_ValidateObservation_RejectsIfMoreThan2xBatchSize(t *testing.T) {
 	require.ErrorContains(t, err, "invalid observation: too many pending queue items provided, have 4, want max 2")
 }
 
+// TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation verifies that an observation
+// with exactly 2*batchSize pending queue items (the maximum Observation can produce) is accepted.
+func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	batchSize := 1 // MaxBatchSize=1, so 2*batchSize=2 is the intended max pending queue items
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		onchainCfg: ocr3types.ReportingPluginConfig{
+			N: 4,
+			F: 1,
+		},
+		cfg: makeReportingPluginConfig(
+			t,
+			batchSize,
+			pk,
+			shares[0],
+			1,
+			1024,
+			30,
+			30,
+			30,
+			10,
+		),
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	seqNr := uint64(1)
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+
+	req1 := &vaultcommon.ListSecretIdentifiersRequest{
+		Owner:     "owner",
+		Namespace: "main",
+		RequestId: "request-id",
+	}
+	areq1, err := anypb.New(req1)
+	require.NoError(t, err)
+
+	// Build an observation with exactly 2*batchSize = 2 pending queue items.
+	// This is the maximum that Observation() can produce.
+	numItems := 2 * batchSize
+	pendingQueueItems := make([][]byte, numItems)
+	blobs := make([][]byte, numItems)
+	for i := range numItems {
+		pendingQueueItems[i] = []byte{}
+		blobs[i] = protoMarshal(t, &vaultcommon.StoredPendingQueueItem{
+			Id:   fmt.Sprintf("request-id-%d", i),
+			Item: areq1,
+		})
+	}
+
+	o1 := &vaultcommon.Observations{
+		PendingQueueItems: pendingQueueItems,
+	}
+
+	o1b, err := proto.Marshal(o1)
+	require.NoError(t, err)
+
+	bf := &blobber{
+		blobs: blobs,
+	}
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{
+			Observer: 0, Observation: o1b,
+		},
+		rdr,
+		bf,
+	)
+	require.NoError(t, err)
+}
+
 func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()

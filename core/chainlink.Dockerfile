@@ -81,6 +81,10 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
 
+# Expose image metadata to the running node.
+ARG CL_AUTO_DOCKER_TAG=unset
+ENV CL_DOCKER_TAG=${CL_AUTO_DOCKER_TAG}
+
 # Set plugin environment variable configuration.
 ENV CL_SOLANA_CMD=chainlink-solana
 
