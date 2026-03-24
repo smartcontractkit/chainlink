@@ -20,13 +20,13 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	ctfblockchain "github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -525,9 +525,23 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	)
 	require.NoError(t, err, "failed to create capabilities registry wrapper")
 
-	donName := "workflow-don"
-	don, err := capReg.GetDONByName(&bind.CallOpts{}, donName)
-	require.NoError(t, err, "failed to get DON by name")
+	allDONs, err := capReg.GetDONs(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
+	require.NoError(t, err, "failed to get DONs from registry")
+
+	var don *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	for i := range allDONs {
+		for _, cc := range allDONs[i].CapabilityConfigurations {
+			if cc.CapabilityId == "vault@1.0.0" {
+				don = &allDONs[i]
+				break
+			}
+		}
+		if don != nil {
+			break
+		}
+	}
+	require.NotNil(t, don, "could not find a DON with vault@1.0.0 capability in the registry")
+	testLogger.Info().Msgf("Found vault capability on DON %q (ID=%d)", don.Name, don.Id)
 
 	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(don.CapabilityConfigurations))
 	for _, cc := range don.CapabilityConfigurations {
@@ -539,7 +553,7 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 
 			vaultCfg := map[string]interface{}{
 				"VaultPublicKey": vaultPublicKey,
-				"Threshold":     1,
+				"Threshold":      1,
 			}
 			valueMap, wrapErr := values.WrapMap(vaultCfg)
 			require.NoError(t, wrapErr, "failed to wrap vault config values")
@@ -564,7 +578,7 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 		Config:                   don.Config,
 	}
 
-	tx, err := capReg.UpdateDONByName(deployerOpts, donName, updateParams)
+	tx, err := capReg.UpdateDONByName(deployerOpts, don.Name, updateParams)
 	require.NoError(t, err, "failed to submit UpdateDONByName tx")
 
 	receipt, err := sethClient.WaitMined(t.Context(), testLogger, sethClient.Client, tx)
