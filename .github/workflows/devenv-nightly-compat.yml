@@ -38,33 +38,35 @@ jobs:
   # Data Feeds v1 cluster compatibility and upgrade test
   # this verifies that the cluster can be upgraded from last - N version to last version
   # use it as an example project
-  # df1-compat:
-  #   uses: ./.github/workflows/devenv-compat.yml
-  #   with:
-  #     # bash command to build your environment, omit if you are using 'devenv'
-  #     buildcmd: "just cli"
-  #     # bash command to spin up your environment and product orchestration
-  #     envcmd: "cl u env.toml,products/ocr2/basic.toml"
-  #     # bash command to run the test verifying your product
-  #     testcmd: "cl test ocr2 TestSmoke/rounds"
-  #     # number of CL nodes to upgrade with new version
-  #     upgrade-nodes: "3"
-  #     # cl node Docker cocntainer name template, omit if you are using 'devenv'
-  #     node-name-template: "don-node%d"
-  #     # previous versions to test (sorted by tags, SemVer)
-  #     versions-back: "2"
-  #     # directory with your developer environment to run buildcmd and envcmd
-  #     working-directory: "devenv"
-  #     # directory for executing your tests, to run testcmd
-  #     logs-directory: "./devenv/tests/ocr2/logs"
-  #     # CTF log level
-  #     ctf-log-level: "info"
-  #     # this is needed to remove 'v' from Git tags to match SDLC ECR tags
-  #     strip-image-suffix: "v"
-  #   secrets: inherit
+  df1-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    name: Data Feeds v1 Compatibility and Upgrade Test
+    with:
+      # bash command to build your environment, omit if you are using 'devenv'
+      buildcmd: "just cli"
+      # bash command to spin up your environment and product orchestration
+      envcmd: "cl u env.toml,products/ocr2/basic.toml"
+      # bash command to run the test verifying your product
+      testcmd: "cl test ocr2 TestSmoke/rounds"
+      # number of CL nodes to upgrade with new version
+      upgrade-nodes: "3"
+      # cl node Docker container name template, omit if you are using 'devenv'
+      node-name-template: "don-node%d"
+      # previous versions to test (sorted by tags, SemVer)
+      versions-back: "2"
+      # directory with your developer environment to run buildcmd and envcmd
+      working-directory: "devenv"
+      # directory for executing your tests, to run testcmd
+      logs-directory: "./devenv/tests/ocr2/logs"
+      # CTF log level
+      ctf-log-level: "info"
+      # this is needed to remove 'v' from Git tags to match SDLC ECR tags
+      strip-image-suffix: "v"
+    secrets: inherit
 
   cre-compat:
     uses: ./.github/workflows/devenv-compat.yml
+    name: CRE Compatibility and Upgrade Test
     with:
       # bash command to build your environment, omit if you are using 'devenv'
       buildcmd: "echo nothing-to-build"
@@ -74,7 +76,7 @@ jobs:
       testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
       # number of CL nodes to upgrade with new version
       upgrade-nodes: "3"
-      # cl node Docker cocntainer name template, omit if you are using 'devenv'
+      # cl node Docker container name template, omit if you are using 'devenv'
       node-name-template: "workflow-node%d"
       # previous versions to test (sorted by tags, SemVer)
       versions-back: "2"
@@ -83,7 +85,7 @@ jobs:
       # directory for executing your tests, to run testcmd
       logs-directory: "./system-tests/tests/smoke/cre/logs"
       # CTF log level
-      ctf-log-level: "debug"
+      ctf-log-level: "info"
       # this is needed to remove 'v' from Git tags to match SDLC ECR tags
       strip-image-suffix: "v"
     secrets: inherit
