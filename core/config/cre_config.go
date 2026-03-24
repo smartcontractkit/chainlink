@@ -25,6 +25,8 @@ type WorkflowFetcher interface {
 // CREConfidentialRelay defines configuration for the confidential relay handler.
 type CREConfidentialRelay interface {
 	Enabled() bool
+	TrustedPCRs() string
+	CARootsPEM() string
 }
 
 // CRELinking defines configuration for connecting to the CRE linking service
