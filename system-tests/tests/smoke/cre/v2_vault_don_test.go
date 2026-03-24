@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -87,6 +88,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
 		secretID := strconv.Itoa(rand.Intn(10000))
 		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
@@ -114,6 +116,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
 		secretID := strconv.Itoa(rand.Intn(10000))
 		enc, err := crevault.EncryptSecret("secret-xns", vaultPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
