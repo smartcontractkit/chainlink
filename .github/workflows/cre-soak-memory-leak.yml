@@ -28,7 +28,7 @@ jobs:
     environment:
       name: integration
       deployment: false
-    runs-on: runs-on=${{ github.run_id }}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}/cpu=8+16/ram=32+64/family=c6id+m6id+m6idn/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read

@@ -58,9 +58,19 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 	// HTTP handler and make previously-registered feeds return 400.
 	allFeedIDs := smokecre.GenerateSoakFeedIDs(numWorkflows)
 
-	soakPPLogger := framework.L.Sample(zerolog.LevelSampler{
-		InfoSampler: &zerolog.BasicSampler{N: 20}, // keep every 20th Info
-	}).With().Str("component", "soak-fake-price-provider").Logger()
+	ppLogFile, openErr := os.OpenFile("./logs/soak-fake-price-provider.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	require.NoError(t, openErr, "failed to open CRE_SOAK_PP_LOG_FILE")
+	t.Cleanup(func() {
+		_ = ppLogFile.Close()
+	})
+
+	soakPPLogger := zerolog.New(ppLogFile).
+		Level(framework.L.GetLevel()).
+		With().
+		Timestamp().
+		Str("component", "soak-fake-price-provider").
+		Logger()
+	framework.L.Info().Str("path", "./logs/soak-fake-price-provider.log").Msg("redirecting soak fake price provider logs to file")
 
 	priceProvider, err := smokecre.NewFakePriceProviderForSoak(
 		soakPPLogger, testEnv.Config.Fake, "", allFeedIDs,
