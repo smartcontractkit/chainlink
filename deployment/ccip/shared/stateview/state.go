@@ -291,10 +291,7 @@ func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, valida
 				fqV2Addr = fqV2.Address()
 			}
 			otherOnRamps := make(map[uint64]common.Address)
-			useTestRouter := true
-			if chainState.Router != nil {
-				useTestRouter = false
-			}
+			useTestRouter := chainState.Router == nil
 			connectedChains, routerErr := chainState.ValidateRouter(e, useTestRouter, v16ActiveChains)
 			if routerErr != nil {
 				errs = append(errs, fmt.Errorf("router: %w", routerErr))

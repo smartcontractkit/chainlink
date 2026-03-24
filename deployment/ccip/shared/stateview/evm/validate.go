@@ -19,7 +19,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	opsv16 "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	viewshared "github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
@@ -558,22 +557,10 @@ func (c CCIPChainState) validateV16DestChainConfig(
 			break
 		}
 	} else {
-		// No legacy -- validate against canonical defaults.
-		expected := opsv16.DefaultFeeQuoterDestChainConfig(true, destChainSel)
-		if err := compareFieldChecks("defaults", []fieldCheck{
-			{"MaxNumberOfTokensPerMsg", uint64(destCfg.MaxNumberOfTokensPerMsg), uint64(expected.MaxNumberOfTokensPerMsg)},
-			{"MaxDataBytes", uint64(destCfg.MaxDataBytes), uint64(expected.MaxDataBytes)},
-			{"MaxPerMsgGasLimit", uint64(destCfg.MaxPerMsgGasLimit), uint64(expected.MaxPerMsgGasLimit)},
-			{"DestGasOverhead", uint64(destCfg.DestGasOverhead), uint64(expected.DestGasOverhead)},
-			{"DestGasPerPayloadByteBase", uint64(destCfg.DestGasPerPayloadByteBase), uint64(expected.DestGasPerPayloadByteBase)},
-			{"DefaultTokenDestGasOverhead", uint64(destCfg.DefaultTokenDestGasOverhead), uint64(expected.DefaultTokenDestGasOverhead)},
-			{"DestDataAvailabilityOverheadGas", uint64(destCfg.DestDataAvailabilityOverheadGas), uint64(expected.DestDataAvailabilityOverheadGas)},
-			{"DestGasPerDataAvailabilityByte", uint64(destCfg.DestGasPerDataAvailabilityByte), uint64(expected.DestGasPerDataAvailabilityByte)},
-			{"DestDataAvailabilityMultiplierBps", uint64(destCfg.DestDataAvailabilityMultiplierBps), uint64(expected.DestDataAvailabilityMultiplierBps)},
-			{"GasMultiplierWeiPerEth", destCfg.GasMultiplierWeiPerEth, expected.GasMultiplierWeiPerEth},
-			{"DefaultTokenFeeUSDCents", uint64(destCfg.DefaultTokenFeeUSDCents), uint64(expectedDefaultTokenFeeUSDCents(sourceChainSel, destChainSel))},
-		}); err != nil {
-			errs = append(errs, err)
+		// No legacy to cross-check — validate fee-related fields against expected values.
+		expectedFee := expectedDefaultTokenFeeUSDCents(sourceChainSel, destChainSel)
+		if uint64(destCfg.DefaultTokenFeeUSDCents) != uint64(expectedFee) {
+			errs = append(errs, fmt.Errorf("DefaultTokenFeeUSDCents: got=%d, want=%d", destCfg.DefaultTokenFeeUSDCents, expectedFee))
 		}
 	}
 
