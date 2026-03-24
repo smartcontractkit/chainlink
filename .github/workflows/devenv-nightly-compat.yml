@@ -40,7 +40,7 @@ jobs:
   # use it as an example project
   df1-compat:
     uses: ./.github/workflows/devenv-compat.yml
-    name: Data Feeds v1 Compatibility and Upgrade Test
+    name: Data Feeds v1 Upgrade Test
     with:
       # bash command to build your environment, omit if you are using 'devenv'
       buildcmd: "just cli"
@@ -54,6 +54,8 @@ jobs:
       node-name-template: "don-node%d"
       # previous versions to test (sorted by tags, SemVer)
       versions-back: "2"
+      # patterns to exclude specific refs
+      exclude-refs: "beta,rc"
       # directory with your developer environment to run buildcmd and envcmd
       working-directory: "devenv"
       # directory for executing your tests, to run testcmd
@@ -66,7 +68,7 @@ jobs:
 
   cre-compat:
     uses: ./.github/workflows/devenv-compat.yml
-    name: CRE Compatibility and Upgrade Test
+    name: CRE Upgrade Test
     with:
       # bash command to build your environment, omit if you are using 'devenv'
       buildcmd: "echo nothing-to-build"
@@ -80,6 +82,8 @@ jobs:
       node-name-template: "workflow-node%d"
       # previous versions to test (sorted by tags, SemVer)
       versions-back: "2"
+      # patterns to exclude specific refs
+      exclude-refs: "beta,rc"
       # directory with your developer environment to run buildcmd and envcmd
       working-directory: "./system-tests/tests"
       # directory for executing your tests, to run testcmd
