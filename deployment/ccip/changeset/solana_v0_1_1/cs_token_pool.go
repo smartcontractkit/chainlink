@@ -17,6 +17,7 @@ import (
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/erc20"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -554,9 +555,22 @@ func getOnChainEVMPoolConfig(e cldf.Environment, state stateview.CCIPOnChainStat
 		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token evm token pool and token address: %w", evmErr)
 	}
 	evmTokenPoolAddress := evmTokenPool.Address()
-	evmTokenDecimals, err := evmTokenPool.GetTokenDecimals(&bind.CallOpts{Context: context.Background()})
+	callOpts := &bind.CallOpts{Context: context.Background()}
+	evmTokenDecimals, err := evmTokenPool.GetTokenDecimals(callOpts)
 	if err != nil {
-		return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token decimals: %w", err)
+		// Fallback: some pool ABIs omit GetTokenDecimals; read decimals from the underlying ERC20.
+		tokenAddr, err2 := evmTokenPool.GetToken(callOpts)
+		if err2 != nil {
+			return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token address from evm token pool: %w", err2)
+		}
+		token, err2 := erc20.NewERC20(tokenAddr, evmChain.Client)
+		if err2 != nil {
+			return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to bind erc20 to fetch decimals at %s: %w", tokenAddr.Hex(), err2)
+		}
+		evmTokenDecimals, err2 = token.Decimals(callOpts)
+		if err2 != nil {
+			return solBaseTokenPool.RemoteConfig{}, fmt.Errorf("failed to get token decimals from token contract: %w", err2)
+		}
 	}
 	onChainEVMRemoteConfig := solBaseTokenPool.RemoteConfig{
 		TokenAddress: solBaseTokenPool.RemoteAddress{
