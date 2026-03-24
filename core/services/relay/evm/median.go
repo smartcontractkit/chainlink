@@ -30,9 +30,10 @@ type medianContract struct {
 	configTracker       types.ContractConfigTracker
 	contractCaller      *ocr2aggregator.OCR2AggregatorCaller
 	requestRoundTracker *round.RequestRoundTracker
+	onchainViewMetrics  *medianOnchainViewMetrics
 }
 
-func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, jobID int32, oracleSpecID int32, ds sqlutil.DataSource, lggr logger.Logger) (*medianContract, error) {
+func newMedianContract(configTracker types.ContractConfigTracker, contractAddress common.Address, chain legacyevm.Chain, jobID int32, oracleSpecID int32, ds sqlutil.DataSource, lggr logger.Logger, transmitterID string) (*medianContract, error) {
 	lggr = logger.Named(lggr, "MedianContract")
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(contractAddress, chain.Client())
 	if err != nil {
@@ -50,9 +51,10 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 	}
 
 	return &medianContract{
-		lggr:           lggr,
-		configTracker:  configTracker,
-		contractCaller: contractCaller,
+		lggr:               lggr,
+		configTracker:      configTracker,
+		contractCaller:     contractCaller,
+		onchainViewMetrics: newMedianOnchainViewMetrics(chain.ID().String(), contractAddress.Hex(), transmitterID),
 		requestRoundTracker: round.NewRequestRoundTracker(
 			contract,
 			contractFilterer,
@@ -87,7 +89,14 @@ func (oc *medianContract) HealthReport() map[string]error {
 func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtypes.ConfigDigest, uint32, uint8, *big.Int, time.Time, error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
-	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, time.Unix(int64(result.LatestTimestamp), 0), errors.Wrap(err, "error getting LatestTransmissionDetails")
+	if err != nil {
+		return ocrtypes.ConfigDigest{}, 0, 0, nil, time.Time{}, errors.Wrap(err, "error getting LatestTransmissionDetails")
+	}
+	updatedAt := time.Unix(int64(result.LatestTimestamp), 0)
+	if oc.onchainViewMetrics != nil {
+		oc.onchainViewMetrics.record(result.LatestAnswer, result.Epoch, result.Round, updatedAt)
+	}
+	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, updatedAt, nil
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest
