@@ -222,7 +222,7 @@ func (r *server) expireRequests() {
 	defer r.receiveLock.Unlock()
 
 	for requestID, executeReq := range r.requestIDToRequest {
-		if executeReq.request.Expired() {
+		if executeReq.request.Evictable(commoncap.DefaultExecutableRequestTimeout) {
 			ctx, cancelFn := r.stopCh.NewCtx()
 			err := executeReq.request.Cancel(ctx, types.Error_TIMEOUT, "request expired by executable server")
 			cancelFn()
