@@ -850,10 +850,6 @@ func (h *eventHandler) newV2EngineConfig(
 	module host.ModuleV2,
 	workflowID string, owner string, name types.WorkflowName, tag string, config []byte,
 ) *v2.EngineConfig {
-	h.emitterMu.RLock()
-	emitter := h.emitter
-	h.emitterMu.RUnlock()
-
 	return &v2.EngineConfig{
 		Lggr:                  h.lggr,
 		Module:                module,
@@ -869,13 +865,17 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowTag:           tag,
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
-		LocalLimits:                       v2.EngineLimits{},
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
 		LocalLimiters:                     h.engineLimiters,
 		FeatureFlags:                      h.featureFlags,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 
-		BeholderEmitter: emitter,
-		BillingClient:   h.billingClient,
+		BeholderEmitter: func() custmsg.MessageEmitter {
+			h.emitterMu.RLock()
+			defer h.emitterMu.RUnlock()
+			return h.emitter
+		}(),
+		BillingClient: h.billingClient,
 
 		WorkflowRegistryAddress:       h.workflowRegistryAddress,
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
