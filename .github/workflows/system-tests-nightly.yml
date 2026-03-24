@@ -58,48 +58,23 @@ jobs:
   resolve-chainlink-image:
     name: Resolve Chainlink image
     runs-on: ubuntu-latest
+    environment:
+      name: "integration"
+      deployment: false
     outputs:
       resolved-image: ${{ steps.resolve.outputs.resolved-image }}
     steps:
-      - name: Resolve image input
-        id: resolve
-        shell: bash
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@fccd02303df8c265a1943e07cb7780b7cb806673
+        with:
+          chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
+          chainlink_image_tag: ${{ inputs.chainlink_image_tag }}
+          chainlink_full_image: ${{ inputs.chainlink_full_image }}
+          chainlink_version: ${{ inputs.chainlink_version }}
         env:
-          INPUT_CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
-          INPUT_CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          INPUT_CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
-          INPUT_CHAINLINK_VERSION: ${{ inputs.chainlink_version }}
-          REGISTRY_SDLC: ${{ secrets.REGISTRY_SDLC }}
-        run: |
-          set -euo pipefail
-
-          full_image="${INPUT_CHAINLINK_FULL_IMAGE}"
-          explicit_repo="${INPUT_CHAINLINK_IMAGE_REPO}"
-          tag="${INPUT_CHAINLINK_IMAGE_TAG}"
-          version="${INPUT_CHAINLINK_VERSION}"
-
-          resolved_repo="${explicit_repo:-chainlink}"
-
-          if [[ -n "${full_image}" ]]; then
-            if [[ -n "${tag}" || -n "${explicit_repo}" ]]; then
-              echo "::error::'chainlink_full_image' is mutually exclusive with 'chainlink_image_tag' and 'chainlink_image_repo'."
-              exit 1
-            fi
-            if [[ ! "${full_image}" =~ .+/.+(:[^@]+|@sha256:[a-f0-9]{64})$ ]]; then
-              echo "::error::Invalid 'chainlink_full_image' format: '${full_image}'. Expected '<registry>/<repo>:<tag>' or '<registry>/<repo>@sha256:<digest>'."
-              exit 1
-            fi
-            resolved_image="${full_image}"
-          else
-            resolved_tag="${tag:-$version}"
-            if [[ -z "${resolved_tag}" ]]; then
-              echo "::error::Either provide 'chainlink_full_image' or provide a tag via 'chainlink_image_tag' (or 'chainlink_version')."
-              exit 1
-            fi
-            resolved_image="${REGISTRY_SDLC}/${resolved_repo}:${resolved_tag}"
-          fi
-
-          echo "resolved-image=${resolved_image}" | tee -a "${GITHUB_OUTPUT}"
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
   changes:
     name: Detect devenv changes
