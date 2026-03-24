@@ -66,6 +66,8 @@ jobs:
   cre-compat:
     uses: ./.github/workflows/devenv-compat.yml
     with:
+      # bash command to build your environment, omit if you are using 'devenv'
+      buildcmd: "echo nothing-to-build"
       # bash command to spin up your environment and product orchestration
       envcmd: "go run -C ../../core/scripts/cre/environment . env start"
       # bash command to run the test verifying your product

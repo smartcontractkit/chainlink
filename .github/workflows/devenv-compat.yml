@@ -22,7 +22,7 @@ on:
         type: string
       buildcmd:
         description: "Build command to run"
-        required: false
+        required: true
         type: string
       envcmd:
         description: "Environment setup command to run"
@@ -175,13 +175,9 @@ jobs:
           if [ -n "${{ env.REFS }}" ]; then
             REFS_ARGS="--refs ${{ env.REFS }}"
           fi
-          BUILD_CMD_ARGS=""
-          if [ -n "${{ env.BUILD_CMD }}" ]; then
-            BUILD_CMD_ARGS="--buildcmd ${BUILD_CMD}"
-          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
-            ${BUILD_CMD_ARGS} \
+            --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
