@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
@@ -308,6 +309,10 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert v1.6 fee quoter destination updates for chain %d: %w", chainSel, err)
 			}
+			destCfgs, err = FilterOutExistingDestChainConfigs(e, dests.Address, chainSel, destCfgs)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
 			fqUpdate.DestChainConfigs = destCfgs
 		}
 		if prices, ok := feeQuoterPricesInput.UpdatesByChain[chainSel]; ok {
@@ -347,6 +352,38 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	output.MCMSTimelockProposals = []mcmslib.TimelockProposal{*aggProposal}
 
 	return output, nil
+}
+
+// FilterOutExistingDestChainConfigs queries the on-chain v2 FeeQuoter and removes
+// destination chain configs that are already enabled. This prevents overwriting existing
+// configurations during lane updates when a destination was previously configured.
+func FilterOutExistingDestChainConfigs(
+	e cldf.Environment,
+	fqAddr common.Address,
+	chainSel uint64,
+	destCfgs []fqv2ops.DestChainConfigArgs,
+) ([]fqv2ops.DestChainConfigArgs, error) {
+	fqContract, err := fqv2ops.NewFeeQuoterContract(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind v2 FeeQuoter on chain %d: %w", chainSel, err)
+	}
+	filtered := make([]fqv2ops.DestChainConfigArgs, 0, len(destCfgs))
+	for _, destCfg := range destCfgs {
+		existing, err := fqContract.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destCfg.DestChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query existing dest chain config on chain %d for dest %d: %w",
+				chainSel, destCfg.DestChainSelector, err)
+		}
+		if existing.IsEnabled {
+			e.Logger.Infow("skipping dest chain config already present on v2 FeeQuoter",
+				"sourceChain", chainSel,
+				"destChain", destCfg.DestChainSelector,
+			)
+			continue
+		}
+		filtered = append(filtered, destCfg)
+	}
+	return filtered, nil
 }
 
 func ConvertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfigArgs) ([]fqv2ops.DestChainConfigArgs, error) {
