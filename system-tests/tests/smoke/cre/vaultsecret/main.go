@@ -5,6 +5,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -47,9 +48,14 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 	}).Await()
 
 	if cfg.ExpectNotFound {
-		if err != nil {
+		if err != nil && strings.Contains(err.Error(), "key does not exist") {
 			runtime.Logger().Info("Vault secret correctly not found after deletion", "secretKey", cfg.SecretKey)
 			return fmt.Sprintf("Secret correctly not found: key=%s", cfg.SecretKey), nil
+		}
+		if err != nil {
+			runtime.Logger().Error("Expected 'key does not exist' but got a different error",
+				"error", err, "secretKey", cfg.SecretKey)
+			return "", fmt.Errorf("expected 'key does not exist' for key=%s, but got: %w", cfg.SecretKey, err)
 		}
 		runtime.Logger().Error("Expected secret to be gone but retrieval succeeded", "secretKey", cfg.SecretKey)
 		return "", fmt.Errorf("expected secret key=%s to be deleted, but it was still found", cfg.SecretKey)

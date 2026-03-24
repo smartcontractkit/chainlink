@@ -565,10 +565,14 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	}
 
 	tx, err := capReg.UpdateDONByName(deployerOpts, donName, updateParams)
-	require.NoError(t, err, "failed to update DON vault capability config in registry")
-	testLogger.Info().Msgf("Registry update tx sent: %s", tx.Hash().Hex())
+	require.NoError(t, err, "failed to submit UpdateDONByName tx")
 
-	testLogger.Info().Msg("Capabilities registry updated. Waiting for registry syncer to propagate...")
+	receipt, err := sethClient.WaitMined(t.Context(), testLogger, sethClient.Client, tx)
+	require.NoError(t, err, "UpdateDONByName tx was not mined")
+	require.Equal(t, uint64(1), receipt.Status, "UpdateDONByName tx reverted on-chain")
+	testLogger.Info().Msgf("Registry update tx mined in block %d: %s", receipt.BlockNumber.Uint64(), tx.Hash().Hex())
+
+	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
 	time.Sleep(30 * time.Second)
 }
 
