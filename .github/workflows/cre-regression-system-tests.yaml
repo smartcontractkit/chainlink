@@ -19,10 +19,10 @@ on:
         default: ""
         description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
       chainlink_version:
-        required: true
+        required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests."
-        default: "develop"
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        default: ""
   workflow_call:
     inputs:
       chainlink_image_repo:
@@ -165,7 +165,7 @@ jobs:
 
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@062674df308456d6a6283743e7ddab89f02dc994
+        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@38f15b26188792cc2cc6a7fb13147d580845eb01
         with:
           chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
           chainlink_image_tag: ${{ inputs.chainlink_image_tag }}
