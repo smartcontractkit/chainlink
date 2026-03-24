@@ -82,8 +82,8 @@ RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${C
 USER ${CHAINLINK_USER}
 
 # Expose image metadata to the running node.
-ARG DOCKER_TAG=unset
-ENV CL_DOCKER_TAG=${DOCKER_TAG}
+ARG CL_AUTO_DOCKER_TAG=unset
+ENV CL_DOCKER_TAG=${CL_AUTO_DOCKER_TAG}
 
 # Set plugin environment variable configuration.
 ENV CL_SOLANA_CMD=chainlink-solana

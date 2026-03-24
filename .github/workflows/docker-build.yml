@@ -34,8 +34,8 @@ jobs:
         }}
       runner-arm64: ${{ steps.runner-labels.outputs.runner-arm64 }}
       runner-amd64: ${{ steps.runner-labels.outputs.runner-amd64 }}
+      checked-out-sha: ${{ steps.checkout-sha.outputs.checked-out-sha }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
-      docker-tag-base: ${{ steps.docker-tag.outputs.docker-tag-base }}
     steps:
       - name: Get PR Labels
         id: pr-labels
@@ -68,6 +68,11 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.git-ref || github.sha }}
 
+      - name: Resolve checked out SHA
+        id: checkout-sha
+        shell: bash
+        run: echo "checked-out-sha=$(git rev-parse HEAD)" | tee -a "$GITHUB_OUTPUT"
+
       - name: Version Info
         id: version-info
         run: |
@@ -75,51 +80,13 @@ jobs:
           version_tag="${pkg_version}-dev"
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Compute Docker tag
-        id: docker-tag
-        shell: bash
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          short_sha="$(git rev-parse --short=7 HEAD)"
-
-          case "${GITHUB_EVENT_NAME}" in
-            pull_request)
-              docker_tag="pr-${PR_NUMBER}-${short_sha}"
-              ;;
-            schedule)
-              docker_tag="nightly-$(date +%Y%m%d)"
-              ;;
-            workflow_dispatch)
-              docker_tag="manual-${short_sha}"
-              ;;
-            push)
-              if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-                docker_tag="${GITHUB_REF_NAME}"
-              elif [[ -n "${GITHUB_REF_NAME}" ]]; then
-                ref_name="$(echo "${GITHUB_REF_NAME}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')"
-                docker_tag="${ref_name}-${short_sha}"
-              else
-                docker_tag="sha-${short_sha}"
-              fi
-              ;;
-            *)
-              docker_tag="sha-${short_sha}"
-              ;;
-          esac
-
-          echo "docker-tag-base=${docker_tag}" | tee -a "$GITHUB_OUTPUT"
-
   docker-core:
     needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -128,11 +95,10 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}
+        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
-      git-sha: ${{ inputs.git-ref || github.sha }}
+      git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
@@ -152,7 +118,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -161,13 +127,12 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins
+        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ inputs.git-ref || github.sha }}
+      git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
@@ -187,7 +152,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -196,14 +161,13 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins-testing
+        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
-      git-sha: ${{ inputs.git-ref || github.sha }}
+      git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
@@ -223,7 +187,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -232,14 +196,13 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}
+        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
       docker-manifest-sign: true
-      git-sha: ${{ inputs.git-ref || github.sha }}
+      git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}
@@ -259,7 +222,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -268,14 +231,13 @@ jobs:
       docker-build-context: .
       docker-build-args: |
         CHAINLINK_USER=chainlink
-        COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.init.outputs.docker-tag-base }}-plugins
+        COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ inputs.git-ref || github.sha }}
+      git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-ref-type: ${{ github.ref_type}}

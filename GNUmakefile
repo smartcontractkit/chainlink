@@ -125,7 +125,7 @@ docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	--build-arg DOCKER_TAG=$(DOCKER_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
@@ -139,7 +139,7 @@ docker-ccip:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	--build-arg DOCKER_TAG=$(DOCKER_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	-f core/chainlink.Dockerfile . -t chainlink-ccip:$(DOCKER_TAG)
 
 	docker buildx build \
@@ -160,7 +160,7 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	--build-arg DOCKER_TAG=$(DOCKER_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \

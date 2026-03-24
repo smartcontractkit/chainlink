@@ -89,8 +89,8 @@ USER ${CHAINLINK_USER}
 COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
 
 # Expose image metadata to the running node.
-ARG DOCKER_TAG=unset
-ENV CL_DOCKER_TAG=${DOCKER_TAG}
+ARG CL_AUTO_DOCKER_TAG=unset
+ENV CL_DOCKER_TAG=${CL_AUTO_DOCKER_TAG}
 
 # Set plugin environment variable configuration.
 ENV CL_MEDIAN_CMD=chainlink-feeds

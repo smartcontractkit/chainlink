@@ -349,14 +349,12 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
-        uses: smartcontractkit/.github/actions/ctf-build-image@b7be49d6f54ce0990354931ee1e4c8624f3f406e # v1.4.0 (not released yet)
+        uses: smartcontractkit/.github/actions/ctf-build-image@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
         with:
           image-tag: ${{ inputs.chainlinkVersion || needs.select-versions.outputs.chainlink_image_version || github.sha }}
           dockerfile: core/chainlink.Dockerfile
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: "chainlink"
-          docker-additional-build-args: |
-            DOCKER_TAG=${{ inputs.chainlinkVersion || needs.select-versions.outputs.chainlink_image_version || github.sha }}
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

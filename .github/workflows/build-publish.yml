@@ -16,7 +16,6 @@ jobs:
     outputs:
       is-release: ${{ steps.release-tag-check.outputs.is-release }}
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
-      core-image-tag: ${{ steps.compute-core-tag.outputs.core-image-tag }}
       ccip-image-tag: ${{ steps.compute-ccip-tag.outputs.ccip-image-tag }}
       prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
       is-hotfix: ${{ steps.detect-hotfix.outputs.is-hotfix }}
@@ -42,14 +41,6 @@ jobs:
           tag_without_v="${GIT_TAG#v}"
           ccip_tag=$(echo "$tag_without_v" | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)-(.*)$/\1-ccip-\2/')
           echo "ccip-image-tag=$ccip_tag" | tee -a "$GITHUB_OUTPUT"
-
-      - name: Compute core image tag
-        id: compute-core-tag
-        shell: bash
-        env:
-          GIT_TAG: ${{ github.ref_name }}
-        run: |
-          echo "core-image-tag=${GIT_TAG#v}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Detect prerelease phase
         id: detect-prerelease-phase
@@ -105,7 +96,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -115,7 +106,6 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.checks.outputs.core-image-tag }}
         VERSION_TAG=${{ github.ref_name }}
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
@@ -141,7 +131,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@d85d3577d56c9ecd31cb96694bb5b677b133bd14 # temporary until .github#1479 merges
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-east-1
@@ -151,7 +141,6 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-        DOCKER_TAG=${{ needs.checks.outputs.ccip-image-tag }}
         VERSION_TAG=${{ github.ref_name }}
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
