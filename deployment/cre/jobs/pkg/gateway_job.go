@@ -463,6 +463,8 @@ func newDefaultConfidentialRelayHandler(requestTimeoutSec int) handler {
 		Name:        GatewayHandlerTypeConfidentialRelay,
 		ServiceName: ServiceNameConfidential,
 		Config: confidentialRelayHandlerConfig{
+			// must be lower than the overall gateway request timeout,
+			// so we allow for the response to be sent back.
 			RequestTimeoutSec: requestTimeoutSec - 1,
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
