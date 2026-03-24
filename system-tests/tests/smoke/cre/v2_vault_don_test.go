@@ -102,10 +102,6 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		close(baseMessageCh)
 	})
 
-	// Wait for the node to be up.
-	framework.L.Info().Msg("Waiting 30 seconds for the Vault DON to be ready...")
-	time.Sleep(30 * time.Second)
-
 	altNamespace := "alt"
 
 	// Create secrets with the same ID in two different namespaces
@@ -587,7 +583,7 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	testLogger.Info().Msgf("Registry update tx mined in block %d: %s", receipt.BlockNumber.Uint64(), tx.Hash().Hex())
 
 	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -600,7 +596,7 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
-	time.Sleep(10 * time.Second) // wait a bit to ensure the allowlist is propagated onchain, gateway and vault don nodes
+	time.Sleep(6 * time.Second) // allowlist syncer polls every 5s; one tick + margin
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
