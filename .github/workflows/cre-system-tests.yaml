@@ -7,7 +7,7 @@ on:
         description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
         required: false
         type: string
-        default: "chainlink"
+        default: ""
       chainlink_image_tag:
         required: false
         type: string
@@ -243,6 +243,8 @@ jobs:
           tag="${INPUT_CHAINLINK_IMAGE_TAG}"
           version="${INPUT_CHAINLINK_VERSION}"
 
+          resolved_repo="${explicit_repo:-chainlink}"
+
           if [[ -n "${full_image}" ]]; then
             if [[ -n "${tag}" || -n "${explicit_repo}" ]]; then
               echo "::error::'chainlink_full_image' is mutually exclusive with 'chainlink_image_tag' and 'chainlink_image_repo'."
@@ -259,7 +261,7 @@ jobs:
               echo "::error::Either provide 'chainlink_full_image' or provide a tag via 'chainlink_image_tag' (or 'chainlink_version')."
               exit 1
             fi
-            resolved_image="${QA_AWS_ACCOUNT_NUMBER}.dkr.ecr.${QA_AWS_REGION}.amazonaws.com/${explicit_repo}:${resolved_tag}"
+            resolved_image="${QA_AWS_ACCOUNT_NUMBER}.dkr.ecr.${QA_AWS_REGION}.amazonaws.com/${resolved_repo}:${resolved_tag}"
           fi
 
           echo "resolved-image=${resolved_image}" | tee -a "${GITHUB_OUTPUT}"
