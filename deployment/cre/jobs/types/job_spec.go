@@ -1,6 +1,7 @@
 package job_types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -13,12 +14,43 @@ import (
 type JobSpecInput map[string]any
 
 func (j JobSpecInput) UnmarshalTo(target any) error {
-	bytes, err := yaml.Marshal(j)
+	sanitized := convertJSONNumbers(map[string]any(j))
+	bytes, err := yaml.Marshal(sanitized)
 	if err != nil {
-		return fmt.Errorf("failed to marshal job spec input to json: %w", err)
+		return fmt.Errorf("failed to marshal job spec input to yaml: %w", err)
 	}
-
 	return yaml.Unmarshal(bytes, target)
+}
+
+func convertJSONNumbers(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = convertValue(v)
+	}
+	return out
+}
+
+func convertValue(v any) any {
+	switch val := v.(type) {
+	case json.Number:
+		if i, err := val.Int64(); err == nil {
+			return i
+		}
+		if f, err := val.Float64(); err == nil {
+			return f
+		}
+		return val.String()
+	case map[string]any:
+		return convertJSONNumbers(val)
+	case []any:
+		out := make([]any, len(val))
+		for i, item := range val {
+			out[i] = convertValue(item)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 func (j JobSpecInput) UnmarshalFrom(source any) error {
