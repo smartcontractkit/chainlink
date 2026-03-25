@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"math/big"
-	"strings"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -224,8 +222,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		case chain_selectors.FamilySui:
 			familySelector, _ = hex.DecodeString(SuiFamilySelector)
 		case chain_selectors.FamilyEVM:
-			name, _ := chain_selectors.GetChainNameFromSelector(destChainSelector[0])
-			if strings.HasPrefix(name, "ethereum") {
+			if isEthereumChain(destChainSelector[0]) {
 				networkFeeUSDCents = 50
 				defaultTokenFeeUSDCents = 150
 			}
@@ -250,4 +247,10 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		NetworkFeeUSDCents:                networkFeeUSDCents,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
+}
+
+func isEthereumChain(selector uint64) bool {
+	return selector == chain_selectors.ETHEREUM_MAINNET.Selector ||
+		selector == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+		selector == chain_selectors.ETHEREUM_TESTNET_HOODI.Selector
 }

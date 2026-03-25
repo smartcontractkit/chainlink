@@ -27,7 +27,8 @@ import (
 
 func isEthereumChain(selector uint64) bool {
 	return selector == chain_selectors.ETHEREUM_MAINNET.Selector ||
-		selector == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		selector == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+		selector == chain_selectors.ETHEREUM_TESTNET_HOODI.Selector
 }
 
 // expectedNetworkFeeUSDCents: Ethereum involvement → 50, otherwise → 10
