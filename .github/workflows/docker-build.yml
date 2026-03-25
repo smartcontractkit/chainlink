@@ -259,6 +259,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      pull-requests: write
     uses: ./.github/workflows/system-tests-nightly.yml
     with:
       chainlink_version: ${{ inputs.git-ref || github.sha }}
