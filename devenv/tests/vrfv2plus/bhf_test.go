@@ -93,7 +93,7 @@ func TestVRFV2PlusWithBHF(t *testing.T) {
 
 		// Wait at least 257 blocks so the BHF job can store the blockhash and
 		// the coordinator can verify it against the BatchBHS.
-		waitForBHSWindow(ctx, t, chainClient, requestBlock, 257, chainID, 5*time.Minute)
+		products.WaitUntilChainHead(ctx, t, chainClient, requestBlock, 257, chainID, 5*time.Minute)
 
 		// Fund the subscription so the stuck request can be fulfilled.
 		nativeWei := products.EtherToWei(big.NewFloat(c.SubFundingAmountNative))

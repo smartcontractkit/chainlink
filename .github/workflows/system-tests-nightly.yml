@@ -4,7 +4,6 @@ on:
   schedule:
     - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
-  pull_request:
 
 defaults:
   run:
@@ -235,6 +234,30 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "vrfv2plus"
             logs_archive_name: "vrfv2plus-batch-fulfillment"
+          - display_name: "Test VRFv2 (coordinator v2) Smoke"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2Basic"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-smoke"
+          - display_name: "Test VRFv2 Multiple Sending Keys"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2MultipleSendingKeys"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/two_keys.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-multiple-sending-keys"
+          - display_name: "Test VRFv2 With BHS"
+            testcmd: "go test -v -timeout 30m -run TestVRFV2WithBHS"
+            envcmd: "cl u env-vrfv2-bhs.toml,products/vrfv2/bhs.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-with-bhs"
+          - display_name: "Test VRFv2 Batch Fulfillment"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2BatchFulfillmentEnabledDisabled"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-batch-fulfillment"
           - display_name: "Test LogPoller Fixed Depth"
             testcmd: "go test -v -timeout 30m -run TestLogPoller"
             envcmd: "cl u env.toml,tests/logpoller/fixed_depth.toml"
