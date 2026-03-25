@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -476,22 +475,6 @@ func (c CCIPChainState) ValidateOnRamp(
 	return nil
 }
 
-// chainSelFromConfigs extracts the chain selector from CCIPHome configs,
-// falling back through active→candidate for both commit and exec.
-func chainSelFromConfigs(commit, exec ccip_home.GetAllConfigs) uint64 {
-	sel := commit.ActiveConfig.Config.ChainSelector
-	if sel == 0 {
-		sel = commit.CandidateConfig.Config.ChainSelector
-	}
-	if sel == 0 {
-		sel = exec.ActiveConfig.Config.ChainSelector
-		if sel == 0 {
-			sel = exec.CandidateConfig.Config.ChainSelector
-		}
-	}
-	return sel
-}
-
 // ValidateRouter validates the router contract and returns all connected v1.6 chains.
 // v16ActiveChains filters out legacy v1.5 lane entries in mixed environments.
 func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v16ActiveChains map[uint64]bool) ([]uint64, error) {
@@ -552,37 +535,6 @@ func (c CCIPChainState) ValidateRouter(e cldf.Environment, isTestRouter bool, v1
 		}
 	}
 	return v16ConnectedChains, nil
-}
-
-// V16ActiveChainSelectors returns chain selectors with an active or candidate
-// v1.6 DON config in CCIPHome. Home chain only.
-func (c CCIPChainState) V16ActiveChainSelectors(ctx context.Context) (map[uint64]bool, error) {
-	if c.CCIPHome == nil {
-		return nil, errors.New("no CCIPHome contract found in the state")
-	}
-	if c.CapabilityRegistry == nil {
-		return nil, errors.New("no CapabilityRegistry contract found in the state")
-	}
-	ccipDons, err := shared.GetCCIPDonsFromCapRegistry(ctx, c.CapabilityRegistry)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CCIP DONs from capability registry: %w", err)
-	}
-	callOpts := &bind.CallOpts{Context: ctx}
-	active := make(map[uint64]bool, len(ccipDons))
-	for _, don := range ccipDons {
-		commitConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPCommit))
-		if err != nil {
-			continue
-		}
-		execConfigs, err := c.CCIPHome.GetAllConfigs(callOpts, don.Id, uint8(types.PluginTypeCCIPExec))
-		if err != nil {
-			continue
-		}
-		if chainSel := chainSelFromConfigs(commitConfigs, execConfigs); chainSel != 0 {
-			active[chainSel] = true
-		}
-	}
-	return active, nil
 }
 
 // ValidateRMNRemote validates the RMNRemote contract to check if all wired contracts are synced with state

@@ -195,38 +195,6 @@ func TestValidateNonceManager_NilNonceManager(t *testing.T) {
 	assert.Contains(t, err.Error(), "no NonceManager")
 }
 
-func TestValidateFeeQuoter_HappyPath(t *testing.T) {
-	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
-	require.NoError(t, err)
-
-	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	for _, sel := range evmChains {
-		chainState := state.MustGetEVMChainState(sel)
-		v16Active := buildV16ActiveChains(t, tenv, state)
-		connectedChains, err := chainState.ValidateRouter(tenv.Env, false, v16Active)
-		require.NoError(t, err, "router validation failed for chain %d", sel)
-
-		err = chainState.ValidateFeeQuoter(tenv.Env, sel, connectedChains, nil, nil)
-		require.NoError(t, err, "FeeQuoter validation failed for chain %d", sel)
-	}
-}
-
-func TestValidateFeeQuoter_NilFeeQuoter(t *testing.T) {
-	t.Parallel()
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
-	state, err := stateview.LoadOnchainState(tenv.Env)
-	require.NoError(t, err)
-
-	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	chainState := state.MustGetEVMChainState(evmChains[0])
-	chainState.FeeQuoter = nil
-	err = chainState.ValidateFeeQuoter(tenv.Env, evmChains[0], evmChains[1:], nil, nil)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no FeeQuoter")
-}
-
 func buildHomeChainTestArgs(
 	t *testing.T,
 	tenv testhelpers.DeployedEnv,
