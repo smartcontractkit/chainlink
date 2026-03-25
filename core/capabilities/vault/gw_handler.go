@@ -207,29 +207,29 @@ func stripPrefixedRequestIDFromParams(req *jsonrpc.Request[json.RawMessage], ori
 
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
-		parsed := vaultcommon.CreateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+		parsed := &vaultcommon.CreateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return err
 		}
 		parsed.RequestId = originalRequestID
 		return rewriteRequestParams(req, parsed)
 	case vaulttypes.MethodSecretsUpdate:
-		parsed := vaultcommon.UpdateSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+		parsed := &vaultcommon.UpdateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return err
 		}
 		parsed.RequestId = originalRequestID
 		return rewriteRequestParams(req, parsed)
 	case vaulttypes.MethodSecretsDelete:
-		parsed := vaultcommon.DeleteSecretsRequest{}
-		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+		parsed := &vaultcommon.DeleteSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return err
 		}
 		parsed.RequestId = originalRequestID
 		return rewriteRequestParams(req, parsed)
 	case vaulttypes.MethodSecretsList:
-		parsed := vaultcommon.ListSecretIdentifiersRequest{}
-		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
 			return err
 		}
 		parsed.RequestId = originalRequestID
