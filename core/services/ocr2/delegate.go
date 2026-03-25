@@ -720,13 +720,13 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	requestAuthorizer := vaultcap.NewRequestAuthorizer(lggr, syncer)
 	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
 	srvs = append(srvs, vaultCapability)
 
+	requestAuthorizer := vaultcap.NewRequestAuthorizer(lggr, syncer)
 	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, requestAuthorizer, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
