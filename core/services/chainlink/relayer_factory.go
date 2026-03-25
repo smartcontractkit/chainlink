@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/prometheus/client_golang/prometheus"
@@ -53,9 +54,10 @@ func (r *RelayerFactory) NewDummy(config DummyFactoryConfig) (loop.Relayer, erro
 
 type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
-	EthKeystore   keystore.Eth
-	CSAKeystore   coretypes.Keystore
-	MercuryConfig coreconfig.Mercury
+	EthKeystore     keystore.Eth
+	CSAKeystore     coretypes.Keystore
+	MercuryConfig   coreconfig.Mercury
+	EVMConfigHealth *EVMChainConfigHealth
 }
 
 func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.RelayAdapter, error) {
@@ -105,10 +107,19 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 		return relayers, nil
 	}
 
-	legacyChains, err := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
-	if err != nil {
-		return nil, err
+	enabledEVMCount := countEnabledEVMConfigs(config.ChainConfigs)
+	legacyChains, lcErr := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
+	if lcErr != nil && len(legacyChains) == 0 {
+		if enabledEVMCount > 0 {
+			return nil, lcErr
+		}
 	}
+	if lcErr != nil && len(legacyChains) > 0 {
+		lggr.Errorw("partial EVM chain load: some enabled chains failed to construct; continuing with loaded chains",
+			"error", lcErr, "loadedChains", len(legacyChains))
+	}
+
+	var relayerJoinErr error
 	for _, chain := range legacyChains {
 		relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ID().String()}
 
@@ -126,15 +137,49 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 		}
 		relayer, err2 := evmrelay.NewRelayer(logger.Named(lggr, relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
-			err = errors.Join(err, err2)
+			reason := evmSkipReasonRelayerInit
+			if isUnknownChainSelectorErr(err2) {
+				reason = evmSkipReasonUnknownSelector
+			}
+			if config.EVMConfigHealth != nil {
+				config.EVMConfigHealth.RecordSkipped(relayID.ChainID, reason, err2)
+			}
+			incEVMChainConfigSkipped(reason)
+			lggr.Errorw("skipping EVM relayer for chain; other chains may still run",
+				"evmChainID", relayID.ChainID, "error_class", reason, "err", err2)
+			relayerJoinErr = errors.Join(relayerJoinErr, fmt.Errorf("chain %s: %w", relayID.ChainID, err2))
 			continue
 		}
 
 		relayers[relayID] = evmrelay.NewLegacyAdapter(relayer)
+		if config.EVMConfigHealth != nil {
+			config.EVMConfigHealth.RecordLoaded(relayID.ChainID)
+		}
 	}
 
-	// always return err because it is accumulating individual errors
+	if len(relayers) == 0 && enabledEVMCount > 0 {
+		return nil, errors.Join(lcErr, relayerJoinErr)
+	}
+
 	return relayers, nil
+}
+
+func countEnabledEVMConfigs(cfgs evmtoml.EVMConfigs) (n int) {
+	for _, c := range cfgs {
+		if c != nil && c.IsEnabled() {
+			n++
+		}
+	}
+	return n
+}
+
+func isUnknownChainSelectorErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "chain-selectors missing chain id") ||
+		strings.Contains(s, "chain selector not found")
 }
 
 type SolanaFactoryConfig struct {

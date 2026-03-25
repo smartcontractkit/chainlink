@@ -302,6 +302,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		RetirementReportCache: opts.RetirementReportCache,
 	}
 
+	evmHealth := NewEVMChainConfigHealth(enabledEVMChainIDStrings(cfg.EVMConfigs()))
 	evmFactoryCfg := EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
 			ChainConfigs:   cfg.EVMConfigs(),
@@ -310,10 +311,17 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FeatureConfig:  cfg.Feature(),
 			MailMon:        mailMon,
 			DS:             opts.DS,
+			OnEnabledChainConstructFailure: func(chainID *big.Int, err error) {
+				evmHealth.RecordSkipped(chainID.String(), evmSkipReasonChainConstruct, err)
+				incEVMChainConfigSkipped(evmSkipReasonChainConstruct)
+				globalLogger.Errorw("skipping EVM chain; other chains may still run",
+					"evmChainID", chainID.String(), "error_class", evmSkipReasonChainConstruct, "err", err)
+			},
 		},
-		EthKeystore:   keyStore.Eth(),
-		CSAKeystore:   csaKeystore,
-		MercuryConfig: cfg.Mercury(),
+		EthKeystore:     keyStore.Eth(),
+		CSAKeystore:     csaKeystore,
+		MercuryConfig:   cfg.Mercury(),
+		EVMConfigHealth: evmHealth,
 	}
 
 	if opts.EVMFactoryConfigFn != nil {
@@ -477,12 +485,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// TODO: BCF-2510, BCF-2511
 
 	legacyEVMChains := relayChainInterops.LegacyEVMChains()
-	if legacyEVMChains == nil {
-		return nil, errors.New("no evm chains found")
+	if evmHealth.ExpectedCount() > 0 && legacyEVMChains.Len() == 0 {
+		return nil, errors.New("no evm chains could be loaded from configuration")
 	}
 
 	srvcs = append(srvcs, mailMon)
 	srvcs = append(srvcs, relayChainInterops.Services()...)
+	if evmHealth.ExpectedCount() > 0 {
+		srvcs = append(srvcs, evmHealth)
+	}
 
 	// Initialize Local Users ORM and Authentication Provider specified in config
 	// BasicAdminUsersORM is initialized and required regardless of separate Authentication Provider

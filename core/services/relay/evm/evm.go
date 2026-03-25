@@ -214,12 +214,12 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
 	}
 	sugared := logger.Sugared(lggr).Named("Relayer").With("evmChainID", chain.ID())
+	chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
+	if err != nil {
+		return nil, fmt.Errorf("cannot create evm relayer: chain-selectors missing chain id %s: %w", chain.ID(), err)
+	}
 	mercuryORM := mercury.NewORM(opts.DS)
 	cdcFactory := sync.OnceValues(func() (channeldefinitions.ChannelDefinitionCacheFactory, error) {
-		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
-		}
 		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
 		return channeldefinitions.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
 	})
