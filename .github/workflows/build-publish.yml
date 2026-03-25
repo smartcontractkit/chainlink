@@ -261,7 +261,8 @@ jobs:
       upgrade-nodes: "3"
       node-name-template: "don-node%d"
       versions-back: "2"
-      exclude-refs: "beta,rc"
+      # uncomment once we have tested this pipeline with beta/rc releases
+      # exclude-refs: "beta,rc"
       working-directory: "devenv"
       logs-directory: "./devenv/tests/ocr2/logs"
       ctf-log-level: "info"
@@ -278,7 +279,8 @@ jobs:
       upgrade-nodes: "3"
       node-name-template: "workflow-node%d"
       versions-back: "2"
-      exclude-refs: "beta,rc"
+      # uncomment once we have tested this pipeline with beta/rc releases
+      # exclude-refs: "beta,rc"
       working-directory: "./system-tests/tests"
       logs-directory: "./system-tests/tests/smoke/cre/logs"
       ctf-log-level: "info"
