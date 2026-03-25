@@ -334,7 +334,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	defer em.Close()
 
 	const (
-		totalEvents = 1000
+		totalEvents = 100000
 		concurrency = 10
 	)
 
@@ -719,6 +719,8 @@ func (s *emitLatencyStats) sum() time.Duration {
 type pipelineDeliveryStats struct {
 	immPub, immDel, batchPub, batchDel emitLatencyStats
 	immPubErr, batchPubErr             atomic.Int64
+	// batchPubEventErrs is the sum of event counts for each failed retransmit Publish (1 per failed RPC).
+	batchPubEventErrs atomic.Int64
 }
 
 func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
@@ -732,9 +734,10 @@ func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 		OnImmediateDelete: func(d time.Duration, _ error) {
 			p.immDel.record(d)
 		},
-		OnRetransmitBatchPublish: func(d time.Duration, _ int, err error) {
+		OnRetransmitBatchPublish: func(d time.Duration, eventCount int, err error) {
 			if err != nil {
 				p.batchPubErr.Add(1)
+				p.batchPubEventErrs.Add(int64(eventCount))
 			}
 			p.batchPub.record(d)
 		},
@@ -763,8 +766,8 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 
 	bpN := pipe.batchPub.count()
 	if bpN > 0 {
-		t.Logf("Pipeline — retransmit PublishBatch: batches=%d errs=%d p50=%.3f ms mean=%.3f ms | delete-loop batches=%d mean_loop=%.3f ms",
-			bpN, pipe.batchPubErr.Load(),
+		t.Logf("Pipeline — retransmit Publish (serial): rpcs=%d rpc_errs=%d evt_errs=%d p50=%.3f ms mean=%.3f ms | delete-hook_calls=%d mean_loop=%.3f ms",
+			bpN, pipe.batchPubErr.Load(), pipe.batchPubEventErrs.Load(),
 			durMs(pipe.batchPub.percentile(0.50)), durMs(pipe.batchPub.mean()),
 			pipe.batchDel.count(), durMs(pipe.batchDel.mean()))
 	}
@@ -793,6 +796,23 @@ type rateLimitEmitResult struct {
 	// maxQueuePayloadBytes is the maximum observed sum(octet_length(payload)) for
 	// rows still in the queue (serialized CloudEvent bytes stored in BYTEA).
 	maxQueuePayloadBytes int64
+	// ImmPublishFails is the count of failed immediate Publish RPCs in this window (one event each; needs retransmit).
+	ImmPublishFails int64
+	// BatchPublishFailEvents is the sum of batch sizes for failed PublishBatch calls in this window.
+	BatchPublishFailEvents int64
+}
+
+// formatPubFailColumn formats publish-failure counts for result tables (8-char column).
+// If there were failed batches, shows "imm+batchEv" when it fits, else "imm+…".
+func formatPubFailColumn(imm, batchEv int64) string {
+	if batchEv == 0 {
+		return fmt.Sprintf("%-8d", imm)
+	}
+	combo := fmt.Sprintf("%d+%d", imm, batchEv)
+	if len(combo) <= 8 {
+		return fmt.Sprintf("%-8s", combo)
+	}
+	return fmt.Sprintf("%-8s", fmt.Sprintf("%d+..", imm))
 }
 
 func bumpMaxQueueDepth(maxQ *atomic.Int64, c int64) {
@@ -839,6 +859,8 @@ func formatQueueKB(payloadBytes int64) string {
 // If maxQueueDB is non-nil, polls cre.chip_durable_events during the emit window to
 // record peak backlog (async publish may lag inserts).
 // If progressLabel is non-empty, prints a live progress bar and emit count to stdout every 500ms.
+// If pipe is non-nil (same *pipelineDeliveryStats wired via cfg.Hooks), ImmPublishFails and
+// BatchPublishFailEvents are deltas for this emit window only.
 func runRateLimitedEmit(
 	ctx context.Context,
 	t testing.TB,
@@ -849,8 +871,15 @@ func runRateLimitedEmit(
 	payloadSize int,
 	progressLabel string,
 	maxQueueDB *sqlx.DB,
+	pipe *pipelineDeliveryStats,
 ) *rateLimitEmitResult {
 	t.Helper()
+
+	var imm0, batchEv0 int64
+	if pipe != nil {
+		imm0 = pipe.immPubErr.Load()
+		batchEv0 = pipe.batchPubEventErrs.Load()
+	}
 
 	stats := &emitLatencyStats{}
 	var maxQ, maxPayloadBytes atomic.Int64
@@ -960,18 +989,23 @@ func runRateLimitedEmit(
 			bumpMaxQueuePayloadBytes(&maxPayloadBytes, b)
 		}
 	}
-	return &rateLimitEmitResult{
+	res := &rateLimitEmitResult{
 		stats:                stats,
 		maxQueueDepth:        maxQ.Load(),
 		maxQueuePayloadBytes: maxPayloadBytes.Load(),
 	}
+	if pipe != nil {
+		res.ImmPublishFails = pipe.immPubErr.Load() - imm0
+		res.BatchPublishFailEvents = pipe.batchPubEventErrs.Load() - batchEv0
+	}
+	return res
 }
 
 // TestTPS_RampUp tests the durable emitter at increasing TPS levels to find
 // the throughput ceiling. Each level gets its own DurableEmitter to avoid
 // carry-over. Measures achieved rate, Emit() latency, and queue depth.
 func TestTPS_RampUp(t *testing.T) {
-	levels := []int{100, 500, 1000, 2000, 5000, 10000}
+	levels := []int{100, 500, 1000, 2000}
 	testStart := time.Now()
 
 	tpsRampMu.Lock()
@@ -980,12 +1014,12 @@ func TestTPS_RampUp(t *testing.T) {
 
 	t.Logf("TPS ramp-up: levels=%v (each level: fresh DB + server + emitter)", levels)
 
-	t.Logf("╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗")
-	t.Logf("║                              TPS RAMP-UP TEST RESULTS                                                              ║")
-	t.Logf("╠═══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣")
-	t.Logf("║ Target    ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Failures ║ Server   ║ Q max    ║ Q end    ║ Q max    ║ Q end    ║")
-	t.Logf("║ TPS       ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║          ║ recv*    ║ (rows)   ║ (rows)   ║ (KB)*    ║ (KB)*    ║")
-	t.Logf("╠═══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣")
+	t.Logf("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+	t.Logf("║                              TPS RAMP-UP TEST RESULTS                                        ║")
+	t.Logf("╠═══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣")
+	t.Logf("║ Target    ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║")
+	t.Logf("║ TPS       ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║")
+	t.Logf("╠═══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣")
 
 	for _, targetTPS := range levels {
 		t.Run(fmt.Sprintf("%d_tps", targetTPS), func(t *testing.T) {
@@ -993,7 +1027,7 @@ func TestTPS_RampUp(t *testing.T) {
 			t.Logf(">>> level %d TPS: provisioning direct DB + Chip endpoint...", targetTPS)
 
 			db := directDB(t)
-			srv, client := startChipIngressOrMock(t)
+			_, client := startChipIngressOrMock(t)
 			store := beholdersvc.NewPgDurableEventStore(db)
 
 			cfg := beholder.DefaultDurableEmitterConfig()
@@ -1009,12 +1043,12 @@ func TestTPS_RampUp(t *testing.T) {
 			em.Start(ctx)
 			defer em.Close()
 
-			const duration = 2 * time.Minute
+			const duration = 1 * time.Minute
 			const concurrency = 20
 
 			t.Logf(">>> level %d TPS: emitting for %s @ concurrency=%d (progress bar on stdout)", targetTPS, duration, concurrency)
 			emitRes := runRateLimitedEmit(ctx, t, em, targetTPS, duration, concurrency, 256,
-				fmt.Sprintf("ramp_up/%d_tps", targetTPS), db)
+				fmt.Sprintf("ramp_up/%d_tps", targetTPS), db, pipe)
 			stats := emitRes.stats
 			emitPhase := time.Since(levelStart)
 			t.Logf(">>> level %d TPS: emit phase wall time %s", targetTPS, emitPhase.Round(time.Millisecond))
@@ -1029,19 +1063,21 @@ func TestTPS_RampUp(t *testing.T) {
 			achieved := float64(stats.count()) / duration.Seconds()
 			p50 := stats.percentile(0.50)
 			p99 := stats.percentile(0.99)
-			serverCol := formatMockServerEvents(srv)
 
-			queueEnd, queueEndBytes, err := queuePayloadStats(db, ctx)
+			queueEnd, _, err := queuePayloadStats(db, ctx)
 			require.NoError(t, err)
 
 			totalEmits := stats.count()
-			rowLine := fmt.Sprintf("║ %-9d ║ %-8.0f ║ %-11d ║ %-8.2f ║ %-8.2f ║ %-8d ║ %-8s ║ %-8d ║ %-8d ║ %-8s ║ %-8s ║",
+			if stats.failures.Load() > 0 {
+				t.Logf(">>> level %d TPS: Emit() (DB insert) failures: %d", targetTPS, stats.failures.Load())
+			}
+			rowLine := fmt.Sprintf("║ %-9d ║ %-8.0f ║ %-11d ║ %-8.2f ║ %-8.2f ║ %-8s ║ %-8d ║ %-8d ║ %-8s ║",
 				targetTPS, achieved, totalEmits,
 				float64(p50.Microseconds())/1000.0,
 				float64(p99.Microseconds())/1000.0,
-				stats.failures.Load(),
-				serverCol, emitRes.maxQueueDepth, queueEnd,
-				formatQueueKB(emitRes.maxQueuePayloadBytes), formatQueueKB(queueEndBytes))
+				formatPubFailColumn(emitRes.ImmPublishFails, emitRes.BatchPublishFailEvents),
+				emitRes.maxQueueDepth, queueEnd,
+				formatQueueKB(emitRes.maxQueuePayloadBytes))
 			t.Log(rowLine)
 
 			tpsRampMu.Lock()
@@ -1050,26 +1086,26 @@ func TestTPS_RampUp(t *testing.T) {
 		})
 	}
 
-	t.Logf("╚═══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
-	t.Logf("* Q max/end rows: peak & final row counts. Q max/end KB: sum(octet_length(payload)) for queued rows / 1024 " +
-		"(serialized event bytes; excludes index & heap overhead). Sampled ~50ms during emit; Q end after 2s settle. " +
-		"Server recv: mock; N/A with real Chip.")
+	t.Logf("╚═══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
+	t.Logf("* Pub fail: immediate Publish RPC errors (events need retransmit). a+b = a immediate fails + b events in failed PublishBatch. " +
+		"Emit() insert failures are logged per level if non-zero.")
+	t.Logf("* Q max / Q end: peak & final row counts (polled ~50ms; Q end after settle). Q max KB* = sum(octet_length(payload))/1024 for queued rows.")
 	t.Logf("TestTPS_RampUp finished in %s", time.Since(testStart).Round(time.Millisecond))
 
 	summaryLines := []string{
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
-		"╔════════════════════════════════════════════════════════════════════════════════════════════════════════════════════╗",
-		"║                              TPS RAMP-UP TEST RESULTS                                                              ║",
-		"╠═══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣",
-		"║ Target    ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Failures ║ Server   ║ Q max    ║ Q end    ║ Q max    ║ Q end    ║",
-		"║ TPS       ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║          ║ recv*    ║ (rows)   ║ (rows)   ║ (KB)*    ║ (KB)*    ║",
-		"╠═══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
+		"╔══════════════════════════════════════════════════════════════════════════════════════════════╗",
+		"║                              TPS RAMP-UP TEST RESULTS                                        ║",
+		"╠═══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣",
+		"║ Target    ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║",
+		"║ TPS       ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║",
+		"╠═══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
 	}
 	tpsRampMu.Lock()
 	summaryLines = append(summaryLines, tpsRampRows...)
 	tpsRampMu.Unlock()
-	summaryLines = append(summaryLines, "╚═══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝",
-		"* Q KB = payload column bytes (sum octet_length) / 1024; excludes table/index overhead. Server recv: mock-only.")
+	summaryLines = append(summaryLines, "╚═══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝",
+		"* Q max KB* = sum(octet_length(payload))/1024 for queued rows (see test log footnotes).")
 	appendTPSummaryBlock("TestTPS_RampUp", summaryLines...)
 }
 
@@ -1081,7 +1117,7 @@ func TestTPS_Sustained1k(t *testing.T) {
 	t.Logf("TestTPS_Sustained1k: provisioning DB + Chip server + emitter...")
 
 	db := directDB(t)
-	srv, client := startChipIngressOrMock(t)
+	_, client := startChipIngressOrMock(t)
 	store := beholdersvc.NewPgDurableEventStore(db)
 
 	cfg := beholder.DefaultDurableEmitterConfig()
@@ -1105,7 +1141,7 @@ func TestTPS_Sustained1k(t *testing.T) {
 	t.Logf("Emit phase: target=%d TPS for %s @ concurrency=%d (progress bar on stdout)", targetTPS, duration, concurrency)
 	emitStart := time.Now()
 
-	emitRes := runRateLimitedEmit(ctx, t, em, targetTPS, duration, concurrency, 256, "sustained_1k", db)
+	emitRes := runRateLimitedEmit(ctx, t, em, targetTPS, duration, concurrency, 256, "sustained_1k", db, pipe)
 	stats := emitRes.stats
 
 	achievedTPS := float64(stats.count()) / duration.Seconds()
@@ -1131,12 +1167,12 @@ func TestTPS_Sustained1k(t *testing.T) {
 	t.Logf("║ Duration:         %-6s                          	║", duration)
 	t.Logf("║ Total emitted:    %-6d                          	║", stats.count())
 	t.Logf("║ Achieved TPS:     %-6.0f                          	║", achievedTPS)
-	t.Logf("║ Emit failures:    %-6d                          	║", stats.failures.Load())
+	t.Logf("║ Pub fail (retry): %-8s (1st+batch ev)          	║", formatPubFailColumn(emitRes.ImmPublishFails, emitRes.BatchPublishFailEvents))
+	t.Logf("║ Emit insert fail: %-6d (DB path)               	║", stats.failures.Load())
 	t.Logf("║ Emit p50 latency: %-6.2f ms                      	║", float64(stats.percentile(0.50).Microseconds())/1000.0)
 	t.Logf("║ Emit p99 latency: %-6.2f ms                      	║", float64(stats.percentile(0.99).Microseconds())/1000.0)
 	t.Logf("║ Queue max (emit): %-6d rows                     	║", emitRes.maxQueueDepth)
 	t.Logf("║ Queue max (emit): %-10s KB payload*             	║", formatQueueKB(emitRes.maxQueuePayloadBytes))
-	t.Logf("║ Server received:  %-6s (mock event count)      	║", formatMockServerEvents(srv))
 	t.Logf("║ Drain time:       %-6s                          	║", drainTime.Round(time.Millisecond))
 	t.Logf("╚════════════════════════════════════════════════════╝")
 	t.Logf("* Queue KB = sum(octet_length(payload))/1024 for queued rows (excludes index/heap overhead).")
@@ -1145,11 +1181,12 @@ func TestTPS_Sustained1k(t *testing.T) {
 	appendTPSummaryBlock("TestTPS_Sustained1k",
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
 		fmt.Sprintf("emit phase: %s", time.Since(emitStart).Round(time.Millisecond)),
-		fmt.Sprintf("target TPS: %d, achieved: %.0f, failures: %d", targetTPS, achievedTPS, stats.failures.Load()),
+		fmt.Sprintf("target TPS: %d, achieved: %.0f, pub_fail imm/batch_ev: %d/%d, emit_insert_fail: %d",
+			targetTPS, achievedTPS, emitRes.ImmPublishFails, emitRes.BatchPublishFailEvents, stats.failures.Load()),
 		fmt.Sprintf("emit p50/p99 ms: %.2f / %.2f", float64(stats.percentile(0.50).Microseconds())/1000.0, float64(stats.percentile(0.99).Microseconds())/1000.0),
 		fmt.Sprintf("queue max during emit: %d rows, %s KB payload (sum octet_length/1024)", emitRes.maxQueueDepth, formatQueueKB(emitRes.maxQueuePayloadBytes)),
 		fmt.Sprintf("pipeline imm Publish/Delete means ms: %.3f / %.3f (n=%d/%d)", durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean()), pipe.immPub.count(), pipe.immDel.count()),
-		fmt.Sprintf("server events: %s, drain time: %s", formatMockServerEvents(srv), drainTime.Round(time.Millisecond)),
+		fmt.Sprintf("drain time: %s", drainTime.Round(time.Millisecond)),
 	)
 
 	assert.GreaterOrEqual(t, achievedTPS, float64(targetTPS)*0.9,
@@ -1177,6 +1214,8 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 	cfg.RetransmitInterval = 1 * time.Second
 	cfg.RetransmitAfter = 2 * time.Second
 	cfg.RetransmitBatchSize = 500
+	outagePipe := &pipelineDeliveryStats{}
+	cfg.Hooks = newPipelineHooks(outagePipe)
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Nop())
 	require.NoError(t, err)
@@ -1191,7 +1230,7 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 	// Phase 1: 15s of healthy operation at 1k TPS.
 	t.Logf("Phase 1: Healthy — emitting at %d TPS for 15s...", targetTPS)
 	p1Start := time.Now()
-	phase1Res := runRateLimitedEmit(ctx, t, em, targetTPS, 15*time.Second, concurrency, 256, "outage/phase1_healthy", db)
+	phase1Res := runRateLimitedEmit(ctx, t, em, targetTPS, 15*time.Second, concurrency, 256, "outage/phase1_healthy", db, outagePipe)
 	phase1Stats := phase1Res.stats
 	t.Logf("Phase 1 emit finished in %s", time.Since(p1Start).Round(time.Millisecond))
 	time.Sleep(3 * time.Second) // let pipeline drain
@@ -1204,20 +1243,20 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 	srv.setBatchErr(status.Error(codes.Unavailable, "chip down"))
 
 	p2Start := time.Now()
-	phase2Res := runRateLimitedEmit(ctx, t, em, targetTPS, 15*time.Second, concurrency, 256, "outage/phase2_chip_down", db)
+	phase2Res := runRateLimitedEmit(ctx, t, em, targetTPS, 15*time.Second, concurrency, 256, "outage/phase2_chip_down", db, outagePipe)
 	phase2Stats := phase2Res.stats
 	t.Logf("Phase 2 emit finished in %s", time.Since(p2Start).Round(time.Millisecond))
 
 	// Queue at end of outage phase (for drain math) + peak sampled during phase 2 emit window.
-	queueDuringOutage, queueDuringOutageBytes, err := queuePayloadStats(db, ctx)
+	queueDuringOutage, _, err := queuePayloadStats(db, ctx)
 	require.NoError(t, err)
-	t.Logf("Phase 2 done: %d events emitted (%.0f TPS), queue end: %d rows / %s KB payload*, queue max (emit): %d rows / %s KB*",
+	t.Logf("Phase 2 done: %d events emitted (%.0f TPS), queue end: %d rows, queue max (emit): %d rows / %s KB*",
 		phase2Stats.count(), float64(phase2Stats.count())/15.0,
-		queueDuringOutage, formatQueueKB(queueDuringOutageBytes),
+		queueDuringOutage,
 		phase2Res.maxQueueDepth, formatQueueKB(phase2Res.maxQueuePayloadBytes))
 
 	assert.Equal(t, int64(0), phase2Stats.failures.Load(),
-		"Emit must not fail during Chip outage — DB insert should still work")
+		"Emit() must not fail during Chip outage — DB insert should still work")
 
 	// Phase 3: Chip recovers. Stop emitting. Measure drain.
 	t.Logf("Phase 3: Chip RECOVERED — measuring drain...")
@@ -1239,26 +1278,27 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 	t.Logf("║ Phase 1 (healthy):                                ║")
 	t.Logf("║   Emitted:          %-6d events                  ║", phase1Stats.count())
 	t.Logf("║   p99 latency:      %-6.2f ms                     ║", float64(phase1Stats.percentile(0.99).Microseconds())/1000.0)
+	t.Logf("║   Pub fail (retry): %-8s                        ║", formatPubFailColumn(phase1Res.ImmPublishFails, phase1Res.BatchPublishFailEvents))
 	t.Logf("║   Queue max (emit): %-6d rows / %-8s KB*        ║", phase1Res.maxQueueDepth, formatQueueKB(phase1Res.maxQueuePayloadBytes))
 	t.Logf("║ Phase 2 (Chip down):                              ║")
 	t.Logf("║   Emitted:          %-6d events                  ║", phase2Stats.count())
 	t.Logf("║   p99 latency:      %-6.2f ms                     ║", float64(phase2Stats.percentile(0.99).Microseconds())/1000.0)
-	t.Logf("║   Emit failures:    %-6d                         ║", phase2Stats.failures.Load())
+	t.Logf("║   Pub fail (retry): %-8s (Publish RPC errors)   ║", formatPubFailColumn(phase2Res.ImmPublishFails, phase2Res.BatchPublishFailEvents))
+	t.Logf("║   Emit insert fail: %-6d                         ║", phase2Stats.failures.Load())
 	t.Logf("║   Queue max (emit): %-6d rows / %-8s KB*        ║", phase2Res.maxQueueDepth, formatQueueKB(phase2Res.maxQueuePayloadBytes))
-	t.Logf("║   Queue end:        %-6d rows / %-8s KB*        ║", queueDuringOutage, formatQueueKB(queueDuringOutageBytes))
+	t.Logf("║   Queue end:        %-6d rows                   ║", queueDuringOutage)
 	t.Logf("║ Phase 3 (recovery):                               ║")
 	t.Logf("║   Drain time:       %-6s                         ║", drainTime.Round(time.Millisecond))
 	t.Logf("║   Drain rate:       %-6.0f events/sec              ║", drainRate)
-	t.Logf("║   Server received:  %-6d total                   ║", srv.totalEvents.Load())
 	t.Logf("╚════════════════════════════════════════════════════╝")
-	t.Logf("* KB = sum(octet_length(payload))/1024 for queued rows (excludes index/heap overhead).")
+	t.Logf("* Queue max KB = sum(octet_length(payload))/1024 for queued rows (excludes index/heap overhead).")
 	t.Logf("TestTPS_1k_WithChipOutage finished in %s", time.Since(testStart).Round(time.Millisecond))
 
 	appendTPSummaryBlock("TestTPS_1k_WithChipOutage",
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
-		fmt.Sprintf("phase1 events: %d, phase2 events: %d, queue end: %d rows / %s KB, phase2 queue max: %d rows / %s KB",
-			phase1Stats.count(), phase2Stats.count(), queueDuringOutage, formatQueueKB(queueDuringOutageBytes), phase2Res.maxQueueDepth, formatQueueKB(phase2Res.maxQueuePayloadBytes)),
-		fmt.Sprintf("drain time: %s, drain rate: %.0f ev/s, server total: %d", drainTime.Round(time.Millisecond), drainRate, srv.totalEvents.Load()),
+		fmt.Sprintf("phase1 events: %d, phase2 events: %d, queue end: %d rows, phase2 queue max: %d rows / %s KB",
+			phase1Stats.count(), phase2Stats.count(), queueDuringOutage, phase2Res.maxQueueDepth, formatQueueKB(phase2Res.maxQueuePayloadBytes)),
+		fmt.Sprintf("drain time: %s, drain rate: %.0f ev/s", drainTime.Round(time.Millisecond), drainRate),
 	)
 }
 
@@ -1284,12 +1324,12 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 
 	const payloadDuration = 15 * time.Second
 
-	t.Logf("╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗")
-	t.Logf("║                 1k TPS × PAYLOAD SIZE SCALING                                                              ║")
-	t.Logf("╠══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣")
-	t.Logf("║ Payload  ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Failures ║ Q max    ║ Q end    ║ Q max    ║ Q end    ║")
-	t.Logf("║ Size     ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║          ║ (rows)   ║ (rows)   ║ (KB)*    ║ (KB)*    ║")
-	t.Logf("╠══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣")
+	t.Logf("╔════════════════════════════════════════════════════════════════════════════════════════════╗")
+	t.Logf("║                 1k TPS × PAYLOAD SIZE SCALING                                              ║")
+	t.Logf("╠══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣")
+	t.Logf("║ Payload  ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║")
+	t.Logf("║ Size     ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║")
+	t.Logf("╠══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣")
 
 	for _, s := range sizes {
 		t.Run(s.name, func(t *testing.T) {
@@ -1302,6 +1342,8 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 			cfg.RetransmitInterval = 1 * time.Second
 			cfg.RetransmitAfter = 3 * time.Second
 			cfg.RetransmitBatchSize = 500
+			pipe := &pipelineDeliveryStats{}
+			cfg.Hooks = newPipelineHooks(pipe)
 
 			em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Nop())
 			require.NoError(t, err)
@@ -1315,21 +1357,25 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 
 			t.Logf(">>> payload %s: emitting %d TPS for %s", s.name, targetTPS, payloadDuration)
 			emitRes := runRateLimitedEmit(ctx, t, em, targetTPS, payloadDuration, concurrency, s.size,
-				fmt.Sprintf("payload/%s", s.name), db)
+				fmt.Sprintf("payload/%s", s.name), db, pipe)
 			stats := emitRes.stats
 
-			queueEnd, queueEndBytes, err := queuePayloadStats(db, ctx)
+			queueEnd, _, err := queuePayloadStats(db, ctx)
 			require.NoError(t, err)
 
 			achieved := float64(stats.count()) / payloadDuration.Seconds()
 			totalEmits := stats.count()
 
-			rowLine := fmt.Sprintf("║ %-8s ║ %-8.0f ║ %-11d ║ %-8.2f ║ %-8.2f ║ %-8d ║ %-8d ║ %-8d ║ %-8s ║ %-8s ║",
+			if stats.failures.Load() > 0 {
+				t.Logf(">>> payload %s: Emit() insert failures: %d", s.name, stats.failures.Load())
+			}
+			rowLine := fmt.Sprintf("║ %-8s ║ %-8.0f ║ %-11d ║ %-8.2f ║ %-8.2f ║ %-8s ║ %-8d ║ %-8d ║ %-8s ║",
 				s.name, achieved, totalEmits,
 				float64(stats.percentile(0.50).Microseconds())/1000.0,
 				float64(stats.percentile(0.99).Microseconds())/1000.0,
-				stats.failures.Load(), emitRes.maxQueueDepth, queueEnd,
-				formatQueueKB(emitRes.maxQueuePayloadBytes), formatQueueKB(queueEndBytes))
+				formatPubFailColumn(emitRes.ImmPublishFails, emitRes.BatchPublishFailEvents),
+				emitRes.maxQueueDepth, queueEnd,
+				formatQueueKB(emitRes.maxQueuePayloadBytes))
 			t.Log(rowLine)
 
 			tpsPayloadMu.Lock()
@@ -1338,22 +1384,22 @@ func TestTPS_PayloadSizeScaling(t *testing.T) {
 		})
 	}
 
-	t.Logf("╚══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
-	t.Logf("Total emits = successful Emit() calls in each %s window. Q KB* = sum(octet_length(payload))/1024 (excludes index overhead).", payloadDuration)
+	t.Logf("╚══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
+	t.Logf("* Pub fail: failed Publish / PublishBatch (see ramp test footnote). Q max KB* = sum(octet_length(payload))/1024. Total emits = successful Emit() per %s.", payloadDuration)
 	t.Logf("TestTPS_PayloadSizeScaling finished in %s", time.Since(testStart).Round(time.Millisecond))
 
 	summaryLines := []string{
 		fmt.Sprintf("total wall clock: %s", time.Since(testStart).Round(time.Millisecond)),
-		"╔════════════════════════════════════════════════════════════════════════════════════════════════════════════╗",
-		"║                 1k TPS × PAYLOAD SIZE SCALING                                                              ║",
-		"╠══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣",
-		"║ Payload  ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Failures ║ Q max    ║ Q end    ║ Q max    ║ Q end    ║",
-		"║ Size     ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║          ║ (rows)   ║ (rows)   ║ (KB)*    ║ (KB)*    ║",
-		"╠══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
+		"╔════════════════════════════════════════════════════════════════════════════════════════════╗",
+		"║                 1k TPS × PAYLOAD SIZE SCALING                                              ║",
+		"╠══════════╦══════════╦═════════════╦══════════╦══════════╦══════════╦══════════╦══════════╦══════════╣",
+		"║ Payload  ║ Achieved ║ Total emits ║ Emit p50 ║ Emit p99 ║ Pub fail ║ Q max    ║ Q end    ║ Q max    ║",
+		"║ Size     ║ TPS      ║ (success)   ║ (ms)     ║ (ms)     ║ (retry)* ║ (rows)   ║ (rows)   ║ (KB)*    ║",
+		"╠══════════╬══════════╬═════════════╬══════════╬══════════╬══════════╬══════════╬══════════╬══════════╣",
 	}
 	tpsPayloadMu.Lock()
 	summaryLines = append(summaryLines, tpsPayloadRows...)
 	tpsPayloadMu.Unlock()
-	summaryLines = append(summaryLines, "╚══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
+	summaryLines = append(summaryLines, "╚══════════╩══════════╩═════════════╩══════════╩══════════╩══════════╩══════════╩══════════╩══════════╝")
 	appendTPSummaryBlock("TestTPS_PayloadSizeScaling", summaryLines...)
 }

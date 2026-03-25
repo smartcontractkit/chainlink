@@ -93,6 +93,24 @@ func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
 	assert.Equal(t, int64(1), deleted)
 }
 
+func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	ctx := testutils.Context(t)
+	store := beholdersvc.NewPgDurableEventStore(db)
+
+	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), st.Depth)
+
+	_, err = store.Insert(ctx, []byte("payload-bytes"))
+	require.NoError(t, err)
+	st, err = store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), st.Depth)
+	assert.Equal(t, int64(len("payload-bytes")), st.PayloadBytes)
+	assert.Positive(t, st.OldestPendingAge)
+}
+
 // ---------- Benchmarks ----------
 
 func randomPayload(size int) []byte {

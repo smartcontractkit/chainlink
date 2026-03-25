@@ -231,7 +231,7 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 }
 
 // TODO: Add tests to suite
-func Test_CRE_V2_DurableEmitter(t *testing.T) {
+func Test_CRE_V2_DurableEmitter_Simple(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)
 }

@@ -37,56 +37,71 @@ type moduleInfo struct {
 	Version string `json:"Version"`
 }
 
-// getSchemaSetFromGoMod uses `go list` to extract the version/commit ref
-// from the github.com/smartcontractkit/chainlink-protos/workflows/go dependency.
-// It returns a SchemaSet with hardcoded values matching default.toml config.
-func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {
-	const targetModule = "github.com/smartcontractkit/chainlink-protos/workflows/go"
+const chainlinkProtosGitURI = "https://github.com/smartcontractkit/chainlink-protos"
 
-	// Get the absolute path to the repository root (where go.mod is located)
+// schemaCommitRefFromGoMod runs `go list -m -json` for targetModule from repoRoot and returns the ref for FetchAndRegisterProtos.
+func schemaCommitRefFromGoMod(ctx context.Context, repoRoot, targetModule string) (ref string, rawVersion string, err error) {
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", targetModule)
+	cmd.Dir = repoRoot
+
+	output, cmdErr := cmd.Output()
+	if cmdErr != nil {
+		return "", "", errors.Wrapf(cmdErr, "failed to run 'go list -m -json %s'", targetModule)
+	}
+
+	var modInfo moduleInfo
+	if unmarshalErr := json.Unmarshal(output, &modInfo); unmarshalErr != nil {
+		return "", "", errors.Wrap(unmarshalErr, "failed to parse go list JSON output")
+	}
+
+	if modInfo.Version == "" {
+		return "", "", errors.Errorf("no version found for module %s", targetModule)
+	}
+
+	commitRef := extractCommitRef(modInfo.Version)
+	return commitRef, modInfo.Version, nil
+}
+
+// getSchemaSetFromGoMod resolves SchemaSets from chainlink-protos commits pinned in go.mod:
+//   - workflows (chip-cre.json) for CRE/workflow telemetry
+//   - node-platform (chip-schemas.json) for PluginRelayerConfigEmitter / common.v1.ChainPluginConfig
+func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {
+	const (
+		workflowsModule    = "github.com/smartcontractkit/chainlink-protos/workflows/go"
+		nodePlatformModule = "github.com/smartcontractkit/chainlink-protos/node-platform"
+	)
+
 	repoRoot, err := filepath.Abs(relativePathToRepoRoot)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get absolute path to repository root")
 	}
 
-	// Use `go list -m -json` to get module information
-	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-json", targetModule)
-	cmd.Dir = repoRoot
-
-	output, err := cmd.Output()
+	wfRef, wfVer, err := schemaCommitRefFromGoMod(ctx, repoRoot, workflowsModule)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to run 'go list -m -json %s'", targetModule)
+		return nil, err
 	}
+	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", workflowsModule, wfRef, wfVer)
 
-	// Parse JSON output
-	var modInfo moduleInfo
-	if err := json.Unmarshal(output, &modInfo); err != nil {
-		return nil, errors.Wrap(err, "failed to parse go list JSON output")
+	npRef, npVer, err := schemaCommitRefFromGoMod(ctx, repoRoot, nodePlatformModule)
+	if err != nil {
+		return nil, err
 	}
+	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", nodePlatformModule, npRef, npVer)
 
-	if modInfo.Version == "" {
-		return nil, errors.Errorf("no version found for module %s", targetModule)
-	}
-
-	// Extract commit ref from version string
-	// Support various formats:
-	// 1. v1.2.1 -> use as-is
-	// 2. v0.0.0-20211026045750-20ab5afb07e3 -> extract short hash (20ab5afb07e3)
-	// 3. 2a35b54f48ae06be4cc81c768dc9cc9e92249571 -> full commit hash, use as-is
-	// 4. v0.0.0-YYYYMMDDHHMMSS-SHORTHASH -> extract short hash
-	commitRef := extractCommitRef(modInfo.Version)
-
-	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", targetModule, commitRef, modInfo.Version)
-
-	// Return SchemaSet with hardcoded values from default.toml
-	schemaSet := chipingressset.SchemaSet{
-		URI:        "https://github.com/smartcontractkit/chainlink-protos",
-		Ref:        commitRef,
-		SchemaDir:  "workflows",
-		ConfigFile: "chip-cre.json", // file with mappings of protobufs to subjects, together with references
-	}
-
-	return []chipingressset.SchemaSet{schemaSet}, nil
+	return []chipingressset.SchemaSet{
+		{
+			URI:        chainlinkProtosGitURI,
+			Ref:        wfRef,
+			SchemaDir:  "workflows",
+			ConfigFile: "chip-cre.json",
+		},
+		{
+			URI:        chainlinkProtosGitURI,
+			Ref:        npRef,
+			SchemaDir:  "node-platform",
+			ConfigFile: "chip-schemas.json",
+		},
+	}, nil
 }
 
 // extractCommitRef extracts a commit reference from various version formats

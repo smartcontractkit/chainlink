@@ -16,7 +16,10 @@ type PgDurableEventStore struct {
 	ds sqlutil.DataSource
 }
 
-var _ beholder.DurableEventStore = (*PgDurableEventStore)(nil)
+var (
+	_ beholder.DurableEventStore    = (*PgDurableEventStore)(nil)
+	_ beholder.DurableQueueObserver = (*PgDurableEventStore)(nil)
+)
 
 func NewPgDurableEventStore(ds sqlutil.DataSource) *PgDurableEventStore {
 	return &PgDurableEventStore{ds: ds}
@@ -83,4 +86,44 @@ SELECT count(*) FROM deleted`
 		return 0, fmt.Errorf("failed to delete expired chip durable events: %w", err)
 	}
 	return count, nil
+}
+
+type chipDurableQueueAgg struct {
+	Cnt        int64      `db:"cnt"`
+	PayloadSum int64      `db:"payload_sum"`
+	MinCreated *time.Time `db:"min_created"`
+}
+
+// ObserveDurableQueue implements beholder.DurableQueueObserver for queue depth / age gauges.
+func (s *PgDurableEventStore) ObserveDurableQueue(ctx context.Context, eventTTL, nearExpiryLead time.Duration) (beholder.DurableQueueStats, error) {
+	const qAgg = `
+SELECT
+	count(*)::bigint AS cnt,
+	coalesce(sum(octet_length(payload)), 0)::bigint AS payload_sum,
+	min(created_at) AS min_created
+FROM ` + chipDurableEventsTable
+
+	var row chipDurableQueueAgg
+	if err := s.ds.GetContext(ctx, &row, qAgg); err != nil {
+		return beholder.DurableQueueStats{}, fmt.Errorf("durable queue aggregate: %w", err)
+	}
+	var st beholder.DurableQueueStats
+	st.Depth = row.Cnt
+	st.PayloadBytes = row.PayloadSum
+	if row.MinCreated != nil {
+		st.OldestPendingAge = time.Since(*row.MinCreated)
+	}
+	if eventTTL > 0 && nearExpiryLead > 0 && nearExpiryLead < eventTTL {
+		ttlSec := int64(eventTTL.Round(time.Second) / time.Second)
+		leadSec := int64(nearExpiryLead.Round(time.Second) / time.Second)
+		const qNear = `
+SELECT count(*)::bigint
+FROM ` + chipDurableEventsTable + `
+WHERE created_at >= now() - ($1::bigint * interval '1 second')
+  AND created_at < now() - (($1::bigint - $2::bigint) * interval '1 second')`
+		if err := s.ds.GetContext(ctx, &st.NearTTLCount, qNear, ttlSec, leadSec); err != nil {
+			return beholder.DurableQueueStats{}, fmt.Errorf("durable queue near-ttl: %w", err)
+		}
+	}
+	return st, nil
 }
