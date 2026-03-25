@@ -10,7 +10,7 @@ runs:
   using: composite
   steps:
     - name: Checkout chainlink-ccip
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: smartcontractkit/chainlink-ccip
         path: chainlink-ccip
@@ -56,7 +56,6 @@ runs:
           echo "Artifact not found or expired"
           echo "exists=false" >> $GITHUB_ENV
         fi
-
 
     - name: Download artifact if it exists
       if: env.exists == 'true'
