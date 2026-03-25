@@ -106,12 +106,10 @@ func (c *creConfig) Linking() config.CRELinking {
 }
 
 type confidentialRelayConfig struct {
-	enabled    bool
-	caRootsPEM string
+	enabled bool
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool      { return cr.enabled }
-func (cr *confidentialRelayConfig) CARootsPEM() string { return cr.caRootsPEM }
+func (cr *confidentialRelayConfig) Enabled() bool { return cr.enabled }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
@@ -121,11 +119,7 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.Enabled != nil {
 		enabled = *c.c.ConfidentialRelay.Enabled
 	}
-	caRootsPEM := ""
-	if c.c.ConfidentialRelay.CARootsPEM != nil {
-		caRootsPEM = *c.c.ConfidentialRelay.CARootsPEM
-	}
-	return &confidentialRelayConfig{enabled: enabled, caRootsPEM: caRootsPEM}
+	return &confidentialRelayConfig{enabled: enabled}
 }
 
 func (c *creConfig) LocalSecrets() map[string]string {
