@@ -17,9 +17,12 @@ var (
 type aggregator struct{}
 
 func (a *aggregator) Aggregate(resps map[string]jsonrpc.Response[json.RawMessage], donF int, donMembersCount int, l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
-	// F+1 is sufficient: each honest node independently validates the enclave's
-	// Nitro attestation, so F+1 matching responses guarantees at least one
-	// honest node vouched for the result.
+	// F+1 (QuorumFPlusOne) is sufficient because each relay node calls the
+	// target DON (Vault or capability) through CRE's standard capability
+	// dispatch, which includes DON-level consensus. Every honest relay node
+	// receives the same consensus-aggregated response and performs deterministic
+	// translation, producing byte-identical outputs. F+1 matching responses
+	// therefore guarantees at least one honest node vouched for the result.
 	requiredQuorum := donF + 1
 
 	if len(resps) < requiredQuorum {
