@@ -175,7 +175,7 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			NetworkFeeUSDCents:                77,
 			GasPriceStalenessThreshold:        0,
 			GasMultiplierWeiPerEth:            99,
-			ChainFamilySelector:              [4]byte{0x28, 0x12, 0xd5, 0x2c},
+			ChainFamilySelector:               [4]byte{0x28, 0x12, 0xd5, 0x2c},
 		}
 		tenv, err = commonchangeset.Apply(t, tenv,
 			commonchangeset.Configure(
@@ -258,13 +258,13 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			DefaultTokenFeeUSDCents:           v15Cfg.DefaultTokenFeeUSDCents,
 			EnforceOutOfOrder:                 v15Cfg.EnforceOutOfOrder,
 			DestGasPerPayloadByteBase:         uint8(v15Cfg.DestGasPerPayloadByte), //nolint:gosec // match v1.5 truncation
-			DestGasPerPayloadByteHigh:      ccipevm.CalldataGasPerByteHigh,
-			DestGasPerPayloadByteThreshold: ccipevm.CalldataGasPerByteThreshold,
-			DefaultTxGasLimit:              200_000,
-			NetworkFeeUSDCents:             10,
-			GasPriceStalenessThreshold:     86400,
-			ChainFamilySelector:            [4]byte{0x28, 0x12, 0xd5, 0x2c},
-			GasMultiplierWeiPerEth:         1e18,
+			DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
+			DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
+			DefaultTxGasLimit:                 200_000,
+			NetworkFeeUSDCents:                10,
+			GasPriceStalenessThreshold:        86400,
+			ChainFamilySelector:               [4]byte{0x28, 0x12, 0xd5, 0x2c},
+			GasMultiplierWeiPerEth:            1e18,
 		}
 		tenv, err = commonchangeset.Apply(t, tenv,
 			commonchangeset.Configure(
