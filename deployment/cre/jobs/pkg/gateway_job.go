@@ -231,7 +231,9 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
-				hs = append(hs, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec))
+				// -1 so the handler times out before the gateway, allowing a clean error response.
+				// TODO: the vault handler does the same -1 internally; unify both to use this pattern.
+				hs = append(hs, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec-1))
 			default:
 				return nil, errors.New("unknown handler type: " + ht)
 			}
@@ -273,7 +275,8 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
-				handlers = append(handlers, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec))
+				// -1 so the handler times out before the gateway, allowing a clean error response.
+				handlers = append(handlers, newDefaultConfidentialRelayHandler(g.RequestTimeoutSec-1))
 			default:
 				return nil, nil, errors.New("unknown handler type: " + ht)
 			}
@@ -463,9 +466,7 @@ func newDefaultConfidentialRelayHandler(requestTimeoutSec int) handler {
 		Name:        GatewayHandlerTypeConfidentialRelay,
 		ServiceName: ServiceNameConfidential,
 		Config: confidentialRelayHandlerConfig{
-			// must be lower than the overall gateway request timeout,
-			// so we allow for the response to be sent back.
-			RequestTimeoutSec: requestTimeoutSec - 1,
+			RequestTimeoutSec: requestTimeoutSec,
 			NodeRateLimiter: nodeRateLimiterConfig{
 				GlobalBurst:    10,
 				GlobalRPS:      50,
