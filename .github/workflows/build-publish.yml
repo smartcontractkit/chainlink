@@ -205,6 +205,8 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
+  # Core release tests
+  # Smoke & regression tests
   run-cre-system-tests:
     name: Run CRE System Tests
     needs: [docker-core]
@@ -248,6 +250,42 @@ jobs:
       chainlink_full_image: ${{ format('public.ecr.aws/chainlink/chainlink:{0}', needs.docker-core.outputs.docker-manifest-tag) }}
     secrets: inherit
 
+  # Upgrade compatibility tests
+  df1-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    name: Data Feeds v1 Upgrade Test
+    with:
+      buildcmd: "just cli"
+      envcmd: "cl u env.toml,products/ocr2/basic.toml"
+      testcmd: "cl test ocr2 TestSmoke/rounds"
+      upgrade-nodes: "3"
+      node-name-template: "don-node%d"
+      versions-back: "2"
+      exclude-refs: "beta,rc"
+      working-directory: "devenv"
+      logs-directory: "./devenv/tests/ocr2/logs"
+      ctf-log-level: "info"
+      strip-image-suffix: "v"
+    secrets: inherit
+
+  cre-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    name: CRE Upgrade Test
+    with:
+      buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
+      envcmd: "go run -C ../../core/scripts/cre/environment . env start"
+      testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
+      upgrade-nodes: "3"
+      node-name-template: "workflow-node%d"
+      versions-back: "2"
+      exclude-refs: "beta,rc"
+      working-directory: "./system-tests/tests"
+      logs-directory: "./system-tests/tests/smoke/cre/logs"
+      ctf-log-level: "info"
+      strip-image-suffix: "v"
+    secrets: inherit
+
+  # CCIP release tests
   run-ccip16-e2e-tests:
     name: Run CCIP v1.6 E2E Tests
     needs: [docker-ccip]
