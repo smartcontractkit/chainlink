@@ -62,11 +62,11 @@ type gatewayConnector interface {
 	RemoveHandler(ctx context.Context, methods []string) error
 }
 
-// attestationValidatorFunc validates a Nitro attestation document.
+// attestationValidatorFunc validates a TEE attestation document.
 type attestationValidatorFunc func(attestation []byte, expectedUserData []byte, trustedMeasurements []byte, caRootsPEM string) error
 
 // Handler processes enclave relay requests from the gateway.
-// It validates Nitro attestations and proxies requests to VaultDON or capability DONs.
+// It validates attestations and proxies requests to VaultDON or capability DONs.
 type Handler struct {
 	services.Service
 	eng *services.Engine
@@ -77,8 +77,8 @@ type Handler struct {
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
-	// validateAttestation validates Nitro attestation documents.
-	// Defaults to the real nitro validator; overridden in tests.
+	// validateAttestation validates TEE attestation documents.
+	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
 
 	// caRootsPEM is an optional PEM-encoded CA root certificate for attestation
