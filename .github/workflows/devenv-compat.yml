@@ -131,6 +131,14 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Authenticate to ECR (public)
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
+
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
         with:
