@@ -284,7 +284,7 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return GetTestConfig(t, "/configs/workflow-gateway-don.toml")
+	return GetTestConfig(t, "/configs/workflow-gateway-capabilities-don.toml")
 }
 
 func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {

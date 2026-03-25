@@ -592,11 +592,15 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",
 				trace.WithAttributes(
 					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
 					attribute.String("version", "v2"),
+					attribute.String("org_id", creCtx.Org),
+					attribute.String("owner_id", creCtx.Owner),
+					attribute.String("workflow_id", creCtx.Workflow),
 				))
 			defer span.End()
 			e.startExecution(ctx, queueHead)
@@ -631,16 +635,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.loggerLabels.Store(&loggerLabels)
 	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
 
-	var executionTimestamp int64
+	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
 		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
 		donTime, dtErr := executionTimeProvider.GetDONTime()
 		if dtErr != nil {
-			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
-			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+			executionTimestamp = e.cfg.Clock.Now()
+			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
 			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
 		} else {
-			executionTimestamp = donTime.UnixMilli()
+			executionTimestamp = donTime
 			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
 			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
 		}
@@ -649,7 +653,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	triggerEvent := wrappedTriggerEvent.event.Event
 
 	var executionID string
-	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.Timestamp(executionTimestamp)) == nil {
+	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil {
 		executionID = fullExecutionID
 		e.metrics.IncrementExecutionIDFullCounter(ctx)
 	} else {
@@ -660,6 +664,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		}
 		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
 	}
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)

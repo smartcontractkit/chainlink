@@ -64,7 +64,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		{amount: "0", expErr: "amount must be greater than zero"},
 		{amount: "asdf", expErr: "invalid amount:"},
 	} {
-		tt := tt
+
 		t.Run(tt.amount, func(t *testing.T) {
 			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 			}
 
 			// Check CLI output
-			require.Greater(t, len(r.Renders), 0)
+			require.NotEmpty(t, r.Renders)
 			renderer := r.Renders[len(r.Renders)-1]
 			renderedMsg := renderer.(*cmd.SolanaMsgPresenter)
 			t.Logf("%+v\n", renderedMsg)

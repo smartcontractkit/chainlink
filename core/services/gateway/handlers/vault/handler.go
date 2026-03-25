@@ -326,7 +326,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
@@ -361,9 +361,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
-	case vaulttypes.MethodSecretsGet:
-		h.lggr.Errorw("Get requests not allowed", "requestID", req.ID)
-		return errors.New("get request not allowed")
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -643,27 +640,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
-	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
-func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
-			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err := h.ValidateGetSecretsRequest(secretsGetRequest)
-	if err != nil {
-		l.Warnw("failed to validate get secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
-	}
-
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 

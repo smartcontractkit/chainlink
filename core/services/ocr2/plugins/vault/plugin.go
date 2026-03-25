@@ -481,7 +481,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
 		}
 
-		if len(observedLocalQueue) > 2*l {
+		if len(observedLocalQueue) >= 2*l {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
 				"queueSize", len(observedLocalQueue),
 				"batchSizeLimit", 2*l)
@@ -1080,7 +1080,6 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 			return errors.New("duplicate item found in pending queue item observation")
 		}
 		seen[sha] = true
-
 	}
 
 	return nil
