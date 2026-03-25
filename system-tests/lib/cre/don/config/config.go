@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"maps"
 	"math/big"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -36,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -682,7 +682,10 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
-	aptosChains := findAptosChains(input)
+	aptosChains, aptosErr := findAptosChains(input)
+	if aptosErr != nil {
+		return nil, errors.Wrap(aptosErr, "failed to find Aptos chains in the environment configuration")
+	}
 
 	return &commonInputs{
 		registryChainID:       registryChainID,
@@ -773,20 +776,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 const aptosZeroForwarderHex = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-// aptosNodeURLWithV1 normalizes an Aptos node URL so the path is /v1 (Aptos REST API base).
-func aptosNodeURLWithV1(nodeURL string) string {
-	u, err := url.Parse(nodeURL)
-	if err != nil {
-		return nodeURL
-	}
-	path := strings.TrimRight(u.Path, "/")
-	if path == "" || path != "/v1" {
-		u.Path = "/v1"
-	}
-	return u.String()
-}
-
-func findAptosChains(input cre.GenerateConfigsInput) []*aptosChain {
+func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 	capabilityChainIDs := input.DonMetadata.MustNodeSet().ChainCapabilityChainIDs()
 	out := make([]*aptosChain, 0)
 	for _, bcOut := range input.Blockchains {
@@ -796,14 +786,20 @@ func findAptosChains(input cre.GenerateConfigsInput) []*aptosChain {
 		if len(capabilityChainIDs) > 0 && !slices.Contains(capabilityChainIDs, bcOut.ChainID()) {
 			continue
 		}
-		nodeURL := aptosNodeURLWithV1(bcOut.CtfOutput().Nodes[0].InternalHTTPUrl)
+
+		aptosBC := bcOut.(*aptoschain.Blockchain)
+		nodeURL, err := aptosBC.InternalNodeURL()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get Aptos internal node URL for chain %d", bcOut.ChainID())
+		}
+
 		out = append(out, &aptosChain{
 			ChainID:          strconv.FormatUint(bcOut.ChainID(), 10),
 			NodeURL:          nodeURL,
 			ForwarderAddress: aptosZeroForwarderHex,
 		})
 	}
-	return out
+	return out, nil
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {

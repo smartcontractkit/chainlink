@@ -61,6 +61,13 @@ func (a *Blockchain) NodeURL() (string, error) {
 	return NormalizeNodeURL(a.ctfOutput.Nodes[0].ExternalHTTPUrl)
 }
 
+func (a *Blockchain) InternalNodeURL() (string, error) {
+	if a.ctfOutput == nil || len(a.ctfOutput.Nodes) == 0 {
+		return "", fmt.Errorf("no nodes found for Aptos chain %s-%d", a.ChainFamily(), a.chainID)
+	}
+	return NormalizeNodeURL(a.ctfOutput.Nodes[0].InternalHTTPUrl)
+}
+
 func (a *Blockchain) NodeClient() (*aptoslib.NodeClient, error) {
 	nodeURL, err := a.NodeURL()
 	if err != nil {
