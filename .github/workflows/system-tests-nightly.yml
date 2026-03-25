@@ -45,6 +45,7 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
+  pull_request:
 
 defaults:
   run:
@@ -125,8 +126,7 @@ jobs:
       contents: read
       pull-requests: write
     runs-on: ${{ matrix.runner }}
-    # The workflow is intended to be called after an image build completes.
-    if: ${{ always() && needs.resolve-chainlink-image.result == 'success' }}
+    if: needs.resolve-chainlink-image.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.devenv-changes == 'true')
     strategy:
       fail-fast: false
       matrix:
