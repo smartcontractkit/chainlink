@@ -74,13 +74,14 @@ jobs:
         uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
         with:
           chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
-          chainlink_image_tag: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value }}
+          chainlink_image_tag: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
           chainlink_full_image: ${{ inputs.chainlink_full_image }}
           chainlink_version: ${{ inputs.chainlink_version }}
         env:
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       - name: Print Summary
+        working-directory: .
         run: |
           echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> $GITHUB_STEP_SUMMARY
   test-nightly:
@@ -333,6 +334,14 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Authenticate to ECR (public)
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
+
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
         with:
@@ -354,7 +363,7 @@ jobs:
         uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
         with:
           chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
-          chainlink_image_tag: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value }}
+          chainlink_image_tag: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
           chainlink_full_image: ${{ inputs.chainlink_full_image }}
           chainlink_version: ${{ inputs.chainlink_version }}
         env:
