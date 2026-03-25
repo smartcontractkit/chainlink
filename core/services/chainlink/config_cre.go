@@ -106,14 +106,12 @@ func (c *creConfig) Linking() config.CRELinking {
 }
 
 type confidentialRelayConfig struct {
-	enabled     bool
-	trustedPCRs string
-	caRootsPEM  string
+	enabled    bool
+	caRootsPEM string
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool       { return cr.enabled }
-func (cr *confidentialRelayConfig) TrustedPCRs() string { return cr.trustedPCRs }
-func (cr *confidentialRelayConfig) CARootsPEM() string  { return cr.caRootsPEM }
+func (cr *confidentialRelayConfig) Enabled() bool      { return cr.enabled }
+func (cr *confidentialRelayConfig) CARootsPEM() string { return cr.caRootsPEM }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
@@ -123,15 +121,11 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.Enabled != nil {
 		enabled = *c.c.ConfidentialRelay.Enabled
 	}
-	trustedPCRs := ""
-	if c.c.ConfidentialRelay.TrustedPCRs != nil {
-		trustedPCRs = *c.c.ConfidentialRelay.TrustedPCRs
-	}
 	caRootsPEM := ""
 	if c.c.ConfidentialRelay.CARootsPEM != nil {
 		caRootsPEM = *c.c.ConfidentialRelay.CARootsPEM
 	}
-	return &confidentialRelayConfig{enabled: enabled, trustedPCRs: trustedPCRs, caRootsPEM: caRootsPEM}
+	return &confidentialRelayConfig{enabled: enabled, caRootsPEM: caRootsPEM}
 }
 
 func (c *creConfig) LocalSecrets() map[string]string {
