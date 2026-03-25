@@ -60,6 +60,10 @@ runs:
             echo "::error::Either provide 'chainlink_full_image' or provide a tag via 'chainlink_image_tag' (or 'chainlink_version')."
             exit 1
           fi
+          if [[ -z "${QA_AWS_ACCOUNT_NUMBER:-}" || -z "${QA_AWS_REGION:-}" ]]; then
+            echo "::error::When 'chainlink_full_image' is not provided, both 'QA_AWS_ACCOUNT_NUMBER' and 'QA_AWS_REGION' environment variables must be set and non-empty."
+            exit 1
+          fi
           resolved_image="${QA_AWS_ACCOUNT_NUMBER}.dkr.ecr.${QA_AWS_REGION}.amazonaws.com/${resolved_repo}:${resolved_tag}"
         fi
 
