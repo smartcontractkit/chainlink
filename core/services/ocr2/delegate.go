@@ -726,7 +726,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	handler, err := vaultcap.NewGatewayHandler(capabilitiesRegistry, vaultCapability, gwconnector, d.lggr)
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, d.lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
