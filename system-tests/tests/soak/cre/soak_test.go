@@ -75,7 +75,6 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 	t.Cleanup(func() {
 		gin.DefaultWriter = oldGinDefaultWriter
 		gin.DefaultErrorWriter = oldGinDefaultErrorWriter
-		_ = ppLogFile.Close()
 	})
 
 	soakPPLogger := zerolog.New(ppLogFile).
