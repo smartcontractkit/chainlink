@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"google.golang.org/protobuf/proto"
@@ -165,7 +166,7 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	if capResp.Payload == nil {
-		return nil, fmt.Errorf("confidential-workflows capability returned nil payload")
+		return nil, errors.New("confidential-workflows capability returned nil payload")
 	}
 
 	var confResp confworkflowtypes.ConfidentialWorkflowResponse
