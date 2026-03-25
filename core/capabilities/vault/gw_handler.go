@@ -177,6 +177,10 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 
 	authReq := *req
 	authReq.ID = originalRequestID
+	if err := stripPrefixedRequestIDFromParams(&authReq, originalRequestID); err != nil {
+		h.lggr.Errorw("failed to normalize gateway request for authorization", "method", req.Method, "requestID", originalRequestID, "error", err)
+		return "", err
+	}
 
 	h.lggr.Debugw("authorizing gateway request", "method", req.Method, "requestID", originalRequestID)
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, authReq)
@@ -194,6 +198,55 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	req.ID = owner + vaulttypes.RequestIDSeparator + originalRequestID
 	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	return owner, nil
+}
+
+func stripPrefixedRequestIDFromParams(req *jsonrpc.Request[json.RawMessage], originalRequestID string) error {
+	if req.Params == nil {
+		return nil
+	}
+
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		parsed := vaultcommon.CreateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+			return err
+		}
+		parsed.RequestId = originalRequestID
+		return rewriteRequestParams(req, parsed)
+	case vaulttypes.MethodSecretsUpdate:
+		parsed := vaultcommon.UpdateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+			return err
+		}
+		parsed.RequestId = originalRequestID
+		return rewriteRequestParams(req, parsed)
+	case vaulttypes.MethodSecretsDelete:
+		parsed := vaultcommon.DeleteSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+			return err
+		}
+		parsed.RequestId = originalRequestID
+		return rewriteRequestParams(req, parsed)
+	case vaulttypes.MethodSecretsList:
+		parsed := vaultcommon.ListSecretIdentifiersRequest{}
+		if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+			return err
+		}
+		parsed.RequestId = originalRequestID
+		return rewriteRequestParams(req, parsed)
+	default:
+		return nil
+	}
+}
+
+func rewriteRequestParams(req *jsonrpc.Request[json.RawMessage], payload any) error {
+	params, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	raw := json.RawMessage(params)
+	req.Params = &raw
+	return nil
 }
 
 func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
