@@ -49,21 +49,45 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			var workflowRegistryAddress string
-			var contractsVersion *semver.Version
-			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
-				workflowRegistryAddress = workflowRegistryAddressFlag
-				contractsVersion = semver.MustParse(contractsVersionFlag)
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
-				}
-				workflowRegistryAddress = addrRef.Address
-				contractsVersion = addrRef.Version
+			resolver, resolverErr := TryLoadLocalCREStateResolver()
+			if resolverErr != nil {
+				return errors.Wrap(resolverErr, "failed to load local CRE state")
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddress, contractsVersion)
+			rpcURL := rpcURLFlag
+			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+				if stateRPC, err := resolver.RegistryRPC(); err == nil {
+					rpcURL = stateRPC
+				}
+			}
+
+			gatewayURL := gatewayURLFlag
+			if !cmd.Flags().Changed("gateway-url") && resolver != nil {
+				if stateGatewayURL, err := resolver.GatewayURL(); err == nil {
+					gatewayURL = stateGatewayURL
+				}
+			}
+
+			workflowDONID := workflowDonIDFlag
+			if !cmd.Flags().Changed("workflow-don-id") && resolver != nil {
+				if stateDONID, err := resolver.WorkflowDONID(); err == nil {
+					workflowDONID = stateDONID
+				}
+			}
+
+			gatewayDONName := gatewayDonIDFlag
+			if !cmd.Flags().Changed("gateway-don-id") && resolver != nil {
+				if stateDONName, err := resolver.WorkflowDONName(); err == nil {
+					gatewayDONName = stateDONName
+				}
+			}
+
+			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			if err != nil {
+				return errors.Wrap(err, "❌ failed to resolve workflow registry")
+			}
+
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURL, gatewayURL, gatewayDONName, workflowDONID, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddress, contractsVersion)
 		},
 	}
 
