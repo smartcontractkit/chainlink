@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
@@ -58,9 +60,21 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 	// HTTP handler and make previously-registered feeds return 400.
 	allFeedIDs := smokecre.GenerateSoakFeedIDs(numWorkflows)
 
-	ppLogFile, openErr := os.OpenFile("./logs/soak-fake-price-provider.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	require.NoError(t, openErr, "failed to open CRE_SOAK_PP_LOG_FILE")
+	logFileName := fmt.Sprintf("./%s-%s/soak-fake-price-provider.log", framework.DefaultCTFLogsDir, t.Name())
+	if _, err := os.Stat(filepath.Dir(logFileName)); os.IsNotExist(err) {
+		require.NoError(t, os.MkdirAll(filepath.Dir(logFileName), 0755), "failed to create directory %s", filepath.Dir(logFileName))
+	}
+	ppLogFile, openErr := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	require.NoError(t, openErr, "failed to open %d", logFileName)
+	oldGinDefaultWriter := gin.DefaultWriter
+	oldGinDefaultErrorWriter := gin.DefaultErrorWriter
+	// fake.NewFakeDataProvider uses gin.Default(), so redirect Gin's global request/error
+	// output to the soak provider log file to avoid flooding the main test logs.
+	gin.DefaultWriter = ppLogFile
+	gin.DefaultErrorWriter = ppLogFile
 	t.Cleanup(func() {
+		gin.DefaultWriter = oldGinDefaultWriter
+		gin.DefaultErrorWriter = oldGinDefaultErrorWriter
 		_ = ppLogFile.Close()
 	})
 
@@ -70,7 +84,7 @@ func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
 		Timestamp().
 		Str("component", "soak-fake-price-provider").
 		Logger()
-	framework.L.Info().Str("path", "./logs/soak-fake-price-provider.log").Msg("redirecting soak fake price provider logs to file")
+	framework.L.Info().Str("path", logFileName).Msg("redirecting soak fake price provider logs to file")
 
 	priceProvider, err := smokecre.NewFakePriceProviderForSoak(
 		soakPPLogger, testEnv.Config.Fake, "", allFeedIDs,
