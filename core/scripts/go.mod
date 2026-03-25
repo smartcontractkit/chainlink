@@ -46,8 +46,9 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70
-	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260323153253-cc10b6d11a7e
+	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260325141849-f588de91c2db
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20251211140724-319861e514c4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.12
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260318010722-59d4165024f1
@@ -492,7 +493,6 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260317185256-d5f7db87ae70 // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.0-20260317124520-6b2931b8cd0a // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20251211140724-319861e514c4 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250818175541-3389ac08a563 // indirect

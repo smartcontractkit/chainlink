@@ -4,4 +4,6 @@
   # compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/refs/tags/framework/components/dockercompose/v0.1.19/framework/components/dockercompose/chip_ingress_set/docker-compose.yml'
 
 [kafka]
-  topics=['cre']
+  # `cre` — workflow telemetry. `chip-demo` — Kafka topic for Atlas demo / DurableEmitter load tests
+  # when using CHIP_INGRESS_TEST_ADDR against local Beholder (see core/services/beholder/durable_emitter_load_test.go).
+  topics=['cre', 'chip-demo']

@@ -14,6 +14,8 @@ package beholder_test
 //	Running a real server: see atlas/chip-ingress/README.md. You need Kafka/Redpanda, the
 //	`chip-demo` topic, and schema subject `chip-demo-pb.DemoClientPayload` (run
 //	`make create-topic-and-schema` from atlas/chip-ingress, or equivalent rpk commands).
+//	CRE local Beholder (`go run . env beholder start` / `env start --with-beholder`) creates
+//	`chip-demo` and registers this schema automatically; see core/scripts/cre/environment/configs/chip-ingress.toml.
 //	Tests call RegisterSchemas with the bundled proto; Chip still needs the topic to exist for Kafka.
 //	External mode uses the Atlas demo shape: chip-demo / pb.DemoClientPayload + protobuf payload.
 //	If unset, CHIP_INGRESS_TEST_BASIC_AUTH_USER/PASS default to chip-ingress-demo-client / password
@@ -690,6 +692,98 @@ func (s *emitLatencyStats) count() int {
 	return len(s.samples)
 }
 
+func (s *emitLatencyStats) mean() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.samples) == 0 {
+		return 0
+	}
+	var sum time.Duration
+	for _, v := range s.samples {
+		sum += v
+	}
+	return sum / time.Duration(len(s.samples))
+}
+
+func (s *emitLatencyStats) sum() time.Duration {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var t time.Duration
+	for _, v := range s.samples {
+		t += v
+	}
+	return t
+}
+
+// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare Chip Publish vs DB Delete cost.
+type pipelineDeliveryStats struct {
+	immPub, immDel, batchPub, batchDel emitLatencyStats
+	immPubErr, batchPubErr             atomic.Int64
+}
+
+func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
+	return &beholder.DurableEmitterHooks{
+		OnImmediatePublish: func(d time.Duration, err error) {
+			if err != nil {
+				p.immPubErr.Add(1)
+			}
+			p.immPub.record(d)
+		},
+		OnImmediateDelete: func(d time.Duration, _ error) {
+			p.immDel.record(d)
+		},
+		OnRetransmitBatchPublish: func(d time.Duration, _ int, err error) {
+			if err != nil {
+				p.batchPubErr.Add(1)
+			}
+			p.batchPub.record(d)
+		},
+		OnRetransmitBatchDeletes: func(d time.Duration, _ int) {
+			p.batchDel.record(d)
+		},
+	}
+}
+
+func durMs(d time.Duration) float64 {
+	return float64(d.Microseconds()) / 1000.0
+}
+
+func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
+	t.Helper()
+	ipN := pipe.immPub.count()
+	idN := pipe.immDel.count()
+	t.Logf("Pipeline — immediate Publish: n=%d errs=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
+		ipN, pipe.immPubErr.Load(),
+		durMs(pipe.immPub.percentile(0.50)), durMs(pipe.immPub.percentile(0.99)),
+		durMs(pipe.immPub.mean()), durMs(pipe.immPub.sum()))
+	t.Logf("Pipeline — immediate Delete:  n=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
+		idN,
+		durMs(pipe.immDel.percentile(0.50)), durMs(pipe.immDel.percentile(0.99)),
+		durMs(pipe.immDel.mean()), durMs(pipe.immDel.sum()))
+
+	bpN := pipe.batchPub.count()
+	if bpN > 0 {
+		t.Logf("Pipeline — retransmit PublishBatch: batches=%d errs=%d p50=%.3f ms mean=%.3f ms | delete-loop batches=%d mean_loop=%.3f ms",
+			bpN, pipe.batchPubErr.Load(),
+			durMs(pipe.batchPub.percentile(0.50)), durMs(pipe.batchPub.mean()),
+			pipe.batchDel.count(), durMs(pipe.batchDel.mean()))
+	}
+
+	if ipN >= 50 && idN >= 50 {
+		pm, dm := durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean())
+		switch {
+		case pm > 3*dm && pm > 0.5:
+			t.Logf("Bottleneck hint: Publish mean %.3f ms ≫ Delete mean %.3f ms — likely Chip / gRPC bound", pm, dm)
+		case dm > 3*pm && dm > 0.5:
+			t.Logf("Bottleneck hint: Delete mean %.3f ms ≫ Publish mean %.3f ms — likely Postgres delete bound", dm, pm)
+		default:
+			t.Logf("Bottleneck hint: Publish %.3f ms vs Delete %.3f ms comparable (per successful immediate delivery)", pm, dm)
+		}
+	} else {
+		t.Logf("Bottleneck hint: few completed immediate deliveries in window (pub=%d del=%d); extend duration or check async backlog", ipN, idN)
+	}
+}
+
 // rateLimitEmitResult is the outcome of runRateLimitedEmit.
 type rateLimitEmitResult struct {
 	stats *emitLatencyStats
@@ -906,6 +1000,8 @@ func TestTPS_RampUp(t *testing.T) {
 			cfg.RetransmitInterval = 1 * time.Second
 			cfg.RetransmitAfter = 3 * time.Second
 			cfg.RetransmitBatchSize = 500
+			pipe := &pipelineDeliveryStats{}
+			cfg.Hooks = newPipelineHooks(pipe)
 
 			em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Nop())
 			require.NoError(t, err)
@@ -913,7 +1009,7 @@ func TestTPS_RampUp(t *testing.T) {
 			em.Start(ctx)
 			defer em.Close()
 
-			const duration = 10 * time.Second
+			const duration = 2 * time.Minute
 			const concurrency = 20
 
 			t.Logf(">>> level %d TPS: emitting for %s @ concurrency=%d (progress bar on stdout)", targetTPS, duration, concurrency)
@@ -926,6 +1022,9 @@ func TestTPS_RampUp(t *testing.T) {
 			// Brief pause for async publishes to complete.
 			t.Logf(">>> level %d TPS: sleeping 2s for async publishes...", targetTPS)
 			time.Sleep(2 * time.Second)
+
+			t.Logf(">>> level %d TPS: pipeline delivery (Publish vs Delete)", targetTPS)
+			logPipelineDeliverySummary(t, pipe)
 
 			achieved := float64(stats.count()) / duration.Seconds()
 			p50 := stats.percentile(0.50)
@@ -989,6 +1088,8 @@ func TestTPS_Sustained1k(t *testing.T) {
 	cfg.RetransmitInterval = 1 * time.Second
 	cfg.RetransmitAfter = 3 * time.Second
 	cfg.RetransmitBatchSize = 500
+	pipe := &pipelineDeliveryStats{}
+	cfg.Hooks = newPipelineHooks(pipe)
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Nop())
 	require.NoError(t, err)
@@ -1020,6 +1121,9 @@ func TestTPS_Sustained1k(t *testing.T) {
 	}, 30*time.Second, 500*time.Millisecond, "pipeline should drain after emit phase ends")
 	drainTime := time.Since(drainStart)
 
+	t.Logf("Pipeline delivery after drain (full async + retransmit settled):")
+	logPipelineDeliverySummary(t, pipe)
+
 	t.Logf("╔════════════════════════════════════════════════════╗")
 	t.Logf("║       SUSTAINED 1k TPS TEST RESULTS               	║")
 	t.Logf("╠════════════════════════════════════════════════════╣")
@@ -1044,6 +1148,7 @@ func TestTPS_Sustained1k(t *testing.T) {
 		fmt.Sprintf("target TPS: %d, achieved: %.0f, failures: %d", targetTPS, achievedTPS, stats.failures.Load()),
 		fmt.Sprintf("emit p50/p99 ms: %.2f / %.2f", float64(stats.percentile(0.50).Microseconds())/1000.0, float64(stats.percentile(0.99).Microseconds())/1000.0),
 		fmt.Sprintf("queue max during emit: %d rows, %s KB payload (sum octet_length/1024)", emitRes.maxQueueDepth, formatQueueKB(emitRes.maxQueuePayloadBytes)),
+		fmt.Sprintf("pipeline imm Publish/Delete means ms: %.3f / %.3f (n=%d/%d)", durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean()), pipe.immPub.count(), pipe.immDel.count()),
 		fmt.Sprintf("server events: %s, drain time: %s", formatMockServerEvents(srv), drainTime.Round(time.Millisecond)),
 	)
 
