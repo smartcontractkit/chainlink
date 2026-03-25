@@ -94,7 +94,7 @@ func (oc *medianContract) LatestTransmissionDetails(ctx context.Context) (ocrtyp
 	}
 	updatedAt := time.Unix(int64(result.LatestTimestamp), 0)
 	if oc.onchainViewMetrics != nil {
-		oc.onchainViewMetrics.record(result.LatestAnswer, result.Epoch, result.Round, updatedAt)
+		oc.onchainViewMetrics.record(ctx, result.LatestAnswer, result.Epoch, result.Round, updatedAt)
 	}
 	return result.ConfigDigest, result.Epoch, result.Round, result.LatestAnswer, updatedAt, nil
 }

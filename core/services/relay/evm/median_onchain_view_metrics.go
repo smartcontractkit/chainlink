@@ -1,11 +1,17 @@
 package evm
 
 import (
+	"context"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // Prometheus gauges for the node's view of on-chain OCR2 median aggregator state (DF-22676).
@@ -29,6 +35,47 @@ var (
 	}, []string{"chain_id", "contract_address", "transmitter_id"})
 )
 
+type medianOnchainOtelInstruments struct {
+	latestAnswer        metric.Float64Gauge
+	latestTimestampUnix metric.Float64Gauge
+	epoch               metric.Int64Gauge
+	round               metric.Int64Gauge
+}
+
+var (
+	medianOnchainOtelInst *medianOnchainOtelInstruments
+	medianOnchainOtelOnce sync.Once
+)
+
+func loadMedianOnchainOtel() *medianOnchainOtelInstruments {
+	medianOnchainOtelOnce.Do(func() {
+		m := beholder.GetMeter()
+		latestAnswer, err := m.Float64Gauge("ocr2_onchain_transmission_latest_answer")
+		if err != nil {
+			return
+		}
+		latestTimestampUnix, err := m.Float64Gauge("ocr2_onchain_transmission_latest_timestamp_unix")
+		if err != nil {
+			return
+		}
+		epoch, err := m.Int64Gauge("ocr2_onchain_transmission_epoch")
+		if err != nil {
+			return
+		}
+		round, err := m.Int64Gauge("ocr2_onchain_transmission_round")
+		if err != nil {
+			return
+		}
+		medianOnchainOtelInst = &medianOnchainOtelInstruments{
+			latestAnswer:        latestAnswer,
+			latestTimestampUnix: latestTimestampUnix,
+			epoch:               epoch,
+			round:               round,
+		}
+	})
+	return medianOnchainOtelInst
+}
+
 type medianOnchainViewMetrics struct {
 	chainID       string
 	contract      string
@@ -46,12 +93,28 @@ func newMedianOnchainViewMetrics(chainID, contractAddress, transmitterID string)
 	}
 }
 
-func (m *medianOnchainViewMetrics) record(latestAnswer *big.Int, epoch uint32, round uint8, updatedAt time.Time) {
+func (m *medianOnchainViewMetrics) onchainAttrs() metric.MeasurementOption {
+	return metric.WithAttributes(
+		attribute.String("chain_id", m.chainID),
+		attribute.String("contract_address", m.contract),
+		attribute.String("transmitter_id", m.transmitterID),
+	)
+}
+
+func (m *medianOnchainViewMetrics) record(ctx context.Context, latestAnswer *big.Int, epoch uint32, round uint8, updatedAt time.Time) {
 	lv := bigIntToPromGaugeValue(latestAnswer)
 	promOCR2OnchainLatestAnswer.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(lv)
 	promOCR2OnchainLatestTimestampUnix.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(float64(updatedAt.Unix()))
 	promOCR2OnchainEpoch.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(float64(epoch))
 	promOCR2OnchainRound.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(float64(round))
+
+	if ot := loadMedianOnchainOtel(); ot != nil {
+		opts := m.onchainAttrs()
+		ot.latestAnswer.Record(ctx, lv, opts)
+		ot.latestTimestampUnix.Record(ctx, float64(updatedAt.Unix()), opts)
+		ot.epoch.Record(ctx, int64(epoch), opts)
+		ot.round.Record(ctx, int64(round), opts)
+	}
 }
 
 func bigIntToPromGaugeValue(i *big.Int) float64 {
