@@ -603,7 +603,6 @@ func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.R
 	require.NoError(t, err, "failed to allowlist request")
 
 	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
-	time.Sleep(6 * time.Second) // allowlist syncer polls every 5s; one tick + margin
 	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
 	require.NoError(t, err, "failed to validate allowlisted request")
 	for _, req := range allowedList {
