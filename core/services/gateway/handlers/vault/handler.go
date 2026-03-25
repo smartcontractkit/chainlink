@@ -326,7 +326,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
@@ -361,9 +361,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
-	case vaulttypes.MethodSecretsGet:
-		h.lggr.Errorw("Get requests not allowed", "requestID", req.ID)
-		return errors.New("get request not allowed")
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)

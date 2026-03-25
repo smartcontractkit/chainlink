@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,8 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/build"
 )
 
 var DefaultNamespace = "main"
@@ -38,27 +35,12 @@ const (
 	MaxBatchSize = 10
 )
 
-var (
-	// MethodSecretsGet is intentionally omitted from this list, as it is not exposed
-	// to external clients, but rather used internally by the Workflow DON.
-	Methods = []string{
-		MethodSecretsCreate,
-		MethodSecretsUpdate,
-		MethodSecretsDelete,
-		MethodSecretsList,
-		MethodPublicKeyGet,
-	}
-)
-
-func GetSupportedMethods(lggr logger.Logger) []string {
-	methods := slices.Clone(Methods)
-	if build.IsDev() {
-		// Allow secrets get in non-prod environments for testing purposes
-		// This should never be enabled in production
-		methods = append(methods, MethodSecretsGet)
-		lggr.Warnw("enabling vault.secrets.get method since it is not a production build", "build-mode", build.Mode())
-	}
-	return methods
+var Methods = []string{
+	MethodSecretsCreate,
+	MethodSecretsUpdate,
+	MethodSecretsDelete,
+	MethodSecretsList,
+	MethodPublicKeyGet,
 }
 
 // SignedOCRResponse is the response format for OCR signed reports, as returned by the Vault DON.

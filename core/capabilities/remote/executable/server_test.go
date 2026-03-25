@@ -1000,3 +1000,101 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	expectedResponses := numWorkflowPeers * numExecuteCalls
 	require.Equal(t, expectedResponses, successCount)
 }
+
+func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	serverPeerID := NewP2PPeerID(t)
+	senderPeerID := NewP2PPeerID(t)
+
+	dispatcher := &noopDispatcher{}
+	server := executable.NewServer("cap_id@1.0.0", "", serverPeerID, dispatcher, lggr)
+
+	cfg := &commoncap.RemoteExecutableConfig{
+		RequestTimeout:            20 * time.Millisecond,
+		ServerMaxParallelRequests: 1,
+	}
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+	}
+	localDON := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{serverPeerID},
+		F:       0,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{senderPeerID},
+			F:       0,
+		},
+	}
+
+	require.NoError(t, server.SetConfig(cfg, TestCapability{}, capInfo, localDON, workflowDONs, nil))
+	require.NoError(t, server.Start(ctx))
+	defer func() {
+		require.NoError(t, server.Close())
+	}()
+
+	inputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+	require.NoError(t, err)
+	rawRequest, err := pb.MarshalCapabilityRequest(commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowExecutionID: "exec-1",
+		},
+		Inputs: inputs,
+	})
+	require.NoError(t, err)
+
+	msg := &remotetypes.MessageBody{
+		CapabilityId:    capInfo.ID,
+		CapabilityDonId: localDON.ID,
+		CallerDonId:     2,
+		Method:          remotetypes.MethodExecute,
+		Payload:         rawRequest,
+		MessageId:       []byte(remotetypes.MethodExecute + ":exec-1"),
+		Sender:          senderPeerID[:],
+		Receiver:        serverPeerID[:],
+	}
+
+	server.Receive(ctx, msg)
+	require.Eventually(t, func() bool { return len(dispatcher.sent) == 1 }, time.Second, 10*time.Millisecond)
+
+	time.Sleep(2 * cfg.RequestTimeout)
+	server.Receive(ctx, msg)
+
+	time.Sleep(100 * time.Millisecond)
+	require.Len(t, dispatcher.sent, 1)
+}
+
+type noopDispatcher struct {
+	services.StateMachine
+	sent []*remotetypes.MessageBody
+}
+
+func (n *noopDispatcher) Name() string { return "noopDispatcher" }
+
+func (n *noopDispatcher) Start(context.Context) error { return nil }
+
+func (n *noopDispatcher) Close() error { return nil }
+
+func (n *noopDispatcher) Ready() error { return nil }
+
+func (n *noopDispatcher) HealthReport() map[string]error { return nil }
+
+func (n *noopDispatcher) SetReceiver(string, uint32, remotetypes.Receiver) error { return nil }
+
+func (n *noopDispatcher) RemoveReceiver(string, uint32) {}
+
+func (n *noopDispatcher) SetReceiverForMethod(string, uint32, string, remotetypes.Receiver) error {
+	return nil
+}
+
+func (n *noopDispatcher) RemoveReceiverForMethod(string, uint32, string) {}
+
+func (n *noopDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
+	n.sent = append(n.sent, msgBody)
+	return nil
+}

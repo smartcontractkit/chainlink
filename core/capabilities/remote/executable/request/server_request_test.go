@@ -338,6 +338,44 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 }
 
+func Test_ServerRequest_Evictable(t *testing.T) {
+	lggr := logger.Test(t)
+	capability := TestCapability{}
+	capabilityPeerID := NewP2PPeerID(t)
+	workflowPeer := NewP2PPeerID(t)
+
+	callingDon := commoncap.DON{
+		Members: []p2ptypes.PeerID{workflowPeer},
+		ID:      1,
+		F:       0,
+	}
+
+	newRequest := func(requestTimeout time.Duration) *request.ServerRequest {
+		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", &testDispatcher{}, requestTimeout, "", lggr)
+		require.NoError(t, err)
+		return req
+	}
+
+	t.Run("expired but below minimum retention", func(t *testing.T) {
+		req := newRequest(20 * time.Millisecond)
+		time.Sleep(60 * time.Millisecond)
+		assert.False(t, req.Evictable(200*time.Millisecond))
+	})
+
+	t.Run("expired and retained past minimum retention", func(t *testing.T) {
+		req := newRequest(20 * time.Millisecond)
+		time.Sleep(60 * time.Millisecond)
+		assert.True(t, req.Evictable(10*time.Millisecond))
+	})
+
+	t.Run("minimum retention elapsed but request timeout still active", func(t *testing.T) {
+		req := newRequest(200 * time.Millisecond)
+		time.Sleep(60 * time.Millisecond)
+		assert.False(t, req.Evictable(10*time.Millisecond))
+	})
+}
+
 type serverRequest interface {
 	OnMessage(ctx context.Context, msg *types.MessageBody) error
 }
