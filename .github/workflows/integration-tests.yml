@@ -180,8 +180,8 @@ jobs:
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=64+72/memory=128+192/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=64+72/memory=128+192/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
           SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
@@ -217,7 +217,7 @@ jobs:
       matrix:
         image:
           - name: ""
-            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
+            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-16cores-64GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             # todo: optimize this conditional
@@ -230,7 +230,7 @@ jobs:
               }}
 
           - name: (plugins)
-            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
+            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-16cores-64GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             # todo: optimize this conditional
