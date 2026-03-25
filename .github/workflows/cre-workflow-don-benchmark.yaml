@@ -173,7 +173,7 @@ jobs:
           fi
 
       - name: Upload node logs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         timeout-minutes: 2
         continue-on-error: true
         with:
@@ -183,7 +183,7 @@ jobs:
           retention-days: 5
 
       - name: Upload performance reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         timeout-minutes: 2
         continue-on-error: true
         with:

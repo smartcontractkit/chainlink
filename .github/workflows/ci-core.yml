@@ -376,7 +376,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && matrix.type.should-run == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -426,7 +426,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go_core_scripts_tests_logs
           path: |
