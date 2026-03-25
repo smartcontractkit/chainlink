@@ -45,7 +45,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-  pull_request:
 
 defaults:
   run:
@@ -82,28 +81,6 @@ jobs:
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-  changes:
-    name: Detect devenv changes
-    runs-on: ubuntu-latest
-    outputs:
-      devenv-changes: ${{ steps.devenv-changes.outputs.changes }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
-        id: devenv-changes
-        with:
-          filters: |
-            changes:
-            - 'devenv/**/*.go'
-            - 'devenv/**/*.toml'
-            - 'devenv/**/go.mod'
-            - 'devenv/**/go.sum'
-            - 'devenv/**/*Dockerfile'
-            - '.github/workflows/system-tests-nightly.yml'
-
   summary:
     name: "Build Information"
     runs-on: ubuntu-latest
@@ -120,13 +97,13 @@ jobs:
           echo "**Image:** \`${{ needs.resolve-chainlink-image.outputs.resolved-image }}\`" >> $GITHUB_STEP_SUMMARY
   test-nightly:
     name: ${{ matrix.display_name }}
-    needs: [resolve-chainlink-image, changes]
+    needs: [resolve-chainlink-image]
     permissions:
       id-token: write
       contents: read
       pull-requests: write
     runs-on: ${{ matrix.runner }}
-    if: needs.resolve-chainlink-image.result == 'success' && (github.event_name != 'pull_request' || needs.changes.outputs.devenv-changes == 'true')
+    if: needs.resolve-chainlink-image.result == 'success'
     strategy:
       fail-fast: false
       matrix:
