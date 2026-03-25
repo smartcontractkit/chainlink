@@ -20,7 +20,6 @@ type Service struct {
 
 	wrapper     *gatewayconnector.ServiceWrapper
 	capRegistry core.CapabilitiesRegistry
-	caRootsPEM  string
 	lggr        logger.Logger
 
 	handler *Handler
@@ -29,13 +28,11 @@ type Service struct {
 func NewService(
 	wrapper *gatewayconnector.ServiceWrapper,
 	capRegistry core.CapabilitiesRegistry,
-	caRootsPEM string,
 	lggr logger.Logger,
 ) *Service {
 	s := &Service{
 		wrapper:     wrapper,
 		capRegistry: capRegistry,
-		caRootsPEM:  caRootsPEM,
 		lggr:        lggr,
 	}
 	s.Service, s.eng = services.Config{
@@ -51,7 +48,7 @@ func (s *Service) start(ctx context.Context) error {
 	if conn == nil {
 		return errors.New("gateway connector not available")
 	}
-	h, err := NewHandler(s.capRegistry, conn, s.lggr, s.caRootsPEM)
+	h, err := NewHandler(s.capRegistry, conn, s.lggr)
 	if err != nil {
 		return err
 	}

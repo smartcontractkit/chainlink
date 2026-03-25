@@ -125,7 +125,7 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn gat
 }
 
 // withEnclaveConfig adds the default confidential-workflows enclave config
-// to a mock registry so getTrustedMeasurements succeeds during tests.
+// to a mock registry so getEnclaveAttestationConfig succeeds during tests.
 func withEnclaveConfig(reg *mockCapRegistry) *mockCapRegistry {
 	enclaveConfig := enclavesList{
 		Enclaves: []enclaveEntry{{TrustedValues: []json.RawMessage{json.RawMessage(`{}`)}}},

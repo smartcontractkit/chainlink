@@ -1998,8 +1998,7 @@ type WorkflowFetcherConfig struct {
 // When Enabled is true, the node participates in the confidential relay DON,
 // validating enclave attestations and proxying capability requests.
 type ConfidentialRelayConfig struct {
-	Enabled    *bool   `toml:",omitempty"`
-	CARootsPEM *string `toml:",omitempty"`
+	Enabled *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -2062,9 +2061,6 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.ConfidentialRelay.Enabled; v != nil {
 			c.ConfidentialRelay.Enabled = v
-		}
-		if v := f.ConfidentialRelay.CARootsPEM; v != nil {
-			c.ConfidentialRelay.CARootsPEM = v
 		}
 	}
 }
