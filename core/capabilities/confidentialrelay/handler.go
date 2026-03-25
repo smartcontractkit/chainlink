@@ -34,7 +34,24 @@ import (
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
 
-const HandlerName = "EnclaveRelayHandler"
+const (
+	HandlerName = "EnclaveRelayHandler"
+
+	// confidentialWorkflowsCapID is the capability ID for the confidential
+	// workflows enclave pool. The relay handler uses it to look up trusted
+	// enclave measurements from the capabilities registry.
+	confidentialWorkflowsCapID = "confidential-workflows@1.0.0-alpha"
+)
+
+// enclaveEntry mirrors the enclave config shape stored in the capabilities
+// registry. Only the fields needed for attestation validation are included.
+type enclaveEntry struct {
+	TrustedValues []json.RawMessage `json:"trustedValues"`
+}
+
+type enclavesList struct {
+	Enclaves []enclaveEntry
+}
 
 type handlerMetrics struct {
 	requestInternalError metric.Int64Counter
@@ -73,7 +90,6 @@ type Handler struct {
 
 	capRegistry      core.CapabilitiesRegistry
 	gatewayConnector gatewayConnector
-	trustedPCRs      []byte
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
@@ -86,7 +102,7 @@ type Handler struct {
 	caRootsPEM string
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn gatewayConnector, trustedPCRs []byte, lggr logger.Logger, caRootsPEM ...string) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn gatewayConnector, lggr logger.Logger, caRootsPEM ...string) (*Handler, error) {
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -99,7 +115,6 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn gatewayConnector, tr
 	h := &Handler{
 		capRegistry:         capRegistry,
 		gatewayConnector:    conn,
-		trustedPCRs:         trustedPCRs,
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
@@ -173,7 +188,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
+	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -328,7 +343,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 
 	att := params.Attestation
 	params.Attestation = ""
-	if err := h.verifyAttestationHash(att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
+	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
@@ -389,7 +404,41 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	return h.jsonResponse(req, result)
 }
 
-func (h *Handler) verifyAttestationHash(attestationB64 string, cleanParams any, domainTag string) error {
+// getTrustedMeasurements reads the enclave pool configuration from the
+// capabilities registry and returns all trusted measurement sets. Called
+// per-request so measurements stay fresh (same pattern as CC's
+// EnsureFreshEnclaves).
+func (h *Handler) getTrustedMeasurements(ctx context.Context) ([]json.RawMessage, error) {
+	dons, err := h.capRegistry.DONsForCapability(ctx, confidentialWorkflowsCapID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find DON for %s: %w", confidentialWorkflowsCapID, err)
+	}
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no DON found hosting %s", confidentialWorkflowsCapID)
+	}
+
+	capConfig, err := h.capRegistry.ConfigForCapability(ctx, confidentialWorkflowsCapID, dons[0].DON.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config for %s: %w", confidentialWorkflowsCapID, err)
+	}
+
+	if capConfig.DefaultConfig == nil {
+		return nil, fmt.Errorf("no default config for %s", confidentialWorkflowsCapID)
+	}
+
+	var enclaves enclavesList
+	if err := capConfig.DefaultConfig.UnwrapTo(&enclaves); err != nil {
+		return nil, fmt.Errorf("failed to unwrap enclave config: %w", err)
+	}
+
+	var measurements []json.RawMessage
+	for _, e := range enclaves.Enclaves {
+		measurements = append(measurements, e.TrustedValues...)
+	}
+	return measurements, nil
+}
+
+func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
 	if attestationB64 == "" {
 		return errors.New("missing attestation")
 	}
@@ -406,24 +455,27 @@ func (h *Handler) verifyAttestationHash(attestationB64 string, cleanParams any, 
 		return fmt.Errorf("failed to decode attestation: %w", err)
 	}
 
-	// Each enclave instance has different PCR values (WireGuard keys baked
-	// per CID), so trustedPCRs may be a JSON array of PCR objects. Try each
-	// set and succeed if any match, same as pool.go's
-	// validateAttestationAgainstMultipleMeasurements.
-	var pcrArray []json.RawMessage
-	if json.Unmarshal(h.trustedPCRs, &pcrArray) == nil && len(pcrArray) > 0 {
-		var validationErr error
-		for _, pcrs := range pcrArray {
-			err := h.validateAttestation(attestationBytes, hash, pcrs, h.caRootsPEM)
-			if err == nil {
-				return nil
-			}
-			validationErr = errors.Join(validationErr, err)
-		}
-		return fmt.Errorf("no trusted PCR set matched: %w", validationErr)
+	// Look up trusted measurements from the capabilities registry. Each enclave
+	// instance may have different PCR values, so we try each set and succeed if
+	// any match (same approach as pool.go's validateAttestationAgainstMultipleMeasurements).
+	measurements, err := h.getTrustedMeasurements(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get trusted measurements: %w", err)
 	}
 
-	return h.validateAttestation(attestationBytes, hash, h.trustedPCRs, h.caRootsPEM)
+	if len(measurements) == 0 {
+		return errors.New("no trusted measurements found in capabilities registry")
+	}
+
+	var validationErr error
+	for _, m := range measurements {
+		err := h.validateAttestation(attestationBytes, hash, m, h.caRootsPEM)
+		if err == nil {
+			return nil
+		}
+		validationErr = errors.Join(validationErr, err)
+	}
+	return fmt.Errorf("no trusted measurement set matched: %w", validationErr)
 }
 
 func toSDKCapabilityResponse(capResp capabilities.CapabilityResponse) (*sdkpb.CapabilityResponse, error) {
