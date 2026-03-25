@@ -34,7 +34,7 @@ on:
         required: false
         type: string
         default: ""
-        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
+        description: "Tag used with chainlink_image_repo. If empty, a nightly tag is used."
       chainlink_full_image:
         required: false
         type: string
@@ -72,7 +72,7 @@ jobs:
         run: echo "value=nightly-$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@38f15b26188792cc2cc6a7fb13147d580845eb01
+        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
         with:
           chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
           chainlink_image_tag: ${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value }}
