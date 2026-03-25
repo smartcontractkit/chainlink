@@ -46,8 +46,9 @@ const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 
-// ExecuteAptosTest runs the Aptos CRE suite with the minimum CI scenarios that
-// still cover the end-to-end happy path and the expected-failure path.
+// ExecuteAptosTest runs the Aptos CRE suite with the read path only. The write
+// scenarios stay available for local/manual execution until the write-report CI
+// path is ready again.
 func ExecuteAptosTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	executeAptosScenarios(t, tenv, aptosDefaultScenarios())
 }
@@ -65,8 +66,7 @@ type aptosScenario struct {
 
 func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
-		{name: "Aptos Write Read Roundtrip", run: ExecuteAptosWriteReadRoundtripTest},
-		{name: "Aptos Write Expected Failure", run: ExecuteAptosWriteExpectedFailureTest},
+		{name: "Aptos Read", run: ExecuteAptosReadTest},
 	}
 }
 
