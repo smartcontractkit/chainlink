@@ -410,6 +410,13 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	if belongsToACapabilityDON {
 		for _, myDON := range myCapabilityDONs {
 			w.serveCapabilities(ctx, w.myPeerID, myDON, localRegistry, remoteWorkflowDONs)
+
+			// Capability DONs may need to call capabilities on other DONs
+			// (e.g. relay DON calling vault DON for secret fetching).
+			// Without this, only workflow DONs discover cross-DON capabilities.
+			for _, rcd := range remoteCapabilityDONs {
+				w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
+			}
 		}
 	}
 
