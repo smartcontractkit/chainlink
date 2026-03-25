@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"reflect"
 	"strings"
@@ -58,6 +59,8 @@ type EVMFactoryConfig struct {
 	CSAKeystore     coretypes.Keystore
 	MercuryConfig   coreconfig.Mercury
 	EVMConfigHealth *EVMChainConfigHealth
+	// OnEnabledChainConstructFailure is optional; invoked when an enabled chain fails to construct (e.g. RPC error) while others may still load.
+	OnEnabledChainConstructFailure func(chainID *big.Int, err error)
 }
 
 func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.RelayAdapter, error) {
@@ -108,7 +111,7 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 	}
 
 	enabledEVMCount := countEnabledEVMConfigs(config.ChainConfigs)
-	legacyChains, lcErr := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
+	legacyChains, lcErr := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts, config.OnEnabledChainConstructFailure)
 	if lcErr != nil && len(legacyChains) == 0 {
 		if enabledEVMCount > 0 {
 			return nil, lcErr

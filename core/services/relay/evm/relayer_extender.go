@@ -3,6 +3,7 @@ package evm
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -37,10 +38,12 @@ func (r *LegacyChainsAndConfig) Len() int {
 	return len(r.rs)
 }
 
+// onEnabledChainConstructFailure is optional; called when an enabled chain fails to construct while others may still load.
 func NewLegacyChains(
 	lggr logger.Logger,
 	ks keystore.Eth,
 	chainOpts legacyevm.ChainOpts,
+	onEnabledChainConstructFailure func(chainID *big.Int, err error),
 ) (result []legacyevm.Chain, err error) {
 	unique := make(map[string]struct{})
 	var enabled []*toml.EVMConfig
@@ -73,8 +76,8 @@ func NewLegacyChains(
 		chain, err2 := legacyevm.NewTOMLChain(enabled[i], opts, clientsByChainID)
 		if err2 != nil {
 			err = errors.Join(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
-			if fn := chainOpts.OnEnabledChainConstructFailure; fn != nil {
-				fn(cid, err2)
+			if onEnabledChainConstructFailure != nil {
+				onEnabledChainConstructFailure(cid, err2)
 			}
 			continue
 		}
@@ -91,7 +94,7 @@ func NewLegacyChainsAndConfig(
 	ks keystore.Eth,
 	chainOpts legacyevm.ChainOpts,
 ) (*LegacyChainsAndConfig, error) {
-	result, err := NewLegacyChains(lggr, ks, chainOpts)
+	result, err := NewLegacyChains(lggr, ks, chainOpts, nil)
 	// always return because it's accumulating errors
 	return &LegacyChainsAndConfig{result}, err
 }

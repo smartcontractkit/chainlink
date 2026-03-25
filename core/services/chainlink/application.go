@@ -311,17 +311,17 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			FeatureConfig:  cfg.Feature(),
 			MailMon:        mailMon,
 			DS:             opts.DS,
-			OnEnabledChainConstructFailure: func(chainID *big.Int, err error) {
-				evmHealth.RecordSkipped(chainID.String(), evmSkipReasonChainConstruct, err)
-				incEVMChainConfigSkipped(evmSkipReasonChainConstruct)
-				globalLogger.Errorw("skipping EVM chain; other chains may still run",
-					"evmChainID", chainID.String(), "error_class", evmSkipReasonChainConstruct, "err", err)
-			},
 		},
 		EthKeystore:     keyStore.Eth(),
 		CSAKeystore:     csaKeystore,
 		MercuryConfig:   cfg.Mercury(),
 		EVMConfigHealth: evmHealth,
+		OnEnabledChainConstructFailure: func(chainID *big.Int, err error) {
+			evmHealth.RecordSkipped(chainID.String(), evmSkipReasonChainConstruct, err)
+			incEVMChainConfigSkipped(evmSkipReasonChainConstruct)
+			globalLogger.Errorw("skipping EVM chain; other chains may still run",
+				"evmChainID", chainID.String(), "error_class", evmSkipReasonChainConstruct, "err", err)
+		},
 	}
 
 	if opts.EVMFactoryConfigFn != nil {
