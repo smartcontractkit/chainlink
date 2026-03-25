@@ -3,7 +3,7 @@ package v2
 import (
 	"context"
 	"crypto/sha256"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -52,7 +52,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 		assert.True(t, attrs.Confidential)
 		require.Len(t, attrs.VaultDonSecrets, 2)
 		assert.Equal(t, "API_KEY", attrs.VaultDonSecrets[0].Key)
-		assert.Equal(t, "", attrs.VaultDonSecrets[0].Namespace)
+		assert.Empty(t, attrs.VaultDonSecrets[0].Namespace)
 		assert.Equal(t, "SIGNING_KEY", attrs.VaultDonSecrets[1].Key)
 		assert.Equal(t, "custom-ns", attrs.VaultDonSecrets[1].Namespace)
 	})
@@ -222,7 +222,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	t.Run("GetExecutable error", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(nil, fmt.Errorf("capability not found")).Once()
+			Return(nil, errors.New("capability not found")).Once()
 
 		mod := NewConfidentialModule(
 			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
@@ -240,7 +240,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(execCap, nil).Once()
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Return(capabilities.CapabilityResponse{}, fmt.Errorf("enclave unavailable")).Once()
+			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(
 			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
