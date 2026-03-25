@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"os"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -131,8 +132,13 @@ func TestResolveContractAddressAndVersion(t *testing.T) {
 func TestToDockerHostRPC(t *testing.T) {
 	t.Parallel()
 
-	require.Equal(t, "http://host.docker.internal:8545", toDockerHostRPC("http://localhost:8545"))
-	require.Equal(t, "http://host.docker.internal:8545", toDockerHostRPC("http://127.0.0.1:8545"))
+	expected := "http://host.docker.internal:8545"
+	if os.Getenv("CI") == "true" {
+		expected = "http://172.17.0.1:8545"
+	}
+
+	require.Equal(t, expected, toDockerHostRPC("http://localhost:8545"))
+	require.Equal(t, expected, toDockerHostRPC("http://127.0.0.1:8545"))
 }
 
 func newCobraCommand() *cobra.Command {
