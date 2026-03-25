@@ -220,6 +220,7 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
+            cache-scope: core
             # todo: optimize this conditional
             should-build: >-
               ${{
@@ -233,6 +234,7 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
+            cache-scope: plugins
             # todo: optimize this conditional
             should-build: >-
               ${{
@@ -281,7 +283,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
+        uses: smartcontractkit/.github/actions/ctf-build-image@1a13ba524ffc26e40952e02b5847a2225766afaf
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -290,6 +292,7 @@ jobs:
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          cache-scope: ${{ matrix.image.cache-scope }}
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
           go-get-overrides: |
