@@ -19,7 +19,6 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	corelogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -111,7 +110,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 	if verboseLogging {
 		codecLggr = lggr
 	} else {
-		codecLggr = corelogger.Nop()
+		codecLggr = logger.Nop()
 	}
 
 	s := &server{
