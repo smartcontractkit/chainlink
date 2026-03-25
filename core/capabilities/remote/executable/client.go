@@ -104,7 +104,7 @@ func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localD
 		transmissionConfig:   transmissionConfig,
 		ocr3Configs:          ocr3Configs,
 	})
-	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig, "ocr3Configs", ocr3Configs)
+	c.lggr.Infow("SetConfig", "remoteDONName", remoteCapabilityInfo.DON.Name, "remoteDONID", remoteCapabilityInfo.DON.ID, "requestTimeout", requestTimeout, "transmissionConfig", transmissionConfig)
 	return nil
 }
 

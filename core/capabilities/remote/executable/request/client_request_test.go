@@ -336,29 +336,15 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, resp, values.NewString("response1"))
 	})
 	t.Run("Execute Request With Valid Attestation", func(t *testing.T) {
-		ctx := t.Context()
-		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
+		const F = 1
+		const N = 3*F + 1
+		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, N, F)
 
 		configDigest := ocrtypes.ConfigDigest{1, 2, 3, 4, 5}
 		kb1, err := ocr2key.New(corekeys.EVM)
 		require.NoError(t, err)
 		kb2, err := ocr2key.New(corekeys.EVM)
 		require.NoError(t, err)
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
-		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", map[string]ocrtypes.ContractConfig{
-				pb.OCR3ConfigDefaultKey: {
-					ConfigDigest: configDigest,
-					Signers:      []ocrtypes.OnchainPublicKey{kb1.PublicKey(), kb2.PublicKey()},
-					F:            1,
-				},
-			})
-		require.NoError(t, err)
-		defer req.Cancel(errors.New("test end"))
-
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
 
 		seqNr := uint64(100)
 
@@ -372,9 +358,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		spendUnit, spendValue := "testunit", "42"
 		reportData := commoncap.ResponseToReportData(capabilityRequest.Metadata.WorkflowExecutionID, capabilityRequest.Metadata.ReferenceID, payloadAsAny.Value, spendUnit, spendValue)
 
-		sig1, err := kb1.Sign3(configDigest, seqNr, reportData)
+		sig1, err := kb1.Sign3(configDigest, seqNr, reportData[:])
 		require.NoError(t, err)
-		sig2, err := kb2.Sign3(configDigest, seqNr, reportData)
+		sig2, err := kb2.Sign3(configDigest, seqNr, reportData[:])
 		require.NoError(t, err)
 
 		rawResponseWithAttestation, err := pb.MarshalCapabilityResponse(commoncap.CapabilityResponse{
@@ -395,31 +381,135 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		msg := &types.MessageBody{
-			CapabilityId:    capInfo.ID,
-			CapabilityDonId: capDonInfo.ID,
-			CallerDonId:     workflowDonInfo.ID,
-			Method:          types.MethodExecute,
-			Payload:         rawResponseWithAttestation,
-			MessageId:       []byte("messageID"),
+		ocrConfigs := map[string]ocrtypes.ContractConfig{
+			pb.OCR3ConfigDefaultKey: {
+				ConfigDigest: configDigest,
+				Signers:      []ocrtypes.OnchainPublicKey{kb1.PublicKey(), kb2.PublicKey()},
+				F:            F,
+			},
 		}
-		msg.Sender = capabilityPeers[0][:]
-		err = req.OnMessage(ctx, msg)
-		require.NoError(t, err)
 
-		response := <-req.ResponseChan()
-		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
-		require.NoError(t, err)
+		assertValidResponse := func(t *testing.T, result []byte) {
+			capResponse, err := pb.UnmarshalCapabilityResponse(result)
+			require.NoError(t, err)
 
-		var pbValue pbvalues.Value
-		require.NoError(t, capResponse.Payload.UnmarshalTo(&pbValue))
-		receivedValue, err := values.FromProto(&pbValue)
-		require.NoError(t, err)
+			var pbValue pbvalues.Value
+			require.NoError(t, capResponse.Payload.UnmarshalTo(&pbValue))
+			receivedValue, err := values.FromProto(&pbValue)
+			require.NoError(t, err)
 
-		var receivedMap map[string]int
-		require.NoError(t, receivedValue.UnwrapTo(&receivedMap))
+			var receivedMap map[string]int
+			require.NoError(t, receivedValue.UnwrapTo(&receivedMap))
 
-		assert.Equal(t, 42, receivedMap["number"])
+			assert.Equal(t, 42, receivedMap["number"])
+		}
+
+		t.Run("succeeds on first peer with valid attestation", func(t *testing.T) {
+			ctx := t.Context()
+
+			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+			require.NoError(t, err)
+			defer req.Cancel(errors.New("test end"))
+
+			for range N {
+				<-dispatcher.msgs
+			}
+
+			assert.Empty(t, dispatcher.msgs)
+
+			msg := &types.MessageBody{
+				CapabilityId:    capInfo.ID,
+				CapabilityDonId: capDonInfo.ID,
+				CallerDonId:     workflowDonInfo.ID,
+				Method:          types.MethodExecute,
+				Payload:         rawResponseWithAttestation,
+				MessageId:       []byte("messageID"),
+			}
+			msg.Sender = capabilityPeers[0][:]
+			err = req.OnMessage(ctx, msg)
+			require.NoError(t, err)
+
+			response := <-req.ResponseChan()
+			assertValidResponse(t, response.Result)
+		})
+
+		t.Run("2F peers return ErrResponsePayloadNotAvailable then success", func(t *testing.T) {
+			ctx := t.Context()
+			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+			require.NoError(t, err)
+			defer req.Cancel(errors.New("test end"))
+
+			for range N {
+				<-dispatcher.msgs
+			}
+
+			assert.Empty(t, dispatcher.msgs)
+
+			for i := range 2 * F {
+				msgNA := &types.MessageBody{
+					CapabilityId:    capInfo.ID,
+					CapabilityDonId: capDonInfo.ID,
+					CallerDonId:     workflowDonInfo.ID,
+					Method:          types.MethodExecute,
+					MessageId:       []byte("messageID"),
+					Error:           types.Error_INTERNAL_ERROR,
+					ErrorMsg:        commoncap.ErrResponsePayloadNotAvailable.Error(),
+				}
+				msgNA.Sender = capabilityPeers[i][:]
+				require.NoError(t, req.OnMessage(ctx, msgNA))
+			}
+
+			msgOK := &types.MessageBody{
+				CapabilityId:    capInfo.ID,
+				CapabilityDonId: capDonInfo.ID,
+				CallerDonId:     workflowDonInfo.ID,
+				Method:          types.MethodExecute,
+				Payload:         rawResponseWithAttestation,
+				MessageId:       []byte("messageID"),
+			}
+			msgOK.Sender = capabilityPeers[2*F][:]
+			require.NoError(t, req.OnMessage(ctx, msgOK))
+
+			response := <-req.ResponseChan()
+			assertValidResponse(t, response.Result)
+		})
+
+		t.Run("2F+1 peers return ErrResponsePayloadNotAvailable", func(t *testing.T) {
+			ctx := t.Context()
+			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+			require.NoError(t, err)
+			defer req.Cancel(errors.New("test end"))
+
+			for range N {
+				<-dispatcher.msgs
+			}
+
+			assert.Empty(t, dispatcher.msgs)
+
+			noPayloadMsg := types.MessageBody{
+				CapabilityId:    capInfo.ID,
+				CapabilityDonId: capDonInfo.ID,
+				CallerDonId:     workflowDonInfo.ID,
+				Method:          types.MethodExecute,
+				MessageId:       []byte("messageID"),
+				Error:           types.Error_INTERNAL_ERROR,
+				ErrorMsg:        commoncap.ErrResponsePayloadNotAvailable.Error(),
+			}
+
+			for i := range 2 * F {
+				noPayloadMsg.Sender = capabilityPeers[i][:]
+				require.NoError(t, req.OnMessage(ctx, &noPayloadMsg))
+			}
+
+			noPayloadMsg.Sender = capabilityPeers[2*F][:]
+			require.Error(t, req.OnMessage(ctx, &noPayloadMsg))
+		})
 	})
 
 	t.Run("Executes full schedule", func(t *testing.T) {

@@ -35,19 +35,20 @@ type clientResponse struct {
 }
 
 type ClientRequest struct {
-	id                  string
-	cancelFn            context.CancelFunc
-	responseCh          chan clientResponse
-	createdAt           time.Time
-	responseIDCount     map[[32]byte]int
-	meteringResponses   map[[32]byte][]commoncap.MeteringNodeDetail
-	errorCount          map[string]int
-	totalErrorCount     int
-	responseReceived    map[p2ptypes.PeerID]bool
-	lggr                logger.Logger
-	ocr3Configs         map[string]ocrtypes.ContractConfig
-	workflowExecutionID string
-	referenceID         string
+	id                       string
+	cancelFn                 context.CancelFunc
+	responseCh               chan clientResponse
+	createdAt                time.Time
+	responseIDCount          map[[32]byte]int
+	meteringResponses        map[[32]byte][]commoncap.MeteringNodeDetail
+	errorCount               map[string]int
+	totalErrorCount          int
+	payloadNotAvailableCount int
+	responseReceived         map[p2ptypes.PeerID]bool
+	lggr                     logger.Logger
+	ocr3Configs              map[string]ocrtypes.ContractConfig
+	workflowExecutionID      string
+	referenceID              string
 
 	requiredIdenticalResponses int
 	remoteNodeCount            int
@@ -317,7 +318,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 
 		if resp.Metadata.OCRAttestation != nil {
-			rpt, err := extractMeteringFromMetadata(sender, resp.Metadata)
+			var rpt commoncap.MeteringNodeDetail
+			rpt, err = extractMeteringFromMetadata(sender, resp.Metadata)
 			if err != nil {
 				return fmt.Errorf("failed to extract metering detail from metadata: %w", err)
 			}
@@ -386,6 +388,16 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.lggr.Warnw("received multiple different errors for the same request", "numDifferentErrors", len(c.errorCount))
 		}
 
+		if commoncap.ErrResponsePayloadNotAvailable.Is(errors.New(msg.ErrorMsg)) {
+			c.payloadNotAvailableCount++
+			if c.payloadNotAvailableCount == c.remoteNodeCount-c.requiredIdenticalResponses+1 {
+				// return an error to indicate unexpected state, but do not send an error as we might still receive a response with valid attestation.
+				return fmt.Errorf("unexpected state: received %d payload not available responses, while max allowed is %d. This means a bug in the code, please investigate",
+					c.payloadNotAvailableCount, c.remoteNodeCount-c.requiredIdenticalResponses)
+			}
+			return nil
+		}
+
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
 		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredIdenticalResponses+1 {
@@ -397,7 +409,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 func extractMeteringFromMetadata(sender p2ptypes.PeerID, metadata commoncap.ResponseMetadata) (commoncap.MeteringNodeDetail, error) {
 	if len(metadata.Metering) != 1 {
-		return commoncap.MeteringNodeDetail{}, fmt.Errorf("unexpected number of metering records received from pperi %s: got %d, want 1", sender, len(metadata.Metering))
+		return commoncap.MeteringNodeDetail{}, fmt.Errorf("unexpected number of metering records received from peer %s: got %d, want 1", sender, len(metadata.Metering))
 	}
 
 	rpt := metadata.Metering[0]
@@ -416,15 +428,19 @@ func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse, met
 	}
 
 	attestation := resp.Metadata.OCRAttestation
+	if attestation == nil {
+		return errors.New("OCR attestation missing from response metadata")
+	}
+
 	if len(attestation.Sigs) < int(cfg.F)+1 {
 		return fmt.Errorf("not enough signatures: got %d, need at least %d", len(attestation.Sigs), cfg.F+1)
 	}
 
 	reportData := commoncap.ResponseToReportData(c.workflowExecutionID, c.referenceID, resp.Payload.Value, metering.SpendUnit, metering.SpendValue)
-	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData)
+	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData[:])
 	signed := make([]bool, len(cfg.Signers))
 	for _, sig := range attestation.Sigs {
-		if int(sig.Signer) > len(cfg.Signers) {
+		if int(sig.Signer) >= len(cfg.Signers) {
 			return fmt.Errorf("invalid signer index: %d", sig.Signer)
 		}
 

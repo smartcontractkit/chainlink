@@ -38,9 +38,9 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 
 	reportData := commoncap.ResponseToReportData(workflowExecutionID, referenceID, valueBytes, spendUnit, spendValue)
 
-	sig1, err := kb1.Sign3(configDigest, seqNr, reportData)
+	sig1, err := kb1.Sign3(configDigest, seqNr, reportData[:])
 	require.NoError(t, err)
-	sig2, err := kb2.Sign3(configDigest, seqNr, reportData)
+	sig2, err := kb2.Sign3(configDigest, seqNr, reportData[:])
 	require.NoError(t, err)
 
 	ocr3Configs := map[string]ocrtypes.ContractConfig{
@@ -77,7 +77,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 
 	t.Run("nil ocr3Configs returns error", func(t *testing.T) {
 		cNil := &ClientRequest{workflowExecutionID: workflowExecutionID, referenceID: referenceID, lggr: logger.Test(t), ocr3Configs: nil}
-		err := cNil.verifyAttestation(validResp)
+		err := cNil.verifyAttestation(validResp, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "OCR3 configs not provided")
 	})
@@ -89,7 +89,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			lggr:                logger.Test(t),
 			ocr3Configs:         map[string]ocrtypes.ContractConfig{},
 		}
-		err := cBad.verifyAttestation(validResp)
+		err := cBad.verifyAttestation(validResp, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found")
 	})
@@ -106,32 +106,9 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
 		}
-		err := c.verifyAttestation(respFewSigs)
+		err := c.verifyAttestation(respFewSigs, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not enough signatures")
-	})
-
-	t.Run("unexpected number of metering records returns error", func(t *testing.T) {
-		respBadMetering := commoncap.CapabilityResponse{
-			Metadata: commoncap.ResponseMetadata{
-				Metering: []commoncap.MeteringNodeDetail{
-					{SpendUnit: spendUnit, SpendValue: spendValue},
-					{SpendUnit: "other", SpendValue: "99"},
-				},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 1, Signature: sig2},
-					},
-				},
-			},
-			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
-		}
-		err := c.verifyAttestation(respBadMetering)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "unexpected number of metering records")
 	})
 
 	t.Run("invalid signer index returns error", func(t *testing.T) {
@@ -149,7 +126,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
 		}
-		err := c.verifyAttestation(respBadSigner)
+		err := c.verifyAttestation(respBadSigner, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signer index")
 	})
@@ -169,7 +146,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
 		}
-		err := c.verifyAttestation(respDupSig)
+		err := c.verifyAttestation(respDupSig, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "duplicate signature")
 	})
@@ -192,7 +169,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
 		}
-		err = c.verifyAttestation(respBadSig)
+		err = c.verifyAttestation(respBadSig, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 	})
@@ -213,13 +190,13 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			},
 			Payload: &anypb.Any{TypeUrl: "x", Value: wrongBytes},
 		}
-		err := c.verifyAttestation(respWrongPayload)
+		err := c.verifyAttestation(respWrongPayload, validResp.Metadata.Metering[0])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 	})
 
 	t.Run("valid attestation succeeds", func(t *testing.T) {
-		err := c.verifyAttestation(validResp)
+		err := c.verifyAttestation(validResp, validResp.Metadata.Metering[0])
 		require.NoError(t, err)
 	})
 }
