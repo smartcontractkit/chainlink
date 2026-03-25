@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
@@ -266,7 +265,7 @@ func lookupEVMJobByName(ctx context.Context, lggr logger.Logger, jobName, nodeID
 			continue
 		}
 
-		ji := make(job_types.JobSpecInput)
+		ji := make(map[string]any)
 		if err = toml.Unmarshal([]byte(j.Spec), &ji); err != nil {
 			return "", false, fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
 		}

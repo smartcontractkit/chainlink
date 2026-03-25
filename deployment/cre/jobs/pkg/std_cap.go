@@ -16,27 +16,27 @@ const (
 )
 
 type StandardCapabilityJob struct {
-	JobName string // Must be alphanumeric, with _, -, ., no spaces.
-	Command string `yaml:"command"`
-	Config  string `yaml:"config"`
+	JobName string `json:"jobName" yaml:"jobName"` // Must be alphanumeric, with _, -, ., no spaces.
+	Command string `json:"command" yaml:"command"`
+	Config  string `json:"config" yaml:"config"`
 
 	// If not provided, ExternalJobID is automatically filled in by calling `externalJobIDHashFunc`
-	ExternalJobID string `yaml:"externalJobID"`
+	ExternalJobID string `json:"externalJobID" yaml:"externalJobID"`
 	// OracleFactory is the configuration for the Oracle Factory job.
-	OracleFactory *OracleFactory `yaml:"oracleFactory"`
+	OracleFactory *OracleFactory `json:"oracleFactory" yaml:"oracleFactory"`
 
 	// Additional fields used to drive oracle factory creation/config
-	GenerateOracleFactory bool          // if true, an oracle factory will be generated using the fields below
-	OCRSigningStrategy    string        `yaml:"ocrSigningStrategy"` // used to set the signing strategy in the oracle factory
-	ContractQualifier     string        `yaml:"contractQualifier"`  // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
-	OCRChainSelector      ChainSelector `yaml:"ocrChainSelector"`   // contract chain selector, doesn't have to live on the same chain as the evm selector
-	UseCapRegOCRConfig    bool          `yaml:"useCapRegOCRConfig"` // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
-	CapRegVersion         string        `yaml:"capRegVersion"`      // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
+	GenerateOracleFactory bool          `json:"generateOracleFactory" yaml:"generateOracleFactory"` // if true, an oracle factory will be generated using the fields below
+	OCRSigningStrategy    string        `json:"ocrSigningStrategy" yaml:"ocrSigningStrategy"`       // used to set the signing strategy in the oracle factory
+	ContractQualifier     string        `json:"contractQualifier" yaml:"contractQualifier"`         // qualifier for the OCR3 contract or CapabilitiesRegistry (when capRegVersion is set)
+	OCRChainSelector      ChainSelector `json:"ocrChainSelector" yaml:"ocrChainSelector"`           // contract chain selector, doesn't have to live on the same chain as the evm selector
+	UseCapRegOCRConfig    bool          `json:"useCapRegOCRConfig" yaml:"useCapRegOCRConfig"`       // if true, use CapabilitiesRegistry instead of legacy OCR3 contract for oracle factory config
+	CapRegVersion         string        `json:"capRegVersion" yaml:"capRegVersion"`                 // CapabilitiesRegistry contract version (e.g. "2.0.0"); required when useCapRegOCRConfig is true
 
-	ChainSelectorEVM    ChainSelector `yaml:"chainSelectorEVM"`    // used to fetch OCR EVM configs from nodes
-	ChainSelectorAptos  ChainSelector `yaml:"chainSelectorAptos"`  // used to fetch OCR Aptos configs from nodes - optional
-	ChainSelectorSolana ChainSelector `yaml:"chainSelectorSolana"` // used to fetch OCR Solana configs from nodes - optional
-	BootstrapPeers      []string      `yaml:"bootstrapPeers"`      // set as value in the oracle factory
+	ChainSelectorEVM    ChainSelector `json:"chainSelectorEVM" yaml:"chainSelectorEVM"`       // used to fetch OCR EVM configs from nodes
+	ChainSelectorAptos  ChainSelector `json:"chainSelectorAptos" yaml:"chainSelectorAptos"`    // used to fetch OCR Aptos configs from nodes - optional
+	ChainSelectorSolana ChainSelector `json:"chainSelectorSolana" yaml:"chainSelectorSolana"`  // used to fetch OCR Solana configs from nodes - optional
+	BootstrapPeers      []string      `json:"bootstrapPeers" yaml:"bootstrapPeers"`            // set as value in the oracle factory
 }
 
 func (s *StandardCapabilityJob) Resolve() (string, error) {

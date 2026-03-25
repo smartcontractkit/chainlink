@@ -7,18 +7,18 @@ import (
 )
 
 type OracleFactory struct {
-	Enabled                bool                   `yaml:"enabled"`
-	BootstrapPeers         []string               `yaml:"bootstrapPeers"`
-	OCRContractAddress     string                 `yaml:"ocrContractAddress"`
-	OCRKeyBundleID         string                 `yaml:"ocrKeyBundleID"`
-	ChainID                string                 `yaml:"chainID"`
-	TransmitterID          string                 `yaml:"transmitterID"`
-	OnchainSigningStrategy OnchainSigningStrategy `yaml:"onchainSigningStrategy"`
+	Enabled                bool                   `json:"enabled" yaml:"enabled"`
+	BootstrapPeers         []string               `json:"bootstrapPeers" yaml:"bootstrapPeers"`
+	OCRContractAddress     string                 `json:"ocrContractAddress" yaml:"ocrContractAddress"`
+	OCRKeyBundleID         string                 `json:"ocrKeyBundleID" yaml:"ocrKeyBundleID"`
+	ChainID                string                 `json:"chainID" yaml:"chainID"`
+	TransmitterID          string                 `json:"transmitterID" yaml:"transmitterID"`
+	OnchainSigningStrategy OnchainSigningStrategy `json:"onchainSigningStrategy" yaml:"onchainSigningStrategy"`
 }
 
 type OnchainSigningStrategy struct {
-	StrategyName string            `yaml:"strategyName"`
-	Config       map[string]string `yaml:"config"`
+	StrategyName string            `json:"strategyName" yaml:"strategyName"`
+	Config       map[string]string `json:"config" yaml:"config"`
 }
 
 type OracleFactoryConfig struct {

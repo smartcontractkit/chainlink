@@ -31,7 +31,7 @@ type ProposeJobSpecInput struct {
 	// Inputs is a map of input variables to be used in the job spec template.
 	// These will vary based on the template used, and will be validated differently
 	// for each template type.
-	Inputs job_types.JobSpecInput `json:"inputs" yaml:"inputs"`
+	Inputs *job_types.JobSpecInput `json:"inputs" yaml:"inputs"`
 }
 
 type ProposeJobSpec struct{}
@@ -59,20 +59,20 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 
 	switch config.Template {
 	case job_types.EVM:
-		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
+		if err := verifyEVMJobSpecInputs(*config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
 	case job_types.Solana:
-		if err := verifySolanaJobSpecInputs(config.Inputs); err != nil {
+		if err := verifySolanaJobSpecInputs(*config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
 	case job_types.CRESettings:
-		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
+		if err := verifyCRESettingsSpecInputs(*config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for CRE settings job spec: %w", err)
 		}
 	case job_types.Ring:
-		if err := verifyRingJobSpecInputs(config.Inputs); err != nil {
+		if err := verifyRingJobSpecInputs(*config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for Ring job spec: %w", err)
 		}
 	default:

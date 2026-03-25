@@ -1,33 +1,39 @@
 package job_types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 )
 
-type JobSpecInput map[string]any
-
-func (j JobSpecInput) UnmarshalTo(target any) error {
-	bytes, err := yaml.Marshal(j)
-	if err != nil {
-		return fmt.Errorf("failed to marshal job spec input to json: %w", err)
-	}
-
-	return yaml.Unmarshal(bytes, target)
+type JobSpecInput struct {
+	json.RawMessage
 }
 
-func (j JobSpecInput) UnmarshalFrom(source any) error {
-	bytes, err := yaml.Marshal(source)
+func (j JobSpecInput) MarshalJSON() ([]byte, error) {
+	return j.RawMessage.MarshalJSON()
+}
+
+func (j *JobSpecInput) UnmarshalJSON(d []byte) error {
+	j.RawMessage = d
+	return nil
+}
+
+func (j JobSpecInput) UnmarshalTo(target any) error {
+	return json.Unmarshal([]byte(j.RawMessage), target)
+}
+
+func (j *JobSpecInput) UnmarshalFrom(source any) error {
+	bytes, err := json.Marshal(source)
 	if err != nil {
 		return fmt.Errorf("failed to marshal source to json: %w", err)
 	}
 
-	return yaml.Unmarshal(bytes, &j)
+	j.RawMessage = bytes
+	return nil
 }
 
 func (j JobSpecInput) ToStandardCapabilityJob(jobName string, generateOracleFactory bool) (pkg.StandardCapabilityJob, error) {
