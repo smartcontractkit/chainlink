@@ -47,10 +47,10 @@ type EngineMetrics struct {
 	workflowMissingMeteringReport      metric.Int64Counter
 	workflowMeteringMode               metric.Int64Gauge
 
-	workflowExecutionFailedCounter             metric.Int64Counter
-	workflowExecutionStartedCounter            metric.Int64Counter
-	workflowExecutionSucceededCounter          metric.Int64Counter
-	workflowExecutionCapabilityFailureCounter  metric.Int64Counter
+	workflowExecutionFailedCounter            metric.Int64Counter
+	workflowExecutionStartedCounter           metric.Int64Counter
+	workflowExecutionSucceededCounter         metric.Int64Counter
+	workflowExecutionCapabilityFailureCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
 
