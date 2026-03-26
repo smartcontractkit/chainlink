@@ -125,7 +125,7 @@ func TestEnsureRightLabelOnSecret_NeitherMatches(t *testing.T) {
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
 	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr, wrongOrgID)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
 }
 
@@ -135,7 +135,7 @@ func TestEnsureRightLabelOnSecret_BothEmpty(t *testing.T) {
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
 	err := EnsureRightLabelOnSecret(pk, secret, "", "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
 }
 
@@ -152,7 +152,7 @@ func TestEnsureRightLabelOnSecret_InvalidHexSecret(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
 	err := EnsureRightLabelOnSecret(pk, "not-valid-hex!", "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to decode encrypted value")
 }
 
@@ -160,7 +160,7 @@ func TestEnsureRightLabelOnSecret_InvalidCiphertext(t *testing.T) {
 	pk, _ := generateTestKeys(t)
 
 	err := EnsureRightLabelOnSecret(pk, hex.EncodeToString([]byte("garbage")), "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
 
@@ -171,7 +171,7 @@ func TestEnsureRightLabelOnSecret_WrongPublicKey(t *testing.T) {
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
 
 	err := EnsureRightLabelOnSecret(wrongPK, secret, ethAddr, "")
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to verify encrypted value")
 }
 
