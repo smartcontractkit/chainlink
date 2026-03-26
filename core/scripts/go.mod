@@ -15,10 +15,7 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
-	github.com/smartcontractkit/chainlink/v2 v2.32.0
-)
+require github.com/smartcontractkit/chainlink/v2 v2.32.0
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -46,7 +43,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260326164412-6378f013c66f
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260326163134-c8e0d77df421
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-data-streams v0.1.13
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
@@ -60,7 +57,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-20251020210257-0a6ec41648b4
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based v0.0.0-20251020210257-0a6ec41648b4
-	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-20251020210257-0a6ec41648b4
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
+	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
