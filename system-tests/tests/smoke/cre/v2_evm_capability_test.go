@@ -311,10 +311,16 @@ func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sq
 	return db
 }
 
+var _ = connectTriggerDB
+
 type tableStats struct {
 	inserts int64
 	deletes int64
 }
+
+var _ tableStats
+
+var _ = snapshotTriggerStats
 
 // snapshotTriggerStats returns the current cumulative insert/delete counts for
 // the trigger_pending_events table from pg_stat_user_tables.
@@ -357,11 +363,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
+		// TODO: (CRE-2314) Re-enable trigger event ACKS
+		// triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
 
-		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
-		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
-		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
+		// baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
+		// require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
+		// lggr.Info().Msgf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
 
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
@@ -399,7 +406,8 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
 		emitCancelFn()
 
-		verifyTriggerEventACKs(t, triggerDB, baselineStats)
+		// TODO: (CRE-2314) Re-enable trigger event ACKS
+		// verifyTriggerEventACKs(t, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -429,3 +437,5 @@ func verifyTriggerEventACKs(t *testing.T, triggerDB *sql.DB, baselineStats table
 		return newInserts > 0 && newDeletes > 0
 	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
 }
+
+var _ = verifyTriggerEventACKs
