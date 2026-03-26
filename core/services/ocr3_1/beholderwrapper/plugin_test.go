@@ -118,7 +118,14 @@ func Test_InstrumentedBlobBroadcastFetcher(t *testing.T) {
 		fetchPayload:     []byte("fetched-data"),
 	}
 
-	wrapped := &instrumentedBlobBroadcastFetcher{inner: inner, metrics: metrics}
+	wrapped := &instrumentedBlobBroadcastFetcher{
+		inner:   inner,
+		metrics: metrics,
+		instrumentedBlobFetcher: instrumentedBlobFetcher{
+			inner:   inner,
+			metrics: metrics,
+		},
+	}
 
 	// BroadcastBlob delegates and records metrics
 	handle, err := wrapped.BroadcastBlob(t.Context(), []byte("payload"), ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: 1})
@@ -138,7 +145,14 @@ func Test_InstrumentedBlobBroadcastFetcher_PropagatesErrors(t *testing.T) {
 
 	expectedErr := errors.New("blob error")
 	inner := &fakeBlobBroadcastFetcher{err: expectedErr}
-	wrapped := &instrumentedBlobBroadcastFetcher{inner: inner, metrics: metrics}
+	wrapped := &instrumentedBlobBroadcastFetcher{
+		inner:   inner,
+		metrics: metrics,
+		instrumentedBlobFetcher: instrumentedBlobFetcher{
+			inner:   inner,
+			metrics: metrics,
+		},
+	}
 
 	_, err = wrapped.BroadcastBlob(t.Context(), []byte("payload"), ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: 1})
 	require.ErrorIs(t, err, expectedErr)
