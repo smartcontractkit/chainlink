@@ -69,17 +69,26 @@ jobs:
         shell: bash
         working-directory: .
         run: echo "value=nightly-$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.chainlink_version }}
+      # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
+      # github sets its value to an empty string to avoid leaking secrets.
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
-        with:
-          chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
-          chainlink_image_tag: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
-          chainlink_full_image: ${{ inputs.chainlink_full_image }}
-          chainlink_version: ${{ inputs.chainlink_version }}
+        working-directory: .github/scripts
+        shell: bash
         env:
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
+          CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
+          CHAINLINK_VERSION: ${{ inputs.chainlink_version != '' && inputs.chainlink_version || github.sha }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          resolved_image="$(bash resolve-chainlink-image.sh)"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
       - name: Print Summary
         working-directory: .
         run: |
@@ -360,15 +369,18 @@ jobs:
         run: echo "value=nightly-$(date +%Y%m%d)" >> "$GITHUB_OUTPUT"
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
-        with:
-          chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
-          chainlink_image_tag: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
-          chainlink_full_image: ${{ inputs.chainlink_full_image }}
-          chainlink_version: ${{ inputs.chainlink_version }}
+        working-directory: .github/scripts
+        shell: bash
         env:
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_full_image == '' && (inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || steps.fallback-tag.outputs.value) || '' }}
+          CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
+          CHAINLINK_VERSION: ${{ inputs.chainlink_version != '' && inputs.chainlink_version || github.sha }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          resolved_image="$(bash resolve-chainlink-image.sh)"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
       - name: Set environment variables
         run: |

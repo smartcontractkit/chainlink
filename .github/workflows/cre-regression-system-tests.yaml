@@ -29,7 +29,7 @@ on:
         description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
         required: false
         type: string
-        default: "chainlink"
+        default: ""
       chainlink_image_tag:
         required: false
         type: string
@@ -173,15 +173,18 @@ jobs:
 
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
-        uses: smartcontractkit/chainlink/.github/actions/resolve-chainlink-image@1d9ff409d8b0be77349f0bdc96f8f84d3268074b
-        with:
-          chainlink_image_repo: ${{ inputs.chainlink_image_repo }}
-          chainlink_image_tag: ${{ inputs.chainlink_image_tag }}
-          chainlink_full_image: ${{ inputs.chainlink_full_image }}
-          chainlink_version: ${{ inputs.chainlink_version }}
+        working-directory: .github/scripts
+        shell: bash
         env:
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
+          CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
+          CHAINLINK_VERSION: ${{ inputs.chainlink_version != '' && inputs.chainlink_version || github.sha }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          resolved_image="$(bash resolve-chainlink-image.sh)"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
