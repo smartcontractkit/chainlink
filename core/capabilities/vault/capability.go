@@ -115,14 +115,26 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
-	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
+	workflowOwner := ""
+	if firstReq := r.Requests[0]; firstReq != nil && firstReq.Id != nil {
+		workflowOwner = firstReq.Id.Owner
+	}
+	s.lggr.Debugw("linking get secrets request identity", "workflowOwner", workflowOwner, "requestCount", len(r.Requests))
+	linkedIdentity, err := s.linker.Link(ctx, "", workflowOwner)
+	if err != nil {
+		s.lggr.Errorw("failed to link get secrets request identity", "workflowOwner", workflowOwner, "err", err)
+		return capabilities.CapabilityResponse{}, err
+	}
+	normalizedWorkflowOwner := normalizeOwner(linkedIdentity.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
+			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
 
 		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", linkedIdentity.WorkflowOwner)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, linkedIdentity.WorkflowOwner, idx)
 		}
 	}
 
@@ -168,7 +180,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -181,7 +193,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -194,7 +206,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -218,7 +230,7 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -273,13 +285,18 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-func (s *Capability) linkGatewayRequest(ctx context.Context, requestID string, orgID *string, workflowOwner *string) error {
+// linkGatewayRequest resolves the identity fields that the vault plugin consumes.
+func (s *Capability) linkGatewayRequest(ctx context.Context, orgID *string, workflowOwner *string) error {
 	if s.linker == nil {
 		return nil
 	}
 
-	linked, err := s.linker.Link(ctx, requestID, valueOrEmpty(orgID), valueOrEmpty(workflowOwner))
+	currentOrgID := valueOrEmpty(orgID)
+	currentWorkflowOwner := valueOrEmpty(workflowOwner)
+	s.lggr.Debugw("linking gateway request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner)
+	linked, err := s.linker.Link(ctx, currentOrgID, currentWorkflowOwner)
 	if err != nil {
+		s.lggr.Errorw("failed to link gateway request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner, "err", err)
 		return err
 	}
 
@@ -289,6 +306,7 @@ func (s *Capability) linkGatewayRequest(ctx context.Context, requestID string, o
 	if workflowOwner != nil {
 		*workflowOwner = linked.WorkflowOwner
 	}
+	s.lggr.Debugw("linked gateway request identity", "orgID", linked.OrgID, "workflowOwner", linked.WorkflowOwner)
 
 	return nil
 }
@@ -315,7 +333,7 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
-	linker, err := NewOrgIdToWorkflowOwnerLinker(orgResolver, limitsFactory)
+	linker, err := NewOrgIdToWorkflowOwnerLinker(lggr, orgResolver, limitsFactory)
 	if err != nil {
 		return nil, err
 	}

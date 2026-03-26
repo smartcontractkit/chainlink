@@ -371,6 +371,83 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
+func TestCapability_CapabilityCall_UsesFirstSecretOwnerForLinking(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultJWTAuthLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	owner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     owner,
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	expectedResponse := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: owner},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	}
+	data, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) == 1 {
+					reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: data})
+					return
+				}
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "different-metadata-owner",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	assert.Equal(t, []string{owner}, resolver.calledWith)
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
