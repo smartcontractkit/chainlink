@@ -297,6 +297,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
 			return
 		}
+		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
+			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
 		p.unregisterCache.Delete(key)
 		p.mu.Unlock()

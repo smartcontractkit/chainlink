@@ -350,12 +350,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.lggr.Errorw("received registration check with nil metadata", "sender", sender)
 			return
 		}
-		if len(meta.WorkflowIds) != len(meta.TriggerIds) {
-			s.lggr.Warnw("received registration check with mismatched metadata",
-				"sender", sender,
-				"workflowIdsLen", len(meta.WorkflowIds),
-				"triggerIdsLen", len(meta.TriggerIds))
-		}
 
 		for i, workflowID := range meta.WorkflowIds {
 			triggerID := meta.TriggerIds[i]
