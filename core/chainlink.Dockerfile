@@ -18,7 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 ARG GO_OVERRIDE_DEPS
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,target=/go/pkg/mod \
-    set -eo pipefail && \
+    set -e && \
     if [ -n "$GO_OVERRIDE_DEPS" ]; then \
         export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
         if [ -f /run/secrets/GIT_AUTH_TOKEN ] && [ -s /run/secrets/GIT_AUTH_TOKEN ]; then \
