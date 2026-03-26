@@ -166,7 +166,6 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_ocr3_1_reporting_plugin_data_sizes"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				// 512KB is the max value possible
 				// 1KB, 2KB, 4KB, 8KB, 16KB, 32KB, 64KB, 128KB, 256KB, 512KB, 1024KB, 2048KB, 4096KB, 8192KB
 				Boundaries: prometheus.ExponentialBuckets(1024, 2, 14),
 			}},
