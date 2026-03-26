@@ -57,19 +57,26 @@ func IsConfidential(data []byte) (bool, error) {
 	return attrs.Confidential, nil
 }
 
+// BinaryURLResolver resolves a raw binary URL into an ephemeral/presigned
+// URL that the enclave can fetch without authentication. In production this
+// calls the CRE storage service; nil means the raw URL is used as-is.
+// PR 5/5 (#21642) wires this to the storage service retriever.
+type BinaryURLResolver func(ctx context.Context, workflowID string) (string, error)
+
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry     core.CapabilitiesRegistry
-	binaryURL       string
-	binaryHash      []byte
-	workflowID      string
-	workflowOwner   string
-	workflowName    string
-	workflowTag     string
-	vaultDonSecrets []SecretIdentifier
-	lggr            logger.Logger
+	capRegistry        core.CapabilitiesRegistry
+	binaryURL          string
+	binaryHash         []byte
+	workflowID         string
+	workflowOwner      string
+	workflowName       string
+	workflowTag        string
+	vaultDonSecrets    []SecretIdentifier
+	binaryURLResolver  BinaryURLResolver
+	lggr               logger.Logger
 }
 
 var _ host.ModuleV2 = (*ConfidentialModule)(nil)
@@ -78,23 +85,22 @@ func NewConfidentialModule(
 	capRegistry core.CapabilitiesRegistry,
 	binaryURL string,
 	binaryHash []byte,
-	workflowID string,
-	workflowOwner string,
-	workflowName string,
-	workflowTag string,
+	workflowID, workflowOwner, workflowName, workflowTag string,
 	vaultDonSecrets []SecretIdentifier,
+	binaryURLResolver BinaryURLResolver,
 	lggr logger.Logger,
 ) *ConfidentialModule {
 	return &ConfidentialModule{
-		capRegistry:     capRegistry,
-		binaryURL:       binaryURL,
-		binaryHash:      binaryHash,
-		workflowID:      workflowID,
-		workflowOwner:   workflowOwner,
-		workflowName:    workflowName,
-		workflowTag:     workflowTag,
-		vaultDonSecrets: vaultDonSecrets,
-		lggr:            lggr,
+		capRegistry:       capRegistry,
+		binaryURL:         binaryURL,
+		binaryHash:        binaryHash,
+		workflowID:        workflowID,
+		workflowOwner:     workflowOwner,
+		workflowName:      workflowName,
+		workflowTag:       workflowTag,
+		vaultDonSecrets:   vaultDonSecrets,
+		binaryURLResolver: binaryURLResolver,
+		lggr:              lggr,
 	}
 }
 
@@ -125,11 +131,20 @@ func (m *ConfidentialModule) Execute(
 		}
 	}
 
+	binaryURL := m.binaryURL
+	if m.binaryURLResolver != nil {
+		resolved, resolveErr := m.binaryURLResolver(ctx, m.workflowID)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("failed to resolve binary URL: %w", resolveErr)
+		}
+		binaryURL = resolved
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		VaultDonSecrets: protoSecrets,
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
+			BinaryUrl:      binaryURL,
 			BinaryHash:     m.binaryHash,
 			ExecuteRequest: execReqBytes,
 			Owner:          m.workflowOwner,
