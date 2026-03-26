@@ -96,7 +96,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -131,7 +131,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-east-1
@@ -209,6 +209,7 @@ jobs:
   df1-compat:
     uses: ./.github/workflows/devenv-compat.yml
     name: Data Feeds v1 Upgrade Test
+    needs: [docker-core]
     with:
       buildcmd: "just cli"
       envcmd: "cl u env.toml,products/ocr2/basic.toml"
@@ -227,6 +228,7 @@ jobs:
   cre-compat:
     uses: ./.github/workflows/devenv-compat.yml
     name: CRE Upgrade Test
+    needs: [docker-core]
     with:
       buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
       envcmd: "go run -C ../../core/scripts/cre/environment . env start"

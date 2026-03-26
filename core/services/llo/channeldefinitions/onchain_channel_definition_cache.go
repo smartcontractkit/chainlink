@@ -21,21 +21,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jpillora/backoff"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/sha3"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
-	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -667,7 +667,7 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 func (c *channelDefinitionCache) fetchLoop(trigger types.Trigger) {
 	defer c.wg.Done()
 	var err error
-	b := utils.NewHTTPFetchBackoff()
+	b := newHTTPFetchBackoff()
 
 	ctx, cancel := c.chStop.CtxWithTimeout(fetchRetryTimeout)
 	defer cancel()
@@ -969,4 +969,12 @@ func decodePersistedSourceDefinitions(definitionsJSON json.RawMessage) (map[uint
 	}
 
 	return sources, nil
+}
+
+func newHTTPFetchBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
 }
