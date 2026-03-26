@@ -517,12 +517,12 @@ func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *clsessions.
 
 	err = sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		// Remove any existing API tokens
-		if _, err = oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
+		if _, err = tx.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return fmt.Errorf("error executing DELETE FROM oidc_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
-		_, err = oi.ds.ExecContext(ctx,
-			"INSERT INTO oidc_user_api_tokens (user_email, user_role, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
+		_, err = tx.ExecContext(ctx,
+			"INSERT INTO oidc_user_api_tokens (user_email, user_role, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, now())",
 			user.Email,
 			user.Role,
 			token.AccessKey,

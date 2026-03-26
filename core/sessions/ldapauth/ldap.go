@@ -554,17 +554,17 @@ func (l *ldapAuthenticator) SetAuthToken(ctx context.Context, user *sessions.Use
 		// Check presence in local users table. Set localauth_user column true if present.
 		// This flag omits the session/token from being purged by the sync daemon/reaper.go
 		isLocalCLIAdmin := false
-		err = l.ds.QueryRowxContext(ctx, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
+		err = tx.QueryRowxContext(ctx, "SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
 		if err != nil {
 			return fmt.Errorf("error checking user presence in users table: %w", err)
 		}
 
 		// Remove any existing API tokens
-		if _, err = l.ds.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
+		if _, err = tx.ExecContext(ctx, "DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return fmt.Errorf("error executing DELETE FROM ldap_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
-		_, err = l.ds.ExecContext(
+		_, err = tx.ExecContext(
 			ctx,
 			"INSERT INTO ldap_user_api_tokens (user_email, user_role, localauth_user, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
 			user.Email,
