@@ -41,7 +41,7 @@ func makeCapabilityPayload(t *testing.T, inputs map[string]any) string {
 
 const testAttestationB64 = "ZHVtbXktYXR0ZXN0YXRpb24=" // base64("dummy-attestation")
 
-func noopValidator(_ []byte, _, _ []byte, _ string) error { return nil }
+func noopValidator(_ []byte, _, _ []byte) error { return nil }
 
 type mockGatewayConnector struct {
 	lastResp     *jsonrpc.Response[json.RawMessage]
