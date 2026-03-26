@@ -36,7 +36,7 @@ func TestKVStoreWrapper_GetSecret_FoundUnderOrgID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testOrgID, "main", "secret1", []byte("org-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "secret1"}
 
 	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
@@ -49,7 +49,7 @@ func TestKVStoreWrapper_GetSecret_FallbackToWorkflowOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "secret1"}
 
 	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
@@ -61,7 +61,7 @@ func TestKVStoreWrapper_GetSecret_FallbackToWorkflowOwner(t *testing.T) {
 func TestKVStoreWrapper_GetSecret_NotFoundUnderEither(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "nonexistent"}
 
 	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
@@ -74,7 +74,7 @@ func TestKVStoreWrapper_GetSecret_PrefersOrgIDOverWorkflowOwner(t *testing.T) {
 	writeTestSecret(t, inner, testOrgID, "main", "secret1", []byte("org-data"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "secret1"}
 
 	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
@@ -87,7 +87,7 @@ func TestKVStoreWrapper_GetSecret_NoFallbackWhenWorkflowOwnerEmpty(t *testing.T)
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "secret1"}
 
 	secret, err := store.GetSecret(id, testOrgID, "")
@@ -98,7 +98,7 @@ func TestKVStoreWrapper_GetSecret_NoFallbackWhenWorkflowOwnerEmpty(t *testing.T)
 func TestKVStoreWrapper_GetSecret_NoFallbackWhenSameOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "secret1"}
 
 	secret, err := store.GetSecret(id, testOrgID, testOrgID)
@@ -108,7 +108,7 @@ func TestKVStoreWrapper_GetSecret_NoFallbackWhenSameOwner(t *testing.T) {
 
 func TestKVStoreWrapper_GetSecret_NilID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	_, err := store.GetSecret(nil, testOrgID, testWorkflowOwner)
 	require.Error(t, err)
@@ -119,7 +119,7 @@ func TestKVStoreWrapper_GetSecret_DifferentOwnersPerCall(t *testing.T) {
 	writeTestSecret(t, inner, "org_A", "main", "s1", []byte("data-A"))
 	writeTestSecret(t, inner, "wo_B", "main", "s2", []byte("data-B"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	// First call with owner pair A.
 	id1 := &vault.SecretIdentifier{Owner: "org_A", Namespace: "main", Key: "s1"}
@@ -142,7 +142,7 @@ func TestKVStoreWrapper_GetMetadata_OnlyOrgID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testOrgID, "main", "secret1", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -155,7 +155,7 @@ func TestKVStoreWrapper_GetMetadata_OnlyWorkflowOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy1", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -171,7 +171,7 @@ func TestKVStoreWrapper_GetMetadata_MergeAndDedup(t *testing.T) {
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "shared_key", []byte("legacy-data"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy_only", []byte("data2"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -192,7 +192,7 @@ func TestKVStoreWrapper_GetMetadata_MergeAndDedup(t *testing.T) {
 
 func TestKVStoreWrapper_GetMetadata_BothEmpty(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
@@ -203,7 +203,7 @@ func TestKVStoreWrapper_GetMetadata_NoMergeWhenSameOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testOrgID, "main", "secret1", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testOrgID)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -215,7 +215,7 @@ func TestKVStoreWrapper_GetMetadata_CrossNamespaceDedup(t *testing.T) {
 	writeTestSecret(t, inner, testOrgID, "ns1", "secret1", []byte("data-ns1"))
 	writeTestSecret(t, inner, testWorkflowOwner, "ns2", "secret1", []byte("data-ns2"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -229,7 +229,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Merged(t *testing.T) {
 	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("data"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "s2", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	count, err := store.GetSecretIdentifiersCountForOwner(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count)
@@ -240,7 +240,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Deduped(t *testing.T) 
 	writeTestSecret(t, inner, testOrgID, "main", "shared", []byte("data"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "shared", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	count, err := store.GetSecretIdentifiersCountForOwner(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	assert.Equal(t, 1, count)
@@ -248,7 +248,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Deduped(t *testing.T) 
 
 func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Empty(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	count, err := store.GetSecretIdentifiersCountForOwner(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestKVStoreWrapper_GetPendingQueue_Passthrough(t *testing.T) {
 	}
 	require.NoError(t, inner.WritePendingQueue(items))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	got, err := store.GetPendingQueue()
 	require.NoError(t, err)
 	assert.Len(t, got, 2)
@@ -278,7 +278,7 @@ func TestKVStoreWrapper_GetPendingQueue_Passthrough(t *testing.T) {
 
 func TestKVStoreWrapper_WritePendingQueue_Passthrough(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	empty, err := anypb.New(&emptypb.Empty{})
 	require.NoError(t, err)
@@ -297,7 +297,7 @@ func TestKVStoreWrapper_WritePendingQueue_Passthrough(t *testing.T) {
 
 func TestKVStoreWrapper_WriteSecret_WritesUnderOrgID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "new_secret"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("data")}, testOrgID, testWorkflowOwner))
@@ -318,7 +318,7 @@ func TestKVStoreWrapper_WriteSecret_LazyMigration(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy_secret", []byte("old-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "legacy_secret"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("new-data")}, testOrgID, testWorkflowOwner))
 
@@ -342,7 +342,7 @@ func TestKVStoreWrapper_WriteSecret_LazyMigration(t *testing.T) {
 
 func TestKVStoreWrapper_WriteSecret_NoMigrationWhenNoLegacy(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "brand_new"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("data")}, testOrgID, testWorkflowOwner))
@@ -354,7 +354,7 @@ func TestKVStoreWrapper_WriteSecret_NoMigrationWhenNoLegacy(t *testing.T) {
 
 func TestKVStoreWrapper_WriteSecret_NoMigrationWhenSameOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("data")}, testOrgID, testOrgID))
@@ -364,7 +364,7 @@ func TestKVStoreWrapper_WriteSecret_NoMigrationWhenSameOwner(t *testing.T) {
 
 func TestKVStoreWrapper_WriteMetadata_WritesUnderOrgID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	md := &vault.StoredMetadata{
 		SecretIdentifiers: []*vault.SecretIdentifier{
@@ -385,7 +385,7 @@ func TestKVStoreWrapper_DeleteSecret_DeletesFromOrgID(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testOrgID, "main", "to_delete", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "to_delete"}
 	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
 
@@ -398,7 +398,7 @@ func TestKVStoreWrapper_DeleteSecret_FallsBackToWorkflowOwner(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy_del", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "legacy_del"}
 	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
 
@@ -412,7 +412,7 @@ func TestKVStoreWrapper_DeleteSecret_CleansBothOwners(t *testing.T) {
 	writeTestSecret(t, inner, testOrgID, "main", "both_owners", []byte("org-data"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "both_owners", []byte("legacy-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "both_owners"}
 	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
 
@@ -427,7 +427,7 @@ func TestKVStoreWrapper_DeleteSecret_CleansBothOwners(t *testing.T) {
 
 func TestKVStoreWrapper_DeleteSecret_NotFoundAnywhere(t *testing.T) {
 	_, inner := newTestWriteStore(t)
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "nonexistent"}
 	err := store.DeleteSecret(id, testOrgID, testWorkflowOwner)
@@ -440,7 +440,7 @@ func TestKVStoreWrapper_CreateOldFlow_ReadNewFlow(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "migrating_secret", []byte("old-data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "migrating_secret"}
 	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
@@ -452,7 +452,7 @@ func TestKVStoreWrapper_CreateOldFlow_UpdateNewFlow_LazyMigration(t *testing.T) 
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "migrating", []byte("old"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "migrating"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("new")}, testOrgID, testWorkflowOwner))
 
@@ -471,7 +471,7 @@ func TestKVStoreWrapper_CreateOldFlow_ListNewFlow(t *testing.T) {
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy1", []byte("d1"))
 	writeTestSecret(t, inner, testWorkflowOwner, "alt", "legacy2", []byte("d2"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.NoError(t, err)
 	require.NotNil(t, md)
@@ -485,7 +485,7 @@ func TestKVStoreWrapper_CreateOldFlow_DeleteNewFlow(t *testing.T) {
 	_, inner := newTestWriteStore(t)
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "to_delete", []byte("data"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "to_delete"}
 	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
 
@@ -499,7 +499,7 @@ func TestKVStoreWrapper_UpdateMigration_ThenListShowsNoDuplicates(t *testing.T) 
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "s1", []byte("old1"))
 	writeTestSecret(t, inner, testWorkflowOwner, "main", "s2", []byte("old2"))
 
-	store := NewKVStoreWrapper(inner, logger.TestLogger(t))
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
 	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
 	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("new1")}, testOrgID, testWorkflowOwner))
@@ -632,7 +632,7 @@ func TestNeedsMigration(t *testing.T) {
 func TestKVStoreWrapper_GetSecret_PropagatesInnerError(t *testing.T) {
 	inner := &kv{m: map[string]response{}}
 	inner.m["Metadata::"+testOrgID] = response{err: assert.AnError}
-	store := NewKVStoreWrapper(NewWriteStore(inner), logger.TestLogger(t))
+	store := NewKVStoreWrapper(NewWriteStore(inner), true, logger.TestLogger(t))
 
 	_, err := store.GetSecret(&vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}, testOrgID, testWorkflowOwner)
 	require.Error(t, err)
@@ -641,7 +641,7 @@ func TestKVStoreWrapper_GetSecret_PropagatesInnerError(t *testing.T) {
 func TestKVStoreWrapper_GetMetadata_PropagatesOrgIDError(t *testing.T) {
 	inner := &kv{m: map[string]response{}}
 	inner.m["Metadata::"+testOrgID] = response{err: assert.AnError}
-	store := NewKVStoreWrapper(NewWriteStore(inner), logger.TestLogger(t))
+	store := NewKVStoreWrapper(NewWriteStore(inner), true, logger.TestLogger(t))
 
 	_, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.Error(t, err)
@@ -652,8 +652,185 @@ func TestKVStoreWrapper_GetMetadata_PropagatesWorkflowOwnerError(t *testing.T) {
 	orgMdBytes, _ := proto.Marshal(&vault.StoredMetadata{SecretIdentifiers: []*vault.SecretIdentifier{}})
 	inner.m["Metadata::"+testOrgID] = response{data: orgMdBytes}
 	inner.m["Metadata::"+testWorkflowOwner] = response{err: assert.AnError}
-	store := NewKVStoreWrapper(NewWriteStore(inner), logger.TestLogger(t))
+	store := NewKVStoreWrapper(NewWriteStore(inner), true, logger.TestLogger(t))
 
 	_, err := store.GetMetadata(testOrgID, testWorkflowOwner)
 	require.Error(t, err)
+}
+
+// --- Migration disabled (passthrough) tests ---
+
+func TestKVStoreWrapper_Disabled_GetSecret_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+
+	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
+	require.NoError(t, err)
+	require.NotNil(t, secret)
+	assert.Equal(t, []byte("data"), secret.EncryptedSecret)
+}
+
+func TestKVStoreWrapper_Disabled_GetSecret_NoFallback(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testWorkflowOwner, "main", "s1", []byte("legacy"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+
+	secret, err := store.GetSecret(id, testOrgID, testWorkflowOwner)
+	require.NoError(t, err)
+	assert.Nil(t, secret, "should NOT fall back to workflow_owner when migration is disabled")
+}
+
+func TestKVStoreWrapper_Disabled_GetMetadata_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
+	require.NoError(t, err)
+	require.NotNil(t, md)
+	assert.Len(t, md.SecretIdentifiers, 1)
+	assert.Equal(t, testOrgID, md.SecretIdentifiers[0].Owner)
+}
+
+func TestKVStoreWrapper_Disabled_GetMetadata_NoMerge(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "org_secret", []byte("data"))
+	writeTestSecret(t, inner, testWorkflowOwner, "main", "legacy_secret", []byte("data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	md, err := store.GetMetadata(testOrgID, testWorkflowOwner)
+	require.NoError(t, err)
+	require.NotNil(t, md)
+	assert.Len(t, md.SecretIdentifiers, 1, "should only return orgID metadata, not merge with workflow_owner")
+	assert.Equal(t, "org_secret", md.SecretIdentifiers[0].Key)
+}
+
+func TestKVStoreWrapper_Disabled_GetSecretIdentifiersCountForOwner_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("data"))
+	writeTestSecret(t, inner, testWorkflowOwner, "main", "s2", []byte("data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	count, err := store.GetSecretIdentifiersCountForOwner(testOrgID, testWorkflowOwner)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count, "should only count orgID secrets, not merged")
+}
+
+func TestKVStoreWrapper_Disabled_WriteSecret_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("data")}, testOrgID, testWorkflowOwner))
+
+	secret, err := inner.GetSecret(id)
+	require.NoError(t, err)
+	require.NotNil(t, secret)
+	assert.Equal(t, []byte("data"), secret.EncryptedSecret)
+}
+
+func TestKVStoreWrapper_Disabled_WriteSecret_NoLazyMigration(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testWorkflowOwner, "main", "s1", []byte("legacy"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+	require.NoError(t, store.WriteSecret(id, &vault.StoredSecret{EncryptedSecret: []byte("new")}, testOrgID, testWorkflowOwner))
+
+	// Legacy entry should still exist — no migration cleanup.
+	woSecret, err := inner.GetSecret(&vault.SecretIdentifier{Owner: testWorkflowOwner, Namespace: "main", Key: "s1"})
+	require.NoError(t, err)
+	assert.NotNil(t, woSecret, "legacy entry should NOT be cleaned up when migration is disabled")
+}
+
+func TestKVStoreWrapper_Disabled_WriteMetadata_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+
+	md := &vault.StoredMetadata{
+		SecretIdentifiers: []*vault.SecretIdentifier{
+			{Owner: testOrgID, Namespace: "main", Key: "s1"},
+		},
+	}
+	require.NoError(t, store.WriteMetadata(testOrgID, md))
+
+	got, err := inner.GetMetadata(testOrgID)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Len(t, got.SecretIdentifiers, 1)
+}
+
+func TestKVStoreWrapper_Disabled_DeleteSecret_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
+
+	secret, err := inner.GetSecret(id)
+	require.NoError(t, err)
+	assert.Nil(t, secret)
+}
+
+func TestKVStoreWrapper_Disabled_DeleteSecret_NoDualOwnerCleanup(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	writeTestSecret(t, inner, testOrgID, "main", "s1", []byte("org-data"))
+	writeTestSecret(t, inner, testWorkflowOwner, "main", "s1", []byte("legacy-data"))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "s1"}
+	require.NoError(t, store.DeleteSecret(id, testOrgID, testWorkflowOwner))
+
+	// workflow_owner entry should still exist — no dual-owner cleanup.
+	woSecret, err := inner.GetSecret(&vault.SecretIdentifier{Owner: testWorkflowOwner, Namespace: "main", Key: "s1"})
+	require.NoError(t, err)
+	assert.NotNil(t, woSecret, "legacy entry should NOT be cleaned up when migration is disabled")
+}
+
+func TestKVStoreWrapper_Disabled_GetPendingQueue_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+
+	empty, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	items := []*vault.StoredPendingQueueItem{{Id: "req-1", Item: empty}}
+	require.NoError(t, inner.WritePendingQueue(items))
+
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	got, err := store.GetPendingQueue()
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "req-1", got[0].Id)
+}
+
+func TestKVStoreWrapper_Disabled_WritePendingQueue_Passthrough(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+
+	empty, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+	items := []*vault.StoredPendingQueueItem{{Id: "pq-1", Item: empty}}
+	require.NoError(t, store.WritePendingQueue(items))
+
+	got, err := inner.GetPendingQueue()
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "pq-1", got[0].Id)
+}
+
+func TestKVStoreWrapper_Disabled_AdapterIsNil(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
+	assert.Nil(t, store.adapter, "adapter should be nil when migration is disabled")
+}
+
+func TestKVStoreWrapper_Enabled_AdapterIsSet(t *testing.T) {
+	_, inner := newTestWriteStore(t)
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
+	assert.NotNil(t, store.adapter, "adapter should be set when migration is enabled")
 }

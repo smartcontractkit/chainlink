@@ -12,67 +12,103 @@ import (
 // A single instance is created per plugin function call (matching the existing
 // one-store-per-call pattern), and orgID/workflowOwner are passed per operation
 // since a batch may contain requests from different owners.
+//
+// When migrationEnabled is false the wrapper is a pure pass-through: every
+// call goes directly to the inner store and the orgID/workflowOwner parameters
+// are ignored. Gate this with cresettings.Default.VaultOrgIdAsSecretOwnerEnabled.
 type KVStoreWrapper struct {
-	adapter *ownerMigrationAdapter
+	store            WriteKVStore
+	adapter          *ownerMigrationAdapter
+	migrationEnabled bool
 }
 
-// NewKVStoreWrapper creates a wrapper that delegates to an internal
-// ownerMigrationAdapter for transitioning secrets from workflow_owner-keyed
-// entries to org_id-keyed entries.
-func NewKVStoreWrapper(store WriteKVStore, lggr logger.Logger) *KVStoreWrapper {
-	return &KVStoreWrapper{
-		adapter: newOwnerMigrationAdapter(store, lggr),
+// NewKVStoreWrapper creates a wrapper around the given store.
+// When migrationEnabled is true, an internal ownerMigrationAdapter handles
+// the transition from workflow_owner-keyed entries to org_id-keyed entries.
+// When false, all operations pass through directly to the inner store.
+func NewKVStoreWrapper(store WriteKVStore, migrationEnabled bool, lggr logger.Logger) *KVStoreWrapper {
+	w := &KVStoreWrapper{
+		store:            store,
+		migrationEnabled: migrationEnabled,
 	}
+	if migrationEnabled {
+		w.adapter = newOwnerMigrationAdapter(store, lggr)
+	}
+	return w
 }
 
 // GetSecret tries orgID first, falling back to workflowOwner for legacy entries.
+// When migration is disabled, delegates directly to the inner store using id as-is.
 func (w *KVStoreWrapper) GetSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) (*vault.StoredSecret, error) {
+	if !w.migrationEnabled {
+		return w.store.GetSecret(id)
+	}
 	return w.adapter.getSecret(id, orgID, workflowOwner)
 }
 
 // GetMetadata merges metadata from both orgID and workflowOwner, deduplicating
 // by namespace::key and rewriting all Owner fields to orgID.
+// When migration is disabled, delegates directly to the inner store using orgID.
 //
 // The merged count cannot exceed the per-owner secret limit: deduplication by
 // namespace::key collapses entries that exist under both owners (transient
 // mid-migration state) into a single entry, so the result reflects the true
 // number of unique secrets the owner has.
 func (w *KVStoreWrapper) GetMetadata(orgID, workflowOwner string) (*vault.StoredMetadata, error) {
+	if !w.migrationEnabled {
+		return w.store.GetMetadata(orgID)
+	}
 	return w.adapter.getMetadata(orgID, workflowOwner)
 }
 
 // GetSecretIdentifiersCountForOwner returns the count of unique secrets across
 // both orgID and workflowOwner after deduplication.
+// When migration is disabled, delegates directly to the inner store using orgID.
 func (w *KVStoreWrapper) GetSecretIdentifiersCountForOwner(orgID, workflowOwner string) (int, error) {
+	if !w.migrationEnabled {
+		return w.store.GetSecretIdentifiersCountForOwner(orgID)
+	}
 	return w.adapter.getSecretIdentifiersCountForOwner(orgID, workflowOwner)
 }
 
 // WriteSecret writes the secret under orgID. If a legacy entry exists under
 // workflowOwner with the same namespace/key, it is deleted (lazy migration).
+// When migration is disabled, delegates directly to the inner store.
 func (w *KVStoreWrapper) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret, orgID, workflowOwner string) error {
+	if !w.migrationEnabled {
+		return w.store.WriteSecret(id, secret)
+	}
 	return w.adapter.writeSecret(id, secret, orgID, workflowOwner)
 }
 
 // WriteMetadata writes metadata under orgID.
+// When migration is disabled, delegates directly to the inner store.
 func (w *KVStoreWrapper) WriteMetadata(orgID string, metadata *vault.StoredMetadata) error {
+	if !w.migrationEnabled {
+		return w.store.WriteMetadata(orgID, metadata)
+	}
 	return w.adapter.writeMetadata(orgID, metadata)
 }
 
 // DeleteSecret deletes the secret from orgID if present, falling back to
 // workflowOwner for legacy entries. If the secret exists under both owners
 // (transient mid-migration state), both entries are deleted.
+// When migration is disabled, delegates directly to the inner store.
 func (w *KVStoreWrapper) DeleteSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) error {
+	if !w.migrationEnabled {
+		return w.store.DeleteSecret(id)
+	}
 	return w.adapter.deleteSecret(id, orgID, workflowOwner)
 }
 
-// GetPendingQueue is a pass-through (pending queue is not owner-scoped).
+// GetPendingQueue is always a pass-through (pending queue is not owner-scoped).
 func (w *KVStoreWrapper) GetPendingQueue() ([]*vault.StoredPendingQueueItem, error) {
-	return w.adapter.store.GetPendingQueue()
+	return w.store.GetPendingQueue()
 }
 
-// WritePendingQueue is a pass-through (pending queue is not owner-scoped).
+// WritePendingQueue is always a pass-through (pending queue is not owner-scoped).
 func (w *KVStoreWrapper) WritePendingQueue(pending []*vault.StoredPendingQueueItem) error {
-	return w.adapter.store.WritePendingQueue(pending)
+	return w.store.WritePendingQueue(pending)
 }
 
 // ownerMigrationAdapter handles the migration of secrets from workflow_owner-keyed
