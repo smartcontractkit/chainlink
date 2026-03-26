@@ -96,76 +96,44 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
 		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
 		t.Cleanup(func() { sink.Shutdown(t.Context()); close(ulCh); close(bmCh) })
+		namespaces := []string{"main", "alt"}
 
-		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget1", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta1", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget2", secretID, "main", ulCh, bmCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta2", secretID, "alt", ulCh, bmCh)
 		executeVaultSecretsListTest(t, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsListTest(t, secretID, owner, gwURL, "alt", sc, wfReg)
+		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, []string{"main"}, sc, wfReg)
 		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "bdel1", secretID, "main", ulCh, bmCh)
-	})
-
-	t.Run("cross_namespace", func(t *testing.T) {
-		if parallelEnabled && fanoutEnabled {
-			t.Parallel()
-		}
-		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-		owner := sc.MustGetRootKeyAddress().Hex()
-		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
-		require.NoError(t, err)
-		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := crevault.EncryptSecret("secret-xns", vaultPublicKey, sc.MustGetRootKeyAddress())
-		require.NoError(t, err)
-		ulCh := make(chan *workflowevents.UserLogs, 1000)
-		bmCh := make(chan *commonevents.BaseMessage, 1000)
-		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-		t.Cleanup(func() { sink.Shutdown(t.Context()); close(ulCh); close(bmCh) })
-
-		altNS := "alt"
-
-		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, altNS, sc, wfReg)
-
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xget1", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta1", secretID, altNS, ulCh, bmCh)
-
-		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xget2", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta2", secretID, altNS, ulCh, bmCh)
-
-		executeVaultSecretsListTest(t, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsListTest(t, secretID, owner, gwURL, altNS, sc, wfReg)
-
-		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "xdel1", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "xgeta3", secretID, altNS, ulCh, bmCh)
-
-		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, altNS, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "xdela1", secretID, altNS, ulCh, bmCh)
+		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta3", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, []string{"alt"}, sc, wfReg)
+		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "bdela1", secretID, "alt", ulCh, bmCh)
 	})
 }
 
-func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Creating secret (namespace=%s)...", namespace)
+func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	framework.L.Info().Msgf("Creating secrets (namespaces=%v)...", namespaces)
 
 	uniqueRequestID := uuid.New().String()
 
-	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
-		RequestId: uniqueRequestID,
-		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
-			{
-				Id: &vault_helpers.SecretIdentifier{
-					Key:       secretID,
-					Owner:     owner,
-					Namespace: namespace,
-				},
-				EncryptedValue: encryptedSecret,
+	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
+			Id: &vault_helpers.SecretIdentifier{
+				Key:       secretID,
+				Owner:     owner,
+				Namespace: namespace,
 			},
-		},
+			EncryptedValue: encryptedSecret,
+		})
+	}
+
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: encryptedSecrets,
 	}
 	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
@@ -205,14 +173,16 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	require.NoError(t, err, "failed to decode payload into CreateSecretsResponse proto")
 	framework.L.Info().Msgf("CreateSecretsResponse decoded as: %s", createSecretsResponse.String())
 
-	require.Len(t, createSecretsResponse.Responses, 1, "Expected one item in the response")
-	result0 := createSecretsResponse.GetResponses()[0]
-	require.Empty(t, result0.GetError())
-	require.Equal(t, secretID, result0.GetId().Key)
-	require.Equal(t, owner, result0.GetId().Owner)
-	require.Equal(t, namespace, result0.GetId().Namespace)
+	require.Len(t, createSecretsResponse.Responses, len(namespaces), "Expected one item in the response per namespace")
+	for i, namespace := range namespaces {
+		result := createSecretsResponse.GetResponses()[i]
+		require.Empty(t, result.GetError())
+		require.Equal(t, secretID, result.GetId().Key)
+		require.Equal(t, owner, result.GetId().Owner)
+		require.Equal(t, namespace, result.GetId().Namespace)
+	}
 
-	framework.L.Info().Msgf("Secret created successfully (namespace=%s)", namespace)
+	framework.L.Info().Msgf("Secrets created successfully (namespaces=%v)", namespaces)
 }
 
 func executeVaultSecretsGetViaWorkflowTest(
@@ -258,30 +228,33 @@ func executeVaultSecretsGetNotFoundViaWorkflowTest(
 	testLogger.Info().Msg("Vault secret not-found via workflow test completed")
 }
 
-func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Updating secret (namespace=%s)...", namespace)
+func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	framework.L.Info().Msgf("Updating secrets (namespaces=%v)...", namespaces)
 	uniqueRequestID := uuid.New().String()
 
-	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
-		RequestId: uniqueRequestID,
-		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
-			{
-				Id: &vault_helpers.SecretIdentifier{
-					Key:       secretID,
-					Owner:     owner,
-					Namespace: namespace,
-				},
-				EncryptedValue: encryptedSecret,
+	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(namespaces)+1)
+	for _, namespace := range namespaces {
+		encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
+			Id: &vault_helpers.SecretIdentifier{
+				Key:       secretID,
+				Owner:     owner,
+				Namespace: namespace,
 			},
-			{
-				Id: &vault_helpers.SecretIdentifier{
-					Key:       "invalid",
-					Owner:     owner,
-					Namespace: namespace,
-				},
-				EncryptedValue: encryptedSecret,
-			},
+			EncryptedValue: encryptedSecret,
+		})
+	}
+	encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
+		Id: &vault_helpers.SecretIdentifier{
+			Key:       "invalid",
+			Owner:     owner,
+			Namespace: namespaces[0],
 		},
+		EncryptedValue: encryptedSecret,
+	})
+
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: encryptedSecrets,
 	}
 	secretsUpdateRequestBody, err := json.Marshal(secretsUpdateRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
@@ -323,17 +296,19 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
 	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
 
-	require.Len(t, updateSecretsResponse.Responses, 2, "Expected 2 items in the response")
-	result0 := updateSecretsResponse.GetResponses()[0]
-	require.Empty(t, result0.GetError())
-	require.Equal(t, secretID, result0.GetId().Key)
-	require.Equal(t, owner, result0.GetId().Owner)
-	require.Equal(t, namespace, result0.GetId().Namespace)
+	require.Len(t, updateSecretsResponse.Responses, len(namespaces)+1, "Expected one updated item per namespace plus one invalid item")
+	for i, namespace := range namespaces {
+		result := updateSecretsResponse.GetResponses()[i]
+		require.Empty(t, result.GetError())
+		require.Equal(t, secretID, result.GetId().Key)
+		require.Equal(t, owner, result.GetId().Owner)
+		require.Equal(t, namespace, result.GetId().Namespace)
+	}
 
-	result1 := updateSecretsResponse.GetResponses()[1]
-	require.Contains(t, result1.Error, "key does not exist")
+	resultInvalid := updateSecretsResponse.GetResponses()[len(namespaces)]
+	require.Contains(t, resultInvalid.Error, "key does not exist")
 
-	framework.L.Info().Msgf("Secret updated successfully (namespace=%s)", namespace)
+	framework.L.Info().Msgf("Secrets updated successfully (namespaces=%v)", namespaces)
 }
 
 func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
@@ -431,24 +406,27 @@ func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL, name
 	framework.L.Info().Msgf("Secrets listed successfully (namespace=%s)", namespace)
 }
 
-func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Deleting secret (namespace=%s)...", namespace)
+func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	framework.L.Info().Msgf("Deleting secrets (namespaces=%v)...", namespaces)
 	uniqueRequestID := uuid.New().String()
+
+	deleteIDs := make([]*vault_helpers.SecretIdentifier, 0, len(namespaces)+1)
+	for _, namespace := range namespaces {
+		deleteIDs = append(deleteIDs, &vault_helpers.SecretIdentifier{
+			Key:       secretID,
+			Owner:     owner,
+			Namespace: namespace,
+		})
+	}
+	deleteIDs = append(deleteIDs, &vault_helpers.SecretIdentifier{
+		Key:       "invalid",
+		Owner:     owner,
+		Namespace: namespaces[0],
+	})
 
 	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
 		RequestId: uniqueRequestID,
-		Ids: []*vault_helpers.SecretIdentifier{
-			{
-				Key:       secretID,
-				Owner:     owner,
-				Namespace: namespace,
-			},
-			{
-				Key:       "invalid",
-				Owner:     owner,
-				Namespace: namespace,
-			},
-		},
+		Ids:       deleteIDs,
 	}
 	secretsDeleteRequestBody, err := json.Marshal(secretsDeleteRequest) //nolint:govet // The lock field is not set on this proto
 	require.NoError(t, err, "failed to marshal secrets request")
@@ -489,16 +467,19 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL, na
 	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
 	framework.L.Info().Msgf("DeleteSecretResponse decoded as: %s", deleteSecretsResponse.String())
 
-	require.Len(t, deleteSecretsResponse.Responses, 2, "Expected 2 items in the response")
-	result0 := deleteSecretsResponse.GetResponses()[0]
-	require.True(t, result0.Success, result0.Error)
-	require.Equal(t, result0.Id.Owner, owner)
-	require.Equal(t, result0.Id.Key, secretID)
+	require.Len(t, deleteSecretsResponse.Responses, len(namespaces)+1, "Expected one deleted item per namespace plus one invalid item")
+	for i, namespace := range namespaces {
+		result := deleteSecretsResponse.GetResponses()[i]
+		require.True(t, result.Success, result.Error)
+		require.Equal(t, result.Id.Owner, owner)
+		require.Equal(t, result.Id.Key, secretID)
+		require.Equal(t, result.Id.Namespace, namespace)
+	}
 
-	result1 := deleteSecretsResponse.GetResponses()[1]
-	require.Contains(t, result1.Error, "key does not exist")
+	resultInvalid := deleteSecretsResponse.GetResponses()[len(namespaces)]
+	require.Contains(t, resultInvalid.Error, "key does not exist")
 
-	framework.L.Info().Msgf("Secrets deleted successfully (namespace=%s)", namespace)
+	framework.L.Info().Msgf("Secrets deleted successfully (namespaces=%v)", namespaces)
 }
 
 // updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry
