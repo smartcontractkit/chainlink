@@ -16,6 +16,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -31,6 +32,7 @@ type Capability struct {
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
+	linker               *OrgIdToWorkflowOwnerLinker
 	*RequestValidator
 }
 
@@ -68,6 +70,9 @@ func (s *Capability) Close() error {
 
 	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
+	}
+	if lerr := s.linker.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing org_id linker: %w", lerr))
 	}
 
 	return err
@@ -163,6 +168,9 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
+	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -173,6 +181,9 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
+	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -181,6 +192,9 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	err := s.ValidateDeleteSecretsRequest(request)
 	if err != nil {
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -202,6 +216,9 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 	err := s.ValidateListSecretIdentifiersRequest(request)
 	if err != nil {
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		return nil, err
+	}
+	if err = s.linkGatewayRequest(ctx, request.RequestId, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -256,6 +273,34 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
+func (s *Capability) linkGatewayRequest(ctx context.Context, requestID string, orgID *string, workflowOwner *string) error {
+	if s.linker == nil {
+		return nil
+	}
+
+	linked, err := s.linker.Link(ctx, requestID, valueOrEmpty(orgID), valueOrEmpty(workflowOwner))
+	if err != nil {
+		return err
+	}
+
+	if orgID != nil {
+		*orgID = linked.OrgID
+	}
+	if workflowOwner != nil {
+		*workflowOwner = linked.WorkflowOwner
+	}
+
+	return nil
+}
+
+func valueOrEmpty(v *string) string {
+	if v == nil {
+		return ""
+	}
+
+	return *v
+}
+
 func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
@@ -263,11 +308,16 @@ func NewCapability(
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
+	orgResolver orgresolver.OrgResolver,
 	limitsFactory limits.Factory,
 ) (*Capability, error) {
 	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+	}
+	linker, err := NewOrgIdToWorkflowOwnerLinker(orgResolver, limitsFactory)
+	if err != nil {
+		return nil, err
 	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
@@ -276,6 +326,7 @@ func NewCapability(
 		handler:              handler,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
+		linker:               linker,
 		RequestValidator:     NewRequestValidator(limiter),
 	}, nil
 }

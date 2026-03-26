@@ -736,6 +736,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.GatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.WorkflowRegistrySyncer,
+				OrgResolver:                    creServices.OrgResolver,
 				LimitsFactory:                  limitsFactory,
 				OCRConfigService:               creServices.OCRConfigService,
 			},

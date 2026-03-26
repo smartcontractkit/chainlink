@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -162,6 +163,7 @@ type Delegate struct {
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	OrgResolver                    orgresolver.OrgResolver
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
 }
@@ -292,6 +294,7 @@ type DelegateOpts struct {
 	WorkflowKs                     keystore.Workflow
 	DKGRecipientKs                 keystore.DKGRecipient
 	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	OrgResolver                    orgresolver.OrgResolver
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
 }
@@ -327,6 +330,7 @@ func NewDelegate(
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
 		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
+		OrgResolver:                    opts.OrgResolver,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
 	}
@@ -720,7 +724,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	expiryDuration := cfg.RequestExpiryDuration.Duration()
 	requestStoreHandler := requests.NewHandler(lggr, requestStore, clock, expiryDuration)
 	lpk := vaultcap.NewLazyPublicKey()
-	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, limitsFactory)
+	vaultCapability, err := vaultcap.NewCapability(lggr, clock, expiryDuration, requestStoreHandler, capabilitiesRegistry, lpk, d.OrgResolver, limitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault capability: %w", err)
 	}
