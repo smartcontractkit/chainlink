@@ -274,7 +274,7 @@ func (c CCIPChainState) validateAllFeeTokenConfigs(
 				errs = append(errs, err)
 			}
 
-			// v1.6 <-> v2.0 fee token set comparison: both FeeQuoters must have the same fee tokens
+			// v1.6 -> v2.0 fee token subset check: all v1.6 fee tokens must exist in v2.0.
 			if v16FeeTokens != nil {
 				v16Set := make(map[common.Address]bool, len(v16FeeTokens))
 				for _, ft := range v16FeeTokens {
@@ -283,12 +283,6 @@ func (c CCIPChainState) validateAllFeeTokenConfigs(
 				v20Set := make(map[common.Address]bool, len(feeTokens))
 				for _, ft := range feeTokens {
 					v20Set[ft] = true
-				}
-				for _, ft := range feeTokens {
-					if !v16Set[ft] {
-						errs = append(errs, fmt.Errorf("FeeQuoter v2.0 %s has fee token %s not present in v1.6 FeeQuoter",
-							fqAddr, ft.Hex()))
-					}
 				}
 				for _, ft := range v16FeeTokens {
 					if !v20Set[ft] {
