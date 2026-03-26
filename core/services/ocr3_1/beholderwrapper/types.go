@@ -113,16 +113,16 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_ocr3_1_reporting_plugin_duration_ms"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				// 5, 10, 20, 40, 80, 160, 320, 640, 1280, 2560
-				Boundaries: prometheus.ExponentialBuckets(5, 2, 10),
+				// 5, 10, 20, 40, 80, 160, 320, 640, 1280, 2560, 5120, 10240, 20480, 40960
+				Boundaries: prometheus.ExponentialBuckets(5, 2, 14),
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_ocr3_1_reporting_plugin_data_sizes"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				// 512KB is the max value possible
-				// 1KB, 2KB, 4KB, 8KB, 16KB, 32KB, 64KB, 128KB, 256KB, 512KB
-				Boundaries: prometheus.ExponentialBuckets(1024, 2, 10),
+				// 1KB, 2KB, 4KB, 8KB, 16KB, 32KB, 64KB, 128KB, 256KB, 512KB, 1024KB, 2048KB, 4096KB, 8192KB
+				Boundaries: prometheus.ExponentialBuckets(1024, 2, 14),
 			}},
 		),
 	}
