@@ -27,7 +27,7 @@ runs:
   using: composite
   steps:
     - name: Checkout repo (full)
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       # Only do a full checkout on merge_groups
       if: github.event_name == 'merge_group'
       with:
@@ -35,7 +35,7 @@ runs:
         fetch-depth: 0
 
     - name: Checkout repo
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       if: github.event_name != 'merge_group'
       with:
         persist-credentials: false
@@ -109,7 +109,7 @@ runs:
     - name: Store Golangci-lint report artifact
       if: always()
       id: upload-artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         # Use a unique suffix for each lint report artifact to avoid duplication errors
         name: golangci-lint-report-${{ steps.suffix.outputs.suffix }}

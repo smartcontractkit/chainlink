@@ -20,7 +20,7 @@ jobs:
       prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
       is-hotfix: ${{ steps.detect-hotfix.outputs.is-hotfix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 

@@ -58,7 +58,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 

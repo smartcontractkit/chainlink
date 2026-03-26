@@ -11,6 +11,11 @@ tmp/
 contracts/node_modules
 examples/
 
+.changeset/
+.github/
+docs/
+fuzz/
+
 devenv/
 deployment/
 integration/

@@ -47,7 +47,7 @@ jobs:
       dependency_changed: ${{ steps.changes.outputs.dependency_changed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -344,7 +344,7 @@ jobs:
     needs: [should-run, select-versions]
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
@@ -575,7 +575,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -845,7 +845,7 @@ jobs:
           - vrfv2plus
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
