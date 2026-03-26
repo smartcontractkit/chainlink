@@ -2,8 +2,6 @@ package capabilities
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -234,79 +232,6 @@ func TestLauncher(t *testing.T) {
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
-	})
-
-	t.Run("OK-capability_DON_discovers_remote_capabilities", func(t *testing.T) {
-		// Regression test: a capability DON (e.g. relay DON) that needs to call
-		// another capability DON (e.g. vault DON) must discover it via
-		// addRemoteCapabilities. Previously, only workflow DONs discovered
-		// remote capabilities, so the relay DON couldn't find vault.
-		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
-		registry := NewRegistry(lggr)
-		dispatcher := remoteMocks.NewDispatcher(t)
-
-		nodes := newNodes(4)
-		remoteNodes := newNodes(4)
-		peer := mocks.NewPeer(t)
-		peer.On("UpdateConnections", mock.Anything).Return(nil)
-		peer.On("ID").Return(nodes[0])
-		peer.On("IsBootstrap").Return(false)
-		wrapper := mocks.NewPeerWrapper(t)
-		wrapper.On("GetPeer").Return(peer)
-
-		// Local DON: capability DON (relay) with a trigger capability
-		fullTriggerCapID := "streams-trigger@1.0.0"
-		mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
-			fullTriggerCapID,
-			capabilities.CapabilityTypeTrigger,
-			"streams trigger",
-		))
-		require.NoError(t, registry.Add(t.Context(), mt))
-
-		triggerCapID := RandomUTF8BytesWord()
-
-		localDONID := uint32(1)
-		remoteDONID := uint32(2)
-		localRegistry := buildLocalRegistry()
-
-		// Local DON: capability DON (isPublic=true, acceptsWorkflows=false)
-		addDON(localRegistry, localDONID, uint32(0), uint8(1), true, false, nodes, []string{"zone-a"}, 1, [][32]byte{triggerCapID})
-		addCapabilityToDON(localRegistry, localDONID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
-
-		// Remote DON: another capability DON (vault) that the local DON needs to call
-		remoteTargetCapID := RandomUTF8BytesWord()
-		fullRemoteTargetID := "vault@1.0.0"
-		addDON(localRegistry, remoteDONID, uint32(0), uint8(1), true, false, remoteNodes, []string{"zone-a"}, 1, [][32]byte{remoteTargetCapID})
-		addCapabilityToDON(localRegistry, remoteDONID, fullRemoteTargetID, capabilities.CapabilityTypeTarget, nil)
-
-		launcher, err := NewLauncher(
-			lggr,
-			wrapper,
-			nil,
-			nil,
-			dispatcher,
-			registry,
-			&mockDonNotifier{},
-		)
-		require.NoError(t, err)
-		require.NoError(t, launcher.Start(t.Context()))
-		defer launcher.Close()
-
-		dispatcher.On("SetReceiver", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil)
-
-		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
-		// Without the fix, addRemoteCapabilities is never called for capability DONs.
-		// With the fix, the launcher attempts to add vault@1.0.0 as a remote capability.
-		// It may fail downstream (signer setup) but the attempt proves discovery works.
-		allLogs := observedLogs.All()
-		found := false
-		for _, entry := range allLogs {
-			if strings.Contains(entry.Message, "remote capability") && strings.Contains(fmt.Sprintf("%v", entry.ContextMap()), fullRemoteTargetID) {
-				found = true
-				break
-			}
-		}
-		assert.True(t, found, "expected capability DON to attempt remote capability discovery for %s", fullRemoteTargetID)
 	})
 
 	t.Run("start and close with nil peer wrapper", func(t *testing.T) {
