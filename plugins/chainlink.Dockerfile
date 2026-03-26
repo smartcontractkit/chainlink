@@ -4,8 +4,10 @@
 # See: ../core/chainlink.Dockerfile for the production Dockerfile.
 ##
 
-# Stage: Dependencies - module downloads and source
-FROM golang:1.25.7-bookworm AS deps
+# Stage: deps-base — module downloads, no source tree.
+# Stages that don't need the full source (remote plugins, delve) branch from
+# here so that source-only changes never invalidate their layer cache.
+FROM golang:1.25.7-bookworm AS deps-base
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
@@ -43,26 +45,37 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
         rm -f "$GIT_CONFIG_GLOBAL"; \
     fi
 
+# Stage: deps — full source tree for stages that compile chainlink code.
+FROM deps-base AS deps
 COPY . .
 
-# Stage: Delve debugger (runs in parallel with plugins and chainlink)
-FROM deps AS build-delve
+# Stage: Delve debugger (no source needed, branches from deps-base)
+FROM deps-base AS build-delve
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
-# Stage: Plugins (runs in parallel with delve and chainlink)
-FROM deps AS build-plugins
+# Stage: Remote plugins — only manifest YAMLs, no source tree.
+# Cached as long as go.mod/go.sum and plugin manifests are unchanged,
+# so typical source-only PRs skip the entire ~160s remote plugin build.
+# Uses `go tool loopinstall` via the Makefile (resolved from the `tool`
+# directive in go.mod). If this fails without the full source tree, fall back
+# to installing loopinstall standalone:
+#   RUN go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall@v0.11.1
+# and invoke `loopinstall` directly instead of `make install-plugins-*`.
+FROM deps-base AS build-remote-plugins
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
 ARG CL_INSTALL_TESTING_PLUGINS=false
+
+COPY plugins/plugins.public.yaml plugins/plugins.private.yaml plugins/plugins.testing.yaml ./plugins/
+COPY plugins/scripts/ ./plugins/scripts/
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    --mount=type=cache,target=/root/.cache/go-build,id=go-build-plugins \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
-    mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
-    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
+    mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
@@ -75,7 +88,13 @@ RUN mkdir -p /tmp/lib && \
     "$CL_LOOPINSTALL_OUTPUT_DIR" \
     /tmp/lib
 
-# Stage: Chainlink binary (runs in parallel with delve and plugins)
+# Stage: Local plugins (needs source tree for ./plugins/cmd/...)
+FROM deps AS build-local-plugins
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-local-plugins \
+    mkdir -p /gobins && \
+    GOBIN=/gobins make install-plugins-local
+
+# Stage: Chainlink binary (needs source tree)
 FROM deps AS build-chainlink
 ARG CL_IS_PROD_BUILD=true
 ARG GO_GCFLAGS
@@ -108,7 +127,6 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
 
-# Copy Delve debugger from build stage.
 COPY --from=build-delve /go/bin/dlv /usr/local/bin/dlv
 
 # Expose image metadata to the running node.
@@ -128,11 +146,12 @@ COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
-# Copy the binaries from the parallel build stages.
-COPY --from=build-plugins /gobins/ /usr/local/bin/
+# Copy binaries from the parallel build stages.
+COPY --from=build-remote-plugins /gobins/ /usr/local/bin/
+COPY --from=build-local-plugins /gobins/ /usr/local/bin/
 COPY --from=build-chainlink /gobins/ /usr/local/bin/
-# Copy shared libraries from the plugins build stage.
-COPY --from=build-plugins /tmp/lib /usr/lib/
+# Copy shared libraries from the remote plugins build stage.
+COPY --from=build-remote-plugins /tmp/lib /usr/lib/
 
 WORKDIR /home/${CHAINLINK_USER}
 
