@@ -32,7 +32,7 @@ type Capability struct {
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
-	linker               *OrgIdToWorkflowOwnerLinker
+	linker               *OrgIDToWorkflowOwnerLinker
 	*RequestValidator
 }
 
@@ -335,7 +335,7 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
-	linker, err := NewOrgIdToWorkflowOwnerLinker(lggr, orgResolver, limitsFactory)
+	linker, err := NewOrgIDToWorkflowOwnerLinker(lggr, orgResolver, limitsFactory)
 	if err != nil {
 		return nil, err
 	}

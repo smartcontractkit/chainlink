@@ -480,10 +480,26 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 
 	anyproto, err := anypb.New(gsr)
 	require.NoError(t, err)
+	responsePayload, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "owner",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
 
 	var (
-		wg      sync.WaitGroup
-		forward *vault.GetSecretsRequest
+		wg          sync.WaitGroup
+		forward     *vault.GetSecretsRequest
+		forwardedOK bool
 	)
 	wg.Add(1)
 	go func() {
@@ -498,9 +514,16 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 					continue
 				}
 				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
-				require.True(t, ok)
-				forward = proto.Clone(payload).(*vault.GetSecretsRequest)
-				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: mustMarshalGetSecretsResponse(t)})
+				if !ok {
+					return
+				}
+				cloned, ok := proto.Clone(payload).(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				forward = cloned
+				forwardedOK = true
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: responsePayload})
 				return
 			}
 		}
@@ -518,6 +541,7 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 	})
 	require.NoError(t, err)
 	wg.Wait()
+	require.True(t, forwardedOK)
 	require.NotNil(t, forward)
 	assert.Equal(t, "org-123", forward.OrgId)
 	assert.Equal(t, "0xABCDef1234567890abcdef1234567890abcdef12", forward.WorkflowOwner)
@@ -1408,26 +1432,4 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, hpkb, resp.PublicKey)
-}
-
-func mustMarshalGetSecretsResponse(t *testing.T) []byte {
-	t.Helper()
-
-	data, err := proto.Marshal(&vault.GetSecretsResponse{
-		Responses: []*vault.SecretResponse{
-			{
-				Id: &vault.SecretIdentifier{
-					Key:       "Foo",
-					Namespace: "Bar",
-					Owner:     "owner",
-				},
-				Result: &vault.SecretResponse_Data{
-					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
-				},
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	return data
 }

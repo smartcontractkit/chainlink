@@ -180,6 +180,7 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	var (
 		wg              sync.WaitGroup
 		capturedPayload *vaultcommon.ListSecretIdentifiersRequest
+		capturedOK      bool
 	)
 
 	wg.Add(1)
@@ -196,10 +197,15 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 				}
 
 				payload, ok := reqs[0].Payload.(*vaultcommon.ListSecretIdentifiersRequest)
-				require.True(t, ok)
+				if !ok {
+					return
+				}
 				copied, ok := payload.ProtoReflect().Interface().(*vaultcommon.ListSecretIdentifiersRequest)
-				require.True(t, ok)
+				if !ok {
+					return
+				}
 				capturedPayload = copied
+				capturedOK = true
 				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: []byte("ok")})
 				return
 			}
@@ -209,6 +215,7 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	_, err = capability.ListSecretIdentifiers(t.Context(), req)
 	require.NoError(t, err)
 	wg.Wait()
+	require.True(t, capturedOK)
 
 	return capturedPayload
 }
