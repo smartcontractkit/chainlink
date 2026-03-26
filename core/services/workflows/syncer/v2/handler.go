@@ -78,7 +78,6 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
-	binaryURLResolver      v2.BinaryURLResolver
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -177,15 +176,6 @@ func WithDebugMode(debugMode bool) func(*eventHandler) {
 func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.secretsFetcher = sf
-	}
-}
-
-// WithBinaryURLResolver sets a resolver that transforms raw binary URLs
-// into URLs the enclave can fetch. In production this produces presigned
-// storage-service URLs. In tests it maps local filenames to HTTP URLs.
-func WithBinaryURLResolver(r v2.BinaryURLResolver) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.binaryURLResolver = r
 	}
 }
 
@@ -954,7 +944,6 @@ func (h *eventHandler) confidentialEngineFactory(
 		workflowName.String(),
 		spec.WorkflowTag,
 		attrs.VaultDonSecrets,
-		h.binaryURLResolver,
 		lggr,
 	)
 
