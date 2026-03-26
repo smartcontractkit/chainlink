@@ -11,12 +11,14 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldpipelineinput "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/pipeline/input"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
@@ -1752,4 +1754,133 @@ CallLimit = 1_000`, "invalid inputs for CRE settings job spec: invalid wf abcd: 
 			}
 		})
 	}
+}
+
+func TestProposeJobSpec_GatewayJobYAMLConversion(t *testing.T) {
+	t.Parallel()
+
+	t.Run("service-centric format", func(t *testing.T) {
+		t.Parallel()
+
+		yamlSpec := `
+environment: staging
+domain: cre
+changesets:
+  - job_propose_arbitrary:
+      payload:
+        donName: gateway-don
+        donFilters:
+          - key: don_name
+            value: gateway-don
+          - key: environment
+            value: staging
+          - key: product
+            value: cre
+        jobName: test-gateway-job-svc
+        template: gateway
+        inputs:
+          serviceCentricFormatEnabled: true
+          dons:
+            - name: workflow-don
+              f: 1
+          services:
+            - servicename: workflows
+              handlers:
+                - web-api-capabilities
+                - http-capabilities
+              dons:
+                - workflow-don
+          gatewayRequestTimeoutSec: 10
+          allowedSchemes:
+            - https
+          allowedIPsCIDR:
+            - 10.0.0.0/8
+`
+		var root yaml.Node
+		err := yaml.Unmarshal([]byte(yamlSpec), &root)
+		require.NoError(t, err)
+
+		rootMap, ok := cldpipelineinput.YamlNodeToAny(&root).(map[string]any)
+		require.True(t, ok)
+
+		environment, _ := rootMap["environment"].(string)
+		domain, _ := rootMap["domain"].(string)
+
+		changesetData, err := cldpipelineinput.FindChangesetInData(rootMap["changesets"], "job_propose_arbitrary", "test")
+		require.NoError(t, err)
+
+		changesetMap, ok := changesetData.(map[string]any)
+		require.True(t, ok)
+
+		payload, ok := changesetMap["payload"]
+		require.True(t, ok)
+
+		payloadBytes, err := yaml.Marshal(payload)
+		require.NoError(t, err)
+
+		var parsed jobs.ProposeJobSpecInput
+		err = yaml.Unmarshal(payloadBytes, &parsed)
+		require.NoError(t, err)
+
+		parsed.Environment = environment
+		parsed.Domain = domain
+
+		assert.Equal(t, "staging", parsed.Environment)
+		assert.Equal(t, "cre", parsed.Domain)
+		assert.Equal(t, job_types.Gateway, parsed.Template)
+
+		var gatewayInput operations.ProposeGatewayJobInput
+		err = parsed.Inputs.UnmarshalTo(&gatewayInput)
+		require.NoError(t, err)
+
+		assert.True(t, gatewayInput.ServiceCentricFormatEnabled)
+		require.Len(t, gatewayInput.DONs, 1)
+		assert.Equal(t, "workflow-don", gatewayInput.DONs[0].Name)
+		assert.Equal(t, pkg.Int(1), gatewayInput.DONs[0].F)
+		require.Len(t, gatewayInput.Services, 1)
+		assert.Equal(t, "workflows", gatewayInput.Services[0].ServiceName)
+		assert.Equal(t, []string{"web-api-capabilities", "http-capabilities"}, gatewayInput.Services[0].Handlers)
+		assert.Equal(t, []string{"workflow-don"}, gatewayInput.Services[0].DONs)
+		assert.Equal(t, pkg.Int(10), gatewayInput.GatewayRequestTimeoutSec)
+		assert.Equal(t, []string{"https"}, gatewayInput.AllowedSchemes)
+		assert.Equal(t, []string{"10.0.0.0/8"}, gatewayInput.AllowedIPsCIDR)
+
+		// Build GatewayJob manually; in production member addresses are resolved via JD.
+		gj := pkg.GatewayJob{
+			ServiceCentricFormatEnabled: true,
+			JobName:                     "CRE Gateway",
+			DONs: []pkg.TargetDON{
+				{
+					ID: gatewayInput.DONs[0].Name,
+					F:  int(gatewayInput.DONs[0].F),
+					Members: []pkg.TargetDONMember{
+						{Address: "0xdef456", Name: "mock-node-1 (DON workflow-don)"},
+					},
+				},
+			},
+			Services: []pkg.GatewayServiceConfig{
+				{
+					ServiceName: gatewayInput.Services[0].ServiceName,
+					Handlers:    gatewayInput.Services[0].Handlers,
+					DONs:        gatewayInput.Services[0].DONs,
+				},
+			},
+			RequestTimeoutSec: int(gatewayInput.GatewayRequestTimeoutSec),
+			AllowedSchemes:    gatewayInput.AllowedSchemes,
+			AllowedIPsCIDR:    gatewayInput.AllowedIPsCIDR,
+		}
+
+		require.NoError(t, gj.Validate())
+		assert.True(t, gj.ServiceCentricFormatEnabled)
+		assert.Equal(t, "CRE Gateway", gj.JobName)
+		assert.Equal(t, 10, gj.RequestTimeoutSec)
+		assert.Equal(t, []string{"https"}, gj.AllowedSchemes)
+		assert.Equal(t, []string{"10.0.0.0/8"}, gj.AllowedIPsCIDR)
+		require.Len(t, gj.DONs, 1)
+		assert.Equal(t, "workflow-don", gj.DONs[0].ID)
+		require.Len(t, gj.Services, 1)
+		assert.Equal(t, "workflows", gj.Services[0].ServiceName)
+		assert.Equal(t, []string{"web-api-capabilities", "http-capabilities"}, gj.Services[0].Handlers)
+		assert.Equal(t, []string{"workflow-don"}, gj.Services[0].DONs)
+	})
 }

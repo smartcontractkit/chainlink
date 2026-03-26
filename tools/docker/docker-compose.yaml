@@ -5,6 +5,8 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
+      args:
+        CL_AUTO_DOCKER_TAG: latest
     # Note that the keystore import allows us to submit transactions
     # immediately because addresses are specified when starting the
     # parity/geth node to be prefunded with eth.
@@ -26,6 +28,8 @@ services:
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
+      args:
+        CL_AUTO_DOCKER_TAG: latest
     entrypoint: /bin/sh -c "chainlink -c /run/secrets/config node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials"
     restart: always
     env_file:
@@ -47,4 +51,3 @@ secrets:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
   config:
     file: config.toml
-
