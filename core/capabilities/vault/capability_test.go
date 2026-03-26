@@ -371,7 +371,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
-func TestCapability_CapabilityCall_UsesGetSecretsIdentityFieldsForLinking(t *testing.T) {
+func TestCapability_CapabilityCall_UsesTrustedMetadataWorkflowOwnerForLinking(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -388,7 +388,7 @@ func TestCapability_CapabilityCall_UsesGetSecretsIdentityFieldsForLinking(t *tes
 	requestID := "wf-id::exec-id::ref-id"
 	gsr := &vault.GetSecretsRequest{
 		OrgId:         "",
-		WorkflowOwner: workflowOwner,
+		WorkflowOwner: "untrusted-request-workflow-owner",
 		Requests: []*vault.SecretRequest{
 			{
 				Id: &vault.SecretIdentifier{
@@ -439,7 +439,7 @@ func TestCapability_CapabilityCall_UsesGetSecretsIdentityFieldsForLinking(t *tes
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:       "different-metadata-owner",
+			WorkflowOwner:       workflowOwner,
 			WorkflowID:          "wf-id",
 			WorkflowExecutionID: "exec-id",
 			ReferenceID:         "ref-id",
@@ -465,7 +465,7 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 
 	requestID := "wf-id::exec-id::ref-id"
 	gsr := &vault.GetSecretsRequest{
-		WorkflowOwner: "0xABCDef1234567890abcdef1234567890abcdef12",
+		WorkflowOwner: "untrusted-request-workflow-owner",
 		Requests: []*vault.SecretRequest{
 			{
 				Id: &vault.SecretIdentifier{
@@ -510,7 +510,7 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:       "different-metadata-owner",
+			WorkflowOwner:       "0xABCDef1234567890abcdef1234567890abcdef12",
 			WorkflowID:          "wf-id",
 			WorkflowExecutionID: "exec-id",
 			ReferenceID:         "ref-id",

@@ -115,15 +115,16 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
-	s.lggr.Debugw("linking get secrets request identity", "orgID", r.OrgId, "workflowOwner", r.WorkflowOwner, "requestCount", len(r.Requests))
-	linkedIdentity, err := s.linker.Link(ctx, r.OrgId, r.WorkflowOwner)
+	trustedWorkflowOwner := request.Metadata.WorkflowOwner
+	s.lggr.Debugw("resolving get secrets request identity", "orgID", r.OrgId, "trustedWorkflowOwner", trustedWorkflowOwner, "requestCount", len(r.Requests))
+	resolvedIdentity, err := s.resolveRequestIdentity(ctx, &r.OrgId, &trustedWorkflowOwner)
 	if err != nil {
-		s.lggr.Errorw("failed to link get secrets request identity", "orgID", r.OrgId, "workflowOwner", r.WorkflowOwner, "err", err)
+		s.lggr.Errorw("failed to resolve get secrets request identity", "orgID", r.OrgId, "trustedWorkflowOwner", trustedWorkflowOwner, "err", err)
 		return capabilities.CapabilityResponse{}, err
 	}
-	r.OrgId = linkedIdentity.OrgID
-	r.WorkflowOwner = linkedIdentity.WorkflowOwner
-	normalizedWorkflowOwner := normalizeOwner(linkedIdentity.WorkflowOwner)
+	r.OrgId = resolvedIdentity.OrgID
+	r.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	normalizedWorkflowOwner := normalizeOwner(resolvedIdentity.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
@@ -131,8 +132,8 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		}
 
 		if normalizedWorkflowOwner != "" && req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
-			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", linkedIdentity.WorkflowOwner)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, linkedIdentity.WorkflowOwner, idx)
+			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", resolvedIdentity.WorkflowOwner)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, resolvedIdentity.WorkflowOwner, idx)
 		}
 	}
 
@@ -178,7 +179,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if _, err = s.resolveRequestIdentity(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -191,7 +192,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if _, err = s.resolveRequestIdentity(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -204,7 +205,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if _, err = s.resolveRequestIdentity(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -228,7 +229,7 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	if err = s.linkGatewayRequest(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
+	if _, err = s.resolveRequestIdentity(ctx, &request.OrgId, &request.WorkflowOwner); err != nil {
 		return nil, err
 	}
 	return s.handleRequest(ctx, request.RequestId, request)
@@ -283,19 +284,22 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-// linkGatewayRequest resolves the identity fields that the vault plugin consumes.
-func (s *Capability) linkGatewayRequest(ctx context.Context, orgID *string, workflowOwner *string) error {
+// resolveRequestIdentity validates and normalizes the org/workflow-owner pair that the vault plugin consumes.
+func (s *Capability) resolveRequestIdentity(ctx context.Context, orgID *string, workflowOwner *string) (LinkedVaultRequestIdentity, error) {
 	if s.linker == nil {
-		return nil
+		return LinkedVaultRequestIdentity{
+			OrgID:         valueOrEmpty(orgID),
+			WorkflowOwner: valueOrEmpty(workflowOwner),
+		}, nil
 	}
 
 	currentOrgID := valueOrEmpty(orgID)
 	currentWorkflowOwner := valueOrEmpty(workflowOwner)
-	s.lggr.Debugw("linking gateway request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner)
+	s.lggr.Debugw("resolving request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner)
 	linked, err := s.linker.Link(ctx, currentOrgID, currentWorkflowOwner)
 	if err != nil {
-		s.lggr.Errorw("failed to link gateway request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner, "err", err)
-		return err
+		s.lggr.Errorw("failed to resolve request identity", "orgID", currentOrgID, "workflowOwner", currentWorkflowOwner, "err", err)
+		return LinkedVaultRequestIdentity{}, err
 	}
 
 	if orgID != nil {
@@ -304,9 +308,9 @@ func (s *Capability) linkGatewayRequest(ctx context.Context, orgID *string, work
 	if workflowOwner != nil {
 		*workflowOwner = linked.WorkflowOwner
 	}
-	s.lggr.Debugw("linked gateway request identity", "orgID", linked.OrgID, "workflowOwner", linked.WorkflowOwner)
+	s.lggr.Debugw("resolved request identity", "orgID", linked.OrgID, "workflowOwner", linked.WorkflowOwner)
 
-	return nil
+	return linked, nil
 }
 
 func valueOrEmpty(v *string) string {
