@@ -544,6 +544,14 @@ func isBase64Content(content string) bool {
 
 func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, versionFlag, addressFlagName string) (string, *semver.Version, error) {
 	if cmd.Flags().Changed(addressFlagName) {
+		if strings.TrimSpace(explicitAddress) == "" {
+			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", addressFlagName, addressFlagName)
+		}
+
+		if strings.TrimSpace(versionFlag) == "" {
+			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", versionFlag, addressFlagName)
+		}
+
 		version, err := semverFromFlag(versionFlag)
 		if err != nil {
 			return "", nil, err
@@ -561,12 +569,16 @@ func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStat
 		return addrRef.Address, addrRef.Version, nil
 	}
 
+	if strings.TrimSpace(versionFlag) == "" {
+		return "", nil, fmt.Errorf("❌ %s is required when no %s is provided", versionFlag, addressFlagName)
+	}
+
 	version, err := semverFromFlag(versionFlag)
 	if err != nil {
 		return "", nil, err
 	}
 
-	if explicitAddress != "" {
+	if strings.TrimSpace(explicitAddress) != "" {
 		return explicitAddress, version, nil
 	}
 
