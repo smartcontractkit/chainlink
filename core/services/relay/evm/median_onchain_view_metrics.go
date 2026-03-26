@@ -35,61 +35,65 @@ var (
 	}, []string{"chain_id", "contract_address", "transmitter_id"})
 )
 
-type medianOnchainOtelInstruments struct {
+var (
+	medianOnchainOtelOnce sync.Once
+	medianOtelLatestAnswer        metric.Float64Gauge
+	medianOtelLatestTimestampUnix metric.Float64Gauge
+	medianOtelEpoch               metric.Int64Gauge
+	medianOtelRound               metric.Int64Gauge
+)
+
+func initMedianOnchainOtel() {
+	medianOnchainOtelOnce.Do(func() {
+		meter := beholder.GetMeter()
+		la, err := meter.Float64Gauge("ocr2_onchain_transmission_latest_answer")
+		if err != nil {
+			return
+		}
+		ltu, err := meter.Float64Gauge("ocr2_onchain_transmission_latest_timestamp_unix")
+		if err != nil {
+			return
+		}
+		e, err := meter.Int64Gauge("ocr2_onchain_transmission_epoch")
+		if err != nil {
+			return
+		}
+		r, err := meter.Int64Gauge("ocr2_onchain_transmission_round")
+		if err != nil {
+			return
+		}
+		medianOtelLatestAnswer = la
+		medianOtelLatestTimestampUnix = ltu
+		medianOtelEpoch = e
+		medianOtelRound = r
+	})
+}
+
+// medianOnchainViewMetrics records the same on-chain OCR2 view series to Prometheus and OpenTelemetry (Beholder), matching the txmMetrics pattern (package-level Prom vecs, OTel instruments on the metrics type).
+type medianOnchainViewMetrics struct {
+	chainID       string
+	contract      string
+	transmitterID string
+
 	latestAnswer        metric.Float64Gauge
 	latestTimestampUnix metric.Float64Gauge
 	epoch               metric.Int64Gauge
 	round               metric.Int64Gauge
 }
 
-var (
-	medianOnchainOtelInst *medianOnchainOtelInstruments
-	medianOnchainOtelOnce sync.Once
-)
-
-func loadMedianOnchainOtel() *medianOnchainOtelInstruments {
-	medianOnchainOtelOnce.Do(func() {
-		m := beholder.GetMeter()
-		latestAnswer, err := m.Float64Gauge("ocr2_onchain_transmission_latest_answer")
-		if err != nil {
-			return
-		}
-		latestTimestampUnix, err := m.Float64Gauge("ocr2_onchain_transmission_latest_timestamp_unix")
-		if err != nil {
-			return
-		}
-		epoch, err := m.Int64Gauge("ocr2_onchain_transmission_epoch")
-		if err != nil {
-			return
-		}
-		round, err := m.Int64Gauge("ocr2_onchain_transmission_round")
-		if err != nil {
-			return
-		}
-		medianOnchainOtelInst = &medianOnchainOtelInstruments{
-			latestAnswer:        latestAnswer,
-			latestTimestampUnix: latestTimestampUnix,
-			epoch:               epoch,
-			round:               round,
-		}
-	})
-	return medianOnchainOtelInst
-}
-
-type medianOnchainViewMetrics struct {
-	chainID       string
-	contract      string
-	transmitterID string
-}
-
 func newMedianOnchainViewMetrics(chainID, contractAddress, transmitterID string) *medianOnchainViewMetrics {
 	if transmitterID == "" {
 		transmitterID = "unknown"
 	}
+	initMedianOnchainOtel()
 	return &medianOnchainViewMetrics{
-		chainID:       chainID,
-		contract:      contractAddress,
-		transmitterID: transmitterID,
+		chainID:               chainID,
+		contract:              contractAddress,
+		transmitterID:         transmitterID,
+		latestAnswer:          medianOtelLatestAnswer,
+		latestTimestampUnix:   medianOtelLatestTimestampUnix,
+		epoch:                 medianOtelEpoch,
+		round:                 medianOtelRound,
 	}
 }
 
@@ -108,13 +112,14 @@ func (m *medianOnchainViewMetrics) record(ctx context.Context, latestAnswer *big
 	promOCR2OnchainEpoch.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(float64(epoch))
 	promOCR2OnchainRound.WithLabelValues(m.chainID, m.contract, m.transmitterID).Set(float64(round))
 
-	if ot := loadMedianOnchainOtel(); ot != nil {
-		opts := m.onchainAttrs()
-		ot.latestAnswer.Record(ctx, lv, opts)
-		ot.latestTimestampUnix.Record(ctx, float64(updatedAt.Unix()), opts)
-		ot.epoch.Record(ctx, int64(epoch), opts)
-		ot.round.Record(ctx, int64(round), opts)
+	if m.latestAnswer == nil {
+		return
 	}
+	opts := m.onchainAttrs()
+	m.latestAnswer.Record(ctx, lv, opts)
+	m.latestTimestampUnix.Record(ctx, float64(updatedAt.Unix()), opts)
+	m.epoch.Record(ctx, int64(epoch), opts)
+	m.round.Record(ctx, int64(round), opts)
 }
 
 func bigIntToPromGaugeValue(i *big.Int) float64 {
