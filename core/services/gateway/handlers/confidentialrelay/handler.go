@@ -222,11 +222,10 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
+		err := h.sendResponseAndCleanup(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
-		h.deleteActiveRequest(er.req.ID)
 	}
 }
 
@@ -309,14 +308,10 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	case err != nil:
 		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
-		sendErr := h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
-		h.deleteActiveRequest(ar.req.ID)
-		return sendErr
+		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	}
 
-	sendErr := h.sendSuccessResponse(ctx, l, ar, aggregatedResp)
-	h.deleteActiveRequest(ar.req.ID)
-	return sendErr
+	return h.sendSuccessResponseAndCleanup(ctx, l, ar, aggregatedResp)
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
@@ -330,20 +325,18 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		sendErr := h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
-		h.deleteActiveRequest(ar.req.ID)
-		return sendErr
+		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
 	return nil
 }
 
-func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
+func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
+		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
 	}
 
 	var errorCode api.ErrorCode
@@ -358,7 +351,7 @@ func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
 	}
-	return h.sendResponse(ctx, ar, successResp)
+	return h.sendResponseAndCleanup(ctx, ar, successResp)
 }
 
 func (h *handler) errorResponse(
@@ -401,7 +394,10 @@ func (h *handler) errorResponse(
 	}
 }
 
-func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
+// sendResponseAndCleanup sends the response to the user and removes the
+// request from activeRequests. The request is always removed regardless of
+// whether the send succeeds, since a failed callback cannot be retried.
+func (h *handler) sendResponseAndCleanup(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
 	switch resp.ErrorCode {
 	case api.StaleNodeResponseError:
 	case api.FatalError:
@@ -428,6 +424,11 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	}
 
 	err := userRequest.SendResponse(resp)
+
+	h.mu.Lock()
+	delete(h.activeRequests, userRequest.req.ID)
+	h.mu.Unlock()
+
 	if err != nil {
 		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
 		return err
@@ -435,10 +436,4 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 
 	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
 	return nil
-}
-
-func (h *handler) deleteActiveRequest(id string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	delete(h.activeRequests, id)
 }
