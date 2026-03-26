@@ -645,8 +645,8 @@ func (b *blockingBlobBroadcastFetcher) BroadcastBlob(ctx context.Context, _ []by
 	defer b.inFlight.Add(-1)
 
 	for {
-		max := b.maxInFlight.Load()
-		if currentInFlight <= max || b.maxInFlight.CompareAndSwap(max, currentInFlight) {
+		maxInFlight := b.maxInFlight.Load()
+		if currentInFlight <= maxInFlight || b.maxInFlight.CompareAndSwap(maxInFlight, currentInFlight) {
 			break
 		}
 	}
