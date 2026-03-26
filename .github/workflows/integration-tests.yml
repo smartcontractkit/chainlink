@@ -295,7 +295,7 @@ jobs:
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
           go-get-overrides: |
-            github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
+            chainlink-evm=${{ inputs.evm-ref }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}

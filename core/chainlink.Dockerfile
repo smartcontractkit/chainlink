@@ -17,7 +17,13 @@ COPY tools/bin/ldflags ./tools/bin/
 ADD go.mod go.sum ./
 RUN go mod download
 
-# Apply dependency overrides if specified (comma-separated: dep1=sha1,dep2=sha2)
+# Stage: deps — full source tree for stages that compile chainlink code.
+FROM deps-base AS deps
+COPY . .
+
+# Apply dependency overrides if specified (comma-separated: dep1=sha1,dep2=sha2).
+# Runs after COPY . . so that go mod tidy has access to the full source tree
+# and the modified go.mod/go.sum are not overwritten by the source copy.
 ARG GO_OVERRIDE_DEPS
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
@@ -42,10 +48,6 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
         go mod download && \
         rm -f "$GIT_CONFIG_GLOBAL"; \
     fi
-
-# Stage: deps — full source tree for stages that compile chainlink code.
-FROM deps-base AS deps
-COPY . .
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
