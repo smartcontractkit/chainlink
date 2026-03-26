@@ -222,11 +222,11 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		// sendResponse deletes the request from activeRequests after sending.
 		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
+		h.deleteActiveRequest(er.req.ID)
 	}
 }
 
@@ -309,10 +309,14 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	case err != nil:
 		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+		sendErr := h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+		h.deleteActiveRequest(ar.req.ID)
+		return sendErr
 	}
 
-	return h.sendSuccessResponse(ctx, l, ar, aggregatedResp)
+	sendErr := h.sendSuccessResponse(ctx, l, ar, aggregatedResp)
+	h.deleteActiveRequest(ar.req.ID)
+	return sendErr
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
@@ -326,7 +330,9 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
+		sendErr := h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
+		h.deleteActiveRequest(ar.req.ID)
+		return sendErr
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
@@ -427,9 +433,12 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 		return err
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	delete(h.activeRequests, userRequest.req.ID)
 	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
 	return nil
+}
+
+func (h *handler) deleteActiveRequest(id string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.activeRequests, id)
 }
