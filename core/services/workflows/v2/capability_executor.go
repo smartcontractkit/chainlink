@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -250,13 +250,14 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	}, nil
 }
 
-func (c *ExecutionHelper) FailedCapabilityIDs() string {
+func (c *ExecutionHelper) FailedCapabilityIDs() []string {
 	var ids []string
 	c.failedCapabilityIDs.Range(func(key, _ any) bool {
 		ids = append(ids, key.(string))
 		return true
 	})
-	return strings.Join(ids, ",")
+	sort.Strings(ids)
+	return ids
 }
 
 func (c *ExecutionHelper) GetWorkflowExecutionID() string {

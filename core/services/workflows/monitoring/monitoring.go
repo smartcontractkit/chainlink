@@ -47,9 +47,10 @@ type EngineMetrics struct {
 	workflowMissingMeteringReport      metric.Int64Counter
 	workflowMeteringMode               metric.Int64Gauge
 
-	workflowExecutionFailedCounter    metric.Int64Counter
-	workflowExecutionStartedCounter   metric.Int64Counter
-	workflowExecutionSucceededCounter metric.Int64Counter
+	workflowExecutionFailedCounter             metric.Int64Counter
+	workflowExecutionStartedCounter            metric.Int64Counter
+	workflowExecutionSucceededCounter          metric.Int64Counter
+	workflowExecutionCapabilityFailureCounter  metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
 
@@ -157,6 +158,11 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowExecutionFailedCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_failed_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution failed counter: %w", err)
+	}
+
+	em.workflowExecutionCapabilityFailureCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_failed_capability_error_count")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow execution failed capability error counter: %w", err)
 	}
 
 	em.workflowExecutionSucceededCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_succeeded_count")
@@ -469,6 +475,11 @@ func (c WorkflowsMetricLabeler) RecordGetSecretsDuration(ctx context.Context, du
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFailedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionFailedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionCapabilityFailureCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.workflowExecutionCapabilityFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionSucceededCounter(ctx context.Context) {

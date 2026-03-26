@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -839,8 +840,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		execErr = errors.New(result.GetError())
 		failedCapIDs := execHelper.FailedCapabilityIDs()
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
-		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String(), platform.KeyCapabilityID, failedCapIDs).IncrementWorkflowExecutionFailedCounter(ctx)
-		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), platform.KeyCapabilityID, failedCapIDs, "error", result.GetError())
+		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
+		for _, capID := range failedCapIDs {
+			e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String(), platform.KeyCapabilityID, capID).IncrementWorkflowExecutionCapabilityFailureCounter(ctx)
+		}
+		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), platform.KeyCapabilityID, strings.Join(failedCapIDs, ","), "error", result.GetError())
 		return
 	}
 
