@@ -34,10 +34,10 @@ func encryptWithOrgIDLabel(t *testing.T, pk *tdh2easy.PublicKey, orgID string) s
 	return encrypted
 }
 
-func TestOwnerToLabel(t *testing.T) {
+func TestWorkflowOwnerToLabel(t *testing.T) {
 	t.Run("ethereum address with 0x prefix", func(t *testing.T) {
 		addr := "0x0001020304050607080900010203040506070809"
-		label := vaultutils.OwnerToLabel(addr)
+		label := vaultutils.WorkflowOwnerToLabel(addr)
 
 		var expected [32]byte
 		copy(expected[12:], common.HexToAddress(addr).Bytes())
@@ -46,35 +46,37 @@ func TestOwnerToLabel(t *testing.T) {
 
 	t.Run("ethereum address without 0x prefix", func(t *testing.T) {
 		addr := "0001020304050607080900010203040506070809"
-		label := vaultutils.OwnerToLabel(addr)
+		label := vaultutils.WorkflowOwnerToLabel(addr)
 
 		var expected [32]byte
 		copy(expected[12:], common.HexToAddress(addr).Bytes())
-		assert.Equal(t, expected, label)
-	})
-
-	t.Run("org_id produces SHA256 label", func(t *testing.T) {
-		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
-		label := vaultutils.OwnerToLabel(orgID)
-
-		expected := sha256.Sum256([]byte(orgID))
-		assert.Equal(t, expected, label)
-	})
-
-	t.Run("short string is not an ETH address", func(t *testing.T) {
-		owner := "my-org-id"
-		label := vaultutils.OwnerToLabel(owner)
-
-		expected := sha256.Sum256([]byte(owner))
 		assert.Equal(t, expected, label)
 	})
 
 	t.Run("checksummed ethereum address", func(t *testing.T) {
 		addr := "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B"
-		label := vaultutils.OwnerToLabel(addr)
+		label := vaultutils.WorkflowOwnerToLabel(addr)
 
 		var expected [32]byte
 		copy(expected[12:], common.HexToAddress(addr).Bytes())
+		assert.Equal(t, expected, label)
+	})
+}
+
+func TestOrgIDToLabel(t *testing.T) {
+	t.Run("org_id produces SHA256 label", func(t *testing.T) {
+		orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+		label := vaultutils.OrgIDToLabel(orgID)
+
+		expected := sha256.Sum256([]byte(orgID))
+		assert.Equal(t, expected, label)
+	})
+
+	t.Run("short string", func(t *testing.T) {
+		orgID := "my-org-id"
+		label := vaultutils.OrgIDToLabel(orgID)
+
+		expected := sha256.Sum256([]byte(orgID))
 		assert.Equal(t, expected, label)
 	})
 }

@@ -157,14 +157,14 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, work
 	secretLabel := cipherText.Label()
 
 	if workflowOwner != "" {
-		expected := vaultutils.OwnerToLabel(workflowOwner)
+		expected := vaultutils.WorkflowOwnerToLabel(workflowOwner)
 		if secretLabel == expected {
 			return nil
 		}
 	}
 
 	if orgID != "" {
-		expected := vaultutils.OwnerToLabel(orgID)
+		expected := vaultutils.OrgIDToLabel(orgID)
 		if secretLabel == expected {
 			return nil
 		}
