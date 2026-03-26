@@ -60,7 +60,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 		return LinkedVaultRequestIdentity{}, fmt.Errorf("failed to evaluate vault org-id-as-owner gate: %w", err)
 	}
 	if !enabled {
-		l.lggr.Debugw("skipping vault identity linking because org-id-as-owner gate is disabled", "orgID", orgID, "workflowOwner", workflowOwner)
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 	}
 
@@ -68,7 +67,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 	workflowOwner = strings.TrimSpace(workflowOwner)
 	if orgID != "" {
 		if workflowOwner == "" {
-			l.lggr.Debugw("using trusted org_id without workflow owner verification", "orgID", orgID)
 			return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 		}
 		if l.orgResolver == nil {
@@ -76,7 +74,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 			return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when workflow owner is provided")
 		}
 
-		l.lggr.Debugw("verifying workflow owner against trusted org_id", "orgID", orgID, "workflowOwner", workflowOwner)
 		resolvedOrgID, err := l.orgResolver.Get(ctx, workflowOwner)
 		if err != nil {
 			l.lggr.Errorw("failed to verify workflow owner against org_id", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
@@ -92,7 +89,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 			return LinkedVaultRequestIdentity{}, fmt.Errorf("workflow owner %q resolves to org_id %q, does not match request org_id %q", workflowOwner, resolvedOrgID, orgID)
 		}
 
-		l.lggr.Debugw("verified workflow owner against trusted org_id", "orgID", orgID, "workflowOwner", workflowOwner)
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 	}
 
@@ -105,7 +101,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 		return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when org_id is missing")
 	}
 
-	l.lggr.Debugw("resolving org_id from workflow owner", "workflowOwner", workflowOwner)
 	resolvedOrgID, resolveErr := l.orgResolver.Get(ctx, workflowOwner)
 	if resolveErr != nil {
 		l.lggr.Errorw("failed to resolve org_id from workflow owner", "workflowOwner", workflowOwner, "err", resolveErr)
@@ -116,7 +111,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 		return LinkedVaultRequestIdentity{}, fmt.Errorf("resolved empty org_id for workflow owner %q", workflowOwner)
 	}
 
-	l.lggr.Debugw("resolved org_id from workflow owner", "workflowOwner", workflowOwner, "orgID", strings.TrimSpace(resolvedOrgID))
 	return LinkedVaultRequestIdentity{
 		OrgID:         strings.TrimSpace(resolvedOrgID),
 		WorkflowOwner: workflowOwner,

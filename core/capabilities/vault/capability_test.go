@@ -547,6 +547,92 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 	assert.Equal(t, "0xABCDef1234567890abcdef1234567890abcdef12", forward.WorkflowOwner)
 }
 
+func TestCapability_CapabilityCall_ValidatesSecretOwnerAgainstResolvedOrgID(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	gsr := &vault.GetSecretsRequest{
+		OrgId: "org-123",
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "other-org",
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.ErrorContains(t, err, `secret identifier owner "other-org" does not match org_id "org-123"`)
+	assert.Empty(t, store.GetByIDs([]string{"wf-id::exec-id::ref-id"}))
+}
+
+func TestCapability_CapabilityCall_RejectsSecretOwnerWhenIdentityIsEmpty(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, false)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "non-empty-owner",
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.ErrorContains(t, err, `secret identifier owner "non-empty-owner" does not match empty request identity`)
+	assert.Empty(t, store.GetByIDs([]string{"wf-id::exec-id::ref-id"}))
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
