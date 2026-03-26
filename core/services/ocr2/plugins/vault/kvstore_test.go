@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -42,17 +43,22 @@ func (k *kv) Write(key []byte, data []byte) error {
 }
 
 type blobber struct {
+	mu         sync.Mutex
 	blobs      [][]byte
 	cnt        int
 	pendingIdx *int
 }
 
 func (b *blobber) BroadcastBlob(_ context.Context, data []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.blobs = append(b.blobs, data)
 	return ocr3_1types.BlobHandle{}, nil
 }
 
 func (b *blobber) FetchBlob(_ context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.pendingIdx != nil {
 		return b.blobs[*b.pendingIdx], nil
 	}
