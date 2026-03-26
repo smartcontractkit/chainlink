@@ -397,7 +397,7 @@ func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
 			CapabilityDonId:  cfg.capDonInfo.ID,
 			CallerDonId:      cfg.localDonID,
 			Method:           types.MethodRegisterTrigger,
-			Payload:          reg.rawRequest,
+			Payload:          reg.rawRequest, // triggerID is in the raw request
 			CapabilityMethod: s.capMethodName,
 		}
 		err := s.dispatcher.Send(peerID, m)

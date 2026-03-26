@@ -33,10 +33,11 @@ type triggerPublisher struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
-	messageCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	registrations map[registrationKey]*pubRegState
-	ackCache      *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
-	mu            sync.RWMutex // protects messageCache, ackCache, and registrations
+	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	registrations   map[registrationKey]*pubRegState
+	unregisterCache *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	ackCache        *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
+	mu              sync.RWMutex // protects messageCache, ackCache, unregisterCache, and registrations
 
 	batchingQueue map[[32]byte]*batchedResponse
 	bqMu          sync.Mutex // protects batchingQueue
@@ -92,15 +93,16 @@ const minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	return &triggerPublisher{
-		capabilityID:  capabilityID,
-		capMethodName: capMethodName,
-		dispatcher:    dispatcher,
-		messageCache:  messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
-		ackCache:      messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
-		registrations: make(map[registrationKey]*pubRegState),
-		batchingQueue: make(map[[32]byte]*batchedResponse),
-		stopCh:        make(services.StopChan),
-		lggr:          logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		capabilityID:    capabilityID,
+		capMethodName:   capMethodName,
+		dispatcher:      dispatcher,
+		messageCache:    messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		ackCache:        messagecache.NewMessageCache[ackKey, p2ptypes.PeerID](),
+		unregisterCache: messagecache.NewMessageCache[registrationKey, p2ptypes.PeerID](),
+		registrations:   make(map[registrationKey]*pubRegState),
+		batchingQueue:   make(map[[32]byte]*batchedResponse),
+		stopCh:          make(services.StopChan),
+		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 	}
 }
 
@@ -264,7 +266,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 				"sender", sender, "workflowIdsLen", len(meta.WorkflowIds), "triggerIdsLen", len(meta.TriggerIds))
 			return
 		}
-		if _, ok := cfg.workflowDONs[msg.CallerDonId]; !ok {
+		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
+		if !ok {
 			p.lggr.Errorw("received unregister from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
@@ -285,12 +288,23 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			p.mu.Unlock()
 			return
 		}
+		nowMs := time.Now().UnixMilli()
+		minRequired := uint32(2*callerDon.F + 1)
+		p.unregisterCache.Insert(key, sender, nowMs, nil)
+		ready, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
+		if !ready {
+			p.mu.Unlock()
+			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
+			return
+		}
 		delete(p.registrations, key)
+		p.unregisterCache.Delete(key)
 		p.mu.Unlock()
 
 		reg.cancel()
+
 		ctx, cancel := p.stopCh.NewCtx()
-		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		err := p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
 		if err != nil {
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
 		}
@@ -381,10 +395,14 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 
 	p.mu.Lock()
 	deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+	deletedUnreg := p.unregisterCache.DeleteOlderThan(now - cfg.remoteConfig.RegistrationExpiry.Milliseconds())
 	p.mu.Unlock()
 
 	if deleted > 0 {
 		p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+	}
+	if deletedUnreg > 0 {
+		p.lggr.Debugw("cleaned expired unregister cache entries", "deleted", deletedUnreg)
 	}
 
 	p.mu.RLock()

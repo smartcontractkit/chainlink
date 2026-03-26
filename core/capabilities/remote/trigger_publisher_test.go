@@ -650,6 +650,89 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+
+	peers := make([]p2ptypes.PeerID, 4)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	require.NoError(t, peers[2].UnmarshalText([]byte(peerID3)))
+	require.NoError(t, peers[3].UnmarshalText([]byte("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")))
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[1], peers[2], peers[3]},
+		F:       1,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	for _, p := range []p2ptypes.PeerID{peers[1], peers[2], peers[3]} {
+		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, p, "triggerA"))
+	}
+	require.Equal(t, "triggerA", (<-underlying.registrationsCh).TriggerID)
+
+	unregMeta := &remotetypes.MessageBody_TriggerEventMetadata{
+		TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+			WorkflowIds: []string{workflowID1},
+			TriggerIds:  []string{"triggerA"},
+		},
+	}
+	recvUnreg := func(sender p2ptypes.PeerID) {
+		publisher.Receive(ctx, &remotetypes.MessageBody{
+			Sender:      sender[:],
+			Method:      remotetypes.MethodUnregisterTrigger,
+			CallerDonId: workflowDONID,
+			Metadata:    unregMeta,
+		})
+	}
+
+	recvUnreg(peers[1])
+	recvUnreg(peers[2])
+	select {
+	case id := <-underlying.unregisterCalled:
+		t.Fatalf("unregister after 2 of 3 nodes should not run; got %q", id)
+	default:
+	}
+
+	recvUnreg(peers[3])
+	require.Equal(t, "triggerA", <-underlying.unregisterCalled)
+
+	require.NoError(t, publisher.Close())
+}
+
 func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 	ctx := testutils.Context(t)
 
