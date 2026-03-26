@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -125,6 +126,8 @@ func (a *Aptos) PreEnvStartup(
 	}
 
 	caps := make([]keystone_changeset.DONCapabilityWithConfig, 0, len(enabledChainIDs))
+	capabilityToOCR3Config := make(map[string]*ocr3.OracleConfig, len(enabledChainIDs))
+	capabilityLabels := make([]string, 0, len(enabledChainIDs))
 	for _, chainID := range enabledChainIDs {
 		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
 		if err != nil {
@@ -146,12 +149,20 @@ func (a *Aptos) PreEnvStartup(
 				Version:        capabilityVersion,
 				CapabilityType: 1,
 			},
-			Config: capConfig,
+			Config:             capConfig,
+			UseCapRegOCRConfig: true,
 		})
+		capabilityLabels = append(capabilityLabels, labelledName)
+		capabilityToOCR3Config[labelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
 	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: caps,
+		CapabilityToOCR3Config:  capabilityToOCR3Config,
+		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			capabilityLabels...,
+		),
 	}, nil
 }
 
