@@ -20,6 +20,10 @@ on:
         description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
         required: false
         type: string
+      exclude-refs:
+        description: "Patterns to exclude specific refs (e.g., beta,rc,v0,v1)"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -83,6 +87,7 @@ jobs:
       PRODUCT: ${{ inputs.product }}
       NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
       REFS: ${{ inputs.refs }}
+      EXCLUDE_REFS: ${{ inputs.exclude-refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
@@ -175,6 +180,10 @@ jobs:
           if [ -n "${{ env.REFS }}" ]; then
             REFS_ARGS="--refs ${{ env.REFS }}"
           fi
+          EXCLUDE_REFS_ARGS=""
+          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
+            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
@@ -182,6 +191,7 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
             ${REFS_ARGS} \
+            ${EXCLUDE_REFS_ARGS} \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \

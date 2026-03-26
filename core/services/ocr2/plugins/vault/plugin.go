@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"time"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -134,6 +135,31 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	}
 
 	return publicKey, privateKeyShare, nil
+}
+
+const dkgPollInterval = 2 * time.Second
+
+// pollForKeyMaterial polls the DKG result package database until the key
+// material for the given instance ID is available or the context is cancelled.
+// This avoids returning an immediate error when the DKG protocol hasn't
+// completed yet, which would trigger libocr's exponential backoff (up to 2
+// minutes between retries). By polling here within the MaxDurationInitialization
+// window, the vault oracle can start as soon as the DKG result is written.
+func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
+	for {
+		publicKey, privateKeyShare, err = r.getKeyMaterial(ctx, instanceID)
+		if err == nil {
+			return publicKey, privateKeyShare, nil
+		}
+
+		r.lggr.Debugw("DKG result package not yet available, will retry", "instanceID", instanceID, "error", err)
+
+		select {
+		case <-ctx.Done():
+			return nil, nil, fmt.Errorf("context cancelled while waiting for DKG key material (instanceID=%s): %w", instanceID, err)
+		case <-time.After(dkgPollInterval):
+		}
+	}
 }
 
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
@@ -277,7 +303,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	}
 
 	r.lggr.Debugw("fetching key material for instance id", "instanceID", *configProto.DKGInstanceID)
-	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
+	publicKey, privateKeyShare, err := r.pollForKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
 	}
