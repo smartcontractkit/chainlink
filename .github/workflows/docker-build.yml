@@ -88,6 +88,7 @@ jobs:
       id-token: write
     uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@dx-3203/optional-amd64-builds # testing
     with:
+      build-amd64-image: "false" # testing
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
@@ -120,6 +121,7 @@ jobs:
       id-token: write
     uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@dx-3203/optional-amd64-builds # testing
     with:
+      build-arm64-image: "false" # testing
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
@@ -154,6 +156,8 @@ jobs:
       id-token: write
     uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@dx-3203/optional-amd64-builds # testing
     with:
+      build-arm64-image: "false" # testing
+      build-amd64-image: "false" # testing
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
       aws-region-gati: us-west-2
@@ -183,7 +187,8 @@ jobs:
 
   docker-ccip:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
+    # testing
+    if: false
     permissions:
       contents: read
       id-token: write
@@ -218,7 +223,8 @@ jobs:
 
   docker-ccip-plugins:
     needs: [init]
-    if: ${{ needs.init.outputs.should-run == 'true' }}
+    # testing
+    if: false
     permissions:
       contents: read
       id-token: write
