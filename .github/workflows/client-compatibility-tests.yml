@@ -349,7 +349,7 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
-        uses: smartcontractkit/.github/actions/ctf-build-image@b7be49d6f54ce0990354931ee1e4c8624f3f406e # v1.4.0 (not released yet)
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.chainlinkVersion || needs.select-versions.outputs.chainlink_image_version || github.sha }}
           dockerfile: core/chainlink.Dockerfile
