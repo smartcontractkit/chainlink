@@ -247,6 +247,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		GasMultiplierWeiPerEth:            11e17,
 		NetworkFeeUSDCents:                networkFeeUSDCents,
 		ChainFamilySelector:               [4]byte(familySelector),
+		GasPriceStalenessThreshold:        90000,
 	}
 }
 
