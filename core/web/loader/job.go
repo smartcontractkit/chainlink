@@ -55,9 +55,9 @@ func (b *jobBatcher) loadByExternalJobIDs(ctx context.Context, keys dataloader.K
 		}
 	}
 
-	// fill array positions without any feeds managers
+	// fill array positions without any jobs
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("feeds manager not found")}
+		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("job not found")}
 	}
 
 	return results
