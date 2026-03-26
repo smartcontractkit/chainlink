@@ -16,6 +16,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -467,7 +468,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		pendingQueueHasID[item.Id] = true
 	}
 
-	observedLocalQueue := make([][]byte, 0, len(localQueueItems))
+	blobPayloads := make([][]byte, 0, len(localQueueItems))
+	maxObservedLocalQueueItems := 0
 	for _, item := range localQueueItems {
 		// The item is already in the pending queue. We'll be processing it
 		// this round. Let's skip it for now so we don't process duplicates.
@@ -490,30 +492,47 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			return nil, fmt.Errorf("could not marshal pending queue item: %w", ierr2)
 		}
 
-		blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(ctx, itemb, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
+		if maxObservedLocalQueueItems == 0 {
+			l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
+			if ierr2 != nil {
+				return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
+			}
+			maxObservedLocalQueueItems = 2 * l
 		}
 
-		blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
-		}
+		blobPayloads = append(blobPayloads, itemb)
 
-		observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
-
-		l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
-		}
-
-		if len(observedLocalQueue) >= 2*l {
+		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
-				"queueSize", len(observedLocalQueue),
-				"batchSizeLimit", 2*l)
-			r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), 2*l)
+				"queueSize", len(blobPayloads),
+				"batchSizeLimit", maxObservedLocalQueueItems)
+			r.metrics.trackQueueOverflow(ctx, len(blobPayloads), maxObservedLocalQueueItems)
 			break
 		}
+	}
+
+	observedLocalQueue := make([][]byte, len(blobPayloads))
+	// Broadcast pending-queue blobs in parallel to reduce Observation() latency.
+	// Shortening this phase helps the OCR round finish within DeltaProgress.
+	g, broadcastCtx := errgroup.WithContext(ctx)
+	for i, payload := range blobPayloads {
+		g.Go(func() error {
+			blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
+			if ierr2 != nil {
+				return fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
+			}
+
+			blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
+			if ierr2 != nil {
+				return fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
+			}
+
+			observedLocalQueue[i] = blobHandleBytes
+			return nil
+		})
+	}
+	if err = g.Wait(); err != nil {
+		return nil, err
 	}
 
 	obspb.PendingQueueItems = observedLocalQueue
