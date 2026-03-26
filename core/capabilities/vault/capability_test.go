@@ -378,7 +378,7 @@ func TestCapability_CapabilityCall_UsesTrustedMetadataWorkflowOwnerForLinking(t 
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
-	lf := newVaultJWTAuthLimitsFactory(t, true)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
 	resolver := &testOrgResolver{orgID: "org-123"}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
 	require.NoError(t, err)
@@ -457,7 +457,7 @@ func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
-	lf := newVaultJWTAuthLimitsFactory(t, true)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
 	resolver := &testOrgResolver{orgID: "org-123"}
 	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
 	require.NoError(t, err)

@@ -20,47 +20,47 @@ type LinkedVaultRequestIdentity struct {
 
 // OrgIDToWorkflowOwnerLinker centralizes vault request identity resolution and verification.
 type OrgIDToWorkflowOwnerLinker struct {
-	orgResolver         orgresolver.OrgResolver
-	vaultJWTAuthEnabled limits.GateLimiter
-	lggr                logger.Logger
+	orgResolver                    orgresolver.OrgResolver
+	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
+	lggr                           logger.Logger
 }
 
 // NewOrgIDToWorkflowOwnerLinker constructs the gated org/workflow-owner linker used by vault.
 func NewOrgIDToWorkflowOwnerLinker(lggr logger.Logger, orgResolver orgresolver.OrgResolver, limitsFactory limits.Factory) (*OrgIDToWorkflowOwnerLinker, error) {
-	vaultJWTAuthEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultJWTAuthEnabled)
+	vaultOrgIDAsSecretOwnerEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
 	if err != nil {
-		return nil, fmt.Errorf("could not create vault JWT auth gate limiter: %w", err)
+		return nil, fmt.Errorf("could not create vault org-id-as-owner gate limiter: %w", err)
 	}
 
 	return &OrgIDToWorkflowOwnerLinker{
-		orgResolver:         orgResolver,
-		vaultJWTAuthEnabled: vaultJWTAuthEnabled,
-		lggr:                logger.Named(lggr, "OrgIDToWorkflowOwnerLinker"),
+		orgResolver:                    orgResolver,
+		vaultOrgIDAsSecretOwnerEnabled: vaultOrgIDAsSecretOwnerEnabled,
+		lggr:                           logger.Named(lggr, "OrgIDToWorkflowOwnerLinker"),
 	}, nil
 }
 
 // Close releases the gate limiter resources owned by the linker.
 func (l *OrgIDToWorkflowOwnerLinker) Close() error {
-	if l == nil || l.vaultJWTAuthEnabled == nil {
+	if l == nil || l.vaultOrgIDAsSecretOwnerEnabled == nil {
 		return nil
 	}
 
-	return l.vaultJWTAuthEnabled.Close()
+	return l.vaultOrgIDAsSecretOwnerEnabled.Close()
 }
 
 // Link resolves or verifies the request identity from the caller-provided org and workflow owner.
 func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, workflowOwner string) (LinkedVaultRequestIdentity, error) {
-	if l == nil || l.vaultJWTAuthEnabled == nil {
+	if l == nil || l.vaultOrgIDAsSecretOwnerEnabled == nil {
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 	}
 
-	enabled, err := l.vaultJWTAuthEnabled.Limit(ctx)
+	enabled, err := l.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
 	if err != nil {
-		l.lggr.Errorw("failed to evaluate vault JWT auth gate", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
-		return LinkedVaultRequestIdentity{}, fmt.Errorf("failed to evaluate vault JWT auth gate: %w", err)
+		l.lggr.Errorw("failed to evaluate vault org-id-as-owner gate", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
+		return LinkedVaultRequestIdentity{}, fmt.Errorf("failed to evaluate vault org-id-as-owner gate: %w", err)
 	}
 	if !enabled {
-		l.lggr.Debugw("skipping vault identity linking because JWT auth gate is disabled", "orgID", orgID, "workflowOwner", workflowOwner)
+		l.lggr.Debugw("skipping vault identity linking because org-id-as-owner gate is disabled", "orgID", orgID, "workflowOwner", workflowOwner)
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 	}
 

@@ -106,7 +106,7 @@ func TestCapability_ListSecretIdentifiers_RejectsWorkflowOwnerOrgIDMismatch(t *t
 	reg := coreCapabilities.NewRegistry(lggr)
 	resolver := &testOrgResolver{orgID: "org-actual"}
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultJWTAuthLimitsFactory(t, true))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -149,7 +149,7 @@ func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMi
 	reg := coreCapabilities.NewRegistry(lggr)
 	resolver := &testOrgResolver{orgID: "org-actual"}
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultJWTAuthLimitsFactory(t, true))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -173,7 +173,7 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultJWTAuthLimitsFactory(t, gateEnabled))
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultOrgIDAsSecretOwnerLimitsFactory(t, gateEnabled))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -220,10 +220,10 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	return capturedPayload
 }
 
-func newVaultJWTAuthLimitsFactory(t *testing.T, enabled bool) limits.Factory {
+func newVaultOrgIDAsSecretOwnerLimitsFactory(t *testing.T, enabled bool) limits.Factory {
 	t.Helper()
 
-	getter, err := settings.NewJSONGetter([]byte(fmt.Sprintf(`{"global":{"VaultJWTAuthEnabled":%t}}`, enabled)))
+	getter, err := settings.NewJSONGetter([]byte(fmt.Sprintf(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":%t}}`, enabled)))
 	require.NoError(t, err)
 
 	return limits.Factory{Settings: getter}
