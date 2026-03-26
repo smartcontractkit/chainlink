@@ -58,6 +58,25 @@ func (l *OrgIdToWorkflowOwnerLinker) Link(ctx context.Context, requestID string,
 	orgID = strings.TrimSpace(orgID)
 	workflowOwner = strings.TrimSpace(workflowOwner)
 	if orgID != "" {
+		if workflowOwner == "" {
+			return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
+		}
+		if l.orgResolver == nil {
+			return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when workflow owner is provided")
+		}
+
+		resolvedOrgID, err := l.orgResolver.Get(ctx, workflowOwner)
+		if err != nil {
+			return LinkedVaultRequestIdentity{}, fmt.Errorf("failed to verify org_id %q for workflow owner %q: %w", orgID, workflowOwner, err)
+		}
+		resolvedOrgID = strings.TrimSpace(resolvedOrgID)
+		if resolvedOrgID == "" {
+			return LinkedVaultRequestIdentity{}, fmt.Errorf("resolved empty org_id for workflow owner %q", workflowOwner)
+		}
+		if resolvedOrgID != orgID {
+			return LinkedVaultRequestIdentity{}, fmt.Errorf("workflow owner %q resolves to org_id %q, does not match request org_id %q", workflowOwner, resolvedOrgID, orgID)
+		}
+
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 	}
 

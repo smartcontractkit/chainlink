@@ -60,22 +60,66 @@ func TestCapability_ListSecretIdentifiers_LinksOrgIDFromWorkflowOwner(t *testing
 	assert.Equal(t, []string{"0xabc123"}, resolver.calledWith)
 }
 
-func TestCapability_ListSecretIdentifiers_TrustedOrgIDSkipsResolver(t *testing.T) {
+func TestCapability_ListSecretIdentifiers_OrgIDOnlySkipsResolver(t *testing.T) {
 	t.Parallel()
 
 	resolver := &testOrgResolver{orgID: "unexpected"}
 	payload := captureListRequest(t, "request-2", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
-		RequestId:     "request-2",
-		Owner:         "0xabc123",
-		Namespace:     "ns",
-		OrgId:         "org-999",
-		WorkflowOwner: "untrusted-owner",
+		RequestId: "request-2",
+		Owner:     "0xabc123",
+		Namespace: "ns",
+		OrgId:     "org-999",
 	})
 
 	require.NotNil(t, payload)
 	assert.Equal(t, "org-999", payload.OrgId)
-	assert.Equal(t, "untrusted-owner", payload.WorkflowOwner)
+	assert.Empty(t, payload.WorkflowOwner)
 	assert.Empty(t, resolver.calledWith)
+}
+
+func TestCapability_ListSecretIdentifiers_VerifiesWorkflowOwnerAgainstOrgID(t *testing.T) {
+	t.Parallel()
+
+	resolver := &testOrgResolver{orgID: "org-999"}
+	payload := captureListRequest(t, "request-verify", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId:     "request-verify",
+		Owner:         "0xabc123",
+		Namespace:     "ns",
+		OrgId:         "org-999",
+		WorkflowOwner: "trusted-owner",
+	})
+
+	require.NotNil(t, payload)
+	assert.Equal(t, "org-999", payload.OrgId)
+	assert.Equal(t, "trusted-owner", payload.WorkflowOwner)
+	assert.Equal(t, []string{"trusted-owner"}, resolver.calledWith)
+}
+
+func TestCapability_ListSecretIdentifiers_RejectsWorkflowOwnerOrgIDMismatch(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	resolver := &testOrgResolver{orgID: "org-actual"}
+
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultJWTAuthLimitsFactory(t, true))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	_, err = capability.ListSecretIdentifiers(t.Context(), &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId:     "request-mismatch",
+		Owner:         "0xabc123",
+		Namespace:     "ns",
+		OrgId:         "org-request",
+		WorkflowOwner: "trusted-owner",
+	})
+	require.ErrorContains(t, err, `workflow owner "trusted-owner" resolves to org_id "org-actual", does not match request org_id "org-request"`)
+	assert.Equal(t, []string{"trusted-owner"}, resolver.calledWith)
+	assert.Empty(t, store.GetByIDs([]string{"request-mismatch"}))
 }
 
 func TestCapability_ListSecretIdentifiers_GateClosedLeavesFieldsUntouched(t *testing.T) {
