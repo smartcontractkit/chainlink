@@ -6,12 +6,17 @@ import (
 	"math"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	prometheus_dto "github.com/prometheus/client_model/go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
+
+// defaultPollingInterval is the interval at which the collector polls counters and publishes
+// deltas to Beholder, independent of Prometheus scrapes.
+const defaultPollingInterval = 10 * time.Second
 
 // ObservationMetricsPublisher is the interface for publishing observation metrics to external destinations
 type ObservationMetricsPublisher interface {
@@ -22,6 +27,7 @@ type ObservationMetricsPublisher interface {
 type ObservationMetricsCollector struct {
 	logger         logger.Logger
 	publisher      ObservationMetricsPublisher
+	ctx            context.Context
 	cancel         context.CancelFunc
 	constantLabels map[string]string // Prometheus labels (for WrapRegistererWith)
 	beholderLabels map[string]string // Beholder labels (for metrics publishing)
@@ -38,10 +44,13 @@ func NewObservationMetricsCollector(
 	constantLabels map[string]string,
 	beholderLabels map[string]string,
 ) *ObservationMetricsCollector {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	collector := &ObservationMetricsCollector{
 		logger:         logger,
 		publisher:      publisher,
-		cancel:         func() {},
+		ctx:            ctx,
+		cancel:         cancel,
 		constantLabels: constantLabels,
 		beholderLabels: beholderLabels,
 	}
@@ -54,6 +63,39 @@ func (c *ObservationMetricsCollector) CreateWrappedRegisterer(baseRegisterer pro
 	return &interceptingRegisterer{
 		base:      baseRegisterer,
 		collector: c,
+	}
+}
+
+// Start launches a background goroutine that polls the wrapped counters on the given interval
+// and publishes deltas to Beholder, independent of Prometheus scrapes.
+// Call Start after the wrapped registerer has been passed to libocr (i.e. after NewOracle),
+// so that the counters are already registered before the first poll fires.
+func (c *ObservationMetricsCollector) Start(interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				c.poll()
+			case <-c.ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// poll reads the current value of each wrapped counter and publishes any delta to Beholder.
+// It reuses the existing Collect logic on wrappedCounter, which handles delta tracking.
+func (c *ObservationMetricsCollector) poll() {
+	// A small buffered channel to absorb the forwarded prometheus.Metric values.
+	// Each counter emits exactly one metric per Collect call, so 10 is more than enough.
+	devNull := make(chan prometheus.Metric, 10)
+	if c.sentObservationsCounter != nil {
+		c.sentObservationsCounter.Collect(devNull)
+	}
+	if c.includedObservationsCounter != nil {
+		c.includedObservationsCounter.Collect(devNull)
 	}
 }
 

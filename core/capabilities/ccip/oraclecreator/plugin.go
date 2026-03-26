@@ -315,6 +315,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	// Add metrics collector to closers so it's properly shut down
 	closers = append(closers, i.metricsCollector)
+	// Start the background polling loop after NewOracle so all counters are already registered.
+	i.metricsCollector.Start(defaultPollingInterval)
 	return newWrappedOracle(oracle, closers), nil
 }
 

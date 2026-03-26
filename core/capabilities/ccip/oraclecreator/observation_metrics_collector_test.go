@@ -447,6 +447,57 @@ func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
 	assert.Nil(t, collector.includedObservationsCounter)
 }
 
+// TestObservationMetricsCollector_BackgroundPolling verifies that Start publishes metrics
+// on a timer without any explicit Collect call from the outside (i.e. without a Prometheus scrape).
+func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
+	mockPub := &mockPublisher{}
+	collector := NewObservationMetricsCollector(lggr, mockPub,
+		map[string]string{"name": "commit-1234"},
+		map[string]string{"pluginType": "commit"},
+	)
+	defer func() { _ = collector.Close() }()
+
+	registry := prometheus.NewRegistry()
+	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
+
+	sentCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ocr3_sent_observations_total",
+		Help: "Test counter",
+	})
+	require.NoError(t, wrappedRegisterer.Register(sentCounter))
+
+	sentCounter.Add(3)
+
+	// Start with a short interval — no external Collect call is made.
+	const pollInterval = 50 * time.Millisecond
+	collector.Start(pollInterval)
+
+	// Wait for at least one poll to fire.
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) > 0
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	metrics := mockPub.getMetrics()
+	require.Len(t, metrics, 1)
+	assert.Equal(t, "ocr3_sent_observations_total", metrics[0].name)
+	assert.InEpsilon(t, 3.0, metrics[0].value, 0.01)
+
+	// Subsequent polls with no new increments should not publish.
+	time.Sleep(3 * pollInterval)
+	assert.Len(t, mockPub.getMetrics(), 1, "no new publishes expected when counter has not changed")
+
+	// A new increment should be picked up on the next poll.
+	sentCounter.Inc()
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) >= 2
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	assert.InEpsilon(t, 1.0, mockPub.getMetrics()[1].value, 0.01)
+}
+
 // TestObservationMetricsCollector_Close verifies proper cleanup
 func TestObservationMetricsCollector_Close(t *testing.T) {
 	lggr, err := logger.New()
