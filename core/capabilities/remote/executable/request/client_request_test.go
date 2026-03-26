@@ -381,13 +381,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		ocrConfigs := map[string]ocrtypes.ContractConfig{
-			pb.OCR3ConfigDefaultKey: {
-				ConfigDigest: configDigest,
-				Signers:      []ocrtypes.OnchainPublicKey{kb1.PublicKey(), kb2.PublicKey()},
-				F:            F,
-			},
-		}
+		ocrSigners := [][]byte{kb1.PublicKey(), kb2.PublicKey()}
 
 		assertValidResponse := func(t *testing.T, result []byte) {
 			capResponse, err := pb.UnmarshalCapabilityResponse(result)
@@ -409,7 +403,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -439,7 +433,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			ctx := t.Context()
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 
@@ -482,7 +476,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			ctx := t.Context()
 			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrConfigs)
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
 			require.NoError(t, err)
 			defer req.Cancel(errors.New("test end"))
 

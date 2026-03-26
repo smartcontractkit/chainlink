@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
@@ -43,19 +42,14 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	sig2, err := kb2.Sign3(configDigest, seqNr, reportData[:])
 	require.NoError(t, err)
 
-	ocr3Configs := map[string]ocrtypes.ContractConfig{
-		pb.OCR3ConfigDefaultKey: {
-			ConfigDigest: configDigest,
-			Signers:      []ocrtypes.OnchainPublicKey{kb1.PublicKey(), kb2.PublicKey()},
-			F:            1,
-		},
-	}
+	signers := [][]byte{kb1.PublicKey(), kb2.PublicKey()}
 
 	c := &ClientRequest{
-		lggr:                logger.Test(t),
-		ocr3Configs:         ocr3Configs,
-		workflowExecutionID: workflowExecutionID,
-		referenceID:         referenceID,
+		lggr:                          logger.Test(t),
+		signers:                       signers,
+		workflowExecutionID:           workflowExecutionID,
+		referenceID:                   referenceID,
+		requiredResponseConfirmations: 2,
 	}
 
 	validResp := commoncap.CapabilityResponse{
@@ -75,23 +69,16 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
 	}
 
-	t.Run("nil ocr3Configs returns error", func(t *testing.T) {
-		cNil := &ClientRequest{workflowExecutionID: workflowExecutionID, referenceID: referenceID, lggr: logger.Test(t), ocr3Configs: nil}
-		err := cNil.verifyAttestation(validResp, validResp.Metadata.Metering[0])
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "OCR3 configs not provided")
-	})
-
-	t.Run("missing OCR3 config key returns error", func(t *testing.T) {
+	t.Run("not enough signers returns error", func(t *testing.T) {
 		cBad := &ClientRequest{
-			workflowExecutionID: workflowExecutionID,
-			referenceID:         referenceID,
-			lggr:                logger.Test(t),
-			ocr3Configs:         map[string]ocrtypes.ContractConfig{},
+			workflowExecutionID:           workflowExecutionID,
+			referenceID:                   referenceID,
+			lggr:                          logger.Test(t),
+			requiredResponseConfirmations: 2,
 		}
 		err := cBad.verifyAttestation(validResp, validResp.Metadata.Metering[0])
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "not found")
+		require.Contains(t, err.Error(), "number of configured OCR signers is less than required confirmations: got 0, need at least 2")
 	})
 
 	t.Run("not enough signatures returns error", func(t *testing.T) {
