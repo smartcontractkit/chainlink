@@ -46,12 +46,12 @@ func (t *testOrgResolver) Ready() error { return nil }
 func TestCapability_ListSecretIdentifiers_LinksOrgIDFromWorkflowOwner(t *testing.T) {
 	t.Parallel()
 
-	requestID := "0xabc123::request-1"
 	resolver := &testOrgResolver{orgID: "org-123"}
-	payload := captureListRequest(t, requestID, resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
-		RequestId: requestID,
-		Owner:     "0xabc123",
-		Namespace: "ns",
+	payload := captureListRequest(t, "request-1", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId:     "request-1",
+		Owner:         "0xabc123",
+		Namespace:     "ns",
+		WorkflowOwner: "0xabc123",
 	})
 
 	require.NotNil(t, payload)
@@ -126,8 +126,8 @@ func TestCapability_ListSecretIdentifiers_GateClosedLeavesFieldsUntouched(t *tes
 	t.Parallel()
 
 	resolver := &testOrgResolver{orgID: "unexpected"}
-	payload := captureListRequest(t, "0xabc123::request-3", resolver, false, &vaultcommon.ListSecretIdentifiersRequest{
-		RequestId: "0xabc123::request-3",
+	payload := captureListRequest(t, "request-3", resolver, false, &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-3",
 		Owner:     "0xabc123",
 		Namespace: "ns",
 	})
@@ -136,6 +136,31 @@ func TestCapability_ListSecretIdentifiers_GateClosedLeavesFieldsUntouched(t *tes
 	assert.Empty(t, payload.OrgId)
 	assert.Empty(t, payload.WorkflowOwner)
 	assert.Empty(t, resolver.calledWith)
+}
+
+func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMissing(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	resolver := &testOrgResolver{orgID: "org-actual"}
+
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, newVaultJWTAuthLimitsFactory(t, true))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	_, err = capability.ListSecretIdentifiers(t.Context(), &vaultcommon.ListSecretIdentifiersRequest{
+		RequestId: "request-missing-workflow-owner",
+		Owner:     "0xabc123",
+		Namespace: "ns",
+	})
+	require.ErrorContains(t, err, "workflow owner is required when org_id is missing")
+	assert.Empty(t, resolver.calledWith)
+	assert.Empty(t, store.GetByIDs([]string{"request-missing-workflow-owner"}))
 }
 
 func captureListRequest(t *testing.T, requestID string, resolver orgresolver.OrgResolver, gateEnabled bool, req *vaultcommon.ListSecretIdentifiersRequest) *vaultcommon.ListSecretIdentifiersRequest {

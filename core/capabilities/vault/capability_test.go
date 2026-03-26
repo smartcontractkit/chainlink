@@ -371,7 +371,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
-func TestCapability_CapabilityCall_UsesFirstSecretOwnerForLinking(t *testing.T) {
+func TestCapability_CapabilityCall_UsesGetSecretsIdentityFieldsForLinking(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -384,15 +384,17 @@ func TestCapability_CapabilityCall_UsesFirstSecretOwnerForLinking(t *testing.T) 
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	workflowOwner := "0xABCDef1234567890abcdef1234567890abcdef12"
 	requestID := "wf-id::exec-id::ref-id"
 	gsr := &vault.GetSecretsRequest{
+		OrgId:         "",
+		WorkflowOwner: workflowOwner,
 		Requests: []*vault.SecretRequest{
 			{
 				Id: &vault.SecretIdentifier{
 					Key:       "Foo",
 					Namespace: "Bar",
-					Owner:     owner,
+					Owner:     workflowOwner,
 				},
 				EncryptionKeys: []string{"key"},
 			},
@@ -405,7 +407,7 @@ func TestCapability_CapabilityCall_UsesFirstSecretOwnerForLinking(t *testing.T) 
 	expectedResponse := &vault.GetSecretsResponse{
 		Responses: []*vault.SecretResponse{
 			{
-				Id: &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: owner},
+				Id: &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: workflowOwner},
 				Result: &vault.SecretResponse_Data{
 					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
 				},
@@ -445,7 +447,80 @@ func TestCapability_CapabilityCall_UsesFirstSecretOwnerForLinking(t *testing.T) 
 	})
 	require.NoError(t, err)
 	wg.Wait()
-	assert.Equal(t, []string{owner}, resolver.calledWith)
+	assert.Equal(t, []string{workflowOwner}, resolver.calledWith)
+}
+
+func TestCapability_CapabilityCall_ForwardsResolvedGetSecretsIdentity(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultJWTAuthLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		WorkflowOwner: "0xABCDef1234567890abcdef1234567890abcdef12",
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "0xABCDef1234567890abcdef1234567890abcdef12",
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	var (
+		wg      sync.WaitGroup
+		forward *vault.GetSecretsRequest
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
+				require.True(t, ok)
+				forward = proto.Clone(payload).(*vault.GetSecretsRequest)
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: mustMarshalGetSecretsResponse(t)})
+				return
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "different-metadata-owner",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	require.NotNil(t, forward)
+	assert.Equal(t, "org-123", forward.OrgId)
+	assert.Equal(t, "0xABCDef1234567890abcdef1234567890abcdef12", forward.WorkflowOwner)
 }
 
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
@@ -1333,4 +1408,26 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, hpkb, resp.PublicKey)
+}
+
+func mustMarshalGetSecretsResponse(t *testing.T) []byte {
+	t.Helper()
+
+	data, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "owner",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	return data
 }

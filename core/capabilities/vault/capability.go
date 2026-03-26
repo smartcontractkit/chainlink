@@ -115,16 +115,14 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
-	workflowOwner := ""
-	if firstReq := r.Requests[0]; firstReq != nil && firstReq.Id != nil {
-		workflowOwner = firstReq.Id.Owner
-	}
-	s.lggr.Debugw("linking get secrets request identity", "workflowOwner", workflowOwner, "requestCount", len(r.Requests))
-	linkedIdentity, err := s.linker.Link(ctx, "", workflowOwner)
+	s.lggr.Debugw("linking get secrets request identity", "orgID", r.OrgId, "workflowOwner", r.WorkflowOwner, "requestCount", len(r.Requests))
+	linkedIdentity, err := s.linker.Link(ctx, r.OrgId, r.WorkflowOwner)
 	if err != nil {
-		s.lggr.Errorw("failed to link get secrets request identity", "workflowOwner", workflowOwner, "err", err)
+		s.lggr.Errorw("failed to link get secrets request identity", "orgID", r.OrgId, "workflowOwner", r.WorkflowOwner, "err", err)
 		return capabilities.CapabilityResponse{}, err
 	}
+	r.OrgId = linkedIdentity.OrgID
+	r.WorkflowOwner = linkedIdentity.WorkflowOwner
 	normalizedWorkflowOwner := normalizeOwner(linkedIdentity.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
@@ -132,7 +130,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
 
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
+		if normalizedWorkflowOwner != "" && req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", linkedIdentity.WorkflowOwner)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, linkedIdentity.WorkflowOwner, idx)
 		}
