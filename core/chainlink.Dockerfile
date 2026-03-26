@@ -11,13 +11,11 @@ COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
 ADD go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+RUN go mod download
 
 # Apply dependency overrides if specified (comma-separated: dep1=sha1,dep2=sha2)
 ARG GO_OVERRIDE_DEPS
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    --mount=type=cache,target=/go/pkg/mod \
     set -e && \
     if [ -n "$GO_OVERRIDE_DEPS" ]; then \
         export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
@@ -43,9 +41,8 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
 
 COPY . .
 
-# Install Delve for debugging with cache mounts
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+# Install Delve for debugging
+RUN --mount=type=cache,target=/root/.cache/go-build \
     go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
 # Flag to control installation of private plugins (default: true).
@@ -61,7 +58,6 @@ ARG CL_IS_PROD_BUILD=true
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
@@ -76,15 +72,13 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     fi
 
 # Copy any shared libraries.
-RUN --mount=type=cache,target=/go/pkg/mod \
-    mkdir -p /tmp/lib && \
+RUN mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
     "$CL_LOOPINSTALL_OUTPUT_DIR" \
     /tmp/lib
 
 # Build chainlink.
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
       else \
