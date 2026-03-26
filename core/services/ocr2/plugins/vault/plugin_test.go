@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -290,8 +291,9 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -324,8 +326,9 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -399,8 +402,9 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -455,7 +459,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 	}
 	anyd, err := anypb.New(d)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-3", Item: anyd},
 		},
@@ -494,8 +498,9 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -547,7 +552,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-2", Item: anyp},
 		},
@@ -640,6 +645,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		r := &ReportingPlugin{
 			lggr:  lggr,
 			store: store,
+			metrics: newTestMetrics(t),
 			cfg: makeReportingPluginConfig(
 				t,
 				10,
@@ -669,7 +675,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 		}
 		anyp, err := anypb.New(p)
 		require.NoError(t, err)
-		err = NewWriteStore(rdr).WritePendingQueue(
+		err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
@@ -705,8 +711,9 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -742,7 +749,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	err = NewWriteStore(rdr).WriteSecret(createdID, &vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), createdID,&vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -762,7 +769,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -794,8 +801,9 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -831,7 +839,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -868,6 +876,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -893,7 +902,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		m: make(map[string]response),
 	}
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("invalid-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -908,7 +917,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -954,6 +963,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -985,7 +995,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1000,7 +1010,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1038,6 +1048,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1072,7 +1083,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1092,7 +1103,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1130,6 +1141,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1165,7 +1177,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WriteSecret(id, &vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1185,7 +1197,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1240,6 +1252,173 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	assert.Equal(t, plaintext, gotSecret)
 }
 
+func TestPlugin_Observation_MaxBatchGetSecretsWithEncryptionKeys(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	batchSize := 10
+	maxRequestBatchSize := 10
+	numEncryptionKeys := 10
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+		cfg: makeReportingPluginConfig(
+			t,
+			batchSize,
+			pk,
+			shares[0],
+			100,
+			2048,
+			64,
+			64,
+			64,
+			maxRequestBatchSize,
+		),
+	}
+
+	rdr := &kv{
+		m: make(map[string]response),
+	}
+	ws := newTestWriteStore(t, rdr)
+
+	// Generate encryption keys (NaCl box public keys).
+	encryptionKeys := make([]string, numEncryptionKeys)
+	for i := range encryptionKeys {
+		pubK, _, kerr := box.GenerateKey(rand.Reader)
+		require.NoError(t, kerr)
+		encryptionKeys[i] = hex.EncodeToString(pubK[:])
+	}
+
+	// Build batchSize pending queue items, each a GetSecretsRequest with 1 secret and numEncryptionKeys encryption keys.
+	pendingItems := make([]*vaultcommon.StoredPendingQueueItem, batchSize)
+	for i := 0; i < batchSize; i++ {
+		owner := fmt.Sprintf("0x%040d", i+1)
+		id := &vaultcommon.SecretIdentifier{
+			Owner:     owner,
+			Namespace: "main",
+			Key:       fmt.Sprintf("secret_%d", i),
+		}
+
+		// Encrypt a secret with the correct label for this owner.
+		var label [32]byte
+		ownerAddress := common.HexToAddress(owner)
+		copy(label[12:], ownerAddress.Bytes())
+		ciphertext, cerr := tdh2easy.EncryptWithLabel(pk, []byte(fmt.Sprintf("plaintext-%d", i)), label)
+		require.NoError(t, cerr)
+		ciphertextBytes, cerr := ciphertext.Marshal()
+		require.NoError(t, cerr)
+
+		// Store the secret in KV.
+		err = ws.WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+			EncryptedSecret: ciphertextBytes,
+		})
+		require.NoError(t, err)
+
+		p := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: encryptionKeys,
+				},
+			},
+		}
+		anyp, aerr := anypb.New(p)
+		require.NoError(t, aerr)
+		pendingItems[i] = &vaultcommon.StoredPendingQueueItem{
+			Id:   fmt.Sprintf("request-%d", i),
+			Item: anyp,
+		}
+	}
+
+	err = ws.WritePendingQueue(t.Context(), pendingItems)
+	require.NoError(t, err)
+
+	// Add 2*batchSize items to the local store (with different IDs) so that
+	// the observation also includes the maximum number of pending queue items
+	// to be broadcast as blobs.
+	numLocalItems := 2 * batchSize
+	for i := range numLocalItems {
+		owner := fmt.Sprintf("0x%040d", batchSize+i+1)
+		id := &vaultcommon.SecretIdentifier{
+			Owner:     owner,
+			Namespace: "main",
+			Key:       fmt.Sprintf("local_secret_%d", i),
+		}
+		p := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: encryptionKeys,
+				},
+			},
+		}
+		err = store.Add(&vaulttypes.Request{Payload: p, IDVal: fmt.Sprintf("local-request-%d", i)})
+		require.NoError(t, err)
+	}
+
+	seqNr := uint64(1)
+	bf := &blobber{}
+	start := time.Now()
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, bf)
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	t.Logf("Observation took %s, output size: %d bytes", elapsed, len(data))
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	// Verify all pending queue requests were observed.
+	require.Len(t, obs.Observations, batchSize)
+
+	for i, o := range obs.Observations {
+		assert.Equal(t, fmt.Sprintf("request-%d", i), o.Id)
+		assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
+
+		batchResp := o.GetGetSecretsResponse()
+		require.Len(t, batchResp.Responses, 1)
+
+		resp := batchResp.Responses[0]
+		assert.Empty(t, resp.GetError())
+		assert.NotEmpty(t, resp.GetData().EncryptedValue)
+		assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, numEncryptionKeys)
+
+		for _, share := range resp.GetData().EncryptedDecryptionKeyShares {
+			assert.Len(t, share.Shares, 1)
+			assert.NotEmpty(t, share.Shares[0])
+		}
+	}
+
+	// Verify all local queue items were broadcast as pending queue observations.
+	// The local queue is sorted lexicographically by ID before broadcasting,
+	// so we collect the IDs into a set rather than asserting on order.
+	assert.Len(t, obs.PendingQueueItems, numLocalItems)
+	require.Len(t, bf.blobs, numLocalItems)
+	gotLocalIDs := map[string]bool{}
+	for _, blob := range bf.blobs {
+		gotMsg := &vaultcommon.StoredPendingQueueItem{}
+		err = proto.Unmarshal(blob, gotMsg)
+		require.NoError(t, err)
+		gotLocalIDs[gotMsg.Id] = true
+	}
+	for i := range numLocalItems {
+		assert.True(t, gotLocalIDs[fmt.Sprintf("local-request-%d", i)], "missing local-request-%d", i)
+	}
+
+	assert.NotEmpty(t, obs.SortNonce)
+
+	// Verify the serialized observation fits within the max observation size limit (512 KB).
+	maxObservationBytes := 512 * 1000
+	assert.LessOrEqual(t, len(data), maxObservationBytes,
+		"observation size %d exceeds max observation limit %d", len(data), maxObservationBytes)
+}
+
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name     string
@@ -1287,6 +1466,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		r := &ReportingPlugin{
 			lggr:          lggr,
 			store:         store,
+			metrics: newTestMetrics(t),
 			marshalBlob:   mockMarshalBlob,
 			unmarshalBlob: mockUnmarshalBlob,
 			cfg: makeReportingPluginConfig(
@@ -1317,7 +1497,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		}
 		anyp, err := anypb.New(p)
 		require.NoError(t, err)
-		err = NewWriteStore(rdr).WritePendingQueue(
+		err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
@@ -1353,6 +1533,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1392,7 +1573,7 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1430,8 +1611,9 @@ func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *te
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -1545,6 +1727,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1581,7 +1764,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext(t *testing.T)
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1615,6 +1798,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1652,7 +1836,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1692,6 +1876,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1734,7 +1919,7 @@ func TestPlugin_Observation_CreateSecretsRequest_InvalidCiphertext_EncryptedWith
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1770,6 +1955,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretLabelIsInvalid(t *testing
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1819,7 +2005,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretLabelIsInvalid(t *testing
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1851,6 +2037,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretLabelIsInvalid(t *testing
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -1900,7 +2087,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretLabelIsInvalid(t *testing
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -1930,8 +2117,9 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -1955,8 +2143,8 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 		Namespace: "main",
 		Key:       "secret",
 	}
-	kvstore := NewWriteStore(rdr)
-	err = kvstore.WriteMetadata(id.Owner, &vaultcommon.StoredMetadata{
+	kvstore := newTestWriteStore(t, rdr)
+	err = kvstore.WriteMetadata(t.Context(), id.Owner,&vaultcommon.StoredMetadata{
 		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
 				Owner:     "owner",
@@ -2021,8 +2209,9 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2046,8 +2235,8 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 		Namespace: "main",
 		Key:       "secret",
 	}
-	kvstore := NewWriteStore(rdr)
-	err = kvstore.WriteSecret(id, &vaultcommon.StoredSecret{
+	kvstore := newTestWriteStore(t, rdr)
+	err = kvstore.WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("some-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -2108,6 +2297,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -2149,7 +2339,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -2332,6 +2522,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2408,6 +2599,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 			F: 3,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2480,6 +2672,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2569,6 +2762,7 @@ func TestPlugin_ValidateObservations_IncludesAllItemsInPendingQueue(t *testing.T
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2613,7 +2807,7 @@ func TestPlugin_ValidateObservations_IncludesAllItemsInPendingQueue(t *testing.T
 	}
 	anyg, err := anypb.New(g)
 	require.NoError(t, err)
-	err = NewWriteStore(kv).WritePendingQueue(
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: vaulttypes.KeyFor(id), Item: anyd},
 			{Id: vaulttypes.KeyFor(id2), Item: anyg},
@@ -2672,6 +2866,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2731,6 +2926,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2814,6 +3010,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -2893,6 +3090,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3037,6 +3235,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3055,7 +3254,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -3114,7 +3313,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetCreateSecretsResponse()), o.GetCreateSecretsResponse())
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 
 	assert.Equal(t, ss.EncryptedSecret, []byte("encrypted-value"))
@@ -3208,6 +3407,7 @@ func TestPlugin_Reports(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3303,6 +3503,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 		r := &ReportingPlugin{
 			lggr:          lggr,
 			store:         store,
+			metrics: newTestMetrics(t),
 			marshalBlob:   mockMarshalBlob,
 			unmarshalBlob: mockUnmarshalBlob,
 			cfg: makeReportingPluginConfig(
@@ -3333,7 +3534,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 		}
 		anyp, err := anypb.New(p)
 		require.NoError(t, err)
-		err = NewWriteStore(rdr).WritePendingQueue(
+		err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 			[]*vaultcommon.StoredPendingQueueItem{
 				{Id: "request-1", Item: anyp},
 			},
@@ -3369,6 +3570,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -3408,7 +3610,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_DisallowsDuplicateRequests(t *t
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -3446,6 +3648,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -3482,7 +3685,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext(t *testing.T)
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -3516,6 +3719,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -3553,7 +3757,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_TooLong(t *te
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -3593,6 +3797,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -3635,7 +3840,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_InvalidCiphertext_EncryptedWith
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -3675,6 +3880,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3693,7 +3899,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -3752,7 +3958,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetUpdateSecretsResponse()), o.GetUpdateSecretsResponse())
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -3771,6 +3977,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3808,7 +4015,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 			},
 		},
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	value := []byte("encrypted-value")
 	enc := hex.EncodeToString(value)
@@ -3863,7 +4070,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetUpdateSecretsResponse()), o.GetUpdateSecretsResponse())
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.NotNil(t, ss)
 
@@ -3927,6 +4134,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -3967,6 +4175,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4021,7 +4230,7 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4053,6 +4262,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4086,7 +4296,7 @@ func TestPlugin_Observation_DeleteSecrets_IdDoesntExist(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4118,6 +4328,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4152,7 +4363,7 @@ func TestPlugin_Observation_DeleteSecrets_InvalidRequestDuplicateIds(t *testing.
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4194,6 +4405,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -4238,7 +4450,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			},
 		},
 	}
-	rs := NewReadStore(rdr)
+	rs := newTestReadStore(t, rdr)
 
 	req := &vaultcommon.DeleteSecretsRequest{
 		RequestId: "request-id",
@@ -4285,7 +4497,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()))
 
-	ss, err = rs.GetSecret(id)
+	ss, err = rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -4304,6 +4516,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -4337,7 +4550,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 			},
 		},
 	}
-	rs := NewReadStore(rdr)
+	rs := newTestReadStore(t, rdr)
 
 	req := &vaultcommon.DeleteSecretsRequest{
 		RequestId: "request-id",
@@ -4384,7 +4597,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	}
 	assert.True(t, proto.Equal(expectedResp, o.GetDeleteSecretsResponse()), o.GetDeleteSecretsResponse())
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -4441,6 +4654,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -4481,6 +4695,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4507,7 +4722,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_OwnerRequired(t *testing.T) {
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4538,6 +4753,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4590,7 +4806,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4641,6 +4857,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	r := &ReportingPlugin{
 		lggr:          lggr,
 		store:         store,
+		metrics:       newTestMetrics(t),
 		marshalBlob:   mockMarshalBlob,
 		unmarshalBlob: mockUnmarshalBlob,
 		cfg: makeReportingPluginConfig(
@@ -4694,7 +4911,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -4780,6 +4997,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -4826,6 +5044,7 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -4844,7 +5063,7 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -4883,7 +5102,7 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 
 	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -4911,8 +5130,9 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5052,7 +5272,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 
 	assert.Empty(t, os.Outcomes)
 
-	pq, err := NewReadStore(rdr).GetPendingQueue()
+	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, pq, 3)
 
@@ -5070,8 +5290,9 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5203,7 +5424,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_LimitedToBatchSize(t *testing
 
 	assert.Empty(t, os.Outcomes)
 
-	pq, err := NewReadStore(rdr).GetPendingQueue()
+	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, pq, 1)
 
@@ -5222,8 +5443,9 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5294,7 +5516,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 
 	assert.Empty(t, os.Outcomes)
 
-	pq, err := NewReadStore(rdr).GetPendingQueue()
+	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, pq, 0)
 
@@ -5313,8 +5535,9 @@ func TestPlugin_ValidateObservation_RejectsIfMoreThan2xBatchSize(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5403,8 +5626,9 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 
 	batchSize := 1 // MaxBatchSize=1, so 2*batchSize=2 is the intended max pending queue items
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5480,8 +5704,9 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5543,7 +5768,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	anyp, err := anypb.New(req)
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -5759,8 +5984,9 @@ func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -5824,7 +6050,7 @@ func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 	anyp, err := anypb.New(req)
 	require.NoError(t, err)
 
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyp},
 		},
@@ -5871,8 +6097,9 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -6072,7 +6299,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			err = NewWriteStore(rdr).WritePendingQueue(
+			err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 				[]*vaultcommon.StoredPendingQueueItem{
 					{Id: "request-1", Item: anyp},
 				},
@@ -6109,8 +6336,9 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 
 	// maxCipherTextLengthBytes = 10 bytes, so any ciphertext > 10 decoded bytes should be rejected
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -6295,7 +6523,7 @@ func TestPlugin_ValidateObservation_CiphertextSize(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			err = NewWriteStore(rdr).WritePendingQueue(
+			err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 				[]*vaultcommon.StoredPendingQueueItem{
 					{Id: "request-1", Item: anyp},
 				},
@@ -6340,6 +6568,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -6358,7 +6587,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -6395,7 +6624,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 	assert.True(t, proto.Equal(req, o.GetListSecretIdentifiersRequest()))
 	assert.True(t, proto.Equal(resp, o.GetListSecretIdentifiersResponse()))
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -6414,6 +6643,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 			F: 1,
 		},
 		store: store,
+		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
 			10,
@@ -6432,7 +6662,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	rs := NewReadStore(kv)
+	rs := newTestReadStore(t, kv)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
@@ -6483,7 +6713,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 	assert.True(t, proto.Equal(req, o.GetGetSecretsRequest()))
 	assert.True(t, proto.Equal(resp, o.GetGetSecretsResponse()))
 
-	ss, err := rs.GetSecret(id)
+	ss, err := rs.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	require.Nil(t, ss)
 
@@ -6629,6 +6859,7 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 			r := &ReportingPlugin{
 				lggr:  lggr,
 				store: store,
+				metrics: newTestMetrics(t),
 				onchainCfg: ocr3types.ReportingPluginConfig{
 					N: 4,
 					F: 1,
@@ -6682,8 +6913,9 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := &ReportingPlugin{
-		lggr:  lggr,
-		store: store,
+		lggr:    lggr,
+		store:   store,
+		metrics: newTestMetrics(t),
 		onchainCfg: ocr3types.ReportingPluginConfig{
 			N: 4,
 			F: 1,
@@ -6731,7 +6963,7 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 	rdr := &kv{m: make(map[string]response)}
 	anyReq, err := anypb.New(listReq)
 	require.NoError(t, err)
-	err = NewWriteStore(rdr).WritePendingQueue(
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
 		[]*vaultcommon.StoredPendingQueueItem{
 			{Id: "request-1", Item: anyReq},
 		},
