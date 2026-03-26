@@ -1,7 +1,9 @@
 ##
 # Build image: Chainlink binary with plugins.
 ##
-FROM golang:1.25.7-bookworm AS buildgo
+
+# Stage: Dependencies - module downloads and source
+FROM golang:1.25.7-bookworm AS deps
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
@@ -41,24 +43,19 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
 
 COPY . .
 
-# Install Delve for debugging
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+# Stage: Delve debugger (runs in parallel with plugins and chainlink)
+FROM deps AS build-delve
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
-# Flag to control installation of private plugins (default: true).
+# Stage: Plugins (runs in parallel with delve and chainlink)
+FROM deps AS build-plugins
 ARG CL_INSTALL_PRIVATE_PLUGINS=true
-# Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
-# Env vars needed for chainlink build
-ARG COMMIT_SHA
-ARG VERSION_TAG
-# Flag to control whether this is a prod build (default: true)
-ARG CL_IS_PROD_BUILD=true
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/root/.cache/go-build,id=go-build-plugins \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
@@ -71,14 +68,19 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi
 
-# Copy any shared libraries.
 RUN mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
     "$CL_LOOPINSTALL_OUTPUT_DIR" \
     /tmp/lib
 
-# Build chainlink.
-RUN --mount=type=cache,target=/root/.cache/go-build \
+# Stage: Chainlink binary (runs in parallel with delve and plugins)
+FROM deps AS build-chainlink
+ARG COMMIT_SHA
+ARG VERSION_TAG
+ARG CL_IS_PROD_BUILD=true
+
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-chainlink \
+    mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
       else \
@@ -120,12 +122,13 @@ COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
-# Copy the binaries from the build stage (plugins + chainlink).
-COPY --from=buildgo /gobins/ /usr/local/bin/
-# Copy shared libraries from the build stage.
-COPY --from=buildgo /tmp/lib /usr/lib/
+# Copy the binaries from the parallel build stages.
+COPY --from=build-plugins /gobins/ /usr/local/bin/
+COPY --from=build-chainlink /gobins/ /usr/local/bin/
+# Copy shared libraries from the plugins build stage.
+COPY --from=build-plugins /tmp/lib /usr/lib/
 # Copy dlv (Delve debugger) from the build stage.
-COPY --from=buildgo /go/bin/dlv /usr/local/bin/
+COPY --from=build-delve /go/bin/dlv /usr/local/bin/
 
 
 WORKDIR /home/${CHAINLINK_USER}
