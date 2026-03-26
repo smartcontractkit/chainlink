@@ -88,7 +88,7 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.11.1
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10
-	github.com/smartcontractkit/chainlink-data-streams v0.1.13
+	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260326134153-d6bf0945a0cd
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260320152158-2191d797b5ce
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260107191744-4b93f62cffe3
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c

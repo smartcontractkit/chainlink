@@ -50,7 +50,7 @@ func (r *ReportCodecCapabilityTriggerOpts) Decode(opts []byte) error {
 		return nil
 	}
 	decoder := json.NewDecoder(bytes.NewReader(opts))
-	decoder.DisallowUnknownFields() // Error on unrecognized fields
+	// decoder.DisallowUnknownFields() // Error on unrecognized fields
 	return decoder.Decode(r)
 }
 
