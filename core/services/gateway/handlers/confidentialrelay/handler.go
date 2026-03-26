@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"strconv"
 	"sync"
 	"time"
@@ -306,8 +305,11 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
 		return nil
+	case errors.Is(err, errQuorumUnobtainable):
+		l.Errorw("quorum unobtainable, returning error to user", "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	case err != nil:
-		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
+		l.Errorw("unexpected aggregation error", "error", err)
 		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	}
 
