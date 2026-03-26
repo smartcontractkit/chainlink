@@ -15,6 +15,34 @@ COPY tools/bin/ldflags ./tools/bin/
 ADD go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
+
+# Apply dependency overrides if specified (comma-separated: dep1=sha1,dep2=sha2)
+ARG GO_OVERRIDE_DEPS
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    set -eo pipefail && \
+    if [ -n "$GO_OVERRIDE_DEPS" ]; then \
+        export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
+        if [ -f /run/secrets/GIT_AUTH_TOKEN ] && [ -s /run/secrets/GIT_AUTH_TOKEN ]; then \
+            TOKEN=$(cat /run/secrets/GIT_AUTH_TOKEN) && \
+            git config --file "$GIT_CONFIG_GLOBAL" \
+              url."https://oauth2:${TOKEN}@github.com/".insteadOf "https://github.com/"; \
+        fi && \
+        IFS=',' && \
+        for entry in $GO_OVERRIDE_DEPS; do \
+            dep="${entry%%=*}" && \
+            sha="${entry#*=}" && \
+            [ -z "$dep" ] && continue; \
+            [ -z "$sha" ] && continue; \
+            echo "Overriding: github.com/smartcontractkit/${dep}@${sha}" && \
+            go get "github.com/smartcontractkit/${dep}@${sha}"; \
+        done && \
+        unset IFS && \
+        go mod tidy && \
+        go mod download && \
+        rm -f "$GIT_CONFIG_GLOBAL"; \
+    fi
+
 COPY . .
 
 # Install Delve for debugging with cache mounts
