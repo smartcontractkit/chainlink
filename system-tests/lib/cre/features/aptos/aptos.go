@@ -150,7 +150,7 @@ func (a *Aptos) PreEnvStartup(
 				CapabilityType: 1,
 			},
 			Config:             capConfig,
-			UseCapRegOCRConfig: true,
+			UseCapRegOCRConfig: false,
 		})
 		capabilityLabels = append(capabilityLabels, labelledName)
 		capabilityToOCR3Config[labelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
