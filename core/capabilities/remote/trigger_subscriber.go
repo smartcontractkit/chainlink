@@ -121,9 +121,6 @@ func (s *triggerSubscriber) Start(ctx context.Context) error {
 	}
 
 	s.wg.Add(2)
-	// Keep periodic re-registration as a fallback for mixed-version rollouts where
-	// the publisher may not yet support MethodTriggerRegistrationCheck.
-	// TODO(CRE-2314): remove registrationLoop once all publishers send registration checks.
 	go s.registrationLoop()
 	go s.eventCleanupLoop()
 	s.lggr.Info("TriggerSubscriber started")
@@ -206,6 +203,48 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 	s.resendRegistration(request.Metadata.WorkflowID, request.TriggerID)
 
 	return callbackCh, nil
+}
+
+func (s *triggerSubscriber) registrationLoop() {
+	defer s.wg.Done()
+	cfg := s.cfg.Load()
+	tickerDuration := cfg.remoteConfig.RegistrationRefresh
+	ticker := time.NewTicker(tickerDuration)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		case <-ticker.C:
+			cfg := s.cfg.Load()
+			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
+				tickerDuration = cfg.remoteConfig.RegistrationRefresh
+				ticker.Reset(tickerDuration)
+			}
+
+			s.mu.RLock()
+			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
+			for _, regMap := range s.registeredWorkflows {
+				for _, registration := range regMap {
+					for _, peerID := range cfg.capDonInfo.Members {
+						m := &types.MessageBody{
+							CapabilityId:     cfg.capInfo.ID,
+							CapabilityDonId:  cfg.capDonInfo.ID,
+							CallerDonId:      cfg.localDonID,
+							Method:           types.MethodRegisterTrigger,
+							Payload:          registration.rawRequest,
+							CapabilityMethod: s.capMethodName,
+						}
+						err := s.dispatcher.Send(peerID, m)
+						if err != nil {
+							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+						}
+					}
+				}
+			}
+			s.mu.RUnlock()
+		}
+	}
 }
 
 func (s *triggerSubscriber) UnregisterTrigger(ctx context.Context, request commoncap.TriggerRegistrationRequest) error {
@@ -312,11 +351,10 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 		if len(meta.WorkflowIds) != len(meta.TriggerIds) {
-			s.lggr.Errorw("received registration check with mismatched metadata",
+			s.lggr.Warnw("received registration check with mismatched metadata",
 				"sender", sender,
 				"workflowIdsLen", len(meta.WorkflowIds),
 				"triggerIdsLen", len(meta.TriggerIds))
-			return
 		}
 
 		for i, workflowID := range meta.WorkflowIds {
@@ -335,52 +373,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
-	}
-}
-
-// registrationLoop periodically re-sends all trigger registrations to the publisher.
-// This ensures registrations survive publisher restarts and mixed-version rollouts
-// where the publisher may not yet send MethodTriggerRegistrationCheck.
-// TODO(CRE-2314): remove once all publishers support reverse registration checking.
-func (s *triggerSubscriber) registrationLoop() {
-	defer s.wg.Done()
-	cfg := s.cfg.Load()
-	tickerDuration := cfg.remoteConfig.RegistrationRefresh
-	ticker := time.NewTicker(tickerDuration)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-s.stopCh:
-			return
-		case <-ticker.C:
-			cfg := s.cfg.Load()
-			if cfg.remoteConfig.RegistrationRefresh != tickerDuration {
-				tickerDuration = cfg.remoteConfig.RegistrationRefresh
-				ticker.Reset(tickerDuration)
-			}
-
-			s.mu.RLock()
-			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
-			for _, regMap := range s.registeredWorkflows {
-				for _, registration := range regMap {
-					for _, peerID := range cfg.capDonInfo.Members {
-						m := &types.MessageBody{
-							CapabilityId:     cfg.capInfo.ID,
-							CapabilityDonId:  cfg.capDonInfo.ID,
-							CallerDonId:      cfg.localDonID,
-							Method:           types.MethodRegisterTrigger,
-							Payload:          registration.rawRequest,
-							CapabilityMethod: s.capMethodName,
-						}
-						err := s.dispatcher.Send(peerID, m)
-						if err != nil {
-							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
-						}
-					}
-				}
-			}
-			s.mu.RUnlock()
-		}
 	}
 }
 

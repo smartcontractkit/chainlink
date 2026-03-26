@@ -342,7 +342,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		case awaitRegistrationMessageCh <- struct{}{}:
 		default:
 		}
-	}).Maybe()
+	})
 
 	err = launcher.OnNewRegistry(ctx, localRegistry)
 	require.NoError(t, err)
@@ -372,7 +372,6 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	}
 	triggerEventCallbackCh, err := remoteTriggerSubscriber.RegisterTrigger(ctx, req)
 	require.NoError(t, err)
-
 	<-awaitRegistrationMessageCh
 
 	// Receive trigger event
