@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,10 +36,11 @@ type ExecutionHelper struct {
 	TimeProvider
 	SecretsFetcher
 
-	chainAllowed limits.GateLimiter
-	callLimiters map[capCall]limits.BoundLimiter[int]
-	mu           sync.Mutex
-	callCounts   map[limits.Limiter[int]]int
+	chainAllowed        limits.GateLimiter
+	callLimiters        map[capCall]limits.BoundLimiter[int]
+	mu                  sync.Mutex
+	callCounts          map[limits.Limiter[int]]int
+	failedCapabilityIDs sync.Map
 }
 
 func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
@@ -208,6 +210,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	executionDuration := time.Since(executionStart)
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
+		c.failedCapabilityIDs.Store(request.Id, struct{}{})
 		var capabilityError caperrors.Error
 		if errors.As(err, &capabilityError) {
 			if capabilityError.Origin() == caperrors.OriginUser {
@@ -245,6 +248,15 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			Payload: capResp.Payload,
 		},
 	}, nil
+}
+
+func (c *ExecutionHelper) FailedCapabilityIDs() string {
+	var ids []string
+	c.failedCapabilityIDs.Range(func(key, _ any) bool {
+		ids = append(ids, key.(string))
+		return true
+	})
+	return strings.Join(ids, ",")
 }
 
 func (c *ExecutionHelper) GetWorkflowExecutionID() string {

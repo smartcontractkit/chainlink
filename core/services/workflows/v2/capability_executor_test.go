@@ -1,8 +1,11 @@
 package v2
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -50,4 +53,37 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	// Call and expect an error from the bound limiter (limit exceeded)
 	_, err = exec.CallCapability(t.Context(), req)
 	require.Error(t, err, "expected CallCapability to fail when per-workflow confidential-http call limit is exceeded")
+}
+
+func TestExecutionHelper_FailedCapabilityIDs(t *testing.T) {
+	t.Parallel()
+
+	t.Run("empty when no failures", func(t *testing.T) {
+		exec := &ExecutionHelper{}
+		assert.Equal(t, "", exec.FailedCapabilityIDs())
+	})
+
+	t.Run("records single failed capability", func(t *testing.T) {
+		exec := &ExecutionHelper{}
+		exec.failedCapabilityIDs.Store("evm@1.0.0", struct{}{})
+		assert.Equal(t, "evm@1.0.0", exec.FailedCapabilityIDs())
+	})
+
+	t.Run("deduplicates same capability", func(t *testing.T) {
+		exec := &ExecutionHelper{}
+		exec.failedCapabilityIDs.Store("evm@1.0.0", struct{}{})
+		exec.failedCapabilityIDs.Store("evm@1.0.0", struct{}{})
+		assert.Equal(t, "evm@1.0.0", exec.FailedCapabilityIDs())
+	})
+
+	t.Run("records multiple failed capabilities", func(t *testing.T) {
+		exec := &ExecutionHelper{}
+		exec.failedCapabilityIDs.Store("evm@1.0.0", struct{}{})
+		exec.failedCapabilityIDs.Store("confidential-http@1.0.0", struct{}{})
+
+		result := exec.FailedCapabilityIDs()
+		ids := strings.Split(result, ",")
+		sort.Strings(ids)
+		assert.Equal(t, []string{"confidential-http@1.0.0", "evm@1.0.0"}, ids)
+	})
 }

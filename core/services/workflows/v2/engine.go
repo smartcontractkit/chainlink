@@ -837,9 +837,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if len(result.GetError()) > 0 {
 		executionStatus = store.StatusErrored
 		execErr = errors.New(result.GetError())
+		failedCapIDs := execHelper.FailedCapabilityIDs()
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
-		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
-		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
+		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String(), platform.KeyCapabilityID, failedCapIDs).IncrementWorkflowExecutionFailedCounter(ctx)
+		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), platform.KeyCapabilityID, failedCapIDs, "error", result.GetError())
 		return
 	}
 
