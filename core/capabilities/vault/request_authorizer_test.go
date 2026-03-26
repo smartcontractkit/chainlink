@@ -218,7 +218,7 @@ func TestRequestAuthorizer_RetriesAllowlistReadsUntilDigestAppears(t *testing.T)
 		{
 			RequestDigest:   [32]byte(digestBytes),
 			Owner:           owner,
-			ExpiryTimestamp: uint32(time.Now().UTC().Unix() + 100), //nolint:gosec
+			ExpiryTimestamp: uint32(time.Now().UTC().Unix() + 100), //nolint:gosec // test fixture expiry is bounded and safe here
 		},
 	}
 
