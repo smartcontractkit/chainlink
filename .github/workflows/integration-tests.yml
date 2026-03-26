@@ -876,7 +876,7 @@ jobs:
     with:
       solana_ref: ${{ needs.get-solana-sha.outputs.sha }}
       ecr_repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      image_tag: ${{ needs.build-chainlink.outputs.core-tag }}
     secrets:
       aws_account_id: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       aws_region: ${{ secrets.QA_AWS_REGION }}
