@@ -213,12 +213,16 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    outputs:
+      core-tag: ${{ steps.image-tag.outputs.core-tag }}
+      plugins-tag: ${{ steps.image-tag.outputs.plugins-tag }}
     strategy:
       matrix:
         image:
           - name: ""
             runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
+            output-key: core-tag
             tag-suffix: ""
             # todo: optimize this conditional
             should-build: >-
@@ -232,6 +236,7 @@ jobs:
           - name: (plugins)
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
+            output-key: plugins-tag
             tag-suffix: -plugins
             # todo: optimize this conditional
             should-build: >-
@@ -271,6 +276,30 @@ jobs:
             echo "image-exists: ${IMAGE_EXISTS}"
           fi
 
+      - name: Build image tag
+        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
+        id: image-tag
+        env:
+          OUTPUT_KEY: ${{ matrix.image.output-key }}
+          REF: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
+          TAG_SUFFIX: ${{ matrix.image.tag-suffix }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          event="event"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            event="push"
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            event="pr"
+          elif [[ "$EVENT_NAME" == "merge_group" ]]; then
+            event="mg"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            event="wd"
+          fi
+
+          IMAGE_TAG="${event}-${REF}${TAG_SUFFIX}"
+          echo "image-tag=${IMAGE_TAG}" | tee -a "${GITHUB_OUTPUT}"
+          echo "${OUTPUT_KEY}=${IMAGE_TAG}" | tee -a "${GITHUB_OUTPUT}"
+
       - name: Checkout the repo
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
         uses: actions/checkout@v4
@@ -283,7 +312,7 @@ jobs:
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
+          image-tag: ${{ steps.image-tag.outputs.image-tag }}
           dockerfile: ${{ matrix.image.dockerfile }}
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
@@ -384,7 +413,7 @@ jobs:
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      chainlink_image_tag: ${{ needs.build-chainlink.outputs.core-tag }}
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
@@ -401,7 +430,7 @@ jobs:
     with:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      chainlink_image_tag: ${{ needs.build-chainlink.outputs.core-tag }}
     secrets: inherit
 
   run-core-e2e-tests-setup:
@@ -472,7 +501,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ needs.build-chainlink.outputs.core-tag }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-core-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
@@ -571,7 +600,7 @@ jobs:
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_version: ${{ needs.build-chainlink.outputs.core-tag }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-ccip-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
