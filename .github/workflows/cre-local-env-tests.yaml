@@ -244,7 +244,6 @@ jobs:
           go run . env swap nodes
 
       - name: Execute example PoR workflow
-        if: false # TODO: Migrate example test to V2 and run here (DX-3233)
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |

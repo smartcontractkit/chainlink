@@ -1,15 +1,11 @@
 package test_env
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -25,8 +21,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	d "github.com/smartcontractkit/chainlink/integration-tests/docker"
 )
 
 var ErrFundCLNode = "failed to fund CL node"
@@ -210,85 +204,6 @@ func (te *CLClusterTestEnv) Cleanup(opts CleanupOpts) error {
 	}
 
 	te.logWhetherAllContainersAreRunning()
-
-	err := te.handleNodeCoverageReports(opts.TestName)
-	if err != nil {
-		te.l.Error().Err(err).Msg("Error handling node coverage reports")
-	}
-
-	return nil
-}
-
-// handleNodeCoverageReports handles the coverage reports for the chainlink nodes
-func (te *CLClusterTestEnv) handleNodeCoverageReports(testName string) error {
-	testName = strings.ReplaceAll(testName, "/", "_")
-	showHTMLCoverageReport := te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport != nil && *te.TestConfig.GetLoggingConfig().ShowHTMLCoverageReport
-	isCI := os.Getenv("CI") != ""
-
-	te.l.Info().
-		Bool("showCoverageReportFlag", showHTMLCoverageReport).
-		Bool("isCI", isCI).
-		Bool("show", showHTMLCoverageReport || isCI).
-		Msg("Checking if coverage report should be shown")
-
-	var covHelper *d.NodeCoverageHelper
-
-	if showHTMLCoverageReport || isCI {
-		// Stop all nodes in the chainlink cluster.
-		// This is needed to get go coverage profile from the node containers https://go.dev/doc/build-cover#FAQ
-		// TODO: fix this as it results in: ERR LOG AFTER TEST ENDED ... INF 🐳 Stopping container
-		err := te.ClCluster.Stop()
-		if err != nil {
-			return err
-		}
-
-		clDir, err := getChainlinkDir()
-		if err != nil {
-			return err
-		}
-
-		var coverageRootDir string
-		if os.Getenv("GO_COVERAGE_DEST_DIR") != "" {
-			coverageRootDir = filepath.Join(os.Getenv("GO_COVERAGE_DEST_DIR"), testName)
-		} else {
-			coverageRootDir = filepath.Join(clDir, ".covdata", testName)
-		}
-
-		var containers []tc.Container
-		for _, node := range te.ClCluster.Nodes {
-			containers = append(containers, node.Container)
-		}
-
-		// there might be some corner cases where Docker daemon is not responding
-		// exit the test early if we can't connect to the container in under 1 minute
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		defer cancel()
-
-		covHelper, err = d.NewNodeCoverageHelper(ctx, containers, clDir, coverageRootDir)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Show html coverage report when flag is set (local runs)
-	if showHTMLCoverageReport {
-		path, err := covHelper.SaveMergedHTMLReport()
-		if err != nil {
-			return err
-		}
-		te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage html report saved")
-	}
-
-	// Save percentage coverage report when running in CI
-	if isCI {
-		// Save coverage percentage to a file to show in the CI
-		path, err := covHelper.SaveMergedCoveragePercentage()
-		if err != nil {
-			te.l.Error().Err(err).Str("testName", testName).Msg("Failed to save coverage percentage for test")
-		} else {
-			te.l.Info().Str("testName", testName).Str("filePath", path).Msg("Chainlink node coverage percentage report saved")
-		}
-	}
 
 	return nil
 }
