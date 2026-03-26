@@ -2,7 +2,6 @@ package confidentialrelay
 
 import (
 	"context"
-	"fmt"
 
 	tomlser "github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
@@ -60,22 +59,7 @@ func (o *ConfidentialRelay) PreEnvStartup(
 			}
 
 			enabled := true
-			relayConf := &coretoml.ConfidentialRelayConfig{Enabled: &enabled}
-			if v, exists := capConfig.Values["trustedPCRs"]; exists {
-				s, ok := v.(string)
-				if !ok {
-					return nil, fmt.Errorf("trustedPCRs must be a string, got %T", v)
-				}
-				relayConf.TrustedPCRs = &s
-			}
-			if v, exists := capConfig.Values["caRootsPEM"]; exists {
-				s, ok := v.(string)
-				if !ok {
-					return nil, fmt.Errorf("caRootsPEM must be a string, got %T", v)
-				}
-				relayConf.CARootsPEM = &s
-			}
-			typedConfig.CRE.ConfidentialRelay = relayConf
+			typedConfig.CRE.ConfidentialRelay = &coretoml.ConfidentialRelayConfig{Enabled: &enabled}
 
 			out, err := tomlser.Marshal(typedConfig)
 			if err != nil {
