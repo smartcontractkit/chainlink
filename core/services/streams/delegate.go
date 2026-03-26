@@ -83,7 +83,7 @@ func ValidatedStreamSpec(tomlString string) (job.Job, error) {
 
 	r := strings.NewReader(tomlString)
 	d := toml.NewDecoder(r)
-	d.DisallowUnknownFields()
+	// d.DisallowUnknownFields()
 	err := d.Decode(&jb)
 	if err != nil {
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
