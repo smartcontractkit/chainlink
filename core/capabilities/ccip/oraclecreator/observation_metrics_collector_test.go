@@ -498,6 +498,46 @@ func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
 	assert.InEpsilon(t, 1.0, mockPub.getMetrics()[1].value, 0.01)
 }
 
+// TestObservationMetricsCollector_CloseStopsPolling verifies that Close stops the background
+// goroutine and no further publishes occur even if the counter keeps incrementing.
+func TestObservationMetricsCollector_CloseStopsPolling(t *testing.T) {
+	lggr, err := logger.New()
+	require.NoError(t, err)
+
+	mockPub := &mockPublisher{}
+	collector := NewObservationMetricsCollector(lggr, mockPub,
+		map[string]string{"name": "commit-1234"},
+		map[string]string{"pluginType": "commit"},
+	)
+
+	registry := prometheus.NewRegistry()
+	wrappedRegisterer := collector.CreateWrappedRegisterer(registry)
+
+	sentCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ocr3_sent_observations_total",
+		Help: "Test counter",
+	})
+	require.NoError(t, wrappedRegisterer.Register(sentCounter))
+
+	sentCounter.Inc()
+
+	const pollInterval = 50 * time.Millisecond
+	collector.Start(pollInterval)
+
+	// Wait for the first publish.
+	require.Eventually(t, func() bool {
+		return len(mockPub.getMetrics()) > 0
+	}, 500*time.Millisecond, 10*time.Millisecond)
+
+	require.NoError(t, collector.Close())
+
+	// Increment again after Close — the poller should no longer be running.
+	sentCounter.Inc()
+	time.Sleep(3 * pollInterval)
+
+	assert.Len(t, mockPub.getMetrics(), 1, "no new publishes expected after Close")
+}
+
 // TestObservationMetricsCollector_Close verifies proper cleanup
 func TestObservationMetricsCollector_Close(t *testing.T) {
 	lggr, err := logger.New()

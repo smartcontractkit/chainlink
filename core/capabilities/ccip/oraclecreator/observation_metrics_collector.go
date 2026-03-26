@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,8 +28,8 @@ type ObservationMetricsPublisher interface {
 type ObservationMetricsCollector struct {
 	logger         logger.Logger
 	publisher      ObservationMetricsPublisher
-	ctx            context.Context
-	cancel         context.CancelFunc
+	stop           chan struct{}
+	stopOnce       sync.Once
 	constantLabels map[string]string // Prometheus labels (for WrapRegistererWith)
 	beholderLabels map[string]string // Beholder labels (for metrics publishing)
 
@@ -44,13 +45,10 @@ func NewObservationMetricsCollector(
 	constantLabels map[string]string,
 	beholderLabels map[string]string,
 ) *ObservationMetricsCollector {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	collector := &ObservationMetricsCollector{
 		logger:         logger,
 		publisher:      publisher,
-		ctx:            ctx,
-		cancel:         cancel,
+		stop:           make(chan struct{}),
 		constantLabels: constantLabels,
 		beholderLabels: beholderLabels,
 	}
@@ -71,6 +69,9 @@ func (c *ObservationMetricsCollector) CreateWrappedRegisterer(baseRegisterer pro
 // Call Start after the wrapped registerer has been passed to libocr (i.e. after NewOracle),
 // so that the counters are already registered before the first poll fires.
 func (c *ObservationMetricsCollector) Start(interval time.Duration) {
+	if interval <= 0 {
+		interval = defaultPollingInterval
+	}
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
@@ -78,7 +79,7 @@ func (c *ObservationMetricsCollector) Start(interval time.Duration) {
 			select {
 			case <-ticker.C:
 				c.poll()
-			case <-c.ctx.Done():
+			case <-c.stop:
 				return
 			}
 		}
@@ -99,9 +100,9 @@ func (c *ObservationMetricsCollector) poll() {
 	}
 }
 
-// Close stops the collector
+// Close stops the background polling goroutine. Safe to call multiple times.
 func (c *ObservationMetricsCollector) Close() error {
-	c.cancel()
+	c.stopOnce.Do(func() { close(c.stop) })
 	return nil
 }
 
@@ -132,26 +133,29 @@ func (w *wrappedCounter) Collect(ch chan<- prometheus.Metric) {
 		// Try to extract the counter value from the metric
 		var metricValue float64
 		if err := extractCounterValue(m, &metricValue); err == nil {
-			// Load the last value atomically
-			lastBits := atomic.LoadUint64(&w.lastValueBits)
-			lastValue := math.Float64frombits(lastBits)
-
-			if metricValue > lastValue {
-				delta := metricValue - lastValue
-				// Store the new value atomically
-				atomic.StoreUint64(&w.lastValueBits, math.Float64bits(metricValue))
-
-				w.logger.Debugw("Observation metric incremented",
-					"metric", w.metricName,
-					"value", metricValue,
-					"delta", delta,
-					"labels", w.labels,
-				)
-
-				if w.publisher != nil {
-					// Publish the delta, not the cumulative value
-					w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
+			// CAS loop: ensures only one concurrent caller (background poll or Prometheus
+			// scrape) advances lastValueBits and publishes the delta for a given interval.
+			for {
+				lastBits := atomic.LoadUint64(&w.lastValueBits)
+				lastValue := math.Float64frombits(lastBits)
+				if metricValue <= lastValue {
+					break
 				}
+				newBits := math.Float64bits(metricValue)
+				if atomic.CompareAndSwapUint64(&w.lastValueBits, lastBits, newBits) {
+					delta := metricValue - lastValue
+					w.logger.Debugw("Observation metric incremented",
+						"metric", w.metricName,
+						"value", metricValue,
+						"delta", delta,
+						"labels", w.labels,
+					)
+					if w.publisher != nil {
+						w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
+					}
+					break
+				}
+				// CAS failed — another concurrent Collect advanced lastValueBits; retry.
 			}
 		}
 
