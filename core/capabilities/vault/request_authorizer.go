@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -19,16 +18,15 @@ type RequestAuthorizer interface {
 	AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error)
 }
 type requestAuthorizer struct {
-	workflowRegistrySyncer    workflowsyncerv2.WorkflowRegistrySyncer
-	alreadyAuthorizedRequests map[string]int64
-	alreadyAuthorizedMutex    sync.Mutex
-	lggr                      logger.Logger
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
+	replayGuard            *DigestReplayGuard
+	lggr                   logger.Logger
 }
 
 // AuthorizeRequest authorizes a request based on the request digest and the allowlisted requests.
 // It does NOT check if the request method is allowed.
 func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error) {
-	defer r.clearExpiredAuthorizedRequests()
+	defer r.replayGuard.ClearExpired()
 	r.lggr.Infow("AuthorizeRequest", "method", req.Method, "requestID", req.ID)
 	requestDigest, err := req.Digest()
 	if err != nil {
@@ -61,31 +59,21 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 			"allowedRequestsStrs", allowedRequestsStrs)
 		return false, "", errors.New("request not allowlisted")
 	}
-	authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])
 
-	r.alreadyAuthorizedMutex.Lock()
-	defer r.alreadyAuthorizedMutex.Unlock()
-	if r.alreadyAuthorizedRequests[authorizedRequestStr] > 0 {
-		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
-		return false, "", errors.New("request already authorized previously")
-	}
 	if time.Now().UTC().Unix() > int64(allowlistedRequest.ExpiryTimestamp) {
+		authorizedRequestStr := string(allowlistedRequest.RequestDigest[:])
 		r.lggr.Infow("AuthorizeRequest expired authorization", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
 		return false, "", errors.New("request authorization expired")
 	}
-	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", authorizedRequestStr)
-	r.alreadyAuthorizedRequests[authorizedRequestStr] = int64(allowlistedRequest.ExpiryTimestamp)
-	return true, allowlistedRequest.Owner.Hex(), nil
-}
 
-func (r *requestAuthorizer) clearExpiredAuthorizedRequests() {
-	r.alreadyAuthorizedMutex.Lock()
-	defer r.alreadyAuthorizedMutex.Unlock()
-	for request, expiry := range r.alreadyAuthorizedRequests {
-		if time.Now().UTC().Unix() > expiry {
-			delete(r.alreadyAuthorizedRequests, request)
-		}
+	digestKey := string(allowlistedRequest.RequestDigest[:])
+	if err := r.replayGuard.CheckAndRecord(digestKey, int64(allowlistedRequest.ExpiryTimestamp)); err != nil {
+		r.lggr.Infow("AuthorizeRequest already authorized previously", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", digestKey)
+		return false, "", err
 	}
+
+	r.lggr.Infow("AuthorizeRequest success in auth", "method", req.Method, "requestID", req.ID, "authorizedRequestStr", digestKey)
+	return true, allowlistedRequest.Owner.Hex(), nil
 }
 
 func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, digest [32]byte) *workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
@@ -99,8 +87,8 @@ func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_
 
 func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer) *requestAuthorizer {
 	return &requestAuthorizer{
-		workflowRegistrySyncer:    workflowRegistrySyncer,
-		lggr:                      logger.Named(lggr, "VaultRequestAuthorizer"),
-		alreadyAuthorizedRequests: make(map[string]int64),
+		workflowRegistrySyncer: workflowRegistrySyncer,
+		lggr:                   logger.Named(lggr, "VaultRequestAuthorizer"),
+		replayGuard:            NewDigestReplayGuard(),
 	}
 }
