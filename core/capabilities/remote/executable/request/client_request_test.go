@@ -249,7 +249,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
-			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "", nil)
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
