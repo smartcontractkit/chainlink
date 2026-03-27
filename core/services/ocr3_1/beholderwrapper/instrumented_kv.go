@@ -9,7 +9,7 @@ import (
 
 type instrumentedKVStateReader struct {
 	inner   ocr3_1types.KeyValueStateReader
-	ctx     context.Context
+	ctx     context.Context //nolint:containedctx // libocr 3.1's API doesn't support passing in ctx via the Read/Write method.
 	metrics *pluginMetrics
 }
 
