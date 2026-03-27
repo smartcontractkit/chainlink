@@ -290,11 +290,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
 
-	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
-	if configProto.BatchSize != 0 {
-		batchSize.DefaultValue = int(configProto.BatchSize)
-	}
-	cfg.MaxBatchSize, err = limits.MakeUpperBoundLimiter(r.limitsFactory, batchSize)
+	cfg.MaxBatchSize, err = limits.MakeUpperBoundLimiter(r.limitsFactory, cresettings.Default.VaultPluginBatchSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
@@ -384,6 +380,11 @@ func generateRandomNonce() ([]byte, error) {
 }
 
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("observation finished", "seqNr", seqNr, "elapsed", time.Since(start))
+	}()
+
 	readStore := NewReadStore(keyValueReader)
 
 	batch, err := readStore.GetPendingQueue()
@@ -514,6 +515,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	observedLocalQueue := make([][]byte, len(blobPayloads))
 	// Broadcast pending-queue blobs in parallel to reduce Observation() latency.
 	// Shortening this phase helps the OCR round finish within DeltaProgress.
+	blobBroadcastStart := time.Now()
+	defer func() {
+		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(blobPayloads), "elapsed", time.Since(blobBroadcastStart))
+	}()
 	g, broadcastCtx := errgroup.WithContext(ctx)
 	for i, payload := range blobPayloads {
 		g.Go(func() error {
