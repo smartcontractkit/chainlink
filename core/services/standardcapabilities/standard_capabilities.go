@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -118,7 +119,9 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				CRESettings:        s.creSettings,
 				TriggerEventStore:  s.triggerEventStore,
 			}
-			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
+
+			s.log.Infow("StandardCapabilities calling Initialise on capability service", "command", s.command)
+			if err = s.retryInitialiseUntilReady(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				return
 			}
@@ -134,6 +137,36 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 		return nil
 	})
+}
+
+// retryInitialiseUntilReady calls Initialise and retries on "empty local registry" or
+// "metadataRegistry information not available" so that capability init runs after the
+// registry syncer has pushed at least one non-empty local registry (startup race fix).
+const initRetryTimeout = 90 * time.Second
+const initRetryInterval = 3 * time.Second
+
+func (s *StandardCapabilities) retryInitialiseUntilReady(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
+	deadline := time.Now().Add(initRetryTimeout)
+	var lastErr error
+	for attempt := 0; time.Now().Before(deadline); attempt++ {
+		lastErr = s.capabilitiesLoop.Service.Initialise(ctx, dependencies)
+		if lastErr == nil {
+			return nil
+		}
+		msg := lastErr.Error()
+		if !strings.Contains(msg, "empty local registry") && !strings.Contains(msg, "metadataRegistry information not available") {
+			return lastErr
+		}
+		if attempt > 0 {
+			s.log.Infow("StandardCapabilities Initialise retry (waiting for registry sync)", "command", s.command, "attempt", attempt+1, "err", lastErr)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(initRetryInterval):
+		}
+	}
+	return fmt.Errorf("initialise still failing after %v (registry never became ready): %w", initRetryTimeout, lastErr)
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not
