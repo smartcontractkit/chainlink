@@ -27,8 +27,9 @@ COPY . .
 ARG GO_OVERRIDE_DEPS
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
+    export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
+    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     if [ -n "$GO_OVERRIDE_DEPS" ]; then \
-        export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
         if [ -f /run/secrets/GIT_AUTH_TOKEN ] && [ -s /run/secrets/GIT_AUTH_TOKEN ]; then \
             TOKEN=$(cat /run/secrets/GIT_AUTH_TOKEN) && \
             git config --file "$GIT_CONFIG_GLOBAL" \
@@ -45,8 +46,7 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
         done && \
         unset IFS && \
         go mod tidy && \
-        go mod download && \
-        rm -f "$GIT_CONFIG_GLOBAL"; \
+        go mod download; \
     fi
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
