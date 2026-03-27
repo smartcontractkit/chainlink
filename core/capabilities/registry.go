@@ -22,6 +22,11 @@ type Registry struct {
 	metadataRegistry core.CapabilitiesRegistryMetadata
 	lggr             logger.Logger
 	mu               sync.RWMutex
+
+	// readyCh is closed once the first non-empty local registry is set via SetLocalRegistry.
+	// Callers can block on WaitForLocalRegistry instead of polling.
+	readyCh   chan struct{}
+	readyOnce sync.Once
 }
 
 func (r *Registry) LocalNode(ctx context.Context) (capabilities.Node, error) {
@@ -67,8 +72,24 @@ func (r *Registry) DONsForCapability(ctx context.Context, capabilityID string) (
 // This is only public for testing purposes; the only production use should be from the CapabilitiesLauncher.
 func (r *Registry) SetLocalRegistry(lr core.CapabilitiesRegistryMetadata) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.metadataRegistry = lr
+	r.mu.Unlock()
+
+	if lr != nil {
+		r.readyOnce.Do(func() { close(r.readyCh) })
+	}
+}
+
+// WaitForLocalRegistry blocks until the first non-empty local registry has been set
+// (i.e. the registry syncer has pushed at least one sync with DONs), or until ctx is done.
+// Callers should use this instead of polling LocalNode to avoid startup races.
+func (r *Registry) WaitForLocalRegistry(ctx context.Context) error {
+	select {
+	case <-r.readyCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // NewRegistry returns a new Registry.
@@ -76,6 +97,7 @@ func NewRegistry(lggr logger.Logger) *Registry {
 	return &Registry{
 		CapabilitiesRegistryBase: registry.NewBaseRegistry(lggr),
 		lggr:                     logger.Named(lggr, "CapabilitiesRegistry"),
+		readyCh:                  make(chan struct{}),
 	}
 }
 

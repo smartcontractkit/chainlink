@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+type registryReadyWaiter interface {
+	WaitForLocalRegistry(ctx context.Context) error
+}
 
 const defaultStartTimeout = 3 * time.Minute
 
@@ -46,6 +49,7 @@ type StandardCapabilities struct {
 	readyChan    chan struct{}
 	stopChan     services.StopChan
 	startTimeout time.Duration
+	startErr     error
 }
 
 func NewStandardCapabilities(
@@ -102,8 +106,8 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			cctx, cancel := s.stopChan.CtxWithTimeout(s.startTimeout)
 			defer cancel()
 
-			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
-				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
+			if s.startErr = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
+				s.log.Errorf("error waiting for standard capabilities service to start: %v", s.startErr)
 				return
 			}
 
@@ -120,13 +124,22 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				TriggerEventStore:  s.triggerEventStore,
 			}
 
+			if waiter, ok := s.CapabilitiesRegistry.(registryReadyWaiter); ok {
+				s.log.Infow("StandardCapabilities waiting for registry to be ready before Initialise", "command", s.command)
+				if s.startErr = waiter.WaitForLocalRegistry(cctx); s.startErr != nil {
+					s.log.Errorf("error waiting for registry to be ready: %v", s.startErr)
+					return
+				}
+			}
+
 			s.log.Infow("StandardCapabilities calling Initialise on capability service", "command", s.command)
-			if err = s.retryInitialiseUntilReady(cctx, dependencies); err != nil {
-				s.log.Errorf("error initialising standard capabilities service: %v", err)
+			if s.startErr = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); s.startErr != nil {
+				s.log.Errorf("error initialising standard capabilities service: %v", s.startErr)
 				return
 			}
 
-			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
+			var capabilityInfos []capabilities.CapabilityInfo
+			capabilityInfos, s.startErr = s.capabilitiesLoop.Service.Infos(cctx)
 			if err != nil {
 				s.log.Errorf("error getting standard capabilities service info: %v", err)
 				return
@@ -139,34 +152,12 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 	})
 }
 
-// retryInitialiseUntilReady calls Initialise and retries on "empty local registry" or
-// "metadataRegistry information not available" so that capability init runs after the
-// registry syncer has pushed at least one non-empty local registry (startup race fix).
-const initRetryTimeout = 90 * time.Second
-const initRetryInterval = 3 * time.Second
+func (s *StandardCapabilities) Name() string {
+	return s.log.Name()
+}
 
-func (s *StandardCapabilities) retryInitialiseUntilReady(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
-	deadline := time.Now().Add(initRetryTimeout)
-	var lastErr error
-	for attempt := 0; time.Now().Before(deadline); attempt++ {
-		lastErr = s.capabilitiesLoop.Service.Initialise(ctx, dependencies)
-		if lastErr == nil {
-			return nil
-		}
-		msg := lastErr.Error()
-		if !strings.Contains(msg, "empty local registry") && !strings.Contains(msg, "metadataRegistry information not available") {
-			return lastErr
-		}
-		if attempt > 0 {
-			s.log.Infow("StandardCapabilities Initialise retry (waiting for registry sync)", "command", s.command, "attempt", attempt+1, "err", lastErr)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(initRetryInterval):
-		}
-	}
-	return fmt.Errorf("initialise still failing after %v (registry never became ready): %w", initRetryTimeout, lastErr)
+func (s *StandardCapabilities) HealthReport() map[string]error {
+	return map[string]error{s.Name(): s.Ready()}
 }
 
 // Ready is a non-blocking check for the service's ready state.  Errors if not
@@ -177,7 +168,7 @@ func (s *StandardCapabilities) Ready() error {
 	}
 	select {
 	case <-s.readyChan:
-		return nil
+		return s.startErr
 	case <-s.stopChan:
 		return ErrServiceStopped
 	default:
@@ -189,7 +180,7 @@ func (s *StandardCapabilities) Ready() error {
 func (s *StandardCapabilities) Await(ctx context.Context) error {
 	select {
 	case <-s.readyChan:
-		return nil
+		return s.startErr
 	case <-s.stopChan:
 		return ErrServiceStopped
 	case <-ctx.Done():
