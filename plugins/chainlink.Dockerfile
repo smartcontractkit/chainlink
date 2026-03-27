@@ -13,11 +13,11 @@ RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /chainlink
 
-COPY GNUmakefile package.json ./
-COPY tools/bin/ldflags ./tools/bin/
-
 ADD go.mod go.sum ./
 RUN go mod download
+
+COPY GNUmakefile package.json ./
+COPY tools/bin/ldflags ./tools/bin/
 
 # Stage: deps — full source tree for stages that compile chainlink code.
 FROM deps-base AS deps
