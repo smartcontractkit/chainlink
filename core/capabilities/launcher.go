@@ -300,8 +300,14 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 }
 
 func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
-	w.lggr.Debug("CapabilitiesLauncher triggered...")
-	w.registry.SetLocalRegistry(localRegistry)
+	// Do not set an empty local registry: capability init (e.g. EVM) calls LocalNode() and fails with
+	// "empty local registry. no DONs registered". Only set once we have at least one DON so that
+	// capabilities that depend on the registry see valid data (or keep waiting until syncer pushes non-empty).
+	if len(localRegistry.IDsToDONs) > 0 {
+		w.registry.SetLocalRegistry(localRegistry)
+	} else {
+		w.lggr.Debugw("CapabilitiesLauncher skipping SetLocalRegistry (empty registry, waiting for first sync with DONs)")
+	}
 
 	allDONIDs := w.allDONs(localRegistry)
 	w.lggr.Debugw("All DONs in the local registry", "allDONIDs", allDONIDs)
