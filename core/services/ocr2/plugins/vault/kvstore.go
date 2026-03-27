@@ -28,7 +28,7 @@ type KVStore struct {
 }
 
 func (s *KVStore) trackDuration(ctx context.Context, method string, start time.Time) {
-	s.metrics.trackKVOperation(ctx, method, time.Since(start).Seconds())
+	s.metrics.trackKVOperation(ctx, method, time.Since(start).Milliseconds())
 }
 
 type ReadKVStore interface {
