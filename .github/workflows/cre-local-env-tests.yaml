@@ -83,7 +83,7 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: core/scripts/go.mod
           cache: true
