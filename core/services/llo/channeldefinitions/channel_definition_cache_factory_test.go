@@ -6,12 +6,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
 func Test_ChannelDefinitionCacheFactory(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	cdcFactory := NewChannelDefinitionCacheFactory(lggr, nil, nil, nil)
 
 	t.Run("NewCache", func(t *testing.T) {

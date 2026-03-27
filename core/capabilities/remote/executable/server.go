@@ -229,6 +229,8 @@ func (r *server) expireRequests() {
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
+		}
+		if executeReq.request.Evictable(commoncap.DefaultExecutableRequestTimeout) {
 			delete(r.requestIDToRequest, requestID)
 			delete(r.messageIDToRequestIDsCount, executeReq.messageID)
 		}
