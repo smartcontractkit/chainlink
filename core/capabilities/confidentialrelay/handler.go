@@ -47,6 +47,7 @@ const (
 // registry. Only the fields needed for attestation validation are included.
 type enclaveEntry struct {
 	TrustedValues []json.RawMessage `json:"trustedValues"`
+	CARootsPEM    string            `json:"caRootsPEM,omitempty"`
 }
 
 type enclavesList struct {
@@ -399,34 +400,38 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 // capabilities registry and returns trusted measurement sets and CA roots
 // for attestation validation. Called per-request so the config stays fresh
 // (same pattern as CC's EnsureFreshEnclaves).
-func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMessage, error) {
+func (h *Handler) getEnclaveAttestationConfig(ctx context.Context) ([]json.RawMessage, string, error) {
 	dons, err := h.capRegistry.DONsForCapability(ctx, confidentialWorkflowsCapID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find DON for %s: %w", confidentialWorkflowsCapID, err)
+		return nil, "", fmt.Errorf("failed to find DON for %s: %w", confidentialWorkflowsCapID, err)
 	}
 	if len(dons) == 0 {
-		return nil, fmt.Errorf("no DON found hosting %s", confidentialWorkflowsCapID)
+		return nil, "", fmt.Errorf("no DON found hosting %s", confidentialWorkflowsCapID)
 	}
 
 	capConfig, err := h.capRegistry.ConfigForCapability(ctx, confidentialWorkflowsCapID, dons[0].DON.ID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config for %s: %w", confidentialWorkflowsCapID, err)
+		return nil, "", fmt.Errorf("failed to get config for %s: %w", confidentialWorkflowsCapID, err)
 	}
 
 	if capConfig.DefaultConfig == nil {
-		return nil, fmt.Errorf("no default config for %s", confidentialWorkflowsCapID)
+		return nil, "", fmt.Errorf("no default config for %s", confidentialWorkflowsCapID)
 	}
 
 	var enclaves enclavesList
 	if err := capConfig.DefaultConfig.UnwrapTo(&enclaves); err != nil {
-		return nil, fmt.Errorf("failed to unwrap enclave config: %w", err)
+		return nil, "", fmt.Errorf("failed to unwrap enclave config: %w", err)
 	}
 
 	var measurements []json.RawMessage
+	var caRootsPEM string
 	for _, e := range enclaves.Enclaves {
 		measurements = append(measurements, e.TrustedValues...)
+		if caRootsPEM == "" && e.CARootsPEM != "" {
+			caRootsPEM = e.CARootsPEM
+		}
 	}
-	return measurements, nil
+	return measurements, caRootsPEM, nil
 }
 
 func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 string, cleanParams any, domainTag string) error {
@@ -450,7 +455,7 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 	// Each enclave instance may have different PCR values, so we try each set
 	// and succeed if any match (same approach as pool.go's
 	// validateAttestationAgainstMultipleMeasurements).
-	measurements, err := h.getEnclaveAttestationConfig(ctx)
+	measurements, caRootsPEM, err := h.getEnclaveAttestationConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get enclave attestation config: %w", err)
 	}
@@ -461,7 +466,12 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 
 	var validationErr error
 	for _, m := range measurements {
-		err := h.validateAttestation(attestationBytes, hash, m)
+		var err error
+		if caRootsPEM != "" {
+			err = nitro.ValidateAttestationWithRoots(attestationBytes, hash, m, caRootsPEM)
+		} else {
+			err = h.validateAttestation(attestationBytes, hash, m)
+		}
 		if err == nil {
 			return nil
 		}
