@@ -403,7 +403,7 @@ func (l *ldapAuthenticator) CreateSession(ctx context.Context, sr sessions.Sessi
 	var returnErr error
 
 	// Attempt to LDAP Bind with user provided credentials
-	escapedEmail := ldap.EscapeFilter(strings.ToLower(sr.Email))
+	escapedEmail := ldap.EscapeDN(strings.ToLower(sr.Email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	if err = conn.Bind(searchBaseDN, sr.Password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
@@ -505,7 +505,7 @@ func (l *ldapAuthenticator) TestPassword(ctx context.Context, email string, pass
 	defer conn.Close()
 
 	// Attempt to LDAP Bind with user provided credentials
-	escapedEmail := ldap.EscapeFilter(strings.ToLower(email))
+	escapedEmail := ldap.EscapeDN(strings.ToLower(email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	err = conn.Bind(searchBaseDN, password)
 	if err == nil {
