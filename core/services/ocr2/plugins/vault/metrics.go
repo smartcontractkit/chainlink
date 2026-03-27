@@ -39,6 +39,9 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 }
 
 func (m *pluginMetrics) trackKVOperation(ctx context.Context, method string, durationMs int64) {
+	if m == nil {
+		return
+	}
 	m.kvOperationDuration.Record(ctx, durationMs, metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
 		attribute.String("method", method),
@@ -46,6 +49,9 @@ func (m *pluginMetrics) trackKVOperation(ctx context.Context, method string, dur
 }
 
 func (m *pluginMetrics) trackQueueOverflow(ctx context.Context, queueSize int, batchSize int) {
+	if m == nil {
+		return
+	}
 	m.queueOverflow.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
 		attribute.Int("queueSize", queueSize),
