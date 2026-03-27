@@ -23,34 +23,6 @@ RUN go mod download
 FROM deps-base AS deps
 COPY . .
 
-# Apply dependency overrides if specified (comma-separated: dep1=sha1,dep2=sha2).
-# Runs after COPY . . so that go mod tidy has access to the full source tree
-# and the modified go.mod/go.sum are not overwritten by the source copy.
-ARG GO_OVERRIDE_DEPS
-RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    set -e && \
-    export GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token && \
-    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
-    if [ -n "$GO_OVERRIDE_DEPS" ]; then \
-        if [ -f /run/secrets/GIT_AUTH_TOKEN ] && [ -s /run/secrets/GIT_AUTH_TOKEN ]; then \
-            TOKEN=$(cat /run/secrets/GIT_AUTH_TOKEN) && \
-            git config --file "$GIT_CONFIG_GLOBAL" \
-              url."https://oauth2:${TOKEN}@github.com/".insteadOf "https://github.com/"; \
-        fi && \
-        IFS=',' && \
-        for entry in $GO_OVERRIDE_DEPS; do \
-            dep="${entry%%=*}" && \
-            sha="${entry#*=}" && \
-            [ -z "$dep" ] && continue; \
-            [ -z "$sha" ] && continue; \
-            echo "Overriding: github.com/smartcontractkit/${dep}@${sha}" && \
-            go get "github.com/smartcontractkit/${dep}@${sha}"; \
-        done && \
-        unset IFS && \
-        go mod tidy && \
-        go mod download; \
-    fi
-
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
 RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
