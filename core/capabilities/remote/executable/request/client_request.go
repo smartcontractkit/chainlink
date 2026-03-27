@@ -316,35 +316,11 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			return fmt.Errorf("failed to unmarshal capability response: %w", err)
 		}
 
-		if resp.Metadata.OCRAttestation != nil {
-			var rpt commoncap.MeteringNodeDetail
-			rpt, err = extractMeteringFromMetadata(sender, resp.Metadata)
-			if err != nil {
-				return fmt.Errorf("failed to extract metering detail from metadata: %w", err)
-			}
-			// Since signatures are provided switch to OCR based validation. It's enough to get 1 response with F+1 signatures
-			// to be confident that the response is honest.
-			err = c.verifyAttestation(resp, rpt)
-			if err != nil {
-				c.lggr.Errorw("failed to verify capability response OCR attestation", "peer", sender, "err", err, "requestID", c.id, "msgPayload", hex.EncodeToString(msg.Payload))
-				return fmt.Errorf("failed to verify capability response OCR attestation: %w", err)
-			}
-
-			var payload []byte
-			payload, err = c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: []commoncap.MeteringNodeDetail{rpt}})
-			if err != nil {
-				return fmt.Errorf("failed to encode payload with metadata: %w", err)
-			}
-
-			c.sendResponse(clientResponse{Result: payload})
-			return nil
-		}
-
 		// metering reports per node are aggregated into a single array of values. for any single node message, the
 		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
 		// is marshalled without the metering value to get the hash. each node could have a different metering value
 		// which would result in different hashes. removing the metering detail allows for direct comparison of results.
-		responseID, metadata, err := c.getMessageHashAndMetadata(msg)
+		responseID, err := c.getMessageHash(resp)
 		if err != nil {
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
@@ -356,7 +332,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
 		}
 
-		rpt, err := extractMeteringFromMetadata(sender, metadata)
+		rpt, err := commoncap.ExtractMeteringFromMetadata(sender, resp.Metadata)
 		if err != nil {
 			lggr.Warnw("invalid metering detail", "err", err)
 		} else {
@@ -370,7 +346,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			lggr.Warnw("received multiple unique responses for the same request", "count for responseID", len(c.responseIDCount))
 		}
 
-		if c.responseIDCount[responseID] == c.requiredResponseConfirmations {
+		if c.responseIDCount[responseID] == c.requiredResponseConfirmations || c.hasValidAttestation(resp) {
 			payload, err := c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: nodeReports})
 			if err != nil {
 				return fmt.Errorf("failed to encode payload with metadata: %w", err)
@@ -406,20 +382,24 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	return nil
 }
 
-func extractMeteringFromMetadata(sender p2ptypes.PeerID, metadata commoncap.ResponseMetadata) (commoncap.MeteringNodeDetail, error) {
-	if len(metadata.Metering) != 1 {
-		return commoncap.MeteringNodeDetail{}, fmt.Errorf("unexpected number of metering records received from peer %s: got %d, want 1", sender, len(metadata.Metering))
+func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
+	if resp.OCRAttestation == nil {
+		return false
 	}
 
-	rpt := metadata.Metering[0]
-	rpt.Peer2PeerID = sender.String()
-	return rpt, nil
+	err := c.verifyAttestation(resp)
+	if err != nil {
+		c.lggr.Errorw("Attestation is present, but not valid. This is most likely a bug and requires investigation - falling back to identical responses verification", "error", err)
+		return false
+	}
+
+	return true
 }
 
-func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse, metering commoncap.MeteringNodeDetail) error {
-	attestation := resp.Metadata.OCRAttestation
+func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse) error {
+	attestation := resp.OCRAttestation
 	if attestation == nil {
-		return errors.New("OCR attestation missing from response metadata")
+		return errors.New("attestation is missing")
 	}
 
 	if len(attestation.Sigs) < c.requiredResponseConfirmations {
@@ -430,7 +410,10 @@ func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse, met
 		return fmt.Errorf("number of configured OCR signers is less than required confirmations: got %d, need at least %d", len(c.signers), c.requiredResponseConfirmations)
 	}
 
-	reportData := commoncap.ResponseToReportData(c.workflowExecutionID, c.referenceID, resp.Payload.Value, metering.SpendUnit, metering.SpendValue)
+	reportData, err := commoncap.ResponseToReportData(c.workflowExecutionID, c.referenceID, resp.Payload.Value, resp.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to convert response to report data: %w", err)
+	}
 	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData[:])
 	signed := make([]bool, len(c.signers))
 	for _, sig := range attestation.Sigs {
@@ -463,23 +446,16 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 	c.lggr.Debugw("received OK response")
 }
 
-func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {
-	var metadata commoncap.ResponseMetadata
-
-	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+func (c *ClientRequest) getMessageHash(msg commoncap.CapabilityResponse) ([32]byte, error) {
+	// clear metadata to ensure it doesn't affect the hash, as different nodes might have different metadata (e.g. different metering values)
+	// since msg is passed as value, this won't affect the original message
+	msg.Metadata = commoncap.ResponseMetadata{}
+	payload, err := pb.MarshalCapabilityResponse(msg)
 	if err != nil {
-		return [32]byte{}, metadata, err
+		return [32]byte{}, err
 	}
 
-	metadata = resp.Metadata
-	resp.Metadata = commoncap.ResponseMetadata{}
-
-	payload, err := pb.MarshalCapabilityResponse(resp)
-	if err != nil {
-		return [32]byte{}, metadata, err
-	}
-
-	return sha256.Sum256(payload), metadata, nil
+	return sha256.Sum256(payload), nil
 }
 
 func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metadata commoncap.ResponseMetadata) ([]byte, error) {

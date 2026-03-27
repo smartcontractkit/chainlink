@@ -356,29 +356,33 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		spendUnit, spendValue := "testunit", "42"
-		reportData := commoncap.ResponseToReportData(capabilityRequest.Metadata.WorkflowExecutionID, capabilityRequest.Metadata.ReferenceID, payloadAsAny.Value, spendUnit, spendValue)
+		capResponse := commoncap.CapabilityResponse{
+			Metadata: commoncap.ResponseMetadata{
+				Metering: []commoncap.MeteringNodeDetail{
+					{SpendUnit: spendUnit, SpendValue: spendValue},
+				},
+			},
+			Payload: payloadAsAny,
+		}
+
+		reportData, err := commoncap.ResponseToReportData(capabilityRequest.Metadata.WorkflowExecutionID, capabilityRequest.Metadata.ReferenceID, payloadAsAny.Value, capResponse.Metadata)
+		require.NoError(t, err)
 
 		sig1, err := kb1.Sign3(configDigest, seqNr, reportData[:])
 		require.NoError(t, err)
 		sig2, err := kb2.Sign3(configDigest, seqNr, reportData[:])
 		require.NoError(t, err)
 
-		rawResponseWithAttestation, err := pb.MarshalCapabilityResponse(commoncap.CapabilityResponse{
-			Metadata: commoncap.ResponseMetadata{
-				Metering: []commoncap.MeteringNodeDetail{
-					{SpendUnit: spendUnit, SpendValue: spendValue},
-				},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 1, Signature: sig2},
-					},
-				},
+		capResponse.OCRAttestation = &commoncap.OCRAttestation{
+			ConfigDigest:   configDigest,
+			SequenceNumber: seqNr,
+			Sigs: []commoncap.AttributedSignature{
+				{Signer: 0, Signature: sig1},
+				{Signer: 1, Signature: sig2},
 			},
-			Payload: payloadAsAny,
-		})
+		}
+
+		rawResponseWithAttestation, err := pb.MarshalCapabilityResponse(capResponse)
 		require.NoError(t, err)
 
 		ocrSigners := [][]byte{kb1.PublicKey(), kb2.PublicKey()}
@@ -396,6 +400,9 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			require.NoError(t, receivedValue.UnwrapTo(&receivedMap))
 
 			assert.Equal(t, 42, receivedMap["number"])
+			require.Len(t, capResponse.Metadata.Metering, 1)
+			require.Equal(t, spendUnit, capResponse.Metadata.Metering[0].SpendUnit)
+			require.Equal(t, spendValue, capResponse.Metadata.Metering[0].SpendValue)
 		}
 
 		t.Run("succeeds on first peer with valid attestation", func(t *testing.T) {

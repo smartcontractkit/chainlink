@@ -35,7 +35,17 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	kb2, err := ocr2key.New(corekeys.EVM)
 	require.NoError(t, err)
 
-	reportData := commoncap.ResponseToReportData(workflowExecutionID, referenceID, valueBytes, spendUnit, spendValue)
+	validResp := commoncap.CapabilityResponse{
+		Metadata: commoncap.ResponseMetadata{
+			Metering: []commoncap.MeteringNodeDetail{
+				{SpendUnit: spendUnit, SpendValue: spendValue},
+			},
+		},
+		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+	}
+
+	reportData, err := commoncap.ResponseToReportData(workflowExecutionID, referenceID, valueBytes, validResp.Metadata)
+	require.NoError(t, err)
 
 	sig1, err := kb1.Sign3(configDigest, seqNr, reportData[:])
 	require.NoError(t, err)
@@ -43,6 +53,15 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	require.NoError(t, err)
 
 	signers := [][]byte{kb1.PublicKey(), kb2.PublicKey()}
+
+	validResp.OCRAttestation = &commoncap.OCRAttestation{
+		ConfigDigest:   configDigest,
+		SequenceNumber: seqNr,
+		Sigs: []commoncap.AttributedSignature{
+			{Signer: 0, Signature: sig1},
+			{Signer: 1, Signature: sig2},
+		},
+	}
 
 	c := &ClientRequest{
 		lggr:                          logger.Test(t),
@@ -52,23 +71,6 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		requiredResponseConfirmations: 2,
 	}
 
-	validResp := commoncap.CapabilityResponse{
-		Metadata: commoncap.ResponseMetadata{
-			Metering: []commoncap.MeteringNodeDetail{
-				{SpendUnit: spendUnit, SpendValue: spendValue},
-			},
-			OCRAttestation: &commoncap.ResponseOCRAttestation{
-				ConfigDigest:   configDigest,
-				SequenceNumber: seqNr,
-				Sigs: []commoncap.AttributedSignature{
-					{Signer: 0, Signature: sig1},
-					{Signer: 1, Signature: sig2},
-				},
-			},
-		},
-		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
-	}
-
 	t.Run("not enough signers returns error", func(t *testing.T) {
 		cBad := &ClientRequest{
 			workflowExecutionID:           workflowExecutionID,
@@ -76,7 +78,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 			lggr:                          logger.Test(t),
 			requiredResponseConfirmations: 2,
 		}
-		err := cBad.verifyAttestation(validResp, validResp.Metadata.Metering[0])
+		err := cBad.verifyAttestation(validResp)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "number of configured OCR signers is less than required confirmations: got 0, need at least 2")
 	})
@@ -85,15 +87,15 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		respFewSigs := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs:           []commoncap.AttributedSignature{{Signer: 0, Signature: sig1}},
-				},
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+			OCRAttestation: &commoncap.OCRAttestation{
+				ConfigDigest:   configDigest,
+				SequenceNumber: seqNr,
+				Sigs:           []commoncap.AttributedSignature{{Signer: 0, Signature: sig1}},
+			},
 		}
-		err := c.verifyAttestation(respFewSigs, validResp.Metadata.Metering[0])
+		err := c.verifyAttestation(respFewSigs)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not enough signatures")
 	})
@@ -102,18 +104,18 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		respBadSigner := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 99, Signature: sig2},
-					},
-				},
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+			OCRAttestation: &commoncap.OCRAttestation{
+				ConfigDigest:   configDigest,
+				SequenceNumber: seqNr,
+				Sigs: []commoncap.AttributedSignature{
+					{Signer: 0, Signature: sig1},
+					{Signer: 99, Signature: sig2},
+				},
+			},
 		}
-		err := c.verifyAttestation(respBadSigner, validResp.Metadata.Metering[0])
+		err := c.verifyAttestation(respBadSigner)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signer index")
 	})
@@ -122,18 +124,18 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		respDupSig := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 0, Signature: sig1},
-					},
-				},
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+			OCRAttestation: &commoncap.OCRAttestation{
+				ConfigDigest:   configDigest,
+				SequenceNumber: seqNr,
+				Sigs: []commoncap.AttributedSignature{
+					{Signer: 0, Signature: sig1},
+					{Signer: 0, Signature: sig1},
+				},
+			},
 		}
-		err := c.verifyAttestation(respDupSig, validResp.Metadata.Metering[0])
+		err := c.verifyAttestation(respDupSig)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "duplicate signature")
 	})
@@ -145,18 +147,18 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		respBadSig := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 1, Signature: badSig},
-					},
-				},
 			},
 			Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+			OCRAttestation: &commoncap.OCRAttestation{
+				ConfigDigest:   configDigest,
+				SequenceNumber: seqNr,
+				Sigs: []commoncap.AttributedSignature{
+					{Signer: 0, Signature: sig1},
+					{Signer: 1, Signature: badSig},
+				},
+			},
 		}
-		err = c.verifyAttestation(respBadSig, validResp.Metadata.Metering[0])
+		err = c.verifyAttestation(respBadSig)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 	})
@@ -166,24 +168,24 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 		respWrongPayload := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
-				OCRAttestation: &commoncap.ResponseOCRAttestation{
-					ConfigDigest:   configDigest,
-					SequenceNumber: seqNr,
-					Sigs: []commoncap.AttributedSignature{
-						{Signer: 0, Signature: sig1},
-						{Signer: 1, Signature: sig2},
-					},
-				},
 			},
 			Payload: &anypb.Any{TypeUrl: "x", Value: wrongBytes},
+			OCRAttestation: &commoncap.OCRAttestation{
+				ConfigDigest:   configDigest,
+				SequenceNumber: seqNr,
+				Sigs: []commoncap.AttributedSignature{
+					{Signer: 0, Signature: sig1},
+					{Signer: 1, Signature: sig2},
+				},
+			},
 		}
-		err := c.verifyAttestation(respWrongPayload, validResp.Metadata.Metering[0])
+		err := c.verifyAttestation(respWrongPayload)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid signature")
 	})
 
 	t.Run("valid attestation succeeds", func(t *testing.T) {
-		err := c.verifyAttestation(validResp, validResp.Metadata.Metering[0])
+		err := c.verifyAttestation(validResp)
 		require.NoError(t, err)
 	})
 }
