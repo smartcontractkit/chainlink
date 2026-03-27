@@ -68,14 +68,14 @@ func (d DeployMockForwarders) Apply(env cldf.Environment, input DeployMockForwar
 	}
 
 	return cldf.ChangesetOutput{
-		DataStore:   ds,
-		Reports:     seqReport.ExecutionReports,
+		DataStore: ds,
+		Reports:   seqReport.ExecutionReports,
 	}, nil
 }
 
 type DeployMockForwarderSequenceOutput struct {
-	Addresses   datastore.AddressRefStore
-	Datastore   datastore.DataStore
+	Addresses datastore.AddressRefStore
+	Datastore datastore.DataStore
 }
 
 // DeployMockSequence deploys MockKeystoneForwarder contracts to multiple chains concurrently.
@@ -116,7 +116,7 @@ var DeployMockSequence = operations.NewSequence(
 )
 
 type DeployMockForwarderOpOutput struct {
-	Addresses   datastore.AddressRefStore
+	Addresses  datastore.AddressRefStore
 	AddressRef datastore.AddressRef // The address ref of the deployed Keystone Forwarder
 }
 
@@ -150,8 +150,8 @@ var DeployMockOp = operations.NewOperation(
 		}
 
 		return DeployMockForwarderOpOutput{
-			Addresses:   ds.Addresses(),
-			AddressRef:  r,
+			Addresses:  ds.Addresses(),
+			AddressRef: r,
 		}, nil
 	},
 )
