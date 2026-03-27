@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
           repository: smartcontractkit/chainlink
 
-      - name: Advanced Triggers
+      - name: Decide which tests to run
         id: triggers
         uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
         with:
