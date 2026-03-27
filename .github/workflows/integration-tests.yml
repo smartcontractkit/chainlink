@@ -266,7 +266,7 @@ jobs:
           if [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" == "develop" ]]; then
             echo "We force build on pushes to develop to populate the docker layer cache."
             echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
-          elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" == "false" ]]; then
+          elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then
             echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."
             echo "any-should-run is true when:"
             echo "  - For the non-plugins image: the core tests, ccip tests, or solana tests will be run."
