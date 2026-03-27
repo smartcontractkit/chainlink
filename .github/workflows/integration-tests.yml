@@ -283,7 +283,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@ab75dfeec614d828544435a2f64e52a7e60188ff # TODO: Update to release tag after .github changes are merged
+        uses: smartcontractkit/.github/actions/ctf-build-image@0c5a0aedf2a14bb1909992a12f2d42bdf6231b0e # TODO: Update to release tag after .github changes are merged
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
