@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"time"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -42,9 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var (
-	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
-)
+var isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 
 type ReportingPluginConfig struct {
 	LazyPublicKey *vaultcap.LazyPublicKey
