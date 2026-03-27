@@ -359,20 +359,18 @@ func Test_ServerRequest_Evictable(t *testing.T) {
 
 	t.Run("expired but below minimum retention", func(t *testing.T) {
 		req := newRequest(20 * time.Millisecond)
-		time.Sleep(60 * time.Millisecond)
+		require.Eventually(t, func() bool { return req.Expired() }, time.Second, 10*time.Millisecond)
 		assert.False(t, req.Evictable(200*time.Millisecond))
 	})
 
 	t.Run("expired and retained past minimum retention", func(t *testing.T) {
 		req := newRequest(20 * time.Millisecond)
-		time.Sleep(60 * time.Millisecond)
-		assert.True(t, req.Evictable(10*time.Millisecond))
+		require.Eventually(t, func() bool { return req.Evictable(10 * time.Millisecond) }, time.Second, 10*time.Millisecond)
 	})
 
 	t.Run("minimum retention elapsed but request timeout still active", func(t *testing.T) {
 		req := newRequest(200 * time.Millisecond)
-		time.Sleep(60 * time.Millisecond)
-		assert.False(t, req.Evictable(10*time.Millisecond))
+		require.Never(t, func() bool { return req.Evictable(10 * time.Millisecond) }, 100*time.Millisecond, 10*time.Millisecond)
 	})
 }
 

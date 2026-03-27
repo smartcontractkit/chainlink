@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
+	creenv "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/fake"
 )
@@ -17,7 +18,12 @@ var DeployPermissionlessFeedsConsumerCmd = &cobra.Command{
 	Short: "Deploy a Permissionless Feeds Consumer contract",
 	Long:  `Deploy a Permissionless Feeds Consumer contract to the specified blockchain network using the provided RPC URL.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		address, deployErr := deploy.PermissionlessFeedsConsumer(rpcURL)
+		resolvedRPC, err := resolveRPC(cmd, rpcURL)
+		if err != nil {
+			return err
+		}
+
+		address, deployErr := deploy.PermissionlessFeedsConsumer(resolvedRPC)
 		if deployErr != nil {
 			return errors.Wrap(deployErr, "failed to deploy Permissionless Feeds Consumer contract")
 		}
@@ -33,7 +39,12 @@ var DeployBalanceReaderCmd = &cobra.Command{
 	Short: "Deploy a Balance Reader contract",
 	Long:  `Deploy a Balance Reader contract to the specified blockchain network using the provided RPC URL.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		address, deployErr := deploy.BalanceReader(rpcURL)
+		resolvedRPC, err := resolveRPC(cmd, rpcURL)
+		if err != nil {
+			return err
+		}
+
+		address, deployErr := deploy.BalanceReader(resolvedRPC)
 		if deployErr != nil {
 			return errors.Wrap(deployErr, "failed to deploy Balance Reader contract")
 		}
@@ -73,8 +84,31 @@ var ExamplesCmd = &cobra.Command{
 	Short: "Deploy various examples",
 }
 
+func resolveRPC(cmd *cobra.Command, defaultRPC string) (string, error) {
+	if cmd.Flags().Changed("rpc-url") {
+		return defaultRPC, nil
+	}
+
+	resolver, err := creenv.TryLoadLocalCREStateResolver()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to load local CRE state")
+	}
+
+	if resolver == nil {
+		return defaultRPC, nil
+	}
+
+	resolvedRPC, err := resolver.RegistryRPC()
+	if err != nil {
+		return defaultRPC, nil
+	}
+
+	return resolvedRPC, nil
+}
+
 func init() {
 	DeployPermissionlessFeedsConsumerCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
+	DeployBalanceReaderCmd.Flags().StringVarP(&rpcURL, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 
 	DeployFakePriceProviderCmd.Flags().String("auth-key", "Bearer test-auth-key", "Authentication key for the price provider")
 	DeployFakePriceProviderCmd.Flags().Int("port", 80, "Port to run the fake price provider on")

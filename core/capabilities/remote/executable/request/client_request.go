@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -27,6 +28,32 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
+
+// errRemoteCapabilityExecuteError preserves the legacy "TRANSPORT : ErrorMsg" string from the
+// remote executable client while wrapping a deserialized caperrors.Error so callers can
+// errors.As into caperrors.Error after RPC (see capability_executor metrics).
+type errRemoteCapabilityExecuteError struct {
+	s    string
+	wrap caperrors.Error
+}
+
+func (e *errRemoteCapabilityExecuteError) Error() string { return e.s }
+
+func (e *errRemoteCapabilityExecuteError) Unwrap() error { return e.wrap }
+
+func newRemoteCapabilityExecuteError(transportErr types.Error, errMsg string) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    fmt.Sprintf("%s : %s", transportErr, errMsg),
+		wrap: caperrors.DeserializeErrorFromString(errMsg),
+	}
+}
+
+func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    display,
+		wrap: caperrors.DeserializeErrorFromString(errMsg),
+	}
+}
 
 type clientResponse struct {
 	Result []byte
@@ -374,9 +401,12 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredResponseConfirmations {
-			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
+			c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteError(msg.Error, msg.ErrorMsg)})
 		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredResponseConfirmations+1 {
-			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
+			c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteErrorWithMessage(
+				fmt.Sprintf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg),
+				msg.ErrorMsg,
+			)})
 		}
 	}
 	return nil

@@ -1060,17 +1060,17 @@ func Test_Server_DuplicateRequestRemainsDedupedPastRequestTimeout(t *testing.T) 
 	}
 
 	server.Receive(ctx, msg)
-	require.Eventually(t, func() bool { return len(dispatcher.sent) == 1 }, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return dispatcher.Len() == 1 }, time.Second, 10*time.Millisecond)
 
 	time.Sleep(2 * cfg.RequestTimeout)
 	server.Receive(ctx, msg)
 
-	time.Sleep(100 * time.Millisecond)
-	require.Len(t, dispatcher.sent, 1)
+	require.Never(t, func() bool { return dispatcher.Len() > 1 }, 100*time.Millisecond, 10*time.Millisecond)
 }
 
 type noopDispatcher struct {
 	services.StateMachine
+	mu   sync.Mutex
 	sent []*remotetypes.MessageBody
 }
 
@@ -1095,6 +1095,14 @@ func (n *noopDispatcher) SetReceiverForMethod(string, uint32, string, remotetype
 func (n *noopDispatcher) RemoveReceiverForMethod(string, uint32, string) {}
 
 func (n *noopDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.sent = append(n.sent, msgBody)
 	return nil
+}
+
+func (n *noopDispatcher) Len() int {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return len(n.sent)
 }

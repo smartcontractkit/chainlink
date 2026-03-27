@@ -12,6 +12,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
+	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	vaulttypesmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,16 +26,21 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		setupMocks    func(*vaulttypesmocks.SecretsService, *connector_mocks.GatewayConnector)
+		setupMocks    func(*vaulttypesmocks.SecretsService, *connector_mocks.GatewayConnector, *vaultcapmocks.RequestAuthorizer)
 		request       *jsonrpc.Request[json.RawMessage]
 		expectedError bool
 	}{
 		{
 			name: "success - create secrets",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+					return req.Method == vaulttypes.MethodSecretsCreate && req.ID == "1"
+				})).Return(true, "0xabc", nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
-						req.EncryptedSecrets[0].Id.Key == "test-secret"
+						req.EncryptedSecrets[0].Id.Key == "test-secret" &&
+						req.EncryptedSecrets[0].Id.Owner == "0xAbC" &&
+						req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1"
 				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -50,7 +56,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 							{
 								Id: &vaultcommon.SecretIdentifier{
-									Key: "test-secret",
+									Key:   "test-secret",
+									Owner: "0xAbC",
 								},
 								EncryptedValue: "encrypted-value",
 							},
@@ -64,7 +71,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - service error",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(true, "0xabc", nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -81,7 +89,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 							{
 								Id: &vaultcommon.SecretIdentifier{
-									Key: "test-secret",
+									Key:   "test-secret",
+									Owner: "0xAbC",
 								},
 								EncryptedValue: "encrypted-value",
 							},
@@ -95,7 +104,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid method",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.UnsupportedMethodError)
@@ -109,10 +118,10 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid request params",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
-						resp.Error.Code == api.ToJSONRPCErrorCode(api.UserMessageParseError)
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError)
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
@@ -127,12 +136,16 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "success - delete secrets",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+					return req.Method == vaulttypes.MethodSecretsDelete && req.ID == "1"
+				})).Return(true, "0xabc", nil)
 				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.DeleteSecretsRequest) bool {
 					return len(req.Ids) == 1 &&
 						req.Ids[0].Key == "Foo" &&
 						req.Ids[0].Namespace == "Bar" &&
-						req.Ids[0].Owner == "Owner"
+						req.Ids[0].Owner == "0xAbC" &&
+						req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1"
 				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -147,10 +160,119 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 						RequestId: "test-secret",
 						Ids: []*vaultcommon.SecretIdentifier{
 							{
-
 								Key:       "Foo",
 								Namespace: "Bar",
-								Owner:     "Owner",
+								Owner:     "0xAbC",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "failure - unauthorized request",
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(false, "", errors.New("not allowlisted"))
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error != nil &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError) &&
+						resp.Error.Message == "request not authorized: not allowlisted"
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key:   "test-secret",
+									Owner: "0xAbC",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "success - strips owner prefix from forwarded request before authorization",
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
+					if req.Method != vaulttypes.MethodSecretsCreate || req.ID != "1" || req.Params == nil {
+						return false
+					}
+
+					var parsed vaultcommon.CreateSecretsRequest
+					if err := json.Unmarshal(*req.Params, &parsed); err != nil {
+						return false
+					}
+
+					return parsed.RequestId == "1" &&
+						len(parsed.EncryptedSecrets) == 1 &&
+						parsed.EncryptedSecrets[0].Id != nil &&
+						parsed.EncryptedSecrets[0].Id.Owner == "0xAbC"
+				})).Return(true, "0xabc", nil)
+				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
+					return req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1"
+				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
+
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error == nil
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				ID:     "0xAbC" + vaulttypes.RequestIDSeparator + "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						RequestId: "0xAbC" + vaulttypes.RequestIDSeparator + "1",
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key:   "test-secret",
+									Owner: "0xAbC",
+								},
+								EncryptedValue: "encrypted-value",
+							},
+						},
+					})
+					raw := json.RawMessage(params)
+					return &raw
+				}(),
+			},
+			expectedError: false,
+		},
+		{
+			name: "failure - owner mismatch against authorized owner",
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(true, "0xdef", nil)
+				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
+					return resp.Error != nil &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError) &&
+						resp.Error.Message == `secret ID owner "0xabc" does not match authorized owner "0xdef" at index 0`
+				})).Return(nil)
+			},
+			request: &jsonrpc.Request[json.RawMessage]{
+				Method: vaulttypes.MethodSecretsCreate,
+				ID:     "1",
+				Params: func() *json.RawMessage {
+					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
+						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+							{
+								Id: &vaultcommon.SecretIdentifier{
+									Key:   "test-secret",
+									Owner: "0xabc",
+								},
+								EncryptedValue: "encrypted-value",
 							},
 						},
 					})
@@ -166,10 +288,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
+			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 
-			tt.setupMocks(secretsService, gwConnector)
+			tt.setupMocks(secretsService, gwConnector, requestAuthorizer)
 
-			handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, lggr)
+			handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, requestAuthorizer, lggr)
 			require.NoError(t, err)
 
 			err = handler.HandleGatewayMessage(ctx, "gateway-1", tt.request)
@@ -189,8 +312,9 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 
 	secretsService := vaulttypesmocks.NewSecretsService(t)
 	gwConnector := connector_mocks.NewGatewayConnector(t)
+	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 
-	handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, lggr)
+	handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, requestAuthorizer, lggr)
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {
