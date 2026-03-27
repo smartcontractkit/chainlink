@@ -139,7 +139,7 @@ func TestKVStore_Secrets(t *testing.T) {
 	ss := &vault.StoredSecret{
 		EncryptedSecret: newData,
 	}
-	err = store.WriteSecret(t.Context(), id,ss)
+	err = store.WriteSecret(t.Context(), id, ss)
 	require.NoError(t, err)
 
 	s, err = store.GetSecret(t.Context(), id)
@@ -158,7 +158,7 @@ func TestKVStore_DeleteSecrets(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret1",
 	}
-	err := store.WriteSecret(t.Context(), id,&vault.StoredSecret{
+	err := store.WriteSecret(t.Context(), id, &vault.StoredSecret{
 		EncryptedSecret: []byte("encrypted data"),
 	})
 	require.NoError(t, err)
@@ -318,7 +318,7 @@ func TestKVStore_InconsistentWrites(t *testing.T) {
 	require.NoError(t, err)
 
 	// We can recreate it without an already exists error.
-	err = store.WriteSecret(t.Context(), id,&vault.StoredSecret{
+	err = store.WriteSecret(t.Context(), id, &vault.StoredSecret{
 		EncryptedSecret: []byte("encrypted data 2"),
 	})
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 		Id:   "test-request-id-3",
 		Item: empty,
 	}
-	err = store.WritePendingQueue(t.Context(),[]*vault.StoredPendingQueueItem{item, item2, item3})
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2, item3})
 	require.NoError(t, err)
 
 	// Ensure index is correctly written.
@@ -448,7 +448,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	assert.Equal(t, "test-request-id-3", item2.Id)
 
 	// Writing a shorter list deletes the old one.
-	err = store.WritePendingQueue(t.Context(),[]*vault.StoredPendingQueueItem{item, item2})
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2})
 	require.NoError(t, err)
 
 	_, exists = kv.m[pendingQueueItemPrefix+"3"]
