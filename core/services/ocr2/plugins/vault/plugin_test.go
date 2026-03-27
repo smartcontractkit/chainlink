@@ -643,8 +643,8 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 			maxIDLen = tc.maxIDLen
 		}
 		r := &ReportingPlugin{
-			lggr:  lggr,
-			store: store,
+			lggr:    lggr,
+			store:   store,
 			metrics: newTestMetrics(t),
 			cfg: makeReportingPluginConfig(
 				t,
@@ -749,7 +749,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 		Namespace: "main",
 		Key:       "my_secret",
 	}
-	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), createdID,&vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), createdID, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -902,7 +902,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretExistsButIsIncorrect(t *test
 		m: make(map[string]response),
 	}
 
-	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("invalid-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -995,7 +995,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1083,7 +1083,7 @@ func TestPlugin_Observation_GetSecretsRequest_SecretLabelIsInvalid(t *testing.T)
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1177,7 +1177,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	ciphertextBytes, err := ciphertext.Marshal()
 	require.NoError(t, err)
 
-	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 		EncryptedSecret: ciphertextBytes,
 	})
 	require.NoError(t, err)
@@ -1315,7 +1315,7 @@ func TestPlugin_Observation_MaxBatchGetSecretsWithEncryptionKeys(t *testing.T) {
 		require.NoError(t, cerr)
 
 		// Store the secret in KV.
-		err = ws.WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+		err = ws.WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 			EncryptedSecret: ciphertextBytes,
 		})
 		require.NoError(t, err)
@@ -1466,7 +1466,7 @@ func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *test
 		r := &ReportingPlugin{
 			lggr:          lggr,
 			store:         store,
-			metrics: newTestMetrics(t),
+			metrics:       newTestMetrics(t),
 			marshalBlob:   mockMarshalBlob,
 			unmarshalBlob: mockUnmarshalBlob,
 			cfg: makeReportingPluginConfig(
@@ -2144,7 +2144,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_TooManySecretsForOwner(t *t
 		Key:       "secret",
 	}
 	kvstore := newTestWriteStore(t, rdr)
-	err = kvstore.WriteMetadata(t.Context(), id.Owner,&vaultcommon.StoredMetadata{
+	err = kvstore.WriteMetadata(t.Context(), id.Owner, &vaultcommon.StoredMetadata{
 		SecretIdentifiers: []*vaultcommon.SecretIdentifier{
 			{
 				Owner:     "owner",
@@ -2236,7 +2236,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_SecretExistsForKey(t *testi
 		Key:       "secret",
 	}
 	kvstore := newTestWriteStore(t, rdr)
-	err = kvstore.WriteSecret(t.Context(), id,&vaultcommon.StoredSecret{
+	err = kvstore.WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
 		EncryptedSecret: []byte("some-ciphertext"),
 	})
 	require.NoError(t, err)
@@ -2521,7 +2521,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -2598,7 +2598,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 			N: 10,
 			F: 3,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -2671,7 +2671,7 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -2761,7 +2761,7 @@ func TestPlugin_ValidateObservations_IncludesAllItemsInPendingQueue(t *testing.T
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -2865,7 +2865,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -2925,7 +2925,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3009,7 +3009,7 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3089,7 +3089,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3234,7 +3234,7 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3406,7 +3406,7 @@ func TestPlugin_Reports(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3503,7 +3503,7 @@ func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *test
 		r := &ReportingPlugin{
 			lggr:          lggr,
 			store:         store,
-			metrics: newTestMetrics(t),
+			metrics:       newTestMetrics(t),
 			marshalBlob:   mockMarshalBlob,
 			unmarshalBlob: mockUnmarshalBlob,
 			cfg: makeReportingPluginConfig(
@@ -3879,7 +3879,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -3976,7 +3976,7 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -4133,7 +4133,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -4404,7 +4404,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -4515,7 +4515,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -4653,7 +4653,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -4996,7 +4996,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -5043,7 +5043,7 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -6567,7 +6567,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -6642,7 +6642,7 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 			N: 4,
 			F: 1,
 		},
-		store: store,
+		store:   store,
 		metrics: newTestMetrics(t),
 		cfg: makeReportingPluginConfig(
 			t,
@@ -6857,8 +6857,8 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 			_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 			require.NoError(t, err)
 			r := &ReportingPlugin{
-				lggr:  lggr,
-				store: store,
+				lggr:    lggr,
+				store:   store,
 				metrics: newTestMetrics(t),
 				onchainCfg: ocr3types.ReportingPluginConfig{
 					N: 4,
