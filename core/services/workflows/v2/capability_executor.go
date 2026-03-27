@@ -226,7 +226,8 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 		execLogger.Debugw("Capability execution failed", "err", err)
 		_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusErrored, request.Method, err)
-		c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, caperrors.Unknown.String()).IncrementCapabilityFailureCounter(ctx)
+		//TODO shouldn't all capabilities *always* return a typed error, and if so shouldn't the following metric alert us there's a bug we need to fix?
+		c.metrics.With(platform.KeyCapabilityID, request.Id, platform.KeyCapabilityErrorCode, "BUG").IncrementCapabilityFailureCounter(ctx)
 		c.metrics.IncrementTotalWorkflowStepErrorsCounter(ctx)
 		return nil, fmt.Errorf("failed to execute capability: %w", err)
 	}
