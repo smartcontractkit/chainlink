@@ -531,7 +531,7 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sending transaction")
+		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
 		gomega.NewWithT(t).Eventually(func() bool {
 			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
 			for _, l := range o.All() {
@@ -582,7 +582,7 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sending transaction")
+		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
 		gomega.NewWithT(t).Eventually(func() bool {
 			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
 			for _, l := range o.All() {
@@ -625,7 +625,7 @@ observationSource   = """
 		assert.Equal(t, []*string(nil), run.Outputs)
 		assert.Equal(t, []*string(nil), run.Errors)
 
-		testutils.WaitForLogMessage(t, o, "Sending transaction")
+		testutils.WaitForLogMessage(t, o, "Broadcasted transaction")
 		gomega.NewWithT(t).Eventually(func() bool {
 			b.Commit() // Process new head until tx confirmed, receipt is fetched, and task resumed
 			for _, l := range o.All() {

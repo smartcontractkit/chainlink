@@ -27,11 +27,18 @@ type Config struct {
 }
 
 type keyedOwnerSettings struct {
-	key  string
-	vals map[string]string
+	getter settings.Getter
+	key    string
+	vals   map[string]string
 }
 
 func (k keyedOwnerSettings) GetScoped(ctx context.Context, scope settings.Scope, key string) (value string, err error) {
+	if k.getter != nil {
+		value, err = k.getter.GetScoped(ctx, scope, key)
+	}
+	if value != "" {
+		return
+	}
 	if k.key != key || scope != settings.ScopeOwner {
 		return "", nil
 	}
@@ -50,7 +57,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	for k, v := range cfg.PerOwnerOverrides {
 		perOwner[k] = strconv.Itoa(int(v))
 	}
-	lf.Settings = keyedOwnerSettings{key: ownerLimit.Key, vals: perOwner}
+	lf.Settings = keyedOwnerSettings{getter: lf.Settings, key: ownerLimit.Key, vals: perOwner}
 	owner, err := limits.MakeResourcePoolLimiter(lf, ownerLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
