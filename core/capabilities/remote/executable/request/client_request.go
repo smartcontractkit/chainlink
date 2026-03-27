@@ -31,24 +31,24 @@ import (
 // errRemoteCapabilityExecute preserves the legacy "TRANSPORT : ErrorMsg" string from the
 // remote executable client while wrapping a deserialized caperrors.Error so callers can
 // errors.As into caperrors.Error after RPC (see capability_executor metrics).
-type errRemoteCapabilityExecute struct {
+type errRemoteCapabilityExecuteError struct {
 	s    string
 	wrap caperrors.Error
 }
 
-func (e *errRemoteCapabilityExecute) Error() string { return e.s }
+func (e *errRemoteCapabilityExecuteError) Error() string { return e.s }
 
-func (e *errRemoteCapabilityExecute) Unwrap() error { return e.wrap }
+func (e *errRemoteCapabilityExecuteError) Unwrap() error { return e.wrap }
 
 func newRemoteCapabilityExecuteError(transportErr types.Error, errMsg string) error {
-	return &errRemoteCapabilityExecute{
+	return &errRemoteCapabilityExecuteError{
 		s:    fmt.Sprintf("%s : %s", transportErr, errMsg),
 		wrap: caperrors.DeserializeErrorFromString(errMsg),
 	}
 }
 
 func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) error {
-	return &errRemoteCapabilityExecute{
+	return &errRemoteCapabilityExecuteError{
 		s:    display,
 		wrap: caperrors.DeserializeErrorFromString(errMsg),
 	}

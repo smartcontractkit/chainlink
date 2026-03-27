@@ -232,7 +232,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("%s : %s", types.Error_INTERNAL_ERROR, assert.AnError.Error()), response.Err.Error())
 
 		var capErr caperrors.Error
-		require.True(t, errors.As(response.Err, &capErr))
+		require.ErrorAs(t, response.Err, &capErr)
 		assert.Equal(t, caperrors.OriginSystem, capErr.Origin(), "non-serialized ErrorMsg falls back to private system capability error")
 		assert.Equal(t, caperrors.VisibilityPrivate, capErr.Visibility())
 		assert.Equal(t, caperrors.Unknown, capErr.Code())
@@ -278,7 +278,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		assert.Equal(t, wantDisplay, response.Err.Error(), "It should be equal to 'Public:User:FailedPrecondition:rpc error: EVM error invalid argument'")
 
 		var capErr caperrors.Error
-		require.True(t, errors.As(response.Err, &capErr))
+		require.ErrorAs(t, response.Err, &capErr)
 		assert.Equal(t, caperrors.OriginUser, capErr.Origin())
 		assert.Equal(t, caperrors.VisibilityPublic, capErr.Visibility())
 		assert.Equal(t, caperrors.FailedPrecondition, capErr.Code())
