@@ -383,13 +383,6 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
-		c.errorCount[msg.ErrorMsg]++
-		c.totalErrorCount++
-
-		if len(c.errorCount) > 1 {
-			c.lggr.Warnw("received multiple different errors for the same request", "numDifferentErrors", len(c.errorCount))
-		}
-
 		if commoncap.ErrResponsePayloadNotAvailable.Is(errors.New(msg.ErrorMsg)) {
 			c.payloadNotAvailableCount++
 			if c.payloadNotAvailableCount == c.remoteNodeCount-c.requiredResponseConfirmations+1 {
@@ -398,6 +391,13 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 					c.payloadNotAvailableCount, c.remoteNodeCount-c.requiredResponseConfirmations)
 			}
 			return nil
+		}
+
+		c.errorCount[msg.ErrorMsg]++
+		c.totalErrorCount++
+
+		if len(c.errorCount) > 1 {
+			c.lggr.Warnw("received multiple different errors for the same request", "numDifferentErrors", len(c.errorCount))
 		}
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredResponseConfirmations {
@@ -480,6 +480,7 @@ func (c *ClientRequest) getMessageHash(msg commoncap.CapabilityResponse) ([32]by
 	// clear metadata to ensure it doesn't affect the hash, as different nodes might have different metadata (e.g. different metering values)
 	// since msg is passed as value, this won't affect the original message
 	msg.Metadata = commoncap.ResponseMetadata{}
+	msg.OCRAttestation = nil
 	payload, err := pb.MarshalCapabilityResponse(msg)
 	if err != nil {
 		return [32]byte{}, err

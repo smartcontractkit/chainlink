@@ -453,7 +453,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			require.NoError(t, receivedValue.UnwrapTo(&receivedMap))
 
 			assert.Equal(t, 42, receivedMap["number"])
-			require.Len(t, capResponse.Metadata.Metering, 1)
+			require.GreaterOrEqual(t, len(capResponse.Metadata.Metering), 1)
 			require.Equal(t, spendUnit, capResponse.Metadata.Metering[0].SpendUnit)
 			require.Equal(t, spendValue, capResponse.Metadata.Metering[0].SpendValue)
 		}
@@ -484,6 +484,59 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			msg.Sender = capabilityPeers[0][:]
 			err = req.OnMessage(ctx, msg)
 			require.NoError(t, err)
+
+			response := <-req.ResponseChan()
+			assertValidResponse(t, response.Result)
+		})
+		t.Run("attestation is not valid, but we fallback to identical responses", func(t *testing.T) {
+			ctx := t.Context()
+
+			dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+			req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+				workflowDonInfo, dispatcher, 10*time.Minute, nil, "", ocrSigners)
+			require.NoError(t, err)
+			defer req.Cancel(errors.New("test end"))
+
+			for range N {
+				<-dispatcher.msgs
+			}
+
+			assert.Empty(t, dispatcher.msgs)
+
+			for i := range F + 1 {
+				respInvalidAtt := commoncap.CapabilityResponse{
+					Metadata: commoncap.ResponseMetadata{
+						Metering: []commoncap.MeteringNodeDetail{
+							{SpendUnit: spendUnit, SpendValue: spendValue},
+						},
+					},
+					OCRAttestation: &commoncap.OCRAttestation{
+						ConfigDigest: configDigest,
+						// make the sequence number invalid
+						SequenceNumber: seqNr + uint64(i) + 1, // #nosec G115 -- i is non-negative and within uint64 range
+						Sigs: []commoncap.AttributedSignature{
+							{Signer: 0, Signature: sig1},
+							{Signer: 1, Signature: sig2},
+						},
+					},
+					Payload: payloadAsAny,
+				}
+
+				rawRespInvalidAtt, err := pb.MarshalCapabilityResponse(respInvalidAtt)
+				require.NoError(t, err)
+
+				msg := &types.MessageBody{
+					CapabilityId:    capInfo.ID,
+					CapabilityDonId: capDonInfo.ID,
+					CallerDonId:     workflowDonInfo.ID,
+					Method:          types.MethodExecute,
+					Payload:         rawRespInvalidAtt,
+					MessageId:       []byte("messageID"),
+				}
+				msg.Sender = capabilityPeers[i][:]
+				err = req.OnMessage(ctx, msg)
+				require.NoError(t, err)
+			}
 
 			response := <-req.ResponseChan()
 			assertValidResponse(t, response.Result)
