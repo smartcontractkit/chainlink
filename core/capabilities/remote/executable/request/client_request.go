@@ -28,7 +28,7 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-// errRemoteCapabilityExecute preserves the legacy "TRANSPORT : ErrorMsg" string from the
+// errRemoteCapabilityExecuteError preserves the legacy "TRANSPORT : ErrorMsg" string from the
 // remote executable client while wrapping a deserialized caperrors.Error so callers can
 // errors.As into caperrors.Error after RPC (see capability_executor metrics).
 type errRemoteCapabilityExecuteError struct {
