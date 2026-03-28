@@ -11,12 +11,14 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 type RequestValidator struct {
 	MaxRequestBatchSizeLimiter limits.BoundLimiter[int]
+	MaxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
@@ -60,6 +62,9 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
+		if err := r.validateCiphertextSize(req.EncryptedValue); err != nil {
+			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
+		}
 		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner)
 		if err != nil {
 			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
@@ -72,6 +77,21 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		uniqueIDs[vaulttypes.KeyFor(req.Id)] = true
 	}
 
+	return nil
+}
+
+func (r *RequestValidator) validateCiphertextSize(encryptedValue string) error {
+	rawCiphertext, err := hex.DecodeString(encryptedValue)
+	if err != nil {
+		return fmt.Errorf("failed to decode encrypted value: %w", err)
+	}
+	if err := r.MaxCiphertextLengthLimiter.Check(context.Background(), pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check ciphertext size limit: %w", err)
+	}
 	return nil
 }
 
@@ -129,9 +149,13 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 	return nil
 }
 
-func NewRequestValidator(maxRequestBatchSizeLimiter limits.BoundLimiter[int]) *RequestValidator {
+func NewRequestValidator(
+	maxRequestBatchSizeLimiter limits.BoundLimiter[int],
+	maxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+) *RequestValidator {
 	return &RequestValidator{
 		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthLimiter: maxCiphertextLengthLimiter,
 	}
 }
 
