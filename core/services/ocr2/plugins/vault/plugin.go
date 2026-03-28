@@ -489,7 +489,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 	}
 
-	obspb.PendingQueueItems = r.broadcastBlobPayloads(ctx, blobBroadcastFetcher, seqNr, blobPayloads, blobPayloadIDs)
+	pendingQueueItems, err := r.broadcastBlobPayloads(ctx, blobBroadcastFetcher, seqNr, blobPayloads, blobPayloadIDs)
+	if err != nil {
+		return nil, err
+	}
+	obspb.PendingQueueItems = pendingQueueItems
 
 	// Second, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce idepedently, to be concatenated later on.
@@ -516,14 +520,15 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 // Observation() latency (shortening this phase helps the OCR round finish within
 // DeltaProgress). Individual broadcast failures are logged and skipped rather than
 // aborting the entire observation, so that one problematic payload does not prevent
-// the remaining items from being observed.
+// the remaining items from being observed. Context cancellation/deadline errors are
+// propagated immediately so that expired rounds fail fast.
 func (r *ReportingPlugin) broadcastBlobPayloads(
 	ctx context.Context,
 	fetcher ocr3_1types.BlobBroadcastFetcher,
 	seqNr uint64,
 	payloads [][]byte,
 	requestIDs []string,
-) [][]byte {
+) ([][]byte, error) {
 	results := make([][]byte, len(payloads))
 
 	start := time.Now()
@@ -536,6 +541,9 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 		g.Go(func() error {
 			blobHandle, err := fetcher.BroadcastBlob(ctx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
 			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				r.lggr.Warnw("failed to broadcast pending queue item as blob, skipping",
 					"seqNr", seqNr,
 					"requestID", requestIDs[i],
@@ -556,7 +564,9 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			return nil
 		})
 	}
-	_ = g.Wait()
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
 
 	filtered := make([][]byte, 0, len(results))
 	for _, item := range results {
@@ -564,7 +574,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			filtered = append(filtered, item)
 		}
 	}
-	return filtered
+	return filtered, nil
 }
 
 func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
