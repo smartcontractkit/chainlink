@@ -206,14 +206,14 @@ func (a *Aptos) PostEnvStartup(
 		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort),
 	}
 
-	if _, _, err := crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions); err != nil {
-		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", err)
+	if _, _, deployErr := crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions); deployErr != nil {
+		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", deployErr)
 	}
 
 	for _, chainID := range enabledChainIDs {
-		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
-		if err != nil {
-			return err
+		aptosChain, chainErr := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if chainErr != nil {
+			return chainErr
 		}
 
 		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
@@ -268,9 +268,9 @@ func (a *Aptos) PostEnvStartup(
 		if verifyErr := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput); verifyErr != nil {
 			return fmt.Errorf("precondition verification failed for Aptos worker job: %w", verifyErr)
 		}
-		workerReport, err := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
-		if err != nil {
-			return fmt.Errorf("failed to propose Aptos worker job spec: %w", err)
+		workerReport, applyErr := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
+		if applyErr != nil {
+			return fmt.Errorf("failed to propose Aptos worker job spec: %w", applyErr)
 		}
 
 		for _, report := range workerReport.Reports {
@@ -287,8 +287,8 @@ func (a *Aptos) PostEnvStartup(
 	if len(specs) == 0 {
 		return nil
 	}
-	if err := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
-		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
+	if approveErr := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); approveErr != nil {
+		return fmt.Errorf("failed to approve Aptos jobs: %w", approveErr)
 	}
 
 	workers, err := don.Workers()
