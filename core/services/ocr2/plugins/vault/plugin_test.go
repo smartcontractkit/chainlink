@@ -7143,7 +7143,8 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		}
 
 		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 1, nil, nil)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, nil, nil)
+		require.NoError(t, err)
 		assert.Empty(t, result)
 	})
 
@@ -7161,7 +7162,8 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
 		ids := []string{"req-1", "req-2", "req-3"}
 
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
 		assert.Len(t, result, 3)
 		for _, item := range result {
 			assert.Equal(t, []byte("handle"), item)
@@ -7188,7 +7190,8 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
 		ids := []string{"req-1", "req-2", "req-3"}
 
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 5, payloads, ids)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 5, payloads, ids)
+		require.NoError(t, err)
 		assert.Len(t, result, 2)
 
 		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
@@ -7213,7 +7216,8 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := [][]byte{[]byte("p1"), []byte("p2")}
 		ids := []string{"req-1", "req-2"}
 
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
 		assert.Empty(t, result)
 
 		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
@@ -7234,7 +7238,8 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := [][]byte{[]byte("p1"), []byte("p2")}
 		ids := []string{"req-1", "req-2"}
 
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
 		assert.Empty(t, result)
 
 		warnLogs := observed.FilterMessage("failed to marshal blob handle, skipping")
@@ -7267,12 +7272,64 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
 		ids := []string{"req-1", "req-2", "req-3"}
 
-		result := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
 
 		broadcastWarns := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
 		marshalWarns := observed.FilterMessage("failed to marshal blob handle, skipping")
 		assert.Equal(t, 1, broadcastWarns.Len())
 		assert.Equal(t, 1, marshalWarns.Len())
 		assert.Len(t, result, 1)
+	})
+
+	t.Run("context cancellation propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("context deadline exceeded propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(t.Context(), 0)
+		defer cancel()
+		<-ctx.Done()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1")}
+		ids := []string{"req-1"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 }
