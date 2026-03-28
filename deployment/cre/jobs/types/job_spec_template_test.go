@@ -19,6 +19,13 @@ func TestJobSpecTemplate_UnmarshalJSON(t *testing.T) {
 		require.Equal(t, job_types.Cron, in.Template)
 	})
 
+	t.Run("aptos string", func(t *testing.T) {
+		var in jobs.ProposeJobSpecInput
+		js := `{"environment":"e","domain":"d","don_name":"don","don_filters":[],"job_name":"j","template":"aptos","inputs":{}}`
+		require.NoError(t, json.Unmarshal([]byte(js), &in))
+		require.Equal(t, job_types.Aptos, in.Template)
+	})
+
 	t.Run("invalid string", func(t *testing.T) {
 		var in jobs.ProposeJobSpecInput
 		js := `{"environment":"e","domain":"d","don_name":"don","don_filters":[],"job_name":"j","template":"nope","inputs":{}}`
@@ -40,6 +47,13 @@ func TestJobSpecTemplate_UnmarshalYAML(t *testing.T) {
 		yml := "environment: e\ndomain: d\ndon_name: don\ndon_filters: []\njob_name: j\ntemplate: cron\ninputs: {}\n"
 		require.NoError(t, yaml.Unmarshal([]byte(yml), &in))
 		require.Equal(t, job_types.Cron, in.Template)
+	})
+
+	t.Run("aptos string", func(t *testing.T) {
+		var in jobs.ProposeJobSpecInput
+		yml := "environment: e\ndomain: d\ndon_name: don\ndon_filters: []\njob_name: j\ntemplate: aptos\ninputs: {}\n"
+		require.NoError(t, yaml.Unmarshal([]byte(yml), &in))
+		require.Equal(t, job_types.Aptos, in.Template)
 	})
 
 	t.Run("invalid string", func(t *testing.T) {

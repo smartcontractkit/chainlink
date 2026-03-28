@@ -25,9 +25,10 @@ type ConfigureOCR3Input struct {
 	ContractChainSelector uint64 `json:"contractChainSelector" yaml:"contractChainSelector"`
 	ContractQualifier     string `json:"contractQualifier" yaml:"contractQualifier"`
 
-	DON          contracts.DonNodeSet `json:"don" yaml:"don"`
-	OracleConfig *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
-	DryRun       bool                 `json:"dryRun" yaml:"dryRun"`
+	DON                 contracts.DonNodeSet `json:"don" yaml:"don"`
+	OracleConfig        *ocr3.OracleConfig   `json:"oracleConfig" yaml:"oracleConfig"`
+	DryRun              bool                 `json:"dryRun" yaml:"dryRun"`
+	ExtraSignerFamilies []string             `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 
 	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 }
@@ -49,6 +50,9 @@ func (l ConfigureOCR3) VerifyPreconditions(_ cldf.Environment, input ConfigureOC
 	}
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
+	}
+	if err := ocr3.ValidateExtraSignerFamilies(input.ExtraSignerFamilies); err != nil {
+		return fmt.Errorf("invalid extra signer families: %w", err)
 	}
 	return nil
 }
@@ -93,12 +97,13 @@ func (l ConfigureOCR3) Apply(e cldf.Environment, input ConfigureOCR3Input) (cldf
 		Env:      &e,
 		Strategy: strategy,
 	}, contracts.ConfigureOCR3Input{
-		ContractAddress: &contractAddr,
-		ChainSelector:   input.ContractChainSelector,
-		DON:             input.DON,
-		Config:          input.OracleConfig,
-		DryRun:          input.DryRun,
-		MCMSConfig:      input.MCMSConfig,
+		ContractAddress:     &contractAddr,
+		ChainSelector:       input.ContractChainSelector,
+		DON:                 input.DON,
+		Config:              input.OracleConfig,
+		DryRun:              input.DryRun,
+		ExtraSignerFamilies: input.ExtraSignerFamilies,
+		MCMSConfig:          input.MCMSConfig,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)

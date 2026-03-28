@@ -44,6 +44,24 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
 		},
 		{
+			name:     "aptos command with valid config - localnet",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"4","network":"aptos"}`,
+			expected: "aptos:ChainSelector:4457093679053095497@1.0.0",
+		},
+		{
+			name:     "aptos command with invalid chainId",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"not-a-number","network":"aptos"}`,
+			expected: "",
+		},
+		{
+			name:     "aptos command with unknown chainId",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"999999","network":"aptos"}`,
+			expected: "",
+		},
+		{
 			name:     "evm command with invalid JSON",
 			command:  "/usr/local/bin/evm",
 			config:   `{invalid json}`,
@@ -174,6 +192,16 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			expected:     "evm",
 		},
 		{
+			name:         "aptos localnet capability",
+			capabilityID: "aptos:ChainSelector:4457093679053095497@1.0.0",
+			expected:     "aptos",
+		},
+		{
+			name:         "aptos capability - different version",
+			capabilityID: "aptos:ChainSelector:4457093679053095497@2.0.0",
+			expected:     "aptos",
+		},
+		{
 			name:         "unknown capability",
 			capabilityID: "unknown@1.0.0",
 			expected:     "",
@@ -207,4 +235,8 @@ func Test_roundTrip(t *testing.T) {
 	// EVM round-trip: command base name is preserved
 	evmCapID := GetCapabilityIDFromCommand("/usr/local/bin/evm", `{"chainId": 1}`)
 	assert.Equal(t, "evm", GetCommandFromCapabilityID(evmCapID))
+
+	// Aptos round-trip: command base name is preserved
+	aptosCapID := GetCapabilityIDFromCommand("/usr/local/bin/aptos", `{"chainId":"4","network":"aptos"}`)
+	assert.Equal(t, "aptos", GetCommandFromCapabilityID(aptosCapID))
 }

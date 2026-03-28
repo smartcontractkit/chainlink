@@ -2,6 +2,7 @@ package contracts
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -71,6 +72,7 @@ func DefaultOCR3Config() *ocr3.OracleConfig {
 			MaxOutcomeLengthBytes:     1000000,
 			MaxReportLengthBytes:      1000000,
 			MaxBatchSize:              1000,
+			RequestTimeout:            30 * time.Second,
 		},
 		UniqueReports: true,
 	}

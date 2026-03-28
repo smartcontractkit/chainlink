@@ -440,6 +440,74 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	}
 }
 
+func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
+	j := jobs.ProposeJobSpec{}
+	var env cldf.Environment
+
+	base := jobs.ProposeJobSpecInput{
+		Environment: "test",
+		Domain:      "cre",
+		DONName:     "test-don",
+		JobName:     "aptos-test",
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: "d"},
+			{Key: "environment", Value: "e"},
+			{Key: "product", Value: offchain.ProductLabel},
+		},
+		Template: job_types.Aptos,
+	}
+
+	validAptosInputs := func() job_types.JobSpecInput {
+		return job_types.JobSpecInput{
+			"command":            "/usr/local/bin/aptos",
+			"config":             `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
+			"chainSelectorEVM":   "3379446385462418246",
+			"chainSelectorAptos": "4457093679053095497",
+			"bootstrapPeers": []string{
+				"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+			},
+			"useCapRegOCRConfig": true,
+			"capRegVersion":      "2.0.0",
+		}
+	}
+
+	t.Run("valid aptos spec passes", func(t *testing.T) {
+		in := base
+		in.Inputs = validAptosInputs()
+		require.NoError(t, j.VerifyPreconditions(env, in))
+	})
+
+	type negCase struct {
+		name    string
+		mutate  func(job_types.JobSpecInput)
+		wantEnd string
+	}
+
+	const prefix = "invalid inputs for Aptos job spec: "
+
+	cases := []negCase{
+		{"missing command", func(m job_types.JobSpecInput) { delete(m, "command") }, "command is required and must be a string"},
+		{"missing config", func(m job_types.JobSpecInput) { delete(m, "config") }, "config is required and must be a string"},
+		{"missing chainSelectorEVM", func(m job_types.JobSpecInput) { delete(m, "chainSelectorEVM") }, "chainSelectorEVM is required"},
+		{"missing chainSelectorAptos", func(m job_types.JobSpecInput) { delete(m, "chainSelectorAptos") }, "chainSelectorAptos is required"},
+		{"missing bootstrapPeers", func(m job_types.JobSpecInput) { delete(m, "bootstrapPeers") }, "bootstrapPeers is required"},
+		{"invalid bootstrapPeers", func(m job_types.JobSpecInput) { m["bootstrapPeers"] = []string{"not-a-peer"} }, "bootstrapPeers is invalid"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := base
+			in.Inputs = validAptosInputs()
+			tc.mutate(in.Inputs)
+
+			err := j.VerifyPreconditions(env, in)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), prefix)
+			assert.Contains(t, err.Error(), tc.wantEnd)
+		})
+	}
+}
+
 func TestProposeJobSpec_Apply(t *testing.T) {
 	testEnv := test.SetupEnvV2(t, false)
 	env := testEnv.Env
@@ -766,6 +834,71 @@ PerSenderBurst = 100
 			assert.Contains(t, req.Spec, `command = "/usr/bin/read-contract"`)
 			assert.Contains(t, req.Spec, `config = """{"chainId":1337,"network":"evm"}"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-readcontract-job-id"`)
+			assert.NotContains(t, req.Spec, `[oracle_factory]`)
+		}
+	})
+
+	t.Run("successful aptos job distribution includes oracle factory", func(t *testing.T) {
+		chainSelector := testEnv.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType("CapabilitiesRegistry"),
+			Version:       semver.MustParse("2.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: "test",
+			Domain:      "cre",
+			JobName:     "aptos-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.Aptos,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: "test"},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":          "/usr/bin/aptos",
+				"config":           `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
+				"chainSelectorEVM": strconv.FormatUint(chainSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(
+					testEnv.AptosSelector,
+					10,
+				),
+				"bootstrapPeers": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+				"useCapRegOCRConfig": true,
+				"capRegVersion":      "2.0.0",
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "aptos-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4)
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "aptos-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "/usr/bin/aptos"`)
+			assert.Contains(t, req.Spec, `[oracle_factory]`)
+			assert.Contains(t, req.Spec, `enabled = true`)
+			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
+			assert.Contains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
 		}
 	})
 

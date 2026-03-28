@@ -1,0 +1,949 @@
+package aptos
+
+import (
+	"context"
+	"encoding/hex"
+	"encoding/json"
+	stderrors "errors"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"dario.cat/mergo"
+	"github.com/Masterminds/semver/v3"
+	aptossdk "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/pelletier/go-toml/v2"
+	pkgerrors "github.com/pkg/errors"
+	"github.com/rs/zerolog"
+	"github.com/sethvargo/go-retry"
+	"google.golang.org/protobuf/types/known/durationpb"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
+	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
+	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	creocr3changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
+	creocr3contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	crejobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+)
+
+const (
+	flag                    = cre.WriteAptosCapability
+	forwarderContractType   = "AptosForwarder"
+	forwarderConfigVersion  = 1
+	capabilityVersion       = "1.0.0"
+	capabilityLabelPrefix   = "aptos:ChainSelector:"
+	specConfigP2PMapKey     = "p2pToTransmitterMap"
+	specConfigScheduleKey   = "transmissionSchedule"
+	specConfigDeltaStageKey = "deltaStage"
+	legacyTransmittersKey   = "aptosTransmitters"
+	requestTimeoutKey       = "RequestTimeout"
+	deltaStageKey           = "DeltaStage"
+	transmissionScheduleKey = "TransmissionSchedule"
+	forwarderQualifier      = ""
+	ocr3ContractQualifier   = "aptos_capability_ocr3"
+	zeroForwarderHex        = "0x0000000000000000000000000000000000000000000000000000000000000000"
+	defaultWriteDeltaStage  = 500*time.Millisecond + 1*time.Second
+	defaultRequestTimeout   = 30 * time.Second
+)
+
+var forwarderContractVersion = semver.MustParse("1.0.0")
+
+type Aptos struct{}
+
+type methodConfigSettings struct {
+	RequestTimeout       time.Duration
+	DeltaStage           time.Duration
+	TransmissionSchedule capabilitiespb.TransmissionSchedule
+}
+
+func (a *Aptos) Flag() cre.CapabilityFlag {
+	return flag
+}
+
+func CapabilityLabel(chainSelector uint64) string {
+	return capabilityLabelPrefix + strconv.FormatUint(chainSelector, 10)
+}
+
+func (a *Aptos) PreEnvStartup(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	don *cre.DonMetadata,
+	_ *cre.Topology,
+	creEnv *cre.Environment,
+) (*cre.PreEnvStartupOutput, error) {
+	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
+	}
+	if len(enabledChainIDs) == 0 {
+		return nil, nil
+	}
+
+	forwardersByChainID := make(map[uint64]string, len(enabledChainIDs))
+	for _, chainID := range enabledChainIDs {
+		aptosChain, findErr := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if findErr != nil {
+			return nil, findErr
+		}
+
+		forwarderAddress, ensureErr := ensureForwarder(ctx, testLogger, creEnv, aptosChain)
+		if ensureErr != nil {
+			return nil, ensureErr
+		}
+		forwardersByChainID[chainID] = forwarderAddress
+	}
+
+	if patchErr := patchNodeTOML(don, forwardersByChainID); patchErr != nil {
+		return nil, patchErr
+	}
+
+	workers, err := don.Workers()
+	if err != nil {
+		return nil, err
+	}
+	p2pToTransmitterMap, err := p2pToTransmitterMapForWorkers(workers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect Aptos worker transmitters for DON %q from metadata: %w", don.Name, err)
+	}
+
+	caps := make([]keystone_changeset.DONCapabilityWithConfig, 0, len(enabledChainIDs))
+	capabilityToOCR3Config := make(map[string]*ocr3.OracleConfig, len(enabledChainIDs))
+	capabilityLabels := make([]string, 0, len(enabledChainIDs))
+	for _, chainID := range enabledChainIDs {
+		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if err != nil {
+			return nil, err
+		}
+		labelledName := CapabilityLabel(aptosChain.ChainSelector())
+		capabilityConfig, err := cre.ResolveCapabilityConfig(don.MustNodeSet(), flag, cre.ChainCapabilityScope(chainID))
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, err)
+		}
+		capConfig, err := BuildCapabilityConfig(capabilityConfig.Values, p2pToTransmitterMap, don.HasOnlyLocalCapabilities())
+		if err != nil {
+			return nil, fmt.Errorf("failed to build Aptos capability config for capability %s: %w", labelledName, err)
+		}
+
+		caps = append(caps, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   labelledName,
+				Version:        capabilityVersion,
+				CapabilityType: 1,
+			},
+			Config:             capConfig,
+			UseCapRegOCRConfig: false,
+		})
+		capabilityLabels = append(capabilityLabels, labelledName)
+		capabilityToOCR3Config[labelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
+	}
+
+	return &cre.PreEnvStartupOutput{
+		DONCapabilityWithConfig: caps,
+		CapabilityToOCR3Config:  capabilityToOCR3Config,
+		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			capabilityLabels...,
+		),
+	}, nil
+}
+
+func (a *Aptos) PostEnvStartup(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	don *cre.Don,
+	dons *cre.Dons,
+	creEnv *cre.Environment,
+) error {
+	specs := make(map[string][]string)
+
+	var nodeSet cre.NodeSetWithCapabilityConfigs
+	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
+		if ns.GetName() == don.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
+	}
+
+	enabledChainIDs, err := nodeSet.GetEnabledChainIDsForCapability(flag)
+	if err != nil {
+		return fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
+	}
+	if len(enabledChainIDs) == 0 {
+		return nil
+	}
+
+	if configureErr := configureForwarders(ctx, testLogger, don, creEnv, enabledChainIDs); configureErr != nil {
+		return configureErr
+	}
+
+	bootstrapNode, ok := dons.Bootstrap()
+	if !ok {
+		return pkgerrors.New("bootstrap node not found; required for Aptos OCR bootstrap peers")
+	}
+	bootstrapPeers := []string{
+		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort),
+	}
+
+	if _, _, deployErr := crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions); deployErr != nil {
+		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", deployErr)
+	}
+
+	for _, chainID := range enabledChainIDs {
+		aptosChain, chainErr := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if chainErr != nil {
+			return chainErr
+		}
+
+		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+		if resolveErr != nil {
+			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
+		}
+		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
+		if cErr != nil {
+			return pkgerrors.Wrap(cErr, "failed to get command for Aptos capability")
+		}
+
+		forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
+		workerMetadata, metadataErr := don.Metadata().Workers()
+		if metadataErr != nil {
+			return fmt.Errorf("failed to collect Aptos worker metadata for DON %q: %w", don.Name, metadataErr)
+		}
+		p2pToTransmitterMap, mapErr := p2pToTransmitterMapForWorkers(workerMetadata)
+		if mapErr != nil {
+			return fmt.Errorf("failed to collect Aptos worker transmitters for DON %q: %w", don.Name, mapErr)
+		}
+		methodSettings, settingsErr := resolveMethodConfigSettings(capabilityConfig.Values)
+		if settingsErr != nil {
+			return fmt.Errorf("failed to resolve Aptos method config settings for chain %d: %w", chainID, settingsErr)
+		}
+		configStr, configErr := buildWorkerConfigJSON(chainID, forwarderAddress, methodSettings, p2pToTransmitterMap, true)
+		if configErr != nil {
+			return fmt.Errorf("failed to build Aptos worker config: %w", configErr)
+		}
+
+		workerInput := jobs.ProposeJobSpecInput{
+			Domain:      offchain.ProductLabel,
+			Environment: cre.EnvironmentName,
+			DONName:     don.Name,
+			JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
+			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: don.Name},
+			},
+			Template: jobtypes.Aptos,
+			Inputs: jobtypes.JobSpecInput{
+				"command":            command,
+				"config":             configStr,
+				"chainSelectorEVM":   creEnv.RegistryChainSelector,
+				"chainSelectorAptos": aptosChain.ChainSelector(),
+				"bootstrapPeers":     bootstrapPeers,
+				"useCapRegOCRConfig": false,
+				"contractQualifier":  ocr3ContractQualifier,
+			},
+		}
+
+		proposer := jobs.ProposeJobSpec{}
+		if verifyErr := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput); verifyErr != nil {
+			return fmt.Errorf("precondition verification failed for Aptos worker job: %w", verifyErr)
+		}
+		workerReport, applyErr := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
+		if applyErr != nil {
+			return fmt.Errorf("failed to propose Aptos worker job spec: %w", applyErr)
+		}
+
+		for _, report := range workerReport.Reports {
+			out, ok := report.Output.(crejobops.ProposeStandardCapabilityJobOutput)
+			if !ok {
+				return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", report.Output)
+			}
+			if mergeErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice); mergeErr != nil {
+				return fmt.Errorf("failed to merge Aptos worker job specs: %w", mergeErr)
+			}
+		}
+	}
+
+	if len(specs) == 0 {
+		return nil
+	}
+	if approveErr := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); approveErr != nil {
+		return fmt.Errorf("failed to approve Aptos jobs: %w", approveErr)
+	}
+
+	workers, err := don.Workers()
+	if err != nil {
+		return fmt.Errorf("failed to collect Aptos worker nodes for OCR3 config: %w", err)
+	}
+	workerNodeIDs := make([]string, 0, len(workers))
+	for _, worker := range workers {
+		if worker.JobDistributorDetails == nil {
+			return fmt.Errorf("worker %q is missing job distributor details", worker.Name)
+		}
+		workerNodeIDs = append(workerNodeIDs, worker.JobDistributorDetails.NodeID)
+	}
+
+	_, err = creocr3changeset.ConfigureOCR3{}.Apply(*creEnv.CldfEnvironment, creocr3changeset.ConfigureOCR3Input{
+		ContractChainSelector: creEnv.RegistryChainSelector,
+		ContractQualifier:     ocr3ContractQualifier,
+		DON: creocr3contracts.DonNodeSet{
+			Name:    don.Name,
+			NodeIDs: workerNodeIDs,
+		},
+		OracleConfig:        don.ResolveORC3Config(crecontracts.DefaultChainCapabilityOCR3Config()),
+		DryRun:              false,
+		ExtraSignerFamilies: cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to configure Aptos OCR3 contract: %w", err)
+	}
+	return nil
+}
+
+func forwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, bool) {
+	key := datastore.NewAddressRefKey(
+		chainSelector,
+		datastore.ContractType(forwarderContractType),
+		forwarderContractVersion,
+		forwarderQualifier,
+	)
+	ref, err := ds.Addresses().Get(key)
+	if err != nil {
+		return "", false
+	}
+	return ref.Address, true
+}
+
+func mustForwarderAddress(ds datastore.DataStore, chainSelector uint64) string {
+	addr, ok := forwarderAddress(ds, chainSelector)
+	if !ok {
+		panic(fmt.Sprintf("missing Aptos forwarder address for chain selector %d", chainSelector))
+	}
+	return addr
+}
+
+// BuildCapabilityConfig builds the Aptos capability config passed directly
+// through the capability manager: method execution policy in MethodConfigs and
+// Aptos-specific runtime inputs in SpecConfig.
+func BuildCapabilityConfig(values map[string]any, p2pToTransmitterMap map[string]string, localOnly bool) (*capabilitiespb.CapabilityConfig, error) {
+	methodSettings, err := resolveMethodConfigSettings(values)
+	if err != nil {
+		return nil, err
+	}
+
+	capConfig := &capabilitiespb.CapabilityConfig{
+		MethodConfigs: methodConfigs(methodSettings),
+		LocalOnly:     localOnly,
+	}
+	if err := setRuntimeSpecConfig(capConfig, methodSettings, p2pToTransmitterMap); err != nil {
+		return nil, err
+	}
+	return capConfig, nil
+}
+
+func buildWorkerConfigJSON(chainID uint64, forwarderAddress string, settings methodConfigSettings, p2pToTransmitterMap map[string]string, isLocal bool) (string, error) {
+	cfg := map[string]any{
+		"chainId":             strconv.FormatUint(chainID, 10),
+		"network":             "aptos",
+		"creForwarderAddress": forwarderAddress,
+		"isLocal":             isLocal,
+		"deltaStage":          settings.DeltaStage,
+	}
+	if len(p2pToTransmitterMap) > 0 {
+		cfg[specConfigP2PMapKey] = p2pToTransmitterMap
+	}
+
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal Aptos worker config: %w", err)
+	}
+	return string(raw), nil
+}
+
+func methodConfigs(settings methodConfigSettings) map[string]*capabilitiespb.CapabilityMethodConfig {
+	return map[string]*capabilitiespb.CapabilityMethodConfig{
+		"View": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					TransmissionSchedule:      capabilitiespb.TransmissionSchedule_AllAtOnce,
+					RequestTimeout:            durationpb.New(settings.RequestTimeout),
+					ServerMaxParallelRequests: 10,
+					RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
+				},
+			},
+		},
+		"WriteReport": {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					TransmissionSchedule:      settings.TransmissionSchedule,
+					DeltaStage:                durationpb.New(settings.DeltaStage),
+					RequestTimeout:            durationpb.New(settings.RequestTimeout),
+					ServerMaxParallelRequests: 10,
+					RequestHasherType:         capabilitiespb.RequestHasherType_WriteReportExcludeSignatures,
+				},
+			},
+		},
+	}
+}
+
+func resolveMethodConfigSettings(values map[string]any) (methodConfigSettings, error) {
+	settings := methodConfigSettings{
+		RequestTimeout:       defaultRequestTimeout,
+		DeltaStage:           defaultWriteDeltaStage,
+		TransmissionSchedule: capabilitiespb.TransmissionSchedule_AllAtOnce,
+	}
+
+	if values == nil {
+		return settings, nil
+	}
+
+	requestTimeout, ok, err := durationValue(values, requestTimeoutKey)
+	if err != nil {
+		return methodConfigSettings{}, err
+	}
+	if ok {
+		settings.RequestTimeout = requestTimeout
+	}
+
+	deltaStage, ok, err := durationValue(values, deltaStageKey)
+	if err != nil {
+		return methodConfigSettings{}, err
+	}
+	if ok {
+		settings.DeltaStage = deltaStage
+	}
+
+	transmissionSchedule, ok, err := transmissionScheduleValue(values, transmissionScheduleKey)
+	if err != nil {
+		return methodConfigSettings{}, err
+	}
+	if ok {
+		settings.TransmissionSchedule = transmissionSchedule
+	}
+
+	return settings, nil
+}
+
+func transmissionScheduleValue(values map[string]any, key string) (capabilitiespb.TransmissionSchedule, bool, error) {
+	raw, ok := values[key]
+	if !ok {
+		return 0, false, nil
+	}
+
+	schedule, ok := raw.(string)
+	if !ok {
+		return 0, false, fmt.Errorf("%s must be a string, got %T", key, raw)
+	}
+
+	switch strings.TrimSpace(schedule) {
+	case "allAtOnce":
+		return capabilitiespb.TransmissionSchedule_AllAtOnce, true, nil
+	case "oneAtATime":
+		return capabilitiespb.TransmissionSchedule_OneAtATime, true, nil
+	default:
+		return 0, false, fmt.Errorf("%s must be allAtOnce or oneAtATime, got %q", key, schedule)
+	}
+}
+
+func durationValue(values map[string]any, key string) (time.Duration, bool, error) {
+	raw, ok := values[key]
+	if !ok {
+		return 0, false, nil
+	}
+
+	switch v := raw.(type) {
+	case string:
+		parsed, err := time.ParseDuration(strings.TrimSpace(v))
+		if err != nil {
+			return 0, false, fmt.Errorf("%s must be a valid duration string: %w", key, err)
+		}
+		return parsed, true, nil
+	case time.Duration:
+		return v, true, nil
+	default:
+		return 0, false, fmt.Errorf("%s must be a duration string, got %T", key, raw)
+	}
+}
+
+func patchNodeTOML(don *cre.DonMetadata, forwardersByChainID map[uint64]string) error {
+	for nodeIndex := range don.MustNodeSet().NodeSpecs {
+		currentConfig := don.MustNodeSet().NodeSpecs[nodeIndex].Node.TestConfigOverrides
+		if strings.TrimSpace(currentConfig) == "" {
+			return fmt.Errorf("missing node config for node index %d in DON %q", nodeIndex, don.Name)
+		}
+
+		var typedConfig corechainlink.Config
+		if err := toml.Unmarshal([]byte(currentConfig), &typedConfig); err != nil {
+			return fmt.Errorf("failed to unmarshal config for node index %d: %w", nodeIndex, err)
+		}
+
+		for chainID, forwarderAddress := range forwardersByChainID {
+			if err := setForwarderAddress(&typedConfig, strconv.FormatUint(chainID, 10), forwarderAddress); err != nil {
+				return fmt.Errorf("failed to patch Aptos forwarder address for node index %d: %w", nodeIndex, err)
+			}
+		}
+
+		stringifiedConfig, err := toml.Marshal(typedConfig)
+		if err != nil {
+			return fmt.Errorf("failed to marshal patched config for node index %d: %w", nodeIndex, err)
+		}
+		don.MustNodeSet().NodeSpecs[nodeIndex].Node.TestConfigOverrides = string(stringifiedConfig)
+	}
+
+	return nil
+}
+
+func setForwarderAddress(cfg *corechainlink.Config, chainID, forwarderAddress string) error {
+	for i := range cfg.Aptos {
+		raw := map[string]any(cfg.Aptos[i])
+		if fmt.Sprint(raw["ChainID"]) != chainID {
+			continue
+		}
+
+		workflow := make(map[string]any)
+		switch existing := raw["Workflow"].(type) {
+		case map[string]any:
+			for k, v := range existing {
+				workflow[k] = v
+			}
+		case corechainlink.RawConfig:
+			for k, v := range existing {
+				workflow[k] = v
+			}
+		case nil:
+		default:
+			return fmt.Errorf("unexpected Aptos workflow config type %T", existing)
+		}
+		workflow["ForwarderAddress"] = forwarderAddress
+		raw["Workflow"] = workflow
+		cfg.Aptos[i] = corechainlink.RawConfig(raw)
+		return nil
+	}
+
+	return fmt.Errorf("Aptos chain %s not found in node config", chainID)
+}
+
+// ensureForwarder makes sure a forwarder exists for the Aptos chain selector and
+// returns its address. In local Docker environments it will deploy the forwarder
+// once and cache the resulting address in the CRE datastore; in non-Docker
+// environments it only reuses an address that has already been injected.
+func ensureForwarder(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	creEnv *cre.Environment,
+	chain *aptoschain.Blockchain,
+) (string, error) {
+	if addr, ok := forwarderAddress(creEnv.CldfEnvironment.DataStore, chain.ChainSelector()); ok {
+		return addr, nil
+	}
+	if !creEnv.Provider.IsDocker() {
+		return "", fmt.Errorf("missing Aptos forwarder address for chain selector %d", chain.ChainSelector())
+	}
+
+	nodeURL, err := chain.NodeURL()
+	if err != nil {
+		return "", fmt.Errorf("invalid Aptos node URL for chain selector %d: %w", chain.ChainSelector(), err)
+	}
+	client, err := chain.NodeClient()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", chain.ChainSelector(), nodeURL, err)
+	}
+	deployerAccount, err := chain.LocalDeployerAccount()
+	if err != nil {
+		return "", fmt.Errorf("failed to create Aptos deployer signer: %w", err)
+	}
+	deploymentChain, err := chain.LocalDeploymentChain()
+	if err != nil {
+		return "", fmt.Errorf("failed to build Aptos deployment chain for chain selector %d: %w", chain.ChainSelector(), err)
+	}
+
+	owner := deployerAccount.AccountAddress()
+	if _, accountErr := client.Account(owner); accountErr != nil {
+		if fundErr := chain.Fund(ctx, owner.StringLong(), 100_000_000); fundErr != nil {
+			testLogger.Warn().
+				Uint64("chainSelector", chain.ChainSelector()).
+				Str("nodeURL", nodeURL).
+				Err(fundErr).
+				Msg("Aptos deployer account not confirmed visible yet; proceeding with deploy retries")
+		}
+	}
+
+	var deployedAddress string
+	var pendingTxHash string
+	var lastDeployErr error
+	if retryErr := retry.Do(ctx, retry.WithMaxDuration(3*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
+		deploymentResp, deployErr := aptoschangeset.DeployPlatform(deploymentChain, owner, nil)
+		if deployErr != nil {
+			lastDeployErr = deployErr
+			if fundErr := chain.Fund(ctx, owner.StringLong(), 1_000_000_000_000); fundErr != nil {
+				testLogger.Warn().
+					Uint64("chainSelector", chain.ChainSelector()).
+					Err(fundErr).
+					Msg("failed to re-fund Aptos deployer account during deploy retry")
+			}
+			return retry.RetryableError(fmt.Errorf("deploy-to-object failed: %w", deployErr))
+		}
+		if deploymentResp == nil {
+			lastDeployErr = pkgerrors.New("nil deployment response")
+			return retry.RetryableError(pkgerrors.New("DeployPlatform returned nil response"))
+		}
+		deployedAddress = deploymentResp.Address.StringLong()
+		pendingTxHash = deploymentResp.Tx
+		return nil
+	}); retryErr != nil {
+		if lastDeployErr != nil {
+			return "", fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries: %w", chain.ChainSelector(), stderrors.Join(lastDeployErr, retryErr))
+		}
+		return "", fmt.Errorf("failed to deploy Aptos platform forwarder for chain selector %d after retries: %w", chain.ChainSelector(), retryErr)
+	}
+
+	addr, err := normalizeForwarderAddress(deployedAddress)
+	if err != nil {
+		return "", fmt.Errorf("invalid Aptos forwarder address parsed from deployment output for chain selector %d: %w", chain.ChainSelector(), err)
+	}
+
+	if err := addForwarderToDataStore(creEnv, chain.ChainSelector(), addr); err != nil {
+		return "", err
+	}
+
+	testLogger.Info().
+		Uint64("chainSelector", chain.ChainSelector()).
+		Str("nodeURL", nodeURL).
+		Str("txHash", pendingTxHash).
+		Str("forwarderAddress", addr).
+		Msg("Aptos platform forwarder deployed")
+
+	return addr, nil
+}
+
+// addForwarderToDataStore seals a new datastore snapshot with the Aptos
+// forwarder address so later setup phases can reuse it without redeploying.
+func addForwarderToDataStore(creEnv *cre.Environment, chainSelector uint64, address string) error {
+	memoryDatastore, err := crecontracts.NewDataStoreFromExisting(creEnv.CldfEnvironment.DataStore)
+	if err != nil {
+		return fmt.Errorf("failed to create memory datastore: %w", err)
+	}
+
+	err = memoryDatastore.AddressRefStore.Add(datastore.AddressRef{
+		Address:       address,
+		ChainSelector: chainSelector,
+		Type:          datastore.ContractType(forwarderContractType),
+		Version:       forwarderContractVersion,
+		Qualifier:     forwarderQualifier,
+	})
+	if err != nil && !stderrors.Is(err, datastore.ErrAddressRefExists) {
+		return fmt.Errorf("failed to add Aptos forwarder address to datastore: %w", err)
+	}
+
+	creEnv.CldfEnvironment.DataStore = memoryDatastore.Seal()
+	return nil
+}
+
+// configureForwarders writes the final DON membership and signer set to each
+// Aptos forwarder after the DON has started and contract DON IDs are known.
+func configureForwarders(
+	ctx context.Context,
+	testLogger zerolog.Logger,
+	don *cre.Don,
+	creEnv *cre.Environment,
+	chainIDs []uint64,
+) error {
+	workers, err := don.Workers()
+	if err != nil {
+		return fmt.Errorf("failed to get worker nodes for DON %q: %w", don.Name, err)
+	}
+	f := (len(workers) - 1) / 3
+	if f <= 0 {
+		return fmt.Errorf("invalid Aptos DON %q fault tolerance F=%d (workers=%d)", don.Name, f, len(workers))
+	}
+	if f > 255 {
+		return fmt.Errorf("aptos DON %q fault tolerance F=%d exceeds u8", don.Name, f)
+	}
+
+	donIDUint32, err := aptosDonIDUint32(don.ID)
+	if err != nil {
+		return fmt.Errorf("invalid DON id for Aptos forwarder config: %w", err)
+	}
+
+	oracles, err := donOraclePublicKeys(ctx, don)
+	if err != nil {
+		return err
+	}
+
+	for _, chainID := range chainIDs {
+		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
+		if err != nil {
+			return err
+		}
+
+		nodeURL, err := aptosChain.NodeURL()
+		if err != nil {
+			return fmt.Errorf("invalid Aptos node URL for chain selector %d: %w", aptosChain.ChainSelector(), err)
+		}
+		client, err := aptosChain.NodeClient()
+		if err != nil {
+			return fmt.Errorf("failed to create Aptos client for chain selector %d (%s): %w", aptosChain.ChainSelector(), nodeURL, err)
+		}
+		deployerAccount, err := aptosChain.LocalDeployerAccount()
+		if err != nil {
+			return fmt.Errorf("failed to create Aptos deployer signer for forwarder config: %w", err)
+		}
+		deployerAddress := deployerAccount.AccountAddress()
+
+		if _, accountErr := client.Account(deployerAddress); accountErr != nil {
+			if fundErr := aptosChain.Fund(ctx, deployerAddress.StringLong(), 100_000_000); fundErr != nil {
+				testLogger.Warn().
+					Uint64("chainSelector", aptosChain.ChainSelector()).
+					Str("nodeURL", nodeURL).
+					Err(fundErr).
+					Msg("Aptos deployer account not confirmed visible yet; proceeding with forwarder set_config retries")
+			}
+		}
+
+		forwarderHex := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
+		var forwarderAddr aptossdk.AccountAddress
+		if err := forwarderAddr.ParseStringRelaxed(forwarderHex); err != nil {
+			return fmt.Errorf("invalid Aptos forwarder address for chain selector %d: %w", aptosChain.ChainSelector(), err)
+		}
+		forwarderContract := aptosplatform.Bind(forwarderAddr, client).Forwarder()
+
+		var pendingTxHash string
+		var lastSetConfigErr error
+		if err := retry.Do(ctx, retry.WithMaxDuration(2*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
+			pendingTx, err := forwarderContract.SetConfig(&bind.TransactOpts{Signer: deployerAccount}, donIDUint32, forwarderConfigVersion, byte(f), oracles)
+			if err != nil {
+				lastSetConfigErr = err
+				if fundErr := aptosChain.Fund(ctx, deployerAddress.StringLong(), 1_000_000_000_000); fundErr != nil {
+					testLogger.Warn().
+						Uint64("chainSelector", aptosChain.ChainSelector()).
+						Err(fundErr).
+						Msg("failed to fund Aptos deployer account during set_config retry")
+				}
+				return retry.RetryableError(fmt.Errorf("set_config transaction submit failed: %w", err))
+			}
+			pendingTxHash = pendingTx.Hash
+			receipt, err := client.WaitForTransaction(pendingTxHash)
+			if err != nil {
+				lastSetConfigErr = err
+				return retry.RetryableError(fmt.Errorf("waiting for set_config transaction failed: %w", err))
+			}
+			if !receipt.Success {
+				lastSetConfigErr = fmt.Errorf("vm status: %s", receipt.VmStatus)
+				return retry.RetryableError(fmt.Errorf("set_config transaction failed: %s", receipt.VmStatus))
+			}
+			return nil
+		}); err != nil {
+			if lastSetConfigErr != nil {
+				return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d: %w", forwarderHex, don.Name, aptosChain.ChainSelector(), stderrors.Join(lastSetConfigErr, err))
+			}
+			return fmt.Errorf("failed to configure Aptos forwarder %s for DON %q on chain selector %d: %w", forwarderHex, don.Name, aptosChain.ChainSelector(), err)
+		}
+
+		testLogger.Info().
+			Str("donName", don.Name).
+			Uint64("donID", don.ID).
+			Uint64("chainSelector", aptosChain.ChainSelector()).
+			Str("txHash", pendingTxHash).
+			Str("forwarderAddress", forwarderHex).
+			Msg("configured Aptos forwarder set_config")
+	}
+
+	return nil
+}
+
+func donOraclePublicKeys(ctx context.Context, don *cre.Don) ([][]byte, error) {
+	workers, err := don.Workers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list worker nodes for DON %q: %w", don.Name, err)
+	}
+
+	oracles := make([][]byte, 0, len(workers))
+	for _, worker := range workers {
+		ocr2ID := ""
+		if worker.Keys != nil && worker.Keys.OCR2BundleIDs != nil {
+			ocr2ID = worker.Keys.OCR2BundleIDs[chainselectors.FamilyAptos]
+		}
+		if ocr2ID == "" {
+			fetchedID, err := worker.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, strings.ToUpper(chainselectors.FamilyAptos))
+			if err != nil {
+				return nil, fmt.Errorf("missing Aptos OCR2 bundle id for worker %q in DON %q and fallback fetch failed: %w", worker.Name, don.Name, err)
+			}
+			if fetchedID == "" {
+				return nil, fmt.Errorf("missing Aptos OCR2 bundle id for worker %q in DON %q", worker.Name, don.Name)
+			}
+			ocr2ID = fetchedID
+			if worker.Keys != nil {
+				if worker.Keys.OCR2BundleIDs == nil {
+					worker.Keys.OCR2BundleIDs = make(map[string]string)
+				}
+				worker.Keys.OCR2BundleIDs[chainselectors.FamilyAptos] = ocr2ID
+			}
+		}
+
+		exported, err := worker.ExportOCR2Keys(ocr2ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to export Aptos OCR2 key for worker %q (bundle %s): %w", worker.Name, ocr2ID, err)
+		}
+		pubkey, err := parseOCR2OnchainPublicKey(exported.OnchainPublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Aptos OCR2 onchain public key for worker %q: %w", worker.Name, err)
+		}
+		oracles = append(oracles, pubkey)
+	}
+
+	return oracles, nil
+}
+
+func p2pToTransmitterMapForWorkers(workers []*cre.NodeMetadata) (map[string]string, error) {
+	if len(workers) == 0 {
+		return nil, pkgerrors.New("no DON worker nodes provided")
+	}
+
+	p2pToTransmitterMap := make(map[string]string)
+	for _, worker := range workers {
+		if worker.Keys == nil || worker.Keys.P2PKey == nil {
+			return nil, fmt.Errorf("missing P2P key for worker index %d", worker.Index)
+		}
+
+		account := worker.Keys.AptosAccount()
+		if account == "" {
+			return nil, fmt.Errorf("missing Aptos account for worker index %d", worker.Index)
+		}
+
+		transmitter, err := normalizeTransmitter(account)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Aptos transmitter for worker index %d: %w", worker.Index, err)
+		}
+
+		peerKey := hex.EncodeToString(worker.Keys.P2PKey.PeerID[:])
+		p2pToTransmitterMap[peerKey] = transmitter
+	}
+
+	if len(p2pToTransmitterMap) == 0 {
+		return nil, pkgerrors.New("no Aptos transmitters found for DON workers")
+	}
+
+	return p2pToTransmitterMap, nil
+}
+
+func setRuntimeSpecConfig(capConfig *capabilitiespb.CapabilityConfig, settings methodConfigSettings, p2pToTransmitterMap map[string]string) error {
+	if capConfig == nil {
+		return pkgerrors.New("capability config is nil")
+	}
+
+	specConfig, err := values.FromMapValueProto(capConfig.SpecConfig)
+	if err != nil {
+		return fmt.Errorf("failed to decode existing spec config: %w", err)
+	}
+	if specConfig == nil {
+		specConfig = values.EmptyMap()
+	}
+
+	delete(specConfig.Underlying, legacyTransmittersKey)
+
+	scheduleValue, err := values.Wrap(remoteTransmissionScheduleString(settings.TransmissionSchedule))
+	if err != nil {
+		return fmt.Errorf("failed to wrap transmission schedule: %w", err)
+	}
+	specConfig.Underlying[specConfigScheduleKey] = scheduleValue
+
+	deltaStageValue, err := values.Wrap(settings.DeltaStage)
+	if err != nil {
+		return fmt.Errorf("failed to wrap delta stage: %w", err)
+	}
+	specConfig.Underlying[specConfigDeltaStageKey] = deltaStageValue
+
+	if len(p2pToTransmitterMap) > 0 {
+		mapValue, err := values.Wrap(p2pToTransmitterMap)
+		if err != nil {
+			return fmt.Errorf("failed to wrap p2p transmitter map: %w", err)
+		}
+		specConfig.Underlying[specConfigP2PMapKey] = mapValue
+	}
+
+	capConfig.SpecConfig = values.ProtoMap(specConfig)
+	return nil
+}
+
+func remoteTransmissionScheduleString(schedule capabilitiespb.TransmissionSchedule) string {
+	switch schedule {
+	case capabilitiespb.TransmissionSchedule_OneAtATime:
+		return "oneAtATime"
+	default:
+		return "allAtOnce"
+	}
+}
+
+func normalizeTransmitter(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return "", pkgerrors.New("empty Aptos transmitter")
+	}
+
+	var addr aptossdk.AccountAddress
+	if err := addr.ParseStringRelaxed(s); err != nil {
+		return "", err
+	}
+	return addr.StringLong(), nil
+}
+
+func normalizeForwarderAddress(raw string) (string, error) {
+	var addr aptossdk.AccountAddress
+	if err := addr.ParseStringRelaxed(strings.TrimSpace(raw)); err != nil {
+		return "", err
+	}
+	return addr.StringLong(), nil
+}
+
+func findAptosChainByChainID(chains []creblockchains.Blockchain, chainID uint64) (*aptoschain.Blockchain, error) {
+	for _, bc := range chains {
+		if bc.IsFamily(chainselectors.FamilyAptos) && bc.ChainID() == chainID {
+			aptosBlockchain, ok := bc.(*aptoschain.Blockchain)
+			if !ok {
+				return nil, fmt.Errorf("Aptos blockchain for chain id %d has unexpected type %T", chainID, bc)
+			}
+			return aptosBlockchain, nil
+		}
+	}
+	return nil, fmt.Errorf("Aptos blockchain for chain id %d not found", chainID)
+}
+
+func aptosDonIDUint32(donID uint64) (uint32, error) {
+	if donID > uint64(^uint32(0)) {
+		return 0, fmt.Errorf("don id %d exceeds u32", donID)
+	}
+	return uint32(donID), nil
+}
+
+func parseOCR2OnchainPublicKey(hexValue string) ([]byte, error) {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(hexValue), "ocr2on_aptos_")
+	decoded, err := hex.DecodeString(trimmed)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
+}
+
+var (
+	_ cre.Feature = (*Aptos)(nil)
+)

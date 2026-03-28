@@ -75,6 +75,9 @@ jobs:
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
+            "Test_CRE_V2_Aptos_Suite": [
+               {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
+             ],
             "Test_CRE_V2_Solana_Suite": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
@@ -211,6 +214,35 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
+          echo "::endgroup::"
+
+      - name: Install Aptos CLI
+        if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APTOS_CLI_TAG: "aptos-cli-v7.8.0"
+        run: |
+          echo "::startgroup::Install Aptos CLI"
+          bin_dir="$HOME/.local/bin"
+          mkdir -p "$bin_dir"
+
+          gh release download "${APTOS_CLI_TAG}" \
+            --pattern "aptos-cli-*-Ubuntu-24.04-x86_64.zip" \
+            --clobber \
+            --repo aptos-labs/aptos-core \
+            -O aptos-cli.zip
+
+          unzip -o aptos-cli.zip -d aptos-cli-extract >/dev/null
+          aptos_path="$(find aptos-cli-extract -type f -name aptos | head -n1)"
+          if [[ -z "$aptos_path" ]]; then
+            echo "failed to locate aptos binary in release archive"
+            exit 1
+          fi
+
+          install -m 0755 "$aptos_path" "$bin_dir/aptos"
+          echo "$bin_dir" >> "$GITHUB_PATH"
+          "$bin_dir/aptos" --version
           echo "::endgroup::"
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
