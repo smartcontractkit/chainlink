@@ -1,14 +1,13 @@
 package aptos
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"dario.cat/mergo"
@@ -32,12 +31,13 @@ import (
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	creocr3changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
+	creocr3contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	crejobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -59,8 +59,8 @@ const (
 	deltaStageKey           = "DeltaStage"
 	transmissionScheduleKey = "TransmissionSchedule"
 	forwarderQualifier      = ""
+	ocr3ContractQualifier   = "aptos_capability_ocr3"
 	zeroForwarderHex        = "0x0000000000000000000000000000000000000000000000000000000000000000"
-	aptosConfigTemplate     = `{"chainId":"{{.ChainID}}","network":"aptos","creForwarderAddress":"{{.CREForwarderAddress}}"}`
 	defaultWriteDeltaStage  = 500*time.Millisecond + 1*time.Second
 	defaultRequestTimeout   = 30 * time.Second
 )
@@ -206,11 +206,9 @@ func (a *Aptos) PostEnvStartup(
 		fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrapNode.Keys.PeerID(), "p2p_"), bootstrapNode.Host, cre.OCRPeeringPort),
 	}
 
-	capRegSemver, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
-	if !ok {
-		return pkgerrors.New("CapabilitiesRegistry version not found in contract versions")
+	if _, _, err := crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions); err != nil {
+		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", err)
 	}
-	capRegVersion := capRegSemver.String()
 
 	for _, chainID := range enabledChainIDs {
 		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
@@ -227,25 +225,22 @@ func (a *Aptos) PostEnvStartup(
 			return pkgerrors.Wrap(cErr, "failed to get command for Aptos capability")
 		}
 
-		tmpl, tmplErr := template.New("aptos-config").Parse(aptosConfigTemplate)
-		if tmplErr != nil {
-			return pkgerrors.Wrap(tmplErr, "failed to parse Aptos config template")
-		}
-
 		forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
-		templateData := map[string]string{
-			"ChainID":             strconv.FormatUint(chainID, 10),
-			"CREForwarderAddress": forwarderAddress,
+		workerMetadata, metadataErr := don.Metadata().Workers()
+		if metadataErr != nil {
+			return fmt.Errorf("failed to collect Aptos worker metadata for DON %q: %w", don.Name, metadataErr)
 		}
-
-		var configBuffer bytes.Buffer
-		if execErr := tmpl.Execute(&configBuffer, templateData); execErr != nil {
-			return pkgerrors.Wrap(execErr, "failed to execute Aptos config template")
+		p2pToTransmitterMap, mapErr := p2pToTransmitterMapForWorkers(workerMetadata)
+		if mapErr != nil {
+			return fmt.Errorf("failed to collect Aptos worker transmitters for DON %q: %w", don.Name, mapErr)
 		}
-
-		configStr := configBuffer.String()
-		if validationErr := credon.ValidateTemplateSubstitution(configStr, flag); validationErr != nil {
-			return fmt.Errorf("aptos template validation failed: %w\nRendered: %s", validationErr, configStr)
+		methodSettings, settingsErr := resolveMethodConfigSettings(capabilityConfig.Values)
+		if settingsErr != nil {
+			return fmt.Errorf("failed to resolve Aptos method config settings for chain %d: %w", chainID, settingsErr)
+		}
+		configStr, configErr := buildWorkerConfigJSON(chainID, forwarderAddress, methodSettings, p2pToTransmitterMap, true)
+		if configErr != nil {
+			return fmt.Errorf("failed to build Aptos worker config: %w", configErr)
 		}
 
 		workerInput := jobs.ProposeJobSpecInput{
@@ -257,15 +252,15 @@ func (a *Aptos) PostEnvStartup(
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: don.Name},
 			},
-			Template: jobtypes.ReadContract,
+			Template: jobtypes.Aptos,
 			Inputs: jobtypes.JobSpecInput{
 				"command":            command,
 				"config":             configStr,
 				"chainSelectorEVM":   creEnv.RegistryChainSelector,
 				"chainSelectorAptos": aptosChain.ChainSelector(),
 				"bootstrapPeers":     bootstrapPeers,
-				"useCapRegOCRConfig": true,
-				"capRegVersion":      capRegVersion,
+				"useCapRegOCRConfig": false,
+				"contractQualifier":  ocr3ContractQualifier,
 			},
 		}
 
@@ -294,6 +289,33 @@ func (a *Aptos) PostEnvStartup(
 	}
 	if err := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
 		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
+	}
+
+	workers, err := don.Workers()
+	if err != nil {
+		return fmt.Errorf("failed to collect Aptos worker nodes for OCR3 config: %w", err)
+	}
+	workerNodeIDs := make([]string, 0, len(workers))
+	for _, worker := range workers {
+		if worker.JobDistributorDetails == nil {
+			return fmt.Errorf("worker %q is missing job distributor details", worker.Name)
+		}
+		workerNodeIDs = append(workerNodeIDs, worker.JobDistributorDetails.NodeID)
+	}
+
+	_, err = creocr3changeset.ConfigureOCR3{}.Apply(*creEnv.CldfEnvironment, creocr3changeset.ConfigureOCR3Input{
+		ContractChainSelector: creEnv.RegistryChainSelector,
+		ContractQualifier:     ocr3ContractQualifier,
+		DON: creocr3contracts.DonNodeSet{
+			Name:    don.Name,
+			NodeIDs: workerNodeIDs,
+		},
+		OracleConfig:        don.ResolveORC3Config(crecontracts.DefaultChainCapabilityOCR3Config()),
+		DryRun:              false,
+		ExtraSignerFamilies: cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to configure Aptos OCR3 contract: %w", err)
 	}
 	return nil
 }
@@ -337,6 +359,25 @@ func BuildCapabilityConfig(values map[string]any, p2pToTransmitterMap map[string
 		return nil, err
 	}
 	return capConfig, nil
+}
+
+func buildWorkerConfigJSON(chainID uint64, forwarderAddress string, settings methodConfigSettings, p2pToTransmitterMap map[string]string, isLocal bool) (string, error) {
+	cfg := map[string]any{
+		"chainId":             strconv.FormatUint(chainID, 10),
+		"network":             "aptos",
+		"creForwarderAddress": forwarderAddress,
+		"isLocal":             isLocal,
+		"deltaStage":          settings.DeltaStage,
+	}
+	if len(p2pToTransmitterMap) > 0 {
+		cfg[specConfigP2PMapKey] = p2pToTransmitterMap
+	}
+
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal Aptos worker config: %w", err)
+	}
+	return string(raw), nil
 }
 
 func methodConfigs(settings methodConfigSettings) map[string]*capabilitiespb.CapabilityMethodConfig {

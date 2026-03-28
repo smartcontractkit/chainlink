@@ -2,6 +2,7 @@ package aptos
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -122,6 +123,25 @@ func TestBuildCapabilityConfig_WithoutP2PMap_StillSetsRuntimeSpecConfig(t *testi
 	require.NotContains(t, specConfig.Underlying, specConfigP2PMapKey)
 	require.Contains(t, specConfig.Underlying, specConfigScheduleKey)
 	require.Contains(t, specConfig.Underlying, specConfigDeltaStageKey)
+}
+
+func TestBuildWorkerConfigJSON_IncludesLocalRuntimeValues(t *testing.T) {
+	configStr, err := buildWorkerConfigJSON(
+		4,
+		"0x000000000000000000000000000000000000000000000000000000000000000a",
+		methodConfigSettings{DeltaStage: 2500 * time.Millisecond},
+		map[string]string{"peer-a": "0x1"},
+		true,
+	)
+	require.NoError(t, err)
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(configStr), &got))
+	require.Equal(t, "4", got["chainId"])
+	require.Equal(t, "aptos", got["network"])
+	require.Equal(t, true, got["isLocal"])
+	require.EqualValues(t, (2500 * time.Millisecond).Nanoseconds(), got["deltaStage"])
+	require.Equal(t, map[string]any{"peer-a": "0x1"}, got[specConfigP2PMapKey])
 }
 
 func TestNormalizeTransmitter(t *testing.T) {
