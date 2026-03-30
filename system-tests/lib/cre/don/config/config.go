@@ -381,10 +381,9 @@ func addBootstrapNodeConfig(
 
 	for _, ac := range commonInputs.aptosChains {
 		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
-			"ChainID":  ac.ChainID,
-			"Enabled":  true,
-			"Workflow": map[string]any{"ForwarderAddress": ac.ForwarderAddress},
-			"Nodes":    []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+			"ChainID": ac.ChainID,
+			"Enabled": true,
+			"Nodes":   []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
 		})
 	}
 
@@ -483,10 +482,9 @@ func addWorkerNodeConfig(
 
 	for _, ac := range commonInputs.aptosChains {
 		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
-			"ChainID":  ac.ChainID,
-			"Enabled":  true,
-			"Workflow": map[string]any{"ForwarderAddress": ac.ForwarderAddress},
-			"Nodes":    []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+			"ChainID": ac.ChainID,
+			"Enabled": true,
+			"Nodes":   []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
 		})
 	}
 
@@ -648,9 +646,8 @@ type versionedAddress struct {
 }
 
 type aptosChain struct {
-	ChainID          string
-	NodeURL          string
-	ForwarderAddress string
+	ChainID string
+	NodeURL string
 }
 
 type commonInputs struct {
@@ -774,8 +771,6 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	return solChain, nil
 }
 
-const aptosZeroForwarderHex = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
 func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 	capabilityChainIDs := input.DonMetadata.MustNodeSet().ChainCapabilityChainIDs()
 	out := make([]*aptosChain, 0)
@@ -794,9 +789,8 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 		}
 
 		out = append(out, &aptosChain{
-			ChainID:          strconv.FormatUint(bcOut.ChainID(), 10),
-			NodeURL:          nodeURL,
-			ForwarderAddress: aptosZeroForwarderHex,
+			ChainID: strconv.FormatUint(bcOut.ChainID(), 10),
+			NodeURL: nodeURL,
 		})
 	}
 	return out, nil

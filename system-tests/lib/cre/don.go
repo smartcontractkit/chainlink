@@ -583,8 +583,8 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 }
 
 func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
-	if n.Keys != nil && n.Keys.AptosAccount() != "" {
-		return n.Keys.AptosAccount(), nil
+	if n.Keys != nil && n.Keys.Aptos != nil && n.Keys.Aptos.Account != "" {
+		return n.Keys.Aptos.Account, nil
 	}
 
 	// Prefer Aptos account/public key from node metadata when available. Falling
