@@ -42,9 +42,21 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-const aptosLocalMaxGasAmount uint64 = 200_000
-const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
-const aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
+const (
+	aptosLocalMaxGasAmount        uint64 = 200_000
+	aptosLocalGasUnitPrice        uint64 = 100
+	aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
+
+	aptosWorkflowTimeout              = 4 * time.Minute
+	aptosOnchainBenchmarkTimeout      = 2 * time.Minute
+	aptosOnchainBenchmarkPollInterval = 3 * time.Second
+
+	aptosTestFeedIDSuffix        = byte(1)
+	aptosWriteBenchmarkValue     = uint64(123456789)
+	aptosRoundtripBenchmarkValue = uint64(987654321)
+
+	aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
+)
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 var aptosWorkflowNameSeq uint64
@@ -225,7 +237,7 @@ func ExecuteAptosReadTest(
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedLog := "Aptos read consensus succeeded"
-	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute)
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout)
 	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos read capability test passed")
 }
 
@@ -281,14 +293,14 @@ func ExecuteAptosWriteTest(
 		ReportPayloadHex:   scenario.reportPayloadHex,
 		// Keep within the current local Aptos transaction max-gas bound.
 		MaxGasAmount: aptosLocalMaxGasAmount,
-		GasUnitPrice: 100,
+		GasUnitPrice: aptosLocalGasUnitPrice,
 	}
 
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
 	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-	txHash := waitForAptosWriteSuccessLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, 4*time.Minute)
+	txHash := waitForAptosWriteSuccessLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, aptosWorkflowTimeout)
 	assertAptosReceiverUpdatedOnChain(t, aptosChain, scenario.receiverHex, scenario.expectedBenchmarkValue)
 	assertAptosWriteTxOnChain(t, aptosChain, txHash, scenario.receiverHex)
 	lggr.Info().
@@ -315,7 +327,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 		RequiredSignatures: scenario.requiredSignatures,
 		ReportPayloadHex:   scenario.reportPayloadHex,
 		MaxGasAmount:       aptosLocalMaxGasAmount,
-		GasUnitPrice:       100,
+		GasUnitPrice:       aptosLocalGasUnitPrice,
 		FeedIDHex:          scenario.feedIDHex,
 		ExpectedBenchmark:  scenario.expectedBenchmarkValue,
 	}
@@ -329,7 +341,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
 		"Aptos write/read consensus succeeded",
-		4*time.Minute,
+		aptosWorkflowTimeout,
 	)
 	lggr.Info().
 		Str("receiver", scenario.receiverHex).
@@ -356,7 +368,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 		RequiredSignatures: scenario.requiredSignatures,
 		ReportPayloadHex:   scenario.reportPayloadHex,
 		MaxGasAmount:       aptosLocalMaxGasAmount,
-		GasUnitPrice:       100,
+		GasUnitPrice:       aptosLocalGasUnitPrice,
 		ExpectFailure:      true,
 	}
 
@@ -364,7 +376,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
 	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, 4*time.Minute)
+	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, aptosWorkflowTimeout)
 	assertAptosWriteFailureTxOnChain(t, aptosChain, txHash)
 
 	lggr.Info().
@@ -383,11 +395,23 @@ type aptosWriteScenario struct {
 }
 
 func prepareAptosWriteScenario(t *testing.T, tenv *configuration.TestEnvironment, aptosChain blockchains.Blockchain) aptosWriteScenario {
-	return prepareAptosWriteScenarioWithBenchmark(t, tenv, aptosChain, aptosBenchmarkFeedID(), 123456789)
+	return prepareAptosWriteScenarioWithBenchmark(
+		t,
+		tenv,
+		aptosChain,
+		aptosTestFeedID(),
+		aptosWriteBenchmarkValue,
+	)
 }
 
 func prepareAptosRoundtripScenario(t *testing.T, tenv *configuration.TestEnvironment, aptosChain blockchains.Blockchain) aptosWriteScenario {
-	return prepareAptosWriteScenarioWithBenchmark(t, tenv, aptosChain, aptosRoundtripFeedID(), 987654321)
+	return prepareAptosWriteScenarioWithBenchmark(
+		t,
+		tenv,
+		aptosChain,
+		aptosTestFeedID(),
+		aptosRoundtripBenchmarkValue,
+	)
 }
 
 func prepareAptosWriteScenarioWithBenchmark(
@@ -644,7 +668,7 @@ func assertAptosReceiverUpdatedOnChain(
 	require.NoError(t, err, "failed to parse Aptos receiver address")
 
 	dataFeeds := aptosdatafeeds.Bind(receiverAddr, client)
-	feedID := aptosBenchmarkFeedID()
+	feedID := aptosTestFeedID()
 	feedIDHex := hex.EncodeToString(feedID)
 
 	require.Eventually(t, func() bool {
@@ -662,7 +686,7 @@ func assertAptosReceiverUpdatedOnChain(
 			return feed.Feed.Benchmark.Uint64() == expectedBenchmark
 		}
 		return false
-	}, 2*time.Minute, 3*time.Second, "expected benchmark value %d not observed onchain for receiver %s", expectedBenchmark, receiverHex)
+	}, aptosOnchainBenchmarkTimeout, aptosOnchainBenchmarkPollInterval, "expected benchmark value %d not observed onchain for receiver %s", expectedBenchmark, receiverHex)
 }
 
 func normalizeTxHash(input string) string {
@@ -828,15 +852,9 @@ func buildAptosDataFeedsBenchmarkPayloadFor(feedID []byte, benchmark uint64) []b
 	return out
 }
 
-func aptosBenchmarkFeedID() []byte {
+func aptosTestFeedID() []byte {
 	feedID := make([]byte, 32)
-	feedID[31] = 1
-	return feedID
-}
-
-func aptosRoundtripFeedID() []byte {
-	feedID := make([]byte, 32)
-	feedID[31] = 2
+	feedID[len(feedID)-1] = aptosTestFeedIDSuffix
 	return feedID
 }
 
