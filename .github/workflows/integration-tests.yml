@@ -283,7 +283,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@63804466dd8e2d051df4b74ffb6f0e55e6436f01 # TODO: Update to release tag after .github changes are merged
+        uses: smartcontractkit/.github/actions/ctf-build-image@1f735a1d14108ac9fdc7a6bb321bde2d1ffc80eb # TODO: Update to release tag after .github changes are merged
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -300,8 +300,6 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}
-          # Only one matrix leg needs to extract+save the remote plugin cache; both legs restore it.
-          save-remote-plugin-cache: ${{ matrix.image.cache-scope == 'core' }}
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup

@@ -62,14 +62,6 @@ RUN mkdir -p /tmp/lib && \
     "$CL_LOOPINSTALL_OUTPUT_DIR" \
     /tmp/lib
 
-# Stage: Export remote plugin artifacts for external caching.
-# Used by CI to extract binaries via: --target export-remote-plugins --output type=local
-# When pre-built binaries are available, CI overrides build-remote-plugins entirely
-# via --build-context build-remote-plugins=<cached-dir>, skipping this and the stage above.
-FROM scratch AS export-remote-plugins
-COPY --from=build-remote-plugins /gobins/ /gobins/
-COPY --from=build-remote-plugins /tmp/lib/ /tmp/lib/
-
 # Stage: Local plugins (needs source tree for ./plugins/cmd/...)
 FROM deps AS build-local-plugins
 RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-local-plugins \
