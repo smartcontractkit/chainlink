@@ -852,7 +852,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
-	if e.cfg.LocalLimiters != nil {
+	if e.cfg.LocalLimiters != nil && e.cfg.LocalLimiters.Settings != nil {
 		retransmit, err := cresettings.Default.BaseTriggerRetransmitEnabled.GetOrDefault(ctx, e.cfg.LocalLimiters.Settings)
 		if err != nil {
 			e.logger().Warnw("CRE settings read failed for BaseTriggerRetransmitEnabled; still attempting trigger ACK", "err", err)
