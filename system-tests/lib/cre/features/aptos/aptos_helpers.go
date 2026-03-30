@@ -6,8 +6,8 @@ import (
 
 	aptossdk "github.com/aptos-labs/aptos-go-sdk"
 	pkgerrors "github.com/pkg/errors"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 )

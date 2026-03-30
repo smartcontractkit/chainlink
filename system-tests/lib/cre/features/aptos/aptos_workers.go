@@ -9,8 +9,8 @@ import (
 
 	"dario.cat/mergo"
 	pkgerrors "github.com/pkg/errors"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -88,7 +88,8 @@ func proposeAptosWorkerSpecs(
 		}
 
 		proposer := jobs.ProposeJobSpec{}
-		if err := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput); err != nil {
+		err = proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+		if err != nil {
 			return nil, fmt.Errorf("precondition verification failed for Aptos worker job: %w", err)
 		}
 		workerReport, err := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
