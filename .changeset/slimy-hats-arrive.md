@@ -2,4 +2,4 @@
 "chainlink": minor
 ---
 
-Adds support for SVR Bundles and MultiCall #internal
+Adds support for SVR MultiCall and TransactionLifecycleID #internal
