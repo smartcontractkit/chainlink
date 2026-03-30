@@ -84,8 +84,6 @@ func waitForWorkflowWorkersCapabilityRegistrySync(ctx context.Context, input cre
 		eg, egCtx := errgroup.WithContext(timeoutCtx)
 		eg.SetLimit(capabilityRegistrySyncConcurrency)
 		for key, target := range pending {
-			key := key
-			target := target
 			eg.Go(func() error {
 				ready, state := hasCapabilityRegistrySyncOnWorker(egCtx, target.dbPort, target.nodeIndex)
 				resultsMu.Lock()
