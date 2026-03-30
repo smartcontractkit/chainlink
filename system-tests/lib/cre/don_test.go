@@ -138,12 +138,9 @@ func TestCreateJDChainConfigsFailsVerificationOnTimeout(t *testing.T) {
 	}
 	node.Clients.GQLClient = &fakeGQLClient{}
 
-	originalInterval := jdChainConfigPollInterval
 	originalTimeout := jdChainConfigPollTimeout
-	jdChainConfigPollInterval = time.Millisecond
 	jdChainConfigPollTimeout = 5 * time.Millisecond
 	defer func() {
-		jdChainConfigPollInterval = originalInterval
 		jdChainConfigPollTimeout = originalTimeout
 	}()
 

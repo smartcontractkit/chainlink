@@ -274,7 +274,7 @@ func createJobs(
 
 	results := make([]map[string][]string, len(workItems))
 	group, groupCtx := errgroup.WithContext(ctx)
-	group.SetLimit(max(len(workItems), 4))
+	group.SetLimit(jobhelpers.Parallelism(len(workItems)))
 
 	for i, workItem := range workItems {
 		group.Go(func() error {

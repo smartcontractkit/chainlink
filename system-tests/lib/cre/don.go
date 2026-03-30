@@ -455,9 +455,8 @@ type nodeChainConfigLister interface {
 }
 
 var (
-	jdChainConfigPollInterval = 200 * time.Millisecond
-	jdChainConfigPollTimeout  = 10 * time.Second
-	jdChainConfigRPCTimeout   = 3 * time.Second
+	jdChainConfigPollTimeout = 10 * time.Second
+	jdChainConfigRPCTimeout  = 3 * time.Second
 )
 
 func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd nodeChainConfigLister) error {
