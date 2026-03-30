@@ -49,9 +49,9 @@ jobs:
           persist-credentials: false
 
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Set up Go
         id: setup-go
@@ -87,7 +87,8 @@ jobs:
               }'}
           PER_TEST_MODE=${PER_TEST_MODE:-append}
 
-          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$')
+          # Exclude upgrade tests from the matrix
+          test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . | grep -v 'ok' | grep -v '^$' | grep -v Test_Upgrade)
 
           tests=$(echo "$test_names" | jq -R -s \
             --argjson tops "$TOPOLOGIES_JSON" \
@@ -141,7 +142,10 @@ jobs:
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-    environment: "integration"
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     timeout-minutes: 60
     env:
       ENABLE_AUTO_QUARANTINE: "true"
@@ -153,9 +157,9 @@ jobs:
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -265,10 +269,10 @@ jobs:
           # Do not remove Docker containers on error to allow log collection
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --with-contracts-version v1 --cleanup-on-error=false
+            go run . env start --with-contracts-version v1 --cleanup-on-error=false
           else
             echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-plugins-docker-image "${CTF_CHAINLINK_IMAGE}" --cleanup-on-error=false
+            go run . env start --cleanup-on-error=false
           fi
 
           exit_code=$?
@@ -298,6 +302,11 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
+          PARALLEL_COUNT: "10"
+          # parallelisation flags for tests
+          # fanout is necessary, because multiple tests would otherwise start chip test sinks at the same port, causing conflicts
+          CRE_TEST_PARALLEL_ENABLED: "true"
+          CRE_TEST_CHIP_SINK_FANOUT_ENABLED: "true"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
@@ -305,7 +314,7 @@ jobs:
             --junitfile=/tmp/junit-report.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
           exit_code=$?

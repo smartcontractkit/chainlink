@@ -1,5 +1,8 @@
 # Integration Tests
 
+**DEPRECATED**: Use a new version of [developer environment](../devenv/README.md) 
+Read more about tests [here](../devenv/tests/README.md)
+
 - [Integration Tests](#integration-tests)
   - [Summary](#summary)
   - [Guidelines](#guidelines)
@@ -115,12 +118,6 @@ Run CLI command (with `override.toml`):
 
 ```bash
 BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run <"TestNameToRun"> ./<directory_name_with_tests>
-```
-
-Example:
-
-```bash
-BASE64_CONFIG_OVERRIDE=$(cat ./testconfig/overrides.toml | base64) go test -v -timeout 15m -run "TestOCRv2Basic" ./smoke
 ```
 
 #### In Kubernetes

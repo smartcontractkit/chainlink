@@ -29,8 +29,9 @@ import (
 )
 
 type CCIPChainState struct {
-	MCMSAddress aptos.AccountAddress
-	CCIPAddress aptos.AccountAddress
+	MCMSAddress      aptos.AccountAddress
+	CurseMCMSAddress aptos.AccountAddress
+	CCIPAddress      aptos.AccountAddress
 
 	LinkTokenAddress aptos.AccountAddress
 	ManagedTokens    map[shared.TokenSymbol]aptos.AccountAddress
@@ -86,6 +87,8 @@ func loadAptosChainStateFromAddresses(addresses map[string]cldf.TypeAndVersion, 
 		switch typeAndVersion.Type {
 		case shared.AptosMCMSType:
 			chainState.MCMSAddress = *address
+		case shared.AptosCurseMCMSType:
+			chainState.CurseMCMSAddress = *address
 		case shared.AptosCCIPType:
 			chainState.CCIPAddress = *address
 		case types.LinkToken:

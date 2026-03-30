@@ -117,11 +117,17 @@ func setupFromNewConfig(
 
 	donNameToConfig := make(map[string]config.ShardedDONConfig)
 	for _, don := range cfg.ShardedDONs {
+		for si, shard := range don.Shards {
+			for ni, node := range shard.Nodes {
+				don.Shards[si].Nodes[ni].Address = strings.ToLower(node.Address)
+			}
+		}
 		donNameToConfig[don.DonName] = don
 	}
 
-	assignedDONs := make(map[string]struct{})
 	// For each service, create a MultiHandler with its handlers and attached DONs
+	// Each DON can belong to multiple services. Each service can have multiple handlers.
+	// In practice, each handler is associated with a single service (either 'workflows' or 'vault').
 	for _, svc := range cfg.Services {
 		var shardedDONs []config.ShardedDONConfig
 		var shardsConnMgrs [][]handlers.DON
@@ -131,12 +137,6 @@ func setupFromNewConfig(
 			if !ok {
 				return nil, fmt.Errorf("service %q references unknown DON: %s", svc.ServiceName, donName)
 			}
-			if _, assigned := assignedDONs[donName]; assigned {
-				// NOTE: this check can be relaxed in the future once we clean up all "service.method" strings
-				// and split them correctly in Multihandler
-				return nil, fmt.Errorf("DON %q is assigned to multiple services", donName)
-			}
-			assignedDONs[donName] = struct{}{}
 			shardedDONs = append(shardedDONs, donCfg)
 
 			var shardConnMgrs []handlers.DON

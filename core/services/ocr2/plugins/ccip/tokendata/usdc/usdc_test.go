@@ -19,11 +19,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
@@ -40,7 +39,7 @@ func TestUSDCReader_callAttestationApi(t *testing.T) {
 	usdcMessageHash := "912f22a13e9ccb979b621500f6952b2afd6e75be7eadaed93fc2625fe11c52a2"
 	attestationURI, err := url.ParseRequestURI("https://iris-api-sandbox.circle.com")
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	usdcReader, err := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, nil, false)
 	require.NoError(t, err)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
@@ -65,7 +64,7 @@ func TestUSDCReader_callAttestationApiMock(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lp := mocks.NewLogPoller(t)
 	usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 	usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
@@ -197,9 +196,9 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			lp := mocks.NewLogPoller(t)
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 			lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -232,13 +231,13 @@ func getMockUSDCEndpoint(t *testing.T, response attestationResponse) *httptest.S
 
 func TestGetUSDCMessageBody(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	expectedBody := []byte("0x0000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc0861")
 	usdcReader := ccipdatamocks.USDCReader{}
 	usdcReader.On("GetUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
 
 	usdcTokenAddr := utils.RandomAddress()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	usdcService := NewUSDCTokenDataReader(lggr, &usdcReader, nil, 0, usdcTokenAddr, APIIntervalRateLimitDisabled)
 
 	// Make the first call and assert the underlying function is called
@@ -372,7 +371,7 @@ func TestUSDCReader_rateLimiting(t *testing.T) {
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			lp := mocks.NewLogPoller(t)
 			usdcReader, _ := ccipdata.NewUSDCReader(ctx, lggr, "job_123", mockMsgTransmitter, lp, false)
 			usdcService := NewUSDCTokenDataReader(lggr, usdcReader, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)

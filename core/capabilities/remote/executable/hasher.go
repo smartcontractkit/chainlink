@@ -132,7 +132,6 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		}
 	default:
 		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
-
 	}
 
 	req.Payload = payload

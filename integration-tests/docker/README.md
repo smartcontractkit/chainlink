@@ -29,7 +29,7 @@ To acquire test coverage data for end-to-end (E2E) tests on the Chainlink Node, 
 
     First, build the Chainlink Node Docker image with the `GO_COVER_FLAG` argument set to `true`. This enables the coverage flag in the build process. Here’s how you can do it:
     ```
-    docker buildx build --platform linux/arm64 . -t localhost/chainlink-local:develop -f ./core/chainlink.Dockerfile --build-arg GO_COVER_FLAG=true
+    docker buildx build --platform linux/arm64 . -t localhost/chainlink-local:develop -f ./core/chainlink.Dockerfile --build-arg GO_COVER_FLAG=true --build-arg CL_AUTO_DOCKER_TAG=develop
     ```
     Make sure to replace localhost/chainlink-local:develop with the appropriate repository and tag.
 
@@ -41,8 +41,7 @@ To acquire test coverage data for end-to-end (E2E) tests on the Chainlink Node, 
     show_html_coverage_report=true
     ```
 
-After the tests are complete, the coverage report will be generated in HTML format. Example: `~/Downloads/go-coverage/TestOCRv2Basic_plugins-chain-reader/coverage.html`
+After the tests are complete, the coverage report will be generated in HTML format. Example: `~/Downloads/go-coverage/<test_name>-chain-reader/coverage.html`
 ```
-    log.go:43: 16:29:46.73 INF Chainlink node coverage html report saved filePath=~/Downloads/go-coverage/TestOCRv2Basic_plugins-chain-reader/coverage.html
+    log.go:43: 16:29:46.73 INF Chainlink node coverage html report saved filePath=~/Downloads/go-coverage/<test_name>-chain-reader/coverage.html
 ```
-

@@ -244,7 +244,6 @@ func buildCommandTree() *CompletionNode {
 			{Text: "--with-example", Description: "Deploys and registers example workflow (default: false)"},
 			{Text: "--example-workflow-timeout", Description: "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h) (default: 5m)"},
 			{Text: "--with-plugins-docker-image", Description: "Docker image to use (must have all capabilities included)"},
-			{Text: "--example-workflow-trigger", Description: "Trigger for example workflow to deploy (web-trigger or cron) (default: web-trigger)"},
 			{Text: "--with-beholder", Description: "Deploys Beholder (Chip Ingress + Red Panda) (default: false)"},
 			{Text: "--with-dashboards", Description: "Deploys Observability Stack and Grafana Dashboards (default: false)"},
 			{Text: "--with-billing", Description: "Deploys Billing Platform Service (default: false)"},
@@ -296,7 +295,7 @@ func buildCommandTree() *CompletionNode {
 	// ENV WORKFLOW - workflow management
 	workflowNode := &CompletionNode{
 		Suggestions: []prompt.Suggest{
-			{Text: "deploy-and-verify-example", Description: "Deploy and verify example workflow"},
+			{Text: "run-por-example", Description: "Deploy and verify the PoR v2 cron example workflow"},
 			{Text: "delete", Description: "Delete a specific workflow"},
 			{Text: "delete-all", Description: "Delete all workflows"},
 			{Text: "compile", Description: "Compile a workflow specification"},

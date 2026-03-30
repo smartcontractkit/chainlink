@@ -6,7 +6,7 @@ require (
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/smartcontractkit/chain-selectors v1.0.90
 	github.com/smartcontractkit/cre-sdk-go v1.3.1-0.20260225184421-f0b13c7a76a7
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260302171306-9f949ff772e8
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260303175242-573e7e1ec998
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -32,7 +32,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260302170559-3443e392f1db // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260303174316-33ff4336e600 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect

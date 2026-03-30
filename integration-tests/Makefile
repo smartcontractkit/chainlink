@@ -96,37 +96,6 @@ run:
 test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
 	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests
 
-# Chaos
-.PHONY: test_chaos_pods_raw
-test_chaos_pods_raw: ## Run all chaos pod tests
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*pod-chaos' ./chaos
-
-.PHONY: test_chaos_network_raw
-test_chaos_network_raw: ## Run all chaos network tests
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'Test/.*network-chaos' ./chaos
-
-.PHONY: test_chaos_pods
-test_chaos_pods: install_gotestloghelper ## Run all chaos pod tests with decorated output
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*pod-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
-
-.PHONY: test_chaos_network
-test_chaos_network: install_gotestloghelper ## Run all chaos network tests with decorated output
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 2h -count=1 -json $(args) -run 'Test/.*network-chaos' ./chaos 2>&1 | tee ./gotest.log | gotestloghelper -json -hidepassingtests -tlogprefix -color -singlepackage
-
-.PHONY: test_chaos_verbose
-test_chaos_verbose: ## Run all smoke tests with verbose logging
-	go test -timeout 24h -count=1 -v $(args) ./chaos
-
-.PHONY: test_chaos_ocr
-test_chaos_ocr: ## Run only OCR chaos tests
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestOCRChaos' ./chaos
-
-.PHONY: test_chaos_automation
-test_chaos_automation: ## Run only Automation chaos tests
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestAutomationChaos' ./chaos
-
 # Migrations
 .PHONY: test_node_migrations
 test_node_migrations: install_gotestloghelper ## Run all node migration tests.
@@ -146,72 +115,6 @@ test_node_migrations_verbose:
 test_node_migrations_simulated_verbose:
 	go test -timeout 1h -count=1 -v $(args) ./migration
 
-# Soak
-.PHONY: test_soak_ocr1
-test_soak_ocr1:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestOCRv1Soak ./soak
-
-.PHONY: test_soak_ocr2
-test_soak_ocr2:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestOCRv2Soak ./soak
-
-.PHONY: test_soak_forwarder_ocr1
-test_soak_forwarder_ocr1:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestForwarderOCRv1Soak ./soak
-
-.PHONY: test_soak_forwarder_ocr2
-test_soak_forwarder_ocr2:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run TestForwarderOCRv2Soak ./soak
-
-.PHONY: test_soak_ocr_reorg_1
-test_soak_ocr_reorg_1:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagDisabled$$ ./soak
-
-.PHONY: test_soak_ocr_reorg_2
-test_soak_ocr_reorg_2:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_GethReorgBelowFinality_FinalityTagEnabled$$ ./soak
-
-.PHONY: test_soak_ocr_gas_spike
-test_soak_ocr_gas_spike:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_GasSpike$$ ./soak
-
-.PHONY: test_soak_ocr_gas_limit_change
-test_soak_ocr_gas_limit_change:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_ChangeBlockGasLimit$$ ./soak
-
-.PHONY: test_soak_ocr_rpc_down_all_cl_nodes
-test_soak_ocr_rpc_down_all_cl_nodes:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_RPCDownForAllCLNodes$$ ./soak
-
-.PHONY: test_soak_ocr_rpc_down_half_cl_nodes
-test_soak_ocr_rpc_down_half_cl_nodes:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -count=1 -run ^TestOCRSoak_RPCDownForHalfCLNodes$$ ./soak
-
-
-.PHONY: test_soak_automation
-test_soak_automation:
-	. ./scripts/check_base64_env_var.sh
-	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
-
-.PHONY: test_benchmark_automation
-test_benchmark_automation: ## Run the automation benchmark tests
-	. ./scripts/check_base64_env_var.sh
-	go test -timeout 30m -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
-
-.PHONY: test_reorg_automation
-test_reorg_automation: ## Run the automation reorg tests
-	go test -timeout 300m -v -run ^TestAutomationReorg$$ ./reorg -count=1 | tee automation_reorg_run_`date +"%Y%m%d-%H%M%S"`.log
-
 .PHONY: check_github_token
 check_github_token:
 	@if [ -z "$(GITHUB_TOKEN)" ]; then \
@@ -227,6 +130,7 @@ build_docker_image: check_github_token
 	docker build -f ../core/chainlink.Dockerfile \
 		--build-arg COMMIT_SHA=$(git rev-parse HEAD) \
 		--build-arg VERSION_TAG=$(git describe --always) \
+		--build-arg CL_AUTO_DOCKER_TAG=$(tag) \
 		--build-arg CHAINLINK_USER=chainlink \
 		--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 		-t $(image):$(tag) ../
@@ -266,4 +170,3 @@ push-ccip-test-image:
 	aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com
 	docker tag chainlink-tests:latest $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
 	docker push $(base-image-registry).dkr.ecr.us-west-2.amazonaws.com/chainlink-tests:latest
-

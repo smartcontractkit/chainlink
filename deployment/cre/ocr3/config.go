@@ -132,8 +132,8 @@ func (c *OCR2OracleConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func GenerateOCR3ConfigFromNodes(cfg OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (OCR2OracleConfig, error) {
-	nca := MakeNodeKeysSlice(nodes, registryChainSel)
+func GenerateOCR3ConfigFromNodes(cfg OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte, extraSignerFamilies []string) (OCR2OracleConfig, error) {
+	nca := MakeNodeKeysSlice(nodes, registryChainSel, extraSignerFamilies)
 	return GenerateOCR3Config(cfg, nca, secrets, reportingPluginConfigOverride)
 }
 
@@ -327,7 +327,7 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		return nil, err
 	}
 
-	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride)
+	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -348,15 +348,36 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 	}, nil
 }
 
-func MakeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64) []NodeKeys {
+// supportedExtraSignerFamilies lists chain families that can be requested via extraSignerFamilies.
+var supportedExtraSignerFamilies = map[string]bool{
+	chainsel.FamilyAptos:  true,
+	chainsel.FamilySolana: true,
+}
+
+// ValidateExtraSignerFamilies checks that every entry is a known non-EVM chain family.
+func ValidateExtraSignerFamilies(families []string) error {
+	for _, f := range families {
+		if !supportedExtraSignerFamilies[f] {
+			return fmt.Errorf("unsupported extra signer family %q; supported: %s, %s", f, chainsel.FamilyAptos, chainsel.FamilySolana)
+		}
+	}
+	return nil
+}
+
+func MakeNodeKeysSlice(nodes []deployment.Node, registryChainSel uint64, extraSignerFamilies []string) []NodeKeys {
 	var out []NodeKeys
 	for _, n := range nodes {
-		out = append(out, toNodeKeys(&n, registryChainSel))
+		out = append(out, toNodeKeys(&n, registryChainSel, extraSignerFamilies))
 	}
 	return out
 }
 
-func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
+func toNodeKeys(o *deployment.Node, registryChainSel uint64, extraSignerFamilies []string) NodeKeys {
+	familySet := make(map[string]bool, len(extraSignerFamilies))
+	for _, f := range extraSignerFamilies {
+		familySet[f] = true
+	}
+
 	var aptosOcr2KeyBundleID string
 	var aptosOnchainPublicKey string
 	var aptosCC *deployment.OCRConfig
@@ -365,6 +386,9 @@ func toNodeKeys(o *deployment.Node, registryChainSel uint64) NodeKeys {
 	var solanaOnchainPublickey string
 	for details, cfg := range o.SelToOCRConfig {
 		if family, err := chainsel.GetSelectorFamily(details.ChainSelector); err == nil {
+			if !familySet[family] {
+				continue
+			}
 			if family == chainsel.FamilyAptos {
 				aptosCC = &cfg
 			}

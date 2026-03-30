@@ -114,7 +114,11 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
 		offRampStatePDA := state.SolChains[remote].OffRampStatePDA
-		solOffRamp.SetProgramID(state.SolChains[remote].OffRamp)
+
+		runSafely(
+			func() {
+				solOffRamp.SetProgramID(state.SolChains[remote].OffRamp)
+			})
 		var authority solana.PublicKey
 		if cfg.MCMS != nil {
 			authority, err = FetchTimelockSigner(e, remote)
@@ -184,6 +188,19 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 		}, nil
 	}
 	return cldf.ChangesetOutput{}, nil
+}
+
+func runSafely(ops ...func()) {
+	for _, op := range ops {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Recovered from panic: %v\n", r)
+				}
+			}()
+			op()
+		}()
+	}
 }
 
 func isOCR3ConfigSetOnOffRampSolana(

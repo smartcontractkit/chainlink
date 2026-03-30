@@ -64,7 +64,6 @@ type SetupInput struct {
 	VaultOCR3Config        *keystone_changeset.OracleConfig
 	S3ProviderInput        *s3provider.Input
 	CapabilityConfigs      cre.CapabilityConfigs
-	CopyCapabilityBinaries bool // if true, copy capability binaries to the containers (if false, we assume that the plugins image already has them)
 	Capabilities           []cre.InstallableCapability
 	Features               cre.Features
 	GatewayWhitelistConfig gateway.WhitelistConfig
@@ -190,6 +189,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
+	extraSignerFamiliesSet := make(map[string]bool)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
@@ -209,9 +209,16 @@ func SetupTestEnvironment(
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
 				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
+				for _, f := range output.ExtraSignerFamilies {
+					extraSignerFamiliesSet[f] = true
+				}
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
+	}
+	extraSignerFamilies := make([]string, 0, len(extraSignerFamiliesSet))
+	for f := range extraSignerFamiliesSet {
+		extraSignerFamilies = append(extraSignerFamilies, f)
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -229,7 +236,7 @@ func SetupTestEnvironment(
 	})
 
 	donsStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
-		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, input.CopyCapabilityBinaries, updatedNodeSets)
+		nodeSetOutput, startDonsErr := StartDONs(ctx, testLogger, topology, input.Provider, deployedBlockchains.RegistryChain().CtfOutput(), input.CapabilityConfigs, updatedNodeSets)
 		if startDonsErr != nil {
 			return nil, pkgerrors.Wrap(startDonsErr, "failed to start DONs")
 		}
@@ -278,7 +285,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayConfigs, input.GatewayWhitelistConfig)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}
@@ -329,6 +336,44 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chainlink nodes funded in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
+
+	// Configure Capabilities Registry first so we can resolve actual contract donIDs
+	capRegInput := cre.ConfigureCapabilityRegistryInput{
+		ChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
+		CldEnv:        creEnvironment.CldfEnvironment,
+		Blockchains:   deployedBlockchains.Outputs,
+		Topology:      topology,
+		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(
+			deployKeystoneContractsOutput.MemoryDataStore,
+			deployedBlockchains.RegistryChain().ChainSelector(),
+			keystone_changeset.CapabilitiesRegistry.String(),
+			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+			""),
+		),
+		NodeSets:                 input.NodeSets,
+		WithV2Registries:         input.WithV2Registries,
+		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
+		CapabilityToOCR3Config:   capabilityToOCR3Config,
+		ExtraSignerFamilies:      extraSignerFamilies,
+	}
+
+	for _, capability := range input.Capabilities {
+		configFn := capability.CapabilityRegistryV1ConfigFn()
+		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
+	}
+	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
+	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
+
+	capReg, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
+	if capRegErr != nil {
+		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
+	}
+
+	// Resolve actual contract donIDs and apply to topology, dons, and NodeSets
+	if err := crecontracts.ResolveAndApplyContractDonIDs(capReg, dons, topology, input.NodeSets, input.WithV2Registries); err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to resolve and apply contract donIDs")
+	}
+
 	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
@@ -366,36 +411,6 @@ func SetupTestEnvironment(
 			return workflow.WaitForAllNodesToHaveExpectedFiltersRegistered(ctx, singleFileLogger, testLogger, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
 		}
 	})
-
-	capRegInput := cre.ConfigureCapabilityRegistryInput{
-		ChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
-		CldEnv:        creEnvironment.CldfEnvironment,
-		Blockchains:   deployedBlockchains.Outputs,
-		Topology:      topology,
-		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(
-			deployKeystoneContractsOutput.MemoryDataStore,
-			deployedBlockchains.RegistryChain().ChainSelector(),
-			keystone_changeset.CapabilitiesRegistry.String(),
-			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
-			""),
-		),
-		NodeSets:                 input.NodeSets,
-		WithV2Registries:         input.WithV2Registries,
-		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
-		CapabilityToOCR3Config:   capabilityToOCR3Config,
-	}
-
-	for _, capability := range input.Capabilities {
-		configFn := capability.CapabilityRegistryV1ConfigFn()
-		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
-	}
-	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
-	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
-
-	_, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
-	if capRegErr != nil {
-		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
-	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 

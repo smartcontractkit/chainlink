@@ -320,7 +320,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
 	}
-	solFeeQuoter.SetProgramID(feeQuoterAddress)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(feeQuoterAddress)
+	})
 
 	// ROUTER DEPLOY
 	var ccipRouterProgram solana.PublicKey
@@ -349,7 +351,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
 	}
-	solRouter.SetProgramID(ccipRouterProgram)
+	runSafely(func() {
+		solRouter.SetProgramID(ccipRouterProgram)
+	})
 
 	// OFFRAMP DEPLOY
 	var offRampAddress solana.PublicKey
@@ -418,7 +422,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
 	}
-	solOffRamp.SetProgramID(offRampAddress)
+	runSafely(func() {
+		solOffRamp.SetProgramID(offRampAddress)
+	})
 
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
@@ -444,7 +450,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
 	}
-	solRmnRemote.SetProgramID(rmnRemoteAddress)
+	runSafely(func() {
+		solRmnRemote.SetProgramID(rmnRemoteAddress)
+	})
 
 	// FEE QUOTER INITIALIZE
 	var fqConfig solFeeQuoter.Config

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -25,6 +26,9 @@ type FetchNodeChainConfigsResponse struct {
 }
 
 func FetchNodeChainConfigsFromJD(ctx context.Context, e cldf.Environment, req FetchNodesRequest) ([]FetchNodeChainConfigsResponse, error) {
+	if e.Offchain == nil {
+		return nil, errors.New("offchain client (JD) is not initialized; ensure JD_GRPC or OFFCHAIN_JD_ENDPOINTS_GRPC is set")
+	}
 	resp, err := e.Offchain.ListNodes(ctx, &nodev1.ListNodesRequest{Filter: req.Filters})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)

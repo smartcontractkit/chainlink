@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -114,4 +116,39 @@ func PopulateDataStore(addressBook deployment.AddressBook) (*datastore.MemoryDat
 	}
 
 	return ds, nil
+}
+
+// ResolveFeeQuoterAddressAndVersion returns the FeeQuoter with the highest semver for a chain.
+func ResolveFeeQuoterAddressAndVersion(
+	addresses []datastore.AddressRef,
+	chainSel uint64,
+) (common.Address, semver.Version, error) {
+	var bestRef datastore.AddressRef
+	var bestVersion *semver.Version
+
+	for _, ref := range addresses {
+		if ref.ChainSelector != chainSel {
+			continue
+		}
+		if ref.Type != datastore.ContractType(fqv2ops.ContractType) {
+			continue
+		}
+		if ref.Version == nil {
+			continue
+		}
+		if bestVersion == nil || ref.Version.GreaterThan(bestVersion) {
+			bestVersion = ref.Version
+			bestRef = ref
+		}
+	}
+
+	if bestVersion == nil {
+		return common.Address{}, semver.Version{}, fmt.Errorf("no fee quoter address found for chain %d", chainSel)
+	}
+
+	if !common.IsHexAddress(bestRef.Address) {
+		return common.Address{}, semver.Version{}, fmt.Errorf("invalid fee quoter address %q for chain %d", bestRef.Address, chainSel)
+	}
+
+	return common.HexToAddress(bestRef.Address), *bestVersion, nil
 }

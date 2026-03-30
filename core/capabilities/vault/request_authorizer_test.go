@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"testing"
@@ -201,4 +202,98 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	isAuthorized, _, err = auth.AuthorizeRequest(t.Context(), notAllowlistedRequest)
 	require.False(t, isAuthorized)
 	require.ErrorContains(t, err, "not allowlisted")
+}
+
+func TestRequestAuthorizer_RetriesAllowlistReadsUntilDigestAppears(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	owner := common.Address{1, 2, 3}
+	req := makeListSecretsRequest(t, "123", "b")
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+	digestBytes, err := hex.DecodeString(digest)
+	require.NoError(t, err)
+
+	allowlisted := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
+		{
+			RequestDigest:   [32]byte(digestBytes),
+			Owner:           owner,
+			ExpiryTimestamp: uint32(time.Now().UTC().Unix() + 100), //nolint:gosec // test fixture expiry is bounded and safe here
+		},
+	}
+
+	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted).Once()
+
+	auth := NewRequestAuthorizer(lggr, mockSyncer)
+	sleepCalls := 0
+	auth.sleep = func(d time.Duration) {
+		require.Equal(t, allowlistReadRetryInterval, d)
+		sleepCalls++
+	}
+
+	isAuthorized, gotOwner, err := auth.AuthorizeRequest(t.Context(), req)
+	require.True(t, isAuthorized, err)
+	require.NoError(t, err)
+	require.Equal(t, owner.Hex(), gotOwner)
+	require.Equal(t, 2, sleepCalls)
+}
+
+func TestRequestAuthorizer_FailsAfterAllowlistReadRetries(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	req := makeListSecretsRequest(t, "123", "b")
+
+	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Times(allowlistReadRetryCount + 1)
+
+	auth := NewRequestAuthorizer(lggr, mockSyncer)
+	sleepCalls := 0
+	auth.sleep = func(d time.Duration) {
+		require.Equal(t, allowlistReadRetryInterval, d)
+		sleepCalls++
+	}
+
+	isAuthorized, _, err := auth.AuthorizeRequest(t.Context(), req)
+	require.False(t, isAuthorized)
+	require.ErrorContains(t, err, "not allowlisted")
+	require.Equal(t, allowlistReadRetryCount, sleepCalls)
+}
+
+func TestRequestAuthorizer_StopsRetriesWhenContextCanceled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	req := makeListSecretsRequest(t, "123", "b")
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
+
+	auth := NewRequestAuthorizer(lggr, mockSyncer)
+	sleepCalls := 0
+	auth.sleep = func(time.Duration) {
+		sleepCalls++
+	}
+
+	isAuthorized, _, err := auth.AuthorizeRequest(ctx, req)
+	require.False(t, isAuthorized)
+	require.ErrorContains(t, err, "not allowlisted")
+	require.Zero(t, sleepCalls)
+}
+
+func makeListSecretsRequest(t *testing.T, id, namespace string) jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+
+	params, err := json.Marshal(vaultcommon.ListSecretIdentifiersRequest{
+		Namespace: namespace,
+	})
+	require.NoError(t, err)
+
+	return jsonrpc.Request[json.RawMessage]{
+		ID:     id,
+		Method: vaulttypes.MethodSecretsList,
+		Params: (*json.RawMessage)(&params),
+	}
 }

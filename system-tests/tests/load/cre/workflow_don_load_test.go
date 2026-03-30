@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -700,9 +701,11 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 		Values:                          values,
 	}
 
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(report.ChannelID, []byte{})
 	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
 		Streams: streams,
-	})
+	}, cache)
 	if err != nil {
 		return nil, "", err
 	}
@@ -925,13 +928,14 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 	}
 }
 
-func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+func MockCapabilitiesJob(nodeID, binaryName string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+	command := standardcapability.DefaultCapabilitiesDir + "/" + binaryName
 	jobTemplate := `type = "standardcapabilities"
 			schemaVersion = 1
 			externalJobID = "{{ .JobID }}"
 			name = "mock-capability"
 			forwardingAllowed = false
-			command = "{{ .BinaryPath }}"
+			command = "{{ .Command }}"
 			config = """
 				port=7777
 		{{ range $index, $m := .Mocks }}
@@ -957,10 +961,10 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
 	jobUUID := uuid.NewString()
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]any{
-		"JobID":      jobUUID,
-		"ShortID":    jobUUID[0:8],
-		"BinaryPath": binaryPath,
-		"Mocks":      mockJobsData,
+		"JobID":   jobUUID,
+		"ShortID": jobUUID[0:8],
+		"Command": command,
+		"Mocks":   mockJobsData,
 	})
 	if err != nil {
 		panic(err)

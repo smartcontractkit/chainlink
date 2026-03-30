@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -30,6 +32,10 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	requestBody, err := json.Marshal(getPublicKeyRequest)
 	require.NoError(t, err, "failed to marshal public key request")
 
+	require.Eventually(t, func() bool {
+		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		return statusCode == http.StatusOK
+	}, time.Second*120, time.Second*5)
 	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
 
@@ -51,20 +57,56 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 }
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
+	const maxRetries = 7
+	const retryInterval = 2 * time.Second
+
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
-	req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
-	require.NoError(t, err, "failed to create request")
 
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	for attempt := range maxRetries + 1 {
+		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		require.NoError(t, err, "failed to create request")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(t, err, "failed to execute request")
-	defer resp.Body.Close()
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
 
-	body, err = io.ReadAll(resp.Body)
-	require.NoError(t, err, "failed to read http response body")
-	framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
-	return resp.StatusCode, body
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		require.NoError(t, err, "failed to execute request")
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		require.NoError(t, err, "failed to read http response body")
+		statusCode = resp.StatusCode
+
+		framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
+
+		if !isGatewayNotAllowlistedError(body) {
+			return statusCode, body
+		}
+
+		if attempt < maxRetries {
+			framework.L.Warn().Msgf("Request not yet allowlisted, retrying in %s (attempt %d/%d)...", retryInterval, attempt+1, maxRetries)
+			time.Sleep(retryInterval)
+		}
+	}
+
+	return statusCode, body
+}
+
+// isGatewayNotAllowlistedError checks whether the response is a gateway-level
+// "request not allowlisted" rejection (method is empty, error code -32600).
+// Node-level rejections (method is set, code -32603) have a different format
+// and must not be retried because the gateway has already consumed the request.
+func isGatewayNotAllowlistedError(body []byte) bool {
+	var resp struct {
+		Method string `json:"method"`
+		Error  *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &resp) != nil {
+		return false
+	}
+	return resp.Method == "" && resp.Error != nil &&
+		strings.Contains(resp.Error.Message, "request not allowlisted")
 }

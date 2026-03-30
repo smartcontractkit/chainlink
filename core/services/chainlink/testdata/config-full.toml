@@ -231,6 +231,7 @@ GoroutineThreshold = 999
 [Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
+LinkTracesToProfiles = true
 
 [Sentry]
 Debug = true
@@ -409,6 +410,7 @@ PerOwner = 200
 [CRE]
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
+DebugMode = false
 
 [CRE.Streams]
 WsURL = 'streams.url'

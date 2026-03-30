@@ -176,6 +176,8 @@ CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
 # Bundles enables Bundles functionality for SVR.
 Bundles = false # Example
+# FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
+FastlaneAuctionRequestTimeout = '5s' # Example
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.

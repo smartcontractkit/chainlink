@@ -22,7 +22,7 @@ to your wallet ahead of executing the next steps
 Build a local copy of the chainlink docker image by running this command in the root directory of the chainlink repo:
 
 ```bash
-docker build -t chainlink:local -f ./core/chainlink.Dockerfile .
+docker build -t chainlink:local -f ./core/chainlink.Dockerfile --build-arg CL_AUTO_DOCKER_TAG=local .
 ```
 
 Next, from the root directory again, `cd` into the chaincli directory:

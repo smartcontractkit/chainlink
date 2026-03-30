@@ -29,6 +29,23 @@ type OracleFactoryConfig struct {
 	Network            string   `toml:"network"`              // e.g., "evm"
 }
 
+// Int wraps int so that YAML fields can be populated from either a numeric
+// literal or a quoted string (e.g. after environment-variable substitution).
+type Int int
+
+func (i *Int) UnmarshalYAML(node *yaml.Node) error {
+	v, err := strconv.Atoi(node.Value)
+	if err != nil {
+		return err
+	}
+	*i = Int(v)
+	return nil
+}
+
+func (i Int) MarshalYAML() ([]byte, error) {
+	return []byte(strconv.Itoa(int(i))), nil
+}
+
 type ChainSelector uint64
 
 func (cs *ChainSelector) UnmarshalText(data []byte) error {

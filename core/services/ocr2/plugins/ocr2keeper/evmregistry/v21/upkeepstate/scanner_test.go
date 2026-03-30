@@ -82,9 +82,9 @@ func TestPerformedEventsScanner(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp := new(mocks.LogPoller)
-			mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
+			mp := mocks.NewLogPoller(t)
+			mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
+			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
 			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr, 100)
 
 			go func() {
@@ -94,7 +94,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 				_ = scanner.Close()
 			}()
 
-			mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
+			mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr).Maybe()
 
 			results, err := scanner.ScanWorkIDs(ctx, tc.workIDs...)
 			if tc.errored {
@@ -115,7 +115,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 	ctx := testutils.Context(t)
 	registryAddr := common.HexToAddress("0x12345")
 	lggr := logger.TestLogger(t)
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 	scanner := NewPerformedEventsScanner(lggr, lp, registryAddr, 100)
 
 	lp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{

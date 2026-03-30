@@ -197,6 +197,10 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -218,13 +222,13 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		metrics:             metrics,
 		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter),
+		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }
 
 func (h *handler) Start(_ context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
-		h.lggr.Info("starting vault handler")
+		h.lggr.Debug("starting vault handler")
 		go func() {
 			ctx, cancel := h.stopCh.NewCtx()
 			defer cancel()
@@ -250,9 +254,12 @@ func (h *handler) Start(_ context.Context) error {
 
 func (h *handler) Close() error {
 	return h.StopOnce("VaultHandler", func() error {
-		h.lggr.Info("closing vault handler")
+		h.lggr.Debug("closing vault handler")
 		close(h.stopCh)
-		return nil
+		return errors.Join(
+			h.writeMethodsEnabled.Close(),
+			h.MaxRequestBatchSizeLimiter.Close(),
+		)
 	})
 }
 
@@ -323,7 +330,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
@@ -358,14 +365,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
-	case vaulttypes.MethodSecretsGet:
-		// Secrets get is only allowed in non-production builds for testing purposes
-		// So no authorization is required
-		ar, err := h.newActiveRequest(req, callback)
-		if err != nil {
-			return err
-		}
-		return h.handleSecretsGet(ctx, ar)
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
@@ -378,7 +377,7 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
 	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
 
-	h.lggr.Infow("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
+	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
 	ar, err := h.newActiveRequest(req, callback)
 	if err != nil {
 		return err
@@ -467,30 +466,30 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessage], l logger.Logger) {
 	if resp.Result == nil {
-		l.Infow("no result in public key response, not caching")
+		l.Debugw("no result in public key response, not caching")
 		return
 	}
 
 	r := &vaultcommon.GetPublicKeyResponse{}
 	err := json.Unmarshal(*resp.Result, r)
 	if err != nil {
-		l.Infow("failed to unmarshal public key response, not caching", "error", err)
+		l.Debugw("failed to unmarshal public key response, not caching", "error", err)
 		return
 	}
 
 	if r.PublicKey == "" {
-		l.Infow("no public key in unmarshaled response, not caching", "response", resp, "result", r)
+		l.Debugw("no public key in unmarshaled response, not caching", "response", resp, "result", r)
 		return
 	}
 	masterPublicKey := tdh2easy.PublicKey{}
 	masterPublicKeyBytes, err := hex.DecodeString(r.PublicKey)
 	if err != nil {
-		l.Infow("failed to decode master public key string", "error", err)
+		l.Debugw("failed to decode master public key string", "error", err)
 		return
 	}
 	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
 	if err != nil {
-		l.Infow("failed to unmarshal master public key", "error", err)
+		l.Debugw("failed to unmarshal master public key", "error", err)
 		return
 	}
 
@@ -498,7 +497,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	h.cachedPublicKeyGetResponse = *resp.Result
 	h.cachedPublicKeyObject = &masterPublicKey
 	h.mu.Unlock()
-	l.Infow("successfully cached public key response")
+	l.Debugw("successfully cached public key response")
 }
 
 func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
@@ -645,27 +644,6 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 	}
 
 	ar.req.Params = (*json.RawMessage)(&reqBytes)
-	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
-func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
-			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err := h.ValidateGetSecretsRequest(secretsGetRequest)
-	if err != nil {
-		l.Warnw("failed to validate get secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
-	}
-
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 

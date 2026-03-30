@@ -232,6 +232,62 @@ func (_c *Chain_Config_Call) RunAndReturn(run func() config.ChainScopedConfig) *
 	return _c
 }
 
+// FinalizedHead provides a mock function with given fields: ctx
+func (_m *Chain) FinalizedHead(ctx context.Context) (types.Head, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FinalizedHead")
+	}
+
+	var r0 types.Head
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (types.Head, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) types.Head); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(types.Head)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Chain_FinalizedHead_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FinalizedHead'
+type Chain_FinalizedHead_Call struct {
+	*mock.Call
+}
+
+// FinalizedHead is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *Chain_Expecter) FinalizedHead(ctx interface{}) *Chain_FinalizedHead_Call {
+	return &Chain_FinalizedHead_Call{Call: _e.mock.On("FinalizedHead", ctx)}
+}
+
+func (_c *Chain_FinalizedHead_Call) Run(run func(ctx context.Context)) *Chain_FinalizedHead_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *Chain_FinalizedHead_Call) Return(_a0 types.Head, _a1 error) *Chain_FinalizedHead_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Chain_FinalizedHead_Call) RunAndReturn(run func(context.Context) (types.Head, error)) *Chain_FinalizedHead_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GasEstimator provides a mock function with no fields
 func (_m *Chain) GasEstimator() gas.EvmFeeEstimator {
 	ret := _m.Called()
