@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"strconv"
 	"sync"
 	"time"
@@ -222,7 +221,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponseAndCleanup(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
+		err := h.sendResponseAndCleanup(ctx, er, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil)
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -306,9 +305,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
 		return nil
+	case errors.Is(err, errQuorumUnobtainable):
+		l.Errorw("quorum unobtainable, returning error to user", "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, api.FatalError, err, nil)
 	case err != nil:
-		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+		l.Errorw("unexpected aggregation error", "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, api.FatalError, err, nil)
 	}
 
 	return h.sendSuccessResponseAndCleanup(ctx, l, ar, aggregatedResp)
@@ -325,7 +327,7 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
+		return h.sendResponseAndCleanup(ctx, ar, api.FatalError, errors.New("failed to forward user request to nodes"), nil)
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
@@ -336,7 +338,7 @@ func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Lo
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
+		return h.sendResponseAndCleanup(ctx, ar, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil)
 	}
 
 	var errorCode api.ErrorCode
@@ -347,19 +349,33 @@ func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Lo
 	}
 
 	l.Debugw("issued user callback", "errorCode", errorCode)
-	successResp := gwhandlers.UserCallbackPayload{
+	payload := gwhandlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
 	}
-	return h.sendResponseAndCleanup(ctx, ar, successResp)
+
+	h.recordMetrics(ctx, errorCode)
+	sendErr := ar.SendResponse(payload)
+
+	h.mu.Lock()
+	delete(h.activeRequests, ar.req.ID)
+	h.mu.Unlock()
+
+	if sendErr != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		return sendErr
+	}
+
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", errorCode)
+	return nil
 }
 
-func (h *handler) errorResponse(
-	req jsonrpc.Request[json.RawMessage],
-	errorCode api.ErrorCode,
-	err error,
-	data []byte,
-) gwhandlers.UserCallbackPayload {
+// sendResponseAndCleanup sanitizes the error, encodes a JSON-RPC error
+// response, records metrics, sends the response to the user, and removes
+// the request from activeRequests. The request is always removed regardless
+// of whether the send succeeds, since a failed callback cannot be retried.
+func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, errorCode api.ErrorCode, err error, data []byte) error {
+	req := ar.req
 	switch errorCode {
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -383,7 +399,7 @@ func (h *handler) errorResponse(
 	case api.LimitExceededError:
 	}
 
-	return gwhandlers.UserCallbackPayload{
+	payload := gwhandlers.UserCallbackPayload{
 		RawResponse: h.codec.EncodeNewErrorResponse(
 			req.ID,
 			api.ToJSONRPCErrorCode(errorCode),
@@ -392,13 +408,25 @@ func (h *handler) errorResponse(
 		),
 		ErrorCode: errorCode,
 	}
+
+	h.recordMetrics(ctx, errorCode)
+	sendErr := ar.SendResponse(payload)
+
+	h.mu.Lock()
+	delete(h.activeRequests, ar.req.ID)
+	h.mu.Unlock()
+
+	if sendErr != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		return sendErr
+	}
+
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", errorCode)
+	return nil
 }
 
-// sendResponseAndCleanup sends the response to the user and removes the
-// request from activeRequests. The request is always removed regardless of
-// whether the send succeeds, since a failed callback cannot be retried.
-func (h *handler) sendResponseAndCleanup(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
-	switch resp.ErrorCode {
+func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
+	switch errorCode {
 	case api.StaleNodeResponseError:
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -406,7 +434,7 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, userRequest *activ
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
-			attribute.String("error", resp.ErrorCode.String()),
+			attribute.String("error", errorCode.String()),
 		))
 	case api.InvalidParamsError:
 	case api.UnsupportedMethodError:
@@ -422,18 +450,4 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, userRequest *activ
 	case api.ConflictError:
 	case api.LimitExceededError:
 	}
-
-	err := userRequest.SendResponse(resp)
-
-	h.mu.Lock()
-	delete(h.activeRequests, userRequest.req.ID)
-	h.mu.Unlock()
-
-	if err != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
-		return err
-	}
-
-	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
-	return nil
 }
