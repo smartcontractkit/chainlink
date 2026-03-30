@@ -1612,7 +1612,7 @@ SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy Ext
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800 # Default
 GlobalBurst = 1000 # Default
-PerSenderRPS = 10 # Default
+PerSenderRPS = 50 # Default
 PerSenderBurst = 50 # Default
 ```
 
@@ -1631,7 +1631,7 @@ GlobalBurst is the global burst limit for the dispatcher.
 
 ### PerSenderRPS
 ```toml
-PerSenderRPS = 10 # Default
+PerSenderRPS = 50 # Default
 ```
 PerSenderRPS is the per-sender rate limit for the dispatcher.
 

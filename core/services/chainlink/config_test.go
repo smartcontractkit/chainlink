@@ -551,7 +551,7 @@ func TestConfig_Marshal(t *testing.T) {
 			RateLimit: toml.DispatcherRateLimit{
 				GlobalRPS:      ptr(800.0),
 				GlobalBurst:    ptr(1000),
-				PerSenderRPS:   ptr(10.0),
+				PerSenderRPS:   ptr(50.0),
 				PerSenderBurst: ptr(50),
 			},
 			SendToSharedPeer: ptr(false),

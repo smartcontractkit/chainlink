@@ -570,7 +570,7 @@ GlobalRPS = 800 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
 GlobalBurst = 1000 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 10 # Default
+PerSenderRPS = 50 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
 PerSenderBurst = 50 # Default
 

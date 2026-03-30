@@ -361,7 +361,7 @@ SendToSharedPeer = false
 [Capabilities.Dispatcher.RateLimit]
 GlobalRPS = 800.0
 GlobalBurst = 1000
-PerSenderRPS = 10.0
+PerSenderRPS = 50.0
 PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
