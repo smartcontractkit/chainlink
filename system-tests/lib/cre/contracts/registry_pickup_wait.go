@@ -8,10 +8,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 
@@ -22,6 +24,7 @@ const (
 	capabilityRegistrySyncPollInterval = 5 * time.Second
 	capabilityRegistrySyncTimeout      = 2 * time.Minute
 	capabilityRegistrySyncQueryTimeout = 3 * time.Second
+	capabilityRegistrySyncConcurrency  = 4
 )
 
 type workflowWorkerTarget struct {
@@ -71,14 +74,40 @@ func waitForWorkflowWorkersCapabilityRegistrySync(ctx context.Context, input cre
 	defer ticker.Stop()
 
 	for {
+		type checkResult struct {
+			key   string
+			ready bool
+			state string
+		}
+		results := make([]checkResult, 0, len(pending))
+		resultsMu := sync.Mutex{}
+		eg, egCtx := errgroup.WithContext(timeoutCtx)
+		eg.SetLimit(capabilityRegistrySyncConcurrency)
 		for key, target := range pending {
-			ready, state := hasCapabilityRegistrySyncOnWorker(timeoutCtx, target.dbPort, target.nodeIndex)
-			if ready {
-				delete(pending, key)
-				delete(lastState, key)
+			key := key
+			target := target
+			eg.Go(func() error {
+				ready, state := hasCapabilityRegistrySyncOnWorker(egCtx, target.dbPort, target.nodeIndex)
+				resultsMu.Lock()
+				results = append(results, checkResult{
+					key:   key,
+					ready: ready,
+					state: state,
+				})
+				resultsMu.Unlock()
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+		for _, result := range results {
+			if result.ready {
+				delete(pending, result.key)
+				delete(lastState, result.key)
 				continue
 			}
-			lastState[key] = state
+			lastState[result.key] = result.state
 		}
 
 		if len(pending) == 0 {

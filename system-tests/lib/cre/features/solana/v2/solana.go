@@ -121,7 +121,7 @@ func (s *Solana) PostEnvStartup(
 ) error {
 	// 1. Deploy & Configure OCR3 Contracts (once solana consensus reads are supported)
 	// 2. Create & Approve Solana Standard capability jobs for the DON
-	jobErr := createJobs(ctx, testLogger, don, dons, creEnv)
+	jobErr := createJobs(ctx, don, dons, creEnv)
 	if jobErr != nil {
 		return errors.Wrapf(jobErr, "failed to create job for solana chain standard capability")
 	}
@@ -141,7 +141,6 @@ func (s *Solana) PostEnvStartup(
 // post env
 func createJobs(
 	ctx context.Context,
-	testLogger zerolog.Logger,
 	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,

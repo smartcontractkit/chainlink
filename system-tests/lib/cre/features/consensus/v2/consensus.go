@@ -84,7 +84,6 @@ func (c *Consensus) PostEnvStartup(
 ) error {
 	jobsErr := createJobs(
 		ctx,
-		testLogger,
 		don,
 		dons,
 		creEnv,
@@ -98,7 +97,6 @@ func (c *Consensus) PostEnvStartup(
 
 func createJobs(
 	ctx context.Context,
-	testLogger zerolog.Logger,
 	don *cre.Don,
 	dons *cre.Dons,
 	creEnv *cre.Environment,

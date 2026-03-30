@@ -69,7 +69,6 @@ func (o *DONTime) PostEnvStartup(
 ) error {
 	jobErr := createJobs(
 		ctx,
-		testLogger,
 		creEnv,
 		don,
 		dons,
@@ -83,7 +82,6 @@ func (o *DONTime) PostEnvStartup(
 
 func createJobs(
 	ctx context.Context,
-	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	don *cre.Don,
 	dons *cre.Dons,

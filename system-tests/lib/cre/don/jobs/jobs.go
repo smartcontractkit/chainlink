@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
+// defined as variables to allow for easy testing
 var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]string, error) {
 	jd, err := node.Clients.GQLClient.GetJobDistributor(ctx, node.JobDistributorDetails.JDID)
 	if err != nil {
@@ -32,6 +33,7 @@ var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]
 	return proposalIDsBySpec, nil
 }
 
+// defined as variables to allow for easy testing
 var approveJobProposalSpec = func(ctx context.Context, node *cre.Node, proposalID string) error {
 	approvedSpec, err := node.Clients.GQLClient.ApproveJobProposalSpec(ctx, proposalID, false)
 	if err != nil {
