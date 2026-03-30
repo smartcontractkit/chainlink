@@ -80,7 +80,8 @@ func (a *Aptos) PreEnvStartup(
 	if err != nil {
 		return nil, err
 	}
-	if err := patchNodeTOML(don, forwardersByChainID); err != nil {
+	err = patchNodeTOML(don, forwardersByChainID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -128,10 +129,12 @@ func (a *Aptos) PostEnvStartup(
 		return nil
 	}
 
-	if err := configureForwarders(ctx, testLogger, don, creEnv, enabledChainIDs); err != nil {
+	err = configureForwarders(ctx, testLogger, don, creEnv, enabledChainIDs)
+	if err != nil {
 		return err
 	}
-	if _, _, err := crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions); err != nil {
+	_, _, err = crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
+	if err != nil {
 		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", err)
 	}
 
@@ -142,7 +145,8 @@ func (a *Aptos) PostEnvStartup(
 	if len(specs) == 0 {
 		return nil
 	}
-	if err := crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
+	err = crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
+	if err != nil {
 		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
 	}
 
