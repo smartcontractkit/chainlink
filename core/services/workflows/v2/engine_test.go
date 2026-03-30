@@ -100,9 +100,9 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
 	getter, err := settings.NewTOMLGetter([]byte(`
 [global]
-WorkflowExecutionConcurrencyLimit = "2"
+WorkflowLimit = "2"
 [global.PerOwner]
-WorkflowExecutionConcurrencyLimit = "1"
+WorkflowLimit = "1"
 `))
 	require.NoError(t, err)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{

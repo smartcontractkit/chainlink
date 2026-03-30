@@ -137,10 +137,25 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.ExecutionConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+
+	globalExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
 		return
 	}
+	orgExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	ownerExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	wfExec, err := limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	l.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{wfExec, ownerExec, orgExec, globalExec}
+
 	l.WASMBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMBinarySizeLimit)
 	if err != nil {
 		return
