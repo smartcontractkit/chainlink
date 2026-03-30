@@ -135,9 +135,9 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		"maxGasAmount", cfg.MaxGasAmount,
 		"gasUnitPrice", cfg.GasUnitPrice,
 	)
-	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
 		Receiver: receiver,
-		Report:   reportResp,
+		Report:   report,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,

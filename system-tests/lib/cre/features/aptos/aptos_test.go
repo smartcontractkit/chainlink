@@ -1,20 +1,32 @@
 package aptos
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
+	"reflect"
 	"testing"
 	"time"
+	"unsafe"
 
+	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func TestSetRuntimeSpecConfig_ReplacesLegacyKey(t *testing.T) {
@@ -232,3 +244,152 @@ func TestResolveMethodConfigSettings_InvalidTransmissionSchedule(t *testing.T) {
 	})
 	require.Error(t, err)
 }
+
+func TestSetForwarderAddress_UpdatesMatchingAptosChain(t *testing.T) {
+	cfg := corechainlink.Config{
+		Aptos: corechainlink.RawConfigs{
+			corechainlink.RawConfig{
+				"ChainID": "4",
+				"Workflow": corechainlink.RawConfig{
+					"ForwarderAddress": "0xold",
+					"Keep":             "yes",
+				},
+			},
+			corechainlink.RawConfig{
+				"ChainID": "8",
+			},
+		},
+	}
+
+	err := setForwarderAddress(&cfg, "4", "0xnew")
+	require.NoError(t, err)
+
+	workflow := workflowMap(t, cfg.Aptos[0]["Workflow"])
+	require.Equal(t, "0xnew", workflow["ForwarderAddress"])
+	require.Equal(t, "yes", workflow["Keep"])
+	require.Nil(t, cfg.Aptos[1]["Workflow"])
+}
+
+func TestPatchNodeTOML_PatchesAllMatchingAptosChainsAndPreservesWorkflowFields(t *testing.T) {
+	baseConfig := corechainlink.Config{
+		Aptos: corechainlink.RawConfigs{
+			corechainlink.RawConfig{
+				"ChainID": "4",
+				"Workflow": corechainlink.RawConfig{
+					"ForwarderAddress": "0xold4",
+					"Keep":             "value4",
+				},
+			},
+			corechainlink.RawConfig{
+				"ChainID": "8",
+				"Workflow": corechainlink.RawConfig{
+					"ForwarderAddress": "0xold8",
+					"Keep":             "value8",
+				},
+			},
+		},
+	}
+	rawConfig, err := toml.Marshal(baseConfig)
+	require.NoError(t, err)
+
+	don := testDonMetadata(t, string(rawConfig), string(rawConfig))
+	err = patchNodeTOML(don, map[uint64]string{
+		4: "0x0000000000000000000000000000000000000000000000000000000000000004",
+		8: "0x0000000000000000000000000000000000000000000000000000000000000008",
+	})
+	require.NoError(t, err)
+
+	for _, spec := range don.MustNodeSet().NodeSpecs {
+		var patched corechainlink.Config
+		require.NoError(t, toml.Unmarshal([]byte(spec.Node.TestConfigOverrides), &patched))
+
+		workflow4 := workflowMap(t, patched.Aptos[0]["Workflow"])
+		require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000004", workflow4["ForwarderAddress"])
+		require.Equal(t, "value4", workflow4["Keep"])
+
+		workflow8 := workflowMap(t, patched.Aptos[1]["Workflow"])
+		require.Equal(t, "0x0000000000000000000000000000000000000000000000000000000000000008", workflow8["ForwarderAddress"])
+		require.Equal(t, "value8", workflow8["Keep"])
+	}
+}
+
+func TestFindAptosChainByChainID_ReturnsTypedBlockchain(t *testing.T) {
+	aptosBC := testAptosBlockchain(4, 4457093679053095497)
+
+	got, err := findAptosChainByChainID([]creblockchains.Blockchain{aptosBC}, 4)
+	require.NoError(t, err)
+	require.Same(t, aptosBC, got)
+}
+
+func TestFindAptosChainByChainID_ErrorsOnTypeMismatch(t *testing.T) {
+	chains := []creblockchains.Blockchain{fakeChain{family: "aptos", chainID: 4}}
+
+	_, err := findAptosChainByChainID(chains, 4)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "unexpected type")
+}
+
+func testDonMetadata(t *testing.T, nodeConfigs ...string) *cre.DonMetadata {
+	t.Helper()
+
+	nodeSpecs := make([]*cre.NodeSpecWithRole, len(nodeConfigs))
+	for i, cfg := range nodeConfigs {
+		nodeSpecs[i] = &cre.NodeSpecWithRole{
+			Input: &clnode.Input{
+				Node: &clnode.NodeInput{TestConfigOverrides: cfg},
+			},
+			Roles: []cre.NodeType{cre.WorkerNode},
+		}
+	}
+
+	nodeSet := &cre.NodeSet{
+		Input:     &ns.Input{Name: "aptos-don"},
+		NodeSpecs: nodeSpecs,
+	}
+
+	don, err := cre.NewDonMetadata(nodeSet, 1, infra.Provider{Type: infra.Docker}, nil)
+	require.NoError(t, err)
+	return don
+}
+
+func testAptosBlockchain(chainID, chainSelector uint64) *aptoschain.Blockchain {
+	bc := &aptoschain.Blockchain{}
+	setUnexportedField(bc, "chainID", chainID)
+	setUnexportedField(bc, "chainSelector", chainSelector)
+	setUnexportedField(bc, "ctfOutput", &blockchain.Output{Family: "aptos", ChainID: "4"})
+	return bc
+}
+
+func setUnexportedField(target any, fieldName string, value any) {
+	field := reflect.ValueOf(target).Elem().FieldByName(fieldName)
+	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
+}
+
+func workflowMap(t *testing.T, raw any) map[string]any {
+	t.Helper()
+
+	switch v := raw.(type) {
+	case corechainlink.RawConfig:
+		return map[string]any(v)
+	case map[string]any:
+		return v
+	default:
+		t.Fatalf("unexpected workflow type %T", raw)
+		return nil
+	}
+}
+
+type fakeChain struct {
+	family  string
+	chainID uint64
+}
+
+func (f fakeChain) ChainSelector() uint64 { return 0 }
+func (f fakeChain) ChainID() uint64       { return f.chainID }
+func (f fakeChain) ChainFamily() string   { return f.family }
+func (f fakeChain) IsFamily(chainFamily string) bool {
+	return f.family == chainFamily
+}
+func (f fakeChain) Fund(context.Context, string, uint64) error { return nil }
+func (f fakeChain) CtfOutput() *blockchain.Output              { return nil }
+func (f fakeChain) ToCldfChain() (cldfchain.BlockChain, error) { return nil, nil }
