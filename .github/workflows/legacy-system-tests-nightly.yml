@@ -1,4 +1,4 @@
-name: (Nightly) System Tests
+name: (Nightly) Legacy System Tests
 
 on:
   schedule:

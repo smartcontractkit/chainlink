@@ -3,11 +3,11 @@ package cre
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,6 +22,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
@@ -30,6 +31,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -227,7 +229,7 @@ func (d *Don) GetName() string {
 
 func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Output) (*Don, error) {
 	don := &Don{
-		Nodes:                make([]*Node, 0),
+		Nodes:                make([]*Node, len(donMetadata.NodesMetadata)),
 		Name:                 donMetadata.Name,
 		ID:                   donMetadata.ID,
 		Flags:                donMetadata.Flags,
@@ -235,8 +237,6 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
 		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}
-
-	mu := &sync.Mutex{}
 
 	errgroup := errgroup.Group{}
 	for idx, nodeMetadata := range donMetadata.NodesMetadata {
@@ -246,10 +246,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 				return fmt.Errorf("failed to create node %d: %w", idx, err)
 			}
 			node.DON = don
-
-			mu.Lock()
-			don.Nodes = append(don.Nodes, node)
-			mu.Unlock()
+			don.Nodes[idx] = node
 
 			return nil
 		})
@@ -274,8 +271,6 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 }
 
 func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.Blockchain, cldfEnv *cldf.Environment) error {
-	mu := &sync.Mutex{}
-
 	jd, ok := cldfEnv.Offchain.(*jd.JobDistributor)
 	if !ok {
 		return fmt.Errorf("offchain environment is not a *.jd.JobDistributor, but %T", cldfEnv.Offchain)
@@ -293,9 +288,15 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
+					chainConfigStart := time.Now()
 					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
+					framework.L.Info().
+						Str("don", d.Name).
+						Str("node", node.Name).
+						Float64("duration_s", roundSeconds(time.Since(chainConfigStart))).
+						Msg("JD chain-config setup completed")
 				case RoleGateway:
 					// no chains configuration needed for gateway nodes
 				default:
@@ -303,9 +304,7 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 				}
 			}
 
-			mu.Lock()
 			d.Nodes[idx] = node
-			mu.Unlock()
 
 			return nil
 		})
@@ -451,7 +450,18 @@ type JDChainConfigInput struct {
 	ChainType string
 }
 
-func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd *jd.JobDistributor) error {
+type nodeChainConfigLister interface {
+	ListNodeChainConfigs(context.Context, *nodev1.ListNodeChainConfigsRequest, ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
+}
+
+var (
+	jdChainConfigPollTimeout = 10 * time.Second
+	jdChainConfigRPCTimeout  = 3 * time.Second
+)
+
+func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd nodeChainConfigLister) error {
+	ocr2BundleIDsByType := make(map[string]string)
+
 	for _, chain := range supportedChains {
 		var account string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
@@ -507,41 +517,35 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
-		ocr2BundleID, createErr := n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
-		if createErr != nil {
-			return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, createErr)
-		}
-		if ocr2BundleID == "" {
-			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
-		}
 
+		ocr2BundleID, ok := ocr2BundleIDsByType[chainType]
+		if !ok {
+			fetchErr := error(nil)
+			ocr2BundleID, fetchErr = n.Clients.GQLClient.FetchOCR2KeyBundleID(ctx, chainType)
+			if fetchErr != nil {
+				return fmt.Errorf("failed to fetch OCR2 key bundle id for node %s: %w", n.Name, fetchErr)
+			}
+			if ocr2BundleID == "" {
+				return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
+			}
+			ocr2BundleIDsByType[chainType] = ocr2BundleID
+		}
 		if n.Keys.OCR2BundleIDs == nil {
 			n.Keys.OCR2BundleIDs = make(map[string]string)
 		}
-
 		n.Keys.OCR2BundleIDs[strings.ToLower(chainType)] = ocr2BundleID
 
-		// retry twice with 5 seconds interval to create JobDistributorChainConfig
-		retryErr := retry.Do(ctx, retry.WithMaxDuration(10*time.Second, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
-			// check the node chain config to see if this chain already exists
-			nodeChainConfigs, listErr := jd.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{
-				Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
-					NodeIds: []string{n.JobDistributorDetails.NodeID},
-				}})
-			if listErr != nil {
-				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s, retrying..: %w", n.Name, listErr))
+		// Retry create+observe to preserve the original JD behavior.
+		retryErr := retry.Do(ctx, retry.WithMaxDuration(jdChainConfigPollTimeout, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
+			nodeChainConfigIDs, err := listNodeChainConfigIDs(ctx, jd, n.JobDistributorDetails.NodeID)
+			if err != nil {
+				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err))
 			}
-			if nodeChainConfigs != nil {
-				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-					if chainConfig.Chain.Id == chainIDStr {
-						return nil
-					}
-				}
+			if _, exists := nodeChainConfigIDs[chainIDStr]; exists {
+				return nil
 			}
 
-			// we need to create JD chain config for each chain, because later on changestes ask the node for that chain data
-			// each node needs to have OCR2 enabled, because p2pIDs are used by some contracts to identify nodes (e.g. capability registry)
-			_, createErr = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
+			_, err = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JobDistributorDetails.JDID,
 				ChainID:          chainIDStr,
 				ChainType:        chainType,
@@ -554,21 +558,46 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				Ocr2KeyBundleID:  ocr2BundleID,
 				Ocr2Plugins:      `{}`,
 			})
-			// TODO: add a check if the chain config failed because of a duplicate in that case, should we update or return success?
-			if createErr != nil {
-				return createErr
+			if err != nil {
+				return err
 			}
 
-			// JD silently fails to update nodeChainConfig. Therefore, we fetch the node config and
-			// if it's not updated , throw an error
 			return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
 		})
-
 		if retryErr != nil {
 			return fmt.Errorf("failed to create JD chain configuration for node %s: %w", n.Name, retryErr)
 		}
 	}
+
 	return nil
+}
+
+func listNodeChainConfigIDs(ctx context.Context, jd nodeChainConfigLister, nodeID string) (map[string]struct{}, error) {
+	rpcCtx, cancel := context.WithTimeout(ctx, jdChainConfigRPCTimeout)
+	defer cancel()
+
+	resp, err := jd.ListNodeChainConfigs(rpcCtx, &nodev1.ListNodeChainConfigsRequest{
+		Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
+			NodeIds: []string{nodeID},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	chainIDs := make(map[string]struct{})
+	if resp == nil {
+		return chainIDs, nil
+	}
+
+	for _, chainConfig := range resp.ChainConfigs {
+		if chainConfig.GetChain() == nil {
+			continue
+		}
+		chainIDs[chainConfig.Chain.Id] = struct{}{}
+	}
+
+	return chainIDs, nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec
@@ -773,21 +802,46 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 		return errors.New("input is nil")
 	}
 
-	var nodeIDs []string
+	start := time.Now()
+	dons := input.Dons.List()
+	donMetadata := input.Topology.DonsMetadata.List()
+	nodeIDsByDON := make([][]string, len(dons))
 
-	for idx, don := range input.Dons.List() {
-		supportedChains, schErr := findDonSupportedChains(input.Topology.DonsMetadata.List()[idx], input.Blockchains)
-		if schErr != nil {
-			return errors.Wrap(schErr, "failed to find supported chains for DON")
-		}
+	errGroup, groupCtx := errgroup.WithContext(ctx)
+	for idx, don := range dons {
+		errGroup.Go(func() error {
+			donStart := time.Now()
+			supportedChains, schErr := findDonSupportedChains(donMetadata[idx], input.Blockchains)
+			if schErr != nil {
+				return errors.Wrap(schErr, "failed to find supported chains for DON")
+			}
 
-		if err := registerWithJD(ctx, don, supportedChains, input.CldfEnvironment); err != nil {
-			return fmt.Errorf("failed to register DON with JD: %w", err)
-		}
-		nodeIDs = append(nodeIDs, don.JDNodeIDs()...)
+			if err := registerWithJD(groupCtx, don, supportedChains, input.CldfEnvironment); err != nil {
+				return fmt.Errorf("failed to register DON %s with JD: %w", don.Name, err)
+			}
+
+			nodeIDsByDON[idx] = don.JDNodeIDs()
+			framework.L.Info().
+				Str("don", don.Name).
+				Float64("duration_s", roundSeconds(time.Since(donStart))).
+				Msg("JD registration completed for DON")
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return err
+	}
+
+	nodeIDs := make([]string, 0)
+	for _, donNodeIDs := range nodeIDsByDON {
+		nodeIDs = append(nodeIDs, donNodeIDs...)
 	}
 
 	input.CldfEnvironment.NodeIDs = nodeIDs
+	framework.L.Info().
+		Float64("duration_s", roundSeconds(time.Since(start))).
+		Msg("Post-start JD linking completed")
 
 	return nil
 }
@@ -822,6 +876,10 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	}
 
 	return chains, nil
+}
+
+func roundSeconds(d time.Duration) float64 {
+	return math.Round(d.Seconds()*10) / 10
 }
 
 // Make DonMetadata also implement it, just in case?

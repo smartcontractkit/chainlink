@@ -760,7 +760,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 }
 
 func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 	store := requests.NewStore[*vaulttypes.Request]()
 	r := &ReportingPlugin{
 		lggr:  lggr,
@@ -803,8 +803,15 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T)
 	require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: "request-1"}))
 	rdr := &kv{m: make(map[string]response)}
 
-	_, err = r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &errorBlobBroadcastFetcher{err: errors.New("boom")})
-	require.ErrorContains(t, err, "could not broadcast pending queue item as blob: boom")
+	obs, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &errorBlobBroadcastFetcher{err: errors.New("boom")})
+	require.NoError(t, err)
+	require.NotNil(t, obs)
+
+	warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+	assert.Equal(t, 1, warnLogs.Len())
+	fields := warnLogs.All()[0].ContextMap()
+	assert.Equal(t, "request-1", fields["requestID"])
+	assert.Contains(t, fmt.Sprint(fields["err"]), "boom")
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -5166,6 +5173,36 @@ func mockMarshalBlob(ocr3_1types.BlobHandle) ([]byte, error) {
 	return []byte{}, nil
 }
 
+type callbackBlobFetcher struct {
+	fn func(payload []byte) error
+}
+
+func (f *callbackBlobFetcher) BroadcastBlob(_ context.Context, payload []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	if err := f.fn(payload); err != nil {
+		return ocr3_1types.BlobHandle{}, err
+	}
+	return ocr3_1types.BlobHandle{}, nil
+}
+
+func (f *callbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
+}
+
+type ctxCallbackBlobFetcher struct {
+	fn func(ctx context.Context, payload []byte) error
+}
+
+func (f *ctxCallbackBlobFetcher) BroadcastBlob(ctx context.Context, payload []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	if err := f.fn(ctx, payload); err != nil {
+		return ocr3_1types.BlobHandle{}, err
+	}
+	return ocr3_1types.BlobHandle{}, nil
+}
+
+func (f *ctxCallbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
+}
+
 func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -7106,5 +7143,239 @@ func TestLogUserErrorAware(t *testing.T) {
 		assert.Equal(t, "req-3", fields["id"])
 		assert.Equal(t, "abc-123", fields["requestID"])
 		assert.Contains(t, fmt.Sprint(fields["error"]), "internal error")
+	})
+}
+
+func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	t.Run("empty payloads returns empty slice", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, nil, nil)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("all payloads broadcast successfully", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 3)
+		for _, item := range result {
+			assert.Equal(t, []byte("handle"), item)
+		}
+	})
+
+	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func(payload []byte) error {
+			if string(payload) == "p2" {
+				return errors.New("broadcast error")
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 5, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 1, warnLogs.Len())
+		fields := warnLogs.All()[0].ContextMap()
+		assert.Equal(t, "req-2", fields["requestID"])
+		assert.Equal(t, uint64(5), fields["seqNr"])
+		assert.Contains(t, fmt.Sprint(fields["err"]), "broadcast error")
+	})
+
+	t.Run("all broadcasts fail returns empty slice", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &errorBlobBroadcastFetcher{err: errors.New("network down")}
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 2, warnLogs.Len())
+	})
+
+	t.Run("marshal blob failure skips item and logs warning", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return nil, errors.New("marshal error")
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		warnLogs := observed.FilterMessage("failed to marshal blob handle, skipping")
+		assert.Equal(t, 2, warnLogs.Len())
+	})
+
+	t.Run("mix of broadcast and marshal failures", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+
+		marshalCallCount := atomic.Int32{}
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				n := marshalCallCount.Add(1)
+				if n == 1 {
+					return nil, errors.New("marshal error")
+				}
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func(payload []byte) error {
+			if string(payload) == "p1" {
+				return errors.New("broadcast error")
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+
+		broadcastWarns := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		marshalWarns := observed.FilterMessage("failed to marshal blob handle, skipping")
+		assert.Equal(t, 1, broadcastWarns.Len())
+		assert.Equal(t, 1, marshalWarns.Len())
+		assert.Len(t, result, 1)
+	})
+
+	t.Run("context cancellation propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("context deadline exceeded propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(t.Context(), 0)
+		defer cancel()
+		<-ctx.Done()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1")}
+		ids := []string{"req-1"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("slow broadcast hits per-call timeout and is skipped", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &ctxCallbackBlobFetcher{fn: func(ctx context.Context, payload []byte) error {
+			if string(payload) == "slow" {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("fast"), []byte("slow")}
+		ids := []string{"req-fast", "req-slow"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 1, warnLogs.Len())
+		fields := warnLogs.All()[0].ContextMap()
+		assert.Equal(t, "req-slow", fields["requestID"])
 	})
 }
