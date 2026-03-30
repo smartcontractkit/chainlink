@@ -5188,6 +5188,21 @@ func (f *callbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle)
 	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
 }
 
+type ctxCallbackBlobFetcher struct {
+	fn func(ctx context.Context, payload []byte) error
+}
+
+func (f *ctxCallbackBlobFetcher) BroadcastBlob(ctx context.Context, payload []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	if err := f.fn(ctx, payload); err != nil {
+		return ocr3_1types.BlobHandle{}, err
+	}
+	return ocr3_1types.BlobHandle{}, nil
+}
+
+func (f *ctxCallbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
+}
+
 func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -7250,5 +7265,36 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
 		assert.Nil(t, result)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("slow broadcast hits per-call timeout and is skipped", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &ctxCallbackBlobFetcher{fn: func(ctx context.Context, payload []byte) error {
+			if string(payload) == "slow" {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("fast"), []byte("slow")}
+		ids := []string{"req-fast", "req-slow"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 1, warnLogs.Len())
+		fields := warnLogs.All()[0].ContextMap()
+		assert.Equal(t, "req-slow", fields["requestID"])
 	})
 }

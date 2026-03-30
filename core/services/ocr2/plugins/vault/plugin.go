@@ -518,10 +518,12 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 // broadcastBlobPayloads broadcasts each payload as a blob in parallel to reduce
 // Observation() latency (shortening this phase helps the OCR round finish within
-// DeltaProgress). Individual broadcast failures are logged and skipped rather than
-// aborting the entire observation, so that one problematic payload does not prevent
-// the remaining items from being observed. Context cancellation/deadline errors are
-// propagated immediately so that expired rounds fail fast.
+// DeltaProgress). Each call is given a 2-second timeout so that a single slow
+// broadcast cannot stall the entire batch. Individual broadcast failures are logged
+// and skipped rather than aborting the entire observation, so that one problematic
+// payload does not prevent the remaining items from being observed. Context
+// cancellation/deadline errors on the parent context are propagated immediately so
+// that expired rounds fail fast.
 func (r *ReportingPlugin) broadcastBlobPayloads(
 	ctx context.Context,
 	fetcher ocr3_1types.BlobBroadcastFetcher,
@@ -536,10 +538,14 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(payloads), "elapsed", time.Since(start))
 	}()
 
+	const perBlobTimeout = 2 * time.Second
 	var g errgroup.Group
 	for i, payload := range payloads {
 		g.Go(func() error {
-			blobHandle, err := fetcher.BroadcastBlob(ctx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
+			broadcastCtx, cancel := context.WithTimeout(ctx, perBlobTimeout)
+			defer cancel()
+
+			blobHandle, err := fetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
 			if err != nil {
 				if ctx.Err() != nil {
 					return ctx.Err()
