@@ -165,7 +165,10 @@ func p2pToTransmitterMapForWorkers(workers []*cre.NodeMetadata) (map[string]stri
 			return nil, fmt.Errorf("missing P2P key for worker index %d", worker.Index)
 		}
 
-		account := worker.Keys.AptosAccount()
+		account := ""
+		if worker.Keys.Aptos != nil {
+			account = worker.Keys.Aptos.Account
+		}
 		if account == "" {
 			return nil, fmt.Errorf("missing Aptos account for worker index %d", worker.Index)
 		}

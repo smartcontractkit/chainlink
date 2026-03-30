@@ -82,13 +82,6 @@ func (n NodeKeys) PeerID() string {
 	return n.P2PKey.PeerID.String()
 }
 
-func (n NodeKeys) AptosAccount() string {
-	if n.Aptos == nil {
-		return ""
-	}
-	return n.Aptos.Account
-}
-
 func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
 	ns := nodeSecret{}
 
