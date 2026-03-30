@@ -63,11 +63,13 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 	})
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	ethClient := evmtest.NewEthClientMock(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("ConfiguredChainID").Return(cfg.EVMConfigs()[0].ChainID.ToInt()).Maybe()
 	ethClient.On("IsL2").Return(false).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewMockEvmTxManager(t)
+	servicetest.SetupNoOpMock(txm)
+	txm.On("OnNewLongestChain", mock.Anything, mock.Anything).Return().Maybe()
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		TxManager:      txm,
 		DB:             db,

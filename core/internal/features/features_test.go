@@ -41,7 +41,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -54,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -1282,22 +1280,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient := cltest.NewEthMocks(t)
-	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
 	chchNewHeads := make(chan evmtestutils.RawSub[*types.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
-
-	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-		ChainConfigs:   cfg.EVMConfigs(),
-		DatabaseConfig: cfg.Database(),
-		FeatureConfig:  cfg.Feature(),
-		ListenerConfig: cfg.Database().Listener(),
-		KeyStore:       kst.Eth(),
-		DB:             db,
-		Client:         ethClient,
-	})
 
 	b41 := types.Block{
 		Number:       41,
@@ -1346,16 +1333,23 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(*evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// HeadTracker backfill
 	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	for _, re := range legacyChains.Slice() {
-		servicetest.Run(t, re)
-	}
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
+		ChainConfigs:   cfg.EVMConfigs(),
+		DatabaseConfig: cfg.Database(),
+		FeatureConfig:  cfg.Feature(),
+		ListenerConfig: cfg.Database().Listener(),
+		KeyStore:       kst.Eth(),
+		DB:             db,
+		Client:         ethClient,
+	})
+
 	var newHeads evmtestutils.RawSub[*types.Head]
 	select {
 	case newHeads = <-chchNewHeads:

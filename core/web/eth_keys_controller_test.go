@@ -31,7 +31,6 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -82,7 +81,6 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -153,7 +151,6 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -250,7 +247,6 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -292,7 +288,6 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -454,7 +449,6 @@ func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -488,7 +482,6 @@ func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -609,7 +602,6 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
@@ -641,7 +633,6 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Twice()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)

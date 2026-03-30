@@ -787,8 +787,9 @@ func TestConfig_Marshal(t *testing.T) {
 						Enabled: ptr(false),
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
-						Enabled: ptr(false),
-						Bundles: ptr(false),
+						Enabled:                     ptr(false),
+						ReadRequestsToMultipleNodes: ptr(false),
+						Bundles:                     ptr(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
@@ -1273,6 +1274,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+ReadRequestsToMultipleNodes = false
 Bundles = false
 
 [EVM.BalanceMonitor]
@@ -1552,6 +1554,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes = ptr(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)
