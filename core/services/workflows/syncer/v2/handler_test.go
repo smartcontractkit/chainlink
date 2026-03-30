@@ -690,7 +690,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 func Test_customerFacingError(t *testing.T) {
 	t.Run("nil error returns nil", func(t *testing.T) {
-		assert.Nil(t, customerFacingError(nil))
+		assert.NoError(t, customerFacingError(nil))
 	})
 
 	t.Run("ArtifactFetchError returns deterministic customer message", func(t *testing.T) {
@@ -700,7 +700,7 @@ func Test_customerFacingError(t *testing.T) {
 			Err:          errors.New("connection refused"),
 		}
 		got := customerFacingError(fetchErr)
-		require.NotNil(t, got)
+		require.Error(t, got)
 		assert.Equal(t, "Internal error: failed to fetch workflow binary from storage. Contact support if this persists.", got.Error())
 	})
 

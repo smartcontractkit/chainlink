@@ -37,13 +37,13 @@ func TestArtifactFetchError(t *testing.T) {
 	})
 
 	t.Run("Unwrap returns inner error", func(t *testing.T) {
-		require.True(t, errors.Is(fetchErr, inner))
+		require.ErrorIs(t, fetchErr, inner)
 	})
 
 	t.Run("errors.As matches through wrapping", func(t *testing.T) {
 		wrapped := fmt.Errorf("outer: %w", fetchErr)
 		var target *ArtifactFetchError
-		require.True(t, errors.As(wrapped, &target))
+		require.ErrorAs(t, wrapped, &target)
 		assert.Equal(t, "binary", target.ArtifactType)
 	})
 }
