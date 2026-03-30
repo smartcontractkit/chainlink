@@ -89,9 +89,9 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 	}
 
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
-	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
 		Receiver: receiverBytes,
-		Report:   reportResp,
+		Report:   report,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,

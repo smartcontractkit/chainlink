@@ -43,14 +43,16 @@ import (
 
 const aptosLocalMaxGasAmount uint64 = 200_000
 const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
+const aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 
-// ExecuteAptosTest runs the Aptos CRE suite with the read path only. The write
-// scenarios stay available for local/manual execution until the write-report CI
-// path is ready again.
+// ExecuteAptosTest runs the Aptos CRE suite with the default CI coverage in a
+// single scenario: successful write/read roundtrip and expected write failure.
+// The standalone read and plain write scenarios stay available for
+// local/manual execution.
 func ExecuteAptosTest(t *testing.T, tenv *configuration.TestEnvironment) {
-	executeAptosScenarios(t, tenv, aptosDefaultScenarios())
+	executeAptosScenarios(t, tenv, resolveAptosScenarios(t))
 }
 
 type aptosScenario struct {
@@ -66,8 +68,75 @@ type aptosScenario struct {
 
 func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
-		{name: "Aptos Read", run: ExecuteAptosReadTest},
+		{name: "Aptos CI Coverage", run: ExecuteAptosCICoverageTest},
 	}
+}
+
+func resolveAptosScenarios(t *testing.T) []aptosScenario {
+	t.Helper()
+
+	raw := strings.TrimSpace(os.Getenv(aptosScenarioOverrideEnv))
+	if raw == "" {
+		return aptosDefaultScenarios()
+	}
+
+	available := map[string]aptosScenario{
+		"ci": {
+			name: "Aptos CI Coverage",
+			run:  ExecuteAptosCICoverageTest,
+		},
+		"read": {
+			name: "Aptos Read",
+			run:  ExecuteAptosReadTest,
+		},
+		"write": {
+			name: "Aptos Write",
+			run:  ExecuteAptosWriteTest,
+		},
+		"roundtrip": {
+			name: "Aptos Write Read Roundtrip",
+			run:  ExecuteAptosWriteReadRoundtripTest,
+		},
+		"write-expected-failure": {
+			name: "Aptos Write Expected Failure",
+			run:  ExecuteAptosWriteExpectedFailureTest,
+		},
+	}
+
+	parts := strings.Split(raw, ",")
+	scenarios := make([]aptosScenario, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+	for _, part := range parts {
+		key := strings.ToLower(strings.TrimSpace(part))
+		if key == "" {
+			continue
+		}
+		scenario, ok := available[key]
+		require.Truef(t, ok, "unknown Aptos scenario %q in %s", key, aptosScenarioOverrideEnv)
+		if _, duplicate := seen[scenario.name]; duplicate {
+			continue
+		}
+		seen[scenario.name] = struct{}{}
+		scenarios = append(scenarios, scenario)
+	}
+
+	require.NotEmptyf(t, scenarios, "%s was set but did not resolve to any Aptos scenarios", aptosScenarioOverrideEnv)
+	t.Logf("running Aptos scenarios from %s=%q", aptosScenarioOverrideEnv, raw)
+
+	return scenarios
+}
+
+func ExecuteAptosCICoverageTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	aptosChain blockchains.Blockchain,
+	userLogsCh <-chan *workflowevents.UserLogs,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+	ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
 }
 
 func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, scenarios []aptosScenario) {
@@ -215,7 +284,7 @@ func ExecuteAptosWriteTest(
 	lggr := framework.L
 	scenario := prepareAptosWriteScenario(t, tenv, aptosChain)
 
-	const workflowName = "aptos-write-workflow"
+	workflowName := uniqueAptosWorkflowName("aptos-write-workflow")
 	workflowConfig := aptoswrite_config.Config{
 		ChainSelector:      scenario.chainSelector,
 		WorkflowName:       workflowName,
@@ -250,7 +319,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 	lggr := framework.L
 	scenario := prepareAptosRoundtripScenario(t, tenv, aptosChain)
 
-	const workflowName = "aptos-write-read-roundtrip-workflow"
+	workflowName := uniqueAptosWorkflowName("aptos-write-read-roundtrip-workflow")
 	roundtripCfg := aptoswriteroundtrip_config.Config{
 		ChainSelector:      scenario.chainSelector,
 		WorkflowName:       workflowName,
@@ -291,7 +360,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	lggr := framework.L
 	scenario := prepareAptosWriteScenario(t, tenv, aptosChain)
 
-	const workflowName = "aptos-write-expected-failure-workflow"
+	workflowName := uniqueAptosWorkflowName("aptos-write-expected-failure-workflow")
 	workflowConfig := aptoswrite_config.Config{
 		ChainSelector:      scenario.chainSelector,
 		WorkflowName:       workflowName,
@@ -361,6 +430,10 @@ func prepareAptosWriteScenarioWithBenchmark(
 		requiredSignatures:     f + 1,
 		writeDon:               writeDon,
 	}
+}
+
+func uniqueAptosWorkflowName(base string) string {
+	return fmt.Sprintf("%s-%d", base, time.Now().UnixNano()%1_000_000)
 }
 
 func findWriteAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, chainID uint64) *crelib.Don {
