@@ -813,10 +813,9 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 func setupEthClientForControllerTests(t *testing.T) *clienttest.Client {
 	ec := cltest.NewEthMocksWithStartupAssertions(t)
-	ec.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	ec.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
 	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	return ec
 }
 

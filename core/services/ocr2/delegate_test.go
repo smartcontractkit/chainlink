@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -51,6 +52,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
+	servicetest.SetupNoOpMock(txManager)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
 		ChainConfigs:   config.EVMConfigs(),
