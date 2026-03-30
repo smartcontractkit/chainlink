@@ -64,6 +64,28 @@ func TestShardOrchestrator_GetWorkflowShardMapping(t *testing.T) {
 		assert.Equal(t, uint32(1), resp.Mappings["workflow1"])
 		assert.Equal(t, uint32(2), resp.Mappings["workflow2"])
 		assert.NotEmpty(t, resp.MappingVersion)
+
+		ringStore.SetRoutingState(&ringpb.RoutingState{
+			Id:    42,
+			State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
+		})
+		resp2, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: []string{"workflow1"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(42), resp2.RoutingStateId)
+		assert.True(t, resp2.RoutingSteady)
+
+		ringStore.SetRoutingState(&ringpb.RoutingState{
+			Id:    43,
+			State: &ringpb.RoutingState_Transition{Transition: &ringpb.Transition{WantShards: 3}},
+		})
+		resp3, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: []string{"workflow1"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, uint64(43), resp3.RoutingStateId)
+		assert.False(t, resp3.RoutingSteady)
 	})
 
 	t.Run("returns error for empty workflow IDs", func(t *testing.T) {

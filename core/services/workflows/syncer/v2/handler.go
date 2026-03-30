@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -88,6 +89,10 @@ type eventHandler struct {
 
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
+
+	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardingEnabled         bool
+	myShardID               uint32
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -119,6 +124,15 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+// WithShardExecutionGuard wires ring shard-0 orchestrator checks into workflow engines when sharding is enabled.
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardOrchestratorClient = client
+		e.shardingEnabled = shardingEnabled
+		e.myShardID = shardID
 	}
 }
 
@@ -621,7 +635,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 
-			BillingClient: h.billingClient,
+			BillingClient:           h.billingClient,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardingEnabled:         h.shardingEnabled,
+			MyShardID:               h.myShardID,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -660,6 +677,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		DebugMode:                     h.debugMode,
 		SecretsFetcher:                h.secretsFetcher,
 		SdkName:                       sdkName,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.

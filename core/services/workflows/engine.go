@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -36,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -147,6 +149,10 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits limits.ResourceLimiter[int]
 	meterReports   *metering.Reports
+
+	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardingEnabled         bool
+	myShardID               uint32
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -513,6 +519,21 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
+	if e.shardingEnabled && e.shardOrchestratorClient != nil {
+		verdict, _, ownErr := shardownership.CheckCommittedOwner(ctx, e.shardOrchestratorClient, e.workflow.id, e.myShardID)
+		switch verdict {
+		case shardownership.Allow:
+		case shardownership.DenyOrchestratorError:
+			e.logger.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr, platform.KeyWorkflowExecutionID, executionID)
+			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			return nil
+		case shardownership.DenyNotOwner:
+			e.logger.Infow("Skipping execution: workflow not owned by this shard per orchestrator", platform.KeyWorkflowExecutionID, executionID, "myShardID", e.myShardID)
+			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			return nil
+		}
+	}
+
 	meteringReport, err := e.meterReports.Start(ctx, executionID)
 	switch {
 	case err != nil:
@@ -1329,6 +1350,11 @@ type Config struct {
 	// running globally and per workflow owner.
 	WorkflowLimits limits.ResourceLimiter[int]
 
+	// ShardOrchestratorClient with ShardingEnabled triggers a pre-execution ownership check (ring guard).
+	ShardOrchestratorClient shardorchestrator.ClientInterface
+	ShardingEnabled         bool
+	MyShardID               uint32
+
 	// For testing purposes only
 	maxRetries          int
 	retryMs             int
@@ -1524,7 +1550,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
+		meterReports:            metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
+		shardOrchestratorClient: cfg.ShardOrchestratorClient,
+		shardingEnabled:         cfg.ShardingEnabled,
+		myShardID:               cfg.MyShardID,
 	}
 
 	return engine, nil

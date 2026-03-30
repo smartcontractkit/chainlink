@@ -889,6 +889,26 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
 
+	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
+	if err != nil {
+		return nil, nil, errors.New("failed to instantiate contract reader factory")
+	}
+
+	var shardOrchestratorClient shardorchestrator.ClientInterface
+	if opts.ShardOrchestratorClient != nil {
+		shardOrchestratorClient = opts.ShardOrchestratorClient
+	} else {
+		var c shardorchestrator.ClientInterface
+		c, err = newShardOrchestratorClient(cfg, lggr)
+		if err != nil {
+			return nil, nil, err
+		}
+		shardOrchestratorClient = c
+	}
+
+	shardingEnabled := cfg.Sharding().ShardingEnabled()
+	shardIndex := uint32(cfg.Sharding().ShardIndex())
+
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
 		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -909,26 +929,10 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
-	}
-
-	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
-	if err != nil {
-		return nil, nil, errors.New("failed to instantiate contract reader factory")
-	}
-
-	var shardOrchestratorClient shardorchestrator.ClientInterface
-	if opts.ShardOrchestratorClient != nil {
-		shardOrchestratorClient = opts.ShardOrchestratorClient
-	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
-		}
-		shardOrchestratorClient = c
 	}
 
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
