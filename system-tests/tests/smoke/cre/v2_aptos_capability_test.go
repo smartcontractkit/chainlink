@@ -154,6 +154,8 @@ func ExecuteAptosReadTest(
 ) {
 	lggr := framework.L
 
+	ensureAptosLedgerVersionPositive(t, aptosChain)
+
 	// Fixed name so re-runs against the same DON overwrite the same workflow instead of accumulating multiple (e.g. aptos-read-workflow-4838 and aptos-read-workflow-5736).
 	const workflowName = "aptos-read-workflow"
 	workflowConfig := t_helpers.AptosReadWorkflowConfig{
@@ -168,6 +170,39 @@ func ExecuteAptosReadTest(
 	expectedLog := "Aptos read consensus succeeded"
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute)
 	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos read capability test passed")
+}
+
+// The local Aptos devnet can legitimately remain at ledger version 0 until the
+// first Aptos transaction lands, which makes the read capability reject the
+// consensus height before the workflow has a chance to execute.
+func ensureAptosLedgerVersionPositive(t *testing.T, aptosChain blockchains.Blockchain) {
+	t.Helper()
+
+	aptosBC, ok := aptosChain.(*blockchains_aptos.Blockchain)
+	require.True(t, ok, "expected aptos blockchain type")
+
+	client, err := aptosBC.NodeClient()
+	require.NoError(t, err, "failed to create Aptos node client")
+
+	info, err := client.Info()
+	require.NoError(t, err, "failed to fetch Aptos node info")
+	if info.LedgerVersion() > 0 {
+		return
+	}
+
+	deployer, err := aptosBC.LocalDeployerAccount()
+	require.NoError(t, err, "failed to create Aptos local deployer account")
+	deployerAddress := deployer.AccountAddress()
+
+	require.NoError(t,
+		aptosBC.Fund(t.Context(), deployerAddress.StringLong(), 1),
+		"failed to bump Aptos ledger version via faucet funding",
+	)
+
+	require.Eventuallyf(t, func() bool {
+		nodeInfo, nodeErr := client.Info()
+		return nodeErr == nil && nodeInfo.LedgerVersion() > 0
+	}, 30*time.Second, time.Second, "expected Aptos ledger version to become positive after funding")
 }
 
 func ExecuteAptosWriteTest(
