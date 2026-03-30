@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -25,6 +26,8 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,8 +42,19 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.M
 	ec := clienttest.NewClientWithDefaultChainID(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
+	builder := mocks.NewTxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee](t)
+	servicetest.SetupNoOpMock(builder)
+	broadcaster := mocks2.NewBroadcaster[common.Address](t)
+	servicetest.SetupNoOpMock(broadcaster)
+	confirmer := mocks2.NewConfirmer[*evmtypes.Head, common.Address, common.Hash](t)
+	servicetest.SetupNoOpMock(confirmer)
+	tracker := mocks2.NewTracker[common.Address](t)
+	servicetest.SetupNoOpMock(tracker)
+	tracker.On("GetEnabledAddresses").Return(nil).Maybe()
+	finalizer := mocks.NewFinalizer[common.Hash, *evmtypes.Head](t)
+	servicetest.SetupNoOpMock(finalizer)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil, nil, false)
+		builder, txStore, broadcaster, confirmer, nil, tracker, finalizer, nil, false)
 
 	return txm
 }
