@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
@@ -587,32 +586,19 @@ func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
 		return n.Keys.Aptos.Account, nil
 	}
 
-	// Prefer Aptos account/public key from node metadata when available. Falling
-	// back to the node API here is only to backfill older metadata shapes, and we
-	// cache the result back into n.Keys.Aptos below so later callers can reuse it.
-	var runtimeKeys struct {
-		Data []struct {
-			Attributes struct {
-				Account   string `json:"account"`
-				PublicKey string `json:"publicKey"`
-			} `json:"attributes"`
-		} `json:"data"`
-	}
-	resp, err := n.Clients.RestClient.APIClient.R().
-		SetContext(ctx).
-		SetResult(&runtimeKeys).
-		Get("/v2/keys/aptos")
+	// Prefer Aptos account from node metadata when available. Falling back to the
+	// framework helper here is only to backfill older metadata shapes, and we
+	// cache the normalized account back into n.Keys.Aptos below so later callers
+	// can reuse it.
+	runtimeAccounts, err := n.Clients.RestClient.MustReadAptosAccounts()
 	if err != nil {
 		return "", fmt.Errorf("failed to read Aptos keys from node API: %w", err)
 	}
-	if resp.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("aptos keys endpoint returned status %d", resp.StatusCode())
-	}
-	if len(runtimeKeys.Data) == 0 {
+	if len(runtimeAccounts) == 0 {
 		return "", fmt.Errorf("no Aptos keys found on node %s", n.Name)
 	}
 
-	account, err := crypto.NormalizeAptosAccount(runtimeKeys.Data[0].Attributes.Account)
+	account, err := crypto.NormalizeAptosAccount(runtimeAccounts[0])
 	if err != nil {
 		return "", fmt.Errorf("invalid Aptos account returned by node API: %w", err)
 	}
@@ -622,7 +608,6 @@ func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
 			n.Keys.Aptos = &crypto.AptosKey{}
 		}
 		n.Keys.Aptos.Account = account
-		n.Keys.Aptos.PublicKey = runtimeKeys.Data[0].Attributes.PublicKey
 	}
 
 	return account, nil

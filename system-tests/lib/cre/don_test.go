@@ -35,7 +35,10 @@ func TestAptosAccountForNode_UsesMetadataKeyWithoutCallingNodeAPI(t *testing.T) 
 			Aptos: &crecrypto.AptosKey{Account: expected},
 		},
 		Clients: NodeClients{
-			RestClient: &clclient.ChainlinkClient{APIClient: resty.New().SetBaseURL(server.URL)},
+			RestClient: &clclient.ChainlinkClient{
+				APIClient: resty.New().SetBaseURL(server.URL),
+				Config:    &clclient.Config{URL: server.URL},
+			},
 		},
 	}
 
@@ -66,7 +69,10 @@ func TestAptosAccountForNode_FallsBackToNodeAPIAndCachesKey(t *testing.T) {
 		Name: "node-1",
 		Keys: &secrets.NodeKeys{},
 		Clients: NodeClients{
-			RestClient: &clclient.ChainlinkClient{APIClient: resty.New().SetBaseURL(server.URL)},
+			RestClient: &clclient.ChainlinkClient{
+				APIClient: resty.New().SetBaseURL(server.URL),
+				Config:    &clclient.Config{URL: server.URL},
+			},
 		},
 	}
 
@@ -78,5 +84,4 @@ func TestAptosAccountForNode_FallsBackToNodeAPIAndCachesKey(t *testing.T) {
 	require.Equal(t, expected, account)
 	require.NotNil(t, node.Keys.Aptos)
 	require.Equal(t, expected, node.Keys.Aptos.Account)
-	require.Equal(t, "0xabc123", node.Keys.Aptos.PublicKey)
 }
