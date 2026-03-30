@@ -221,7 +221,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponseAndCleanup(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
+		err := h.sendErrorResponseAndCleanup(ctx, er, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil)
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -307,10 +307,10 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	case errors.Is(err, errQuorumUnobtainable):
 		l.Errorw("quorum unobtainable, returning error to user", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+		return h.sendErrorResponseAndCleanup(ctx, ar, api.FatalError, err, nil)
 	case err != nil:
 		l.Errorw("unexpected aggregation error", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
+		return h.sendErrorResponseAndCleanup(ctx, ar, api.FatalError, err, nil)
 	}
 
 	return h.sendSuccessResponseAndCleanup(ctx, l, ar, aggregatedResp)
@@ -327,7 +327,7 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
+		return h.sendErrorResponseAndCleanup(ctx, ar, api.FatalError, errors.New("failed to forward user request to nodes"), nil)
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
@@ -338,7 +338,7 @@ func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Lo
 	rawResponse, err := jsonrpc.EncodeResponse(resp)
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
+		return h.sendErrorResponseAndCleanup(ctx, ar, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil)
 	}
 
 	var errorCode api.ErrorCode
@@ -356,12 +356,10 @@ func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Lo
 	return h.sendResponseAndCleanup(ctx, ar, successResp)
 }
 
-func (h *handler) errorResponse(
-	req jsonrpc.Request[json.RawMessage],
-	errorCode api.ErrorCode,
-	err error,
-	data []byte,
-) gwhandlers.UserCallbackPayload {
+// sendErrorResponseAndCleanup builds a sanitized error payload, records
+// metrics, sends the response, and removes the request from activeRequests.
+func (h *handler) sendErrorResponseAndCleanup(ctx context.Context, ar *activeRequest, errorCode api.ErrorCode, err error, data []byte) error {
+	req := ar.req
 	switch errorCode {
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -385,7 +383,7 @@ func (h *handler) errorResponse(
 	case api.LimitExceededError:
 	}
 
-	return gwhandlers.UserCallbackPayload{
+	resp := gwhandlers.UserCallbackPayload{
 		RawResponse: h.codec.EncodeNewErrorResponse(
 			req.ID,
 			api.ToJSONRPCErrorCode(errorCode),
@@ -394,6 +392,7 @@ func (h *handler) errorResponse(
 		),
 		ErrorCode: errorCode,
 	}
+	return h.sendResponseAndCleanup(ctx, ar, resp)
 }
 
 // sendResponseAndCleanup sends the response to the user and removes the
