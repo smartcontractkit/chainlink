@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -46,6 +47,7 @@ const aptosWorkerFundingAmountOctas uint64 = 1_000_000_000_000
 const aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
+var aptosWorkflowNameSeq uint64
 
 // ExecuteAptosTest runs the Aptos CRE suite with plain Aptos read coverage by
 // default. Write-oriented scenarios stay available for local/manual execution
@@ -419,7 +421,7 @@ func prepareAptosWriteScenarioWithBenchmark(
 }
 
 func uniqueAptosWorkflowName(base string) string {
-	return fmt.Sprintf("%s-%d", base, time.Now().UnixNano()%1_000_000)
+	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), atomic.AddUint64(&aptosWorkflowNameSeq, 1))
 }
 
 func findWriteAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, chainID uint64) *crelib.Don {

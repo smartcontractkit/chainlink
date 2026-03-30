@@ -42,6 +42,15 @@ type Blockchain struct {
 	ctfOutput     *blockchain.Output
 }
 
+func NewBlockchain(testLogger zerolog.Logger, chainID, chainSelector uint64, ctfOutput *blockchain.Output) *Blockchain {
+	return &Blockchain{
+		testLogger:    testLogger,
+		chainSelector: chainSelector,
+		chainID:       chainID,
+		ctfOutput:     ctfOutput,
+	}
+}
+
 func (a *Blockchain) ChainSelector() uint64 {
 	return a.chainSelector
 }
@@ -234,12 +243,7 @@ func (a *Deployer) Deploy(ctx context.Context, input *blockchain.Input) (blockch
 	// Ensure ctfOutput has ChainID set for downstream (e.g. findAptosChains)
 	bcOut.ChainID = chainIDStr
 
-	return &Blockchain{
-		testLogger:    a.testLogger,
-		chainSelector: selector,
-		chainID:       chainID,
-		ctfOutput:     bcOut,
-	}, nil
+	return NewBlockchain(a.testLogger, chainID, selector, bcOut), nil
 }
 
 // aptosChainSelector returns the chain selector for the given Aptos chain ID.

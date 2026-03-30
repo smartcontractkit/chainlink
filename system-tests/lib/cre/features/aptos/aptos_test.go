@@ -5,12 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
-	"reflect"
 	"testing"
 	"time"
-	"unsafe"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -353,16 +352,12 @@ func testDonMetadata(t *testing.T, nodeConfigs ...string) *cre.DonMetadata {
 }
 
 func testAptosBlockchain(chainID, chainSelector uint64) *aptoschain.Blockchain {
-	bc := &aptoschain.Blockchain{}
-	setUnexportedField(bc, "chainID", chainID)
-	setUnexportedField(bc, "chainSelector", chainSelector)
-	setUnexportedField(bc, "ctfOutput", &blockchain.Output{Family: "aptos", ChainID: "4"})
-	return bc
-}
-
-func setUnexportedField(target any, fieldName string, value any) {
-	field := reflect.ValueOf(target).Elem().FieldByName(fieldName)
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Set(reflect.ValueOf(value))
+	return aptoschain.NewBlockchain(
+		zerolog.Nop(),
+		chainID,
+		chainSelector,
+		&blockchain.Output{Family: "aptos", ChainID: "4"},
+	)
 }
 
 func workflowMap(t *testing.T, raw any) map[string]any {
