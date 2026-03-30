@@ -32,6 +32,7 @@ import (
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -46,6 +47,8 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
@@ -144,8 +147,19 @@ func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.E
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
 	ks := keys.NewStore(keystore.NewEthSigner(keyStore, ec.ConfiguredChainID()))
+	builder := mocks.NewTxAttemptBuilder[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee](t)
+	servicetest.SetupNoOpMock(builder)
+	broadcaster := mocks2.NewBroadcaster[common.Address](t)
+	servicetest.SetupNoOpMock(broadcaster)
+	confirmer := mocks2.NewConfirmer[*types.Head, common.Address, common.Hash](t)
+	servicetest.SetupNoOpMock(confirmer)
+	tracker := mocks2.NewTracker[common.Address](t)
+	servicetest.SetupNoOpMock(tracker)
+	tracker.On("GetEnabledAddresses").Return(nil).Maybe()
+	finalizer := mocks.NewFinalizer[common.Hash, *types.Head](t)
+	servicetest.SetupNoOpMock(finalizer)
 	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
-		nil, txStore, nil, nil, nil, nil, nil, nil, false)
+		builder, txStore, broadcaster, confirmer, nil, tracker, finalizer, nil, false)
 
 	return txm
 }
@@ -2107,11 +2121,13 @@ func TestFulfillmentCost(t *testing.T) {
 func TestStartingCountsV1(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	lggr := logger.TestLogger(t)
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	ec := clienttest.NewClient(t)
+	ec.On("Dial", mock.Anything).Maybe().Return(nil)
+	ec.On("Close").Maybe().Return(nil)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
 	txm := makeTestTxm(t, txStore, ks.Eth(), ec)

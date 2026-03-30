@@ -18,6 +18,7 @@ packages:
       TxStrategy:
       TxAttemptBuilder:
       TxStore:
+      Finalizer:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
@@ -60,6 +61,18 @@ packages:
     interfaces:
       EvmTxStore:
       ChainReceipt:
+      ConfirmerI:
+        config:
+          mockname: Confirmer
+          filename: confirmer.go
+      BroadcasterI:
+        config:
+          mockname: Broadcaster
+          filename: broadcaster.go
+      TrackerI:
+        config:
+          mockname: Tracker
+          filename: tracker.go
   github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm:
     config:
       dir: common/chains/mocks

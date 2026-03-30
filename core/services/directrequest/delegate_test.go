@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/operator"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -39,7 +39,7 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.TestLogger(t))
 	runner := pipeline_mocks.NewRunner(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -86,9 +86,10 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	broadcaster := log_mocks.NewBroadcaster(t)
+	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.TestLogger(t))
 	runner := pipeline_mocks.NewRunner(t)
+	broadcaster := log_mocks.NewBroadcaster(t)
+	servicetest.SetupNoOpMock(broadcaster)
 	broadcaster.On("AddDependents", 1)
 
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))

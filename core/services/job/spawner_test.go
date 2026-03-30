@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -92,13 +93,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
-	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**evmtypes.Head)
 			*head = cltest.Head(10)
 		}).
 		Return(nil).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil).Maybe()
 
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
@@ -284,7 +287,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
-		lp := &lpmocks.LogPoller{}
+		lp := lpmocks.NewLogPoller(t)
+		servicetest.SetupNoOpMock(lp)
 
 		csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
 		testopts := evmtest.TestChainOpts{
@@ -329,6 +333,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobOCR2Keeper.Type: delegateOCR2,
 		}, lggr, nil)
+		servicetest.Run(t, spawner)
 
 		ctx := testutils.Context(t)
 		err = spawner.CreateJob(ctx, nil, jobOCR2Keeper)
@@ -344,9 +349,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, err)
 
 		lp.AssertNumberOfCalls(t, "UnregisterFilter", 6)
-
-		lp.On("Close").Return(nil).Once()
-		spawner.Close()
 	})
 }
 
