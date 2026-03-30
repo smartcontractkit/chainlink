@@ -43,7 +43,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 [[Aptos]]
-ChainID = '42'
+ChainID = '4'
 
 [[Aptos.Nodes]]
 Name = 'primary'
@@ -103,10 +103,10 @@ URL = 'http://tron.org'
 SolidityURL = 'https://solidity.evm'
 
 -- out.txt --
-ok Aptos.42.RelayerService
-ok Aptos.42.RelayerService.PluginRelayerClient
-ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos
-ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
+ok Aptos.4.RelayerService
+ok Aptos.4.RelayerService.PluginRelayerClient
+ok Aptos.4.RelayerService.PluginRelayerClient.PluginAptos
+ok Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
@@ -195,36 +195,36 @@ ok WorkflowStore
   "data": [
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService",
+      "id": "Aptos.4.RelayerService",
       "attributes": {
-        "name": "Aptos.42.RelayerService",
+        "name": "Aptos.4.RelayerService",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
