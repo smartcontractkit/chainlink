@@ -30,6 +30,15 @@ func OCRExtraSignerFamilies(blockchains []blockchains.Blockchain) []string {
 	return families
 }
 
+func OCRExtraSignerFamiliesForFamily(family string) []string {
+	switch family {
+	case chainselectors.FamilyAptos, chainselectors.FamilySolana:
+		return []string{family}
+	default:
+		return nil
+	}
+}
+
 func CapabilityToExtraSignerFamilies(families []string, labelledNames ...string) map[string][]string {
 	if len(families) == 0 || len(labelledNames) == 0 {
 		return nil

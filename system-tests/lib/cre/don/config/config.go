@@ -782,7 +782,10 @@ func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
 			continue
 		}
 
-		aptosBC := bcOut.(*aptoschain.Blockchain)
+		aptosBC, ok := bcOut.(*aptoschain.Blockchain)
+		if !ok {
+			return nil, fmt.Errorf("expected Aptos blockchain implementation for chain %d, got %T", bcOut.ChainID(), bcOut)
+		}
 		nodeURL, err := aptosBC.InternalNodeURL()
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get Aptos internal node URL for chain %d", bcOut.ChainID())

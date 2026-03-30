@@ -11,6 +11,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -103,7 +104,7 @@ func (a *Aptos) PreEnvStartup(
 		DONCapabilityWithConfig: caps,
 		CapabilityToOCR3Config:  capabilityToOCR3Config,
 		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
-			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			cre.OCRExtraSignerFamiliesForFamily(chainselectors.FamilyAptos),
 			capabilityLabels...,
 		),
 	}, nil
@@ -171,7 +172,7 @@ func (a *Aptos) PostEnvStartup(
 		},
 		OracleConfig:        don.ResolveORC3Config(crecontracts.DefaultChainCapabilityOCR3Config()),
 		DryRun:              false,
-		ExtraSignerFamilies: cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+		ExtraSignerFamilies: cre.OCRExtraSignerFamiliesForFamily(chainselectors.FamilyAptos),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to configure Aptos OCR3 contract: %w", err)
