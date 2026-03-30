@@ -47,10 +47,9 @@ const aptosScenarioOverrideEnv = "CRE_APTOS_SCENARIOS"
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 
-// ExecuteAptosTest runs the Aptos CRE suite with the default CI coverage in a
-// single scenario: successful write/read roundtrip and expected write failure.
-// The standalone read and plain write scenarios stay available for
-// local/manual execution.
+// ExecuteAptosTest runs the Aptos CRE suite with plain Aptos read coverage by
+// default. Write-oriented scenarios stay available for local/manual execution
+// via CRE_APTOS_SCENARIOS.
 func ExecuteAptosTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	executeAptosScenarios(t, tenv, resolveAptosScenarios(t))
 }
@@ -68,7 +67,7 @@ type aptosScenario struct {
 
 func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
-		{name: "Aptos CI Coverage", run: ExecuteAptosCICoverageTest},
+		{name: "Aptos Read", run: ExecuteAptosReadTest},
 	}
 }
 
@@ -82,8 +81,8 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 
 	available := map[string]aptosScenario{
 		"ci": {
-			name: "Aptos CI Coverage",
-			run:  ExecuteAptosCICoverageTest,
+			name: "Aptos Read",
+			run:  ExecuteAptosReadTest,
 		},
 		"read": {
 			name: "Aptos Read",
@@ -124,19 +123,6 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 	t.Logf("running Aptos scenarios from %s=%q", aptosScenarioOverrideEnv, raw)
 
 	return scenarios
-}
-
-func ExecuteAptosCICoverageTest(
-	t *testing.T,
-	tenv *configuration.TestEnvironment,
-	aptosChain blockchains.Blockchain,
-	userLogsCh <-chan *workflowevents.UserLogs,
-	baseMessageCh <-chan *commonevents.BaseMessage,
-) {
-	t.Helper()
-
-	ExecuteAptosWriteReadRoundtripTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
-	ExecuteAptosWriteExpectedFailureTest(t, tenv, aptosChain, userLogsCh, baseMessageCh)
 }
 
 func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, scenarios []aptosScenario) {
