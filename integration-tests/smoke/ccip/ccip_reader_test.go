@@ -746,14 +746,14 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		Auth:               auth,
 	})
 
-	// Commit each simulated transaction so bind does not reuse a stale pending nonce.
+	// Add some nonces.
 	for chain, addrs := range nonces {
 		for addr, nonce := range addrs {
 			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, common.LeftPadBytes(addr.Bytes(), 32))
 			require.NoError(t, err)
-			s.sb.Commit()
 		}
 	}
+	s.sb.Commit()
 
 	request := make(map[cciptypes.ChainSelector][]string)
 	for chain, addresses := range nonces {
