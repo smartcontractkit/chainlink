@@ -19,6 +19,7 @@ const (
 	nodePlatformDomain     = "node-platform"
 	nodePlatformEntity     = "common.v1.NodeBuildInfo"
 	nodePlatformDataSchema = "/node-platform/common/v1"
+	nodePlatformBeat       = 3 * time.Minute
 )
 
 type NodePlatformBuildInfoService struct {
@@ -58,7 +59,7 @@ func NewNodePlatformBuildInfoConfig(opts ApplicationOpts) NodePlatformBuildInfoC
 	}
 
 	return NodePlatformBuildInfoConfig{
-		Beat:        opts.Config.Telemetry().HeartbeatInterval(),
+		Beat:        nodePlatformBeat,
 		Lggr:        opts.Logger,
 		CSAKeyStore: opts.KeyStore.CSA(),
 		CommitSHA:   static.Sha,
