@@ -221,7 +221,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponseAndCleanup(ctx, er, nil, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1))
+		err := h.sendResponseAndCleanup(ctx, er, h.constructErrorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -307,13 +307,21 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	case errors.Is(err, errQuorumUnobtainable):
 		l.Errorw("quorum unobtainable, returning error to user", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, nil, api.FatalError, err)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	case err != nil:
 		l.Errorw("unexpected aggregation error", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, nil, api.FatalError, err)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	}
 
-	return h.sendResponseAndCleanup(ctx, ar, aggregatedResp, 0, nil)
+	rawResponse, err := jsonrpc.EncodeResponse(aggregatedResp)
+	if err != nil {
+		h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
+	}
+	return h.sendResponseAndCleanup(ctx, ar, gwhandlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   api.NoError,
+	})
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
@@ -327,78 +335,19 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	}
 
 	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
-		return h.sendResponseAndCleanup(ctx, ar, nil, api.FatalError, errors.New("failed to forward user request to nodes"))
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
 	return nil
 }
 
-// sendResponseAndCleanup handles both success and error responses. For
-// success, pass the aggregated resp; for errors, pass nil resp with an
-// errorCode and err. The request is always removed from activeRequests
+// sendResponseAndCleanup sends payload.
+// The request is always removed from activeRequests
 // regardless of whether the send succeeds, since a failed callback cannot
 // be retried.
-func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage], errorCode api.ErrorCode, err error) error {
-	var payload gwhandlers.UserCallbackPayload
-
-	if resp != nil {
-		rawResponse, encErr := jsonrpc.EncodeResponse(resp)
-		if encErr != nil {
-			h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", encErr)
-			errorCode = api.NodeReponseEncodingError
-			err = fmt.Errorf("failed to marshal response: %w", encErr)
-			resp = nil
-		} else {
-			if resp.Error != nil {
-				errorCode = api.FromJSONRPCErrorCode(resp.Error.Code)
-			} else {
-				errorCode = api.NoError
-			}
-			payload = gwhandlers.UserCallbackPayload{
-				RawResponse: rawResponse,
-				ErrorCode:   errorCode,
-			}
-		}
-	}
-
-	if resp == nil {
-		req := ar.req
-		switch errorCode {
-		case api.FatalError:
-		case api.NodeReponseEncodingError:
-			h.lggr.Errorw(err.Error(), "requestID", req.ID)
-			err = errors.New(errorCode.String())
-		case api.InvalidParamsError:
-			h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
-			err = fmt.Errorf("invalid params error: %w", err)
-		case api.UnsupportedMethodError:
-			h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
-			err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
-		case api.UserMessageParseError:
-			h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
-			err = fmt.Errorf("user message parse error: %w", err)
-		case api.NoError:
-		case api.UnsupportedDONIdError:
-		case api.HandlerError:
-		case api.RequestTimeoutError:
-		case api.StaleNodeResponseError:
-		case api.ConflictError:
-		case api.LimitExceededError:
-		}
-
-		payload = gwhandlers.UserCallbackPayload{
-			RawResponse: h.codec.EncodeNewErrorResponse(
-				req.ID,
-				api.ToJSONRPCErrorCode(errorCode),
-				err.Error(),
-				nil,
-			),
-			ErrorCode: errorCode,
-		}
-	}
-
-	h.recordMetrics(ctx, errorCode)
+func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
+	h.recordMetrics(ctx, payload.ErrorCode)
 	sendErr := ar.SendResponse(payload)
 
 	h.mu.Lock()
@@ -410,24 +359,17 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest,
 		return sendErr
 	}
 
-	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", errorCode)
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", payload.ErrorCode)
 	return nil
 }
 
 func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 	switch errorCode {
-	case api.StaleNodeResponseError:
-	case api.FatalError:
-	case api.NodeReponseEncodingError:
-	case api.RequestTimeoutError:
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 			attribute.String("error", errorCode.String()),
 		))
-	case api.InvalidParamsError:
-	case api.UnsupportedMethodError:
-	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
@@ -436,7 +378,27 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
-	case api.ConflictError:
-	case api.LimitExceededError:
+	}
+}
+
+func (h *handler) constructErrorResponse(req jsonrpc.Request[json.RawMessage], errorCode api.ErrorCode, err error) gwhandlers.UserCallbackPayload {
+	switch errorCode {
+	case api.NodeReponseEncodingError:
+		err = errors.New(errorCode.String())
+	case api.InvalidParamsError:
+		err = fmt.Errorf("invalid params error: %w", err)
+	case api.UnsupportedMethodError:
+		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
+	case api.UserMessageParseError:
+		err = fmt.Errorf("user message parse error: %w", err)
+	}
+	return gwhandlers.UserCallbackPayload{
+		RawResponse: h.codec.EncodeNewErrorResponse(
+			req.ID,
+			api.ToJSONRPCErrorCode(errorCode),
+			err.Error(),
+			nil,
+		),
+		ErrorCode: errorCode,
 	}
 }
