@@ -478,6 +478,8 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evmread
@@ -501,6 +503,15 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/httpaction-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptosread href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
@@ -531,6 +542,8 @@ flowchart LR
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
+	cre-sdk-go/capabilities/blockchain/aptos --> cre-sdk-go
+	click cre-sdk-go/capabilities/blockchain/aptos href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/evm --> chainlink-common/pkg/workflows/sdk/v2/pb
 	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
@@ -584,6 +597,9 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
@@ -684,6 +700,7 @@ flowchart LR
 
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
+		 cre-sdk-go/capabilities/blockchain/aptos
 		 cre-sdk-go/capabilities/blockchain/evm
 		 cre-sdk-go/capabilities/blockchain/solana
 		 cre-sdk-go/capabilities/networking/http
