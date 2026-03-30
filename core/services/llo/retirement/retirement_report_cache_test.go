@@ -10,7 +10,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type mockORM struct {
@@ -43,7 +43,7 @@ func Test_RetirementReportCache(t *testing.T) {
 	t.Parallel()
 
 	ctx := t.Context()
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	orm := &mockORM{
 		make(map[ocrtypes.ConfigDigest][]byte),
 		make(map[ocrtypes.ConfigDigest]Config),

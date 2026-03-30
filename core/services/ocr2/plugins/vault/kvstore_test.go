@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -14,6 +15,27 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )
+
+func newTestMetrics(t *testing.T) *pluginMetrics {
+	t.Helper()
+	m, err := newPluginMetrics("test")
+	require.NoError(t, err)
+	return m
+}
+
+func newTestWriteStore(t *testing.T, writer ocr3_1types.KeyValueStateReadWriter) *KVStore {
+	t.Helper()
+	m, err := newPluginMetrics("test")
+	require.NoError(t, err)
+	return NewWriteStore(writer, m)
+}
+
+func newTestReadStore(t *testing.T, reader ocr3_1types.KeyValueStateReader) *KVStore {
+	t.Helper()
+	m, err := newPluginMetrics("test")
+	require.NoError(t, err)
+	return NewReadStore(reader, m)
+}
 
 type response struct {
 	data []byte
@@ -42,17 +64,22 @@ func (k *kv) Write(key []byte, data []byte) error {
 }
 
 type blobber struct {
+	mu         sync.Mutex
 	blobs      [][]byte
 	cnt        int
 	pendingIdx *int
 }
 
 func (b *blobber) BroadcastBlob(_ context.Context, data []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.blobs = append(b.blobs, data)
 	return ocr3_1types.BlobHandle{}, nil
 }
 
 func (b *blobber) FetchBlob(_ context.Context, _ ocr3_1types.BlobHandle) ([]byte, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if b.pendingIdx != nil {
 		return b.blobs[*b.pendingIdx], nil
 	}
@@ -80,7 +107,7 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Metadata::owner"] = response{
 		err: errors.New("not found"),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -88,7 +115,7 @@ func TestKVStore_Secrets(t *testing.T) {
 		Key:       "secret1",
 	}
 
-	_, err := store.GetSecret(id)
+	_, err := store.GetSecret(t.Context(), id)
 	require.ErrorContains(t, err, "not found")
 
 	d, err := proto.Marshal(&vault.StoredSecret{
@@ -105,12 +132,12 @@ func TestKVStore_Secrets(t *testing.T) {
 	kv.m["Metadata::owner"] = response{
 		data: d,
 	}
-	s, err := store.GetSecret(id)
+	s, err := store.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	assert.Equal(t, s.EncryptedSecret, []byte("encrypted data"))
 
 	delete(kv.m, "Metadata::owner")
-	s, err = store.GetSecret(id)
+	s, err = store.GetSecret(t.Context(), id)
 	assert.Nil(t, s)
 	require.NoError(t, err)
 
@@ -118,10 +145,10 @@ func TestKVStore_Secrets(t *testing.T) {
 	ss := &vault.StoredSecret{
 		EncryptedSecret: newData,
 	}
-	err = store.WriteSecret(id, ss)
+	err = store.WriteSecret(t.Context(), id, ss)
 	require.NoError(t, err)
 
-	s, err = store.GetSecret(id)
+	s, err = store.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	assert.Equal(t, newData, s.EncryptedSecret)
 }
@@ -130,22 +157,22 @@ func TestKVStore_DeleteSecrets(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
 		Namespace: "main",
 		Key:       "secret1",
 	}
-	err := store.WriteSecret(id, &vault.StoredSecret{
+	err := store.WriteSecret(t.Context(), id, &vault.StoredSecret{
 		EncryptedSecret: []byte("encrypted data"),
 	})
 	require.NoError(t, err)
 
-	err = store.DeleteSecret(id)
+	err = store.DeleteSecret(t.Context(), id)
 	require.NoError(t, err)
 
-	md, err := store.GetMetadata("owner")
+	md, err := store.GetMetadata(t.Context(), "owner")
 	require.NoError(t, err)
 
 	assert.Empty(t, md.SecretIdentifiers)
@@ -159,9 +186,9 @@ func TestKVStore_Metadata(t *testing.T) {
 	kv.m["Metadata::"+owner] = response{
 		err: errors.New("not found"),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
-	_, err := store.GetMetadata(owner)
+	_, err := store.GetMetadata(t.Context(), owner)
 	require.ErrorContains(t, err, "not found")
 
 	id := &vault.SecretIdentifier{
@@ -176,13 +203,13 @@ func TestKVStore_Metadata(t *testing.T) {
 	kv.m["Metadata::owner"] = response{
 		data: d,
 	}
-	m, err := store.GetMetadata(owner)
+	m, err := store.GetMetadata(t.Context(), owner)
 	require.NoError(t, err)
 	assert.Len(t, m.SecretIdentifiers, 1)
 	assert.True(t, proto.Equal(m.SecretIdentifiers[0], id))
 
 	delete(kv.m, "Metadata::"+owner)
-	m, err = store.GetMetadata(owner)
+	m, err = store.GetMetadata(t.Context(), owner)
 	assert.Nil(t, m)
 	require.NoError(t, err)
 
@@ -200,10 +227,10 @@ func TestKVStore_Metadata(t *testing.T) {
 			},
 		},
 	}
-	err = store.WriteMetadata(owner, m)
+	err = store.WriteMetadata(t.Context(), owner, m)
 	require.NoError(t, err)
 
-	gotM, err := store.GetMetadata(owner)
+	gotM, err := store.GetMetadata(t.Context(), owner)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(m, gotM))
 
@@ -212,10 +239,10 @@ func TestKVStore_Metadata(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret3",
 	}
-	err = store.addIDToMetadata(newKey)
+	err = store.addIDToMetadata(t.Context(), newKey)
 	require.NoError(t, err)
 
-	gotM, err = store.GetMetadata(owner)
+	gotM, err = store.GetMetadata(t.Context(), owner)
 	require.NoError(t, err)
 	assert.Len(t, gotM.SecretIdentifiers, 2)
 }
@@ -225,7 +252,7 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -240,20 +267,20 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 		data: d,
 	}
 
-	err = store.removeIDFromMetadata(id)
+	err = store.removeIDFromMetadata(t.Context(), id)
 	require.NoError(t, err)
 
-	m, err := store.GetMetadata(owner)
+	m, err := store.GetMetadata(t.Context(), owner)
 	require.NoError(t, err)
 
 	assert.Empty(t, m.SecretIdentifiers)
 
-	err = store.removeIDFromMetadata(id)
+	err = store.removeIDFromMetadata(t.Context(), id)
 	require.ErrorContains(t, err, "not found in metadata for owner owner")
 
 	delete(kv.m, "Metadata::owner")
 
-	err = store.removeIDFromMetadata(id)
+	err = store.removeIDFromMetadata(t.Context(), id)
 	require.ErrorContains(t, err, "no metadata found for owner owner")
 }
 
@@ -261,7 +288,7 @@ func TestKVStore_InconsistentWrites(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	id := &vault.SecretIdentifier{
 		Owner:     "owner",
@@ -283,7 +310,7 @@ func TestKVStore_InconsistentWrites(t *testing.T) {
 	kv.m["Metadata::owner"] = response{
 		data: d,
 	}
-	s, err := store.GetSecret(id)
+	s, err := store.GetSecret(t.Context(), id)
 	require.NoError(t, err)
 	assert.Equal(t, s.EncryptedSecret, []byte("encrypted data"))
 
@@ -292,21 +319,21 @@ func TestKVStore_InconsistentWrites(t *testing.T) {
 	delete(kv.m, "Metadata::owner")
 
 	// Now fetching the secret should fail
-	s, err = store.GetSecret(id)
+	s, err = store.GetSecret(t.Context(), id)
 	assert.Nil(t, s)
 	require.NoError(t, err)
 
 	// We can recreate it without an already exists error.
-	err = store.WriteSecret(id, &vault.StoredSecret{
+	err = store.WriteSecret(t.Context(), id, &vault.StoredSecret{
 		EncryptedSecret: []byte("encrypted data 2"),
 	})
 	require.NoError(t, err)
 
-	md, err := store.GetMetadata("owner")
+	md, err := store.GetMetadata(t.Context(), "owner")
 	require.NoError(t, err)
 	assert.Len(t, md.SecretIdentifiers, 1)
 
-	s, err = store.GetSecret(id)
+	s, err = store.GetSecret(t.Context(), id)
 	assert.NotNil(t, s)
 	require.NoError(t, err)
 
@@ -318,10 +345,10 @@ func TestKVStore_GetPendingRequests(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	// Expect no pending requests on empty store.
-	requests, err := store.GetPendingQueue()
+	requests, err := store.GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, requests)
 
@@ -350,7 +377,7 @@ func TestKVStore_GetPendingRequests(t *testing.T) {
 	kv.m[pendingQueueIndex] = response{data: indexBytes}
 
 	// Validate retrieval of one pending request.
-	requests, err = store.GetPendingQueue()
+	requests, err = store.GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, requests, 2)
 	assert.Equal(t, "test-request-id-123", requests[0].Id)
@@ -358,7 +385,7 @@ func TestKVStore_GetPendingRequests(t *testing.T) {
 
 	// Validate behaviour when the index item is missing.
 	delete(kv.m, pendingQueueIndex)
-	requests, err = store.GetPendingQueue()
+	requests, err = store.GetPendingQueue(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, requests)
 
@@ -368,7 +395,7 @@ func TestKVStore_GetPendingRequests(t *testing.T) {
 	require.NoError(t, err)
 	kv.m[pendingQueueIndex] = response{data: indexBytes}
 
-	requests, err = store.GetPendingQueue()
+	requests, err = store.GetPendingQueue(t.Context())
 	require.ErrorContains(t, err, "pending queue item at index 2 not found")
 	assert.Empty(t, requests)
 }
@@ -378,7 +405,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	kv := &kv{
 		m: make(map[string]response),
 	}
-	store := NewWriteStore(kv)
+	store := newTestWriteStore(t, kv)
 
 	// Writing mock pending requests.
 	empty, err := anypb.New(&emptypb.Empty{})
@@ -395,7 +422,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 		Id:   "test-request-id-3",
 		Item: empty,
 	}
-	err = store.WritePendingQueue([]*vault.StoredPendingQueueItem{item, item2, item3})
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2, item3})
 	require.NoError(t, err)
 
 	// Ensure index is correctly written.
@@ -427,7 +454,7 @@ func TestKVStore_WritePendingRequests(t *testing.T) {
 	assert.Equal(t, "test-request-id-3", item2.Id)
 
 	// Writing a shorter list deletes the old one.
-	err = store.WritePendingQueue([]*vault.StoredPendingQueueItem{item, item2})
+	err = store.WritePendingQueue(t.Context(), []*vault.StoredPendingQueueItem{item, item2})
 	require.NoError(t, err)
 
 	_, exists = kv.m[pendingQueueItemPrefix+"3"]

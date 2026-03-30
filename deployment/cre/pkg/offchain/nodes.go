@@ -2,6 +2,7 @@ package offchain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -32,6 +33,9 @@ const (
 )
 
 func FetchNodesFromJD(ctx context.Context, jd cldf_offchain.Client, filter *nodeapiv1.ListNodesRequest_Filter) (nodes []*nodeapiv1.Node, err error) {
+	if jd == nil {
+		return nil, errors.New("offchain client (JD) is not initialized; ensure JD_GRPC or OFFCHAIN_JD_ENDPOINTS_GRPC is set")
+	}
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: filter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)

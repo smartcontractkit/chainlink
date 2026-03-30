@@ -286,7 +286,10 @@ jobs:
   check-ecr-images-exist:
     name: Check images used as test dependencies exist in ECR
     if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       id-token: write
       contents: read
@@ -329,7 +332,10 @@ jobs:
         needs.select-versions.outputs.evm_implementations != '' ||
         github.event.inputs.base64TestList != ''
       )
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       id-token: write
       contents: read
@@ -343,12 +349,12 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.select-versions.outputs.chainlink_version }}
       - name: Build Chainlink Image
-        uses: smartcontractkit/.github/actions/ctf-build-image@b7be49d6f54ce0990354931ee1e4c8624f3f406e # v1.4.0 (not released yet)
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.chainlinkVersion || needs.select-versions.outputs.chainlink_image_version || github.sha }}
           dockerfile: core/chainlink.Dockerfile
           docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
-          docker-repository-name: 'chainlink'
+          docker-repository-name: "chainlink"
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -357,11 +363,13 @@ jobs:
           # for tagged releases Docker image version is different from the Chainlink version (v2.13.0 -> 2.13.0)
           # for all other cases (PRs, commits, etc.) Docker image version is the same as the Chainlink version
 
-
   get-latest-available-images:
     name: Get Latest EVM Implementation's Images
     if: always() && needs.should-run.outputs.should_run == 'true' && needs.select-versions.outputs.evm_implementations != '' && github.event.inputs.base64TestList == ''
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     runs-on: ubuntu-latest
     needs: [check-ecr-images-exist, should-run, select-versions]
     permissions:
@@ -440,7 +448,10 @@ jobs:
   prepare-compatibility-matrix:
     name: Prepare Compatibility Matrix
     if: always() && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       checks: write
       pull-requests: write
@@ -470,10 +481,10 @@ jobs:
                 {
                   "name": "evm-implementation-compatibility-test-68",
                   "os": "ubuntu-latest",
-                  "product": "vrfv2",
+                  "product": "vrf",
                   "eth_implementation": "erigon",
                   "docker_image": "thorax/erigon:v2.59.2",
-                  "run": "-run '^TestVRFv2Basic/Request_Randomness$' ./smoke/vrfv2_test.go"
+                  "run": "-run '^TestVRFBasic/Request_Randomness$' ./smoke/vrf_test.go"
                 }
               ]
           EOF
@@ -496,7 +507,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"geth"* ]]; then
             echo "Will test compatibility with geth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e geth -d "${{ needs.get-latest-available-images.outputs.geth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with geth"
           fi
@@ -504,8 +514,7 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"besu"* ]]; then
             echo "Will test compatibility with besu"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # VRFv2 and VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e besu -d "${{ needs.get-latest-available-images.outputs.besu_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            # VRFV2Plus tests are disabled for besu until the functionalities they rely on are supported
           else
             echo "Will not test compatibility with besu"
           fi
@@ -513,7 +522,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"erigon"* ]]; then
             echo "Will test compatibility with erigon"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e erigon -d "${{ needs.get-latest-available-images.outputs.erigon_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with erigon"
           fi
@@ -521,8 +529,7 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"nethermind"* ]]; then
             echo "Will test compatibility with nethermind"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            # VRFv2 and VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
-            # testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e nethermind -d "${{ needs.get-latest-available-images.outputs.nethermind_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
+            # VRFV2Plus tests are disabled for nethermind until the functionalities they rely on are supported
           else
             echo "Will not test compatibility with nethermind"
           fi
@@ -530,7 +537,6 @@ jobs:
           if [[ "$ETH_IMPLEMENTATIONS" == *"reth"* ]]; then
             echo "Will test compatibility with reth"
             testlistgenerator -o compatibility_test_list.json -p vrf -r '^TestVRFBasic/Request_Randomness$' -f './smoke/vrf_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
-            testlistgenerator -o compatibility_test_list.json -p vrfv2 -r '^TestVRFv2Basic/Request_Randomness$' -f './smoke/vrfv2_test.go' -e reth -d "${{ needs.get-latest-available-images.outputs.reth_images }}" -t "evm-implementation-compatibility-test" -n "ubuntu-latest"
           else
             echo "Will not test compatibility with reth"
           fi
@@ -542,7 +548,10 @@ jobs:
   run-client-compatibility-matrix:
     name: ${{ matrix.evm_node.product }} compatibility with ${{ matrix.evm_node.docker_image }}
     if: always() && needs.should-run.outputs.should_run == 'true' && (needs.build-chainlink.result == 'success' || needs.build-chainlink.result == 'skipped') && needs.prepare-compatibility-matrix.outputs.matrix != ''
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       checks: write
       pull-requests: write
@@ -655,7 +664,10 @@ jobs:
   start-slack-thread:
     name: Start Slack Thread
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
     permissions:
@@ -721,7 +733,10 @@ jobs:
   parse-test-results:
     name: Parse Test Results
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && (needs.select-versions.outputs.evm_implementations != '' || github.event.inputs.base64TestList != '')
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       checks: write
       pull-requests: write
@@ -750,7 +765,6 @@ jobs:
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr compatibility with (.*?)$" -namedKey="ocr" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^ocr2 compatibility with (.*?)$" -namedKey="ocr2" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrf compatibility with (.*?)$" -namedKey="vrf" -outputFile=output.json
-          workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2 compatibility with (.*?)$" -namedKey="vrfv2" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^vrfv2plus compatibility with (.*?)$" -namedKey="vrfv2plus" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^flux compatibility with (.*?)$" -namedKey="flux" -outputFile=output.json
           workflowresultparser -workflowRunID ${{ github.run_id }} -githubToken ${{ github.token }} -githubRepo "${{ github.repository }}" -jobNameRegex "^runlog compatibility with (.*?)$" -namedKey="runlog" -outputFile=output.json
@@ -761,7 +775,10 @@ jobs:
   display-test-results:
     name: Aggregated test results
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       checks: write
       pull-requests: write
@@ -789,7 +806,6 @@ jobs:
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr" --namedKey "ocr"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "ocr2" --namedKey "ocr2"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrf" --namedKey "vrf"
-          asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2" --namedKey "vrfv2"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "vrfv2plus" --namedKey "vrfv2plus"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "flux" --namedKey "flux"
           asciitable --firstColumn "EVM Implementation" --secondColumn Result --jsonfile input.json --outputFile output.txt --section "cron" --namedKey "cron"
@@ -807,7 +823,10 @@ jobs:
   post-test-results-to-slack:
     name: Post Test Results for ${{matrix.product}}
     if: always() && needs.*.result != 'skipped' && needs.*.result != 'cancelled' && needs.should-run.outputs.should_run == 'true' && needs.parse-test-results.result == 'success'
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     permissions:
       checks: write
       pull-requests: write
@@ -823,7 +842,6 @@ jobs:
           - keeper
           - log_poller
           - vrf
-          - vrfv2
           - vrfv2plus
     steps:
       - name: Checkout the repo

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -229,6 +230,58 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		response := <-req.ResponseChan()
 
 		assert.Equal(t, fmt.Sprintf("%s : %s", types.Error_INTERNAL_ERROR, assert.AnError.Error()), response.Err.Error())
+
+		var capErr caperrors.Error
+		require.ErrorAs(t, response.Err, &capErr)
+		assert.Equal(t, caperrors.OriginSystem, capErr.Origin(), "non-serialized ErrorMsg falls back to private system capability error")
+		assert.Equal(t, caperrors.VisibilityPrivate, capErr.Visibility())
+		assert.Equal(t, caperrors.Unknown, capErr.Code())
+	})
+
+	t.Run("Error response with serialized caperrors unwraps correctly as usererror", func(t *testing.T) {
+		ctx := t.Context()
+		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
+
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
+		require.NoError(t, err)
+		defer req.Cancel(errors.New("test end"))
+
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		serialized := caperrors.NewPublicUserError(errors.New("rpc error: EVM error invalid argument"), caperrors.FailedPrecondition).SerializeToRemoteString()
+		msgWithError := &types.MessageBody{
+			CapabilityId:    capInfo.ID,
+			CapabilityDonId: capDonInfo.ID,
+			CallerDonId:     workflowDonInfo.ID,
+			Method:          types.MethodExecute,
+			Payload:         rawResponse,
+			MessageId:       []byte("messageID"),
+			Error:           types.Error_INTERNAL_ERROR,
+			ErrorMsg:        serialized,
+		}
+
+		msgWithError.Sender = capabilityPeers[0][:]
+		err = req.OnMessage(ctx, msgWithError)
+		require.NoError(t, err)
+
+		msgWithError.Sender = capabilityPeers[1][:]
+		err = req.OnMessage(ctx, msgWithError)
+		require.NoError(t, err)
+
+		response := <-req.ResponseChan()
+
+		wantDisplay := fmt.Sprintf("%s : %s", types.Error_INTERNAL_ERROR, serialized)
+		assert.Equal(t, wantDisplay, response.Err.Error(), "It should be equal to 'Public:User:FailedPrecondition:rpc error: EVM error invalid argument'")
+
+		var capErr caperrors.Error
+		require.ErrorAs(t, response.Err, &capErr)
+		assert.Equal(t, caperrors.OriginUser, capErr.Origin())
+		assert.Equal(t, caperrors.VisibilityPublic, capErr.Visibility())
+		assert.Equal(t, caperrors.FailedPrecondition, capErr.Code())
 	})
 
 	t.Run("Send three messages with different errors", func(t *testing.T) {

@@ -757,6 +757,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
 	}
+	// Free the hex-encoded binary string as it is not needed beyond this decode
+	spec.Workflow = ""
 
 	// Workflow Registry version >2 no longer handles secrets
 	secretsURL := ""
@@ -767,7 +769,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode owner: %w", err)
 	}
-	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	configBytes := []byte(spec.Config)
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
@@ -790,16 +793,19 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 
-	engine, err := h.engineFactory(
-		ctx,
-		spec.WorkflowID,
-		spec.WorkflowOwner,
-		workflowName,
-		spec.WorkflowTag,
-		[]byte(spec.Config),
-		decodedBinary,
-		initDone,
-	)
+	// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
+	engine, err := func() (services.Service, error) {
+		return h.engineFactory(
+			ctx,
+			spec.WorkflowID,
+			spec.WorkflowOwner,
+			workflowName,
+			spec.WorkflowTag,
+			configBytes,
+			decodedBinary,
+			initDone,
+		)
+	}()
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}

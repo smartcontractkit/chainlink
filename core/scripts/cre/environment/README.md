@@ -186,11 +186,8 @@ Builds that access private repositories require `GITHUB_TOKEN` to be set (e.g. `
 # while in core/scripts/cre/environment
 go run . env start [--auto-setup]
 
-# to start environment with an example workflow web API-based workflow
+# to start environment with the PoR v2 cron example workflow
 go run . env start --with-example
-
- # to start environment with an example workflow cron-based workflow (requires cron capability in your image)
-go run . env start --with-example --example-workflow-trigger cron
 
 # to start environment with local Beholder
 go run . env start --with-beholder
@@ -209,7 +206,6 @@ Optional parameters:
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
 - `-p`: **DEPRECATED** Use `image` in TOML config instead. See [Using a pre-built Chainlink image](#using-a-pre-built-chainlink-image).
-- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires the Chainlink image to include the cron capability (built from source or a pre-built image with plugins).
 - `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
@@ -434,12 +430,12 @@ go run . workflow delete-all [flags]
 go run . workflow delete-all
 ```
 
-### `workflow deploy-and-verify-example`
-Deploys and verifies the example workflow.
+### `workflow run-por-example`
+Deploys and verifies the PoR v2 cron example workflow.
 
 **Usage:**
 ```bash
-go run . workflow deploy-and-verify-example
+go run . workflow run-por-example
 ```
 
 This command uses default values and is useful for testing the workflow deployment process.
@@ -886,58 +882,43 @@ The environment includes several example workflows located in `core/scripts/cre/
 - **`v2/node-mode/`**: Node mode workflow example
 - **`v2/http/`**: HTTP-based workflow example
 
-#### V1 Workflows
-- **`v1/proof-of-reserve/cron-based/`**: Cron-based proof-of-reserve workflow
-- **`v1/proof-of-reserve/web-trigger-based/`**: Web API trigger-based proof-of-reserve workflow
+- **`v2/proof-of-reserve/cron-based/`**: Cron-based proof-of-reserve workflow example
 
 ### Deployable Example Workflows
 
-The following workflows can be deployed using the `workflow deploy-and-verify-example` command:
+The following workflow can be deployed using the `workflow run-por-example` command:
 
-#### Proof-of-Reserve Workflows
-Both proof-of-reserve workflows execute a proof-of-reserve-like scenario with the following steps:
+#### Proof-of-Reserve Workflow
+The proof-of-reserve workflow executes a proof-of-reserve-like scenario with the following steps:
 - Call external HTTP API and fetch value of test asset
 - Reach consensus on that value
 - Write that value in the consumer contract on chain
 
 **Usage:**
 ```bash
-go run . workflow deploy-and-verify-example [flags]
+go run . workflow run-por-example [flags]
 ```
 
 **Key flags:**
-- `-y, --example-workflow-trigger`: Trigger type (`web-trigger` or `cron`, default: `web-trigger`)
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
-- `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
-- `-d, --don-id`: DON ID for web API trigger (default: `vault`)
+- `-d, --workflow-don-id`: Workflow DON ID from the registry (default: `1`)
 - `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**
 ```bash
-# Deploy cron-based proof-of-reserve workflow
-go run . workflow deploy-and-verify-example -y cron
+# Deploy the PoR v2 cron example
+go run . workflow run-por-example
 
-# Deploy web-trigger-based proof-of-reserve workflow with custom timeout
-go run . workflow deploy-and-verify-example -y web-trigger -u 10m
+# Deploy the PoR v2 cron example with custom timeout
+go run . workflow run-por-example -u 10m
 ```
 
 #### Cron-based Workflow
 - **Trigger**: Every 30 seconds on a schedule
 - **Behavior**: Keeps executing until paused or deleted
 - **Requirements**: External `cron` capability binary (must be manually compiled or downloaded and configured in TOML)
-- **Source**: [`examples/workflows/v1/proof-of-reserve/cron-based/main.go`](./examples/workflows/v1/proof-of-reserve/cron-based/main.go)
-
-#### Web API Trigger-based Workflow
-- **Trigger**: Only when a precisely crafted and cryptographically signed request is made to the gateway node
-- **Behavior**: Triggers workflow **once** and only if:
-  - Sender is whitelisted in the workflow
-  - Topic is whitelisted in the workflow
-- **Source**: [`examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go`](./examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go)
-
-**Note**: You might see multiple attempts to trigger and verify the workflow when running the example. This is expected and could happen because:
-- Topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
-- Consensus wasn't reached in time
+- **Source**: [`examples/workflows/v2/proof-of-reserve/cron-based/main.go`](./examples/workflows/v2/proof-of-reserve/cron-based/main.go)
 
 ### Manual Workflow Deployment
 

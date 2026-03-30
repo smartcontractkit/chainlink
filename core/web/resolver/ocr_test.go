@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -47,7 +47,7 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 			"results": expectedBundles,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -98,7 +98,7 @@ func TestResolver_OCRCreateBundle(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -156,7 +156,7 @@ func TestResolver_OCRDeleteBundle(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"time"
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
@@ -13,6 +14,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -105,7 +107,8 @@ func (o *Vault) PreEnvStartup(
 			CapabilityType: 1, // ACTION
 		},
 		Config: &capabilitiespb.CapabilityConfig{
-			LocalOnly: don.HasOnlyLocalCapabilities(),
+			LocalOnly:     don.HasOnlyLocalCapabilities(),
+			MethodConfigs: vaultMethodConfigs(),
 		},
 	}}
 
@@ -383,6 +386,20 @@ func reportingPluginConfigOverride(vaultDKGOCR3Addr *common.Address, creEnv *cre
 	}
 
 	return cfgb, nil
+}
+
+func vaultMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
+	return map[string]*capabilitiespb.CapabilityMethodConfig{
+		vaultprotos.MethodGetSecrets: {
+			RemoteConfig: &capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig{
+				RemoteExecutableConfig: &capabilitiespb.RemoteExecutableConfig{
+					RequestTimeout:            durationpb.New(2 * time.Minute),
+					ServerMaxParallelRequests: 10,
+					RequestHasherType:         capabilitiespb.RequestHasherType_Simple,
+				},
+			},
+		},
+	}
 }
 
 func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {

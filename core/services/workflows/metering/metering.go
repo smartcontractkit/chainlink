@@ -106,7 +106,7 @@ type Report struct {
 	// dependencies
 	balance *balanceStore
 	client  BillingClient
-	lggr    logger.Logger
+	lggr    logger.SugaredLogger
 	metrics *monitoring.WorkflowsMetricLabeler
 
 	// internal state
@@ -676,7 +676,8 @@ func (r *Report) EmitReceipt(ctx context.Context) error {
 
 	rpt := r.FormatReport()
 
-	r.lggr.Debug("Emitting metering report", "report", rpt, "stepRefs", strings.Join(r.stepRefLookup, ","))
+	r.lggr.Debug("Emitting metering report")
+	r.lggr.Tracew("Metering report", "report", rpt, "stepRefs", strings.Join(r.stepRefLookup, ","))
 
 	return wfEvents.EmitMeteringReport(ctx, r.labels, rpt)
 }
