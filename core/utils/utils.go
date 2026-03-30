@@ -478,14 +478,6 @@ func NewRedialBackoff() backoff.Backoff {
 	}
 }
 
-func NewHTTPFetchBackoff() backoff.Backoff {
-	return backoff.Backoff{
-		Min:    100 * time.Millisecond,
-		Max:    15 * time.Second,
-		Jitter: true,
-	}
-}
-
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})

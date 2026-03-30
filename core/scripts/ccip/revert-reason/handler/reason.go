@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	burn_mint_token_pool_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/lock_release_token_pool"
 	usdc_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_4_0/usdc_token_pool"
@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -89,6 +90,9 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 					fmt.Printf("Error is \"%v\" \ninner error: ", errorName)
 					var errorBytes []byte
 					if errorName == "TokenHandlingError" {
+						fmt.Printf("Error is \"%v\" \ninner error: ", errorName)
+						fmt.Printf("Token: \"%v\"", v.([]any)[0].(common.Address))
+
 						errorBytes = v.([]any)[1].([]byte)
 					} else {
 						errorBytes = v.([]any)[0].([]byte)
@@ -156,6 +160,7 @@ func getAllABIs() []string {
 		onramp.OnRampABI,
 		offramp.OffRampABI,
 		maybe_revert_message_receiver.MaybeRevertMessageReceiverABI,
+		price_registry.PriceRegistryABI,
 	}
 }
 

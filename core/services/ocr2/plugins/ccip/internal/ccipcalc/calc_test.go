@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 func TestMergeEpochAndRound(t *testing.T) {
@@ -68,7 +68,7 @@ func TestContiguousReqs(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		res := ContiguousReqs(logger.NullLogger, tc.min, tc.max, tc.seqNrs)
+		res := ContiguousReqs(logger.Nop(), tc.min, tc.max, tc.seqNrs)
 		assert.Equal(t, tc.exp, res)
 	}
 }

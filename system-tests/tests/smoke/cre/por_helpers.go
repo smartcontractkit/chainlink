@@ -106,7 +106,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	// forming the final PoR "expected" total price written on-chain.
 	var amountToFund *big.Int
 	numberOfAddressesToCreate := 2
-	var workflowOwner common.Address
+	workflowOwner := workflowOwnerAddressForTest(t, testEnv)
 	for idx, bcOutput := range blockchainOutputs {
 		chainFamily := bcOutput.CtfOutput().Family
 		chainID := bcOutput.ChainID()
@@ -135,8 +135,17 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 			chainFamily = blockchain.FamilyEVM
 		default:
 			require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-			workflowOwner = bcOutput.(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
-			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(t, testLogger, chainSelector, chainID, creEnvironment, workflowOwner, uniqueWorkflowName, feedID, common.HexToAddress(forwarderAddress))
+			dataFeedsCacheAddress, readBalancesAddress = deployAndConfigureEVMContracts(
+				t,
+				testLogger,
+				chainSelector,
+				chainID,
+				creEnvironment,
+				workflowOwner,
+				uniqueWorkflowName,
+				feedID,
+				common.HexToAddress(forwarderAddress),
+			)
 		}
 
 		// reset to avoid incrementing on each iteration
@@ -209,11 +218,10 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	require.NotNil(t, bcOutput, "no writable EVM blockchain found")
 	require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
 
-	evmBC := bcOutput.(*evm.Blockchain)
 	chainSelector := bcOutput.ChainSelector()
 	chainID := bcOutput.ChainID()
 	creEnvironment := testEnv.CreEnvironment
-	workflowOwner := evmBC.SethClient.MustGetRootKeyAddress()
+	workflowOwner := workflowOwnerAddressForTest(t, testEnv)
 
 	require.Len(t, wfConfig.FeedIDs, 1, "SetupPoRWorkflowForSoak expects exactly one feed ID per workflow")
 	feedID := wfConfig.FeedIDs[0]
@@ -258,6 +266,16 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	return dataFeedsCacheAddress, nil
 }
 
+func workflowOwnerAddressForTest(t *testing.T, testEnv *ttypes.TestEnvironment) common.Address {
+	t.Helper()
+	if testEnv != nil && testEnv.Execution != nil && testEnv.Execution.OwnerAddress != (common.Address{}) {
+		return testEnv.Execution.OwnerAddress
+	}
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected registry chain to be EVM")
+	return testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootKeyAddress()
+}
+
 // GenerateSoakFeedIDs generates n unique 32-hex-char (16-byte) feed IDs for the soak test.
 // Each ID differs only in byte 4 (last byte of the data family), keeping all other fields fixed.
 // Layout per DF2.0 spec:
@@ -276,7 +294,17 @@ func GenerateSoakFeedIDs(n int) []string {
 	return ids
 }
 
-func deployAndConfigureEVMContracts(t *testing.T, testLogger zerolog.Logger, chainSelector uint64, chainID uint64, creEnvironment *cre.Environment, workflowOwner common.Address, uniqueWorkflowName string, feedID string, forwarderAddress common.Address) (common.Address, common.Address) {
+func deployAndConfigureEVMContracts(
+	t *testing.T,
+	testLogger zerolog.Logger,
+	chainSelector uint64,
+	chainID uint64,
+	creEnvironment *cre.Environment,
+	workflowOwner common.Address,
+	uniqueWorkflowName string,
+	feedID string,
+	forwarderAddress common.Address,
+) (common.Address, common.Address) {
 	testLogger.Info().Msgf("Deploying additional contracts to chain %d (%d)", chainID, chainSelector)
 	dfAddress, dfErr := crecontracts.DeployDataFeedsCacheContract(testLogger, chainSelector, creEnvironment)
 	require.NoError(t, dfErr, "failed to deploy Data Feeds Cache contract on chain %d", chainSelector)

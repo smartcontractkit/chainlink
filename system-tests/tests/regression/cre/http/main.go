@@ -30,7 +30,7 @@ func RunHTTPRegressionWorkflow(wfCfg config.Config, _ *slog.Logger, _ cre.Secret
 	var triggerConfig *http.Config
 
 	switch wfCfg.TestCase {
-	case "invalid-key-type":
+	case config.TestCaseInvalidKeyType:
 		// Use an invalid key type (non-existent enum value)
 		triggerConfig = &http.Config{
 			AuthorizedKeys: []*http.AuthorizedKey{
@@ -40,23 +40,23 @@ func RunHTTPRegressionWorkflow(wfCfg config.Config, _ *slog.Logger, _ cre.Secret
 				},
 			},
 		}
-	case "invalid-public-key":
+	case config.TestCaseInvalidPublicKey:
 		// Use an invalid public key format
 		triggerConfig = &http.Config{
 			AuthorizedKeys: []*http.AuthorizedKey{
 				{
 					Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
-					PublicKey: "invalid-public-key-format",
+					PublicKey: wfCfg.AuthorizedKey,
 				},
 			},
 		}
-	case "non-existing-public-key":
+	case config.TestCaseNonExistingPublicKey:
 		// Use a non-existing but properly formatted public key
 		triggerConfig = &http.Config{
 			AuthorizedKeys: []*http.AuthorizedKey{
 				{
 					Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
-					PublicKey: "0x0000000000000000000000000000000000000000",
+					PublicKey: wfCfg.AuthorizedKey,
 				},
 			},
 		}

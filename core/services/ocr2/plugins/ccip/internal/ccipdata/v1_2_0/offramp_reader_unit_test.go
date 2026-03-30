@@ -17,13 +17,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts"
@@ -32,7 +32,7 @@ import (
 )
 
 func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	const numSrcTokens = 20
 
 	testCases := []struct {
@@ -127,7 +127,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 		),
 	}
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	tokens, err := offRamp.GetTokens(ctx)
 	require.NoError(t, err)
 
@@ -200,7 +200,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 
 			offRamp, err := NewOffRamp(logger.Test(t), offrampAddress, clienttest.NewClient(t), lp, nil, nil, nil)
 			require.NoError(t, err)
-			logs, err := offRamp.GetExecutionStateChangesBetweenSeqNums(testutils.Context(t), minSeqNr, maxSeqNr, 0)
+			logs, err := offRamp.GetExecutionStateChangesBetweenSeqNums(t.Context(), minSeqNr, maxSeqNr, 0)
 			require.NoError(t, err)
 			assert.Len(t, logs, len(inputLogs))
 
@@ -223,7 +223,7 @@ func TestGetRouter(t *testing.T) {
 		offRampV120: mockOffRamp,
 	}
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	gotRouterAddr, err := offRamp.GetRouter(ctx)
 	require.NoError(t, err)
 

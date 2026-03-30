@@ -12,8 +12,8 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
@@ -21,7 +21,7 @@ import (
 )
 
 func TestTokenPoolFactory(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	offRamp := utils.RandomAddress()
 	ctx := context.Background()
 	remoteChainSelector := uint64(2000)

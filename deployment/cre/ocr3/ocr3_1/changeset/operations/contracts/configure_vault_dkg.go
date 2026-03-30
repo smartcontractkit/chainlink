@@ -33,7 +33,8 @@ type ConfigureVaultDKGInput struct {
 	OracleConfig *ocr3_1.V3_1OracleConfig `json:"oracleConfig" yaml:"oracleConfig"`
 	DryRun       bool                     `json:"dryRun" yaml:"dryRun"`
 
-	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	MCMSConfig          *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+	ExtraSignerFamilies []string                 `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 type DKGDon struct {
@@ -124,6 +125,7 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 		DryRun:                input.DryRun,
 		MCMSConfig:            input.MCMSConfig,
 		ReportingPluginConfig: cfg,
+		ExtraSignerFamilies:   input.ExtraSignerFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)
