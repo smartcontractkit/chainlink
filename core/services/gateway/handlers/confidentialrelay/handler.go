@@ -353,12 +353,27 @@ func (h *handler) sendSuccessResponseAndCleanup(ctx context.Context, l logger.Lo
 		RawResponse: rawResponse,
 		ErrorCode:   errorCode,
 	}
-	return h.sendPayloadAndCleanup(ctx, ar, payload)
+
+	h.recordMetrics(ctx, errorCode)
+	sendErr := ar.SendResponse(payload)
+
+	h.mu.Lock()
+	delete(h.activeRequests, ar.req.ID)
+	h.mu.Unlock()
+
+	if sendErr != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		return sendErr
+	}
+
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", errorCode)
+	return nil
 }
 
 // sendResponseAndCleanup sanitizes the error, encodes a JSON-RPC error
 // response, records metrics, sends the response to the user, and removes
-// the request from activeRequests.
+// the request from activeRequests. The request is always removed regardless
+// of whether the send succeeds, since a failed callback cannot be retried.
 func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, errorCode api.ErrorCode, err error, data []byte) error {
 	req := ar.req
 	switch errorCode {
@@ -393,15 +408,25 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest,
 		),
 		ErrorCode: errorCode,
 	}
-	return h.sendPayloadAndCleanup(ctx, ar, payload)
+
+	h.recordMetrics(ctx, errorCode)
+	sendErr := ar.SendResponse(payload)
+
+	h.mu.Lock()
+	delete(h.activeRequests, ar.req.ID)
+	h.mu.Unlock()
+
+	if sendErr != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
+		return sendErr
+	}
+
+	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", errorCode)
+	return nil
 }
 
-// sendPayloadAndCleanup sends the pre-built payload, records metrics, and
-// removes the request from activeRequests. The request is always removed
-// regardless of whether the send succeeds, since a failed callback cannot
-// be retried.
-func (h *handler) sendPayloadAndCleanup(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
-	switch resp.ErrorCode {
+func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
+	switch errorCode {
 	case api.StaleNodeResponseError:
 	case api.FatalError:
 	case api.NodeReponseEncodingError:
@@ -409,7 +434,7 @@ func (h *handler) sendPayloadAndCleanup(ctx context.Context, userRequest *active
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
-			attribute.String("error", resp.ErrorCode.String()),
+			attribute.String("error", errorCode.String()),
 		))
 	case api.InvalidParamsError:
 	case api.UnsupportedMethodError:
@@ -425,18 +450,4 @@ func (h *handler) sendPayloadAndCleanup(ctx context.Context, userRequest *active
 	case api.ConflictError:
 	case api.LimitExceededError:
 	}
-
-	err := userRequest.SendResponse(resp)
-
-	h.mu.Lock()
-	delete(h.activeRequests, userRequest.req.ID)
-	h.mu.Unlock()
-
-	if err != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
-		return err
-	}
-
-	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
-	return nil
 }
