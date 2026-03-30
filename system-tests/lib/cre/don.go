@@ -587,6 +587,9 @@ func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
 		return n.Keys.AptosAccount(), nil
 	}
 
+	// Prefer Aptos account/public key from node metadata when available. Falling
+	// back to the node API here is only to backfill older metadata shapes, and we
+	// cache the result back into n.Keys.Aptos below so later callers can reuse it.
 	var runtimeKeys struct {
 		Data []struct {
 			Attributes struct {
