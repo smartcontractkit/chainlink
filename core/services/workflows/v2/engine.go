@@ -231,8 +231,7 @@ func (e *Engine) start(ctx context.Context) error {
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, func(ctx context.Context) {
-		e.allTriggerEventsQueueCh.Register(e.observe)
-		e.allTriggerEventsQueueCh.Run(ctx)
+		e.allTriggerEventsQueueCh.Run(ctx, e.handleTriggerEvent)
 	},
 	)
 	return nil
@@ -570,7 +569,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) observe(ctx context.Context, queueHead enqueuedTriggerEvent) {
+func (e *Engine) handleTriggerEvent(ctx context.Context, queueHead enqueuedTriggerEvent) {
 	eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
 	eventID := queueHead.event.Event.ID
 	e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
