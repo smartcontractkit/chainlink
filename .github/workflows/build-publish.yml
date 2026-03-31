@@ -5,7 +5,12 @@ on:
     tags:
       - "v*"
 
-permissions: {}
+permissions:
+    actions: read
+    checks: write
+    pull-requests: write
+    id-token: write
+    contents: read
 
 jobs:
   checks:
