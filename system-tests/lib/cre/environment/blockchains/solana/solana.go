@@ -54,9 +54,8 @@ type Blockchain struct {
 	PrivateKey    solana.PrivateKey
 	ArtifactsDir  string
 
-	genesisHashOnce sync.Once
-	genesisHash     string
-	genesisHashErr  error
+	genesisHashMu sync.RWMutex
+	genesisHash   string
 }
 
 func (s *Blockchain) ChainSelector() uint64 {
@@ -79,19 +78,28 @@ func (s *Blockchain) ChainFamily() string {
 }
 
 func (s *Blockchain) GenesisHash(ctx context.Context) (string, error) {
-	s.genesisHashOnce.Do(func() {
-		genesisHash, err := s.SolClient.GetGenesisHash(ctx)
-		if err != nil {
-			s.genesisHashErr = err
-			return
-		}
-		s.genesisHash = genesisHash.String()
-	})
+	s.genesisHashMu.RLock()
+	if s.genesisHash != "" {
+		hash := s.genesisHash
+		s.genesisHashMu.RUnlock()
+		return hash, nil
+	}
+	s.genesisHashMu.RUnlock()
 
-	if s.genesisHashErr != nil {
-		return "", s.genesisHashErr
+	s.genesisHashMu.Lock()
+	defer s.genesisHashMu.Unlock()
+
+	// Double-check in case another goroutine cached it while we waited.
+	if s.genesisHash != "" {
+		return s.genesisHash, nil
 	}
 
+	genesisHash, err := s.SolClient.GetGenesisHash(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	s.genesisHash = genesisHash.String()
 	return s.genesisHash, nil
 }
 
