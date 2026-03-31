@@ -294,13 +294,14 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
 		err = h.workflowActivatedEvent(ctx, payload)
 		if err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			h.lggr.Errorw("failed to handle workflow activated event", "error", err, "workflowID", wfID)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
 			return err
 		}
 
@@ -886,6 +887,20 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 			}
 			return nil
 		})
+}
+
+// customerFacingError returns a deterministic, user-actionable error for beholder emission.
+// Internal errors (e.g. ArtifactFetchError with per-node signed URLs) are replaced with a
+// clean message so that workflow-service can aggregate error_message across nodes.
+func customerFacingError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var fetchErr *types.ArtifactFetchError
+	if errors.As(err, &fetchErr) {
+		return errors.New(fetchErr.CustomerError())
+	}
+	return err
 }
 
 func newHandlerTypeError(data any) error {
