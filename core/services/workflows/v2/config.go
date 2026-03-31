@@ -1,8 +1,10 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 
@@ -26,6 +28,48 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
+
+// EnqueuedTriggerEvent is the type queued for workflow trigger execution.
+// workflowID is used by ConsensusEventDispatcher to route to the correct engine.
+// Implements Identifiable for use with generic ObservationBuffer and OCRQueue.
+type EnqueuedTriggerEvent interface {
+	ID() string
+	WorkflowID() string
+	TriggerCapID() string
+	TriggerIndex() int
+	Timestamp() time.Time
+	Event() commoncap.TriggerResponse
+}
+
+// ConsensusEventReceiver is implemented by engines that handle OCR-delivered trigger events
+// (callback path). Registry entries are stored as services.Service; assert to this interface
+// to route consensus events without a concrete *Engine dependency in the syncer package.
+type ConsensusEventReceiver interface {
+	OnConsensusEvent(ctx context.Context, event EnqueuedTriggerEvent) error
+}
+
+// TriggerQueueDeps holds dependencies for creating the OCR-backed trigger queue.
+//
+// TODO: add fields as wiring progresses:
+// - BootstrapPeers []commontypes.BootstrapperLocator (from DON or config)
+// - MonitoringEndpointGen (delegate has it; may need synthetic contract ID)
+// - OCR key bundle (workflow DON uses OCR keys)
+type TriggerQueueDeps struct {
+	Lf            limits.Factory
+	Cfg           *cresettings.Workflows
+	DonSubscriber capabilities.DonSubscriber
+}
+
+// TriggerQueueFactory returns a trigger queue implementation that uses OCR
+// to reach consensus on the queue among a workflow DON.
+type TriggerQueueFactory interface {
+	NewOCRTriggerQueue(ctx context.Context, deps TriggerQueueDeps) (limits.QueueLimiter[EnqueuedTriggerEvent], error)
+}
+
+// NewStandardTriggerQueue creates the default in-process trigger queue.
+func NewStandardTriggerQueue(lf limits.Factory, cfg *cresettings.Workflows) (limits.QueueLimiter[EnqueuedTriggerEvent], error) {
+	return limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+}
 
 type EngineConfig struct {
 	Lggr                 logger.Logger

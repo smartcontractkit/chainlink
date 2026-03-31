@@ -91,12 +91,24 @@ type triggerCapability struct {
 	payload *anypb.Any
 	method  string
 }
-
 type enqueuedTriggerEvent struct {
+	workflowID   string // hex-encoded, for dispatcher routing when using shared queue
 	triggerCapID string
 	triggerIndex int
 	timestamp    time.Time
 	event        capabilities.TriggerResponse
+}
+
+func (e *enqueuedTriggerEvent) ID() string                          { return e.event.Event.ID }
+func (e *enqueuedTriggerEvent) WorkflowID() string                  { return e.workflowID }
+func (e *enqueuedTriggerEvent) TriggerCapID() string                { return e.triggerCapID }
+func (e *enqueuedTriggerEvent) TriggerIndex() int                   { return e.triggerIndex }
+func (e *enqueuedTriggerEvent) Timestamp() time.Time                { return e.timestamp }
+func (e *enqueuedTriggerEvent) Event() capabilities.TriggerResponse { return e.event }
+
+// NewEnqueuedTriggerEvent constructs an EnqueuedTriggerEvent for the queue.
+func NewEnqueuedTriggerEvent(workflowID, triggerCapID string, triggerIndex int, timestamp time.Time, event capabilities.TriggerResponse) EnqueuedTriggerEvent {
+	return &enqueuedTriggerEvent{workflowID, triggerCapID, triggerIndex, timestamp, event}
 }
 
 func TriggerRegistrationID(workflowID string, triggerIndex int) string {
@@ -566,6 +578,19 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subs.Subscriptions), "triggerIDs", triggerCapIDs)
 	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
 	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
+	return nil
+}
+
+// OnConsensusEvent implements ConsensusEventReceiver for OCR callback delivery of trigger events.
+func (e *Engine) OnConsensusEvent(ctx context.Context, event EnqueuedTriggerEvent) error {
+	ete := enqueuedTriggerEvent{
+		workflowID:   event.WorkflowID(),
+		triggerCapID: event.TriggerCapID(),
+		triggerIndex: event.TriggerIndex(),
+		timestamp:    event.Timestamp(),
+		event:        event.Event(),
+	}
+	e.handleTriggerEvent(ctx, ete)
 	return nil
 }
 

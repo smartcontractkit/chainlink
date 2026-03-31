@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
@@ -89,6 +90,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/triggerqueue"
 	vaultocrplugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/beholderwrapper"
@@ -674,6 +676,45 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, evm types.EV
 
 type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
+}
+
+// triggerQueueContractID is a synthetic ID for monitoring; trigger queue has no on-chain contract.
+const triggerQueueContractID = "trigger_queue"
+
+// NewOCRTriggerQueue creates the trigger queue for the workflow syncer.
+// Delegate owns the oracle; builds OCR3_1OracleArgs with TODOs for unwired fields.
+// Returns OCRQueue; transmitter delivers consensus events via receiver.OnConsensusEvent.
+func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
+	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
+	if err != nil {
+		return nil, err
+	}
+	lamport := &v2.LamportCounter{}
+	buffer := v2.NewObservationBuffer[v2.EnqueuedTriggerEvent](lamport)
+
+	// Build OCR3_1OracleArgs for the trigger queue. TODO: wire all fields and call libocr2.NewOracle.
+	ocrLogger := ocrcommon.NewOCRWrapper(d.lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
+		d.lggr.Warnw("OCR trigger queue", "msg", msg)
+	})
+	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
+		V2Bootstrappers:              nil, // TODO: wire bootstrap peers from workflow DON (deps.DonSubscriber.WaitForDon or config)
+		ContractConfigTracker:        nil, // TODO: in-process config; need static/dynamic config from DON (no on-chain contract)
+		ContractTransmitter:          triggerqueue.NewTransmitter(nil, d.lggr),
+		Database:                     nil,                    // TODO: wire OCR DB (e.g. NewDB(d.ds, triggerQueuePluginID, 0, d.lggr)); need unique plugin ID
+		KeyValueDatabaseFactory:      nil,                    // TODO: wire KV factory (e.g. kvdb.NewPebbleKeyValueDatabaseFactory(path)); path = KeyValueStoreRootDir/trigger_queue
+		LocalConfig:                  ocrtypes.LocalConfig{}, // TODO: wire LocalConfig (BlockDelta, etc.)
+		Logger:                       ocrLogger,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": triggerQueueContractID}, prometheus.DefaultRegisterer),
+		MonitoringEndpoint:           nil, // TODO: wire d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, triggerQueueContractID, ...); need rid for trigger queue
+		OffchainConfigDigester:       nil, // TODO: in-process digester; derive config digest from DON (members, F, offchain config)
+		OffchainKeyring:              nil, // TODO: wire OCR key bundle (d.ks.Get or workflow DON key)
+		OnchainKeyring:               nil, // TODO: wire onchain keyring adapter (trigger queue may use same as vault/dontime for in-process)
+		ReportingPluginFactory:       beholderwrapper.NewReportingPluginFactory(triggerqueue.NewFactory(d.lggr, buffer), d.lggr, "triggerqueue"),
+	}
+	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
+
+	return v2.NewOCRQueue(v2.OCRQueueDeps[v2.EnqueuedTriggerEvent]{Inner: inner, Buffer: buffer})
 }
 
 func (d *Delegate) newServicesVaultPlugin(
@@ -2446,7 +2487,6 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
-
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
@@ -2507,7 +2547,6 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
-
 	if err != nil {
 		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
 	}
