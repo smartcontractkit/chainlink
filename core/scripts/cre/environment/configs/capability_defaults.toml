@@ -135,9 +135,10 @@
   binary_name = "aptos"
 
 [capability_configs.write-aptos.values]
-  # ChainID and forwarder address are injected at job proposal time.
+  # These values build the Aptos capability config registered in CapReg.
+  # ChainID and forwarder address are injected separately at job proposal time.
+  # They are not emitted as top-level worker job-spec fields.
   RequestTimeout = "30s"
-  TransmissionSchedule = "allAtOnce"
   DeltaStage = "1500ms"
 
 [capability_configs.solana.values]
