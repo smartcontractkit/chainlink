@@ -109,11 +109,11 @@ func TestParseExtraDataMap_NativeTypes(t *testing.T) {
 	receiver := [32]byte{0x03}
 
 	input := map[string]any{
-		"ComputeUnits":            uint32(2000000),
-		"AccountIsWritableBitmap": uint64(6),
+		"ComputeUnits":             uint32(2000000),
+		"AccountIsWritableBitmap":  uint64(6),
 		"AllowOutOfOrderExecution": true,
-		"TokenReceiver":           receiver,
-		"Accounts":                [][32]byte{account1, account2},
+		"TokenReceiver":            receiver,
+		"Accounts":                 [][32]byte{account1, account2},
 	}
 
 	ed, err := parseExtraDataMap(input)
@@ -137,11 +137,11 @@ func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
 	receiver[0] = 0x03
 
 	input := map[string]any{
-		"ComputeUnits":            int64(2000000),   // LOOP: uint32 -> int64
-		"AccountIsWritableBitmap": int64(6),         // LOOP: uint64 -> int64
+		"ComputeUnits":             int64(2000000), // LOOP: uint32 -> int64
+		"AccountIsWritableBitmap":  int64(6),       // LOOP: uint64 -> int64
 		"AllowOutOfOrderExecution": true,
-		"TokenReceiver":           receiver,          // LOOP: [32]byte -> []byte
-		"Accounts":                []interface{}{     // LOOP: [][32]byte -> []interface{}
+		"TokenReceiver":            receiver, // LOOP: [32]byte -> []byte
+		"Accounts": []interface{}{ // LOOP: [][32]byte -> []interface{}
 			account1,
 			account2,
 		},

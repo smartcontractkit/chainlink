@@ -127,7 +127,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 				if v < 0 || v > math.MaxUint32 {
 					return out, fmt.Errorf("ComputeUnits out of uint32 range: %d", v)
 				}
-				extraArgs.ComputeUnits = uint32(v) //nolint:gosec // validated above
+				extraArgs.ComputeUnits = uint32(v)
 			default:
 				return out, fmt.Errorf("invalid type for ComputeUnits, expected uint32, got %T", fieldValue)
 			}
