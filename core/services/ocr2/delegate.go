@@ -683,7 +683,7 @@ const triggerQueueContractID = "trigger_queue"
 
 // NewOCRTriggerQueue creates the trigger queue for the workflow syncer.
 // Delegate owns the oracle; builds OCR3_1OracleArgs with TODOs for unwired fields.
-// Returns OCRQueue; transmitter delivers consensus events via receiver.OnConsensusEvent.
+// Returns OCRQueue; transmitter delivers consensus events via OCRQueue.DispatchConsensusEvent (or equivalent callback).
 func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueDeps) (limits.QueueLimiter[v2.EnqueuedTriggerEvent], error) {
 	inner, err := v2.NewStandardTriggerQueue(deps.Lf, deps.Cfg)
 	if err != nil {
@@ -714,7 +714,7 @@ func (d *Delegate) NewOCRTriggerQueue(ctx context.Context, deps v2.TriggerQueueD
 	}
 	_ = oracleArgs // TODO: pass to libocr2.NewOracle(oracleArgs) when all fields wired
 
-	return v2.NewOCRQueue(v2.OCRQueueDeps[v2.EnqueuedTriggerEvent]{Inner: inner, Buffer: buffer})
+	return v2.NewOCRQueue(v2.OCRQueueDeps{Inner: inner, Buffer: buffer})
 }
 
 func (d *Delegate) newServicesVaultPlugin(

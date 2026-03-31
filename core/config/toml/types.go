@@ -1896,6 +1896,9 @@ type CreConfig struct {
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
 	DebugMode *bool `toml:",omitempty"`
+	// OCRTriggerQueuePOC wires the shared OCR trigger queue (observation buffer + consensus transmitter path).
+	// POC only; leave unset/false in production.
+	OCRTriggerQueuePOC *bool `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
@@ -1955,6 +1958,10 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.OCRTriggerQueuePOC != nil {
+		c.OCRTriggerQueuePOC = f.OCRTriggerQueuePOC
 	}
 }
 

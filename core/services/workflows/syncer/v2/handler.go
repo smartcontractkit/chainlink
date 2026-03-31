@@ -596,6 +596,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
 
+	localLimiters := h.engineLimiters
+	if h.engineLimiters != nil && h.engineLimiters.PerWorkflowTrigger != nil {
+		cl := *h.engineLimiters
+		cl.TriggerEventQueue = h.engineLimiters.PerWorkflowTrigger.TriggerSubjectQueueForWorkflow(workflowID)
+		localLimiters = &cl
+	}
+
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
 		if err != nil {
@@ -643,7 +650,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		WorkflowEncryptionKey: h.workflowEncryptionKey,
 
 		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
+		LocalLimiters:                     localLimiters,
 		FeatureFlags:                      h.featureFlags,
 		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
 

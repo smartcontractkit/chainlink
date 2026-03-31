@@ -3,74 +3,171 @@ package v2
 import (
 	"context"
 	"errors"
+	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
 
-var errOCRQueueNotImplemented = errors.New("OCRQueue: draft, use NewOCRQueueWithInnerQueue for delegating implementation")
-
-// OCRQueueDeps holds dependencies for NewOCRQueue.
-// Delegate owns the oracle; OCRQueue wraps the queue the transmitter feeds.
-type OCRQueueDeps[T Identifiable] struct {
-	Inner  limits.QueueLimiter[T]
-	Buffer *ObservationBuffer[T]
+// OCRQueueDeps holds dependencies for NewOCRQueue (shared across all workflow engines on this node).
+type OCRQueueDeps struct {
+	Inner  limits.QueueLimiter[EnqueuedTriggerEvent]
+	Buffer *ObservationBuffer[EnqueuedTriggerEvent]
 }
 
-// OCRQueue wraps a QueueLimiter. Put buffers to ObservationBuffer (feeds Observation).
-// Get/Wait read from Inner (fed by transmitter when consensus events arrive).
-type OCRQueue[T Identifiable] struct {
-	inner  limits.QueueLimiter[T]
-	buffer *ObservationBuffer[T]
-	fn     ObserverFunc[T]
+// OCRQueue is the shared node-wide queue for the OCR trigger POC:
+//   - Put appends to ObservationBuffer (inputs for OCR 3.1 Observation round)
+//   - Get/Wait/Close delegate to Inner (fed after consensus; POC wiring only)
+//   - Per-engine trigger handling registers an ObserverFunc via ocrTriggerSubjectQueue.Run;
+//     after consensus, Transmit calls DispatchConsensusEvent which invokes the observer for that workflowID.
+type OCRQueue struct {
+	inner  limits.QueueLimiter[EnqueuedTriggerEvent]
+	buffer *ObservationBuffer[EnqueuedTriggerEvent]
+
+	mu        sync.RWMutex
+	observers map[string]ObserverFunc[EnqueuedTriggerEvent]
 }
 
-// NewOCRQueue creates an OCRQueue from the planned dependencies.
-func NewOCRQueue[T Identifiable](deps OCRQueueDeps[T]) (limits.QueueLimiter[T], error) {
+// NewOCRQueue builds a shared OCRQueue for the node. Inner must be non-nil.
+func NewOCRQueue(deps OCRQueueDeps) (*OCRQueue, error) {
 	if deps.Inner == nil {
-		return nil, errOCRQueueNotImplemented
+		return nil, errors.New("OCRQueue requires Inner")
 	}
 	if deps.Buffer == nil {
 		return nil, errors.New("OCRQueue requires Buffer")
 	}
-	return &OCRQueue[T]{inner: deps.Inner, buffer: deps.Buffer}, nil
+	return &OCRQueue{inner: deps.Inner, buffer: deps.Buffer}, nil
 }
 
-// NewOCRQueueWithInnerQueue returns a constructor with the same signature as NewOCRQueue.
-func NewOCRQueueWithInnerQueue[T Identifiable](inner limits.QueueLimiter[T], buffer *ObservationBuffer[T]) func(OCRQueueDeps[T]) (limits.QueueLimiter[T], error) {
-	return func(_ OCRQueueDeps[T]) (limits.QueueLimiter[T], error) {
-		return &OCRQueue[T]{inner: inner, buffer: buffer}, nil
+// NewSharedOCRTriggerQueueForPOC constructs one OCRQueue + buffer using the same limit settings as NewLimiters.
+func NewSharedOCRTriggerQueueForPOC(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*OCRQueue, *ObservationBuffer[EnqueuedTriggerEvent], error) {
+	cfg := cresettings.Default.PerWorkflow
+	if cfgFn != nil {
+		cfgFn(&cfg)
 	}
+	inner, err := limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+	if err != nil {
+		return nil, nil, err
+	}
+	lamport := &LamportCounter{}
+	buffer := NewObservationBuffer[EnqueuedTriggerEvent](lamport)
+	q, err := NewOCRQueue(OCRQueueDeps{Inner: inner, Buffer: buffer})
+	if err != nil {
+		return nil, nil, err
+	}
+	return q, buffer, nil
 }
 
-func (q *OCRQueue[T]) Limit(ctx context.Context) (int, error) {
+func (q *OCRQueue) Limit(ctx context.Context) (int, error) {
 	return q.inner.Limit(ctx)
 }
 
-func (q *OCRQueue[T]) Len(ctx context.Context) (int, error) {
+func (q *OCRQueue) Len(ctx context.Context) (int, error) {
 	return q.inner.Len(ctx)
 }
 
-func (q *OCRQueue[T]) Put(ctx context.Context, event T) error {
+func (q *OCRQueue) Put(ctx context.Context, event EnqueuedTriggerEvent) error {
 	q.buffer.Add(event)
 	return nil
 }
 
-func (q *OCRQueue[T]) Get(ctx context.Context) (T, error) {
+func (q *OCRQueue) Get(ctx context.Context) (EnqueuedTriggerEvent, error) {
 	return q.inner.Get(ctx)
 }
 
-func (q *OCRQueue[T]) Wait(ctx context.Context) (T, error) {
+func (q *OCRQueue) Wait(ctx context.Context) (EnqueuedTriggerEvent, error) {
 	return q.inner.Wait(ctx)
 }
 
-func (q *OCRQueue[T]) Close() error {
+func (q *OCRQueue) Close() error {
 	return q.inner.Close()
 }
 
-func (q *OCRQueue[T]) Run(_ context.Context, fn ObserverFunc[T]) {
-	q.fn = fn
+// TriggerSubjectQueueForWorkflow implements PerWorkflowTriggerSubjectQueue.
+func (q *OCRQueue) TriggerSubjectQueueForWorkflow(workflowID string) SubjectQueueLimiter[EnqueuedTriggerEvent] {
+	return NewOCRTriggerSubjectQueue(q, workflowID)
 }
 
-func (q *OCRQueue[T]) Observe(ctx context.Context, event T) {
-	q.fn(ctx, event)
+// RegisterObserver stores the callback used when DispatchConsensusEvent receives an event for wid.
+func (q *OCRQueue) RegisterObserver(wid string, fn ObserverFunc[EnqueuedTriggerEvent]) {
+	if wid == "" {
+		return
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.observers == nil {
+		q.observers = make(map[string]ObserverFunc[EnqueuedTriggerEvent])
+	}
+	q.observers[wid] = fn
+}
+
+// UnregisterObserver removes the callback for wid.
+func (q *OCRQueue) UnregisterObserver(wid string) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	delete(q.observers, wid)
+}
+
+// DispatchConsensusEvent delivers a post-consensus event to the registered observer for ev.WorkflowID().
+func (q *OCRQueue) DispatchConsensusEvent(ctx context.Context, ev EnqueuedTriggerEvent) {
+	q.mu.RLock()
+	fn := q.observers[ev.WorkflowID()]
+	q.mu.RUnlock()
+	if fn != nil {
+		fn(ctx, ev)
+	}
+}
+
+// Buffer returns the observation buffer used by the OCR 3.1 plugin factory.
+func (q *OCRQueue) Buffer() *ObservationBuffer[EnqueuedTriggerEvent] {
+	return q.buffer
+}
+
+// ocrTriggerSubjectQueue wraps a shared OCRQueue for one workflow: Run registers the observer; queue ops delegate.
+type ocrTriggerSubjectQueue struct {
+	shared     *OCRQueue
+	workflowID string
+}
+
+// NewOCRTriggerSubjectQueue returns a SubjectQueueLimiter that shares one OCRQueue but binds Run to workflowID.
+func NewOCRTriggerSubjectQueue(shared *OCRQueue, workflowID string) SubjectQueueLimiter[EnqueuedTriggerEvent] {
+	return &ocrTriggerSubjectQueue{shared: shared, workflowID: workflowID}
+}
+
+func (q *ocrTriggerSubjectQueue) Limit(ctx context.Context) (int, error) {
+	return q.shared.Limit(ctx)
+}
+
+func (q *ocrTriggerSubjectQueue) Len(ctx context.Context) (int, error) {
+	return q.shared.Len(ctx)
+}
+
+func (q *ocrTriggerSubjectQueue) Put(ctx context.Context, event EnqueuedTriggerEvent) error {
+	return q.shared.Put(ctx, event)
+}
+
+func (q *ocrTriggerSubjectQueue) Get(ctx context.Context) (EnqueuedTriggerEvent, error) {
+	return q.shared.Get(ctx)
+}
+
+func (q *ocrTriggerSubjectQueue) Wait(ctx context.Context) (EnqueuedTriggerEvent, error) {
+	return q.shared.Wait(ctx)
+}
+
+func (q *ocrTriggerSubjectQueue) Close() error {
+	return nil
+}
+
+func (q *ocrTriggerSubjectQueue) Run(ctx context.Context, observeFn ObserverFunc[EnqueuedTriggerEvent]) {
+	q.shared.RegisterObserver(q.workflowID, observeFn)
+	defer q.shared.UnregisterObserver(q.workflowID)
+	<-ctx.Done()
+}
+
+func (q *ocrTriggerSubjectQueue) EvictTenant(tenant string) error {
+	if tenant == q.workflowID {
+		q.shared.UnregisterObserver(tenant)
+	}
+
+	return limits.TryEvictTenant(q.shared, tenant)
 }

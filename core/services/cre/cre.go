@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/triggerqueue"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -874,9 +875,27 @@ func newWorkflowRegistrySyncerV2(
 
 	engineRegistry := syncerV2.NewEngineRegistry()
 
-	engineLimiters, err := v2.NewLimiters(lf, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+	var engineLimiters *v2.EngineLimiters
+	if cfg.CRE().OCRTriggerQueuePOC() {
+		sharedOCR, obsBuffer, err := v2.NewSharedOCRTriggerQueueForPOC(lf, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not create shared OCR trigger queue: %w", err)
+		}
+		// Transmitter is the OCR 3.1 ContractTransmitter; when the oracle is started it will call this after consensus.
+		txm := triggerqueue.NewTransmitter(func(ctx context.Context, ev v2.EnqueuedTriggerEvent) {
+			sharedOCR.DispatchConsensusEvent(ctx, ev)
+		}, lggr)
+		_ = txm       // wired into libocr2.NewOracle(oracleArgs) when OCR trigger queue is enabled on the delegate
+		_ = obsBuffer // same buffer passed to triggerqueue.NewFactory for ReportingPlugin.Observation
+		engineLimiters, err = v2.NewLimiters(lf, nil, v2.WithSharedOCRQueue(sharedOCR))
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+		}
+	} else {
+		engineLimiters, err = v2.NewLimiters(lf, nil)
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
+		}
 	}
 
 	featureFlags, err := v2.NewFeatureFlags(lf, nil)

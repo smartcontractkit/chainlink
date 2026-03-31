@@ -45,6 +45,13 @@ func (c *creConfig) DebugMode() bool {
 	return *c.c.DebugMode
 }
 
+func (c *creConfig) OCRTriggerQueuePOC() bool {
+	if c.c.OCRTriggerQueuePOC == nil {
+		return false
+	}
+	return *c.c.OCRTriggerQueuePOC
+}
+
 type workflowFetcherConfig struct {
 	url string
 }

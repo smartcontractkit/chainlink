@@ -30,7 +30,7 @@ import (
 )
 
 // EnqueuedTriggerEvent is the type queued for workflow trigger execution.
-// workflowID is used by ConsensusEventDispatcher to route to the correct engine.
+// workflowID is used to route post-consensus delivery (OCRQueue.DispatchConsensusEvent) and scoped limiters.
 // Implements Identifiable for use with generic ObservationBuffer and OCRQueue.
 type EnqueuedTriggerEvent interface {
 	ID() string
@@ -41,11 +41,10 @@ type EnqueuedTriggerEvent interface {
 	Event() commoncap.TriggerResponse
 }
 
-// ConsensusEventReceiver is implemented by engines that handle OCR-delivered trigger events
-// (callback path). Registry entries are stored as services.Service; assert to this interface
-// to route consensus events without a concrete *Engine dependency in the syncer package.
-type ConsensusEventReceiver interface {
-	OnConsensusEvent(ctx context.Context, event EnqueuedTriggerEvent) error
+// PerWorkflowTriggerSubjectQueue builds a SubjectQueueLimiter for one workflow when a shared backend
+// (e.g. node-wide OCR queue) must bind Run/handleTriggerEvent per workflowID. Nil when using the default local queue.
+type PerWorkflowTriggerSubjectQueue interface {
+	TriggerSubjectQueueForWorkflow(workflowID string) SubjectQueueLimiter[EnqueuedTriggerEvent]
 }
 
 // TriggerQueueDeps holds dependencies for creating the OCR-backed trigger queue.
@@ -119,7 +118,7 @@ type EngineLimiters struct {
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
-	TriggerEventQueue        SubjectQueueLimiter[enqueuedTriggerEvent]
+	TriggerEventQueue        SubjectQueueLimiter[EnqueuedTriggerEvent]
 	TriggerEventQueueTime    limits.TimeLimiter
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
@@ -143,16 +142,38 @@ type EngineLimiters struct {
 	SecretsCalls          limits.BoundLimiter[int]
 
 	ExecutionTimestampsEnabled limits.GateLimiter
+
+	// PerWorkflowTrigger is set when TriggerEventQueue is backed by a shared queue that needs a
+	// per-workflow SubjectQueueLimiter (template uses empty workflowID; syncer clones via TriggerSubjectQueueForWorkflow).
+	PerWorkflowTrigger PerWorkflowTriggerSubjectQueue
+}
+
+// LimitersOption configures NewLimiters.
+type LimitersOption func(*limitersInit)
+
+type limitersInit struct {
+	sharedOCR *OCRQueue
+}
+
+// WithSharedOCRQueue uses a shared OCRQueue (OCR POC) instead of a per-node local SubjectQueueLimiter.
+func WithSharedOCRQueue(q *OCRQueue) LimitersOption {
+	return func(li *limitersInit) {
+		li.sharedOCR = q
+	}
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
-func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineLimiters, error) {
+func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows), opts ...LimitersOption) (*EngineLimiters, error) {
+	li := &limitersInit{}
+	for _, o := range opts {
+		o(li)
+	}
 	l := &EngineLimiters{}
-	err := l.init(lf, cfgFn)
+	err := l.init(lf, cfgFn, li)
 	return l, err
 }
 
-func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows), li *limitersInit) (err error) {
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -174,12 +195,17 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 		return
 	}
 
-	var ql limits.QueueLimiter[enqueuedTriggerEvent]
-	ql, err = limits.MakeQueueLimiter[enqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
-	if err != nil {
-		return
+	if li != nil && li.sharedOCR != nil {
+		l.PerWorkflowTrigger = li.sharedOCR
+		l.TriggerEventQueue = li.sharedOCR.TriggerSubjectQueueForWorkflow("")
+	} else {
+		var ql limits.QueueLimiter[EnqueuedTriggerEvent]
+		ql, err = limits.MakeQueueLimiter[EnqueuedTriggerEvent](lf, cfg.TriggerEventQueueLimit)
+		if err != nil {
+			return
+		}
+		l.TriggerEventQueue = newLocalQueue(ql)
 	}
-	l.TriggerEventQueue = newLocalQueue(ql)
 
 	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
 	if err != nil {

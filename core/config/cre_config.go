@@ -12,6 +12,9 @@ type CRE interface {
 	// DebugMode returns true if debug mode is enabled for workflow engines.
 	// When enabled, additional OTel tracing and logging is performed.
 	DebugMode() bool
+	// OCRTriggerQueuePOC enables the shared OCR-backed trigger queue wiring (observation buffer + transmitter).
+	// Not for production; used while the OCR 3.1 trigger queue is under development.
+	OCRTriggerQueuePOC() bool
 	LocalSecrets() map[string]string
 }
 

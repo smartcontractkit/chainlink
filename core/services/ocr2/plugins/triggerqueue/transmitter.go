@@ -8,22 +8,22 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 var _ ocr3types.ContractTransmitter[[]byte] = (*Transmitter)(nil)
 
 // Transmitter receives OCR consensus reports and delivers decoded trigger events via callback.
-// No on-chain transmit; reports are consumed locally and routed to the ConsensusEventReceiver.
+// No on-chain transmit; reports are consumed locally (e.g. OCRQueue.DispatchConsensusEvent).
 type Transmitter struct {
 	receiver v2.ObserverFunc[v2.EnqueuedTriggerEvent]
 	lggr     logger.Logger
 }
 
-// NewTransmitter creates a transmitter that decodes reports and calls receiver.OnConsensusEvent.
+// NewTransmitter creates a transmitter that decodes reports and invokes receiver for each consensus event.
 func NewTransmitter(receiver v2.ObserverFunc[v2.EnqueuedTriggerEvent], lggr logger.Logger) *Transmitter {
-	return &Transmitter{receiver: receiver, lggr: lggr.Named("TriggerQueueTransmitter")}
+	return &Transmitter{receiver: receiver, lggr: logger.Named(lggr, "TriggerQueueTransmitter")}
 }
 
 // decodedTriggerEvent is the result of decoding a report
