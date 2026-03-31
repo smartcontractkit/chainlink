@@ -289,9 +289,7 @@ func (r *Relayer) Close() error {
 		defer cancel()
 
 		err := r.capabilitiesRegistry.Remove(ctx, r.triggerCapability.ID)
-		if err != nil {
-			return err
-		}
+		r.lggr.Errorw("Failed to remove trigger capability", "err", err)
 	}
 	if r.pluginConfigEmitter != nil {
 		cs = append(cs, r.pluginConfigEmitter)
