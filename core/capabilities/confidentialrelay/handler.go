@@ -354,12 +354,20 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
 	}
 
+	referenceID := params.ReferenceID
+	if referenceID == "" {
+		referenceID = req.ID
+	}
+
 	capReq := capabilities.CapabilityRequest{
 		Payload:      sdkReq.Payload,
 		Method:       sdkReq.Method,
 		CapabilityId: params.CapabilityID,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowID: params.WorkflowID,
+			WorkflowID:          params.WorkflowID,
+			WorkflowOwner:       params.Owner,
+			WorkflowExecutionID: params.ExecutionID,
+			ReferenceID:         referenceID,
 		},
 	}
 
