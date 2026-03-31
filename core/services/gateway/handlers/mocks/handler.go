@@ -4,15 +4,11 @@ package mocks
 
 import (
 	context "context"
-
-	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-
-	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
-
 	json "encoding/json"
 
 	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
+	api "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	handlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	mock "github.com/stretchr/testify/mock"
 )
 
