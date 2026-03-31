@@ -155,6 +155,19 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
 			}
 
+			donCapabilityConfigs := cloneCapabilityConfigsShallowCopyConfigMaps(input.CapabilityConfigs)
+			enrichCtx := enricher.CapabilityConfigEnrichParams{
+				Env:     deps.Env,
+				DonName: donName,
+				P2PIDs:  p2pIDs,
+				Configs: donCapabilityConfigs,
+			}
+			for _, e := range enricher.DefaultCapabilityConfigEnrichers() {
+				if err := e.Enrich(enrichCtx); err != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("enrich capability configs for DON %s: %w", donName, err)
+				}
+			}
+
 			updateNodesReport, err := operations.ExecuteOperation(
 				b,
 				contracts.UpdateNodes,
@@ -171,19 +184,6 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			)
 			if err != nil {
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to update nodes for DON %s: %w", donName, err)
-			}
-
-			donCapabilityConfigs := cloneCapabilityConfigsShallowCopyConfigMaps(input.CapabilityConfigs)
-			enrichCtx := enricher.CapabilityConfigEnrichContext{
-				Env:     deps.Env,
-				DonName: donName,
-				P2PIDs:  p2pIDs,
-				Configs: donCapabilityConfigs,
-			}
-			for _, e := range enricher.DefaultCapabilityConfigEnrichers() {
-				if err := e.Enrich(enrichCtx); err != nil {
-					return AddCapabilitiesOutput{}, fmt.Errorf("enrich capability configs for DON %s: %w", donName, err)
-				}
 			}
 
 			updateDonReport, err := operations.ExecuteOperation(

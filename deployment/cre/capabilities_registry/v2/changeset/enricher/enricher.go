@@ -20,7 +20,7 @@ import (
 
 // DonCapabilityEnrichContext carries shared inputs for per-DON capability config enrichment.
 // Extend with new fields when additional enrichers need them; enrichers ignore unused fields.
-type CapabilityConfigEnrichContext struct {
+type CapabilityConfigEnrichParams struct {
 	Env     *cldf.Environment
 	DonName string
 	P2PIDs  []p2pkey.PeerID
@@ -30,7 +30,7 @@ type CapabilityConfigEnrichContext struct {
 
 // DonCapabilityEnricher applies chain- or capability-specific changes to Config (e.g. specConfig).
 type CapabilityConfigEnricher interface {
-	Enrich(ctx CapabilityConfigEnrichContext) error
+	Enrich(ctx CapabilityConfigEnrichParams) error
 }
 
 func DefaultCapabilityConfigEnrichers() []CapabilityConfigEnricher {
@@ -43,7 +43,7 @@ func DefaultCapabilityConfigEnrichers() []CapabilityConfigEnricher {
 
 type aptosDonEnricher struct{}
 
-func (aptosDonEnricher) Enrich(ctx CapabilityConfigEnrichContext) error {
+func (aptosDonEnricher) Enrich(ctx CapabilityConfigEnrichParams) error {
 	for i := range ctx.Configs {
 		sel, isAptos, parseErr := parseAptosChainSelectorFromCapabilityID(ctx.Configs[i].Capability.CapabilityID)
 		if parseErr != nil {
