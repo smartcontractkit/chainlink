@@ -65,15 +65,24 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 
 	orgID = strings.TrimSpace(orgID)
 	workflowOwner = strings.TrimSpace(workflowOwner)
-	if orgID != "" {
-		if workflowOwner == "" {
+	if workflowOwner == "" {
+		if orgID != "" {
 			return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
 		}
-		if l.orgResolver == nil {
+
+		l.lggr.Errorw("missing workflow owner for org_id resolution")
+		return LinkedVaultRequestIdentity{}, errors.New("workflow owner is required when org_id is missing")
+	}
+	if l.orgResolver == nil {
+		if orgID != "" {
 			l.lggr.Errorw("cannot verify org_id without org resolver", "orgID", orgID, "workflowOwner", workflowOwner)
 			return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when workflow owner is provided")
 		}
+		l.lggr.Errorw("cannot resolve org_id without org resolver", "workflowOwner", workflowOwner)
+		return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when org_id is missing")
+	}
 
+	if orgID != "" {
 		resolvedOrgID, err := l.orgResolver.Get(ctx, workflowOwner)
 		if err != nil {
 			l.lggr.Errorw("failed to verify workflow owner against org_id", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
@@ -90,15 +99,6 @@ func (l *OrgIDToWorkflowOwnerLinker) Link(ctx context.Context, orgID string, wor
 		}
 
 		return LinkedVaultRequestIdentity{OrgID: orgID, WorkflowOwner: workflowOwner}, nil
-	}
-
-	if workflowOwner == "" {
-		l.lggr.Errorw("missing workflow owner for org_id resolution")
-		return LinkedVaultRequestIdentity{}, errors.New("workflow owner is required when org_id is missing")
-	}
-	if l.orgResolver == nil {
-		l.lggr.Errorw("cannot resolve org_id without org resolver", "workflowOwner", workflowOwner)
-		return LinkedVaultRequestIdentity{}, errors.New("org resolver is required when org_id is missing")
 	}
 
 	resolvedOrgID, resolveErr := l.orgResolver.Get(ctx, workflowOwner)

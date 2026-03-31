@@ -436,7 +436,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	return dons, nil
 }
 
-func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
+func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -445,6 +445,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 	if dErr != nil {
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
+	var capReg CapabilitiesRegistry
 	if !input.WithV2Registries {
 		for _, don := range dons.donsOrderedByID() {
 			for i, cap := range don.Capabilities {
@@ -478,7 +479,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
 		}
 
-		capReg, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+		capRegContract, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 			input.CldEnv.DataStore.Addresses(),
 			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 			input.CapabilitiesRegistryAddress.Hex(),
@@ -486,33 +487,40 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		if cErr != nil {
 			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 		}
-		return &registryWrapper{V1: capReg.Contract}, nil
+		capReg = &registryWrapper{V1: capRegContract.Contract}
+	} else {
+		// Transform dons data to V2 sequence input format
+		v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.ExtraSignerFamilies)
+		_, seqErr := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
+			cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
+				Env: input.CldEnv,
+			},
+			v2Input,
+		)
+		if seqErr != nil {
+			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+		}
+
+		capRegContract, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+			input.CldEnv.DataStore.Addresses(),
+			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+			input.CapabilitiesRegistryAddress.Hex(),
+		)
+		if cErr != nil {
+			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
+		}
+
+		capReg = &registryWrapper{V2: capRegContract.Contract}
 	}
 
-	// Transform dons data to V2 sequence input format
-	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.ExtraSignerFamilies)
-	_, seqErr := operations.ExecuteSequence(
-		input.CldEnv.OperationsBundle,
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
-			Env: input.CldEnv,
-		},
-		v2Input,
-	)
-	if seqErr != nil {
-		return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+	// TODO: remove this once the race condition is fixed (CRE-2684)
+	if waitErr := waitForWorkflowWorkersCapabilityRegistrySync(ctx, input); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for workflow nodes to sync capability registry state")
 	}
 
-	capReg, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
-		input.CldEnv.DataStore.Addresses(),
-		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
-		input.CapabilitiesRegistryAddress.Hex(),
-	)
-	if cErr != nil {
-		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
-	}
-
-	return &registryWrapper{V2: capReg.Contract}, nil
+	return capReg, nil
 }
 
 type DonInfo struct {

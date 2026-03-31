@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"text/template"
 
 	"dario.cat/mergo"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -22,6 +24,7 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 )
 
 const flag = cre.LogEventTriggerCapability
@@ -81,8 +84,6 @@ func (o *LogEventTrigger) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	specs := make(map[string][]string)
-
 	var nodeSet cre.NodeSetWithCapabilityConfigs
 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
 		if ns.GetName() == don.Name {
@@ -99,71 +100,96 @@ func (o *LogEventTrigger) PostEnvStartup(
 		return fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
 
-	for _, chainID := range enabledChainIDs {
-		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
-		if resolveErr != nil {
-			return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
-		}
+	results := make([]map[string][]string, len(enabledChainIDs))
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(jobhelpers.Parallelism(len(enabledChainIDs)))
 
-		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
-		if cErr != nil {
-			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
-		}
-
-		templateData := capabilityConfig.Values
-		templateData["ChainID"] = chainID
-
-		tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
-		if tmplErr != nil {
-			return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
-		}
-
-		var configBuffer bytes.Buffer
-		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-			return errors.Wrapf(err, "failed to execute %s config template", flag)
-		}
-		configStr := configBuffer.String()
-
-		if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-			return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
-		}
-
-		workerInput := cre_jobs.ProposeJobSpecInput{
-			Domain:      offchain.ProductLabel,
-			Environment: cre.EnvironmentName,
-			DONName:     don.Name,
-			JobName:     fmt.Sprintf("log-event-trigger-worker-%d", chainID),
-			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: don.Name},
-			},
-			Template: job_types.LogEventTrigger,
-			Inputs: job_types.JobSpecInput{
-				"command": command,
-				"config":  configStr,
-			},
-		}
-
-		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-		if workerVerErr != nil {
-			return fmt.Errorf("precondition verification failed for Log Event Trigger worker job: %w", workerVerErr)
-		}
-
-		workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
-		if workerErr != nil {
-			return fmt.Errorf("failed to propose Log Event Trigger worker job spec: %w", workerErr)
-		}
-
-		for _, r := range workerReport.Reports {
-			out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
-			if !ok {
-				return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+	for i, chainID := range enabledChainIDs {
+		group.Go(func() error {
+			capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+			if resolveErr != nil {
+				return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
 			}
-			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-			if mErr != nil {
-				return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+
+			command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get command for Read Contract capability")
 			}
-		}
+
+			templateData := maps.Clone(capabilityConfig.Values)
+			templateData["ChainID"] = chainID
+
+			tmpl, tmplErr := template.New(flag + "-config").Parse(configTemplate)
+			if tmplErr != nil {
+				return errors.Wrapf(tmplErr, "failed to parse %s config template", flag)
+			}
+
+			var configBuffer bytes.Buffer
+			if executeErr := tmpl.Execute(&configBuffer, templateData); executeErr != nil {
+				return errors.Wrapf(executeErr, "failed to execute %s config template", flag)
+			}
+			configStr := configBuffer.String()
+
+			if validateErr := credon.ValidateTemplateSubstitution(configStr, flag); validateErr != nil {
+				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, validateErr, configStr)
+			}
+
+			workerInput := cre_jobs.ProposeJobSpecInput{
+				Domain:      offchain.ProductLabel,
+				Environment: cre.EnvironmentName,
+				DONName:     don.Name,
+				JobName:     fmt.Sprintf("log-event-trigger-worker-%d", chainID),
+				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: don.Name},
+				},
+				Template: job_types.LogEventTrigger,
+				Inputs: job_types.JobSpecInput{
+					"command": command,
+					"config":  configStr,
+				},
+			}
+
+			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+			if workerVerErr != nil {
+				return fmt.Errorf("precondition verification failed for Log Event Trigger worker job: %w", workerVerErr)
+			}
+
+			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+			if workerErr != nil {
+				return fmt.Errorf("failed to propose Log Event Trigger worker job spec: %w", workerErr)
+			}
+
+			specs := make(map[string][]string)
+			for _, r := range workerReport.Reports {
+				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+				if !ok {
+					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+				}
+				mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+				if mErr != nil {
+					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+				}
+			}
+
+			select {
+			case <-groupCtx.Done():
+				return groupCtx.Err()
+			default:
+			}
+
+			results[i] = specs
+			return nil
+		})
+	}
+
+	if wErr := group.Wait(); wErr != nil {
+		return wErr
+	}
+
+	specs, mErr := jobhelpers.MergeSpecsByIndex(results)
+	if mErr != nil {
+		return mErr
 	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
