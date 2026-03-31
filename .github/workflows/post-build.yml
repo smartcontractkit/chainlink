@@ -20,7 +20,6 @@ on:
 permissions:
     actions: read
     checks: write
-    pull-requests: write
     id-token: write
     contents: read
 
