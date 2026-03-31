@@ -514,6 +514,99 @@ func createSolSigner(t *testing.T) (*ecdsa.PrivateKey, common.Address) {
 	return key, crypto.PubkeyToAddress(*publicKey)
 }
 
+func TestSetConfigMCMSV2WithTimelockQualifier(t *testing.T) {
+	t.Parallel()
+
+	selector := chain_selectors.TEST_90000001.Selector
+	cllccipQualifier := "CLLCCIP"
+	rmnmcmsQualifier := "RMNMCMS"
+
+	rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithLogger(logger.Test(t)),
+	))
+	require.NoError(t, err)
+
+	// Deploy two MCMS instances on the same chain with different qualifiers,
+	// mirroring the production setup where each chain has CLLCCIP and RMNMCMS deployments
+	cllccipConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	cllccipConfig.Qualifier = &cllccipQualifier
+
+	rmnmcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
+	rmnmcmsConfig.Qualifier = &rmnmcmsQualifier
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			selector: cllccipConfig,
+		}),
+	)
+	require.NoError(t, err)
+
+	err = rt.Exec(
+		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
+			selector: rmnmcmsConfig,
+		}),
+	)
+	require.NoError(t, err)
+
+	// Load state via the CLLCCIP qualifier to build a valid proposer config
+	cllccipState, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(rt.Environment(), []uint64{selector}, cllccipQualifier)
+	require.NoError(t, err)
+	require.NotNil(t, cllccipState[selector])
+
+	cfgProposer := proposalutils.SingleGroupMCMSV2(t)
+	cfgProposer.Signers = append(cfgProposer.Signers, cllccipState[selector].Timelock.Address())
+	cfgProposer.Quorum = 2
+
+	for _, tt := range []struct {
+		name      string
+		qualifier string
+		wantErr   string
+	}{
+		{
+			name:      "CLLCCIP qualifier matches qualified deployment",
+			qualifier: "CLLCCIP",
+		},
+		{
+			name:      "RMNMCMS qualifier matches qualified deployment",
+			qualifier: "RMNMCMS",
+		},
+		{
+			name:      "no qualifier fails with duplicate MCMS instances",
+			qualifier: "",
+			wantErr:   "found more than one instance",
+		},
+		{
+			name:      "non-existent qualifier fails",
+			qualifier: "does-not-exist",
+			wantErr:   "no addresses found",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mcmsCfg := commonchangeset.MCMSConfigV2{
+				ProposalConfig: &proposalutils.TimelockConfig{
+					MinDelay: 0,
+					TimelockQualifierPerChain: map[uint64]string{
+						selector: tt.qualifier,
+					},
+				},
+				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
+					selector: {
+						Proposer: &cfgProposer,
+					},
+				},
+			}
+			err := mcmsCfg.Validate(rt.Environment(), []uint64{selector})
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestSetConfigMCMSV2Partial(t *testing.T) {
 	t.Parallel()
 

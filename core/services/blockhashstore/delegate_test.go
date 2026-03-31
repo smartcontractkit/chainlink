@@ -2,6 +2,7 @@ package blockhashstore_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 	"time"
 
@@ -12,9 +13,10 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -39,7 +41,6 @@ func TestDelegate_JobType(t *testing.T) {
 }
 
 type testData struct {
-	ethClient    *clienttest.Client
 	ethKeyStore  keystore.Eth
 	legacyChains legacyevm.LegacyChainContainer
 	sendingKey   ethkey.KeyV2
@@ -50,16 +51,17 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	t.Helper()
 
 	lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.TestLogger(t))
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db).Eth()
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
-	lp := &lpmocks.LogPoller{}
-	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
+	lp := lpmocks.NewLogPoller(t)
+	servicetest.SetupNoOpMock(lp)
+	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil).Maybe()
 
 	legacyChains := evmtest.NewLegacyChains(
 		t,
@@ -75,7 +77,6 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 		},
 	)
 	return blockhashstore.NewDelegate(cfg, lggr, legacyChains, kst), &testData{
-		ethClient:    ethClient,
 		ethKeyStore:  kst,
 		legacyChains: legacyChains,
 		sendingKey:   sendingKey,

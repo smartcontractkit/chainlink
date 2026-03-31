@@ -490,6 +490,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+ReadRequestsToMultipleNodes = false
 Bundles = false
 
 [EVM.BalanceMonitor]

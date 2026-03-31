@@ -32,16 +32,11 @@ on:
           "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
         required: false
         type: string
-      extraArgs:
-        required: false
-        type: string
-        default: ''
-        description: "JSON of extra arguments for the workflow."
 
 jobs:
   call-nightly-run-e2e-tests-workflow:
     name: Run Integration In-Memory Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@f3caa3782440b436ecc5375ef1b5ae408db636ef
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/integration-in-memory-tests.yml
@@ -51,7 +46,6 @@ jobs:
       slack_notification_after_tests_name: Nightly Integration CCIP Tests
       require_chainlink_image_versions_in_qa_ecr: ${{ inputs.require_chainlink_image_versions_in_qa_ecr || '' }}
       require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
-      extraArgs: ${{ inputs.extraArgs }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

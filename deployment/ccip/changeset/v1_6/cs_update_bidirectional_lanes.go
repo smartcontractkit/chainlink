@@ -446,33 +446,5 @@ func resolveUpdateLanesFeeQuoterAddressAndVersion(
 	addresses []datastore.AddressRef,
 	chainSel uint64,
 ) (common.Address, semver.Version, error) {
-	// Find the FeeQuoter with the highest version for this chain
-	var bestRef datastore.AddressRef
-	var bestVersion *semver.Version
-
-	for _, ref := range addresses {
-		if ref.ChainSelector != chainSel {
-			continue
-		}
-		if ref.Type != datastore.ContractType(fqv2ops.ContractType) {
-			continue
-		}
-		if ref.Version == nil {
-			continue
-		}
-		if bestVersion == nil || ref.Version.GreaterThan(bestVersion) {
-			bestVersion = ref.Version
-			bestRef = ref
-		}
-	}
-
-	if bestVersion == nil {
-		return common.Address{}, semver.Version{}, fmt.Errorf("no fee quoter address found for chain %d", chainSel)
-	}
-
-	if !common.IsHexAddress(bestRef.Address) {
-		return common.Address{}, semver.Version{}, fmt.Errorf("invalid fee quoter address %q for chain %d", bestRef.Address, chainSel)
-	}
-
-	return common.HexToAddress(bestRef.Address), *bestVersion, nil
+	return shared.ResolveFeeQuoterAddressAndVersion(addresses, chainSel)
 }

@@ -1,6 +1,7 @@
 package llo
 
 import (
+	crand "crypto/rand"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -15,8 +16,7 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var _ Key = &mockKey{}
@@ -63,7 +63,7 @@ func (m *mockKey) reset(format llotypes.ReportFormat) {
 }
 
 func Test_Keyring(t *testing.T) {
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 
 	ks := map[llotypes.ReportFormat]Key{
 		llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
@@ -87,7 +87,7 @@ func Test_Keyring(t *testing.T) {
 		},
 	}
 
-	cd, err := ocrtypes.BytesToConfigDigest(testutils.MustRandBytes(32))
+	cd, err := ocrtypes.BytesToConfigDigest(mustRandBytes(32))
 	require.NoError(t, err)
 	seqNr := rand.Uint64N(math.MaxUint32 << 8)
 	t.Run("Sign+Verify", func(t *testing.T) {
@@ -118,4 +118,13 @@ func Test_Keyring(t *testing.T) {
 		}
 		assert.Equal(t, types.OnchainPublicKey(b), kr.PublicKey())
 	})
+}
+
+func mustRandBytes(n int) (b []byte) {
+	b = make([]byte, n)
+	_, err := crand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

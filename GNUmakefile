@@ -115,6 +115,7 @@ install-plugins-local: ## Build & install local plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
 
 .PHONY: docker ## Build the chainlink docker image
+docker: DOCKER_TAG=develop
 docker:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -124,19 +125,22 @@ docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f core/chainlink.Dockerfile . \
-	-t chainlink:develop \
+	-t chainlink:$(DOCKER_TAG) \
 	--load
 
 .PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip: DOCKER_TAG=latest
 docker-ccip:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:$(DOCKER_TAG)
 
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
@@ -146,6 +150,7 @@ docker-ccip:
 # Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
 comma := ,
 .PHONY: docker-plugins ## Build the EXPERIMENTAL chainlink-plugins docker image
+docker-plugins: DOCKER_TAG=latest
 docker-plugins:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -155,11 +160,12 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile . \
-	-t chainlink-plugins:latest
+	-t chainlink-plugins:$(DOCKER_TAG)
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend

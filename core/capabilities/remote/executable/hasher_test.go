@@ -2,6 +2,7 @@ package executable
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -106,6 +107,31 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 	require.NotEqual(t, hash1, hash3) // different data should produce different hash
 }
 
+func TestSimpleHasher_ExcludesExecutionTimestamp(t *testing.T) {
+	ts1 := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
+	ts2 := time.Date(2025, 7, 20, 8, 30, 0, 0, time.UTC)
+	req1 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
+		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts1,
+	})
+	req2 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
+		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts2,
+	})
+	req3 := getRequestWithMetadata(t, []byte("otherdata"), capabilities.RequestMetadata{
+		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts1,
+	})
+
+	hasher := NewSimpleHasher()
+	hash1, err := hasher.Hash(req1)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(req2)
+	require.NoError(t, err)
+	hash3, err := hasher.Hash(req3)
+	require.NoError(t, err)
+
+	require.Equal(t, hash1, hash2)    // same data, different ExecutionTimestamp should produce same hash
+	require.NotEqual(t, hash1, hash3) // different data should produce different hash
+}
+
 func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
@@ -158,6 +184,27 @@ func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	return &types.MessageBody{
 		Payload:      capReqBytes,
 		CapabilityId: "evm:123",
+	}
+}
+
+func getRequestWithMetadata(t *testing.T, data []byte, md capabilities.RequestMetadata) *types.MessageBody {
+	report := &sdk.ReportResponse{
+		RawReport: data,
+		Sigs:      []*sdk.AttributedSignature{},
+	}
+	wrReq := &evmcappb.WriteReportRequest{
+		Report: report,
+	}
+	wrAny, err := anypb.New(wrReq)
+	require.NoError(t, err)
+	capReq := capabilities.CapabilityRequest{
+		Payload:  wrAny,
+		Metadata: md,
+	}
+	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err)
+	return &types.MessageBody{
+		Payload: capReqBytes,
 	}
 }
 

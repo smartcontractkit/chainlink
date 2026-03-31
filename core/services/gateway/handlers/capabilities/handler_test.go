@@ -31,18 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
 
-const (
-	defaultSendChannelBufferSize = 1000
-	privateKey1                  = "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023f"
-	privateKey2                  = "65456ffb8af4a2b93959256a8e04f6f2fe0943579fb3c9c3350593aabb89023e"
-	triggerID1                   = "5"
-	triggerID2                   = "6"
-	workflowID1                  = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
-	workflowExecutionID1         = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
-	owner1                       = "0x00000000000000000000000000000000000000aa"
-	address1                     = "0x853d51d5d9935964267a5050aC53aa63ECA39bc5"
-)
-
 func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON, []gwcommon.TestNode) {
 	lggr := logger.Test(t)
 	httpClient := mocks.NewHTTPClient(t)
