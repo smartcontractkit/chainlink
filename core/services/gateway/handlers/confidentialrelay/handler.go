@@ -365,11 +365,18 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest,
 
 func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 	switch errorCode {
+	case api.StaleNodeResponseError:
+	case api.FatalError:
+	case api.NodeReponseEncodingError:
+	case api.RequestTimeoutError:
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 			attribute.String("error", errorCode.String()),
 		))
+	case api.InvalidParamsError:
+	case api.UnsupportedMethodError:
+	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
@@ -378,6 +385,8 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
+	case api.ConflictError:
+	case api.LimitExceededError:
 	}
 }
 
@@ -391,6 +400,14 @@ func (h *handler) constructErrorResponse(req jsonrpc.Request[json.RawMessage], e
 		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
 	case api.UserMessageParseError:
 		err = fmt.Errorf("user message parse error: %w", err)
+	case api.NoError:
+	case api.UnsupportedDONIdError:
+	case api.HandlerError:
+	case api.FatalError:
+	case api.RequestTimeoutError:
+	case api.StaleNodeResponseError:
+	case api.ConflictError:
+	case api.LimitExceededError:
 	}
 	return gwhandlers.UserCallbackPayload{
 		RawResponse: h.codec.EncodeNewErrorResponse(
