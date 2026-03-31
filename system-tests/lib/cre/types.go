@@ -729,6 +729,10 @@ func (m *DonMetadata) EVMChains() []uint64 {
 	return m.ns.EVMChains()
 }
 
+func (m *DonMetadata) SolanaChains() []string {
+	return slices.Clone(m.ns.SupportedSolChains)
+}
+
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) || slices.Contains(m.Flags, ConsensusCapabilityV2) ||
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)

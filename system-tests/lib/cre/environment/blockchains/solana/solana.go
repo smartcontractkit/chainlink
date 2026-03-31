@@ -53,6 +53,10 @@ type Blockchain struct {
 	SolanaChainID string
 	PrivateKey    solana.PrivateKey
 	ArtifactsDir  string
+
+	genesisHashOnce sync.Once
+	genesisHash     string
+	genesisHashErr  error
 }
 
 func (s *Blockchain) ChainSelector() uint64 {
@@ -72,6 +76,23 @@ func (s *Blockchain) IsFamily(chainFamily string) bool {
 
 func (s *Blockchain) ChainFamily() string {
 	return s.ctfOutput.Family
+}
+
+func (s *Blockchain) GenesisHash(ctx context.Context) (string, error) {
+	s.genesisHashOnce.Do(func() {
+		genesisHash, err := s.SolClient.GetGenesisHash(ctx)
+		if err != nil {
+			s.genesisHashErr = err
+			return
+		}
+		s.genesisHash = genesisHash.String()
+	})
+
+	if s.genesisHashErr != nil {
+		return "", s.genesisHashErr
+	}
+
+	return s.genesisHash, nil
 }
 
 func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) error {
