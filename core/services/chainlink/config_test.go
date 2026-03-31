@@ -787,8 +787,9 @@ func TestConfig_Marshal(t *testing.T) {
 						Enabled: ptr(false),
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
-						Enabled: ptr(false),
-						Bundles: ptr(false),
+						Enabled:                     ptr(false),
+						ReadRequestsToMultipleNodes: ptr(false),
+						Bundles:                     ptr(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
@@ -904,6 +905,7 @@ func TestConfig_Marshal(t *testing.T) {
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
 				LogPollerCPIEventsEnabled: ptr(true),
+				LogPollerSlotsBatchSize:   ptr[int64](1000),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
@@ -1273,6 +1275,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+ReadRequestsToMultipleNodes = false
 Bundles = false
 
 [EVM.BalanceMonitor]
@@ -1425,6 +1428,7 @@ ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
+LogPollerSlotsBatchSize = 1000
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
@@ -1552,6 +1556,9 @@ func TestConfig_full(t *testing.T) {
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes = ptr(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)

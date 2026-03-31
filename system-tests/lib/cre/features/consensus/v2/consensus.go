@@ -137,7 +137,6 @@ func createJobs(
 	}
 
 	specs := make(map[string][]string)
-
 	// Create node job
 	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
 		return err

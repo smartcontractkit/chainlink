@@ -160,6 +160,25 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
+      
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
+              echo "Service is accessible via Tailscale"
+          else
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
+          fi
+      
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
@@ -214,7 +233,7 @@ jobs:
 
       - name: Upload Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: container-logs-smoke-${{ job.check_run_id }}
           path: ${{ env.LOGS_DIR }}

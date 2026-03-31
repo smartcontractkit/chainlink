@@ -58,7 +58,7 @@ jobs:
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -102,7 +102,7 @@ jobs:
       ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -220,6 +220,7 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
+            cache-scope: core
             # todo: optimize this conditional
             should-build: >-
               ${{
@@ -233,6 +234,7 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
+            cache-scope: plugins
             # todo: optimize this conditional
             should-build: >-
               ${{
@@ -273,7 +275,7 @@ jobs:
 
       - name: Checkout the repo
         if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -292,10 +294,12 @@ jobs:
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
-          go-get-overrides: |
-            github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
+          # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
+          go-get-overrides: >-
+            ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) || '' }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          cache-scope: ${{ matrix.image.cache-scope }}
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
@@ -709,7 +713,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -792,7 +796,7 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -816,7 +820,7 @@ jobs:
           echo "short_sha=${short_sha}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Checkout solana
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana

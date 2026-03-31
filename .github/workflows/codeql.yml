@@ -13,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: [ runner-config ]
+    needs: [runner-config]
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -48,7 +48,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         if: matrix.language == 'go'
@@ -78,7 +78,7 @@ jobs:
       - name: Build go code manually
         if: matrix.language == 'go'
         run: |
-          echo "::group::Builing all go code (go build ./...)"
+          echo "::group::Building all go code (go build ./...)"
           go build ./...
           echo "::endgroup::"
 

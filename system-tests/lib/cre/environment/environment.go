@@ -222,6 +222,7 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs")))
 
 	queue := worker.New(ctx, 10)
 	defer queue.StopAndWait() // Ensure cleanup on any exit path
@@ -343,6 +344,7 @@ func SetupTestEnvironment(
 		CldEnv:        creEnvironment.CldfEnvironment,
 		Blockchains:   deployedBlockchains.Outputs,
 		Topology:      topology,
+		Provider:      input.Provider,
 		CapabilitiesRegistryAddress: ptr.Ptr(crecontracts.MustGetAddressFromMemoryDataStore(
 			deployKeystoneContractsOutput.MemoryDataStore,
 			deployedBlockchains.RegistryChain().ChainSelector(),
@@ -364,7 +366,7 @@ func SetupTestEnvironment(
 	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
 	maps.Copy(capRegInput.DONCapabilityWithConfigs, donsCapabilities)
 
-	capReg, capRegErr := crecontracts.ConfigureCapabilityRegistry(capRegInput)
+	capReg, capRegErr := crecontracts.ConfigureCapabilityRegistry(ctx, capRegInput)
 	if capRegErr != nil {
 		return nil, pkgerrors.Wrap(capRegErr, "failed to configure Capability Registry contracts")
 	}
