@@ -172,11 +172,11 @@ jobs:
         env:
           SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
         run: |
-          curl -v ${SERVICE_URL}
-          if [ $? -eq 0 ]; then
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
               echo "Service is accessible via Tailscale"
           else
-              echo "Failed to reach SOT data source: ${SERVICE_URL}, exit code: $?"
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
           fi
       
       - name: Run compat test
