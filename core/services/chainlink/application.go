@@ -1284,26 +1284,16 @@ func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger
 		return fmt.Errorf("chip ingress client not available")
 	}
 
-	pgStore := beholdersvc.NewPgDurableEventStore(ds)
-	durableCfg := beholder.DefaultDurableEmitterConfig()
-	durableCfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-		RecordProcessStats: true,
-	}
-	durableCfg.PersistCloudEventSources = telem.DurableEmitterPersistSources()
-	durableEmitter, err := beholder.NewDurableEmitter(pgStore, chipClient, durableCfg, lggr)
-	if err != nil {
-		return fmt.Errorf("failed to create durable emitter: %w", err)
-	}
+	emitter := beholdersvc.NewDbEmitter(ds)
 
 	// Build a new DualSourceEmitter: durable chip + OTLP.
 	messageLogger := client.MessageLoggerProvider.Logger("durable-emitter")
 	otlpEmitter := beholder.NewMessageEmitter(messageLogger)
-	dualEmitter, err := beholder.NewDualSourceEmitter(durableEmitter, otlpEmitter)
+	dualEmitter, err := beholder.NewDualSourceEmitter(emitter, otlpEmitter)
 	if err != nil {
 		return fmt.Errorf("failed to create dual source emitter: %w", err)
 	}
 
-	durableEmitter.Start(ctx)
 	client.Emitter = dualEmitter
 
 	switch {
