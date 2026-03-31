@@ -209,6 +209,7 @@ jobs:
     needs: [docker-core, docker-ccip]
     name: Post-Build Actions
     uses: ./.github/workflows/post-build.yml
+    secrets: inherit
     permissions:
       actions: read
       checks: write
