@@ -27,6 +27,7 @@ var (
 	otherAddr = []byte{0xAA, 0xBB, 0xCC}
 	topic1    = []byte{0x01, 0x02, 0x03}
 	topic2    = []byte{0x04, 0x05, 0x06}
+	topic3    = []byte{0x07, 0x08, 0x09}
 )
 
 func makeLog(addr []byte, topics ...[]byte) *evmcappb.Log {
@@ -137,11 +138,39 @@ func TestFakeEVMLogMatchesFilter(t *testing.T) {
 			wantErr:     true,
 			errContains: "log topics length",
 		},
+		{
+			// A real customer scenario: the filter constrains topic0, topic1, and
+			// topic3, but intentionally leaves topic2 as a wildcard (null) so that
+			// any value in that indexed arg position is accepted.  The filter still
+			// must match a log that carries all four topics.
+			name: "wildcard topic2 with constrained topic0, topic1, and topic3",
+			log:  makeLog(testAddr, transferEventSig, topic1, topic2, topic3),
+			filter: makeFilter(testAddr,
+				tv(transferEventSig), // slot 0: event signature
+				tv(topic1),           // slot 1: constrained
+				wildcardTV(),         // slot 2: wildcard — any value accepted
+				tv(topic3),           // slot 3: constrained
+			),
+		},
+		{
+			// Same layout but topic3 on the log does not match the filter value.
+			name: "wildcard topic2 — topic3 mismatch",
+			log:  makeLog(testAddr, transferEventSig, topic1, topic2, topic2 /* wrong topic3 */),
+			filter: makeFilter(testAddr,
+				tv(transferEventSig),
+				tv(topic1),
+				wildcardTV(),
+				tv(topic3),
+			),
+			wantErr:     true,
+			errContains: "log topic 3 does not match",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			
 			err := fakeEVMLogMatchesFilter(tc.log, tc.filter)
 			if tc.wantErr {
 				require.Error(t, err)
