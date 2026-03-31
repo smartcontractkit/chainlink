@@ -253,8 +253,8 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log
 	fc.eng.Debugf("ManualTrigger: %s", log.String())
 
 	if filter, ok := fc.logTriggerFilters[triggerID]; ok && filter != nil {
-		if !fakeEVMLogMatchesFilter(log, filter) {
-			return fmt.Errorf("log does not match registered filter for trigger %s: address or topic mismatch", triggerID)
+		if err := fakeEVMLogMatchesFilter(log, filter); err != nil {
+			return fmt.Errorf("log does not match registered filter for trigger %s: %w", triggerID, err)
 		}
 	}
 
@@ -277,7 +277,7 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log
 //   - Topics: fixed 4-slot array; slot 0 = event signature, slots 1-3 = indexed args.
 //     Within each slot the match is OR (any value matches); across slots it is AND
 //     (all non-empty slots must match). An empty Values slice in a slot is a wildcard.
-func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTriggerRequest) bool {
+func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTriggerRequest) error {
 	if len(filter.GetAddresses()) > 0 {
 		addrMatched := false
 		for _, addr := range filter.GetAddresses() {
@@ -287,7 +287,7 @@ func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTrigge
 			}
 		}
 		if !addrMatched {
-			return false
+			return fmt.Errorf("log address %s does not match any of the addresses in the filter", log.GetAddress())
 		}
 	}
 
@@ -297,7 +297,7 @@ func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTrigge
 			continue // wildcard slot
 		}
 		if i >= len(logTopics) {
-			return false
+			return fmt.Errorf("log topics length %d does not match the filter topics length %d", len(logTopics), len(filter.GetTopics()))
 		}
 		slotMatched := false
 		for _, v := range topicValues.GetValues() {
@@ -307,11 +307,11 @@ func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTrigge
 			}
 		}
 		if !slotMatched {
-			return false
+			return fmt.Errorf("log topic %d does not match any of the values in the filter", i)
 		}
 	}
 
-	return true
+	return nil
 }
 
 func (fc *FakeEVMChain) createManualTriggerEvent(log *evmcappb.Log) commonCap.TriggerAndId[*evmcappb.Log] {
