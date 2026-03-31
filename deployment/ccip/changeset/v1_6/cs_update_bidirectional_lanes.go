@@ -252,7 +252,14 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			v2FeeQuoterChains[chainSel] = struct{}{}
 			continue
 		}
-		v1FeeQuoterDestsUpdates[chainSel] = update
+		filtered, err := FilterOutExistingDestChainConfigs(e, update.Address, chainSel, update.CallInput)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		if len(filtered) > 0 {
+			update.CallInput = filtered
+			v1FeeQuoterDestsUpdates[chainSel] = update
+		}
 	}
 	for chainSel, update := range feeQuoterPricesInput.UpdatesByChain {
 		version, ok := feeQuoterVersionsByChain[chainSel]
@@ -354,35 +361,72 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	return output, nil
 }
 
-// FilterOutExistingDestChainConfigs queries the on-chain v2 FeeQuoter and removes
-// destination chain configs that are already enabled. This prevents overwriting existing
-// configurations during lane updates when a destination was previously configured.
-func FilterOutExistingDestChainConfigs(
+// destChainConfigType constrains the types accepted by FilterOutExistingDestChainConfigs.
+type destChainConfigType interface {
+	fee_quoter.FeeQuoterDestChainConfigArgs | fqv2ops.DestChainConfigArgs
+}
+
+// FilterOutExistingDestChainConfigs removes destination chain configs where the destination
+// is already enabled on-chain. It automatically selects the correct FeeQuoter binding
+// based on the concrete config type.
+func FilterOutExistingDestChainConfigs[T destChainConfigType](
 	e cldf.Environment,
 	fqAddr common.Address,
 	chainSel uint64,
-	destCfgs []fqv2ops.DestChainConfigArgs,
-) ([]fqv2ops.DestChainConfigArgs, error) {
-	fqContract, err := fqv2ops.NewFeeQuoterContract(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bind v2 FeeQuoter on chain %d: %w", chainSel, err)
+	destCfgs []T,
+) ([]T, error) {
+	if len(destCfgs) == 0 {
+		return destCfgs, nil
 	}
-	filtered := make([]fqv2ops.DestChainConfigArgs, 0, len(destCfgs))
+
+	var isDestEnabled func(T) (uint64, bool, error)
+
+	switch any(destCfgs[0]).(type) {
+	case fee_quoter.FeeQuoterDestChainConfigArgs:
+		fq, err := fee_quoter.NewFeeQuoter(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind FeeQuoter on chain %d: %w", chainSel, err)
+		}
+		isDestEnabled = func(cfg T) (uint64, bool, error) {
+			destSel := any(cfg).(fee_quoter.FeeQuoterDestChainConfigArgs).DestChainSelector
+			onChain, err := fq.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destSel)
+			if err != nil {
+				return destSel, false, err
+			}
+			return destSel, onChain.IsEnabled, nil
+		}
+	case fqv2ops.DestChainConfigArgs:
+		fq, err := fqv2ops.NewFeeQuoterContract(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind v2 FeeQuoter on chain %d: %w", chainSel, err)
+		}
+		isDestEnabled = func(cfg T) (uint64, bool, error) {
+			destSel := any(cfg).(fqv2ops.DestChainConfigArgs).DestChainSelector
+			onChain, err := fq.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destSel)
+			if err != nil {
+				return destSel, false, err
+			}
+			return destSel, onChain.IsEnabled, nil
+		}
+	}
+
+	filtered := make([]T, 0, len(destCfgs))
 	for _, destCfg := range destCfgs {
-		existing, err := fqContract.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destCfg.DestChainSelector)
+		destSel, enabled, err := isDestEnabled(destCfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to query existing dest chain config on chain %d for dest %d: %w",
-				chainSel, destCfg.DestChainSelector, err)
+				chainSel, destSel, err)
 		}
-		if existing.IsEnabled {
-			e.Logger.Infow("skipping dest chain config already present on v2 FeeQuoter",
+		if enabled {
+			e.Logger.Infow("skipping dest chain config already present on FeeQuoter",
 				"sourceChain", chainSel,
-				"destChain", destCfg.DestChainSelector,
+				"destChain", destSel,
 			)
 			continue
 		}
 		filtered = append(filtered, destCfg)
 	}
+
 	return filtered, nil
 }
 
