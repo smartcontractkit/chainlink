@@ -285,7 +285,7 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log
 func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTriggerRequest) error {
 	topics := filter.GetTopics()
 	if len(topics) == 0 || len(topics[0].GetValues()) == 0 {
-		return fmt.Errorf("filter is missing topic0 (event signature hash): " +
+		return errors.New("filter is missing topic0 (event signature hash): " +
 			"omitting topic0 would match every event emitted by the contract; " +
 			"set Topics[0] to the keccak256 hash of the event signature")
 	}

@@ -170,7 +170,7 @@ func TestFakeEVMLogMatchesFilter(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			
+
 			err := fakeEVMLogMatchesFilter(tc.log, tc.filter)
 			if tc.wantErr {
 				require.Error(t, err)
