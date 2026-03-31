@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -328,7 +330,79 @@ func TestFindAptosChainByChainID_ErrorsOnTypeMismatch(t *testing.T) {
 	require.ErrorContains(t, err, "unexpected type")
 }
 
+func TestBuildCapabilityRegistrations_UsesCapRegOCRConfig(t *testing.T) {
+	don := testDonMetadataWithCapabilities(t, []string{"[Aptos]\n"}, []string{cre.WriteAptosCapability + "-4"}, cre.CapabilityConfigs{
+		cre.WriteAptosCapability: {
+			BinaryName: "write-aptos",
+			Values: map[string]any{
+				requestTimeoutKey:       "45s",
+				deltaStageKey:           "2500ms",
+				transmissionScheduleKey: "allAtOnce",
+			},
+		},
+	})
+
+	caps, capabilityToOCR3Config, capabilityLabels, err := buildCapabilityRegistrations(
+		don,
+		[]creblockchains.Blockchain{testAptosBlockchain(4, 4457093679053095497)},
+		[]uint64{4},
+		map[string]string{"peer-a": "0x1"},
+	)
+	require.NoError(t, err)
+	require.Len(t, caps, 1)
+	require.Len(t, capabilityLabels, 1)
+	require.True(t, caps[0].UseCapRegOCRConfig)
+	require.Equal(t, CapabilityLabel(4457093679053095497), caps[0].Capability.LabelledName)
+	require.Contains(t, capabilityToOCR3Config, capabilityLabels[0])
+	require.NotNil(t, capabilityToOCR3Config[capabilityLabels[0]])
+}
+
+func TestNewAptosWorkerJobInput_UsesCapRegVersion(t *testing.T) {
+	creEnv := &cre.Environment{
+		RegistryChainSelector: 111,
+		ContractVersions: map[cre.ContractType]*semver.Version{
+			keystone_changeset.CapabilitiesRegistry.String(): semver.MustParse("2.0.0"),
+		},
+	}
+
+	input, err := newAptosWorkerJobInput(
+		creEnv,
+		"workflow-don",
+		"/usr/local/bin/aptos",
+		`{"chainId":"4"}`,
+		[]string{"peer@127.0.0.1:6690"},
+		222,
+		4,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "write-aptos-worker-4", input.JobName)
+	require.Equal(t, true, input.Inputs["useCapRegOCRConfig"])
+	require.Equal(t, "2.0.0", input.Inputs["capRegVersion"])
+	require.Equal(t, uint64(111), input.Inputs["chainSelectorEVM"])
+	require.Equal(t, uint64(222), input.Inputs["chainSelectorAptos"])
+	_, hasQualifier := input.Inputs["contractQualifier"]
+	require.False(t, hasQualifier)
+}
+
+func TestNewAptosWorkerJobInput_ErrorsWithoutCapRegVersion(t *testing.T) {
+	_, err := newAptosWorkerJobInput(
+		&cre.Environment{},
+		"workflow-don",
+		"/usr/local/bin/aptos",
+		`{"chainId":"4"}`,
+		nil,
+		222,
+		4,
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "CapabilitiesRegistry version not found")
+}
+
 func testDonMetadata(t *testing.T, nodeConfigs ...string) *cre.DonMetadata {
+	return testDonMetadataWithCapabilities(t, nodeConfigs, nil, nil)
+}
+
+func testDonMetadataWithCapabilities(t *testing.T, nodeConfigs []string, capabilities []string, capabilityConfigs cre.CapabilityConfigs) *cre.DonMetadata {
 	t.Helper()
 
 	nodeSpecs := make([]*cre.NodeSpecWithRole, len(nodeConfigs))
@@ -342,11 +416,12 @@ func testDonMetadata(t *testing.T, nodeConfigs ...string) *cre.DonMetadata {
 	}
 
 	nodeSet := &cre.NodeSet{
-		Input:     &ns.Input{Name: "aptos-don"},
-		NodeSpecs: nodeSpecs,
+		Input:        &ns.Input{Name: "aptos-don"},
+		NodeSpecs:    nodeSpecs,
+		Capabilities: capabilities,
 	}
 
-	don, err := cre.NewDonMetadata(nodeSet, 1, infra.Provider{Type: infra.Docker}, nil)
+	don, err := cre.NewDonMetadata(nodeSet, 1, infra.Provider{Type: infra.Docker}, capabilityConfigs)
 	require.NoError(t, err)
 	return don
 }

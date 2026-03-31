@@ -10,15 +10,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	creocr3changeset "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
-	creocr3contracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -40,7 +36,6 @@ const (
 	deltaStageKey           = "DeltaStage"
 	transmissionScheduleKey = "TransmissionSchedule"
 	forwarderQualifier      = ""
-	ocr3ContractQualifier   = "aptos_capability_ocr3"
 	zeroForwarderHex        = "0x0000000000000000000000000000000000000000000000000000000000000000"
 	defaultWriteDeltaStage  = 500*time.Millisecond + 1*time.Second
 	defaultRequestTimeout   = 30 * time.Second
@@ -136,10 +131,6 @@ func (a *Aptos) PostEnvStartup(
 	if err != nil {
 		return err
 	}
-	_, _, err = crecontracts.DeployOCR3Contract(testLogger, ocr3ContractQualifier, creEnv.RegistryChainSelector, creEnv.CldfEnvironment, creEnv.ContractVersions)
-	if err != nil {
-		return fmt.Errorf("failed to deploy Aptos OCR3 contract: %w", err)
-	}
 
 	specs, err := proposeAptosWorkerSpecs(ctx, don, dons, creEnv, nodeSet, enabledChainIDs)
 	if err != nil {
@@ -151,33 +142,6 @@ func (a *Aptos) PostEnvStartup(
 	err = crejobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
 	if err != nil {
 		return fmt.Errorf("failed to approve Aptos jobs: %w", err)
-	}
-
-	workers, err := don.Workers()
-	if err != nil {
-		return fmt.Errorf("failed to collect Aptos worker nodes for OCR3 config: %w", err)
-	}
-	workerNodeIDs := make([]string, 0, len(workers))
-	for _, worker := range workers {
-		if worker.JobDistributorDetails == nil {
-			return fmt.Errorf("worker %q is missing job distributor details", worker.Name)
-		}
-		workerNodeIDs = append(workerNodeIDs, worker.JobDistributorDetails.NodeID)
-	}
-
-	_, err = creocr3changeset.ConfigureOCR3{}.Apply(*creEnv.CldfEnvironment, creocr3changeset.ConfigureOCR3Input{
-		ContractChainSelector: creEnv.RegistryChainSelector,
-		ContractQualifier:     ocr3ContractQualifier,
-		DON: creocr3contracts.DonNodeSet{
-			Name:    don.Name,
-			NodeIDs: workerNodeIDs,
-		},
-		OracleConfig:        don.ResolveORC3Config(crecontracts.DefaultChainCapabilityOCR3Config()),
-		DryRun:              false,
-		ExtraSignerFamilies: cre.OCRExtraSignerFamiliesForFamily(chainselectors.FamilyAptos),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to configure Aptos OCR3 contract: %w", err)
 	}
 	return nil
 }
@@ -215,7 +179,7 @@ func buildCapabilityRegistrations(
 				CapabilityType: 1,
 			},
 			Config:             capConfig,
-			UseCapRegOCRConfig: false,
+			UseCapRegOCRConfig: true,
 		})
 		capabilityLabels = append(capabilityLabels, labelledName)
 		capabilityToOCR3Config[labelledName] = crecontracts.DefaultChainCapabilityOCR3Config()
