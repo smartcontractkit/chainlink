@@ -29,6 +29,7 @@ type ObservationMetricsCollector struct {
 	logger         logger.Logger
 	publisher      ObservationMetricsPublisher
 	stop           chan struct{}
+	startOnce      sync.Once
 	stopOnce       sync.Once
 	constantLabels map[string]string // Prometheus labels (for WrapRegistererWith)
 	beholderLabels map[string]string // Beholder labels (for metrics publishing)
@@ -68,22 +69,25 @@ func (c *ObservationMetricsCollector) CreateWrappedRegisterer(baseRegisterer pro
 // and publishes deltas to Beholder, independent of Prometheus scrapes.
 // Call Start after the wrapped registerer has been passed to libocr (i.e. after NewOracle),
 // so that the counters are already registered before the first poll fires.
+// Safe to call multiple times; only the first call starts the goroutine.
 func (c *ObservationMetricsCollector) Start(interval time.Duration) {
 	if interval <= 0 {
 		interval = defaultPollingInterval
 	}
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				c.poll()
-			case <-c.stop:
-				return
+	c.startOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					c.poll()
+				case <-c.stop:
+					return
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // poll reads the current value of each wrapped counter and publishes any delta to Beholder.
