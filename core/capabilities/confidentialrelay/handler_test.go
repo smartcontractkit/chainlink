@@ -182,6 +182,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:   "wf-1",
+					Owner:        "0xowner",
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:  "17",
 					CapabilityID: "my-cap@1.0.0",
 					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
 					Attestation:  testAttestationB64,
@@ -198,6 +201,14 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, capResp.GetPayload())
 				assert.Equal(t, "result-proto-bytes", string(capResp.GetPayload().GetValue()))
 				assert.Empty(t, result.Error)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables["my-cap@1.0.0"]
+				require.NotNil(t, exec.lastRequest, "Execute should have been called")
+				assert.Equal(t, "wf-1", exec.lastRequest.Metadata.WorkflowID)
+				assert.Equal(t, "0xowner", exec.lastRequest.Metadata.WorkflowOwner)
+				assert.Equal(t, "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1", exec.lastRequest.Metadata.WorkflowExecutionID)
+				assert.Equal(t, "17", exec.lastRequest.Metadata.ReferenceID)
 			},
 		},
 		{
