@@ -36,7 +36,6 @@ const (
 	deltaStageKey           = "DeltaStage"
 	transmissionScheduleKey = "TransmissionSchedule"
 	forwarderQualifier      = ""
-	zeroForwarderHex        = "0x0000000000000000000000000000000000000000000000000000000000000000"
 	defaultWriteDeltaStage  = 500*time.Millisecond + 1*time.Second
 	defaultRequestTimeout   = 30 * time.Second
 )
