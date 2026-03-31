@@ -174,12 +174,16 @@ func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msgf("CreateSecretsResponse decoded as: %s", createSecretsResponse.String())
 
 	require.Len(t, createSecretsResponse.Responses, len(namespaces), "Expected one item in the response per namespace")
-	for i, namespace := range namespaces {
-		result := createSecretsResponse.GetResponses()[i]
+	respByNs := make(map[string]*vault_helpers.CreateSecretResponse, len(namespaces))
+	for _, r := range createSecretsResponse.GetResponses() {
+		respByNs[r.GetId().GetNamespace()] = r
+	}
+	for _, namespace := range namespaces {
+		result, ok := respByNs[namespace]
+		require.True(t, ok, "missing response for namespace %s", namespace)
 		require.Empty(t, result.GetError())
 		require.Equal(t, secretID, result.GetId().Key)
 		require.Equal(t, owner, result.GetId().Owner)
-		require.Equal(t, namespace, result.GetId().Namespace)
 	}
 
 	framework.L.Info().Msgf("Secrets created successfully (namespaces=%v)", namespaces)
@@ -297,16 +301,24 @@ func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owne
 	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
 
 	require.Len(t, updateSecretsResponse.Responses, len(namespaces)+1, "Expected one updated item per namespace plus one invalid item")
-	for i, namespace := range namespaces {
-		result := updateSecretsResponse.GetResponses()[i]
+	var foundInvalid bool
+	updateRespByNs := make(map[string]*vault_helpers.UpdateSecretResponse, len(namespaces))
+	for _, r := range updateSecretsResponse.GetResponses() {
+		if r.GetId().GetKey() == "invalid" {
+			require.Contains(t, r.Error, "key does not exist")
+			foundInvalid = true
+			continue
+		}
+		updateRespByNs[r.GetId().GetNamespace()] = r
+	}
+	require.True(t, foundInvalid, "expected an error response for the 'invalid' key")
+	for _, namespace := range namespaces {
+		result, ok := updateRespByNs[namespace]
+		require.True(t, ok, "missing update response for namespace %s", namespace)
 		require.Empty(t, result.GetError())
 		require.Equal(t, secretID, result.GetId().Key)
 		require.Equal(t, owner, result.GetId().Owner)
-		require.Equal(t, namespace, result.GetId().Namespace)
 	}
-
-	resultInvalid := updateSecretsResponse.GetResponses()[len(namespaces)]
-	require.Contains(t, resultInvalid.Error, "key does not exist")
 
 	framework.L.Info().Msgf("Secrets updated successfully (namespaces=%v)", namespaces)
 }
@@ -468,16 +480,24 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL str
 	framework.L.Info().Msgf("DeleteSecretResponse decoded as: %s", deleteSecretsResponse.String())
 
 	require.Len(t, deleteSecretsResponse.Responses, len(namespaces)+1, "Expected one deleted item per namespace plus one invalid item")
-	for i, namespace := range namespaces {
-		result := deleteSecretsResponse.GetResponses()[i]
-		require.True(t, result.Success, result.Error)
-		require.Equal(t, result.Id.Owner, owner)
-		require.Equal(t, result.Id.Key, secretID)
-		require.Equal(t, result.Id.Namespace, namespace)
+	var foundDeleteInvalid bool
+	deleteRespByNs := make(map[string]*vault_helpers.DeleteSecretResponse, len(namespaces))
+	for _, r := range deleteSecretsResponse.GetResponses() {
+		if r.GetId().GetKey() == "invalid" {
+			require.Contains(t, r.Error, "key does not exist")
+			foundDeleteInvalid = true
+			continue
+		}
+		deleteRespByNs[r.GetId().GetNamespace()] = r
 	}
-
-	resultInvalid := deleteSecretsResponse.GetResponses()[len(namespaces)]
-	require.Contains(t, resultInvalid.Error, "key does not exist")
+	require.True(t, foundDeleteInvalid, "expected an error response for the 'invalid' key")
+	for _, namespace := range namespaces {
+		result, ok := deleteRespByNs[namespace]
+		require.True(t, ok, "missing delete response for namespace %s", namespace)
+		require.True(t, result.Success, result.Error)
+		require.Equal(t, owner, result.Id.Owner)
+		require.Equal(t, secretID, result.Id.Key)
+	}
 
 	framework.L.Info().Msgf("Secrets deleted successfully (namespaces=%v)", namespaces)
 }
