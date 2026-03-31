@@ -121,7 +121,7 @@ type wrappedCounter struct {
 // access to lastValue occurs and no CAS is needed.
 func (w *wrappedCounter) readAndPublish() {
 	ch := make(chan prometheus.Metric, 1)
-	w.Collector.Collect(ch)
+	w.Collect(ch)
 	close(ch)
 
 	for m := range ch {
