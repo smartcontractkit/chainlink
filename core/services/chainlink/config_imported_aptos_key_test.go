@@ -13,7 +13,7 @@ import (
 func TestImportedAptosKeys_List(t *testing.T) {
 	t.Parallel()
 
-	secrets, err := parseSecrets(`
+	secrets, err := parseImportedAptosSecrets(`
 [Aptos]
 [[Aptos.Keys]]
 JSON = '{"id":"aptos-key-1"}'
@@ -36,11 +36,11 @@ Password = 'pw-2'
 	expected1, err := chain_selectors.GetChainDetailsByChainIDAndFamily("1", chain_selectors.FamilyAptos)
 	require.NoError(t, err)
 
-	require.Equal(t, `{"id":"aptos-key-1"}`, keys[0].JSON())
+	require.JSONEq(t, `{"id":"aptos-key-1"}`, keys[0].JSON())
 	require.Equal(t, "pw-1", keys[0].Password())
 	require.Equal(t, expected4, keys[0].ChainDetails())
 
-	require.Equal(t, `{"id":"aptos-key-2"}`, keys[1].JSON())
+	require.JSONEq(t, `{"id":"aptos-key-2"}`, keys[1].JSON())
 	require.Equal(t, "pw-2", keys[1].Password())
 	require.Equal(t, expected1, keys[1].ChainDetails())
 }
@@ -55,7 +55,16 @@ func TestImportedAptosKeys_ValidateRejectsUnknownChainID(t *testing.T) {
 JSON = '{"id":"aptos-key-1"}'
 ID = 999999
 Password = 'pw-1'
-`), &secrets)
+	`), &secrets)
 	require.NoError(t, err)
 	require.ErrorContains(t, secrets.Aptos.ValidateConfig(), "invalid AptosKey")
+}
+
+func parseImportedAptosSecrets(secretsTOML string) (*Secrets, error) {
+	var secrets Secrets
+	if err := commonconfig.DecodeTOML(strings.NewReader(secretsTOML), &secrets); err != nil {
+		return nil, err
+	}
+
+	return &secrets, nil
 }
