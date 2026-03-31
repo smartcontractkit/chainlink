@@ -61,9 +61,9 @@ const (
 var aptosForwarderVersion = semver.MustParse("1.0.0")
 var aptosWorkflowNameSeq uint64
 
-// ExecuteAptosTest runs the Aptos CRE suite with plain Aptos read coverage by
-// default. Write-oriented scenarios stay available for local/manual execution
-// via CRE_APTOS_SCENARIOS.
+// ExecuteAptosTest runs the Aptos CRE suite with the current CI scenario set by
+// default. Individual scenarios still remain available for local/manual
+// execution via CRE_APTOS_SCENARIOS.
 func ExecuteAptosTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	executeAptosScenarios(t, tenv, resolveAptosScenarios(t))
 }
@@ -81,7 +81,8 @@ type aptosScenario struct {
 
 func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
-		{name: "Aptos Read", run: ExecuteAptosReadTest},
+		{name: "Aptos Write Read Roundtrip", run: ExecuteAptosWriteReadRoundtripTest},
+		{name: "Aptos Write Expected Failure", run: ExecuteAptosWriteExpectedFailureTest},
 	}
 }
 
@@ -92,12 +93,12 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 	if raw == "" {
 		return aptosDefaultScenarios()
 	}
+	if strings.EqualFold(raw, "ci") {
+		t.Logf("running Aptos scenarios from %s=%q", aptosScenarioOverrideEnv, raw)
+		return aptosDefaultScenarios()
+	}
 
 	available := map[string]aptosScenario{
-		"ci": {
-			name: "Aptos Read",
-			run:  ExecuteAptosReadTest,
-		},
 		"read": {
 			name: "Aptos Read",
 			run:  ExecuteAptosReadTest,
