@@ -42,11 +42,44 @@ func (s *PgDurableEventStore) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
+func (s *PgDurableEventStore) MarkDelivered(ctx context.Context, id int64) error {
+	const q = `UPDATE ` + chipDurableEventsTable + ` SET delivered_at = now() WHERE id = $1 AND delivered_at IS NULL`
+	if _, err := s.ds.ExecContext(ctx, q, id); err != nil {
+		return fmt.Errorf("failed to mark chip durable event delivered id=%d: %w", id, err)
+	}
+	return nil
+}
+
+func (s *PgDurableEventStore) PurgeDelivered(ctx context.Context, batchLimit int) (int64, error) {
+	if batchLimit <= 0 {
+		return 0, nil
+	}
+	const q = `
+WITH picked AS (
+    SELECT id FROM ` + chipDurableEventsTable + `
+    WHERE delivered_at IS NOT NULL
+    ORDER BY delivered_at ASC
+    LIMIT $1
+)
+DELETE FROM ` + chipDurableEventsTable + ` AS t
+USING picked WHERE t.id = picked.id`
+	res, err := s.ds.ExecContext(ctx, q, batchLimit)
+	if err != nil {
+		return 0, fmt.Errorf("failed to purge delivered chip durable events: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("purge delivered rows affected: %w", err)
+	}
+	return n, nil
+}
+
 func (s *PgDurableEventStore) ListPending(ctx context.Context, createdBefore time.Time, limit int) ([]beholder.DurableEvent, error) {
 	const q = `
 SELECT id, payload, created_at
 FROM ` + chipDurableEventsTable + `
-WHERE created_at < $1
+WHERE delivered_at IS NULL
+  AND created_at < $1
 ORDER BY created_at ASC
 LIMIT $2`
 
@@ -101,7 +134,8 @@ SELECT
 	count(*)::bigint AS cnt,
 	coalesce(sum(octet_length(payload)), 0)::bigint AS payload_sum,
 	min(created_at) AS min_created
-FROM ` + chipDurableEventsTable
+FROM ` + chipDurableEventsTable + `
+WHERE delivered_at IS NULL`
 
 	var row chipDurableQueueAgg
 	if err := s.ds.GetContext(ctx, &row, qAgg); err != nil {
@@ -119,7 +153,8 @@ FROM ` + chipDurableEventsTable
 		const qNear = `
 SELECT count(*)::bigint
 FROM ` + chipDurableEventsTable + `
-WHERE created_at >= now() - ($1::bigint * interval '1 second')
+WHERE delivered_at IS NULL
+  AND created_at >= now() - ($1::bigint * interval '1 second')
   AND created_at < now() - (($1::bigint - $2::bigint) * interval '1 second')`
 		if err := s.ds.GetContext(ctx, &st.NearTTLCount, qNear, ttlSec, leadSec); err != nil {
 			return beholder.DurableQueueStats{}, fmt.Errorf("durable queue near-ttl: %w", err)

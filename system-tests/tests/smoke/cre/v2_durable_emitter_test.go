@@ -68,12 +68,11 @@ func snapshotDurableEventStats(ctx context.Context, db *sql.DB) (durableEventSta
 	return s, err
 }
 
-// countPendingDurableEvents returns the current number of rows in
-// cre.chip_durable_events (events that haven't been delivered yet).
+// countPendingDurableEvents returns rows still awaiting delivery (delivered_at IS NULL).
 func countPendingDurableEvents(ctx context.Context, db *sql.DB) (int64, error) {
 	var count int64
 	err := db.QueryRowContext(ctx,
-		`SELECT count(*) FROM cre.chip_durable_events`,
+		`SELECT count(*) FROM cre.chip_durable_events WHERE delivered_at IS NULL`,
 	).Scan(&count)
 	return count, err
 }

@@ -53,7 +53,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 // chipLoadTestDemoProto is the raw .proto registered with Chip for subject chip-demo-pb.DemoClientPayload
@@ -74,14 +73,20 @@ message DemoClientPayload {
 }
 `
 
+// sustainedThroughputMockPublishLatency is the in-process mock's server-side sleep per Publish
+// RPC in TestFullStack_SustainedThroughput (only). External Chip ignores this.
+const sustainedThroughputMockPublishLatency = 500 * time.Millisecond
+
 // loadTestServer is a controllable gRPC ChipIngress server for load tests.
 type loadTestServer struct {
 	pb.UnimplementedChipIngressServer
 
-	mu           sync.Mutex
-	publishErr   error
-	batchErr     error
-	publishDelay time.Duration
+	mu         sync.Mutex
+	publishErr error
+	batchErr   error
+	// publishDelayNs is nanoseconds to sleep in Publish (0 = none). Atomic so handlers see
+	// the value set before traffic without a data race on the hot path.
+	publishDelayNs atomic.Int64
 
 	publishCount atomic.Int64
 	batchCount   atomic.Int64
@@ -89,8 +94,8 @@ type loadTestServer struct {
 }
 
 func (s *loadTestServer) Publish(_ context.Context, _ *cepb.CloudEvent) (*pb.PublishResponse, error) {
-	if s.publishDelay > 0 {
-		time.Sleep(s.publishDelay)
+	if ns := s.publishDelayNs.Load(); ns > 0 {
+		time.Sleep(time.Duration(ns))
 	}
 	s.publishCount.Add(1)
 	s.totalEvents.Add(1)
@@ -121,6 +126,14 @@ func (s *loadTestServer) setBatchErr(err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.batchErr = err
+}
+
+func (s *loadTestServer) setPublishDelay(d time.Duration) {
+	if d <= 0 {
+		s.publishDelayNs.Store(0)
+		return
+	}
+	s.publishDelayNs.Store(d.Nanoseconds())
 }
 
 func startLoadServer(t testing.TB) (*loadTestServer, string) {
@@ -315,16 +328,35 @@ func TestChipIngressExternalPing(t *testing.T) {
 // TestFullStack_SustainedThroughput measures steady-state throughput with
 // real Postgres persistence and gRPC delivery. This answers: "how many
 // events/sec can we sustain end-to-end?"
+//
+// Wall time is dominated by totalEvents / sustained Emit (insert) rate — often
+// many minutes at 100k events. Run with -short for a 10k-event run (~tens of s).
+// Spurious retransmits happen if RetransmitAfter is shorter than tail
+// MarkDelivered latency under load; we use a generous RetransmitAfter here.
+// With the in-process mock, each Publish RPC sleeps sustainedThroughputMockPublishLatency
+// (const); pipeline logs should show ~that much in immediate Publish p50/p99/mean.
 func TestFullStack_SustainedThroughput(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
+	// Must use non-txdb Postgres: txdb is a single transaction; any SQL error
+	// aborts it and all follow-up queries fail with SQLSTATE 25P02 under concurrent
+	// purge/retransmit/mark-delivered (DurableEmitter background loops).
+	db := directDB(t)
 	srv, client := startChipIngressOrMock(t)
+	if srv != nil {
+		srv.setPublishDelay(sustainedThroughputMockPublishLatency)
+		t.Logf("Sustained throughput: mock Chip Publish server delay = %s (const sustainedThroughputMockPublishLatency)",
+			sustainedThroughputMockPublishLatency)
+	}
 	store := beholdersvc.NewPgDurableEventStore(db)
 
+	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
 	cfg.RetransmitInterval = 500 * time.Millisecond
-	cfg.RetransmitAfter = 2 * time.Second
+	// Must exceed tail store latency while 100k+ goroutines contend; else
+	// ListPending sees still-pending rows and duplicates Publish (extra RPCs, slower drain).
+	cfg.RetransmitAfter = 30 * time.Second
 	cfg.RetransmitBatchSize = 200
 	cfg.PublishTimeout = 5 * time.Second
+	cfg.Hooks = newPipelineHooks(pipe)
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
 	require.NoError(t, err)
@@ -333,10 +365,14 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	em.Start(ctx)
 	defer em.Close()
 
-	const (
-		totalEvents = 100000
-		concurrency = 10
-	)
+	totalEvents := 100_000
+	//if testing.Short() {
+	//totalEvents = 10_000
+	//}
+	const concurrency = 10
+
+	t.Logf("Full-stack sustained throughput: totalEvents=%d (100k unless -short), concurrency=%d",
+		totalEvents, concurrency)
 
 	payload := buildLoadTestPayload(256) // ~256 byte record (protobuf for external Chip)
 
@@ -366,11 +402,16 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	assert.Equal(t, int64(0), emitErrors.Load(), "all emits should succeed")
 
-	// Wait for all events to be delivered and store to drain.
+	// Wait for all events to be delivered and store to drain (pending list empty;
+	// Postgres may still have tombstones until purge loop catches up).
+	drainWait := 45 * time.Second
+	if totalEvents >= 100_000 {
+		drainWait = 120 * time.Second
+	}
 	require.Eventually(t, func() bool {
 		pending, _ := store.ListPending(ctx, time.Now().Add(time.Hour), 1)
 		return len(pending) == 0
-	}, 30*time.Second, 100*time.Millisecond, "store should drain completely")
+	}, drainWait, 100*time.Millisecond, "store should drain completely (no pending delivery)")
 
 	totalElapsed := time.Since(start)
 
@@ -382,6 +423,10 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	}
 	t.Logf("Total elapsed:    %s", totalElapsed.Round(time.Millisecond))
 	t.Logf("End-to-end rate:  %.0f events/sec", float64(totalEvents)/totalElapsed.Seconds())
+
+	t.Logf("--- gRPC Publish / store MarkDelivered latency (%s) ---", chipIngressTargetDescription(srv))
+	t.Logf("(Publish = chipingress.Publish round-trip; MarkDelivered = UPDATE delivered_at; rows are batch-deleted asynchronously.)")
+	logPipelineDeliverySummary(t, pipe)
 
 	if srv != nil {
 		assert.GreaterOrEqual(t, srv.totalEvents.Load(), int64(totalEvents),
@@ -395,7 +440,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 func TestFullStack_ChipOutage(t *testing.T) {
 	skipIfExternalChip(t, "inject Unavailable errors on mock server")
 
-	db := pgtest.NewSqlxDB(t)
+	db := directDB(t)
 	srv, client := startChipIngressOrMock(t)
 	require.NotNil(t, srv)
 	store := beholdersvc.NewPgDurableEventStore(db)
@@ -463,10 +508,10 @@ func TestFullStack_ChipOutage(t *testing.T) {
 func TestFullStack_SlowChip(t *testing.T) {
 	skipIfExternalChip(t, "inject publish latency on mock server")
 
-	db := pgtest.NewSqlxDB(t)
+	db := directDB(t)
 	srv, client := startChipIngressOrMock(t)
 	require.NotNil(t, srv)
-	srv.publishDelay = 50 * time.Millisecond // 50ms per publish = ~20 RPS max
+	srv.setPublishDelay(100 * time.Millisecond) // 50ms per publish = ~20 RPS max
 	store := beholdersvc.NewPgDurableEventStore(db)
 
 	cfg := beholder.DefaultDurableEmitterConfig()
@@ -512,7 +557,7 @@ func TestFullStack_SlowChip(t *testing.T) {
 // Benchmark_FullStack_EmitThroughput benchmarks the Emit() path with real Postgres
 // and a fast mock gRPC server. This gives the upper bound of events/sec.
 func Benchmark_FullStack_EmitThroughput(b *testing.B) {
-	db := pgtest.NewSqlxDB(b)
+	db := directDB(b)
 	_, client := startChipIngressOrMock(b)
 	store := beholdersvc.NewPgDurableEventStore(db)
 
@@ -539,7 +584,7 @@ func Benchmark_FullStack_EmitPayloadSizes(b *testing.B) {
 	sizes := []int{64, 256, 1024, 4096}
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("%dB", size), func(b *testing.B) {
-			db := pgtest.NewSqlxDB(b)
+			db := directDB(b)
 			_, client := startChipIngressOrMock(b)
 			store := beholdersvc.NewPgDurableEventStore(db)
 
@@ -636,8 +681,10 @@ func progressBar(pct float64, width int) string {
 }
 
 // directDB opens a real (non-txdb) Postgres connection for concurrent load tests.
-// txdb serializes all operations through a single transaction, which bottlenecks
-// concurrent writes. For TPS testing we need real connection pooling.
+// pgtest.NewSqlxDB uses txdb: one shared transaction per pool. Any SQL error
+// aborts that transaction (SQLSTATE 25P02 on later queries). DurableEmitter’s
+// concurrent purge/retransmit/mark-delivered + many goroutines requires
+// autocommit statements and a real pool, not txdb.
 func directDB(t testing.TB) *sqlx.DB {
 	t.Helper()
 	testutils.SkipShortDB(t)
@@ -715,7 +762,7 @@ func (s *emitLatencyStats) sum() time.Duration {
 	return t
 }
 
-// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare Chip Publish vs DB Delete cost.
+// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare Chip Publish vs store MarkDelivered cost.
 type pipelineDeliveryStats struct {
 	immPub, immDel, batchPub, batchDel emitLatencyStats
 	immPubErr, batchPubErr             atomic.Int64
@@ -751,6 +798,18 @@ func durMs(d time.Duration) float64 {
 	return float64(d.Microseconds()) / 1000.0
 }
 
+// chipIngressTargetDescription labels latency logs: mock gRPC server vs external Chip Ingress.
+func chipIngressTargetDescription(srv *loadTestServer) string {
+	if srv != nil {
+		return "in-process mock ChipIngress (loadTestServer)"
+	}
+	addr := strings.TrimSpace(os.Getenv(envChipIngressTestAddr))
+	if addr == "" {
+		return "external Chip Ingress"
+	}
+	return fmt.Sprintf("external Chip Ingress (%s)", addr)
+}
+
 func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 	t.Helper()
 	ipN := pipe.immPub.count()
@@ -759,14 +818,14 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 		ipN, pipe.immPubErr.Load(),
 		durMs(pipe.immPub.percentile(0.50)), durMs(pipe.immPub.percentile(0.99)),
 		durMs(pipe.immPub.mean()), durMs(pipe.immPub.sum()))
-	t.Logf("Pipeline — immediate Delete:  n=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
+	t.Logf("Pipeline — immediate MarkDelivered: n=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
 		idN,
 		durMs(pipe.immDel.percentile(0.50)), durMs(pipe.immDel.percentile(0.99)),
 		durMs(pipe.immDel.mean()), durMs(pipe.immDel.sum()))
 
 	bpN := pipe.batchPub.count()
 	if bpN > 0 {
-		t.Logf("Pipeline — retransmit Publish (serial): rpcs=%d rpc_errs=%d evt_errs=%d p50=%.3f ms mean=%.3f ms | delete-hook_calls=%d mean_loop=%.3f ms",
+		t.Logf("Pipeline — retransmit Publish (serial): rpcs=%d rpc_errs=%d evt_errs=%d p50=%.3f ms mean=%.3f ms | retransmit_mark_delivered_hooks=%d mean_loop=%.3f ms",
 			bpN, pipe.batchPubErr.Load(), pipe.batchPubEventErrs.Load(),
 			durMs(pipe.batchPub.percentile(0.50)), durMs(pipe.batchPub.mean()),
 			pipe.batchDel.count(), durMs(pipe.batchDel.mean()))
@@ -776,11 +835,11 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 		pm, dm := durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean())
 		switch {
 		case pm > 3*dm && pm > 0.5:
-			t.Logf("Bottleneck hint: Publish mean %.3f ms ≫ Delete mean %.3f ms — likely Chip / gRPC bound", pm, dm)
+			t.Logf("Bottleneck hint: Publish mean %.3f ms ≫ MarkDelivered mean %.3f ms — likely Chip / gRPC bound", pm, dm)
 		case dm > 3*pm && dm > 0.5:
-			t.Logf("Bottleneck hint: Delete mean %.3f ms ≫ Publish mean %.3f ms — likely Postgres delete bound", dm, pm)
+			t.Logf("Bottleneck hint: MarkDelivered mean %.3f ms ≫ Publish mean %.3f ms — likely Postgres UPDATE bound", dm, pm)
 		default:
-			t.Logf("Bottleneck hint: Publish %.3f ms vs Delete %.3f ms comparable (per successful immediate delivery)", pm, dm)
+			t.Logf("Bottleneck hint: Publish %.3f ms vs MarkDelivered %.3f ms comparable (per successful immediate delivery)", pm, dm)
 		}
 	} else {
 		t.Logf("Bottleneck hint: few completed immediate deliveries in window (pub=%d del=%d); extend duration or check async backlog", ipN, idN)
@@ -790,7 +849,8 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 // rateLimitEmitResult is the outcome of runRateLimitedEmit.
 type rateLimitEmitResult struct {
 	stats *emitLatencyStats
-	// maxQueueDepth is the maximum observed row count in cre.chip_durable_events
+	// maxQueueDepth is the maximum observed pending row count in cre.chip_durable_events
+	// (delivered_at IS NULL).
 	// during the emit window (polled periodically; nil DB disables sampling).
 	maxQueueDepth int64
 	// maxQueuePayloadBytes is the maximum observed sum(octet_length(payload)) for
@@ -839,10 +899,10 @@ func bumpMaxQueuePayloadBytes(maxB *atomic.Int64, b int64) {
 	}
 }
 
-// queuePayloadStats returns row count and total payload bytes for cre.chip_durable_events.
+// queuePayloadStats returns pending row count and payload bytes (delivered_at IS NULL).
 func queuePayloadStats(db *sqlx.DB, ctx context.Context) (rows int64, payloadBytes int64, err error) {
 	err = db.QueryRowContext(ctx,
-		`SELECT count(*), coalesce(sum(octet_length(payload)), 0) FROM cre.chip_durable_events`,
+		`SELECT count(*), coalesce(sum(octet_length(payload)), 0) FROM cre.chip_durable_events WHERE delivered_at IS NULL`,
 	).Scan(&rows, &payloadBytes)
 	return rows, payloadBytes, err
 }
@@ -1185,7 +1245,7 @@ func TestTPS_Sustained1k(t *testing.T) {
 			targetTPS, achievedTPS, emitRes.ImmPublishFails, emitRes.BatchPublishFailEvents, stats.failures.Load()),
 		fmt.Sprintf("emit p50/p99 ms: %.2f / %.2f", float64(stats.percentile(0.50).Microseconds())/1000.0, float64(stats.percentile(0.99).Microseconds())/1000.0),
 		fmt.Sprintf("queue max during emit: %d rows, %s KB payload (sum octet_length/1024)", emitRes.maxQueueDepth, formatQueueKB(emitRes.maxQueuePayloadBytes)),
-		fmt.Sprintf("pipeline imm Publish/Delete means ms: %.3f / %.3f (n=%d/%d)", durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean()), pipe.immPub.count(), pipe.immDel.count()),
+		fmt.Sprintf("pipeline imm Publish/MarkDelivered means ms: %.3f / %.3f (n=%d/%d)", durMs(pipe.immPub.mean()), durMs(pipe.immDel.mean()), pipe.immPub.count(), pipe.immDel.count()),
 		fmt.Sprintf("drain time: %s", drainTime.Round(time.Millisecond)),
 	)
 
