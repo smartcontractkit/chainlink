@@ -543,6 +543,120 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	}
 }
 
+func TestFilterOutExistingDestChainConfigs(t *testing.T) {
+	t.Parallel()
+
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
+		testCfg.Chains = 2
+	})
+	e := deployedEnvironment.Env
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err, "must load onchain state")
+
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	require.Len(t, selectors, 2, "must have 2 chains")
+
+	chainSel := selectors[0]
+	otherChainSel := selectors[1]
+	evmChain := e.BlockChains.EVMChains()[chainSel]
+
+	parsedABI, err := abi.JSON(strings.NewReader(fqv2ops.FeeQuoterABI))
+	require.NoError(t, err, "must parse v2 FeeQuoter ABI")
+
+	// Deploy a v2 FeeQuoter, then configure one destination (otherChainSel) after deployment.
+	// Constructor-time dest config with sparse fields reverts, so we apply it post-deploy.
+	fqV2Addr, tx, _, err := bind.DeployContract(
+		evmChain.DeployerKey,
+		parsedABI,
+		common.FromHex(fqv2ops.FeeQuoterBin),
+		evmChain.Client,
+		fqv2ops.StaticConfig{
+			MaxFeeJuelsPerMsg: big.NewInt(1e18),
+			LinkToken:         state.Chains[chainSel].LinkToken.Address(),
+		},
+		[]common.Address{evmChain.DeployerKey.From},
+		[]fqv2ops.TokenTransferFeeConfigArgs{},
+		[]fqv2ops.DestChainConfigArgs{},
+	)
+	require.NoError(t, err, "must deploy v2 FeeQuoter")
+
+	_, err = evmChain.Confirm(tx)
+	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
+
+	fqV2, err := fqv2ops.NewFeeQuoterContract(fqV2Addr, evmChain.Client)
+	require.NoError(t, err, "must bind v2 FeeQuoter")
+
+	// Convert a default v1.6 config to v2 format and apply it so otherChainSel is already enabled
+	v2Cfgs, err := v1_6.ConvertV16FeeQuoterDestUpdatesToV2([]fee_quoter.FeeQuoterDestChainConfigArgs{
+		{
+			DestChainSelector: otherChainSel,
+			DestChainConfig:   v1_6.DefaultFeeQuoterDestChainConfig(true),
+		},
+	})
+	require.NoError(t, err, "must convert v1.6 dest config to v2")
+
+	applyTx, err := fqV2.ApplyDestChainConfigUpdates(evmChain.DeployerKey, v2Cfgs)
+	require.NoError(t, err, "must apply dest chain config")
+	_, err = evmChain.Confirm(applyTx)
+	require.NoError(t, err, "must confirm dest chain config tx")
+
+	unconfiguredChainSel := uint64(999)
+
+	// Call FilterOutExistingDestChainConfigs with both destinations
+	input := []fqv2ops.DestChainConfigArgs{
+		{
+			DestChainSelector: otherChainSel,
+			DestChainConfig:   fqv2ops.DestChainConfig{IsEnabled: true, MaxDataBytes: 50_000},
+		},
+		{
+			DestChainSelector: unconfiguredChainSel,
+			DestChainConfig:   fqv2ops.DestChainConfig{IsEnabled: true, MaxDataBytes: 60_000},
+		},
+	}
+
+	filtered, err := v1_6.FilterOutExistingDestChainConfigs(e, fqV2Addr, chainSel, input)
+	require.NoError(t, err, "FilterOutExistingDestChainConfigs must not error")
+
+	// Only the unconfigured chain should remain
+	require.Len(t, filtered, 1, "must filter out the already-enabled destination")
+	assert.Equal(t, unconfiguredChainSel, filtered[0].DestChainSelector,
+		"remaining entry must be the unconfigured chain")
+	assert.Equal(t, uint32(60_000), filtered[0].DestChainConfig.MaxDataBytes,
+		"remaining entry must preserve original config")
+
+	// Configure otherChainSel on the v1.6 FeeQuoter so it's already enabled
+	fqV16 := state.Chains[chainSel].FeeQuoter
+	applyTxV16, err := fqV16.ApplyDestChainConfigUpdates(evmChain.DeployerKey, []fee_quoter.FeeQuoterDestChainConfigArgs{
+		{
+			DestChainSelector: otherChainSel,
+			DestChainConfig:   v1_6.DefaultFeeQuoterDestChainConfig(true),
+		},
+	})
+	require.NoError(t, err, "must apply v1.6 dest chain config")
+	_, err = evmChain.Confirm(applyTxV16)
+	require.NoError(t, err, "must confirm v1.6 dest chain config tx")
+
+	// Call FilterOutExistingDestChainConfigs with v1.6 types
+	v16Input := []fee_quoter.FeeQuoterDestChainConfigArgs{
+		{
+			DestChainSelector: otherChainSel,
+			DestChainConfig:   v1_6.DefaultFeeQuoterDestChainConfig(true),
+		},
+		{
+			DestChainSelector: unconfiguredChainSel,
+			DestChainConfig:   v1_6.DefaultFeeQuoterDestChainConfig(true),
+		},
+	}
+
+	filteredV16, err := v1_6.FilterOutExistingDestChainConfigs(e, fqV16.Address(), chainSel, v16Input)
+	require.NoError(t, err, "FilterOutExistingDestChainConfigs must not error")
+
+	require.Len(t, filteredV16, 1, "must filter out the already-enabled destination")
+	assert.Equal(t, unconfiguredChainSel, filteredV16[0].DestChainSelector,
+		"remaining entry must be the unconfigured chain")
+}
+
 func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) {
 	t.Parallel()
 

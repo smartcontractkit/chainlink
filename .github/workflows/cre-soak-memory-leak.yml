@@ -49,14 +49,14 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
@@ -131,7 +131,7 @@ jobs:
 
       - name: Upload alloc.pprof
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: alloc.pprof
           path: alloc.pprof
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload Docker logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: soak-docker-logs
           path: system-tests/tests/soak/cre/logs

@@ -267,8 +267,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, cfg.Keeper(), jb.KeeperSpec.FromAddress.Address())
-		err := executer.Start(testutils.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, executer)
 		head := newHead()
 		executer.OnNewLongestChain(testutils.Context(t), &head)
 		// TODO we want to see an errored run result once this is completed

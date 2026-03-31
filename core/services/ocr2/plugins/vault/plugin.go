@@ -470,6 +470,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 
 	blobPayloads := make([][]byte, 0, len(localQueueItems))
+	blobPayloadIDs := make([]string, 0, len(localQueueItems))
 	maxObservedLocalQueueItems := 0
 	for _, item := range localQueueItems {
 		// The item is already in the pending queue. We'll be processing it
@@ -502,6 +503,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 
 		blobPayloads = append(blobPayloads, itemb)
+		blobPayloadIDs = append(blobPayloadIDs, item.Id)
 
 		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
@@ -512,35 +514,11 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 	}
 
-	observedLocalQueue := make([][]byte, len(blobPayloads))
-	// Broadcast pending-queue blobs in parallel to reduce Observation() latency.
-	// Shortening this phase helps the OCR round finish within DeltaProgress.
-	blobBroadcastStart := time.Now()
-	defer func() {
-		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(blobPayloads), "elapsed", time.Since(blobBroadcastStart))
-	}()
-	g, broadcastCtx := errgroup.WithContext(ctx)
-	for i, payload := range blobPayloads {
-		g.Go(func() error {
-			blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
-			if ierr2 != nil {
-				return fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
-			}
-
-			blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
-			if ierr2 != nil {
-				return fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
-			}
-
-			observedLocalQueue[i] = blobHandleBytes
-			return nil
-		})
-	}
-	if err = g.Wait(); err != nil {
+	pendingQueueItems, err := r.broadcastBlobPayloads(ctx, blobBroadcastFetcher, seqNr, blobPayloads, blobPayloadIDs)
+	if err != nil {
 		return nil, err
 	}
-
-	obspb.PendingQueueItems = observedLocalQueue
+	obspb.PendingQueueItems = pendingQueueItems
 
 	// Second, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce idepedently, to be concatenated later on.
@@ -561,6 +539,73 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
 	}
 	return types.Observation(obsb), nil
+}
+
+// broadcastBlobPayloads broadcasts each payload as a blob in parallel to reduce
+// Observation() latency (shortening this phase helps the OCR round finish within
+// DeltaProgress). Each call is given a 2-second timeout so that a single slow
+// broadcast cannot stall the entire batch. Individual broadcast failures are logged
+// and skipped rather than aborting the entire observation, so that one problematic
+// payload does not prevent the remaining items from being observed. Context
+// cancellation/deadline errors on the parent context are propagated immediately so
+// that expired rounds fail fast.
+func (r *ReportingPlugin) broadcastBlobPayloads(
+	ctx context.Context,
+	fetcher ocr3_1types.BlobBroadcastFetcher,
+	seqNr uint64,
+	payloads [][]byte,
+	requestIDs []string,
+) ([][]byte, error) {
+	results := make([][]byte, len(payloads))
+
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(payloads), "elapsed", time.Since(start))
+	}()
+
+	const perBlobTimeout = 2 * time.Second
+	var g errgroup.Group
+	for i, payload := range payloads {
+		g.Go(func() error {
+			broadcastCtx, cancel := context.WithTimeout(ctx, perBlobTimeout)
+			defer cancel()
+
+			blobHandle, err := fetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
+			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				r.lggr.Warnw("failed to broadcast pending queue item as blob, skipping",
+					"seqNr", seqNr,
+					"requestID", requestIDs[i],
+					"err", err)
+				return nil
+			}
+
+			blobHandleBytes, err := r.marshalBlob(blobHandle)
+			if err != nil {
+				r.lggr.Warnw("failed to marshal blob handle, skipping",
+					"seqNr", seqNr,
+					"requestID", requestIDs[i],
+					"err", err)
+				return nil
+			}
+
+			results[i] = blobHandleBytes
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	filtered := make([][]byte, 0, len(results))
+	for _, item := range results {
+		if item != nil {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
 }
 
 func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {

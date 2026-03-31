@@ -910,13 +910,20 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 
 	for _, bc := range bcs {
-		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID()) || len(donMetadata.EVMChains()) == 0
 		hasChainCapabilityEnabled := slices.Contains(chainCapabilityIDs, bc.ChainID())
-		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
+		hasSolanaChainEnabled := false
+		if bc.IsFamily(chainselectors.FamilySolana) {
+			solChain, ok := bc.(*solana.Blockchain)
+			if !ok {
+				return nil, fmt.Errorf("expected solana blockchain, got %T", bc)
+			}
+			hasSolanaChainEnabled = slices.Contains(donMetadata.SolanaChains(), solChain.SolanaChainID)
+		}
 
-		// Include all Solana chains (legacy behavior), and include any chain that is
-		// explicitly referenced by chain-scoped capabilities (e.g. aptos-4).
-		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !chainIsSolana {
+		// Keep legacy EVM/Solana behavior, and also include chains that are explicitly
+		// referenced by chain-scoped capabilities (e.g. aptos-4).
+		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !hasSolanaChainEnabled {
 			continue
 		}
 
