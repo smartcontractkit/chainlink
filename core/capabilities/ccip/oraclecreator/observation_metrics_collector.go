@@ -3,10 +3,8 @@ package oraclecreator
 import (
 	"context"
 	"errors"
-	"math"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -91,16 +89,12 @@ func (c *ObservationMetricsCollector) Start(interval time.Duration) {
 }
 
 // poll reads the current value of each wrapped counter and publishes any delta to Beholder.
-// It reuses the existing Collect logic on wrappedCounter, which handles delta tracking.
 func (c *ObservationMetricsCollector) poll() {
-	// A small buffered channel to absorb the forwarded prometheus.Metric values.
-	// Each counter emits exactly one metric per Collect call, so 10 is more than enough.
-	devNull := make(chan prometheus.Metric, 10)
 	if c.sentObservationsCounter != nil {
-		c.sentObservationsCounter.Collect(devNull)
+		c.sentObservationsCounter.readAndPublish()
 	}
 	if c.includedObservationsCounter != nil {
-		c.includedObservationsCounter.Collect(devNull)
+		c.includedObservationsCounter.readAndPublish()
 	}
 }
 
@@ -118,53 +112,42 @@ type wrappedCounter struct {
 	labels        map[string]string // Beholder labels (for metrics publishing)
 	publisher     ObservationMetricsPublisher
 	logger        logger.Logger
-	lastValueBits uint64 // stores float64 as bits for atomic operations
+	lastValue     float64
+	mu            sync.Mutex
 }
 
-// Collect intercepts metric collection to detect counter increments
-func (w *wrappedCounter) Collect(ch chan<- prometheus.Metric) {
-	// Create a channel to intercept metrics
-	interceptCh := make(chan prometheus.Metric, 10)
-
-	// Collect from the underlying collector
+// readAndPublish reads the current counter value and publishes any delta to Beholder.
+// Only called by the background poller, never by Prometheus scrapes, so no concurrent
+// access to lastValue occurs and no CAS is needed.
+func (w *wrappedCounter) readAndPublish() {
+	ch := make(chan prometheus.Metric, 1)
 	go func() {
-		w.Collector.Collect(interceptCh)
-		close(interceptCh)
+		w.Collector.Collect(ch)
+		close(ch)
 	}()
 
-	// Forward metrics and track counter value
-	for m := range interceptCh {
-		// Try to extract the counter value from the metric
+	for m := range ch {
 		var metricValue float64
-		if err := extractCounterValue(m, &metricValue); err == nil {
-			// CAS loop: ensures only one concurrent caller (background poll or Prometheus
-			// scrape) advances lastValueBits and publishes the delta for a given interval.
-			for {
-				lastBits := atomic.LoadUint64(&w.lastValueBits)
-				lastValue := math.Float64frombits(lastBits)
-				if metricValue <= lastValue {
-					break
-				}
-				newBits := math.Float64bits(metricValue)
-				if atomic.CompareAndSwapUint64(&w.lastValueBits, lastBits, newBits) {
-					delta := metricValue - lastValue
-					w.logger.Debugw("Observation metric incremented",
-						"metric", w.metricName,
-						"value", metricValue,
-						"delta", delta,
-						"labels", w.labels,
-					)
-					if w.publisher != nil {
-						w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
-					}
-					break
-				}
-				// CAS failed — another concurrent Collect advanced lastValueBits; retry.
-			}
+		if err := extractCounterValue(m, &metricValue); err != nil {
+			continue
 		}
-
-		// Forward the metric to the actual channel
-		ch <- m
+		w.mu.Lock()
+		delta := metricValue - w.lastValue
+		if delta > 0 {
+			w.lastValue = metricValue
+			w.mu.Unlock()
+			w.logger.Debugw("Observation metric incremented",
+				"metric", w.metricName,
+				"value", metricValue,
+				"delta", delta,
+				"labels", w.labels,
+			)
+			if w.publisher != nil {
+				w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
+			}
+		} else {
+			w.mu.Unlock()
+		}
 	}
 }
 
