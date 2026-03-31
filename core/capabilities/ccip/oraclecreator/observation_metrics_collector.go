@@ -121,10 +121,8 @@ type wrappedCounter struct {
 // access to lastValue occurs and no CAS is needed.
 func (w *wrappedCounter) readAndPublish() {
 	ch := make(chan prometheus.Metric, 1)
-	go func() {
-		w.Collector.Collect(ch)
-		close(ch)
-	}()
+	w.Collector.Collect(ch)
+	close(ch)
 
 	for m := range ch {
 		var metricValue float64
@@ -167,26 +165,6 @@ func extractCounterValue(m prometheus.Metric, value *float64) error {
 	}
 
 	return errors.New("metric is not a counter")
-}
-
-// Describe implements prometheus.Collector
-func (c *ObservationMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
-	if c.sentObservationsCounter != nil {
-		c.sentObservationsCounter.Describe(ch)
-	}
-	if c.includedObservationsCounter != nil {
-		c.includedObservationsCounter.Describe(ch)
-	}
-}
-
-// Collect implements prometheus.Collector
-func (c *ObservationMetricsCollector) Collect(ch chan<- prometheus.Metric) {
-	if c.sentObservationsCounter != nil {
-		c.sentObservationsCounter.Collect(ch)
-	}
-	if c.includedObservationsCounter != nil {
-		c.includedObservationsCounter.Collect(ch)
-	}
 }
 
 // interceptingRegisterer wraps a Prometheus registerer to intercept specific metric registrations

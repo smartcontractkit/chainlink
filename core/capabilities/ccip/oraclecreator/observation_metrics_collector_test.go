@@ -95,17 +95,7 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	// Increment the counters (simulating what libocr does)
 	sentCounter.Inc()
-
-	// Trigger a collection to detect the increment
-	metricChan := make(chan prometheus.Metric, 10)
-	collector.sentObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	// Drain the channel
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	// Wait for async publishing
-	time.Sleep(100 * time.Millisecond)
+	collector.sentObservationsCounter.readAndPublish()
 
 	// Check that the metric was published with Beholder labels
 	metrics := mockPub.getMetrics()
@@ -124,27 +114,13 @@ func TestObservationMetricsCollector(t *testing.T) {
 
 	// Increment multiple times and trigger collections
 	sentCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.sentObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
+	collector.sentObservationsCounter.readAndPublish()
 
 	includedCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.includedObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
+	collector.includedObservationsCounter.readAndPublish()
 
 	includedCounter.Inc()
-	metricChan = make(chan prometheus.Metric, 10)
-	collector.includedObservationsCounter.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	time.Sleep(100 * time.Millisecond)
+	collector.includedObservationsCounter.readAndPublish()
 
 	metrics = mockPub.getMetrics()
 	assert.GreaterOrEqual(t, len(metrics), 3, "Expected at least 3 metrics to be published")
@@ -202,12 +178,7 @@ func TestWrappedCounter(t *testing.T) {
 
 	// Test Inc() - increment the base counter and trigger collection
 	baseCounter.Inc()
-	metricChan := make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-	time.Sleep(50 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	metrics := mockPub.getMetrics()
 	require.Len(t, metrics, 1)
@@ -222,12 +193,7 @@ func TestWrappedCounter(t *testing.T) {
 
 	// Test Add() - increment by 5 and trigger collection
 	baseCounter.Add(5.0)
-	metricChan = make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-	time.Sleep(50 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	metrics = mockPub.getMetrics()
 	require.Len(t, metrics, 2)
@@ -279,14 +245,7 @@ func TestWrappedCounter_AtomicOperations(t *testing.T) {
 		<-done
 	}
 
-	// Trigger a collection to detect all the increments
-	metricChan := make(chan prometheus.Metric, 10)
-	wrapped.Collect(metricChan)
-	close(metricChan)
-	for range metricChan { //nolint:revive // Intentionally draining channel
-	}
-
-	time.Sleep(100 * time.Millisecond)
+	wrapped.readAndPublish()
 
 	// Verify that we published the total delta
 	metrics := mockPub.getMetrics()
@@ -316,15 +275,7 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 		logger:     lggr,
 	}
 
-	// Helper function to increment and collect
-	collectMetrics := func() {
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	collectMetrics := func() { wrapped.readAndPublish() }
 
 	// Test sequence: Inc(), Inc(), Add(5), Inc(), Add(10)
 	baseCounter.Inc() // Should publish 1
@@ -380,15 +331,7 @@ func TestWrappedCounter_AddWithFractionalValues(t *testing.T) {
 		logger:     lggr,
 	}
 
-	// Helper function to collect metrics
-	collectMetrics := func() {
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	collectMetrics := func() { wrapped.readAndPublish() }
 
 	// Test with fractional values
 	baseCounter.Add(2.7)
@@ -585,12 +528,6 @@ func TestWrappedCounter_NilPublisher(t *testing.T) {
 	require.NotPanics(t, func() {
 		baseCounter.Inc()
 		baseCounter.Add(5.0)
-
-		// Trigger collection
-		metricChan := make(chan prometheus.Metric, 10)
-		wrapped.Collect(metricChan)
-		close(metricChan)
-		for range metricChan { //nolint:revive // Intentionally draining channel
-		}
+		wrapped.readAndPublish()
 	})
 }
