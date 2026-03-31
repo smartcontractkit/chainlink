@@ -1,10 +1,12 @@
-name: CL Cluster Node Version Compatibility
+name: (Nightly) CL Cluster Node Version Compatibility
 
 on:
+  schedule:
+    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
     inputs:
       refs:
-        description: "Git refs to test, should be used only if automatically detected refs are not enough. Enter multiple refs separated by commas, from oldest to newest."
+        description: "Git refs to test, should be used only if automatically detected refs are not enough"
         required: false
         type: string
 
@@ -60,7 +62,7 @@ jobs:
       # patterns to exclude specific refs
       exclude-refs: "beta,rc,ccip"
       # Git refs to test, should be used only for tool testing purposes.
-      refs: ${{ inputs.refs }}
+      refs: ${{ github.event_name == 'workflow_dispatch' && inputs.refs || '' }}
       # directory with your developer environment to run buildcmd and envcmd
       working-directory: "devenv"
       # directory for executing your tests, to run testcmd
@@ -90,7 +92,7 @@ jobs:
       # patterns to exclude specific refs
       exclude-refs: "beta,rc,ccip"
       # Git refs to test, should be used only for tool testing purposes.
-      refs: ${{ inputs.refs }}
+      refs: ${{ github.event_name == 'workflow_dispatch' && inputs.refs || '' }}
       # directory with your developer environment to run buildcmd and envcmd
       working-directory: "./system-tests/tests"
       # directory for executing your tests, to run testcmd
