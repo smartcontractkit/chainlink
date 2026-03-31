@@ -277,7 +277,19 @@ func (fc *FakeEVMChain) ManualTrigger(ctx context.Context, triggerID string, log
 //   - Topics: fixed 4-slot array; slot 0 = event signature, slots 1-3 = indexed args.
 //     Within each slot the match is OR (any value matches); across slots it is AND
 //     (all non-empty slots must match). An empty Values slice in a slot is a wildcard.
+//
+// As a developer aid, this fake rejects filters that omit topic0 (the event
+// signature hash). Leaving topic0 empty is a common mistake — especially when
+// using the raw API or TypeScript bindings — and silently causes the trigger to
+// fire for every event emitted by the contract, not just the intended one.
 func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTriggerRequest) error {
+	topics := filter.GetTopics()
+	if len(topics) == 0 || len(topics[0].GetValues()) == 0 {
+		return fmt.Errorf("filter is missing topic0 (event signature hash): " +
+			"omitting topic0 would match every event emitted by the contract; " +
+			"set Topics[0] to the keccak256 hash of the event signature")
+	}
+
 	if len(filter.GetAddresses()) > 0 {
 		addrMatched := false
 		for _, addr := range filter.GetAddresses() {
@@ -294,7 +306,7 @@ func fakeEVMLogMatchesFilter(log *evmcappb.Log, filter *evmcappb.FilterLogTrigge
 	logTopics := log.GetTopics()
 	for i, topicValues := range filter.GetTopics() {
 		if len(topicValues.GetValues()) == 0 {
-			continue // wildcard slot
+			continue // wildcard slot (only valid for slots 1-3, slot 0 is checked above)
 		}
 		if i >= len(logTopics) {
 			return fmt.Errorf("log topics length %d does not match the filter topics length %d", len(logTopics), len(filter.GetTopics()))
