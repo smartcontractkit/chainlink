@@ -56,3 +56,15 @@ func TestNewNodeKeys_RejectsMissingImportedAptosSecretWhenAptosEnabled(t *testin
 	})
 	require.ErrorContains(t, err, "missing an Aptos key")
 }
+
+func TestNewNodeKeys_PreservesAptosChainIDs(t *testing.T) {
+	t.Parallel()
+
+	keys, err := NewNodeKeys(NodeKeyInput{
+		AptosChainIDs: []uint64{4, 5},
+		Password:      "dev-password",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, keys.Aptos)
+	require.ElementsMatch(t, []uint64{4, 5}, keys.AptosChainIDs)
+}

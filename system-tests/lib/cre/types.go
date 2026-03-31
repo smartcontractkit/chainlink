@@ -1514,6 +1514,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 			return nil, fmt.Errorf("failed to generate Aptos key: %w", err)
 		}
 		out.Aptos = k
+		out.AptosChainIDs = append([]uint64(nil), input.AptosChainIDs...)
 	}
 
 	framework.L.Debug().
