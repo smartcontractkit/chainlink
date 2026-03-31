@@ -15,6 +15,7 @@ import (
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	jobtypes "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 )
@@ -66,25 +67,9 @@ func proposeAptosWorkerSpecs(
 			return nil, fmt.Errorf("failed to build Aptos worker config: %w", err)
 		}
 
-		workerInput := jobs.ProposeJobSpecInput{
-			Domain:      offchain.ProductLabel,
-			Environment: cre.EnvironmentName,
-			DONName:     don.Name,
-			JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
-			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: don.Name},
-			},
-			Template: jobtypes.Aptos,
-			Inputs: jobtypes.JobSpecInput{
-				"command":            command,
-				"config":             configStr,
-				"chainSelectorEVM":   creEnv.RegistryChainSelector,
-				"chainSelectorAptos": aptosChain.ChainSelector(),
-				"bootstrapPeers":     bootstrapPeers,
-				"useCapRegOCRConfig": false,
-				"contractQualifier":  ocr3ContractQualifier,
-			},
+		workerInput, err := newAptosWorkerJobInput(creEnv, don.Name, command, configStr, bootstrapPeers, aptosChain.ChainSelector(), chainID)
+		if err != nil {
+			return nil, err
 		}
 
 		proposer := jobs.ProposeJobSpec{}
@@ -109,6 +94,42 @@ func proposeAptosWorkerSpecs(
 	}
 
 	return specs, nil
+}
+
+func newAptosWorkerJobInput(
+	creEnv *cre.Environment,
+	donName string,
+	command string,
+	configStr string,
+	bootstrapPeers []string,
+	aptosChainSelector uint64,
+	chainID uint64,
+) (jobs.ProposeJobSpecInput, error) {
+	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
+	if !ok {
+		return jobs.ProposeJobSpecInput{}, fmt.Errorf("CapabilitiesRegistry version not found in contract versions")
+	}
+
+	return jobs.ProposeJobSpecInput{
+		Domain:      offchain.ProductLabel,
+		Environment: cre.EnvironmentName,
+		DONName:     donName,
+		JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
+		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: donName},
+		},
+		Template: jobtypes.Aptos,
+		Inputs: jobtypes.JobSpecInput{
+			"command":            command,
+			"config":             configStr,
+			"chainSelectorEVM":   creEnv.RegistryChainSelector,
+			"chainSelectorAptos": aptosChainSelector,
+			"bootstrapPeers":     bootstrapPeers,
+			"useCapRegOCRConfig": true,
+			"capRegVersion":      capRegVersion.String(),
+		},
+	}, nil
 }
 
 func donOraclePublicKeys(ctx context.Context, don *cre.Don) ([][]byte, error) {

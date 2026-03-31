@@ -35,7 +35,6 @@ type ConfigureOCR3Input struct {
 	DryRun          bool
 
 	ReportingPluginConfigOverride []byte
-	ExtraSignerFamilies           []string
 
 	MCMSConfig *contracts.MCMSConfig
 }
@@ -73,7 +72,6 @@ var ConfigureOCR3 = operations.NewOperation[ConfigureOCR3Input, ConfigureOCR3OpO
 			OCR3Config:                    input.Config,
 			Contract:                      contract.Contract,
 			DryRun:                        input.DryRun,
-			ExtraSignerFamilies:           input.ExtraSignerFamilies,
 			UseMCMS:                       input.UseMCMS(),
 			Strategy:                      deps.Strategy,
 			ReportingPluginConfigOverride: input.ReportingPluginConfigOverride,
