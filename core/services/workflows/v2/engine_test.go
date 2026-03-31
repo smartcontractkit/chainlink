@@ -98,10 +98,17 @@ func TestEngine_Init(t *testing.T) {
 
 func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
+	getter, err := settings.NewTOMLGetter([]byte(`
+[global]
+WorkflowExecutionConcurrencyLimit = "2"
+[global.PerOwner]
+WorkflowExecutionConcurrencyLimit = "1"
+`))
+	require.NoError(t, err)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
-		Global:   2,
-		PerOwner: 1,
-	}, limits.Factory{})
+		Global:   0,
+		PerOwner: 0,
+	}, limits.Factory{Settings: getter})
 	require.NoError(t, err)
 
 	module := modulemocks.NewModuleV2(t)

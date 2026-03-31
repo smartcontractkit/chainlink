@@ -1,6 +1,7 @@
 package job_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -11,8 +12,8 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -160,7 +161,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),
-			Client:         clienttest.NewClientWithDefaultChainID(t),
+			Client:         client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.TestLogger(t)),
 			DB:             db,
 			KeyStore:       keyStore.Eth(),
 		})

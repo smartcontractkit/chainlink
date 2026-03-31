@@ -209,6 +209,15 @@
     },
     {
       "type": "checks",
+      "id": "NodePlatformBuildInfo",
+      "attributes": {
+        "name": "NodePlatformBuildInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "PipelineORM",
       "attributes": {
         "name": "PipelineORM",

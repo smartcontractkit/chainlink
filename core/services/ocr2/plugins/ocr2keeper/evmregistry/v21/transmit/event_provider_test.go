@@ -26,7 +26,7 @@ import (
 func TestTransmitEventProvider_Sanity(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 
@@ -101,7 +101,7 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 }
 
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	client := clienttest.NewClient(t)
 	ctx := testutils.Context(t)

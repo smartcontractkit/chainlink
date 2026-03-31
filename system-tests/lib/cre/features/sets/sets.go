@@ -22,7 +22,6 @@ import (
 
 func New() cre.Features {
 	return cre.NewFeatures(
-		&consensus_v1_feature.Consensus{},
 		&consensus_v2_feature.Consensus{},
 		&cron_feature.Cron{},
 		&custom_compute_feature.CustomCompute{},
@@ -36,7 +35,10 @@ func New() cre.Features {
 		&read_contract_feature.ReadContract{},
 		&web_api_target_feature.WebAPITarget{},
 		&web_api_trigger_feature.WebAPITrigger{},
-		&vault_feature.Vault{},
 		&solana_v2_feature.Solana{},
+		// Keep OCR3 late in PostEnvStartup so ConfigWatcher health waits do not block
+		// the rest of the job-oriented features from making progress.
+		&consensus_v1_feature.Consensus{},
+		&vault_feature.Vault{},
 	)
 }

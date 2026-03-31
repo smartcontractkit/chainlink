@@ -6,9 +6,11 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +19,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -385,6 +388,7 @@ type ConfigureCapabilityRegistryInput struct {
 	NodeSets                    []*NodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	Blockchains                 []blockchains.Blockchain
+	Provider                    infra.Provider
 
 	CapabilitiesRegistryAddress *common.Address
 
@@ -574,10 +578,16 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		cfgs[i] = cfg
 	}
 
+	newNodesStart := time.Now()
 	nodes, err := newNodes(cfgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create nodes metadata: %w", err)
 	}
+	framework.L.Info().
+		Str("don", c.Name).
+		Int("nodes", len(cfgs)).
+		Float64("duration_s", roundSeconds(time.Since(newNodesStart))).
+		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
 	if capErr != nil {
@@ -1181,13 +1191,26 @@ func NewNodeMetadata(c NodeMetadataConfig) (*NodeMetadata, error) {
 
 func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	nodes := make([]*NodeMetadata, len(cfgs))
+	if len(cfgs) == 0 {
+		return nodes, nil
+	}
 
-	for i := range nodes {
-		node, err := NewNodeMetadata(cfgs[i])
-		if err != nil {
-			return nil, fmt.Errorf("failed to create node (index: %d): %w", i, err)
-		}
-		nodes[i] = node
+	errGroup := errgroup.Group{}
+	errGroup.SetLimit(min(len(cfgs), runtime.GOMAXPROCS(0)))
+
+	for i := range cfgs {
+		errGroup.Go(func() error {
+			node, err := NewNodeMetadata(cfgs[i])
+			if err != nil {
+				return fmt.Errorf("failed to create node (index: %d): %w", i, err)
+			}
+			nodes[i] = node
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return nodes, nil
@@ -1424,6 +1447,7 @@ type NodeKeyInput struct {
 }
 
 func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
+	start := time.Now()
 	out := &secrets.NodeKeys{
 		EVM:    make(map[uint64]*crypto.EVMKey),
 		Solana: make(map[string]*crypto.SolKey),
@@ -1467,6 +1491,14 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		}
 		out.Solana[chainID] = k
 	}
+
+	framework.L.Debug().
+		Int("evm_chains", len(input.EVMChainIDs)).
+		Int("solana_chains", len(input.SolanaChainIDs)).
+		Bool("imported", input.ImportedSecrets != "").
+		Float64("duration_s", roundSeconds(time.Since(start))).
+		Msg("Node key generation completed")
+
 	return out, nil
 }
 
