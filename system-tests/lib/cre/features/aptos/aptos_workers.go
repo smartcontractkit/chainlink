@@ -115,7 +115,7 @@ func newAptosWorkerJobInput(
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     donName,
-		JobName:     "write-aptos-worker-" + strconv.FormatUint(chainID, 10),
+		JobName:     "aptos-worker-" + strconv.FormatUint(chainID, 10),
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: donName},

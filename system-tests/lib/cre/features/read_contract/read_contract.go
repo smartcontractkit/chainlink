@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	aptosfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 )
 
@@ -52,31 +51,13 @@ func (o *ReadContract) PreEnvStartup(
 	}
 
 	for _, chainID := range enabledChainIDs {
-		bc, findErr := findBlockchainByChainID(creEnv, chainID)
-		if findErr != nil {
-			return nil, findErr
-		}
-
-		labelledName, skip, labelErr := capabilityLabelForChain(don, creEnv, chainID)
+		labelledName, labelErr := capabilityLabelForChain(creEnv, chainID)
 		if labelErr != nil {
 			return nil, labelErr
-		}
-		if skip {
-			continue
 		}
 
 		capConfig := &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),
-		}
-		if bc.IsFamily(blockchain.FamilyAptos) {
-			capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(don.MustNodeSet(), flag, cre.ChainCapabilityScope(chainID))
-			if resolveErr != nil {
-				return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
-			}
-			capConfig, err = aptosfeature.BuildCapabilityConfig(capabilityConfig.Values, nil, don.HasOnlyLocalCapabilities())
-			if err != nil {
-				return nil, fmt.Errorf("failed to build Aptos read capability config for chain %d: %w", chainID, err)
-			}
 		}
 
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
@@ -94,35 +75,21 @@ func (o *ReadContract) PreEnvStartup(
 	}, nil
 }
 
-func capabilityLabelForChain(don *cre.DonMetadata, creEnv *cre.Environment, chainID uint64) (string, bool, error) {
+func capabilityLabelForChain(creEnv *cre.Environment, chainID uint64) (string, error) {
 	for _, bc := range creEnv.Blockchains {
 		if bc.ChainID() != chainID {
 			continue
 		}
 
 		switch {
-		case bc.IsFamily(blockchain.FamilyAptos):
-			return aptosCapabilityLabel(don, bc)
 		case bc.IsFamily(blockchain.FamilyEVM), bc.IsFamily(blockchain.FamilyTron):
-			return fmt.Sprintf("read-contract-evm-%d", chainID), false, nil
+			return fmt.Sprintf("read-contract-evm-%d", chainID), nil
 		default:
-			return "", false, fmt.Errorf("read-contract is not supported for chain family %s on chainID %d", bc.ChainFamily(), chainID)
+			return "", fmt.Errorf("read-contract is not supported for chain family %s on chainID %d", bc.ChainFamily(), chainID)
 		}
 	}
 
-	return "", false, fmt.Errorf("could not find blockchain for read-contract chainID %d", chainID)
-}
-
-func aptosCapabilityLabel(don *cre.DonMetadata, bc blockchainOutput) (string, bool, error) {
-	if don.HasFlag(cre.WriteAptosCapability) {
-		return "", true, nil
-	}
-	return aptosfeature.CapabilityLabel(bc.ChainSelector()), false, nil
-}
-
-type blockchainOutput interface {
-	ChainSelector() uint64
-	ChainFamily() string
+	return "", fmt.Errorf("could not find blockchain for read-contract chainID %d", chainID)
 }
 
 const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
@@ -156,12 +123,8 @@ func (o *ReadContract) PostEnvStartup(
 
 	for i, chainID := range enabledChainIDs {
 		group.Go(func() error {
-			blockchainOutput, findErr := findBlockchainByChainID(creEnv, chainID)
-			if findErr != nil {
+			if _, findErr := findBlockchainByChainID(creEnv, chainID); findErr != nil {
 				return findErr
-			}
-			if blockchainOutput.IsFamily(blockchain.FamilyAptos) && don.HasFlag(cre.WriteAptosCapability) {
-				return nil
 			}
 
 			capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))

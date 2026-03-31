@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	flag                    = cre.WriteAptosCapability
+	flag                    = cre.AptosCapability
 	forwarderContractType   = "AptosForwarder"
 	forwarderConfigVersion  = 1
 	capabilityVersion       = "1.0.0"

@@ -214,7 +214,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 			}
 
 			for _, node := range don.Nodes {
-				address, addrErr := nodeAddress(ctx, node, chainFamily, bc)
+				address, addrErr := nodeAddress(node, chainFamily, bc)
 				if addrErr != nil {
 					return pkgerrors.Wrapf(addrErr, "failed to get address for node %s on chain family %s and chain %d", node.Name, chainFamily, bc.ChainID())
 				}
@@ -237,7 +237,7 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 	return nil
 }
 
-func nodeAddress(ctx context.Context, node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
+func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
 	switch chainFamily {
 	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
 		evmKey, ok := node.Keys.EVM[bc.ChainID()]

@@ -331,9 +331,9 @@ func TestFindAptosChainByChainID_ErrorsOnTypeMismatch(t *testing.T) {
 }
 
 func TestBuildCapabilityRegistrations_UsesCapRegOCRConfig(t *testing.T) {
-	don := testDonMetadataWithCapabilities(t, []string{"[Aptos]\n"}, []string{cre.WriteAptosCapability + "-4"}, cre.CapabilityConfigs{
-		cre.WriteAptosCapability: {
-			BinaryName: "write-aptos",
+	don := testDonMetadataWithCapabilities(t, []string{"[Aptos]\n"}, []string{cre.AptosCapability + "-4"}, cre.CapabilityConfigs{
+		cre.AptosCapability: {
+			BinaryName: "aptos",
 			Values: map[string]any{
 				requestTimeoutKey:       "45s",
 				deltaStageKey:           "2500ms",
@@ -375,7 +375,7 @@ func TestNewAptosWorkerJobInput_UsesCapRegVersion(t *testing.T) {
 		4,
 	)
 	require.NoError(t, err)
-	require.Equal(t, "write-aptos-worker-4", input.JobName)
+	require.Equal(t, "aptos-worker-4", input.JobName)
 	require.Equal(t, true, input.Inputs["useCapRegOCRConfig"])
 	require.Equal(t, "2.0.0", input.Inputs["capRegVersion"])
 	require.Equal(t, uint64(111), input.Inputs["chainSelectorEVM"])

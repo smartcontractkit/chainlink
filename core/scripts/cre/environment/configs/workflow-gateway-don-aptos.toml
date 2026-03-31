@@ -1,4 +1,4 @@
-# Same as workflow-gateway-don.toml but with Aptos chain and Aptos read capability plumbing.
+# Same as workflow-gateway-don.toml but with Aptos chain and a single Aptos capability.
 # Anvil 1337: registry and gateway. Aptos: local devnet (chain_id 4). Run: env config path <this file>, then env start.
 
 [[blockchains]]
@@ -32,9 +32,12 @@
   override_mode = "all"
   http_port_range_start = 10100
 
+  # Keep the registry chain (1337) in node TOML even though this DON's chain-scoped
+  # capability is Aptos-only; the workflow stack still needs the EVM registry chain.
   supported_evm_chains = [1337]
+  # Workflow runtime limits still need both the EVM registry chain and the Aptos chain selector.
   env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","4457093679053095497":"true"}},"ChainWrite":{"EVM":{"GasLimit":{"Default":"5000000","Values":{"1337":"10000000"}}}}}}' }
-  capabilities = ["cron", "consensus", "read-contract-4", "write-aptos-4"]
+  capabilities = ["cron", "consensus", "aptos-4"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]

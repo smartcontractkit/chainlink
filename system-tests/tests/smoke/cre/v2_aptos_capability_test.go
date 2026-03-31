@@ -157,7 +157,7 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
-	writeDon := findWriteAptosDonForChain(t, tenv, aptosChain.ChainID())
+	writeDon := findAptosDonForChain(t, tenv, aptosChain.ChainID())
 	assertAptosWorkerRuntimeKeysMatchMetadata(t, writeDon)
 
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
@@ -428,7 +428,7 @@ func prepareAptosWriteScenarioWithBenchmark(
 	require.NotEmpty(t, forwarderHex, "Aptos write test requires forwarder address for chainSelector=%d", aptosChain.ChainSelector())
 	require.False(t, isZeroAptosAddress(forwarderHex), "Aptos write test requires non-zero forwarder address for chainSelector=%d", aptosChain.ChainSelector())
 
-	writeDon := findWriteAptosDonForChain(t, tenv, aptosChain.ChainID())
+	writeDon := findAptosDonForChain(t, tenv, aptosChain.ChainID())
 	workers, workerErr := writeDon.Workers()
 	require.NoError(t, workerErr, "failed to list Aptos write DON workers")
 	f := (len(workers) - 1) / 3
@@ -449,15 +449,15 @@ func uniqueAptosWorkflowName(base string) string {
 	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), atomic.AddUint64(&aptosWorkflowNameSeq, 1))
 }
 
-func findWriteAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, chainID uint64) *crelib.Don {
+func findAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, chainID uint64) *crelib.Don {
 	t.Helper()
 	require.NotNil(t, tenv.Dons, "test environment DON metadata is required")
 
 	for _, don := range tenv.Dons.List() {
-		if !don.HasFlag("write-aptos") {
+		if !don.HasFlag("aptos") {
 			continue
 		}
-		chainIDs, err := don.GetEnabledChainIDsForCapability("write-aptos")
+		chainIDs, err := don.GetEnabledChainIDsForCapability("aptos")
 		require.NoError(t, err, "failed to read enabled chain ids for DON %q", don.Name)
 		for _, id := range chainIDs {
 			if id == chainID {
@@ -466,7 +466,7 @@ func findWriteAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment
 		}
 	}
 
-	require.FailNowf(t, "missing Aptos write DON", "could not find write-aptos DON for chainID=%d", chainID)
+	require.FailNowf(t, "missing Aptos DON", "could not find aptos DON for chainID=%d", chainID)
 	return nil
 }
 

@@ -500,7 +500,7 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
-			aptosAccount, aptosErr := aptosAccountForNode(ctx, n)
+			aptosAccount, aptosErr := aptosAccountForNode(n)
 			if aptosErr != nil {
 				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, aptosErr)
 			}
@@ -612,7 +612,7 @@ func listNodeChainConfigIDs(ctx context.Context, jd nodeChainConfigLister, nodeI
 	return chainIDs, nil
 }
 
-func aptosAccountForNode(ctx context.Context, n *Node) (string, error) {
+func aptosAccountForNode(n *Node) (string, error) {
 	if n.Keys != nil && n.Keys.Aptos != nil && n.Keys.Aptos.Account != "" {
 		return n.Keys.Aptos.Account, nil
 	}
@@ -915,7 +915,7 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
 
 		// Include all Solana chains (legacy behavior), and include any chain that is
-		// explicitly referenced by chain-scoped capabilities (e.g. write-aptos-4).
+		// explicitly referenced by chain-scoped capabilities (e.g. aptos-4).
 		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !chainIsSolana {
 			continue
 		}

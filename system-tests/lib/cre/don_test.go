@@ -184,7 +184,7 @@ func TestAptosAccountForNode_UsesMetadataKeyWithoutCallingNodeAPI(t *testing.T) 
 		},
 	}
 
-	account, err := aptosAccountForNode(context.Background(), node)
+	account, err := aptosAccountForNode(node)
 	require.NoError(t, err)
 	require.Equal(t, expected, account)
 	require.Zero(t, hits.Load(), "node API must not be called when metadata already has the Aptos key")
@@ -218,7 +218,7 @@ func TestAptosAccountForNode_FallsBackToNodeAPIAndCachesKey(t *testing.T) {
 		},
 	}
 
-	account, err := aptosAccountForNode(context.Background(), node)
+	account, err := aptosAccountForNode(node)
 	require.NoError(t, err)
 
 	expected, err := crecrypto.NormalizeAptosAccount("0x1")

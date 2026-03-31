@@ -9,8 +9,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 )
 
-// WARNING: Hacky and brittle - used only during migration to map job specs to capability IDs
-// before executing the LOOPP. When std cap job specs are deprecated, capability IDs will be known upfront.
+// WARNING: Hacky and brittle - used during the current std-capability transition to map
+// job commands back to capability IDs. The standard-capability delegate still needs this
+// for registry-based launch allowlisting and OCR config wiring, including remote caps like Aptos.
 func GetCapabilityIDFromCommand(command string, config string) string {
 	switch filepath.Base(command) {
 	case "evm":

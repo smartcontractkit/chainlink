@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -506,10 +505,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 
-	type importedAptosKeyConfig interface {
-		ImportedAptosKey() coreconfig.ImportableKey
-	}
-
 	if s.Config.P2P().Enabled() {
 		if s.Config.ImportedP2PKey().JSON() != "" {
 			lggr.Debugf("Importing p2p key %s", s.Config.ImportedP2PKey().JSON())
@@ -557,15 +552,15 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.AptosEnabled() {
-		if cfg, ok := s.Config.(importedAptosKeyConfig); ok {
-			if k := cfg.ImportedAptosKey(); k != nil && k.JSON() != "" {
-				lggr.Debug("Importing aptos key")
-				_, err2 := app.GetKeyStore().Aptos().Import(rootCtx, []byte(k.JSON()), k.Password())
-				if errors.Is(err2, keystore.ErrKeyExists) {
-					lggr.Debugf("Aptos key already exists %s", k.JSON())
-				} else if err2 != nil {
-					return s.errorOut(fmt.Errorf("error importing aptos key: %w", err2))
-				}
+		if k := s.Config.ImportedAptosKey(); k != nil && k.JSON() != "" {
+			lggr.Debug("Importing aptos key")
+			_, err2 := app.GetKeyStore().Aptos().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if errors.Is(err2, keystore.ErrKeyExists) {
+				lggr.Debug("Aptos key already exists")
+			} else if err2 != nil {
+				return s.errorOut(fmt.Errorf("error importing aptos key: %w", err2))
+			} else {
+				lggr.Debug("Imported aptos key")
 			}
 		}
 

@@ -73,7 +73,7 @@ const (
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
 	SolanaCapability          CapabilityFlag = "solana"
-	WriteAptosCapability      CapabilityFlag = "write-aptos"
+	AptosCapability           CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
@@ -566,7 +566,7 @@ type DonMetadata struct {
 
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
-	aptosChainIDs, err := c.GetEnabledChainIDsForCapability(WriteAptosCapability)
+	aptosChainIDs, err := c.GetEnabledChainIDsForCapability(AptosCapability)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve Aptos chain ids for node metadata: %w", err)
 	}
@@ -1317,7 +1317,7 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	return out
 }
 
-// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, write-aptos-4).
+// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, aptos-4).
 func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
 	return c.chainCapabilityIDs()
 }
