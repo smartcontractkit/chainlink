@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
-// Aptos key import config is node-scoped rather than chain-scoped, so unlike
-// EVM/Solana imported keys it intentionally only implements ImportableKey.
+// importedAptosKeyConfig adapts a single chain-aware Aptos imported key entry
+// to the shared ImportableChainKey interface used during keystore startup.
 type importedAptosKeyConfig struct {
 	s toml.AptosKey
 }

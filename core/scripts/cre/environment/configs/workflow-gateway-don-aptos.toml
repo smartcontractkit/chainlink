@@ -36,7 +36,7 @@
   # capability is Aptos-only; the workflow stack still needs the EVM registry chain.
   supported_evm_chains = [1337]
   # Workflow runtime limits still need both the EVM registry chain and the Aptos chain selector.
-  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","4457093679053095497":"true"}},"ChainWrite":{"EVM":{"GasLimit":{"Default":"5000000","Values":{"1337":"10000000"}}}}}}' }
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","4457093679053095497":"true"}}}}' }
   capabilities = ["cron", "consensus", "aptos-4"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
