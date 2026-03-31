@@ -3,6 +3,7 @@ package aptos
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -107,7 +108,7 @@ func newAptosWorkerJobInput(
 ) (jobs.ProposeJobSpecInput, error) {
 	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
 	if !ok {
-		return jobs.ProposeJobSpecInput{}, fmt.Errorf("CapabilitiesRegistry version not found in contract versions")
+		return jobs.ProposeJobSpecInput{}, errors.New("CapabilitiesRegistry version not found in contract versions")
 	}
 
 	return jobs.ProposeJobSpecInput{

@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
