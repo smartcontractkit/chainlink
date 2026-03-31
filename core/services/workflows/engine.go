@@ -32,12 +32,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -1532,24 +1532,24 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionsStore:      cfg.Store,
-		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
-		triggerEvents:        make(chan capabilities.TriggerResponse),
-		stopCh:               make(chan struct{}),
-		newWorkerTimeout:     cfg.NewWorkerTimeout,
-		stepTimeoutDuration:  cfg.StepTimeout,
-		maxExecutionDuration: cfg.MaxExecutionDuration,
-		heartbeatCadence:     cfg.HeartbeatCadence,
-		onExecutionFinished:  cfg.onExecutionFinished,
-		onRateLimit:          cfg.onRateLimit,
-		afterInit:            cfg.afterInit,
-		maxRetries:           cfg.maxRetries,
-		retryMs:              cfg.retryMs,
-		maxWorkerLimit:       cfg.MaxWorkerLimit,
-		clock:                cfg.clock,
-		ratelimiter:          cfg.RateLimiter,
-		workflowLimits:       cfg.WorkflowLimits,
+		executionsStore:         cfg.Store,
+		pendingStepRequests:     make(chan stepRequest, cfg.QueueSize),
+		stepUpdatesChMap:        stepUpdateManager{m: map[string]stepUpdateChannel{}},
+		triggerEvents:           make(chan capabilities.TriggerResponse),
+		stopCh:                  make(chan struct{}),
+		newWorkerTimeout:        cfg.NewWorkerTimeout,
+		stepTimeoutDuration:     cfg.StepTimeout,
+		maxExecutionDuration:    cfg.MaxExecutionDuration,
+		heartbeatCadence:        cfg.HeartbeatCadence,
+		onExecutionFinished:     cfg.onExecutionFinished,
+		onRateLimit:             cfg.onRateLimit,
+		afterInit:               cfg.afterInit,
+		maxRetries:              cfg.maxRetries,
+		retryMs:                 cfg.retryMs,
+		maxWorkerLimit:          cfg.MaxWorkerLimit,
+		clock:                   cfg.clock,
+		ratelimiter:             cfg.RateLimiter,
+		workflowLimits:          cfg.WorkflowLimits,
 		meterReports:            metering.NewReports(cfg.BillingClient, workflow.owner, workflow.id, lggr, cma.Labels(), metrics, cfg.WorkflowRegistryAddress, cfg.WorkflowRegistryChainSelector, metering.EngineVersionV1),
 		shardOrchestratorClient: cfg.ShardOrchestratorClient,
 		shardingEnabled:         cfg.ShardingEnabled,
