@@ -7,7 +7,6 @@ import (
 	big "math/big"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
