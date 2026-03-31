@@ -14,7 +14,6 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
@@ -25,7 +24,6 @@ import (
 	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
-	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 )
 
@@ -51,45 +49,21 @@ func (o *ReadContract) PreEnvStartup(
 	}
 
 	for _, chainID := range enabledChainIDs {
-		labelledName, labelErr := capabilityLabelForChain(creEnv, chainID)
-		if labelErr != nil {
-			return nil, labelErr
-		}
-
-		capConfig := &capabilitiespb.CapabilityConfig{
-			LocalOnly: don.HasOnlyLocalCapabilities(),
-		}
-
 		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   labelledName,
+				LabelledName:   fmt.Sprintf("read-contract-evm-%d", chainID),
 				Version:        "1.0.0",
-				CapabilityType: 1,
+				CapabilityType: 1, // ACTION
 			},
-			Config: capConfig,
+			Config: &capabilitiespb.CapabilityConfig{
+				LocalOnly: don.HasOnlyLocalCapabilities(),
+			},
 		})
 	}
 
 	return &cre.PreEnvStartupOutput{
 		DONCapabilityWithConfig: capabilities,
 	}, nil
-}
-
-func capabilityLabelForChain(creEnv *cre.Environment, chainID uint64) (string, error) {
-	for _, bc := range creEnv.Blockchains {
-		if bc.ChainID() != chainID {
-			continue
-		}
-
-		switch {
-		case bc.IsFamily(blockchain.FamilyEVM), bc.IsFamily(blockchain.FamilyTron):
-			return fmt.Sprintf("read-contract-evm-%d", chainID), nil
-		default:
-			return "", fmt.Errorf("read-contract is not supported for chain family %s on chainID %d", bc.ChainFamily(), chainID)
-		}
-	}
-
-	return "", fmt.Errorf("could not find blockchain for read-contract chainID %d", chainID)
 }
 
 const configTemplate = `{"chainId":{{printf "%d" .ChainID}},"network":"{{.NetworkFamily}}"}`
@@ -123,10 +97,6 @@ func (o *ReadContract) PostEnvStartup(
 
 	for i, chainID := range enabledChainIDs {
 		group.Go(func() error {
-			if _, findErr := findBlockchainByChainID(creEnv, chainID); findErr != nil {
-				return findErr
-			}
-
 			capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
 			if resolveErr != nil {
 				return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, resolveErr)
@@ -212,9 +182,6 @@ func (o *ReadContract) PostEnvStartup(
 	if mErr != nil {
 		return mErr
 	}
-	if len(specs) == 0 {
-		return nil
-	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
 	if approveErr != nil {
@@ -222,14 +189,4 @@ func (o *ReadContract) PostEnvStartup(
 	}
 
 	return nil
-}
-
-func findBlockchainByChainID(creEnv *cre.Environment, chainID uint64) (creblockchains.Blockchain, error) {
-	for _, bc := range creEnv.Blockchains {
-		if bc.ChainID() == chainID {
-			return bc, nil
-		}
-	}
-
-	return nil, fmt.Errorf("could not find blockchain for read-contract chainID %d", chainID)
 }
