@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 	"runtime"
-	"slices"
 	"strconv"
 	"text/template"
 	"time"
@@ -76,7 +75,7 @@ func (s *Solana) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	don *cre.DonMetadata,
-	topology *cre.Topology,
+	_ *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
@@ -95,15 +94,7 @@ func (s *Solana) PreEnvStartup(
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
 
-	// 3. Patch wf nodes TOML config to enable solana relayer
-	for _, ns := range topology.NodeSets() {
-		if slices.Contains(ns.DONTypes, "workflow") {
-			for _, spec := range ns.NodeSpecs {
-				fmt.Println("test config override:", spec.Node.TestConfigOverrides)
-			}
-		}
-	}
-	// 4. Register Solana capability & its methods with Keystone
+	// 3. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
 
 	return &cre.PreEnvStartupOutput{
@@ -177,7 +168,7 @@ func createJobs(
 		return errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
-	solChainID, err := solChain.SolClient.GetGenesisHash(ctx)
+	solChainID, err := solChain.GenesisHash(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get sol genesis hash")
 	}
@@ -224,7 +215,7 @@ func createJobs(
 				"NodeAddress":         nodeAddress,
 				"IsLocal":             true,
 				"Network":             "solana",
-				"ChainID":             solChainID.String(),
+				"ChainID":             solChainID,
 			}
 
 			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)

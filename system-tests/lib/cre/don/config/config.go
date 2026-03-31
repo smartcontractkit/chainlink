@@ -720,7 +720,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solBc := bcOut.(*solana.Blockchain)
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
+		chainID, err := solBc.GenesisHash(ctx)
 		if err != nil {
 			cancelFn()
 			return nil, errors.Wrap(err, "failed to get chainID for Solana")
@@ -729,7 +729,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
-			ChainID: chainID.String(),
+			ChainID: chainID,
 			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
