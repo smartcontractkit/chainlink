@@ -1718,10 +1718,12 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
 			}
-			// New versions of the EVM FeeQuoter are developed to support new chain families.
-			// The FeeQuoter added to state should be the FeeQuoter in the environment with the highest version.
+			// Bind only v1 FeeQuoter here; v2 is handled via fqv2ops.
 			if tvStr.Type == ccipshared.FeeQuoter {
-				if state.FeeQuoter == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
+				if tvStr.Version.Major() != 1 {
+					continue
+				}
+				if state.FeeQuoter == nil || state.FeeQuoterVersion == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
 					fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 					if err != nil {
 						return state, err
