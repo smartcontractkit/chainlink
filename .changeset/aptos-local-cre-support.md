@@ -4,4 +4,4 @@
 
 #internal
 
-Add Aptos local CRE support and read CI coverage.
+Add Aptos local CRE read/write support, including Capabilities Registry OCR config for Aptos write and CI coverage for the Aptos write roundtrip and expected-failure scenarios.
