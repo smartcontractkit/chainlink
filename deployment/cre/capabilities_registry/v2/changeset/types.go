@@ -10,7 +10,7 @@ import (
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/enricher"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 )
@@ -124,27 +124,27 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper(e cldf.Environment) (capab
 
 	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
 
-	enrichCapConfig := make([]contracts.CapabilityConfig, len(don.CapabilityConfigurations))
+	capConfigsClone := make([]contracts.CapabilityConfig, len(don.CapabilityConfigurations))
 	for i, capConfig := range don.CapabilityConfigurations {
-		enrichCapConfig[i] = contracts.CapabilityConfig{
+		capConfigsClone[i] = contracts.CapabilityConfig{
 			Capability: contracts.Capability{
 				CapabilityID: capConfig.CapabilityID,
 			},
 			Config: capConfig.Config,
 		}
 	}
-	enrichCtx := enricher.CapabilityConfigEnrichParams{
+	modifierParams := modifier.CapabilityConfigModifierParams{
 		Env:     &e,
 		DonName: don.Name,
 		P2PIDs:  p2pIDs,
-		Configs: enrichCapConfig,
+		Configs: capConfigsClone, // modified in place
 	}
-	for _, e := range enricher.DefaultCapabilityConfigEnrichers() {
-		if err := e.Enrich(enrichCtx); err != nil {
-			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("enrich capability configs for DON %s: %w", don.Name, err)
+	for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
+		if err := mod.Modify(modifierParams); err != nil {
+			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("modify capability configs for DON %s: %w", don.Name, err)
 		}
 	}
-	for j, capConfig := range enrichCapConfig {
+	for j, capConfig := range capConfigsClone {
 		x := pkg.CapabilityConfig(capConfig.Config)
 		configBytes, err := x.MarshalProto()
 		if err != nil {

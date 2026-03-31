@@ -1,4 +1,4 @@
-package enricher
+package modifier
 
 import (
 	"errors"
@@ -18,52 +18,52 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 )
 
-// DonCapabilityEnrichContext carries shared inputs for per-DON capability config enrichment.
-// Extend with new fields when additional enrichers need them; enrichers ignore unused fields.
-type CapabilityConfigEnrichParams struct {
+// CapabilityConfigModifierParams carries shared inputs for per-DON capability config modification.
+// Extend with new fields when additional modifiers need them; modifiers ignore unused fields.
+type CapabilityConfigModifierParams struct {
 	Env     *cldf.Environment
 	DonName string
 	P2PIDs  []p2pkey.PeerID
-	// Configs is a per-DON clone of the caller's capability configs; enrichers mutate in place.
+	// Configs is a per-DON clone of the caller's capability configs; modifiers mutate in place.
 	Configs []contracts.CapabilityConfig
 }
 
-// DonCapabilityEnricher applies chain- or capability-specific changes to Config (e.g. specConfig).
-type CapabilityConfigEnricher interface {
-	Enrich(ctx CapabilityConfigEnrichParams) error
+// CapabilityConfigModifier applies chain- or capability-specific changes to Config (e.g. specConfig).
+type CapabilityConfigModifier interface {
+	Modify(params CapabilityConfigModifierParams) error
 }
 
-func DefaultCapabilityConfigEnrichers() []CapabilityConfigEnricher {
-	return []CapabilityConfigEnricher{
-		aptosDonEnricher{},
+func DefaultCapabilityConfigModifiers() []CapabilityConfigModifier {
+	return []CapabilityConfigModifier{
+		aptosDonModifier{},
 	}
 }
 
 // aptos
 
-type aptosDonEnricher struct{}
+type aptosDonModifier struct{}
 
-func (aptosDonEnricher) Enrich(ctx CapabilityConfigEnrichParams) error {
-	for i := range ctx.Configs {
-		sel, isAptos, parseErr := parseAptosChainSelectorFromCapabilityID(ctx.Configs[i].Capability.CapabilityID)
+func (aptosDonModifier) Modify(params CapabilityConfigModifierParams) error {
+	for i := range params.Configs {
+		sel, isAptos, parseErr := parseAptosChainSelectorFromCapabilityID(params.Configs[i].Capability.CapabilityID)
 		if parseErr != nil {
-			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, parseErr)
+			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, parseErr)
 		}
 		if !isAptos {
 			continue
 		}
-		if ctx.Env == nil || ctx.Env.Offchain == nil {
+		if params.Env == nil || params.Env.Offchain == nil {
 			return errors.New("AddCapabilities: Aptos capabilities require Env.Offchain (Job Distributor client)")
 		}
-		if ctx.Configs[i].Config == nil {
-			ctx.Configs[i].Config = make(map[string]any)
+		if params.Configs[i].Config == nil {
+			params.Configs[i].Config = make(map[string]any)
 		}
-		p2pMap, mapErr := buildAptosP2PToTransmitterMap(ctx.Env.Offchain, ctx.P2PIDs, sel)
+		p2pMap, mapErr := buildAptosP2PToTransmitterMap(params.Env.Offchain, params.P2PIDs, sel)
 		if mapErr != nil {
-			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, mapErr)
+			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, mapErr)
 		}
-		if mergeErr := mergeAptosP2PToTransmitterIntoConfig(ctx.Configs[i].Config, p2pMap); mergeErr != nil {
-			return fmt.Errorf("capability %q: %w", ctx.Configs[i].Capability.CapabilityID, mergeErr)
+		if mergeErr := mergeAptosP2PToTransmitterIntoConfig(params.Configs[i].Config, p2pMap); mergeErr != nil {
+			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, mergeErr)
 		}
 	}
 	return nil
@@ -73,7 +73,7 @@ func (aptosDonEnricher) Enrich(ctx CapabilityConfigEnrichParams) error {
 // (label before optional "@<version>"), e.g. aptos:ChainSelector:12345@1.0.0.
 const aptosCapabilityIDPrefix = "aptos:ChainSelector:"
 
-// ParseAptosChainSelectorFromCapabilityID parses registry capability IDs of the form
+// parseAptosChainSelectorFromCapabilityID parses registry capability IDs of the form
 // aptos:ChainSelector:<decimal>@<version>. The part after the last "@" is ignored for
 // parsing so only the label matters (e.g. aptos:ChainSelector:12345@1.0.0 → 12345).
 //
@@ -99,7 +99,7 @@ func parseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint
 	return u, true, nil
 }
 
-// BuildAptosP2PToTransmitterMap asks Job Distributor for node metadata for donPeerIDs
+// buildAptosP2PToTransmitterMap asks Job Distributor for node metadata for donPeerIDs
 // Then builds a map used for CapabilityConfig spec:
 // - lowercase hex of the 32-byte P2P id -> Aptos transmit account (OCR TransmitAccount)
 // for the given aptosChainSelector.
@@ -141,7 +141,7 @@ func buildAptosP2PToTransmitterMap(
 	return out, nil
 }
 
-// MergeAptosP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
+// mergeAptosP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
 // Caller must omit specConfig or leave it empty; any non-empty specConfig returns an error for now.
 // NOTE: we can make this smarter later if needed. Add overwriting / merging logic etc.
 //

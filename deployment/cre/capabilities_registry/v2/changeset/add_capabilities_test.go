@@ -68,6 +68,7 @@ var (
 			},
 		},
 	}
+	newCapWithModifierID = "aptos:ChainSelector:123@1.0.0"
 )
 
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
@@ -283,7 +284,7 @@ func aptosTestCapabilityID(aptosChainSelector uint64) string {
 	return fmt.Sprintf("aptos:ChainSelector:%d@1.0.0", aptosChainSelector)
 }
 
-func addAptosCapability(t *testing.T, fixture *test.EnvWrapperV2) {
+func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
 	t.Helper()
 	require.NotNil(t, fixture.Env.Offchain, "Aptos add-capabilities needs JD Offchain client")
 
@@ -308,9 +309,8 @@ func addAptosCapability(t *testing.T, fixture *test.EnvWrapperV2) {
 	require.NoError(t, err)
 }
 
-func requireAptosCapability(t *testing.T, fixture *test.EnvWrapperV2) {
+func requireCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
 	t.Helper()
-	capID := aptosTestCapabilityID(fixture.AptosSelector)
 
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 		fixture.RegistryAddress,
@@ -318,6 +318,7 @@ func requireAptosCapability(t *testing.T, fixture *test.EnvWrapperV2) {
 	)
 	require.NoError(t, err)
 
+	capID := aptosTestCapabilityID(fixture.AptosSelector)
 	caps, err := pkg.GetCapabilities(nil, capReg)
 	require.NoError(t, err)
 	var foundCap bool
@@ -365,8 +366,8 @@ func requireAptosSpecP2PTransmitterMap(t *testing.T, cfg *pkg.CapabilityConfig) 
 	require.NotEmpty(t, inner, "%q should have at least one peer→transmitter entry", p2pKey)
 }
 
-func TestAddCapabilities_Apply_Aptos(t *testing.T) {
+func TestAddCapabilities_Apply_Modifier(t *testing.T) {
 	fixture := test.SetupEnvV2(t, false)
-	addAptosCapability(t, fixture)
-	requireAptosCapability(t, fixture)
+	addCapabilityWithModifier(t, fixture)
+	requireCapabilityWithModifier(t, fixture)
 }

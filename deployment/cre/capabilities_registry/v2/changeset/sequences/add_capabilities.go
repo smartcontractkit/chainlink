@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -20,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/enricher"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -155,16 +154,15 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
 			}
 
-			donCapabilityConfigs := cloneCapabilityConfigsShallowCopyConfigMaps(input.CapabilityConfigs)
-			enrichCtx := enricher.CapabilityConfigEnrichParams{
+			modifierParams := modifier.CapabilityConfigModifierParams{
 				Env:     deps.Env,
 				DonName: donName,
 				P2PIDs:  p2pIDs,
-				Configs: donCapabilityConfigs,
+				Configs: input.CapabilityConfigs, // modified in place
 			}
-			for _, e := range enricher.DefaultCapabilityConfigEnrichers() {
-				if err := e.Enrich(enrichCtx); err != nil {
-					return AddCapabilitiesOutput{}, fmt.Errorf("enrich capability configs for DON %s: %w", donName, err)
+			for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
+				if err := mod.Modify(modifierParams); err != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("modify capability configs for DON %s: %w", donName, err)
 				}
 			}
 
@@ -197,7 +195,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				contracts.UpdateDONInput{
 					ChainSelector:                     chainSel,
 					P2PIDs:                            p2pIDs,
-					CapabilityConfigs:                 donCapabilityConfigs,
+					CapabilityConfigs:                 input.CapabilityConfigs,
 					MergeCapabilityConfigsWithOnChain: true,
 					DonName:                           donName,
 					F:                                 don.F,
@@ -246,20 +244,6 @@ func toOpsSlice(opPtrs ...*types.BatchOperation) []types.BatchOperation {
 	}
 
 	return result
-}
-
-// cloneCapabilityConfigsShallowCopyConfigMaps returns a new slice with the same Capability structs
-// and a shallow clone of each Config map so per-DON mutations (e.g. Aptos specConfig) do not alias
-// the caller's maps or state from other DON iterations.
-func cloneCapabilityConfigsShallowCopyConfigMaps(src []contracts.CapabilityConfig) []contracts.CapabilityConfig {
-	out := make([]contracts.CapabilityConfig, len(src))
-	for i := range src {
-		out[i] = src[i]
-		if src[i].Config != nil {
-			out[i].Config = maps.Clone(src[i].Config)
-		}
-	}
-	return out
 }
 
 // buildCapabilitiesFromConfigs builds the capability list for RegisterCapabilities (registry-level, no DON).
