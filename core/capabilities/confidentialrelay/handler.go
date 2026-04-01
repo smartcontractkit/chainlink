@@ -36,7 +36,8 @@ import (
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
 
 const (
-	HandlerName = "EnclaveRelayHandler"
+	HandlerName          = "EnclaveRelayHandler"
+	internalErrorMessage = "internal error"
 
 	// confidentialWorkflowsCapID is the capability ID for the confidential
 	// workflows enclave pool. The relay handler uses it to look up trusted
@@ -546,7 +547,7 @@ func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any
 			Method:  req.Method,
 			Error: &jsonrpc.WireError{
 				Code:    jsonrpc.ErrInternal,
-				Message: err.Error(),
+				Message: internalErrorMessage,
 			},
 		}
 	}
@@ -572,13 +573,18 @@ func (h *Handler) errorResponse(
 		attribute.Int64("error_code", errorCode),
 	))
 
+	message := err.Error()
+	if errorCode == jsonrpc.ErrInternal {
+		message = internalErrorMessage
+	}
+
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      req.ID,
 		Method:  req.Method,
 		Error: &jsonrpc.WireError{
 			Code:    errorCode,
-			Message: err.Error(),
+			Message: message,
 		},
 	}
 }
