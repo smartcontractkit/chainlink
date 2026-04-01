@@ -654,9 +654,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := h.newV2EngineConfig(module, workflowID, owner, name, tag, config)
-	cfg.DebugMode = h.debugMode
-	cfg.SdkName = sdkName
+	cfg := h.newV2EngineConfig(module, workflowID, owner, tag, sdkName, name, config)
 
 	h.wireInitDoneHook(cfg, initDone)
 
@@ -784,7 +782,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	if confidential {
 		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
-		engine, err = h.confidentialEngineFactory(spec, wid, workflowName, decodedBinary, initDone)
+		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
 	} else {
 		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
 	}
@@ -848,7 +846,9 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
 	module host.ModuleV2,
-	workflowID string, owner string, name types.WorkflowName, tag string, config []byte,
+	workflowID, owner, tag, sdkName string,
+	name types.WorkflowName,
+	config []byte,
 ) *v2.EngineConfig {
 	return &v2.EngineConfig{
 		Lggr:                  h.lggr,
@@ -881,6 +881,8 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+		DebugMode:                     h.debugMode,
+		SdkName:                       sdkName,
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
@@ -912,7 +914,6 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 // the confidential-workflows capability which runs the WASM inside a TEE.
 func (h *eventHandler) confidentialEngineFactory(
 	spec *job.WorkflowSpec,
-	wid types.WorkflowID,
 	workflowName types.WorkflowName,
 	decodedBinary []byte,
 	initDone chan<- error,
@@ -939,7 +940,7 @@ func (h *eventHandler) confidentialEngineFactory(
 		lggr,
 	)
 
-	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, []byte(spec.Config))
+	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, spec.WorkflowTag, "", workflowName, []byte(spec.Config))
 	h.wireInitDoneHook(cfg, initDone)
 
 	return v2.NewEngine(cfg)
