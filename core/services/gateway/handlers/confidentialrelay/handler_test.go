@@ -40,7 +40,7 @@ func newBarrierDON(total int) *barrierDON {
 	}
 }
 
-func (d *barrierDON) SendToNode(_ context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
+func (d *barrierDON) SendToNode(ctx context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
 	d.mu.Lock()
 	d.started++
 	if d.started == d.total {
@@ -49,12 +49,12 @@ func (d *barrierDON) SendToNode(_ context.Context, _ string, _ *jsonrpc.Request[
 	ch := d.allStarted
 	d.mu.Unlock()
 
-	<-ch
-	return nil
-}
-
-func (d *barrierDON) forceRelease() {
-	d.releaseOnce.Do(func() { close(d.allStarted) })
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 var nodeOne = config.NodeConfig{
@@ -561,16 +561,20 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 		Params: &params,
 	}
 
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
 	done := make(chan error, 1)
 	go func() {
-		done <- h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+		done <- h.HandleJSONRPCUserMessage(ctx, req, cb)
 	}()
 
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(100 * time.Millisecond):
-		don.forceRelease()
+		cancel()
+		<-done
 		t.Fatal("HandleJSONRPCUserMessage did not fan out to nodes concurrently")
 	}
 
