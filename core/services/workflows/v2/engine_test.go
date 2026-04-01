@@ -504,6 +504,10 @@ func TestEngine_Execution(t *testing.T) {
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
+	cfg.OrgResolver = &mockOrgResolver{
+		orgID: "test-org-123",
+		err:   nil,
+	}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
