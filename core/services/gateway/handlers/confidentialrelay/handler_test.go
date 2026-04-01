@@ -25,6 +25,38 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
 
+type barrierDON struct {
+	total       int
+	mu          sync.Mutex
+	started     int
+	allStarted  chan struct{}
+	releaseOnce sync.Once
+}
+
+func newBarrierDON(total int) *barrierDON {
+	return &barrierDON{
+		total:      total,
+		allStarted: make(chan struct{}),
+	}
+}
+
+func (d *barrierDON) SendToNode(_ context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
+	d.mu.Lock()
+	d.started++
+	if d.started == d.total {
+		d.releaseOnce.Do(func() { close(d.allStarted) })
+	}
+	ch := d.allStarted
+	d.mu.Unlock()
+
+	<-ch
+	return nil
+}
+
+func (d *barrierDON) forceRelease() {
+	d.releaseOnce.Do(func() { close(d.allStarted) })
+}
+
 var nodeOne = config.NodeConfig{
 	Name:    "node1",
 	Address: "0x1234",
@@ -493,6 +525,59 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 	wg.Wait()
+}
+
+func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
+	lggr := logger.Test(t)
+	don := newBarrierDON(2)
+	donConfig := &config.DONConfig{
+		DonId: "test_relay_don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Name: "node0", Address: "0x0000"},
+			{Name: "node1", Address: "0x0001"},
+		},
+	}
+
+	methodConfig, err := json.Marshal(Config{
+		RequestTimeoutSec: 30,
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   10,
+			PerSenderBurst: 10,
+		},
+	})
+	require.NoError(t, err)
+
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock())
+	require.NoError(t, err)
+
+	cb := common.NewCallback()
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-concurrent-fanout",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	case <-time.After(100 * time.Millisecond):
+		don.forceRelease()
+		t.Fatal("HandleJSONRPCUserMessage did not fan out to nodes concurrently")
+	}
+
+	don.mu.Lock()
+	started := don.started
+	don.mu.Unlock()
+	assert.Equal(t, 2, started)
 }
 
 func TestConfidentialRelayHandler_CapabilityExecMethod(t *testing.T) {
