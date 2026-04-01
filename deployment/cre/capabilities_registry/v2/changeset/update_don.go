@@ -147,6 +147,9 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
 	}
 
+	// apply modifiers to capability configs
+	// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+	// more modifiers can be added here as needed
 	modifierParams := modifier.CapabilityConfigModifierParams{
 		Env:     &e,
 		DonName: config.DONName,

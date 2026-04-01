@@ -68,7 +68,6 @@ var (
 			},
 		},
 	}
-	newCapWithModifierID = "aptos:ChainSelector:123@1.0.0"
 )
 
 func TestAddCapabilities_VerifyPreconditions(t *testing.T) {

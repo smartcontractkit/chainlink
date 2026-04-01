@@ -1,10 +1,10 @@
 package modifier
 
 import (
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
-
-	"encoding/json"
 	"strconv"
 	"strings"
 
@@ -28,7 +28,7 @@ type CapabilityConfigModifierParams struct {
 	Configs []contracts.CapabilityConfig
 }
 
-// CapabilityConfigModifier applies chain- or capability-specific changes to Config (e.g. specConfig).
+// CapabilityConfigModifier applies chain or capability-specific changes to Config (e.g. specConfig).
 type CapabilityConfigModifier interface {
 	Modify(params CapabilityConfigModifierParams) error
 }
@@ -136,7 +136,7 @@ func buildAptosP2PToTransmitterMap(
 		if transmitter == "" {
 			return nil, fmt.Errorf("empty Aptos transmit account for node %s (%s)", node.Name, node.PeerID.String())
 		}
-		out[fmt.Sprintf("%x", node.PeerID[:])] = transmitter
+		out[hex.EncodeToString(node.PeerID[:])] = transmitter
 	}
 	return out, nil
 }

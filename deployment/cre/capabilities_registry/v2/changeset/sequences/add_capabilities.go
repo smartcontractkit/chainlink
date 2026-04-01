@@ -154,6 +154,9 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
 			}
 
+			// apply modifiers to capability configs
+			// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+			// more modifiers can be added here as needed
 			modifierParams := modifier.CapabilityConfigModifierParams{
 				Env:     deps.Env,
 				DonName: donName,

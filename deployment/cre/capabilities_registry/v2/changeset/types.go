@@ -103,7 +103,6 @@ type CapabilitiesRegistryNewDONParams struct {
 }
 
 func (don CapabilitiesRegistryNewDONParams) ToWrapper(e cldf.Environment) (capabilities_registry_v2.CapabilitiesRegistryNewDONParams, error) {
-
 	p2pIDs := make([]p2pkey.PeerID, 0)
 	nodes := make([][32]byte, len(don.Nodes))
 	// These are P2P IDs, they are not hex values
@@ -116,13 +115,16 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper(e cldf.Environment) (capab
 		p2pIDs = append(p2pIDs, n)
 	}
 
-	capCfg := pkg.CapabilityConfig(don.Config)
-	configBytes, err := capCfg.MarshalProto()
+	donCapCfg := pkg.CapabilityConfig(don.Config)
+	donConfigBytes, err := donCapCfg.MarshalProto()
 	if err != nil {
 		return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal DON config: %w", err)
 	}
 
-	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
+	capabilityConfigurations, err := don.applyModifiersToCapabilityConfigs(e, p2pIDs)
+	if err != nil {
+		return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to apply modifiers to capability configs: %w", err)
+	}
 
 	capConfigsClone := make([]contracts.CapabilityConfig, len(don.CapabilityConfigurations))
 	for i, capConfig := range don.CapabilityConfigurations {
@@ -133,6 +135,10 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper(e cldf.Environment) (capab
 			Config: capConfig.Config,
 		}
 	}
+
+	// apply modifiers to capability configs
+	// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+	// more modifiers can be added here as needed
 	modifierParams := modifier.CapabilityConfigModifierParams{
 		Env:     &e,
 		DonName: don.Name,
@@ -144,26 +150,70 @@ func (don CapabilitiesRegistryNewDONParams) ToWrapper(e cldf.Environment) (capab
 			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("modify capability configs for DON %s: %w", don.Name, err)
 		}
 	}
+
 	for j, capConfig := range capConfigsClone {
 		x := pkg.CapabilityConfig(capConfig.Config)
-		configBytes, err := x.MarshalProto()
+		capCfgBytes, err := x.MarshalProto()
 		if err != nil {
 			return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{}, fmt.Errorf("failed to marshal capability configuration config: %w", err)
 		}
 		capabilityConfigurations[j] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
 			CapabilityId: capConfig.Capability.CapabilityID,
-			Config:       configBytes,
+			Config:       capCfgBytes,
 		}
 	}
 
 	return capabilities_registry_v2.CapabilitiesRegistryNewDONParams{
 		Name:                     don.Name,
 		DonFamilies:              don.DonFamilies,
-		Config:                   configBytes,
+		Config:                   donConfigBytes,
 		CapabilityConfigurations: capabilityConfigurations,
 		Nodes:                    nodes,
 		F:                        don.F,
 		IsPublic:                 don.IsPublic,
 		AcceptsWorkflows:         don.AcceptsWorkflows,
 	}, nil
+}
+
+func (don CapabilitiesRegistryNewDONParams) applyModifiersToCapabilityConfigs(e cldf.Environment, p2pIDs []p2pkey.PeerID) ([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, error) {
+	capabilityConfigurations := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, len(don.CapabilityConfigurations))
+
+	capConfigsClone := make([]contracts.CapabilityConfig, len(don.CapabilityConfigurations))
+	for i, capConfig := range don.CapabilityConfigurations {
+		capConfigsClone[i] = contracts.CapabilityConfig{
+			Capability: contracts.Capability{
+				CapabilityID: capConfig.CapabilityID,
+			},
+			Config: capConfig.Config,
+		}
+	}
+
+	// apply modifiers to capability configs
+	// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+	// more modifiers can be added here as needed
+	modifierParams := modifier.CapabilityConfigModifierParams{
+		Env:     &e,
+		DonName: don.Name,
+		P2PIDs:  p2pIDs,
+		Configs: capConfigsClone, // modified in place
+	}
+	for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
+		if err := mod.Modify(modifierParams); err != nil {
+			return nil, fmt.Errorf("modify capability configs for DON %s: %w", don.Name, err)
+		}
+	}
+
+	for j, capConfig := range capConfigsClone {
+		x := pkg.CapabilityConfig(capConfig.Config)
+		capCfgBytes, err := x.MarshalProto()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal capability configuration config: %w", err)
+		}
+		capabilityConfigurations[j] = capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration{
+			CapabilityId: capConfig.Capability.CapabilityID,
+			Config:       capCfgBytes,
+		}
+	}
+
+	return capabilityConfigurations, nil
 }
