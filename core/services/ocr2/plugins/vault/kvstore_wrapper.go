@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -39,11 +40,11 @@ func NewKVStoreWrapper(store WriteKVStore, migrationEnabled bool, lggr logger.Lo
 
 // GetSecret tries orgID first, falling back to workflowOwner for legacy entries.
 // When migration is disabled, delegates directly to the inner store using id as-is.
-func (w *KVStoreWrapper) GetSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) (*vault.StoredSecret, error) {
+func (w *KVStoreWrapper) GetSecret(ctx context.Context, id *vault.SecretIdentifier, orgID, workflowOwner string) (*vault.StoredSecret, error) {
 	if !w.migrationEnabled {
-		return w.store.GetSecret(id)
+		return w.store.GetSecret(ctx, id)
 	}
-	return w.adapter.getSecret(id, orgID, workflowOwner)
+	return w.adapter.getSecret(ctx, id, orgID, workflowOwner)
 }
 
 // GetMetadata merges metadata from both orgID and workflowOwner, deduplicating
@@ -54,61 +55,61 @@ func (w *KVStoreWrapper) GetSecret(id *vault.SecretIdentifier, orgID, workflowOw
 // namespace::key collapses entries that exist under both owners (transient
 // mid-migration state) into a single entry, so the result reflects the true
 // number of unique secrets the owner has.
-func (w *KVStoreWrapper) GetMetadata(orgID, workflowOwner string) (*vault.StoredMetadata, error) {
+func (w *KVStoreWrapper) GetMetadata(ctx context.Context, orgID, workflowOwner string) (*vault.StoredMetadata, error) {
 	if !w.migrationEnabled {
-		return w.store.GetMetadata(orgID)
+		return w.store.GetMetadata(ctx, orgID)
 	}
-	return w.adapter.getMetadata(orgID, workflowOwner)
+	return w.adapter.getMetadata(ctx, orgID, workflowOwner)
 }
 
 // GetSecretIdentifiersCountForOwner returns the count of unique secrets across
 // both orgID and workflowOwner after deduplication.
 // When migration is disabled, delegates directly to the inner store using orgID.
-func (w *KVStoreWrapper) GetSecretIdentifiersCountForOwner(orgID, workflowOwner string) (int, error) {
+func (w *KVStoreWrapper) GetSecretIdentifiersCountForOwner(ctx context.Context, orgID, workflowOwner string) (int, error) {
 	if !w.migrationEnabled {
-		return w.store.GetSecretIdentifiersCountForOwner(orgID)
+		return w.store.GetSecretIdentifiersCountForOwner(ctx, orgID)
 	}
-	return w.adapter.getSecretIdentifiersCountForOwner(orgID, workflowOwner)
+	return w.adapter.getSecretIdentifiersCountForOwner(ctx, orgID, workflowOwner)
 }
 
 // WriteSecret writes the secret under orgID. If a legacy entry exists under
 // workflowOwner with the same namespace/key, it is deleted (lazy migration).
 // When migration is disabled, delegates directly to the inner store.
-func (w *KVStoreWrapper) WriteSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret, orgID, workflowOwner string) error {
+func (w *KVStoreWrapper) WriteSecret(ctx context.Context, id *vault.SecretIdentifier, secret *vault.StoredSecret, orgID, workflowOwner string) error {
 	if !w.migrationEnabled {
-		return w.store.WriteSecret(id, secret)
+		return w.store.WriteSecret(ctx, id, secret)
 	}
-	return w.adapter.writeSecret(id, secret, orgID, workflowOwner)
+	return w.adapter.writeSecret(ctx, id, secret, orgID, workflowOwner)
 }
 
 // WriteMetadata writes metadata under orgID.
 // When migration is disabled, delegates directly to the inner store.
-func (w *KVStoreWrapper) WriteMetadata(orgID string, metadata *vault.StoredMetadata) error {
+func (w *KVStoreWrapper) WriteMetadata(ctx context.Context, orgID string, metadata *vault.StoredMetadata) error {
 	if !w.migrationEnabled {
-		return w.store.WriteMetadata(orgID, metadata)
+		return w.store.WriteMetadata(ctx, orgID, metadata)
 	}
-	return w.adapter.writeMetadata(orgID, metadata)
+	return w.adapter.writeMetadata(ctx, orgID, metadata)
 }
 
 // DeleteSecret deletes the secret from orgID if present, falling back to
 // workflowOwner for legacy entries. If the secret exists under both owners
 // (transient mid-migration state), both entries are deleted.
 // When migration is disabled, delegates directly to the inner store.
-func (w *KVStoreWrapper) DeleteSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) error {
+func (w *KVStoreWrapper) DeleteSecret(ctx context.Context, id *vault.SecretIdentifier, orgID, workflowOwner string) error {
 	if !w.migrationEnabled {
-		return w.store.DeleteSecret(id)
+		return w.store.DeleteSecret(ctx, id)
 	}
-	return w.adapter.deleteSecret(id, orgID, workflowOwner)
+	return w.adapter.deleteSecret(ctx, id, orgID, workflowOwner)
 }
 
 // GetPendingQueue is always a pass-through (pending queue is not owner-scoped).
-func (w *KVStoreWrapper) GetPendingQueue() ([]*vault.StoredPendingQueueItem, error) {
-	return w.store.GetPendingQueue()
+func (w *KVStoreWrapper) GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error) {
+	return w.store.GetPendingQueue(ctx)
 }
 
 // WritePendingQueue is always a pass-through (pending queue is not owner-scoped).
-func (w *KVStoreWrapper) WritePendingQueue(pending []*vault.StoredPendingQueueItem) error {
-	return w.store.WritePendingQueue(pending)
+func (w *KVStoreWrapper) WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error {
+	return w.store.WritePendingQueue(ctx, pending)
 }
 
 // ownerMigrationAdapter handles the migration of secrets from workflow_owner-keyed
@@ -124,13 +125,13 @@ func newOwnerMigrationAdapter(store WriteKVStore, lggr logger.Logger) *ownerMigr
 	return &ownerMigrationAdapter{store: store, lggr: lggr}
 }
 
-func (a *ownerMigrationAdapter) getSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) (*vault.StoredSecret, error) {
+func (a *ownerMigrationAdapter) getSecret(ctx context.Context, id *vault.SecretIdentifier, orgID, workflowOwner string) (*vault.StoredSecret, error) {
 	if id == nil {
-		return a.store.GetSecret(id)
+		return a.store.GetSecret(ctx, id)
 	}
 
 	orgIDSid := withOwner(id, orgID)
-	secret, err := a.store.GetSecret(orgIDSid)
+	secret, err := a.store.GetSecret(ctx, orgIDSid)
 	if err != nil {
 		return nil, err
 	}
@@ -143,11 +144,11 @@ func (a *ownerMigrationAdapter) getSecret(id *vault.SecretIdentifier, orgID, wor
 	}
 
 	woSid := withOwner(id, workflowOwner)
-	return a.store.GetSecret(woSid)
+	return a.store.GetSecret(ctx, woSid)
 }
 
-func (a *ownerMigrationAdapter) getMetadata(orgID, workflowOwner string) (*vault.StoredMetadata, error) {
-	orgMd, err := a.store.GetMetadata(orgID)
+func (a *ownerMigrationAdapter) getMetadata(ctx context.Context, orgID, workflowOwner string) (*vault.StoredMetadata, error) {
+	orgMd, err := a.store.GetMetadata(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +157,7 @@ func (a *ownerMigrationAdapter) getMetadata(orgID, workflowOwner string) (*vault
 		return orgMd, nil
 	}
 
-	woMd, err := a.store.GetMetadata(workflowOwner)
+	woMd, err := a.store.GetMetadata(ctx, workflowOwner)
 	if err != nil {
 		return nil, err
 	}
@@ -164,8 +165,8 @@ func (a *ownerMigrationAdapter) getMetadata(orgID, workflowOwner string) (*vault
 	return mergeMetadata(orgMd, woMd, orgID, a.lggr), nil
 }
 
-func (a *ownerMigrationAdapter) getSecretIdentifiersCountForOwner(orgID, workflowOwner string) (int, error) {
-	md, err := a.getMetadata(orgID, workflowOwner)
+func (a *ownerMigrationAdapter) getSecretIdentifiersCountForOwner(ctx context.Context, orgID, workflowOwner string) (int, error) {
+	md, err := a.getMetadata(ctx, orgID, workflowOwner)
 	if err != nil {
 		return 0, err
 	}
@@ -175,13 +176,13 @@ func (a *ownerMigrationAdapter) getSecretIdentifiersCountForOwner(orgID, workflo
 	return len(md.SecretIdentifiers), nil
 }
 
-func (a *ownerMigrationAdapter) writeSecret(id *vault.SecretIdentifier, secret *vault.StoredSecret, orgID, workflowOwner string) error {
+func (a *ownerMigrationAdapter) writeSecret(ctx context.Context, id *vault.SecretIdentifier, secret *vault.StoredSecret, orgID, workflowOwner string) error {
 	if id == nil {
-		return a.store.WriteSecret(id, secret)
+		return a.store.WriteSecret(ctx, id, secret)
 	}
 
 	orgIDSid := withOwner(id, orgID)
-	if err := a.store.WriteSecret(orgIDSid, secret); err != nil {
+	if err := a.store.WriteSecret(ctx, orgIDSid, secret); err != nil {
 		return err
 	}
 
@@ -190,12 +191,12 @@ func (a *ownerMigrationAdapter) writeSecret(id *vault.SecretIdentifier, secret *
 	}
 
 	woSid := withOwner(id, workflowOwner)
-	legacySecret, err := a.store.GetSecret(woSid)
+	legacySecret, err := a.store.GetSecret(ctx, woSid)
 	if err != nil {
 		return fmt.Errorf("failed to check for legacy entry during write: %w", err)
 	}
 	if legacySecret != nil {
-		if err := a.store.DeleteSecret(woSid); err != nil {
+		if err := a.store.DeleteSecret(ctx, woSid); err != nil {
 			return fmt.Errorf("failed to delete legacy entry during migration: %w", err)
 		}
 	}
@@ -203,32 +204,32 @@ func (a *ownerMigrationAdapter) writeSecret(id *vault.SecretIdentifier, secret *
 	return nil
 }
 
-func (a *ownerMigrationAdapter) writeMetadata(orgID string, metadata *vault.StoredMetadata) error {
-	return a.store.WriteMetadata(orgID, metadata)
+func (a *ownerMigrationAdapter) writeMetadata(ctx context.Context, orgID string, metadata *vault.StoredMetadata) error {
+	return a.store.WriteMetadata(ctx, orgID, metadata)
 }
 
-func (a *ownerMigrationAdapter) deleteSecret(id *vault.SecretIdentifier, orgID, workflowOwner string) error {
+func (a *ownerMigrationAdapter) deleteSecret(ctx context.Context, id *vault.SecretIdentifier, orgID, workflowOwner string) error {
 	if id == nil {
-		return a.store.DeleteSecret(id)
+		return a.store.DeleteSecret(ctx, id)
 	}
 
 	orgIDSid := withOwner(id, orgID)
-	orgSecret, err := a.store.GetSecret(orgIDSid)
+	orgSecret, err := a.store.GetSecret(ctx, orgIDSid)
 	if err != nil {
 		return fmt.Errorf("failed to check org_id entry for deletion: %w", err)
 	}
 	if orgSecret != nil {
-		if err := a.store.DeleteSecret(orgIDSid); err != nil {
+		if err := a.store.DeleteSecret(ctx, orgIDSid); err != nil {
 			return fmt.Errorf("failed to delete org_id entry: %w", err)
 		}
 		if needsMigration(orgID, workflowOwner) {
 			woSid := withOwner(id, workflowOwner)
-			woSecret, woErr := a.store.GetSecret(woSid)
+			woSecret, woErr := a.store.GetSecret(ctx, woSid)
 			if woErr != nil {
 				return fmt.Errorf("failed to check legacy entry after org_id deletion: %w", woErr)
 			}
 			if woSecret != nil {
-				if woErr = a.store.DeleteSecret(woSid); woErr != nil {
+				if woErr = a.store.DeleteSecret(ctx, woSid); woErr != nil {
 					return fmt.Errorf("failed to clean up legacy entry after org_id deletion: %w", woErr)
 				}
 			}
@@ -238,18 +239,18 @@ func (a *ownerMigrationAdapter) deleteSecret(id *vault.SecretIdentifier, orgID, 
 
 	if needsMigration(orgID, workflowOwner) {
 		woSid := withOwner(id, workflowOwner)
-		woSecret, woErr := a.store.GetSecret(woSid)
+		woSecret, woErr := a.store.GetSecret(ctx, woSid)
 		if woErr != nil {
 			return fmt.Errorf("failed to check legacy entry for deletion: %w", woErr)
 		}
 		if woSecret != nil {
-			return a.store.DeleteSecret(woSid)
+			return a.store.DeleteSecret(ctx, woSid)
 		}
 	}
 
 	// Not found under either owner — delegate to inner which will produce
 	// the appropriate error from metadata removal.
-	return a.store.DeleteSecret(orgIDSid)
+	return a.store.DeleteSecret(ctx, orgIDSid)
 }
 
 // --- shared helpers ---
