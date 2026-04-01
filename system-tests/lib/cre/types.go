@@ -57,23 +57,24 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability       CapabilityFlag = "ocr3"
-	DONTimeCapability         CapabilityFlag = "don-time"
-	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
-	CronCapability            CapabilityFlag = "cron"
-	EVMCapability             CapabilityFlag = "evm"
-	CustomComputeCapability   CapabilityFlag = "custom-compute"
-	WriteEVMCapability        CapabilityFlag = "write-evm"
-	ReadContractCapability    CapabilityFlag = "read-contract"
-	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability    CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
-	MockCapability            CapabilityFlag = "mock"
-	VaultCapability           CapabilityFlag = "vault"
-	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
-	HTTPActionCapability      CapabilityFlag = "http-action"
-	SolanaCapability          CapabilityFlag = "solana"
-	AptosCapability           CapabilityFlag = "aptos"
+	ConsensusCapability         CapabilityFlag = "ocr3"
+	DONTimeCapability           CapabilityFlag = "don-time"
+	ConsensusCapabilityV2       CapabilityFlag = "consensus" // v2
+	CronCapability              CapabilityFlag = "cron"
+	EVMCapability               CapabilityFlag = "evm"
+	CustomComputeCapability     CapabilityFlag = "custom-compute"
+	WriteEVMCapability          CapabilityFlag = "write-evm"
+	ReadContractCapability      CapabilityFlag = "read-contract"
+	LogEventTriggerCapability   CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability      CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability     CapabilityFlag = "web-api-trigger"
+	MockCapability              CapabilityFlag = "mock"
+	VaultCapability             CapabilityFlag = "vault"
+	HTTPTriggerCapability       CapabilityFlag = "http-trigger"
+	HTTPActionCapability        CapabilityFlag = "http-action"
+	SolanaCapability            CapabilityFlag = "solana"
+	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
+	AptosCapability             CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 

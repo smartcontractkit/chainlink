@@ -3,7 +3,7 @@ package v2
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -24,7 +24,6 @@ import (
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
-	wfpb "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 )
 
 // stubExecutionHelper implements host.ExecutionHelper for testing.
@@ -44,9 +43,6 @@ func (s *stubExecutionHelper) GetWorkflowExecutionID() string { return s.executi
 func (s *stubExecutionHelper) GetNodeTime() time.Time         { return time.Time{} }
 func (s *stubExecutionHelper) GetDONTime() (time.Time, error) { return time.Time{}, nil }
 func (s *stubExecutionHelper) EmitUserLog(string) error       { return nil }
-func (s *stubExecutionHelper) EmitUserMetric(context.Context, *wfpb.WorkflowUserMetric) error {
-	return nil
-}
 
 func TestParseWorkflowAttributes(t *testing.T) {
 	t.Run("valid JSON with all fields", func(t *testing.T) {
@@ -56,7 +52,7 @@ func TestParseWorkflowAttributes(t *testing.T) {
 		assert.True(t, attrs.Confidential)
 		require.Len(t, attrs.VaultDonSecrets, 2)
 		assert.Equal(t, "API_KEY", attrs.VaultDonSecrets[0].Key)
-		assert.Empty(t, attrs.VaultDonSecrets[0].Namespace)
+		assert.Equal(t, "", attrs.VaultDonSecrets[0].Namespace)
 		assert.Equal(t, "SIGNING_KEY", attrs.VaultDonSecrets[1].Key)
 		assert.Equal(t, "custom-ns", attrs.VaultDonSecrets[1].Namespace)
 	})
@@ -176,7 +172,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "API_KEY"},
 				{Key: "SIGNING_KEY", Namespace: "custom-ns"},
 			},
-			nil,
 			lggr,
 		)
 
@@ -210,7 +205,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			[]byte("hash"),
 			"wf-1", "owner", "name", "tag",
 			[]SecretIdentifier{{Key: "SECRET_A"}}, // no namespace
-			nil,
 			lggr,
 		)
 
@@ -228,10 +222,10 @@ func TestConfidentialModule_Execute(t *testing.T) {
 	t.Run("GetExecutable error", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(nil, errors.New("capability not found")).Once()
+			Return(nil, fmt.Errorf("capability not found")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -246,10 +240,10 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(execCap, nil).Once()
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
+			Return(capabilities.CapabilityResponse{}, fmt.Errorf("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -267,7 +261,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -302,7 +296,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "K1", Namespace: "ns1"},
 				{Key: "K2"},
 			},
-			nil,
 			lggr,
 		)
 
@@ -337,100 +330,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "ns1", confReq.VaultDonSecrets[0].GetNamespace())
 		assert.Equal(t, "K2", confReq.VaultDonSecrets[1].Key)
 		assert.Equal(t, "main", confReq.VaultDonSecrets[1].GetNamespace())
-	})
-}
-
-func TestConfidentialModule_BinaryURLResolver(t *testing.T) {
-	ctx := context.Background()
-	lggr := logger.Nop()
-
-	execReq := &sdkpb.ExecuteRequest{Config: []byte("cfg")}
-
-	expectedResult := &sdkpb.ExecutionResult{
-		Result: &sdkpb.ExecutionResult_Value{
-			Value: valuespb.NewStringValue("ok"),
-		},
-	}
-	resultBytes, err := proto.Marshal(expectedResult)
-	require.NoError(t, err)
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: resultBytes}
-	respPayload, err := anypb.New(confResp)
-	require.NoError(t, err)
-
-	t.Run("resolver replaces binary URL", func(t *testing.T) {
-		capReg := regmocks.NewCapabilitiesRegistry(t)
-		execCap := capmocks.NewExecutableCapability(t)
-
-		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(execCap, nil).Once()
-
-		var capturedReq capabilities.CapabilityRequest
-		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
-				capturedReq = req
-			}).
-			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
-
-		resolver := func(_ context.Context, wfID string) (string, error) {
-			return "https://presigned.example.com/" + wfID + "?token=abc", nil
-		}
-
-		mod := NewConfidentialModule(
-			capReg, "https://storage.example.com/raw", []byte("hash"),
-			"wf-1", "owner", "name", "tag", nil, resolver, lggr,
-		)
-
-		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-1"})
-		require.NoError(t, err)
-
-		var confReq confworkflowtypes.ConfidentialWorkflowRequest
-		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
-		assert.Equal(t, "https://presigned.example.com/wf-1?token=abc", confReq.Execution.BinaryUrl)
-	})
-
-	t.Run("nil resolver uses raw URL", func(t *testing.T) {
-		capReg := regmocks.NewCapabilitiesRegistry(t)
-		execCap := capmocks.NewExecutableCapability(t)
-
-		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(execCap, nil).Once()
-
-		var capturedReq capabilities.CapabilityRequest
-		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
-				capturedReq = req
-			}).
-			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
-
-		mod := NewConfidentialModule(
-			capReg, "https://storage.example.com/raw", []byte("hash"),
-			"wf-1", "owner", "name", "tag", nil, nil, lggr,
-		)
-
-		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-1"})
-		require.NoError(t, err)
-
-		var confReq confworkflowtypes.ConfidentialWorkflowRequest
-		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
-		assert.Equal(t, "https://storage.example.com/raw", confReq.Execution.BinaryUrl)
-	})
-
-	t.Run("resolver error propagates", func(t *testing.T) {
-		capReg := regmocks.NewCapabilitiesRegistry(t)
-
-		resolver := func(_ context.Context, _ string) (string, error) {
-			return "", errors.New("storage service unavailable")
-		}
-
-		mod := NewConfidentialModule(
-			capReg, "https://storage.example.com/raw", []byte("hash"),
-			"wf-1", "owner", "name", "tag", nil, resolver, lggr,
-		)
-
-		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-1"})
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to resolve binary URL")
-		assert.Contains(t, err.Error(), "storage service unavailable")
 	})
 }
 

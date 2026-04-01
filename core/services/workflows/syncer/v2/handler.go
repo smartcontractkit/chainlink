@@ -784,7 +784,19 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
 		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
 	} else {
-		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
+		// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
+		engine, err = func() (services.Service, error) {
+			return h.engineFactory(
+				ctx,
+				spec.WorkflowID,
+				spec.WorkflowOwner,
+				workflowName,
+				spec.WorkflowTag,
+				configBytes,
+				decodedBinary,
+				initDone,
+			)
+		}()
 	}
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
@@ -883,11 +895,6 @@ func (h *eventHandler) newV2EngineConfig(
 		SecretsFetcher:                h.secretsFetcher,
 		DebugMode:                     h.debugMode,
 		SdkName:                       sdkName,
-
-		ShardOrchestratorClient: h.shardOrchestratorClient,
-		ShardingEnabled:         h.shardingEnabled,
-		MyShardID:               h.myShardID,
-		ShardRoutingSteady:      h.shardRoutingSteady,
 	}
 }
 
@@ -928,16 +935,15 @@ func (h *eventHandler) confidentialEngineFactory(
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
 
-	// nil resolver: raw binaryURL is passed to the enclave as-is.
-	// PR 5/5 (#21642) wires this to the storage service retriever
-	// so the enclave receives a presigned URL.
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		spec.BinaryURL,
 		binaryHash,
-		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
+		spec.WorkflowID,
+		spec.WorkflowOwner,
+		workflowName.String(),
+		spec.WorkflowTag,
 		attrs.VaultDonSecrets,
-		nil,
 		lggr,
 	)
 

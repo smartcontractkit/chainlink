@@ -14,50 +14,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/time/rate"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
-
-type barrierDON struct {
-	total       int
-	mu          sync.Mutex
-	started     int
-	allStarted  chan struct{}
-	releaseOnce sync.Once
-}
-
-func newBarrierDON(total int) *barrierDON {
-	return &barrierDON{
-		total:      total,
-		allStarted: make(chan struct{}),
-	}
-}
-
-func (d *barrierDON) SendToNode(ctx context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
-	d.mu.Lock()
-	d.started++
-	if d.started == d.total {
-		d.releaseOnce.Do(func() { close(d.allStarted) })
-	}
-	ch := d.allStarted
-	d.mu.Unlock()
-
-	select {
-	case <-ch:
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
 
 var nodeOne = config.NodeConfig{
 	Name:    "node1",
@@ -84,13 +50,18 @@ func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mock
 	}
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   10,
+			PerSenderBurst: 10,
+		},
 	}
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
-	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock)
 	require.NoError(t, err)
 	h.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -391,6 +362,12 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
+		NodeRateLimiter: ratelimit.RateLimiterConfig{
+			GlobalRPS:      100,
+			GlobalBurst:    100,
+			PerSenderRPS:   0.001, // Effectively zero
+			PerSenderBurst: 1,
+		},
 	}
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
@@ -403,12 +380,9 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 		Members: []config.NodeConfig{nodeOne},
 	}
 	clock := clockwork.NewFakeClock()
-	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock)
 	require.NoError(t, err)
 	h.aggregator = &respondingMockAggregator{}
-	h.globalNodeRateLimiter = limits.GlobalRateLimiter(rate.Limit(100), 100)
-	h.perNodeRateLimiters[nodeOne.Address] = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -519,129 +493,6 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 	wg.Wait()
-}
-
-func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing.T) {
-	h, cb, don, _ := setupHandler(t, 4)
-	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
-		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
-			switch nodeAddress {
-			case "0x0000", "0x0001":
-				return errors.New("connection refused")
-			default:
-				return nil
-			}
-		},
-	)
-
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-still-possible",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-
-	require.NotNil(t, h.getActiveRequest(req.ID), "request should remain active while quorum is still possible")
-
-	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
-	defer cancel()
-	_, err = cb.Wait(ctx)
-	require.Error(t, err)
-}
-
-func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *testing.T) {
-	h, cb, don, _ := setupHandler(t, 4)
-	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
-		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
-			switch nodeAddress {
-			case "0x0000", "0x0001", "0x0002":
-				return errors.New("connection refused")
-			default:
-				return nil
-			}
-		},
-	)
-
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-quorum-impossible",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
-		assert.Equal(t, api.FatalError, resp.ErrorCode)
-		var jsonResp jsonrpc.Response[json.RawMessage]
-		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
-		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
-	}()
-
-	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
-	require.NoError(t, err)
-	wg.Wait()
-
-	require.Nil(t, h.getActiveRequest(req.ID), "request should be cleaned up once quorum is impossible")
-}
-
-func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
-	lggr := logger.Test(t)
-	don := newBarrierDON(2)
-	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
-		F:     1,
-		Members: []config.NodeConfig{
-			{Name: "node0", Address: "0x0000"},
-			{Name: "node1", Address: "0x0001"},
-		},
-	}
-
-	methodConfig, err := json.Marshal(Config{
-		RequestTimeoutSec: 30,
-	})
-	require.NoError(t, err)
-
-	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
-	require.NoError(t, err)
-
-	cb := common.NewCallback()
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
-	req := jsonrpc.Request[json.RawMessage]{
-		ID:     "req-concurrent-fanout",
-		Method: MethodCapabilityExec,
-		Params: &params,
-	}
-
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- h.HandleJSONRPCUserMessage(ctx, req, cb)
-	}()
-
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	case <-time.After(100 * time.Millisecond):
-		cancel()
-		<-done
-		t.Fatal("HandleJSONRPCUserMessage did not fan out to nodes concurrently")
-	}
-
-	don.mu.Lock()
-	started := don.started
-	don.mu.Unlock()
-	assert.Equal(t, 2, started)
 }
 
 func TestConfidentialRelayHandler_CapabilityExecMethod(t *testing.T) {

@@ -5,23 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -114,7 +112,8 @@ type relayAggregator interface {
 }
 
 type Config struct {
-	RequestTimeoutSec int `json:"requestTimeoutSec"`
+	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
+	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
 }
 
 type handler struct {
@@ -126,9 +125,8 @@ type handler struct {
 	mu        sync.RWMutex
 	stopCh    services.StopChan
 
-	globalNodeRateLimiter limits.RateLimiter
-	perNodeRateLimiters   map[string]limits.RateLimiter
-	requestTimeout        time.Duration
+	nodeRateLimiter *ratelimit.RateLimiter
+	requestTimeout  time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -146,7 +144,7 @@ func (h *handler) Name() string {
 	return h.lggr.Name()
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -156,18 +154,9 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.RequestTimeoutSec = 30
 	}
 
-	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
+	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
-	}
-
-	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
-	for _, member := range donConfig.Members {
-		rl, makeErr := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayPerNodeRate)
-		if makeErr != nil {
-			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, makeErr)
-		}
-		perNodeRateLimiters[member.Address] = rl
+		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
 	}
 
 	metrics, err := newMetrics()
@@ -176,18 +165,17 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	return &handler{
-		donConfig:             donConfig,
-		don:                   don,
-		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
-		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		globalNodeRateLimiter: globalNodeRateLimiter,
-		perNodeRateLimiters:   perNodeRateLimiters,
-		activeRequests:        make(map[string]*activeRequest),
-		mu:                    sync.RWMutex{},
-		stopCh:                make(services.StopChan),
-		metrics:               metrics,
-		aggregator:            &aggregator{},
-		clock:                 clock,
+		donConfig:       donConfig,
+		don:             don,
+		lggr:            logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
+		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter: nodeRateLimiter,
+		activeRequests:  make(map[string]*activeRequest),
+		mu:              sync.RWMutex{},
+		stopCh:          make(services.StopChan),
+		metrics:         metrics,
+		aggregator:      &aggregator{},
+		clock:           clock,
 	}, nil
 }
 
@@ -216,14 +204,7 @@ func (h *handler) Close() error {
 	return h.StopOnce("ConfidentialRelayHandler", func() error {
 		h.lggr.Info("closing confidential relay handler")
 		close(h.stopCh)
-		var err error
-		if h.globalNodeRateLimiter != nil {
-			err = errors.Join(err, h.globalNodeRateLimiter.Close())
-		}
-		for _, rl := range h.perNodeRateLimiters {
-			err = errors.Join(err, rl.Close())
-		}
-		return err
+		return nil
 	})
 }
 
@@ -241,7 +222,8 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
 		h.lggr.Debugw("request expired without quorum", "requestID", er.req.ID, "responseCount", len(responses), "required", h.donConfig.F+1)
-		err := h.sendResponseAndCleanup(ctx, er, h.constructErrorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1)))
+		// sendResponse deletes the request from activeRequests after sending.
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, fmt.Errorf("request expired: got %d/%d responses", len(responses), h.donConfig.F+1), nil))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -302,16 +284,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	l := logger.With(h.lggr, "method", resp.Method, "requestID", resp.ID, "nodeAddr", nodeAddr)
 	l.Debugw("handling node response")
 
-	nodeRateLimiter, ok := h.perNodeRateLimiters[nodeAddr]
-	if !ok {
-		return fmt.Errorf("received message from unexpected node %s", nodeAddr)
-	}
-	if !nodeRateLimiter.Allow(ctx) {
+	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		l.Debugw("node is rate limited", "nodeAddr", nodeAddr)
-		return nil
-	}
-	if !h.globalNodeRateLimiter.Allow(ctx) {
-		l.Debug("global relay rate limit exceeded")
 		return nil
 	}
 
@@ -321,8 +295,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	added := ar.addResponseForNode(nodeAddr, resp)
-	if !added {
+	ok := ar.addResponseForNode(nodeAddr, resp)
+	if !ok {
 		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
 		return nil
 	}
@@ -333,83 +307,108 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
 		return nil
-	case errors.Is(err, errQuorumUnobtainable):
-		l.Errorw("quorum unobtainable, returning error to user", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	case err != nil:
-		l.Errorw("unexpected aggregation error", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
+		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	}
 
-	rawResponse, err := jsonrpc.EncodeResponse(aggregatedResp)
-	if err != nil {
-		h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
-	}
-	return h.sendResponseAndCleanup(ctx, ar, gwhandlers.UserCallbackPayload{
-		RawResponse: rawResponse,
-		ErrorCode:   api.NoError,
-	})
+	return h.sendSuccessResponse(ctx, l, ar, aggregatedResp)
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
-	var (
-		group      errgroup.Group
-		nodeErrors atomic.Uint32
-	)
-
+	var nodeErrors []error
 	for _, node := range h.donConfig.Members {
-		group.Go(func() error {
-			err := h.don.SendToNode(ctx, node.Address, &ar.req)
-			if err != nil {
-				nodeErrors.Add(1)
-				l.Errorw("error sending request to node", "node", node.Address, "error", err)
-			}
-			return nil
-		})
+		err := h.don.SendToNode(ctx, node.Address, &ar.req)
+		if err != nil {
+			nodeErrors = append(nodeErrors, err)
+			l.Errorw("error sending request to node", "node", node.Address, "error", err)
+		}
 	}
 
-	_ = group.Wait()
-
-	numNodeErrors := nodeErrors.Load()
-	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
-	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes"), nil))
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
 	return nil
 }
 
-// sendResponseAndCleanup sends payload.
-// The request is always removed from activeRequests
-// regardless of whether the send succeeds, since a failed callback cannot
-// be retried.
-func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
-	h.recordMetrics(ctx, payload.ErrorCode)
-	sendErr := ar.SendResponse(payload)
-
-	h.mu.Lock()
-	delete(h.activeRequests, ar.req.ID)
-	h.mu.Unlock()
-
-	if sendErr != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", ar.req.ID, "error", sendErr)
-		return sendErr
+func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *activeRequest, resp *jsonrpc.Response[json.RawMessage]) error {
+	rawResponse, err := jsonrpc.EncodeResponse(resp)
+	if err != nil {
+		l.Errorw("failed to encode response", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal response: %w", err), nil))
 	}
 
-	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", payload.ErrorCode)
-	return nil
+	var errorCode api.ErrorCode
+	if resp.Error != nil {
+		errorCode = api.FromJSONRPCErrorCode(resp.Error.Code)
+	} else {
+		errorCode = api.NoError
+	}
+
+	l.Debugw("issued user callback", "errorCode", errorCode)
+	successResp := gwhandlers.UserCallbackPayload{
+		RawResponse: rawResponse,
+		ErrorCode:   errorCode,
+	}
+	return h.sendResponse(ctx, ar, successResp)
 }
 
-func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
-	//nolint:exhaustive // do not record other errors
+func (h *handler) errorResponse(
+	req jsonrpc.Request[json.RawMessage],
+	errorCode api.ErrorCode,
+	err error,
+	data []byte,
+) gwhandlers.UserCallbackPayload {
 	switch errorCode {
+	case api.FatalError:
+	case api.NodeReponseEncodingError:
+		h.lggr.Errorw(err.Error(), "requestID", req.ID)
+		err = errors.New(errorCode.String())
+	case api.InvalidParamsError:
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
+		err = fmt.Errorf("invalid params error: %w", err)
+	case api.UnsupportedMethodError:
+		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
+		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
+	case api.UserMessageParseError:
+		h.lggr.Errorw("user message parse error", "requestID", req.ID, "error", err.Error())
+		err = fmt.Errorf("user message parse error: %w", err)
+	case api.NoError:
+	case api.UnsupportedDONIdError:
+	case api.HandlerError:
+	case api.RequestTimeoutError:
+	case api.StaleNodeResponseError:
+	case api.ConflictError:
+	case api.LimitExceededError:
+	}
+
+	return gwhandlers.UserCallbackPayload{
+		RawResponse: h.codec.EncodeNewErrorResponse(
+			req.ID,
+			api.ToJSONRPCErrorCode(errorCode),
+			err.Error(),
+			data,
+		),
+		ErrorCode: errorCode,
+	}
+}
+
+func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, resp gwhandlers.UserCallbackPayload) error {
+	switch resp.ErrorCode {
+	case api.StaleNodeResponseError:
+	case api.FatalError:
+	case api.NodeReponseEncodingError:
+	case api.RequestTimeoutError:
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
-			attribute.String("error", errorCode.String()),
+			attribute.String("error", resp.ErrorCode.String()),
 		))
+	case api.InvalidParamsError:
+	case api.UnsupportedMethodError:
+	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
@@ -418,28 +417,19 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
+	case api.ConflictError:
+	case api.LimitExceededError:
 	}
-}
 
-func (h *handler) constructErrorResponse(req jsonrpc.Request[json.RawMessage], errorCode api.ErrorCode, err error) gwhandlers.UserCallbackPayload {
-	//nolint:exhaustive // do not modify other error codes
-	switch errorCode {
-	case api.NodeReponseEncodingError:
-		err = errors.New(errorCode.String())
-	case api.InvalidParamsError:
-		err = fmt.Errorf("invalid params error: %w", err)
-	case api.UnsupportedMethodError:
-		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
-	case api.UserMessageParseError:
-		err = fmt.Errorf("user message parse error: %w", err)
+	err := userRequest.SendResponse(resp)
+	if err != nil {
+		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
+		return err
 	}
-	return gwhandlers.UserCallbackPayload{
-		RawResponse: h.codec.EncodeNewErrorResponse(
-			req.ID,
-			api.ToJSONRPCErrorCode(errorCode),
-			err.Error(),
-			nil,
-		),
-		ErrorCode: errorCode,
-	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.activeRequests, userRequest.req.ID)
+	h.lggr.Debugw("response sent to user", "requestID", userRequest.req.ID, "errorCode", resp.ErrorCode)
+	return nil
 }
