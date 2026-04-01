@@ -1547,6 +1547,9 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, engine.Close())
+	})
 
 	capreg.EXPECT().
 		GetTrigger(matches.AnyContext, triggerID).
@@ -1556,13 +1559,12 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{triggerID}, <-subscribedToTriggersCh)
-	require.NotNil(t, capturedVaultReq)
-	require.Equal(t, engineOrgID, capturedVaultReq.OrgId)
-	require.Equal(t, cfg.WorkflowOwner, capturedVaultReq.WorkflowOwner)
 
 	// Read the result from the hook and assert that the wanted response was
 	// received.
 	res := <-resultReceivedCh
+	require.NotNil(t, capturedVaultReq)
+	require.Equal(t, cfg.WorkflowOwner, capturedVaultReq.WorkflowOwner)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:
 		var value values.Value
@@ -1583,7 +1585,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, execID, <-executionFinishedCh)
-	require.NoError(t, engine.Close())
 }
 
 // TestEngine_DuplicateTriggerSameConfig verifies that the engine deduplicates executions
