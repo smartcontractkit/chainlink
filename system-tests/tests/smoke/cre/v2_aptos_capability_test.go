@@ -69,8 +69,9 @@ func ExecuteAptosTest(t *testing.T, tenv *configuration.TestEnvironment) {
 }
 
 type aptosScenario struct {
-	name string
-	run  func(
+	name          string
+	requiresWrite bool
+	run           func(
 		t *testing.T,
 		tenv *configuration.TestEnvironment,
 		aptosChain blockchains.Blockchain,
@@ -81,8 +82,8 @@ type aptosScenario struct {
 
 func aptosDefaultScenarios() []aptosScenario {
 	return []aptosScenario{
-		{name: "Aptos Write Read Roundtrip", run: ExecuteAptosWriteReadRoundtripTest},
-		{name: "Aptos Write Expected Failure", run: ExecuteAptosWriteExpectedFailureTest},
+		{name: "Aptos Write Read Roundtrip", requiresWrite: true, run: ExecuteAptosWriteReadRoundtripTest},
+		{name: "Aptos Write Expected Failure", requiresWrite: true, run: ExecuteAptosWriteExpectedFailureTest},
 	}
 }
 
@@ -100,20 +101,24 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 
 	available := map[string]aptosScenario{
 		"read": {
-			name: "Aptos Read",
-			run:  ExecuteAptosReadTest,
+			name:          "Aptos Read",
+			requiresWrite: false,
+			run:           ExecuteAptosReadTest,
 		},
 		"write": {
-			name: "Aptos Write",
-			run:  ExecuteAptosWriteTest,
+			name:          "Aptos Write",
+			requiresWrite: true,
+			run:           ExecuteAptosWriteTest,
 		},
 		"roundtrip": {
-			name: "Aptos Write Read Roundtrip",
-			run:  ExecuteAptosWriteReadRoundtripTest,
+			name:          "Aptos Write Read Roundtrip",
+			requiresWrite: true,
+			run:           ExecuteAptosWriteReadRoundtripTest,
 		},
 		"write-expected-failure": {
-			name: "Aptos Write Expected Failure",
-			run:  ExecuteAptosWriteExpectedFailureTest,
+			name:          "Aptos Write Expected Failure",
+			requiresWrite: true,
+			run:           ExecuteAptosWriteExpectedFailureTest,
 		},
 	}
 
@@ -141,37 +146,63 @@ func resolveAptosScenarios(t *testing.T) []aptosScenario {
 }
 
 func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, scenarios []aptosScenario) {
-	creEnv := tenv.CreEnvironment
-	require.NotEmpty(t, creEnv.Blockchains, "Aptos suite expects at least one blockchain in the environment")
-
-	var aptosChain blockchains.Blockchain
-	for _, bc := range creEnv.Blockchains {
-		if bc.IsFamily(blockchain.FamilyAptos) {
-			aptosChain = bc
-			break
-		}
-	}
-	require.NotNil(t, aptosChain, "Aptos suite expects an Aptos chain in the environment (use config workflow-gateway-don-aptos.toml)")
-
+	aptosChain := mustAptosChainInEnv(t, tenv)
 	lggr := framework.L
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
-	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	writeDon := findAptosDonForChain(t, tenv, aptosChain.ChainID())
 	assertAptosWorkerRuntimeKeysMatchMetadata(t, writeDon)
-
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
-	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
-	})
+	if aptosScenariosRequireWriteSetup(scenarios) {
+		ensureAptosWriteWorkersFunded(t, aptosChain, writeDon)
+	}
 
 	for _, scenario := range scenarios {
+		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			scenario.run(t, tenv, aptosChain, userLogsCh, baseMessageCh)
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
+
+			scenarioEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, tenv.TestConfig)
+			scenarioAptosChain := mustAptosChainInEnv(t, scenarioEnv)
+
+			userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+			t.Cleanup(func() {
+				server.Shutdown(t.Context())
+				close(userLogsCh)
+				close(baseMessageCh)
+			})
+
+			scenario.run(t, scenarioEnv, scenarioAptosChain, userLogsCh, baseMessageCh)
 		})
 	}
+}
+
+func aptosScenariosRequireWriteSetup(scenarios []aptosScenario) bool {
+	for _, scenario := range scenarios {
+		if scenario.requiresWrite {
+			return true
+		}
+	}
+	return false
+}
+
+func mustAptosChainInEnv(t *testing.T, tenv *configuration.TestEnvironment) blockchains.Blockchain {
+	t.Helper()
+
+	require.NotNil(t, tenv, "Aptos suite requires a test environment")
+	require.NotNil(t, tenv.CreEnvironment, "Aptos suite requires a CRE environment")
+	require.NotEmpty(t, tenv.CreEnvironment.Blockchains, "Aptos suite expects at least one blockchain in the environment")
+
+	for _, bc := range tenv.CreEnvironment.Blockchains {
+		if bc.IsFamily(blockchain.FamilyAptos) {
+			return bc
+		}
+	}
+
+	require.FailNow(t, "Aptos suite expects an Aptos chain in the environment (use config workflow-gateway-don-aptos.toml)")
+	return nil
 }
 
 func assertAptosWorkerRuntimeKeysMatchMetadata(t *testing.T, writeDon *crelib.Don) {
@@ -235,10 +266,10 @@ func ExecuteAptosReadTest(
 	}
 
 	const workflowFileLocation = "./aptos/aptosread/main.go"
-	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedLog := "Aptos read consensus succeeded"
-	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout)
+	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, aptosWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
 	lggr.Info().Str("expected_log", expectedLog).Msg("Aptos read capability test passed")
 }
 
@@ -298,10 +329,9 @@ func ExecuteAptosWriteTest(
 	}
 
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
-	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
-	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-	txHash := waitForAptosWriteSuccessLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, aptosWorkflowTimeout)
+	txHash := waitForAptosWriteSuccessLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, workflowID, aptosWorkflowTimeout)
 	assertAptosReceiverUpdatedOnChain(t, aptosChain, scenario.receiverHex, scenario.expectedBenchmarkValue)
 	assertAptosWriteTxOnChain(t, aptosChain, txHash, scenario.receiverHex)
 	lggr.Info().
@@ -333,8 +363,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 		ExpectedBenchmark:  scenario.expectedBenchmarkValue,
 	}
 
-	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
-	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &roundtripCfg, "./aptos/aptoswriteroundtrip/main.go")
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &roundtripCfg, "./aptos/aptoswriteroundtrip/main.go")
 	t_helpers.WatchWorkflowLogs(
 		t,
 		lggr,
@@ -343,6 +372,7 @@ func ExecuteAptosWriteReadRoundtripTest(
 		t_helpers.WorkflowEngineInitErrorLog,
 		"Aptos write/read consensus succeeded",
 		aptosWorkflowTimeout,
+		t_helpers.WithUserLogWorkflowID(workflowID),
 	)
 	lggr.Info().
 		Str("receiver", scenario.receiverHex).
@@ -359,7 +389,7 @@ func ExecuteAptosWriteExpectedFailureTest(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
-	scenario := prepareAptosWriteScenario(t, tenv, aptosChain)
+	scenario := prepareAptosWriteFailureScenario(t, tenv, aptosChain)
 
 	workflowName := uniqueAptosWorkflowName("aptos-write-expected-failure-workflow")
 	workflowConfig := aptoswrite_config.Config{
@@ -374,10 +404,9 @@ func ExecuteAptosWriteExpectedFailureTest(
 	}
 
 	const workflowFileLocation = "./aptos/aptoswrite/main.go"
-	ensureAptosWriteWorkersFunded(t, aptosChain, scenario.writeDon)
-	t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, aptosWorkflowTimeout)
+	txHash := waitForAptosWriteExpectedFailureLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, workflowID, aptosWorkflowTimeout)
 	assertAptosWriteFailureTxOnChain(t, aptosChain, txHash)
 
 	lggr.Info().
@@ -413,6 +442,23 @@ func prepareAptosRoundtripScenario(t *testing.T, tenv *configuration.TestEnviron
 		aptosTestFeedID(),
 		aptosRoundtripBenchmarkValue,
 	)
+}
+
+func prepareAptosWriteFailureScenario(t *testing.T, tenv *configuration.TestEnvironment, aptosChain blockchains.Blockchain) aptosWriteScenario {
+	t.Helper()
+
+	writeDon := findAptosDonForChain(t, tenv, aptosChain.ChainID())
+	workers, workerErr := writeDon.Workers()
+	require.NoError(t, workerErr, "failed to list Aptos write DON workers")
+	f := (len(workers) - 1) / 3
+	require.GreaterOrEqual(t, f, 1, "Aptos write DON requires f>=1")
+
+	return aptosWriteScenario{
+		chainSelector:      aptosChain.ChainSelector(),
+		reportPayloadHex:   hex.EncodeToString(buildAptosDataFeedsBenchmarkPayloadFor(aptosTestFeedID(), aptosWriteBenchmarkValue)),
+		requiredSignatures: f + 1,
+		writeDon:           writeDon,
+	}
 }
 
 func prepareAptosWriteScenarioWithBenchmark(
@@ -500,10 +546,11 @@ func waitForAptosWriteSuccessLogAndTxHash(
 	lggr zerolog.Logger,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
+	workflowID string,
 	timeout time.Duration,
 ) string {
 	t.Helper()
-	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write capability succeeded", timeout)
+	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, workflowID, "Aptos write capability succeeded", timeout)
 }
 
 func waitForAptosWriteExpectedFailureLogAndTxHash(
@@ -511,10 +558,11 @@ func waitForAptosWriteExpectedFailureLogAndTxHash(
 	lggr zerolog.Logger,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
+	workflowID string,
 	timeout time.Duration,
 ) string {
 	t.Helper()
-	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, "Aptos write failure observed as expected", timeout)
+	return waitForAptosLogAndTxHash(t, lggr, userLogsCh, baseMessageCh, workflowID, "Aptos write failure observed as expected", timeout)
 }
 
 func waitForAptosLogAndTxHash(
@@ -522,6 +570,7 @@ func waitForAptosLogAndTxHash(
 	lggr zerolog.Logger,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
+	workflowID string,
 	expectedLog string,
 	timeout time.Duration,
 ) string {
@@ -534,6 +583,10 @@ func waitForAptosLogAndTxHash(
 	defer cancelCauseFn(nil)
 
 	go func() {
+		if workflowID != "" {
+			t_helpers.FailOnBaseMessage(cancelCtx, cancelCauseFn, t, lggr, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, t_helpers.WithBaseMessageWorkflowID(workflowID))
+			return
+		}
 		t_helpers.FailOnBaseMessage(cancelCtx, cancelCauseFn, t, lggr, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
 	}()
 
@@ -544,6 +597,9 @@ func waitForAptosLogAndTxHash(
 			require.NoError(t, context.Cause(cancelCtx), "failed to observe Aptos log with non-empty tx hash: %s", expectedLog)
 			return ""
 		case logs := <-userLogsCh:
+			if workflowID != "" && !aptosUserLogsHaveWorkflowID(logs, workflowID) {
+				continue
+			}
 			for _, line := range logs.LogLines {
 				if !strings.Contains(line.Message, expectedLog) {
 					mismatchCount++
@@ -572,6 +628,13 @@ func waitForAptosLogAndTxHash(
 			}
 		}
 	}
+}
+
+func aptosUserLogsHaveWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
+	if logs == nil || logs.M == nil || workflowID == "" {
+		return false
+	}
+	return normalizeHexValue(logs.M.WorkflowID) == normalizeHexValue(workflowID)
 }
 
 func assertAptosWriteFailureTxOnChain(t *testing.T, aptosChain blockchains.Blockchain, txHash string) {

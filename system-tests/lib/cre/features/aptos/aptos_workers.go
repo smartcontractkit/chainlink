@@ -5,12 +5,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 
 	"dario.cat/mergo"
 	pkgerrors "github.com/pkg/errors"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	crejobops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -19,6 +21,7 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 )
 
 func proposeAptosWorkerSpecs(
@@ -29,71 +32,90 @@ func proposeAptosWorkerSpecs(
 	nodeSet cre.NodeSetWithCapabilityConfigs,
 	enabledChainIDs []uint64,
 ) (map[string][]string, error) {
-	specs := make(map[string][]string)
 	bootstrapPeers, err := bootstrapPeersForDons(dons)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, chainID := range enabledChainIDs {
-		aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
-		if err != nil {
-			return nil, err
-		}
-
-		capabilityConfig, err := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
-		if err != nil {
-			return nil, fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, err)
-		}
-		command, err := standardcapability.GetCommand(capabilityConfig.BinaryName)
-		if err != nil {
-			return nil, pkgerrors.Wrap(err, "failed to get command for Aptos capability")
-		}
-
-		forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
-		workerMetadata, err := don.Metadata().Workers()
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect Aptos worker metadata for DON %q: %w", don.Name, err)
-		}
-		p2pToTransmitterMap, err := p2pToTransmitterMapForWorkers(workerMetadata)
-		if err != nil {
-			return nil, fmt.Errorf("failed to collect Aptos worker transmitters for DON %q: %w", don.Name, err)
-		}
-		methodSettings, err := resolveMethodConfigSettings(capabilityConfig.Values)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve Aptos method config settings for chain %d: %w", chainID, err)
-		}
-		configStr, err := buildWorkerConfigJSON(chainID, forwarderAddress, methodSettings, p2pToTransmitterMap, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build Aptos worker config: %w", err)
-		}
-
-		workerInput, err := newAptosWorkerJobInput(creEnv, don.Name, command, configStr, bootstrapPeers, aptosChain.ChainSelector(), chainID)
-		if err != nil {
-			return nil, err
-		}
-
-		proposer := jobs.ProposeJobSpec{}
-		err = proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-		if err != nil {
-			return nil, fmt.Errorf("precondition verification failed for Aptos worker job: %w", err)
-		}
-		workerReport, err := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
-		if err != nil {
-			return nil, fmt.Errorf("failed to propose Aptos worker job spec: %w", err)
-		}
-
-		for _, report := range workerReport.Reports {
-			out, ok := report.Output.(crejobops.ProposeStandardCapabilityJobOutput)
-			if !ok {
-				return nil, fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", report.Output)
-			}
-			if err := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice); err != nil {
-				return nil, fmt.Errorf("failed to merge Aptos worker job specs: %w", err)
-			}
-		}
+	workerMetadata, err := don.Metadata().Workers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect Aptos worker metadata for DON %q: %w", don.Name, err)
+	}
+	p2pToTransmitterMap, err := p2pToTransmitterMapForWorkers(workerMetadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to collect Aptos worker transmitters for DON %q: %w", don.Name, err)
 	}
 
+	results := make([]map[string][]string, len(enabledChainIDs))
+	group, _ := errgroup.WithContext(ctx)
+	group.SetLimit(jobhelpers.Parallelism(len(enabledChainIDs)))
+
+	for i, chainID := range enabledChainIDs {
+		i := i
+		chainID := chainID
+		group.Go(func() error {
+			aptosChain, err := findAptosChainByChainID(creEnv.Blockchains, chainID)
+			if err != nil {
+				return err
+			}
+
+			capabilityConfig, err := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
+			if err != nil {
+				return fmt.Errorf("could not resolve capability config for '%s' on chain %d: %w", flag, chainID, err)
+			}
+			command, err := standardcapability.GetCommand(capabilityConfig.BinaryName)
+			if err != nil {
+				return pkgerrors.Wrap(err, "failed to get command for Aptos capability")
+			}
+
+			forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, aptosChain.ChainSelector())
+			methodSettings, err := resolveMethodConfigSettings(capabilityConfig.Values)
+			if err != nil {
+				return fmt.Errorf("failed to resolve Aptos method config settings for chain %d: %w", chainID, err)
+			}
+			configStr, err := buildWorkerConfigJSON(chainID, forwarderAddress, methodSettings, p2pToTransmitterMap, true)
+			if err != nil {
+				return fmt.Errorf("failed to build Aptos worker config: %w", err)
+			}
+
+			workerInput, err := newAptosWorkerJobInput(creEnv, don.Name, command, configStr, bootstrapPeers, aptosChain.ChainSelector(), chainID)
+			if err != nil {
+				return err
+			}
+
+			proposer := jobs.ProposeJobSpec{}
+			if err := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput); err != nil {
+				return fmt.Errorf("precondition verification failed for Aptos worker job: %w", err)
+			}
+			workerReport, err := proposer.Apply(*creEnv.CldfEnvironment, workerInput)
+			if err != nil {
+				return fmt.Errorf("failed to propose Aptos worker job spec: %w", err)
+			}
+
+			mergedSpecs := make(map[string][]string)
+			for _, report := range workerReport.Reports {
+				out, ok := report.Output.(crejobops.ProposeStandardCapabilityJobOutput)
+				if !ok {
+					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", report.Output)
+				}
+				if err := mergo.Merge(&mergedSpecs, out.Specs, mergo.WithAppendSlice); err != nil {
+					return fmt.Errorf("failed to merge Aptos worker job specs: %w", err)
+				}
+			}
+
+			results[i] = maps.Clone(mergedSpecs)
+			return nil
+		})
+	}
+
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+
+	specs, err := jobhelpers.MergeSpecsByIndex(results)
+	if err != nil {
+		return nil, err
+	}
 	return specs, nil
 }
 
