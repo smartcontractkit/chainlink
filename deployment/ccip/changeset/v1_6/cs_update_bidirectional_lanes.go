@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
@@ -251,7 +252,14 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			v2FeeQuoterChains[chainSel] = struct{}{}
 			continue
 		}
-		v1FeeQuoterDestsUpdates[chainSel] = update
+		filtered, err := FilterOutExistingDestChainConfigs(e, update.Address, chainSel, update.CallInput)
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		if len(filtered) > 0 {
+			update.CallInput = filtered
+			v1FeeQuoterDestsUpdates[chainSel] = update
+		}
 	}
 	for chainSel, update := range feeQuoterPricesInput.UpdatesByChain {
 		version, ok := feeQuoterVersionsByChain[chainSel]
@@ -308,6 +316,10 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert v1.6 fee quoter destination updates for chain %d: %w", chainSel, err)
 			}
+			destCfgs, err = FilterOutExistingDestChainConfigs(e, dests.Address, chainSel, destCfgs)
+			if err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
 			fqUpdate.DestChainConfigs = destCfgs
 		}
 		if prices, ok := feeQuoterPricesInput.UpdatesByChain[chainSel]; ok {
@@ -347,6 +359,75 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 	output.MCMSTimelockProposals = []mcmslib.TimelockProposal{*aggProposal}
 
 	return output, nil
+}
+
+// destChainConfigType constrains the types accepted by FilterOutExistingDestChainConfigs.
+type destChainConfigType interface {
+	fee_quoter.FeeQuoterDestChainConfigArgs | fqv2ops.DestChainConfigArgs
+}
+
+// FilterOutExistingDestChainConfigs removes destination chain configs where the destination
+// is already enabled on-chain. It automatically selects the correct FeeQuoter binding
+// based on the concrete config type.
+func FilterOutExistingDestChainConfigs[T destChainConfigType](
+	e cldf.Environment,
+	fqAddr common.Address,
+	chainSel uint64,
+	destCfgs []T,
+) ([]T, error) {
+	if len(destCfgs) == 0 {
+		return destCfgs, nil
+	}
+
+	var isDestEnabled func(T) (uint64, bool, error)
+
+	switch any(destCfgs[0]).(type) {
+	case fee_quoter.FeeQuoterDestChainConfigArgs:
+		fq, err := fee_quoter.NewFeeQuoter(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind FeeQuoter on chain %d: %w", chainSel, err)
+		}
+		isDestEnabled = func(cfg T) (uint64, bool, error) {
+			destSel := any(cfg).(fee_quoter.FeeQuoterDestChainConfigArgs).DestChainSelector
+			onChain, err := fq.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destSel)
+			if err != nil {
+				return destSel, false, err
+			}
+			return destSel, onChain.IsEnabled, nil
+		}
+	case fqv2ops.DestChainConfigArgs:
+		fq, err := fqv2ops.NewFeeQuoterContract(fqAddr, e.BlockChains.EVMChains()[chainSel].Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind v2 FeeQuoter on chain %d: %w", chainSel, err)
+		}
+		isDestEnabled = func(cfg T) (uint64, bool, error) {
+			destSel := any(cfg).(fqv2ops.DestChainConfigArgs).DestChainSelector
+			onChain, err := fq.GetDestChainConfig(&bind.CallOpts{Context: e.GetContext()}, destSel)
+			if err != nil {
+				return destSel, false, err
+			}
+			return destSel, onChain.IsEnabled, nil
+		}
+	}
+
+	filtered := make([]T, 0, len(destCfgs))
+	for _, destCfg := range destCfgs {
+		destSel, enabled, err := isDestEnabled(destCfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query existing dest chain config on chain %d for dest %d: %w",
+				chainSel, destSel, err)
+		}
+		if enabled {
+			e.Logger.Infow("skipping dest chain config already present on FeeQuoter",
+				"sourceChain", chainSel,
+				"destChain", destSel,
+			)
+			continue
+		}
+		filtered = append(filtered, destCfg)
+	}
+
+	return filtered, nil
 }
 
 func ConvertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfigArgs) ([]fqv2ops.DestChainConfigArgs, error) {

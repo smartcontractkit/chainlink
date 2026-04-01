@@ -865,10 +865,17 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	chains := make([]blockchains.Blockchain, 0)
 
 	for _, bc := range bcs {
-		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID())
-		chainIsSolana := bc.IsFamily(chainselectors.FamilySolana)
+		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID()) || len(donMetadata.EVMChains()) == 0
+		hasSolanaChainEnabled := false
+		if bc.IsFamily(chainselectors.FamilySolana) {
+			solChain, ok := bc.(*solana.Blockchain)
+			if !ok {
+				return nil, fmt.Errorf("expected solana blockchain, got %T", bc)
+			}
+			hasSolanaChainEnabled = slices.Contains(donMetadata.SolanaChains(), solChain.SolanaChainID)
+		}
 
-		if !hasEVMChainEnabled && (!chainIsSolana) {
+		if !hasEVMChainEnabled && !hasSolanaChainEnabled {
 			continue
 		}
 

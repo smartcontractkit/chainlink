@@ -539,10 +539,10 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range c.SuiChains {
 		chains[chain] = struct{}{}
 	}
-
 	for chain := range c.TonChains {
 		chains[chain] = struct{}{}
 	}
+
 	return chains
 }
 

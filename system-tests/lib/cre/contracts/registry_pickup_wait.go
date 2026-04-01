@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	capabilityRegistrySyncPollInterval = 5 * time.Second
+	capabilityRegistrySyncPollInterval = 2 * time.Second
 	capabilityRegistrySyncTimeout      = 2 * time.Minute
 	capabilityRegistrySyncQueryTimeout = 3 * time.Second
 	capabilityRegistrySyncConcurrency  = 4
