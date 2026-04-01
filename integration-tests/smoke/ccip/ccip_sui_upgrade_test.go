@@ -473,6 +473,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
 	newOnrampVersion := "OnRamp 1.6.1"
 	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
 		sourcePath := filepath.Join(packageRoot, "sources", "onramp.move")
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`OnRamp \d+\.\d+\.\d+`)
@@ -575,6 +576,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
 	newOfframpVersion := "OffRamp 1.6.1"
 	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
 		sourcePath := filepath.Join(packageRoot, "sources", "offramp.move")
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`OffRamp \d+\.\d+\.\d+`)
@@ -676,6 +678,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) string {
 	newFeeQuoterVersion := "FeeQuoter 1.6.2"
 	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
 		sourcePath := filepath.Join(packageRoot, "sources", "fee_quoter.move")
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`FeeQuoter \d+\.\d+\.\d+`)
