@@ -156,7 +156,6 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 	}
 
 	for _, scenario := range scenarios {
-		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
 			if parallelEnabled && fanoutEnabled {
 				t.Parallel()

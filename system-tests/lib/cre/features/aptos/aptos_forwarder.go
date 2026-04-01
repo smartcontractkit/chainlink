@@ -262,6 +262,7 @@ func configureForwarders(
 	if f > 255 {
 		return fmt.Errorf("aptos DON %q fault tolerance F=%d exceeds u8", don.Name, f)
 	}
+	forwarderF := uint8(f)
 
 	donIDUint32, err := aptosDonIDUint32(don.ID)
 	if err != nil {
@@ -313,7 +314,7 @@ func configureForwarders(
 		var pendingTxHash string
 		var lastSetConfigErr error
 		if err := retry.Do(ctx, retry.WithMaxDuration(2*time.Minute, retry.NewFibonacci(500*time.Millisecond)), func(ctx context.Context) error {
-			pendingTx, err := forwarderContract.SetConfig(&bind.TransactOpts{Signer: deployerAccount}, donIDUint32, forwarderConfigVersion, byte(f), oracles)
+			pendingTx, err := forwarderContract.SetConfig(&bind.TransactOpts{Signer: deployerAccount}, donIDUint32, forwarderConfigVersion, forwarderF, oracles)
 			if err != nil {
 				lastSetConfigErr = err
 				if fundErr := aptosChain.Fund(ctx, deployerAddress.StringLong(), 1_000_000_000_000); fundErr != nil {
