@@ -12,6 +12,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
@@ -325,16 +326,29 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
-	var nodeErrors []error
+	var (
+		group        errgroup.Group
+		nodeErrors   int
+		nodeErrorsMu sync.Mutex
+	)
+
 	for _, node := range h.donConfig.Members {
-		err := h.don.SendToNode(ctx, node.Address, &ar.req)
-		if err != nil {
-			nodeErrors = append(nodeErrors, err)
-			l.Errorw("error sending request to node", "node", node.Address, "error", err)
-		}
+		node := node
+		group.Go(func() error {
+			err := h.don.SendToNode(ctx, node.Address, &ar.req)
+			if err != nil {
+				nodeErrorsMu.Lock()
+				nodeErrors++
+				nodeErrorsMu.Unlock()
+				l.Errorw("error sending request to node", "node", node.Address, "error", err)
+			}
+			return nil
+		})
 	}
 
-	if len(nodeErrors) == len(h.donConfig.Members) && len(nodeErrors) > 0 {
+	_ = group.Wait()
+
+	if nodeErrors == len(h.donConfig.Members) && nodeErrors > 0 {
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
