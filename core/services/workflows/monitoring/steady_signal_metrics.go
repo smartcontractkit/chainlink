@@ -25,15 +25,15 @@ type SteadySignalMetrics struct {
 
 var (
 	globalSteadySignalMetrics     *SteadySignalMetrics
-	globalSteadySignalMetricsErr  error
+	errGlobalSteadySignalMetrics  error
 	globalSteadySignalMetricsOnce sync.Once
 )
 
 func GlobalSteadySignalMetrics() (*SteadySignalMetrics, error) {
 	globalSteadySignalMetricsOnce.Do(func() {
-		globalSteadySignalMetrics, globalSteadySignalMetricsErr = newSteadySignalMetrics()
+		globalSteadySignalMetrics, errGlobalSteadySignalMetrics = newSteadySignalMetrics()
 	})
-	return globalSteadySignalMetrics, globalSteadySignalMetricsErr
+	return globalSteadySignalMetrics, errGlobalSteadySignalMetrics
 }
 
 func newSteadySignalMetrics() (*SteadySignalMetrics, error) {
