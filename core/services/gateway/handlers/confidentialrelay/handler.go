@@ -333,7 +333,6 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	)
 
 	for _, node := range h.donConfig.Members {
-		node := node
 		group.Go(func() error {
 			err := h.don.SendToNode(ctx, node.Address, &ar.req)
 			if err != nil {
