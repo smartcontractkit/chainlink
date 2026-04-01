@@ -348,7 +348,7 @@ func (c CCIPChainState) validateAllDestChainConfigs(
 		v20Enabled := v20Cfg != nil && v20Cfg.IsEnabled
 
 		// Skip v1.6 checks when lane is enabled only in v2.0.
-		if v16Cfg != nil && !(!v16Enabled && v20Enabled) {
+		if v16Cfg != nil && (v16Enabled || !v20Enabled) {
 			if err := c.validateV16DestChainConfig(callOpts, sourceChainSel, destChainSel, *v16Cfg, legacyCfg); err != nil {
 				errs = append(errs, err)
 			}
