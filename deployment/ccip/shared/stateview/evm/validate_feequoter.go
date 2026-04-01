@@ -114,37 +114,43 @@ func (c CCIPChainState) ValidateFeeQuoter(
 	v16LaneReady := false
 	if c.FeeQuoter != nil {
 		fqAddr := c.FeeQuoter.Address().Hex()
-		e.Logger.Debugw("Validating FeeQuoter v1.6", "chain", sourceChainSel, "feeQuoter", fqAddr, "connectedChains", len(connectedChains))
-		staticConfig, err := c.FeeQuoter.GetStaticConfig(callOpts)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get static config for FeeQuoter %s: %w", fqAddr, err))
-		} else {
-			linktokenAddr, err := c.LinkTokenAddress()
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to get link token address from state: %w", err))
-			} else if staticConfig.LinkToken != linktokenAddr {
-				errs = append(errs, fmt.Errorf("FeeQuoter %s LinkToken mismatch: expected %s, got %s",
-					fqAddr, linktokenAddr.Hex(), staticConfig.LinkToken.Hex()))
-			}
-			if staticConfig.TokenPriceStalenessThreshold == 0 {
-				errs = append(errs, fmt.Errorf("FeeQuoter %s: TokenPriceStalenessThreshold is 0", fqAddr))
-			}
-		}
-		feeTokens, err := c.FeeQuoter.GetFeeTokens(callOpts)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get fee tokens from FeeQuoter %s: %w", fqAddr, err))
-		} else {
-			v16FeeTokens = feeTokens
-		}
-
 		switch {
 		case c.FeeQuoterVersion == nil:
 			errs = append(errs, fmt.Errorf("FeeQuoter %s: version not set, cannot perform lane-level validation", fqAddr))
 		case c.FeeQuoterVersion.Major() != 1:
-			errs = append(errs, fmt.Errorf("FeeQuoter %s: unsupported version %s for lane-level validation",
-				fqAddr, c.FeeQuoterVersion.String()))
+			if fqV2 == nil {
+				errs = append(errs, fmt.Errorf("FeeQuoter %s: unsupported version %s for lane-level validation",
+					fqAddr, c.FeeQuoterVersion.String()))
+			} else {
+				e.Logger.Debugw("Skipping FeeQuoter v1.6 validation for non-v1 contract",
+					"chain", sourceChainSel,
+					"feeQuoter", fqAddr,
+					"version", c.FeeQuoterVersion.String())
+			}
 		default:
-			v16LaneReady = len(v16FeeTokens) > 0
+			e.Logger.Debugw("Validating FeeQuoter v1.6", "chain", sourceChainSel, "feeQuoter", fqAddr, "connectedChains", len(connectedChains))
+			staticConfig, err := c.FeeQuoter.GetStaticConfig(callOpts)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to get static config for FeeQuoter %s: %w", fqAddr, err))
+			} else {
+				linktokenAddr, err := c.LinkTokenAddress()
+				if err != nil {
+					errs = append(errs, fmt.Errorf("failed to get link token address from state: %w", err))
+				} else if staticConfig.LinkToken != linktokenAddr {
+					errs = append(errs, fmt.Errorf("FeeQuoter %s LinkToken mismatch: expected %s, got %s",
+						fqAddr, linktokenAddr.Hex(), staticConfig.LinkToken.Hex()))
+				}
+				if staticConfig.TokenPriceStalenessThreshold == 0 {
+					errs = append(errs, fmt.Errorf("FeeQuoter %s: TokenPriceStalenessThreshold is 0", fqAddr))
+				}
+			}
+			feeTokens, err := c.FeeQuoter.GetFeeTokens(callOpts)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to get fee tokens from FeeQuoter %s: %w", fqAddr, err))
+			} else {
+				v16FeeTokens = feeTokens
+				v16LaneReady = len(v16FeeTokens) > 0
+			}
 		}
 	}
 
@@ -338,13 +344,21 @@ func (c CCIPChainState) validateAllDestChainConfigs(
 			}
 		}
 
-		if v16Cfg != nil {
+		v16Enabled := v16Cfg != nil && v16Cfg.IsEnabled
+		v20Enabled := v20Cfg != nil && v20Cfg.IsEnabled
+
+		// Skip v1.6 checks when lane is enabled only in v2.0.
+		if v16Cfg != nil && (v16Enabled || !v20Enabled) {
 			if err := c.validateV16DestChainConfig(callOpts, sourceChainSel, destChainSel, *v16Cfg, legacyCfg); err != nil {
 				errs = append(errs, err)
 			}
 		}
 		if v20Cfg != nil {
-			if err := c.validateV20DestChainConfig(callOpts, sourceChainSel, destChainSel, *v20Cfg, v16Cfg, legacyCfg, fqV2); err != nil {
+			v16ForV20 := v16Cfg
+			if !v16Enabled && v20Enabled {
+				v16ForV20 = nil
+			}
+			if err := c.validateV20DestChainConfig(callOpts, sourceChainSel, destChainSel, *v20Cfg, v16ForV20, legacyCfg, fqV2); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -390,8 +404,8 @@ func (c CCIPChainState) validateV16DestChainConfig(
 	if destCfg.ChainFamilySelector == [4]byte{} {
 		errs = append(errs, errors.New("ChainFamilySelector is empty"))
 	}
-	// GasPriceStalenessThreshold: compare against v1.5 PriceRegistry when present; else require non-zero.
-	if c.PriceRegistry != nil {
+	// Compare staleness against v1.5 only when a legacy lane exists.
+	if legacyCfg != nil && c.PriceRegistry != nil {
 		st, stErr := c.PriceRegistry.GetStalenessThreshold(callOpts)
 		if stErr != nil {
 			errs = append(errs, fmt.Errorf("failed to get staleness threshold from v1.5 PriceRegistry: %w", stErr))
@@ -634,14 +648,6 @@ func (c CCIPChainState) validateTokenTransferFee(
 			if v20Cfg.FeeUSDCents != v16Cfg.MinFeeUSDCents {
 				errs = append(errs, fmt.Errorf("v2.0: FeeUSDCents (%d) != v1.6 MinFeeUSDCents (%d)",
 					v20Cfg.FeeUSDCents, v16Cfg.MinFeeUSDCents))
-			}
-			if v16Cfg.DeciBps > 0 {
-				errs = append(errs, fmt.Errorf("v2.0: v1.6 DeciBps=%d is non-zero but removed in v2.0 (percentage fee lost)",
-					v16Cfg.DeciBps))
-			}
-			if v16Cfg.MaxFeeUSDCents > v16Cfg.MinFeeUSDCents {
-				errs = append(errs, fmt.Errorf("v2.0: v1.6 MaxFeeUSDCents (%d) > MinFeeUSDCents (%d) -- fee cap not present in v2.0",
-					v16Cfg.MaxFeeUSDCents, v16Cfg.MinFeeUSDCents))
 			}
 			if err := compareFieldChecks("v1.6<->v2.0", []fieldCheck{
 				{"DestGasOverhead", uint64(v20Cfg.DestGasOverhead), uint64(v16Cfg.DestGasOverhead)},

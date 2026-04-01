@@ -146,6 +146,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+	Aptos      AptosKeys                `toml:",omitempty"` // choose Aptos as the TOML field name to align with relayer config convention
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
@@ -161,6 +162,16 @@ type SolKeys struct {
 type SolKey struct {
 	JSON     *models.Secret
 	ID       *string
+	Password *models.Secret
+}
+
+type AptosKeys struct {
+	Keys []*AptosKey
+}
+
+type AptosKey struct {
+	JSON     *models.Secret
+	ID       *uint64
 	Password *models.Secret
 }
 
@@ -240,6 +251,85 @@ func (e *SolKey) ValidateConfig() (err error) {
 		_, err2 := chain_selectors.SolanaNameFromChainId(*e.ID)
 		if err2 != nil {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
+}
+
+func (a *AptosKeys) SetFrom(f *AptosKeys) error {
+	err := a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	a.Keys = make([]*AptosKey, len(f.Keys))
+	copy(a.Keys, f.Keys)
+	return nil
+}
+
+func (a *AptosKeys) validateMerge(f *AptosKeys) (err error) {
+	have := make(map[uint64]struct{})
+	if a != nil && f != nil {
+		for _, aptosKey := range a.Keys {
+			have[*aptosKey.ID] = struct{}{}
+		}
+		for _, aptosKey := range f.Keys {
+			if _, ok := have[*aptosKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("AptosKeys: %d", *aptosKey.ID)})
+			}
+		}
+	}
+	return err
+}
+
+func (a *AptosKeys) ValidateConfig() (err error) {
+	for i, aptosKey := range a.Keys {
+		if err2 := aptosKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("AptosKeys[%d]", i), Value: aptosKey, Msg: "invalid AptosKey"})
+		}
+	}
+	return err
+}
+
+func (p *AptosKey) SetFrom(f *AptosKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.ID; v != nil {
+		p.ID = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *AptosKey) validateMerge(f *AptosKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "ID"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *AptosKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) || (p.Password != nil) != (p.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AptosKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	if p.ID != nil {
+		if _, ok := chain_selectors.AptosChainIdToChainSelector()[*p.ID]; !ok {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ID", Value: p.ID, Msg: "invalid chain id"})
 		}
 	}
 	return err

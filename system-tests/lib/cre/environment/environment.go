@@ -189,7 +189,7 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Applying Features before environment startup")))
 	var donsCapabilities = make(map[uint64][]keystone_changeset.DONCapabilityWithConfig)
 	var capabilityToOCR3Config = make(map[string]*ocr3.OracleConfig)
-	extraSignerFamiliesSet := make(map[string]bool)
+	capabilityToExtraSignerFamilies := make(map[string][]string)
 	for _, feature := range input.Features.List() {
 		for _, donMetadata := range topology.DonsMetadataWithFlag(feature.Flag()) {
 			testLogger.Info().Msgf("Executing PreEnvStartup for feature %s for don '%s'", feature.Flag(), donMetadata.Name)
@@ -209,16 +209,12 @@ func SetupTestEnvironment(
 				}
 				donsCapabilities[donMetadata.ID] = append(donsCapabilities[donMetadata.ID], output.DONCapabilityWithConfig...)
 				maps.Copy(capabilityToOCR3Config, output.CapabilityToOCR3Config)
-				for _, f := range output.ExtraSignerFamilies {
-					extraSignerFamiliesSet[f] = true
+				for capability, families := range output.CapabilityToExtraSignerFamilies {
+					capabilityToExtraSignerFamilies[capability] = append([]string(nil), families...)
 				}
 			}
 			testLogger.Info().Msgf("PreEnvStartup for feature %s executed successfully", feature.Flag())
 		}
-	}
-	extraSignerFamilies := make([]string, 0, len(extraSignerFamiliesSet))
-	for f := range extraSignerFamiliesSet {
-		extraSignerFamilies = append(extraSignerFamilies, f)
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -284,6 +280,7 @@ func SetupTestEnvironment(
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("DONs and Job Distributor started and linked in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
 	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
@@ -322,6 +319,7 @@ func SetupTestEnvironment(
 		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
 		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
 		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
+		chainselectors.FamilyAptos:  1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
 	}
 
 	fErr := FundNodes(
@@ -338,7 +336,9 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Configuring Workflow and Capability Registry contracts")))
 
-	// Configure Capabilities Registry first so we can resolve actual contract donIDs
+	// Configure Capabilities Registry first so we can resolve actual contract DON IDs
+	// before wiring the workflow registry. Some downstream changesets read DON info
+	// from CapReg state rather than the pre-contract topology shape.
 	capRegInput := cre.ConfigureCapabilityRegistryInput{
 		ChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 		CldEnv:        creEnvironment.CldfEnvironment,
@@ -352,11 +352,11 @@ func SetupTestEnvironment(
 			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 			""),
 		),
-		NodeSets:                 input.NodeSets,
-		WithV2Registries:         input.WithV2Registries,
-		DONCapabilityWithConfigs: make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
-		CapabilityToOCR3Config:   capabilityToOCR3Config,
-		ExtraSignerFamilies:      extraSignerFamilies,
+		NodeSets:                        input.NodeSets,
+		WithV2Registries:                input.WithV2Registries,
+		DONCapabilityWithConfigs:        make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
+		CapabilityToOCR3Config:          capabilityToOCR3Config,
+		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}
 
 	for _, capability := range input.Capabilities {
@@ -375,7 +375,6 @@ func SetupTestEnvironment(
 	if err := crecontracts.ResolveAndApplyContractDonIDs(capReg, dons, topology, input.NodeSets, input.WithV2Registries); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to resolve and apply contract donIDs")
 	}
-
 	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,

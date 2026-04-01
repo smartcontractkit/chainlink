@@ -624,8 +624,10 @@ jobs:
     steps:
       - name: Check Core test results
         id: check_core_results
+        env:
+          TEST_RESULTS: ${{ needs.run-core-e2e-tests.outputs.test_results }}
         run: |
-          results='${{ needs.run-core-e2e-tests.outputs.test_results }}'
+          results="$TEST_RESULTS"
           echo "Core e2e test results:"
           echo "$results" | jq .
 
@@ -634,9 +636,12 @@ jobs:
 
       - name: Check CCIP test results
         id: check_ccip_results
+        env:
+          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
+          TEST_RESULTS: ${{ needs.run-ccip-e2e-tests.outputs.test_results }}
         run: |
-          if [[ '${{ needs.run-ccip-e2e-tests.result }}' != 'skipped' ]]; then
-            results='${{ needs.run-ccip-e2e-tests.outputs.test_results }}'
+          if [[ "$JOB_RESULT" != "skipped" ]]; then
+            results="$TEST_RESULTS"
             echo "CCIP test results:"
             echo "$results" | jq .
           else
@@ -646,64 +651,75 @@ jobs:
       - name: Fail the job if core tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core E2E tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core E2E tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core CRE E2E tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core CRE E2E tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE regression tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core CRE E2E regression tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core CRE E2E regression tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core CRE E2E regression tests were skipped."
           fi
 
       - name: Warn if CCIP tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-ccip-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::warning::CCIP E2E tests failed in one of the runs. Not failing as they are not mandatory."
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::warning::CCIP E2E tests were cancelled."
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::CCIP E2E tests were skipped."
           fi
 
-      - name: Fail the job if Chainlink image wasn't built
-        if: always() && needs.build-chainlink.result == 'failure'
-        run: exit 1
+      - name: Fail the job if Chainlink image was cancelled or failed to build
+        if: always()
+        env:
+          JOB_RESULT: ${{ needs.build-chainlink.result }}
+        run: |
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
+            echo "::error::Chainlink image build failed."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
+            echo "::error::Chainlink image build was cancelled."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
+            echo "::warning::Chainlink image build was skipped."
+          fi
 
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage

@@ -62,6 +62,7 @@ type ReportingPluginConfig struct {
 	MaxShareLengthBytes               limits.BoundLimiter[pkgconfig.Size]
 	MaxRequestBatchSize               limits.BoundLimiter[int]
 	MaxBatchSize                      limits.BoundLimiter[int]
+	OrgIDAsSecretOwnerEnabled         limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -250,6 +251,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultRequestBatchSizeLimit: %w", err)
 	}
 
+	orgIDAsSecretOwnerEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("VaultOrgIDAsSecretOwnerEnabled: %w", err)
+	}
+
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:               maxShareLengthBytesLimiter,
 		MaxRequestBatchSize:               maxRequestBatchSizeLimiter,
@@ -257,6 +263,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxIdentifierKeyLengthBytes:       maxIdentifierKeyLengthBytesLimiter,
 		MaxIdentifierOwnerLengthBytes:     maxIdentifierOwnerLengthBytesLimiter,
 		MaxIdentifierNamespaceLengthBytes: maxIdentifierNamespaceLengthBytesLimiter,
+		OrgIDAsSecretOwnerEnabled:         orgIDAsSecretOwnerEnabled,
 	}, nil
 }
 
@@ -616,7 +623,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 	}
 	resps := []*vaultcommon.SecretResponse{}
 	for _, secretRequest := range tp.Requests {
-		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest)
+		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, tp.WorkflowOwner, tp.OrgId)
 		if ierr != nil {
 			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
@@ -662,7 +669,7 @@ func (s *share) encryptWithKey(pk string) (string, error) {
 	return hex.EncodeToString(encrypted), nil
 }
 
-func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, owner string) (*share, error) {
+func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, encryptedSecret []byte, workflowOwner string, orgID string) (*share, error) {
 	ct := &tdh2easy.Ciphertext{}
 	err := ct.UnmarshalVerify(encryptedSecret, publicKey)
 	if err != nil {
@@ -670,7 +677,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	}
 
 	es := hex.EncodeToString(encryptedSecret)
-	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, owner)
+	err = vaultcap.EnsureRightLabelOnSecret(publicKey, es, workflowOwner, orgID)
 	if err != nil {
 		return nil, errors.New("failed to verify label on secret. error: " + err.Error())
 	}
@@ -688,7 +695,7 @@ func generatePlaintextShare(publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2
 	return &share{data: sb}, nil
 }
 
-func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest) (*vaultcommon.SecretResponse, error) {
+func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.SecretRequest, workflowOwner string, orgID string) (*vaultcommon.SecretResponse, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return nil, err
@@ -702,7 +709,10 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, newUserError("key does not exist")
 	}
 
-	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, secretRequest.Id.Owner)
+	if r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) != nil {
+		orgID = ""
+	}
+	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, workflowOwner, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -757,7 +767,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 
 	resps := []*vaultcommon.CreateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
-		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID)
+		validatedID, ierr := r.observeCreateSecretRequest(ctx, reader, sr, requestsCountForID, tp.WorkflowOwner, tp.OrgId)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to handle create secret request item", ierr, "id", sr.Id)
 			errorMsg := userFacingError(ierr, "failed to handle create secret request")
@@ -785,7 +795,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
-func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int, workflowOwner string, orgID string) (*vaultcommon.SecretIdentifier, error) {
 	id, err := r.validateSecretIdentifier(ctx, secretRequest.Id)
 	if err != nil {
 		return id, err
@@ -799,7 +809,10 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError(ierr.Error())
 	}
 
-	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, secretRequest.Id.Owner)
+	if r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) != nil {
+		orgID = ""
+	}
+	err = vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, secretRequest.EncryptedValue, workflowOwner, orgID)
 	if err != nil {
 		return id, newUserError("failed to verify ciphertext: " + err.Error())
 	}
@@ -836,7 +849,7 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 
 	resps := []*vaultcommon.UpdateSecretResponse{}
 	for _, sr := range tp.EncryptedSecrets {
-		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID)
+		validatedID, ierr := r.observeUpdateSecretRequest(ctx, reader, sr, requestsCountForID, tp.WorkflowOwner, tp.OrgId)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to observe update secret request item", ierr, "id", sr.Id)
 			errorMsg := userFacingError(ierr, "failed to handle update secret request")
@@ -864,11 +877,11 @@ func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, reader ReadK
 	}
 }
 
-func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int) (*vaultcommon.SecretIdentifier, error) {
+func (r *ReportingPlugin) observeUpdateSecretRequest(ctx context.Context, reader ReadKVStore, secretRequest *vaultcommon.EncryptedSecret, requestsCountForID map[string]int, workflowOwner string, orgID string) (*vaultcommon.SecretIdentifier, error) {
 	// The checks at this stage are identical since we only check the correctness of the payload
 	// at this stage. Checks that are different between update and create, like whether the secret already exists,
 	// are handled in the StateTransition phase.
-	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID)
+	return r.observeCreateSecretRequest(ctx, reader, secretRequest, requestsCountForID, workflowOwner, orgID)
 }
 
 func (r *ReportingPlugin) observeListSecretIdentifiers(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
@@ -2311,5 +2324,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxShareLengthBytes.Close(),
 		r.cfg.MaxRequestBatchSize.Close(),
 		r.cfg.MaxBatchSize.Close(),
+		r.cfg.OrgIDAsSecretOwnerEnabled.Close(),
 	)
 }

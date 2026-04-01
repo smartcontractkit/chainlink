@@ -426,8 +426,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	require.Len(t, selectors, 3, "must have 3 chains")
 
-	v2ChainSel := selectors[0]
-	evmChain := e.BlockChains.EVMChains()[v2ChainSel]
+	v2FQChainSel := selectors[0]
+	evmChain := e.BlockChains.EVMChains()[v2FQChainSel]
 
 	// Deploy a v2 FeeQuoter on the first chain
 	parsedABI, err := abi.JSON(strings.NewReader(fqv2ops.FeeQuoterABI))
@@ -440,7 +440,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 		evmChain.Client,
 		fqv2ops.StaticConfig{
 			MaxFeeJuelsPerMsg: big.NewInt(1e18),
-			LinkToken:         state.Chains[v2ChainSel].LinkToken.Address(),
+			LinkToken:         state.Chains[v2FQChainSel].LinkToken.Address(),
 		},
 		[]common.Address{evmChain.DeployerKey.From},
 		[]fqv2ops.TokenTransferFeeConfigArgs{},
@@ -457,7 +457,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	require.NoError(t, err, "must populate datastore from existing addresses")
 
 	err = ds.Addresses().Add(datastore.AddressRef{
-		ChainSelector: v2ChainSel,
+		ChainSelector: v2FQChainSel,
 		Address:       fqV2Addr.Hex(),
 		Type:          datastore.ContractType(fqv2ops.ContractType),
 		Version:       fqv2ops.Version,
@@ -492,9 +492,9 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 	)
 	require.NoError(t, err, "must apply UpdateBidirectionalLanesChangeset")
 
-	// v1.6 source chains must have dest configs for all remote chains including the v2 chain
+	// v1.6 source chains must have dest configs for all remote chains including the chain with v2 FQ
 	for _, srcSel := range selectors {
-		if srcSel == v2ChainSel {
+		if srcSel == v2FQChainSel {
 			continue
 		}
 		fq := state.Chains[srcSel].FeeQuoter
@@ -512,12 +512,12 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 		}
 	}
 
-	// v2 FeeQuoter on the v2 chain must have dest configs and prices for each non-v2 chain
+	// v2 FeeQuoter on the chain with v2 FQ must have dest configs and prices for each remote chain
 	fqV2, err := fqv2ops.NewFeeQuoterContract(fqV2Addr, evmChain.Client)
 	require.NoError(t, err, "must bind v2 FeeQuoter")
 
 	for _, destSel := range selectors {
-		if destSel == v2ChainSel {
+		if destSel == v2FQChainSel {
 			continue
 		}
 		destCfg, err := fqV2.GetDestChainConfig(nil, destSel)
@@ -531,15 +531,150 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoter(t *testing.T) {
 		require.Equal(t, big.NewInt(1e17), price.Value, "price must equal expected")
 	}
 
-	// v1.6 FeeQuoter on the v2 chain must remain untouched — all updates routed to v2 FQ
-	v1FQOnV2Chain := state.Chains[v2ChainSel].FeeQuoter
+	// Active v1.6 FeeQuoter on the chain with v2 FQ must also receive updates because
+	// it is still the FeeQuoter referenced by the OnRamp during migration.
+	activeV1FQ := state.Chains[v2FQChainSel].FeeQuoter
 	for _, destSel := range selectors {
-		if destSel == v2ChainSel {
+		if destSel == v2FQChainSel {
 			continue
 		}
-		destCfg, err := v1FQOnV2Chain.GetDestChainConfig(nil, destSel)
-		require.NoError(t, err, "must get v1.6 FQ dest config on v2 chain")
-		require.False(t, destCfg.IsEnabled, "v1.6 FQ on v2 chain must not have updates")
+		destCfg, err := activeV1FQ.GetDestChainConfig(nil, destSel)
+		require.NoError(t, err, "must get active v1.6 FQ dest config")
+		require.Equal(t, v1_6.DefaultFeeQuoterDestChainConfig(true), destCfg, "active v1.6 FQ must have dest config")
+
+		price, err := activeV1FQ.GetDestinationChainGasPrice(nil, destSel)
+		require.NoError(t, err, "must get active v1.6 FQ gas price")
+		require.Equal(t, big.NewInt(1e17), price.Value, "active v1.6 FQ gas price must equal expected")
+	}
+}
+
+// TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter verifies that running the changeset
+// twice on a chain with both v1.6 and v2 FQs is idempotent — the second run must filter out
+// all already-enabled dests from BOTH FQs using the correct addresses.
+func TestUpdateBidirectionalLanesIdempotentWithV2FeeQuoter(t *testing.T) {
+	t.Parallel()
+
+	deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
+		testCfg.Chains = 3
+	})
+	e := deployedEnvironment.Env
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err, "must load onchain state")
+
+	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	require.Len(t, selectors, 3, "must have 3 chains")
+
+	v2FQChainSel := selectors[0]
+	evmChain := e.BlockChains.EVMChains()[v2FQChainSel]
+
+	// Deploy a v2 FeeQuoter on the first chain
+	parsedABI, err := abi.JSON(strings.NewReader(fqv2ops.FeeQuoterABI))
+	require.NoError(t, err, "must parse v2 FeeQuoter ABI")
+
+	fqV2Addr, tx, _, err := bind.DeployContract(
+		evmChain.DeployerKey,
+		parsedABI,
+		common.FromHex(fqv2ops.FeeQuoterBin),
+		evmChain.Client,
+		fqv2ops.StaticConfig{
+			MaxFeeJuelsPerMsg: big.NewInt(1e18),
+			LinkToken:         state.Chains[v2FQChainSel].LinkToken.Address(),
+		},
+		[]common.Address{evmChain.DeployerKey.From},
+		[]fqv2ops.TokenTransferFeeConfigArgs{},
+		[]fqv2ops.DestChainConfigArgs{},
+	)
+	require.NoError(t, err, "must deploy v2 FeeQuoter")
+
+	_, err = evmChain.Confirm(tx)
+	require.NoError(t, err, "must confirm v2 FeeQuoter deployment")
+
+	ds, err := shared.PopulateDataStore(e.ExistingAddresses)
+	require.NoError(t, err, "must populate datastore from existing addresses")
+
+	err = ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: v2FQChainSel,
+		Address:       fqV2Addr.Hex(),
+		Type:          datastore.ContractType(fqv2ops.ContractType),
+		Version:       fqv2ops.Version,
+		Qualifier:     fmt.Sprintf("%s-%s", fqV2Addr.Hex(), fqv2ops.ContractType),
+	})
+	require.NoError(t, err, "must add v2 FeeQuoter to datastore")
+
+	e.DataStore = ds.Seal()
+
+	chains := make([]v1_6.ChainDefinition, len(selectors))
+	for i, selector := range selectors {
+		chains[i] = v1_6.ChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+				AllowListEnabled:        false,
+			},
+			Selector:                 selector,
+			GasPrice:                 big.NewInt(1e17),
+			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		}
+	}
+
+	cfg := v1_6.UpdateBidirectionalLanesConfig{
+		TestRouter: true,
+		MCMSConfig: nil,
+		Lanes:      getAllPossibleLanes(chains, false),
+	}
+
+	// First run — populates both v1 and v2 FQs
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg),
+	)
+	require.NoError(t, err, "first run must succeed")
+
+	// Second run — must succeed without errors; all dests already configured should be filtered
+	e, err = commonchangeset.Apply(t, e,
+		commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg),
+	)
+	require.NoError(t, err, "second (idempotent) run must succeed")
+
+	// Verify state is unchanged — v2 FQ still has correct configs
+	fqV2, err := fqv2ops.NewFeeQuoterContract(fqV2Addr, evmChain.Client)
+	require.NoError(t, err, "must bind v2 FeeQuoter")
+
+	for _, destSel := range selectors {
+		if destSel == v2FQChainSel {
+			continue
+		}
+		destCfg, err := fqV2.GetDestChainConfig(nil, destSel)
+		require.NoError(t, err, "must get v2 FQ dest chain config after idempotent run")
+		require.True(t, destCfg.IsEnabled, "v2 dest chain config must still be enabled")
+	}
+
+	// Verify active v1.6 FQ still has correct configs
+	activeV1FQ := state.Chains[v2FQChainSel].FeeQuoter
+	for _, destSel := range selectors {
+		if destSel == v2FQChainSel {
+			continue
+		}
+		destCfg, err := activeV1FQ.GetDestChainConfig(nil, destSel)
+		require.NoError(t, err, "must get active v1.6 FQ dest config after idempotent run")
+		require.Equal(t, v1_6.DefaultFeeQuoterDestChainConfig(true), destCfg,
+			"active v1.6 FQ dest config must be unchanged after idempotent run")
+	}
+
+	// Verify v1-only chains are also unchanged
+	for _, srcSel := range selectors {
+		if srcSel == v2FQChainSel {
+			continue
+		}
+		fq := state.Chains[srcSel].FeeQuoter
+		for _, destSel := range selectors {
+			if destSel == srcSel {
+				continue
+			}
+			destCfg, err := fq.GetDestChainConfig(nil, destSel)
+			require.NoError(t, err, "must get v1 FQ dest config after idempotent run")
+			require.Equal(t, v1_6.DefaultFeeQuoterDestChainConfig(true), destCfg,
+				"v1 FQ dest config must be unchanged after idempotent run")
+		}
 	}
 }
 
@@ -671,8 +806,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	selectors := e.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	require.Len(t, selectors, 3, "must have 3 chains")
 
-	v2ChainSel := selectors[0]
-	evmChain := e.BlockChains.EVMChains()[v2ChainSel]
+	v2FQChainSel := selectors[0]
+	evmChain := e.BlockChains.EVMChains()[v2FQChainSel]
 
 	// Deploy a v2 FeeQuoter on the first chain
 	parsedABI, err := abi.JSON(strings.NewReader(fqv2ops.FeeQuoterABI))
@@ -685,10 +820,10 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 		evmChain.Client,
 		fqv2ops.StaticConfig{
 			MaxFeeJuelsPerMsg: big.NewInt(1e18),
-			LinkToken:         state.Chains[v2ChainSel].LinkToken.Address(),
+			LinkToken:         state.Chains[v2FQChainSel].LinkToken.Address(),
 		},
 		// Include timelock as authorized caller
-		[]common.Address{evmChain.DeployerKey.From, state.Chains[v2ChainSel].Timelock.Address()},
+		[]common.Address{evmChain.DeployerKey.From, state.Chains[v2FQChainSel].Timelock.Address()},
 		[]fqv2ops.TokenTransferFeeConfigArgs{},
 		[]fqv2ops.DestChainConfigArgs{},
 	)
@@ -703,7 +838,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	require.NoError(t, err, "must populate datastore from existing addresses")
 
 	err = ds.Addresses().Add(datastore.AddressRef{
-		ChainSelector: v2ChainSel,
+		ChainSelector: v2FQChainSel,
 		Address:       fqV2Addr.Hex(),
 		Type:          datastore.ContractType(fqv2ops.ContractType),
 		Version:       fqv2ops.Version,
@@ -733,7 +868,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 		}
 	}
 	// Also transfer the v2 FeeQuoter to MCMS timelock
-	contractsToTransfer[v2ChainSel] = append(contractsToTransfer[v2ChainSel], fqV2Addr)
+	contractsToTransfer[v2FQChainSel] = append(contractsToTransfer[v2FQChainSel], fqV2Addr)
 
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
@@ -776,7 +911,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 
 	// Save v1.6 FQ reference before reload; LoadOnchainState picks the highest-version
 	// FeeQuoter as chainState.FeeQuoter, which will be the v2 FQ after registration.
-	v1FQOnV2Chain := state.Chains[v2ChainSel].FeeQuoter
+	activeV1FQ := state.Chains[v2FQChainSel].FeeQuoter
 
 	// Reload state after MCMS proposal execution
 	state, err = stateview.LoadOnchainState(e)
@@ -784,7 +919,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 
 	// v1.6 source chains must have dest configs for all remote chains
 	for _, srcSel := range selectors {
-		if srcSel == v2ChainSel {
+		if srcSel == v2FQChainSel {
 			continue
 		}
 		fq := state.Chains[srcSel].FeeQuoter
@@ -807,7 +942,7 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 	require.NoError(t, err, "must bind v2 FeeQuoter")
 
 	for _, destSel := range selectors {
-		if destSel == v2ChainSel {
+		if destSel == v2FQChainSel {
 			continue
 		}
 		destCfg, err := fqV2.GetDestChainConfig(nil, destSel)
@@ -821,14 +956,19 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 		require.Equal(t, big.NewInt(1e17), price.Value, "price must equal expected")
 	}
 
-	// v1.6 FeeQuoter on the v2 chain must remain untouched
+	// Active v1.6 FeeQuoter on the chain with v2 FQ must also receive updates because
+	// it is still the FeeQuoter referenced by the OnRamp during migration.
 	for _, destSel := range selectors {
-		if destSel == v2ChainSel {
+		if destSel == v2FQChainSel {
 			continue
 		}
-		destCfg, err := v1FQOnV2Chain.GetDestChainConfig(nil, destSel)
-		require.NoError(t, err, "must get v1.6 FQ dest config on v2 chain")
-		require.False(t, destCfg.IsEnabled, "v1.6 FQ on v2 chain must not have updates")
+		destCfg, err := activeV1FQ.GetDestChainConfig(nil, destSel)
+		require.NoError(t, err, "must get active v1.6 FQ dest config")
+		require.Equal(t, v1_6.DefaultFeeQuoterDestChainConfig(true), destCfg, "active v1.6 FQ must have dest config")
+
+		price, err := activeV1FQ.GetDestinationChainGasPrice(nil, destSel)
+		require.NoError(t, err, "must get active v1.6 FQ gas price")
+		require.Equal(t, big.NewInt(1e17), price.Value, "active v1.6 FQ gas price must equal expected")
 	}
 }
 
