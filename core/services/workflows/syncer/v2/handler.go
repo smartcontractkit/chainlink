@@ -294,13 +294,14 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
 		err = h.workflowActivatedEvent(ctx, payload)
 		if err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			h.lggr.Errorw("failed to handle workflow activated event", "error", err, "workflowID", wfID)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
 			return err
 		}
 
@@ -757,6 +758,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
 	}
+	// Free the hex-encoded binary string as it is not needed beyond this decode
+	spec.Workflow = ""
 
 	// Workflow Registry version >2 no longer handles secrets
 	secretsURL := ""
@@ -767,7 +770,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode owner: %w", err)
 	}
-	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	configBytes := []byte(spec.Config)
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
@@ -790,16 +794,19 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 
-	engine, err := h.engineFactory(
-		ctx,
-		spec.WorkflowID,
-		spec.WorkflowOwner,
-		workflowName,
-		spec.WorkflowTag,
-		[]byte(spec.Config),
-		decodedBinary,
-		initDone,
-	)
+	// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
+	engine, err := func() (services.Service, error) {
+		return h.engineFactory(
+			ctx,
+			spec.WorkflowID,
+			spec.WorkflowOwner,
+			workflowName,
+			spec.WorkflowTag,
+			configBytes,
+			decodedBinary,
+			initDone,
+		)
+	}()
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -880,6 +887,20 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 			}
 			return nil
 		})
+}
+
+// customerFacingError returns a deterministic, user-actionable error for beholder emission.
+// Internal errors (e.g. ArtifactFetchError with per-node signed URLs) are replaced with a
+// clean message so that workflow-service can aggregate error_message across nodes.
+func customerFacingError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var fetchErr *types.ArtifactFetchError
+	if errors.As(err, &fetchErr) {
+		return errors.New(fetchErr.CustomerError())
+	}
+	return err
 }
 
 func newHandlerTypeError(data any) error {

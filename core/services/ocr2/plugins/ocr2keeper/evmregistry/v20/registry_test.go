@@ -188,7 +188,7 @@ func TestPollLogs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			ctx := testutils.Context(t)
-			mp := new(mocks.LogPoller)
+			mp := mocks.NewLogPoller(t)
 
 			if test.LatestBlock != nil {
 				mp.On("LatestBlock", mock.Anything).

@@ -269,6 +269,10 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -276,6 +280,6 @@ func NewCapability(
 		handler:              handler,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
-		RequestValidator:     NewRequestValidator(limiter),
+		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }

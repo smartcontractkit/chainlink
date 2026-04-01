@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -112,7 +112,7 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name != 'merge_group' && github.actor != 'dependabot[bot]' }}
     permissions:
@@ -133,7 +133,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -238,7 +238,7 @@ jobs:
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
     runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os || 'ubuntu-latest' }}
@@ -254,7 +254,7 @@ jobs:
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -376,7 +376,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && matrix.type.should-run == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -411,7 +411,7 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -426,7 +426,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go_core_scripts_tests_logs
           path: |
@@ -442,7 +442,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
@@ -545,7 +545,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup Go
@@ -604,7 +604,7 @@ jobs:
     name: Misc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup go
