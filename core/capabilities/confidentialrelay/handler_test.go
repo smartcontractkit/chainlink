@@ -281,7 +281,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.NotNil(t, resp.Error)
 				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
-				assert.Contains(t, resp.Error.Message, "capability not found")
+				assert.Equal(t, internalErrorMessage, resp.Error.Message)
 			},
 		},
 		{
