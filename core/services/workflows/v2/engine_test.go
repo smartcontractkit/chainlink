@@ -75,6 +75,10 @@ func TestEngine_Init(t *testing.T) {
 	initDoneCh := make(chan error)
 
 	cfg := defaultTestConfig(t, nil)
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
+	require.NoError(t, err)
+	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -1532,6 +1536,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.Lggr,
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.LocalLimiters.SecretsCalls,
+		cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
 		engineOrgID,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),

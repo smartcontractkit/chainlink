@@ -192,6 +192,13 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		},
 		Config: values.EmptyMap(),
 	}
+	if c.cfg.LocalLimiters == nil || c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled == nil {
+		capReq.Metadata.OrgID = ""
+	} else if enabled, gateErr := c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled.Limit(ctx); gateErr != nil {
+		return nil, gateErr
+	} else if !enabled {
+		capReq.Metadata.OrgID = ""
+	}
 
 	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)

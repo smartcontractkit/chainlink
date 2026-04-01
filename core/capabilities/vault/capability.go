@@ -115,38 +115,14 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
-	trustedWorkflowOwner := request.Metadata.WorkflowOwner
-	resolvedIdentity, err := s.resolveRequestIdentity(ctx, r.OrgId, trustedWorkflowOwner)
-	if err != nil {
-		return capabilities.CapabilityResponse{}, err
-	}
-	r.OrgId = resolvedIdentity.OrgID
-	r.WorkflowOwner = resolvedIdentity.WorkflowOwner
-	normalizedWorkflowOwner := normalizeOwner(resolvedIdentity.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-
-		if req.Id == nil {
-			continue
-		}
-
-		switch {
-		case normalizedWorkflowOwner != "":
-			if normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
-				s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", resolvedIdentity.WorkflowOwner)
-				return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, resolvedIdentity.WorkflowOwner, idx)
-			}
-		case resolvedIdentity.OrgID != "":
-			if req.Id.Owner != resolvedIdentity.OrgID {
-				s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "orgID", resolvedIdentity.OrgID)
-				return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match org_id %q at index %d", req.Id.Owner, resolvedIdentity.OrgID, idx)
-			}
-		case req.Id.Owner != "":
-			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", resolvedIdentity.WorkflowOwner, "orgID", resolvedIdentity.OrgID)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match empty request identity at index %d", req.Id.Owner, idx)
+		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(r.WorkflowOwner) {
+			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", r.WorkflowOwner)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, r.WorkflowOwner, idx)
 		}
 	}
 
