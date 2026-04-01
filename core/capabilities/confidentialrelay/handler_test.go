@@ -44,6 +44,7 @@ const testAttestationB64 = "ZHVtbXktYXR0ZXN0YXRpb24=" // base64("dummy-attestati
 func noopValidator(_ []byte, _, _ []byte) error { return nil }
 
 type mockGatewayConnector struct {
+	core.UnimplementedGatewayConnector
 	lastResp     *jsonrpc.Response[json.RawMessage]
 	addedMethods []string
 	removed      bool
@@ -114,7 +115,7 @@ func (m *mockCapRegistry) LocalNode(_ context.Context) (capabilities.Node, error
 	return m.localNode, nil
 }
 
-func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn gatewayConnector) *Handler {
+func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn core.GatewayConnector) *Handler {
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)

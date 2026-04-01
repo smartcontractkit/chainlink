@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"go.opentelemetry.io/otel/attribute"
@@ -55,11 +56,21 @@ type enclavesList struct {
 }
 
 type handlerMetrics struct {
+	requestCount         metric.Int64Counter
+	requestLatency       metric.Int64Histogram
 	requestInternalError metric.Int64Counter
 	requestSuccess       metric.Int64Counter
 }
 
 func newMetrics() (*handlerMetrics, error) {
+	requestCount, err := beholder.GetMeter().Int64Counter("enclave_relay_request_count")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register request count counter: %w", err)
+	}
+	requestLatency, err := beholder.GetMeter().Int64Histogram("enclave_relay_request_latency_ms", metric.WithUnit("ms"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to register request latency histogram: %w", err)
+	}
 	requestInternalError, err := beholder.GetMeter().Int64Counter("enclave_relay_request_internal_error")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register internal error counter: %w", err)
@@ -69,15 +80,11 @@ func newMetrics() (*handlerMetrics, error) {
 		return nil, fmt.Errorf("failed to register success counter: %w", err)
 	}
 	return &handlerMetrics{
+		requestCount:         requestCount,
+		requestLatency:       requestLatency,
 		requestInternalError: requestInternalError,
 		requestSuccess:       requestSuccess,
 	}, nil
-}
-
-type gatewayConnector interface {
-	SendToGateway(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) error
-	AddHandler(ctx context.Context, methods []string, handler core.GatewayConnectorHandler) error
-	RemoveHandler(ctx context.Context, methods []string) error
 }
 
 // attestationValidatorFunc validates a TEE attestation document.
@@ -90,7 +97,7 @@ type Handler struct {
 	eng *services.Engine
 
 	capRegistry      core.CapabilitiesRegistry
-	gatewayConnector gatewayConnector
+	gatewayConnector core.GatewayConnector
 	lggr             logger.Logger
 	metrics          *handlerMetrics
 
@@ -99,7 +106,7 @@ type Handler struct {
 	validateAttestation attestationValidatorFunc
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn gatewayConnector, lggr logger.Logger) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger) (*Handler, error) {
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -144,6 +151,21 @@ func (h *Handler) Methods() []string {
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "requestID", req.ID)
+	startTime := time.Now()
+	outcome := "success"
+	var errorCode int64
+	defer func() {
+		attrs := []attribute.KeyValue{
+			attribute.String("gateway_id", gatewayID),
+			attribute.String("method", req.Method),
+			attribute.String("outcome", outcome),
+		}
+		if errorCode != 0 {
+			attrs = append(attrs, attribute.Int64("error_code", errorCode))
+		}
+		h.metrics.requestCount.Add(ctx, 1, metric.WithAttributes(attrs...))
+		h.metrics.requestLatency.Record(ctx, time.Since(startTime).Milliseconds(), metric.WithAttributes(attrs...))
+	}()
 
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
@@ -154,8 +176,13 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrMethodNotFound, errors.New("unsupported method: "+req.Method))
 	}
+	if response != nil && response.Error != nil {
+		outcome = "error"
+		errorCode = response.Error.Code
+	}
 
 	if err := h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
+		outcome = "send_error"
 		h.lggr.Errorw("failed to send message to gateway", "gatewayID", gatewayID, "err", err)
 		return err
 	}
