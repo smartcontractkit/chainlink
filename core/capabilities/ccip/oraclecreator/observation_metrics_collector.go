@@ -108,19 +108,20 @@ func (c *ObservationMetricsCollector) Close() error {
 // to intercept Collect() calls and track value changes
 type wrappedCounter struct {
 	prometheus.Collector
-	metricName    string
-	labels        map[string]string // Beholder labels (for metrics publishing)
-	publisher     ObservationMetricsPublisher
-	logger        logger.Logger
-	lastValue     float64
-	mu            sync.Mutex
+	metricName string
+	labels     map[string]string // Beholder labels (for metrics publishing)
+	publisher  ObservationMetricsPublisher
+	logger     logger.Logger
+	lastValue  float64
 }
 
 // readAndPublish reads the current counter value and publishes any delta to Beholder.
-// Only called by the background poller, never by Prometheus scrapes, so no concurrent
-// access to lastValue occurs and no CAS is needed.
+// Only called sequentially by the background poller goroutine, so lastValue requires
+// no synchronisation.
 func (w *wrappedCounter) readAndPublish() {
-	ch := make(chan prometheus.Metric, 1)
+	// Buffer sized to the typical max Prometheus series per counter (1 for a plain
+	// Counter, more for a CounterVec). Sized generously to avoid blocking Collect.
+	ch := make(chan prometheus.Metric, 16)
 	w.Collect(ch)
 	close(ch)
 
@@ -129,11 +130,9 @@ func (w *wrappedCounter) readAndPublish() {
 		if err := extractCounterValue(m, &metricValue); err != nil {
 			continue
 		}
-		w.mu.Lock()
 		delta := metricValue - w.lastValue
 		if delta > 0 {
 			w.lastValue = metricValue
-			w.mu.Unlock()
 			w.logger.Debugw("Observation metric incremented",
 				"metric", w.metricName,
 				"value", metricValue,
@@ -143,8 +142,6 @@ func (w *wrappedCounter) readAndPublish() {
 			if w.publisher != nil {
 				w.publisher.PublishMetric(context.Background(), w.metricName, delta, w.labels)
 			}
-		} else {
-			w.mu.Unlock()
 		}
 	}
 }

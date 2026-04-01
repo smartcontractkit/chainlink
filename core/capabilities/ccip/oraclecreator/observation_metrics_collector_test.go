@@ -206,8 +206,9 @@ func TestWrappedCounter(t *testing.T) {
 	assert.Equal(t, "Arbitrum", metrics[1].labels["networkName"])
 }
 
-// TestWrappedCounter_AtomicOperations verifies that atomic operations work correctly under concurrent access
-func TestWrappedCounter_AtomicOperations(t *testing.T) {
+// TestWrappedCounter_ConcurrentIncrements verifies that the total delta is correctly published
+// when the underlying counter is incremented concurrently from multiple goroutines.
+func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
