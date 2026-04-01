@@ -13,15 +13,16 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func bootstrapPersistenceManager(t *testing.T, donID uint32, db *sqlx.DB, maxTransmitQueueSize int) (*persistenceManager, *observer.ObservedLogs) {
 	t.Helper()
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	lggr, observedLogs := logger.TestObservedSugared(t, zapcore.DebugLevel)
 	orm := NewORM(db, donID)
 	return NewPersistenceManager(lggr, orm, "wss://example.com/mercury", maxTransmitQueueSize, 5*time.Millisecond, 5*time.Millisecond, 30*24*time.Hour), observedLogs
 }
@@ -30,7 +31,7 @@ func TestPersistenceManager(t *testing.T) {
 	donID1 := uint32(1234)
 	donID2 := uint32(2345)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
 	t.Run("loads transmissions", func(t *testing.T) {
@@ -82,7 +83,7 @@ func TestPersistenceManager(t *testing.T) {
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	donID := uint32(1234)
 	db := pgtest.NewSqlxDB(t)
 	pm, observedLogs := bootstrapPersistenceManager(t, donID, db, 1000)
@@ -97,7 +98,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 
 	// Wait for next poll.
 	observedLogs.TakeAll()
-	testutils.WaitForLogMessage(t, observedLogs, "Flushed delete queue")
+	tests.AssertLogEventually(t, observedLogs, "Flushed delete queue")
 
 	result, err := pm.Load(ctx)
 	require.NoError(t, err)
@@ -110,7 +111,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	donID2 := uint32(654321)
 	db := pgtest.NewSqlxDB(t)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	transmissions := make([]*Transmission, 45)
 	for i := range uint64(45) {
@@ -131,7 +132,7 @@ func TestPersistenceManagerPrune(t *testing.T) {
 
 	// Wait for next poll.
 	observedLogs.TakeAll()
-	testutils.WaitForLogMessage(t, observedLogs, "Pruned transmit requests table")
+	tests.AssertLogEventually(t, observedLogs, "Pruned transmit requests table")
 
 	result, err := pm.Load(ctx)
 	require.NoError(t, err)
@@ -159,7 +160,7 @@ func Test_PersistenceManager_deleteTransmissions(t *testing.T) {
 	donID1 := uint32(123456)
 	db := pgtest.NewSqlxDB(t)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	transmissions := make([]*Transmission, 45)
 	for i := range uint64(45) {

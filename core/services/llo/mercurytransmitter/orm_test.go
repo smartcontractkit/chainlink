@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -18,7 +17,7 @@ var (
 )
 
 func TestORM(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
 	t.Run("Insert, Get, Delete, Prune", func(t *testing.T) {

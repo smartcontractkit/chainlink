@@ -3,47 +3,53 @@
 # XXX: Experimental -- not to be used to build images for production use.
 # See: ../core/chainlink.Dockerfile for the production Dockerfile.
 ##
-FROM golang:1.25.7-bookworm AS buildgo
+
+# Stage: deps-base — module downloads, no source tree.
+# Stages that don't need the full source (remote plugins, delve) branch from
+# here so that source-only changes never invalidate their layer cache.
+FROM golang:1.25.7-bookworm AS deps-base
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /chainlink
 
+ADD go.mod go.sum ./
+RUN go mod download
+
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
-ADD go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+# Stage: deps — full source tree for stages that compile chainlink code.
+FROM deps-base AS deps
 COPY . .
 
-# Install Delve for debugging with cache mounts
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+# Stage: Delve debugger (no source needed, branches from deps-base)
+FROM deps-base AS build-delve
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
-# Flag to control installation of private plugins (default: false).
+# Stage: Remote plugins — only manifest YAMLs, no source tree.
+# Cached as long as go.mod/go.sum and plugin manifests are unchanged,
+# so typical source-only PRs skip the entire ~160s remote plugin build.
+# Uses `go tool loopinstall` via the Makefile (resolved from the `tool`
+# directive in go.mod). If this fails without the full source tree, fall back
+# to installing loopinstall standalone:
+#   RUN go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall@v0.11.1
+# and invoke `loopinstall` directly instead of `make install-plugins-*`.
+FROM deps-base AS build-remote-plugins
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
-# Flag to control installation of testing plugins (default: false).
 ARG CL_INSTALL_TESTING_PLUGINS=false
-# Flag to control whether this is a prod build (default: true)
-ARG CL_IS_PROD_BUILD=true
-# Flags for Go Delve debugger
-ARG GO_GCFLAGS
-# Env vars needed for chainlink build
-ARG COMMIT_SHA
-ARG VERSION_TAG
+
+COPY plugins/plugins.public.yaml plugins/plugins.private.yaml plugins/plugins.testing.yaml ./plugins/
+COPY plugins/scripts/ ./plugins/scripts/
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
-    mkdir -p /gobins && mkdir -p "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
-    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-local install-plugins-public && \
+    mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
@@ -51,16 +57,26 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
         GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi
 
-# Copy any shared libraries.
-RUN --mount=type=cache,target=/go/pkg/mod \
-    mkdir -p /tmp/lib && \
+RUN mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
     "$CL_LOOPINSTALL_OUTPUT_DIR" \
     /tmp/lib
 
-# Build chainlink.
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+# Stage: Local plugins (needs source tree for ./plugins/cmd/...)
+FROM deps AS build-local-plugins
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-local-plugins \
+    mkdir -p /gobins && \
+    GOBIN=/gobins make install-plugins-local
+
+# Stage: Chainlink binary (needs source tree)
+FROM deps AS build-chainlink
+ARG CL_IS_PROD_BUILD=true
+ARG GO_GCFLAGS
+ARG COMMIT_SHA
+ARG VERSION_TAG
+
+RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-chainlink \
+    mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
       else \
@@ -85,8 +101,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
 USER ${CHAINLINK_USER}
 
-# Copy Delve debugger from build stage.
-COPY --from=buildgo /go/bin/dlv /usr/local/bin/dlv
+COPY --from=build-delve /go/bin/dlv /usr/local/bin/dlv
 
 # Expose image metadata to the running node.
 ARG CL_AUTO_DOCKER_TAG=unset
@@ -105,10 +120,12 @@ COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 
-# Copy the binaries from the build stage (plugins + chainlink).
-COPY --from=buildgo /gobins/ /usr/local/bin/
-# Copy shared libraries from the build stage.
-COPY --from=buildgo /tmp/lib /usr/lib/
+# Copy binaries from the parallel build stages.
+COPY --from=build-remote-plugins /gobins/ /usr/local/bin/
+COPY --from=build-local-plugins /gobins/ /usr/local/bin/
+COPY --from=build-chainlink /gobins/ /usr/local/bin/
+# Copy shared libraries from the remote plugins build stage.
+COPY --from=build-remote-plugins /tmp/lib /usr/lib/
 
 WORKDIR /home/${CHAINLINK_USER}
 

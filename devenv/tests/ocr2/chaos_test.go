@@ -43,6 +43,7 @@ func TestOCR2Chaos(t *testing.T) {
 	chaosActionDuration := 30 * time.Second
 	eaChaosDuration := 30 * time.Second
 	defaultTwoRounds := []*roundSettings{{value: 1}, {value: 1e3}}
+	anvilContainerName := "anvil-1337"
 
 	testCases := []testcase{
 		{
@@ -52,7 +53,7 @@ func TestOCR2Chaos(t *testing.T) {
 			roundSettings:      defaultTwoRounds,
 			repeat:             1,
 			chaos: func() {
-				err := dtc.Chaos("anvil", chaos.CmdPause, "")
+				err := dtc.Chaos(anvilContainerName, chaos.CmdPause, "")
 				require.NoError(t, err)
 				time.Sleep(chaosActionDuration)
 				err = dtc.RemoveAll()
@@ -66,7 +67,7 @@ func TestOCR2Chaos(t *testing.T) {
 			roundSettings:      defaultTwoRounds,
 			repeat:             1,
 			chaos: func() {
-				err := dtc.Chaos("anvil", chaos.CmdDelay, "3s")
+				err := dtc.Chaos(anvilContainerName, chaos.CmdDelay, "3s")
 				require.NoError(t, err)
 				time.Sleep(chaosActionDuration)
 				err = dtc.RemoveAll()
