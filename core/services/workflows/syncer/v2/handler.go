@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -93,6 +94,7 @@ type eventHandler struct {
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -127,12 +129,17 @@ func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	}
 }
 
-// WithShardExecutionGuard wires ring shard-0 orchestrator checks into workflow engines when sharding is enabled.
 func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
 		e.myShardID = shardID
+	}
+}
+
+func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardRoutingSteady = signal
 	}
 }
 
@@ -639,6 +646,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			ShardOrchestratorClient: h.shardOrchestratorClient,
 			ShardingEnabled:         h.shardingEnabled,
 			MyShardID:               h.myShardID,
+			ShardRoutingSteady:      h.shardRoutingSteady,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -681,6 +689,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
 		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.

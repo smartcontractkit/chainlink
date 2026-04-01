@@ -153,6 +153,7 @@ type Engine struct {
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
 	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
 }
 
 func (e *Engine) Start(ctx context.Context) error {
@@ -519,7 +520,8 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, triggerEventID string, event *values.Map) error {
-	if e.shardingEnabled && e.shardOrchestratorClient != nil {
+	needShardOwnerCheck := e.shardRoutingSteady == nil || !e.shardRoutingSteady.SkipCommittedOwnerCheck()
+	if e.shardingEnabled && e.shardOrchestratorClient != nil && needShardOwnerCheck {
 		verdict, _, ownErr := shardownership.CheckCommittedOwner(ctx, e.shardOrchestratorClient, e.workflow.id, e.myShardID)
 		switch verdict {
 		case shardownership.Allow:
@@ -1350,10 +1352,10 @@ type Config struct {
 	// running globally and per workflow owner.
 	WorkflowLimits limits.ResourceLimiter[int]
 
-	// ShardOrchestratorClient with ShardingEnabled triggers a pre-execution ownership check (ring guard).
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
 	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 
 	// For testing purposes only
 	maxRetries          int
@@ -1554,6 +1556,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		shardOrchestratorClient: cfg.ShardOrchestratorClient,
 		shardingEnabled:         cfg.ShardingEnabled,
 		myShardID:               cfg.MyShardID,
+		shardRoutingSteady:      cfg.ShardRoutingSteady,
 	}
 
 	return engine, nil

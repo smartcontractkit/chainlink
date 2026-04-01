@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -70,11 +71,10 @@ type EngineConfig struct {
 	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
 	SdkName string
 
-	// ShardOrchestratorClient is shard-0's orchestrator client; when non-nil with ShardingEnabled, the engine
-	// re-validates ownership before each execution (ring double-execution guard).
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
 	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 }
 
 type EngineLimiters struct {
