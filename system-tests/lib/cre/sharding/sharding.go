@@ -3,15 +3,23 @@ package sharding
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/scylladb/go-reflectx"
+	"golang.org/x/sync/errgroup"
 
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -25,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
 )
 
 const (
@@ -76,10 +83,9 @@ func SetupSharding(ctx context.Context, input SetupShardingInput) error {
 		return fmt.Errorf("failed to create Ring jobs: %w", err)
 	}
 
-	time.Sleep(60 * time.Second)
-	// 5. Wait for LogPoller to be healthy before configuring OCR3
-	if lpErr := consensus.WaitForLogPollerToBeHealthy(shardLeaderDON); lpErr != nil {
-		return errors.Wrap(lpErr, "failed while waiting for Log Poller to become healthy")
+	// 5. Wait for the Ring ConfigPoller filter to be registered before configuring OCR3.
+	if filterErr := waitForRingConfigPollerFilter(ctx, input, shardLeaderDON, ringOCR3Addr); filterErr != nil {
+		return errors.Wrap(filterErr, "failed while waiting for Ring ConfigPoller filter registration")
 	}
 
 	// 6. Configure OCR3 contract
@@ -215,6 +221,113 @@ func createRingJobs(ctx context.Context, creEnv *cre.Environment, shardLeaderDON
 	}
 
 	return nil
+}
+
+func waitForRingConfigPollerFilter(ctx context.Context, input SetupShardingInput, shardLeaderDON *cre.Don, ringOCR3Addr common.Address) error {
+	if input.Topology == nil {
+		return errors.New("topology is required to check ring filter registration")
+	}
+
+	registryChain, err := input.CreEnv.RegistryChain()
+	if err != nil {
+		return fmt.Errorf("failed to get registry chain: %w", err)
+	}
+
+	workers, err := shardLeaderDON.Workers()
+	if err != nil {
+		return fmt.Errorf("failed to get shard leader workers: %w", err)
+	}
+
+	var shardLeaderNodeSet *cre.NodeSet
+	for _, nodeSet := range input.Topology.NodeSets() {
+		if nodeSet.Name == shardLeaderDON.Name {
+			shardLeaderNodeSet = nodeSet
+			break
+		}
+	}
+	if shardLeaderNodeSet == nil {
+		return fmt.Errorf("failed to find nodeset for shard leader DON %s", shardLeaderDON.Name)
+	}
+
+	filterName := logpoller.FilterName("OCR2ConfigPoller", ringOCR3Addr.String())
+	checkCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	readyNodes := make(map[int]struct{}, len(workers))
+	for {
+		if len(readyNodes) == len(workers) {
+			return nil
+		}
+
+		select {
+		case <-checkCtx.Done():
+			if errors.Is(checkCtx.Err(), context.DeadlineExceeded) {
+				return fmt.Errorf("timed out waiting for ring filter %q on all shard leader workers", filterName)
+			}
+			return fmt.Errorf("context cancelled while waiting for ring filter %q: %w", filterName, checkCtx.Err())
+		case <-ticker.C:
+			foundThisTick := make(chan int, len(workers))
+			eg, tickCtx := errgroup.WithContext(checkCtx)
+			for _, worker := range workers {
+				if _, ok := readyNodes[worker.Index]; ok {
+					continue
+				}
+
+				eg.Go(func() error {
+					allFilters, filtersErr := getAllFilters(tickCtx, commonlogger.Nop(), big.NewInt(int64(registryChain.ChainID())), worker.Index, shardLeaderNodeSet.DbInput.Port) //nolint: gosec // G115 won't ever overflow
+					if filtersErr != nil {
+						return fmt.Errorf("failed to get log poller filters for node %s: %w", worker.Name, filtersErr)
+					}
+
+					if _, ok := allFilters[filterName]; ok {
+						foundThisTick <- worker.Index
+						return nil
+					}
+
+					for name := range allFilters {
+						if strings.Contains(name, ringOCR3Addr.String()) && strings.Contains(name, "OCR2ConfigPoller") {
+							foundThisTick <- worker.Index
+							return nil
+						}
+					}
+					return nil
+				})
+			}
+
+			if err := eg.Wait(); err != nil {
+				close(foundThisTick)
+				return err
+			}
+			close(foundThisTick)
+			for nodeIndex := range foundThisTick {
+				readyNodes[nodeIndex] = struct{}{}
+			}
+		}
+	}
+}
+
+func newORM(logger commonlogger.Logger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {
+	dsn := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", "127.0.0.1", externalPort, postgres.User, postgres.Password, fmt.Sprintf("db_%d", nodeIndex))
+	db, err := sqlx.Open("postgres", dsn)
+	if err != nil {
+		return nil, db, err
+	}
+
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return logpoller.NewORM(chainID, db, logger), db, nil
+}
+
+func getAllFilters(ctx context.Context, logger commonlogger.Logger, chainID *big.Int, nodeIndex, externalPort int) (map[string]logpoller.Filter, error) {
+	orm, db, err := newORM(logger, chainID, nodeIndex, externalPort)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	return orm.LoadFilters(ctx)
 }
 
 // configureRingOCR3 configures the Ring OCR3 contract with DON signers

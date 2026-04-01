@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 	"text/template"
@@ -13,6 +14,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -38,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
@@ -199,8 +202,6 @@ func createJobs(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	specs := make(map[string][]string)
-
 	var nodeSet cre.NodeSetWithCapabilityConfigs
 	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
 		if ns.GetName() == don.Name {
@@ -232,6 +233,16 @@ func createJobs(
 		return fmt.Errorf("failed to get chain ID from registry chain selector %d: %w", creEnv.RegistryChainSelector, rcErr)
 	}
 
+	type proposalWork struct {
+		chainID          uint64
+		chainIDStr       string
+		chainSelector    uint64
+		capabilityConfig cre.CapabilityConfig
+		command          string
+		workerNode       *cre.Node
+	}
+
+	workItems := make([]proposalWork, 0, len(enabledChainIDs)*len(workerNodes))
 	for _, chainID := range enabledChainIDs {
 		chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
 		if selErr != nil {
@@ -250,6 +261,27 @@ func createJobs(
 		}
 
 		for _, workerNode := range workerNodes {
+			workItems = append(workItems, proposalWork{
+				chainID:          chainID,
+				chainIDStr:       chainIDStr,
+				chainSelector:    chainSelector,
+				capabilityConfig: capabilityConfig,
+				command:          command,
+				workerNode:       workerNode,
+			})
+		}
+	}
+
+	results := make([]map[string][]string, len(workItems))
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(jobhelpers.Parallelism(len(workItems)))
+
+	for i, workItem := range workItems {
+		group.Go(func() error {
+			chainID := workItem.chainID
+			chainSelector := workItem.chainSelector
+			workerNode := workItem.workerNode
+
 			evmKey, ok := workerNode.Keys.EVM[chainID]
 			if !ok {
 				return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
@@ -268,13 +300,13 @@ func createJobs(
 				semver.MustParse("1.0.0"),
 				"",
 			)
-			creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
-			if err != nil {
-				return errors.Wrap(err, "failed to get CRE Forwarder address")
+			creForwarderAddress, cErr := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
+			if cErr != nil {
+				return errors.Wrap(cErr, "failed to get CRE Forwarder address")
 			}
 
 			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-			templateData := capabilityConfig.Values
+			templateData := maps.Clone(workItem.capabilityConfig.Values)
 
 			var aErr error
 			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
@@ -282,9 +314,9 @@ func createJobs(
 				return errors.Wrap(aErr, "failed to apply runtime values")
 			}
 
-			tmpl, err := template.New("evmConfig").Parse(configTemplate)
-			if err != nil {
-				return errors.Wrapf(err, "failed to parse %s config template", flag)
+			tmpl, tErr := template.New("evmConfig").Parse(configTemplate)
+			if tErr != nil {
+				return errors.Wrapf(tErr, "failed to parse %s config template", flag)
 			}
 
 			var configBuffer bytes.Buffer
@@ -332,11 +364,11 @@ func createJobs(
 				},
 				Template: job_types.EVM,
 				Inputs: job_types.JobSpecInput{
-					"command": command,
+					"command": workItem.command,
 					"config":  configStr,
 					"oracleFactory": cre_jobs_pkg.OracleFactory{
 						Enabled:            true,
-						ChainID:            chainIDStr,
+						ChainID:            workItem.chainIDStr,
 						BootstrapPeers:     bootstrapPeers,
 						OCRContractAddress: registryContractAddrRef.Address,
 						OCRKeyBundleID:     evmKeyBundle,
@@ -361,6 +393,7 @@ func createJobs(
 				return fmt.Errorf("failed to propose EVM v2 worker job spec: %w", workerErr)
 			}
 
+			specs := make(map[string][]string)
 			for _, r := range workerReport.Reports {
 				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
 				if !ok {
@@ -371,7 +404,25 @@ func createJobs(
 					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
 				}
 			}
-		}
+
+			select {
+			case <-groupCtx.Done():
+				return groupCtx.Err()
+			default:
+			}
+
+			results[i] = specs
+			return nil
+		})
+	}
+
+	if wErr := group.Wait(); wErr != nil {
+		return wErr
+	}
+
+	specs, mErr := jobhelpers.MergeSpecsByIndex(results)
+	if mErr != nil {
+		return mErr
 	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)

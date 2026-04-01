@@ -3,9 +3,9 @@ package environment
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -14,34 +14,29 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/deploy"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/trigger"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/pkg/verify"
-	cronbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	webapitriggerbasedtypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	var (
 		rpcURLFlag                  string
-		gatewayURLFlag              string
 		workflowDonIDFlag           uint32
-		gatewayDonIDFlag            string
-		exampleWorkflowTriggerFlag  string
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
 		contractsVersionFlag        string
 	)
 	cmd := &cobra.Command{
 		Use:              "run-por-example",
-		Short:            "Runs v1 Proof-of-Reserve example workflow",
-		Long:             `Deploys a simple Proof-of-Reserve workflow and, optionally, wait until it succeeds`,
+		Short:            "Runs the PoR v2 cron example workflow",
+		Long:             `Deploys the PoR v2 cron example workflow and waits until it succeeds`,
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			timeout, timeoutErr := time.ParseDuration(exampleWorkflowTimeoutFlag)
@@ -49,77 +44,48 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrapf(timeoutErr, "failed to parse %s to time.Duration", exampleWorkflowTimeoutFlag)
 			}
 
-			var workflowRegistryAddress string
-			var contractsVersion *semver.Version
-			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
-				workflowRegistryAddress = workflowRegistryAddressFlag
-				contractsVersion = semver.MustParse(contractsVersionFlag)
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
-				}
-				workflowRegistryAddress = addrRef.Address
-				contractsVersion = addrRef.Version
+			resolver, resolverErr := TryLoadLocalCREStateResolver()
+			if resolverErr != nil {
+				return errors.Wrap(resolverErr, "failed to load local CRE state")
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURLFlag, gatewayURLFlag, gatewayDonIDFlag, workflowDonIDFlag, timeout, exampleWorkflowTriggerFlag, workflowRegistryAddress, contractsVersion)
+			rpcURL := rpcURLFlag
+			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+				if stateRPC, err := resolver.RegistryRPC(); err == nil {
+					rpcURL = stateRPC
+				}
+			}
+
+			workflowDONID := workflowDonIDFlag
+			if !cmd.Flags().Changed("workflow-don-id") && resolver != nil {
+				if stateDONID, err := resolver.WorkflowDONID(); err == nil {
+					workflowDONID = stateDONID
+				}
+			}
+
+			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			if err != nil {
+				return errors.Wrap(err, "❌ failed to resolve workflow registry")
+			}
+
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURL, workflowDONID, timeout, workflowRegistryAddress, contractsVersion)
 		},
 	}
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&exampleWorkflowTriggerFlag, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
-	cmd.Flags().StringVarP(&gatewayURLFlag, "gateway-url", "g", "http://localhost:5002", "Gateway URL (only for web API trigger-based workflow)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
-	cmd.Flags().StringVarP(&gatewayDonIDFlag, "gateway-don-id", "o", "workflow", "Name of the DON that is running web API trigger capability (only for web API trigger-based workflow)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "", "Workflow registry address (if not provided, address from the state file will be used)")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "", "Version of workflow registry contract to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
 
-type executableWorkflowFn = func(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error
-
-func executeWebTriggerBasedWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
-	ticker := 5 * time.Second
-	for {
-		select {
-		case <-time.After(waitTime):
-			fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
-
-			return fmt.Errorf("example workflow failed to execute successfully within %s", waitTime)
-		case <-time.Tick(ticker):
-			triggerErr := trigger.WebAPITriggerValue(
-				gatewayURL,
-				gatewayDonID,
-				privateKey,
-				5*time.Minute,
-			)
-			if triggerErr == nil {
-				verifyTime := 25 * time.Second
-				verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), feedID, true, verifyTime)
-				if verifyErr == nil {
-					if isBlockscoutRunning(cmdContext) {
-						fmt.Print(libformat.PurpleText("Open http://localhost/address/%s?tab=internal_txns to check consumer contract's transaction history\n", consumerContractAddress.Hex()))
-					}
-
-					return nil
-				}
-
-				fmt.Printf("\nTrying to verify workflow again in %.2f seconds...\n\n", ticker.Seconds())
-			} else {
-				framework.L.Debug().Msgf("failed to trigger web API trigger: %s", triggerErr)
-			}
-		}
-	}
-}
-
-func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, _, privateKey string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
+func executeCronBasedWorkflow(cmdContext context.Context, rpcURL string, consumerContractAddress common.Address, feedID string, waitTime time.Duration, startTime time.Time) error {
 	// we ignore return as if verification failed it will print that info
 	verifyErr := verify.ProofOfReserve(rpcURL, consumerContractAddress.Hex(), feedID, true, waitTime)
 	if verifyErr != nil {
-		fmt.Print(libformat.PurpleText("\n[Stage 3/3] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
+		fmt.Print(libformat.PurpleText("\n[Stage 4/4] Example workflow failed to execute successfully in %.2f seconds\n", time.Since(startTime).Seconds()))
 		return errors.Wrap(verifyErr, "failed to verify example workflow")
 	}
 
@@ -130,7 +96,7 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL, _, _, privateK
 	return nil
 }
 
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayURL, gatewayDonID string, workflowDonID uint32, timeout time.Duration, exampleWorkflowTrigger, workflowRegistryAddress string, contractsVersion *semver.Version) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, workflowDonID uint32, timeout time.Duration, workflowRegistryAddress string, contractsVersion *semver.Version) error {
 	totalStart := time.Now()
 	start := time.Now()
 
@@ -155,32 +121,32 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 	fmt.Print(libformat.PurpleText("\n[Stage 2/4] Deployed Balance Reader in %.2f seconds\n", time.Since(start).Seconds()))
 
 	start = time.Now()
-	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering example Proof-of-Reserve workflow\n\n"))
+	fmt.Print(libformat.PurpleText("[Stage 3/4] Registering PoR v2 cron example workflow\n\n"))
 
-	var executableWorkflowFunction executableWorkflowFn
-
-	var workflowName string
-	var workflowFilePath string
-	var configFilePath string
-	var configErr error
+	workflowName := "por-v2-cron-example"
+	workflowFilePath := "examples/workflows/v2/proof-of-reserve/cron-based/main.go"
 	feedID := "0x018e16c39e0003200000000000000000"
+	chainID, chainSelector, chainErr := deploy.ChainMetadata(rpcURL)
+	if chainErr != nil {
+		return errors.Wrap(chainErr, "failed to resolve chain metadata for PoR config")
+	}
 
-	if strings.EqualFold(exampleWorkflowTrigger, WorkflowTriggerCron) {
-		workflowName = "cron-based-proof-of-reserve"
-		workflowFilePath = "examples/workflows/v1/proof-of-reserve/cron-based/main.go"
-		configFilePath, configErr = builAndSavePoRCronConfig(consumerContractAddress.Hex(), balanceReaderContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
-		if configErr != nil {
-			return errors.Wrap(configErr, "failed to build and save PoR config")
-		}
-		executableWorkflowFunction = executeCronBasedWorkflow
-	} else {
-		workflowName = "web-trigger-based-proof-of-reserve"
-		workflowFilePath = "examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go"
-		configFilePath, configErr = builAndSavePoRWebTriggerConfig(consumerContractAddress.Hex(), balanceReaderContractAddress.Hex(), feedID, filepath.Dir(workflowFilePath))
-		if configErr != nil {
-			return errors.Wrap(configErr, "failed to build and save PoR config")
-		}
-		executableWorkflowFunction = executeWebTriggerBasedWorkflow
+	addressesToRead, addressesErr := deploy.CreateAndFundAddresses(rpcURL, 2, big.NewInt(10))
+	if addressesErr != nil {
+		return errors.Wrap(addressesErr, "failed to create and fund addresses for PoR config")
+	}
+
+	configFilePath, configErr := buildAndSavePoRV2CronConfig(
+		consumerContractAddress.Hex(),
+		balanceReaderContractAddress.Hex(),
+		feedID,
+		chainSelector,
+		corevm.GenerateWriteTargetName(chainID),
+		addressesToRead,
+		filepath.Dir(workflowFilePath),
+	)
+	if configErr != nil {
+		return errors.Wrap(configErr, "failed to build and save PoR config")
 	}
 
 	defer func() {
@@ -217,54 +183,29 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL, gatewayU
 		return pkErr
 	}
 
-	return executableWorkflowFunction(cmdContext, rpcURL, gatewayURL, gatewayDonID, os.Getenv("PRIVATE_KEY"), *consumerContractAddress, feedID, timeout, totalStart)
+	return executeCronBasedWorkflow(cmdContext, rpcURL, *consumerContractAddress, feedID, timeout, totalStart)
 }
 
-func builAndSavePoRWebTriggerConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID, folder string) (string, error) {
-	cfg := webapitriggerbasedtypes.WorkflowConfig{
-		DataFeedsCacheAddress: dataFeedsCacheAddress,
-		AllowedTriggerSender:  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-		AllowedTriggerTopic:   "sendValue",
-		FeedID:                feedID,
-		WriteTargetName:       "write_geth-testnet@1.0.0",
-		ChainFamily:           "evm",
-		ChainID:               "1337",
-		BalanceReaderConfig: webapitriggerbasedtypes.BalanceReaderConfig{
-			BalanceReaderAddress: balanceReaderAddress,
-		},
-	}
-
-	yaml, yamlErr := yaml.Marshal(cfg)
-	if yamlErr != nil {
-		return "", errors.Wrap(yamlErr, "failed to marshal config to YAML")
-	}
-
-	filePath := filepath.Join(folder, "web_trigger_config.yaml")
-	writeErr := os.WriteFile(filePath, yaml, 0644) //nolint:gosec // G306: we want it to be readable by everyone
-	if writeErr != nil {
-		return "", errors.Wrap(writeErr, "failed to write config to file")
-	}
-
-	return filePath, nil
-}
-
-func builAndSavePoRCronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID, folder string) (string, error) {
+func buildAndSavePoRV2CronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedID string, chainSelector uint64, writeTargetName string, addressesToRead []common.Address, folder string) (string, error) {
 	if feedID == "" {
 		return "", errors.New("feedID is empty")
 	}
+	if len(addressesToRead) < 2 {
+		return "", errors.New("at least two addresses are required for the PoR v2 example")
+	}
 
-	cfg := cronbasedtypes.WorkflowConfig{
-		ComputeConfig: cronbasedtypes.ComputeConfig{
+	cfg := portypes.WorkflowConfig{
+		ChainSelector: chainSelector,
+		ComputeConfig: portypes.ComputeConfig{
 			DataFeedsCacheAddress: dataFeedsCacheAddress,
 			URL:                   "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD",
 			FeedID:                feedID,
-			WriteTargetName:       "write_geth-testnet@1.0.0",
+			WriteTargetName:       writeTargetName,
 		},
-		BalanceReaderConfig: cronbasedtypes.BalanceReaderConfig{
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
 			BalanceReaderAddress: balanceReaderAddress,
+			AddressesToRead:      addressesToRead,
 		},
-		ChainFamily: "evm",
-		ChainID:     "1337",
 	}
 
 	yaml, yamlErr := yaml.Marshal(cfg)
@@ -272,7 +213,7 @@ func builAndSavePoRCronConfig(dataFeedsCacheAddress, balanceReaderAddress, feedI
 		return "", errors.Wrap(yamlErr, "failed to marshal config to YAML")
 	}
 
-	filePath := filepath.Join(folder, "cron_config.yaml")
+	filePath := filepath.Join(folder, "config.yaml")
 	writeErr := os.WriteFile(filePath, yaml, 0644) //nolint:gosec // G306: we want it to be readable by everyone
 	if writeErr != nil {
 		return "", errors.Wrap(writeErr, "failed to write config to file")

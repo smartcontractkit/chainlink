@@ -2,8 +2,8 @@ package ccipsolana
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -108,44 +108,83 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 	var accounts []solana.PublicKey
 	var tokenReceiver solana.PublicKey
 
-	// Iterate through the expected fields in the struct
-	// the field name should match with the one in SVMExtraArgsV1
+	// Iterate through the expected fields in the struct.
+	// The field names should match SVMExtraArgsV1 from the EVM Client library:
 	// https://github.com/smartcontractkit/chainlink/blob/33c0bda696b0ed97f587a46eacd5c65bed9fb2c1/contracts/src/v0.8/ccip/libraries/Client.sol#L57
+	//
+	// Note: when the source chain ExtraDataCodec runs in a LOOP plugin (e.g. TON relay),
+	// the map[string]any values go through gRPC protobuf serialization which changes types:
+	//   uint32 -> int64, [32]byte -> []byte, [][32]byte -> []interface{}
+	// Each case below handles both the native type and the LOOP-converted type.
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "computeunits":
-			// Expect uint32
-			if v, ok := fieldValue.(uint32); ok {
+			switch v := fieldValue.(type) {
+			case uint32:
 				extraArgs.ComputeUnits = v
-			} else {
-				return out, errors.New("invalid type for ComputeUnits, expected uint32")
+			case int64: // LOOP gRPC converts uint32 -> int64
+				if v < 0 || v > math.MaxUint32 {
+					return out, fmt.Errorf("ComputeUnits out of uint32 range: %d", v)
+				}
+				extraArgs.ComputeUnits = uint32(v)
+			default:
+				return out, fmt.Errorf("invalid type for ComputeUnits, expected uint32, got %T", fieldValue)
 			}
 		case "accountiswritablebitmap":
-			// Expect uint64
-			if v, ok := fieldValue.(uint64); ok {
+			switch v := fieldValue.(type) {
+			case uint64:
 				extraArgs.IsWritableBitmap = v
-			} else {
-				return out, errors.New("invalid type for IsWritableBitmap, expected uint64")
+			case int64: // LOOP gRPC may convert uint64 -> int64
+				extraArgs.IsWritableBitmap = uint64(v) //nolint:gosec // bitmap, interpret bits as-is
+			default:
+				return out, fmt.Errorf("invalid type for IsWritableBitmap, expected uint64, got %T", fieldValue)
 			}
 		case "accounts":
-			// Expect [][32]byte
-			if v, ok := fieldValue.([][32]byte); ok {
+			switch v := fieldValue.(type) {
+			case [][32]byte:
 				a := make([]solana.PublicKey, len(v))
 				for i, val := range v {
 					a[i] = solana.PublicKeyFromBytes(val[:])
 				}
 				accounts = a
-			} else {
-				return out, errors.New("invalid type for Accounts, expected [][32]byte")
+			case []interface{}: // LOOP gRPC converts [][32]byte -> []interface{}
+				a := make([]solana.PublicKey, len(v))
+				for i, elem := range v {
+					bs, ok := elem.([]byte)
+					if !ok {
+						return out, fmt.Errorf("invalid type for Accounts[%d], expected []byte, got %T", i, elem)
+					}
+					if len(bs) != 32 {
+						return out, fmt.Errorf("invalid length for Accounts[%d]: expected 32, got %d", i, len(bs))
+					}
+					a[i] = solana.PublicKeyFromBytes(bs)
+				}
+				accounts = a
+			case [][]byte: // alternative LOOP representation
+				a := make([]solana.PublicKey, len(v))
+				for i, bs := range v {
+					if len(bs) != 32 {
+						return out, fmt.Errorf("invalid length for Accounts[%d]: expected 32, got %d", i, len(bs))
+					}
+					a[i] = solana.PublicKeyFromBytes(bs)
+				}
+				accounts = a
+			default:
+				return out, fmt.Errorf("invalid type for Accounts, expected [][32]byte, got %T", fieldValue)
 			}
 		case "tokenreceiver":
-			// Expect [32]byte
-			v, ok := fieldValue.([32]byte)
-			if !ok {
-				return out, errors.New("invalid type for TokenReceiver, expected [32]byte")
+			switch v := fieldValue.(type) {
+			case [32]byte:
+				tokenReceiver = solana.PublicKeyFromBytes(v[:])
+			case []byte: // LOOP gRPC converts [32]byte -> []byte
+				if len(v) != 32 {
+					return out, fmt.Errorf("invalid length for TokenReceiver: expected 32, got %d", len(v))
+				}
+				tokenReceiver = solana.PublicKeyFromBytes(v)
+			default:
+				return out, fmt.Errorf("invalid type for TokenReceiver, expected [32]byte, got %T", fieldValue)
 			}
-			tokenReceiver = solana.PublicKeyFromBytes(v[:])
 		default:
 			// no error here, unneeded keys can be skipped without return errors
 		}

@@ -21,7 +21,13 @@ type requestAuthorizer struct {
 	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
 	replayGuard            *DigestReplayGuard
 	lggr                   logger.Logger
+	sleep                  func(time.Duration)
 }
+
+const (
+	allowlistReadRetryCount    = 3
+	allowlistReadRetryInterval = 3 * time.Second
+)
 
 // AuthorizeRequest authorizes a request based on the request digest and the allowlisted requests.
 // It does NOT check if the request method is allowed.
@@ -43,20 +49,8 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 		r.lggr.Errorw("AuthorizeRequest workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
 		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
 	}
-	allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
-	allowedRequestsStrs := make([]string, 0, len(allowedRequests))
-	for _, rr := range allowedRequests {
-		allowedReqStr := fmt.Sprintf("Owner: %s, RequestDigest: %s, ExpiryTimestamp: %d", rr.Owner.Hex(), hex.EncodeToString(rr.RequestDigest[:]), rr.ExpiryTimestamp)
-		allowedRequestsStrs = append(allowedRequestsStrs, allowedReqStr)
-	}
-	r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", req.Method, "requestID", req.ID, "allowedRequests", allowedRequestsStrs)
-	allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, requestDigestBytes32)
+	allowlistedRequest, _ := r.fetchAllowlistedItemWithRetry(ctx, req.Method, req.ID, requestDigest, requestDigestBytes32)
 	if allowlistedRequest == nil {
-		r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted",
-			"method", req.Method,
-			"requestID", req.ID,
-			"digestHexStr", requestDigest,
-			"allowedRequestsStrs", allowedRequestsStrs)
 		return false, "", errors.New("request not allowlisted")
 	}
 
@@ -76,6 +70,56 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 	return true, allowlistedRequest.Owner.Hex(), nil
 }
 
+func (r *requestAuthorizer) fetchAllowlistedItemWithRetry(ctx context.Context, method string, requestID interface{}, requestDigest string, digest [32]byte) (*workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, []string) {
+	var allowedRequestsStrs []string
+	for attempt := 0; attempt <= allowlistReadRetryCount; attempt++ {
+		allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
+		allowedRequestsStrs = make([]string, 0, len(allowedRequests))
+		for _, rr := range allowedRequests {
+			allowedReqStr := fmt.Sprintf("Owner: %s, RequestDigest: %s, ExpiryTimestamp: %d", rr.Owner.Hex(), hex.EncodeToString(rr.RequestDigest[:]), rr.ExpiryTimestamp)
+			allowedRequestsStrs = append(allowedRequestsStrs, allowedReqStr)
+		}
+		r.lggr.Infow("AuthorizeRequest GetAllowlistedRequests", "method", method, "requestID", requestID, "attempt", attempt+1, "allowedRequests", allowedRequestsStrs)
+
+		allowlistedRequest := r.fetchAllowlistedItem(allowedRequests, digest)
+		if allowlistedRequest != nil {
+			return allowlistedRequest, allowedRequestsStrs
+		}
+
+		if attempt == allowlistReadRetryCount {
+			break
+		}
+
+		r.lggr.Warnw("AuthorizeRequest request not found in allowlist, retrying",
+			"method", method,
+			"requestID", requestID,
+			"digestHexStr", requestDigest,
+			"attempt", attempt+1,
+			"retryInterval", allowlistReadRetryInterval,
+			"allowedRequestsStrs", allowedRequestsStrs)
+
+		select {
+		case <-ctx.Done():
+			r.lggr.Warnw("AuthorizeRequest allowlist retry canceled",
+				"method", method,
+				"requestID", requestID,
+				"digestHexStr", requestDigest,
+				"attempt", attempt+1)
+			return nil, allowedRequestsStrs
+		default:
+		}
+
+		r.sleep(allowlistReadRetryInterval)
+	}
+
+	r.lggr.Infow("AuthorizeRequest fetchAllowlistedItem request not allowlisted",
+		"method", method,
+		"requestID", requestID,
+		"digestHexStr", requestDigest,
+		"allowedRequestsStrs", allowedRequestsStrs)
+	return nil, allowedRequestsStrs
+}
+
 func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, digest [32]byte) *workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	for _, item := range allowListedRequests {
 		if item.RequestDigest == digest {
@@ -90,5 +134,6 @@ func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyn
 		workflowRegistrySyncer: workflowRegistrySyncer,
 		lggr:                   logger.Named(lggr, "VaultRequestAuthorizer"),
 		replayGuard:            NewDigestReplayGuard(),
+		sleep:                  time.Sleep,
 	}
 }

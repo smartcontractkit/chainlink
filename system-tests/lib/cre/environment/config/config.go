@@ -61,8 +61,8 @@ type Config struct {
 	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
-	Fake              *fake.Input                     `toml:"fake" validate:"required"`
-	FakeHTTP          *fake.Input                     `toml:"fake_http" validate:"required"`
+	Fake              *fake.Input                     `toml:"fake"`
+	FakeHTTP          *fake.Input                     `toml:"fake_http"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
 	Addresses         []string                        `toml:"addresses"`

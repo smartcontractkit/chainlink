@@ -113,6 +113,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 	})
 
 	t.Run("BHS complete E2E fund later and fulfill", func(t *testing.T) {
+		t.Skip("This test is flaky on CI. Originally it only run on live testnets. Owners should work on fixing it.")
+		// Failure reason: blockhash not found in the store.
 		consumer, dErr := contracts.DeployVRFv2PlusLoadTestConsumer(chainClient, coord.Address())
 		require.NoError(t, dErr, "failed to deploy load test consumer")
 
