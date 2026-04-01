@@ -84,6 +84,8 @@ type Engine struct {
 
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
+
+	orgID string
 }
 
 type triggerCapability struct {
@@ -214,20 +216,20 @@ func (e *Engine) start(ctx context.Context) error {
 	ctx = context.WithoutCancel(ctx)
 
 	// Fetch organization ID for this owner
-	organizationID := ""
+	e.orgID = ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
-			organizationID = orgID
+			e.orgID = orgID
 		}
 	}
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
+	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -454,6 +456,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				Metadata: capabilities.RequestMetadata{
 					WorkflowID:          e.cfg.WorkflowID,
 					WorkflowOwner:       e.cfg.WorkflowOwner,
+					OrgID:               e.orgID,
 					WorkflowName:        e.cfg.WorkflowName.Hex(),
 					WorkflowTag:         e.cfg.WorkflowTag,
 					DecodedWorkflowName: e.cfg.WorkflowName.String(),
@@ -616,24 +619,24 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Fetch organization ID for this execution
-	organizationID := contexts.CREValue(ctx).Org
+	// Refresh the engine org ID for this execution.
+	e.orgID = contexts.CREValue(ctx).Org
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
-			organizationID = orgID
+			e.orgID = orgID
 
 			creCtx := contexts.CREValue(ctx)
-			creCtx.Org = organizationID
+			creCtx.Org = e.orgID
 			ctx = contexts.WithCRE(ctx, creCtx)
 		}
 	}
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
+	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
-	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
+	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
 
 	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
@@ -872,6 +875,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
+		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,

@@ -42,6 +42,7 @@ type secretsFetcher struct {
 	secretsCalled     int
 	mu                sync.Mutex
 
+	orgID                 string
 	workflowOwner         string
 	workflowName          string
 	workflowID            string
@@ -57,6 +58,7 @@ func NewSecretsFetcher(
 	lggr logger.Logger,
 	semaphore limits.ResourcePoolLimiter[int],
 	secretsCalls limits.BoundLimiter[int],
+	orgID string,
 	workflowOwner string,
 	workflowName string,
 	workflowID string,
@@ -70,8 +72,10 @@ func NewSecretsFetcher(
 		lggr:                  lggr,
 		semaphore:             semaphore,
 		secretsCallsLimit:     secretsCalls,
+		orgID:                 orgID,
 		workflowOwner:         workflowOwner,
 		workflowName:          workflowName,
+		workflowID:            workflowID,
 		phaseID:               phaseID,
 		workflowEncryptionKey: workflowEncryptionKey,
 		metrics:               metrics,
@@ -178,8 +182,19 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:          s.workflowID,
+		WorkflowOwner:       s.workflowOwner,
+		OrgID:               s.orgID,
+		WorkflowName:        s.workflowName,
+		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
+		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
+	}
+
 	vp := &vault.GetSecretsRequest{
-		Requests: make([]*vault.SecretRequest, 0),
+		OrgId:         metadata.OrgID,
+		WorkflowOwner: metadata.WorkflowOwner,
+		Requests:      make([]*vault.SecretRequest, 0),
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)
@@ -216,13 +231,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          s.workflowID,
-			WorkflowOwner:       s.workflowOwner,
-			WorkflowName:        s.workflowName,
-			WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
-			ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
-		},
+		Metadata:     metadata,
 	})
 	if err != nil {
 		lggr.Errorw("failed to fetch secrets", "err", err)

@@ -179,6 +179,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowOwner:            c.cfg.WorkflowOwner,
+			OrgID:                    contexts.CREValue(ctx).Org,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,

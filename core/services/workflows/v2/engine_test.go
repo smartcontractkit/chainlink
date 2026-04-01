@@ -538,6 +538,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
+		require.Equal(t, "test-org-123", capturedTriggerRequest.Metadata.OrgID)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
@@ -1453,9 +1454,12 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	encryptedDecryptionShare2, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare2Bytes)
 	require.NoError(t, err)
 	workflowKeyBytes := cfg.WorkflowEncryptionKey.PublicKey()
+	engineOrgID := "org-123"
+	var capturedVaultReq *vault.GetSecretsRequest
 
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			capturedVaultReq = proto.Clone(req).(*vault.GetSecretsRequest)
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
@@ -1528,6 +1532,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.Lggr,
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.LocalLimiters.SecretsCalls,
+		engineOrgID,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
@@ -1546,6 +1551,9 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{triggerID}, <-subscribedToTriggersCh)
+	require.NotNil(t, capturedVaultReq)
+	require.Equal(t, engineOrgID, capturedVaultReq.OrgId)
+	require.Equal(t, cfg.WorkflowOwner, capturedVaultReq.WorkflowOwner)
 
 	// Read the result from the hook and assert that the wanted response was
 	// received.

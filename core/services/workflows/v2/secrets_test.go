@@ -173,6 +173,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -232,6 +233,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -277,6 +279,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -293,6 +296,71 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		},
 	})
 	require.ErrorContains(t, err, "could not authorize the request")
+}
+
+func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+
+	var capturedReq *vault.GetSecretsRequest
+	mc := vaultMock.Vault{
+		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			capturedReq = proto.Clone(req).(*vault.GetSecretsRequest)
+			return &vault.GetSecretsResponse{
+				Responses: []*vault.SecretResponse{
+					{
+						Id: &vault.SecretIdentifier{
+							Key:       "Foo",
+							Namespace: "Bar",
+							Owner:     normalizedOwner,
+						},
+						Result: &vault.SecretResponse_Error{Error: "not found"},
+					},
+				},
+			}, nil
+		},
+	}
+	err = reg.Add(t.Context(), mc)
+	require.NoError(t, err)
+
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewBoundLimiter[int](5),
+		"org-123",
+		owner,
+		"workflowName",
+		"workflowID",
+		"workflowExecID",
+		workflowEncryptionKey,
+	)
+
+	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{
+				Id:        "Foo",
+				Namespace: "Bar",
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, capturedReq)
+	assert.Equal(t, "org-123", capturedReq.OrgId)
+	assert.Equal(t, owner, capturedReq.WorkflowOwner)
 }
 
 func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
@@ -326,6 +394,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -398,6 +467,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -498,6 +568,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
 		limits.NewBoundLimiter[int](5),
+		"",
 		owner,
 		"workflowName",
 		"workflowID",
@@ -664,6 +735,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 		lggr,
 		semaphore,
 		secretsCallsLimit,
+		"",
 		"0x1111111111111111111111111111111111111111",
 		"wf",
 		"wfID",
