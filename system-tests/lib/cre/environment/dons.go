@@ -253,6 +253,11 @@ func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) 
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
 		return solKey.PublicAddress.String(), nil
+	case chainselectors.FamilyAptos:
+		if node.Keys != nil && node.Keys.Aptos != nil && node.Keys.Aptos.Account != "" {
+			return node.Keys.Aptos.Account, nil
+		}
+		return "", nil // Skip nodes without Aptos keys for this chain
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}

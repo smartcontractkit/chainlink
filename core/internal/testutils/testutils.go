@@ -223,12 +223,3 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 func Ptr[T any](v T) *T {
 	return &v
 }
-
-func MustRandBytes(n int) (b []byte) {
-	b = make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-	return
-}

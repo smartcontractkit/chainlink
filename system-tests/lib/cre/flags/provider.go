@@ -25,6 +25,7 @@ func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.WriteEVMCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
+			cre.AptosCapability,
 		},
 	}
 }
@@ -58,6 +59,7 @@ func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *Extensible
 			cre.SolanaCapability,
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
+			cre.AptosCapability,
 		},
 	}
 }
@@ -89,6 +91,7 @@ func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 			cre.ReadContractCapability,
 			cre.LogEventTriggerCapability,
 			cre.SolanaCapability,
+			cre.AptosCapability,
 		},
 	}
 }
