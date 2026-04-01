@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -398,6 +399,32 @@ transmitterID = "%x"
 func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
 	ctx := testutils.Context(t)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
+
+		res.WriteHeader(http.StatusOK)
+		val := p.String()
+		resp := fmt.Sprintf(`{"result": %s}`, val)
+		_, err = res.Write([]byte(resp))
+		require.NoError(t, err)
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name: bridges.BridgeName(bridgeName),
+		URL:  models.WebURL(*u),
+	}))
+
+	return bridgeName
+}
+
+// createSingleDecimalCountingBridge is like createSingleDecimalBridge but increments callCount on each bridge request.
+func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM, callCount *atomic.Uint64) (bridgeName string) {
+	ctx := testutils.Context(t)
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		callCount.Add(1)
 		b, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
 		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
