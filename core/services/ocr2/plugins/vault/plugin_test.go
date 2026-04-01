@@ -288,6 +288,7 @@ func makeReportingPluginConfig(
 		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
+		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 	}
 }
 
@@ -982,6 +983,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 				EncryptionKeys: []string{pks},
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1011,6 +1013,145 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdID))
+}
+
+func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		cfg:           cfg,
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{m: make(map[string]response)}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	require.NoError(t, err)
+	ciphertextBytes, err := hex.DecodeString(encrypted)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
+			},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetGetSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Empty(t, batchResp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		cfg:           cfg,
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{m: make(map[string]response)}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	require.NoError(t, err)
+	ciphertextBytes, err := hex.DecodeString(encrypted)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
+			},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetGetSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Contains(t, batchResp.Responses[0].GetError(), "failed to handle get secret request")
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
@@ -1223,6 +1364,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 				EncryptionKeys: []string{"foo"},
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1410,6 +1552,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 				EncryptionKeys: []string{pks},
 			},
 		},
+		WorkflowOwner: owner,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2385,6 +2528,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2415,6 +2559,119 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	resp := batchResp.Responses[0]
 
 	assert.Empty(t, resp.GetError())
+}
+
+func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+		cfg:           cfg,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "secret",
+	}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	require.NoError(t, err)
+
+	rdr := &kv{m: make(map[string]response)}
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: encrypted},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetCreateSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Empty(t, batchResp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+		cfg:           cfg,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "secret",
+	}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	require.NoError(t, err)
+
+	rdr := &kv{m: make(map[string]response)}
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: encrypted},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetCreateSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Contains(t, batchResp.Responses[0].GetError(), "does not match any of the provided owner labels")
 }
 
 func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
@@ -6821,7 +7078,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 		ctb, err := ciphertext.Marshal()
 		require.NoError(t, err)
 
-		share, err := generatePlaintextShare(pk, shares[0], ctb, owner)
+		share, err := generatePlaintextShare(pk, shares[0], ctb, owner, "")
 		require.NoError(t, err)
 
 		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]))
