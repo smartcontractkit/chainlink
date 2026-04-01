@@ -18,6 +18,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -273,4 +274,24 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 		c.logger().Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
+}
+
+const userMetricPrefix = "user_workflow_"
+
+func userMetricTypeSuffix(t eventsv2.UserMetricType) string {
+	switch t {
+	case eventsv2.UserMetricType_USER_METRIC_TYPE_COUNTER:
+		return "_counter"
+	case eventsv2.UserMetricType_USER_METRIC_TYPE_GAUGE:
+		return "_gauge"
+	default:
+		return ""
+	}
+}
+
+func (c *ExecutionHelper) EmitUserMetric(metric *eventsv2.WorkflowUserMetric) error {
+	metric.Name = userMetricPrefix + metric.Name + userMetricTypeSuffix(metric.Type)
+
+	loggerLabels := *c.loggerLabels.Load()
+	return events.EmitUserMetric(context.Background(), loggerLabels, metric)
 }
