@@ -281,7 +281,7 @@ jobs:
           fi
 
       - name: Checkout the repo
-        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
+        if: steps.explain.outputs.build-image == 'true'
         uses: actions/checkout@v6
         with:
           persist-credentials: false
