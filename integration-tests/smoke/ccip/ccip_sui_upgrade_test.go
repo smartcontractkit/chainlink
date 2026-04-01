@@ -477,7 +477,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`OnRamp \d+\.\d+\.\d+`)
 		modified := re.ReplaceAllString(string(content), newOnrampVersion)
-		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600)
 	})
 	defer suiBind.ClearTestModifier()
 
@@ -579,7 +579,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`OffRamp \d+\.\d+\.\d+`)
 		modified := re.ReplaceAllString(string(content), newOfframpVersion)
-		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600)
 	})
 	defer suiBind.ClearTestModifier()
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -680,7 +680,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		content, _ := os.ReadFile(sourcePath)
 		re := regexp.MustCompile(`FeeQuoter \d+\.\d+\.\d+`)
 		modified := re.ReplaceAllString(string(content), newFeeQuoterVersion)
-		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600)
 	})
 	defer suiBind.ClearTestModifier()
 
