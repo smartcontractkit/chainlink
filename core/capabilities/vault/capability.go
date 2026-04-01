@@ -36,13 +36,6 @@ type Capability struct {
 	*RequestValidator
 }
 
-type secretOwnerValidationTarget struct {
-	label           string
-	value           string
-	displayValue    string
-	normalizeSecret bool
-}
-
 func (s *Capability) Start(ctx context.Context) error {
 	if err := s.handler.Start(ctx); err != nil {
 		return fmt.Errorf("error starting vault DON request handler: %w", err)
@@ -129,7 +122,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}
 	r.OrgId = resolvedIdentity.OrgID
 	r.WorkflowOwner = resolvedIdentity.WorkflowOwner
-	validationTarget := secretOwnerValidationTargetFor(resolvedIdentity)
+	normalizedWorkflowOwner := normalizeOwner(resolvedIdentity.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
@@ -140,24 +133,21 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 			continue
 		}
 
-		if validationTarget.value == "" {
-			if req.Id.Owner == "" {
-				continue
+		switch {
+		case normalizedWorkflowOwner != "":
+			if normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
+				s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", resolvedIdentity.WorkflowOwner)
+				return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, resolvedIdentity.WorkflowOwner, idx)
 			}
+		case resolvedIdentity.OrgID != "":
+			if req.Id.Owner != resolvedIdentity.OrgID {
+				s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "orgID", resolvedIdentity.OrgID)
+				return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match org_id %q at index %d", req.Id.Owner, resolvedIdentity.OrgID, idx)
+			}
+		case req.Id.Owner != "":
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", resolvedIdentity.WorkflowOwner, "orgID", resolvedIdentity.OrgID)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match empty request identity at index %d", req.Id.Owner, idx)
 		}
-
-		secretOwner := req.Id.Owner
-		if validationTarget.normalizeSecret {
-			secretOwner = normalizeOwner(secretOwner)
-		}
-		if secretOwner == validationTarget.value {
-			continue
-		}
-
-		s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, validationTarget.label, validationTarget.displayValue)
-		return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match %s %q at index %d", req.Id.Owner, validationTarget.label, validationTarget.displayValue, idx)
 	}
 
 	// We need to generate sufficiently unique IDs accounting for two cases:
@@ -336,26 +326,6 @@ func (s *Capability) resolveRequestIdentity(ctx context.Context, orgID string, w
 	s.lggr.Debugw("resolved request identity", "orgID", linked.OrgID, "workflowOwner", linked.WorkflowOwner)
 
 	return linked, nil
-}
-
-func secretOwnerValidationTargetFor(identity LinkedVaultRequestIdentity) secretOwnerValidationTarget {
-	if normalizedWorkflowOwner := normalizeOwner(identity.WorkflowOwner); normalizedWorkflowOwner != "" {
-		return secretOwnerValidationTarget{
-			label:           "workflow owner",
-			value:           normalizedWorkflowOwner,
-			displayValue:    identity.WorkflowOwner,
-			normalizeSecret: true,
-		}
-	}
-	if identity.OrgID != "" {
-		return secretOwnerValidationTarget{
-			label:        "org_id",
-			value:        identity.OrgID,
-			displayValue: identity.OrgID,
-		}
-	}
-
-	return secretOwnerValidationTarget{}
 }
 
 func NewCapability(
