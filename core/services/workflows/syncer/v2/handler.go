@@ -775,29 +775,16 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to parse workflow attributes: %w", err)
 	}
+
+	initDone := make(chan error, 1)
+	var engine services.Service
+
 	if confidential {
 		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
-		return h.tryConfidentialEngineCreate(ctx, spec, wid, workflowName, decodedBinary, source)
+		engine, err = h.confidentialEngineFactory(spec, wid, workflowName, decodedBinary, initDone)
+	} else {
+		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
 	}
-
-	// Create a channel to receive the initialization result.
-	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
-	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
-	initDone := make(chan error, 1)
-
-	// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
-	engine, err := func() (services.Service, error) {
-		return h.engineFactory(
-			ctx,
-			spec.WorkflowID,
-			spec.WorkflowOwner,
-			workflowName,
-			spec.WorkflowTag,
-			configBytes,
-			decodedBinary,
-			initDone,
-		)
-	}()
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -928,20 +915,19 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 	}
 }
 
-// tryConfidentialEngineCreate creates a V2 engine backed by a ConfidentialModule
+// confidentialEngineFactory creates a V2 engine backed by a ConfidentialModule
 // instead of a local WASM module. The ConfidentialModule delegates execution to
 // the confidential-workflows capability which runs the WASM inside a TEE.
-func (h *eventHandler) tryConfidentialEngineCreate(
-	ctx context.Context,
+func (h *eventHandler) confidentialEngineFactory(
 	spec *job.WorkflowSpec,
 	wid types.WorkflowID,
 	workflowName types.WorkflowName,
 	decodedBinary []byte,
-	source string,
-) error {
+	initDone chan<- error,
+) (services.Service, error) {
 	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
 	if err != nil {
-		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+		return nil, fmt.Errorf("failed to parse workflow attributes: %w", err)
 	}
 
 	binaryHash := v2.ComputeBinaryHash(decodedBinary)
@@ -962,16 +948,9 @@ func (h *eventHandler) tryConfidentialEngineCreate(
 	)
 
 	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, []byte(spec.Config))
-
-	initDone := make(chan error, 1)
 	h.wireInitDoneHook(cfg, initDone)
 
-	engine, err := v2.NewEngine(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create confidential workflow engine: %w", err)
-	}
-
-	return h.startAndRegisterEngine(ctx, engine, initDone, wid, spec.WorkflowID, source)
+	return v2.NewEngine(cfg)
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.

@@ -704,7 +704,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		// (non-hex owner), engine creation fails. The error comes from the
 		// confidential path, proving routing worked correctly.
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create confidential workflow engine")
+		assert.Contains(t, err.Error(), "failed to create workflow engine")
 
 		// The engine factory must NOT have been called; the confidential path
 		// bypasses it.
