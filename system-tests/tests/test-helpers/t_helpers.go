@@ -71,6 +71,7 @@ import (
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
@@ -298,7 +299,8 @@ type WorkflowConfig interface {
 		http_config.Config |
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
-		solwrite_config.Config
+		solwrite_config.Config |
+		vaultsecret_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -463,6 +465,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
+
+		case *vaultsecret_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create vaultsecret workflow config file")
+			testLogger.Info().Msg("Vault secret workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}

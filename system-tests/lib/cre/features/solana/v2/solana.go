@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"slices"
+	"maps"
+	"runtime"
 	"strconv"
-	"sync"
 	"text/template"
 	"time"
 
@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	solchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -74,7 +75,7 @@ func (s *Solana) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	don *cre.DonMetadata,
-	topology *cre.Topology,
+	_ *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
@@ -93,15 +94,7 @@ func (s *Solana) PreEnvStartup(
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
 
-	// 3. Patch wf nodes TOML config to enable solana relayer
-	for _, ns := range topology.NodeSets() {
-		if slices.Contains(ns.DONTypes, "workflow") {
-			for _, spec := range ns.NodeSpecs {
-				fmt.Println("test config override:", spec.Node.TestConfigOverrides)
-			}
-		}
-	}
-	// 4. Register Solana capability & its methods with Keystone
+	// 3. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
 
 	return &cre.PreEnvStartupOutput{
@@ -143,7 +136,6 @@ func createJobs(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	specs := make(map[string][]string)
 	solChain := extractSolanaFromEnv(creEnv)
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
@@ -176,7 +168,7 @@ func createJobs(
 		return errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
-	solChainID, err := solChain.SolClient.GetGenesisHash(ctx)
+	solChainID, err := solChain.GenesisHash(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to get sol genesis hash")
 	}
@@ -206,9 +198,10 @@ func createJobs(
 		return errors.Wrapf(err, "failed to parse %s config template", flag)
 	}
 
-	var specsMu sync.Mutex
+	results := make([]map[string][]string, len(workerNodes))
 	group, groupCtx := errgroup.WithContext(ctx)
-	for _, workerNode := range workerNodes {
+	group.SetLimit(min(len(workerNodes), runtime.GOMAXPROCS(0)))
+	for i, workerNode := range workerNodes {
 		group.Go(func() error {
 			key, ok := workerNode.Keys.Solana[chainID]
 			if !ok {
@@ -222,22 +215,22 @@ func createJobs(
 				"NodeAddress":         nodeAddress,
 				"IsLocal":             true,
 				"Network":             "solana",
-				"ChainID":             solChainID.String(),
+				"ChainID":             solChainID,
 			}
 
-			templateData, aErr := credon.ApplyRuntimeValues(config.Values, runtimeFallbacks)
+			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)
 			if aErr != nil {
 				return errors.Wrap(aErr, "failed to apply runtime values")
 			}
 
 			var configBuffer bytes.Buffer
-			if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-				return errors.Wrapf(err, "failed to execute %s config template", flag)
+			if executeErr := tmpl.Execute(&configBuffer, templateData); executeErr != nil {
+				return errors.Wrapf(executeErr, "failed to execute %s config template", flag)
 			}
 
 			configStr := configBuffer.String()
-			if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-				return errors.Wrapf(err, "%s template validation failed", flag)
+			if validateErr := credon.ValidateTemplateSubstitution(configStr, flag); validateErr != nil {
+				return errors.Wrapf(validateErr, "%s template validation failed", flag)
 			}
 
 			workerInput := cre_jobs.ProposeJobSpecInput{
@@ -267,8 +260,7 @@ func createJobs(
 				return fmt.Errorf("failed to propose Solana v2 worker job spec: %w", workerErr)
 			}
 
-			specsMu.Lock()
-			defer specsMu.Unlock()
+			specs := make(map[string][]string)
 			for _, r := range workerReport.Reports {
 				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
 				if !ok {
@@ -286,12 +278,18 @@ func createJobs(
 			default:
 			}
 
+			results[i] = specs
 			return nil
 		})
 	}
 
-	if err := group.Wait(); err != nil {
-		return err
+	if wErr := group.Wait(); wErr != nil {
+		return wErr
+	}
+
+	specs, mErr := jobhelpers.MergeSpecsByIndex(results)
+	if mErr != nil {
+		return mErr
 	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)

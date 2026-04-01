@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // A CDC that loads a static JSON of channel definitions; useful for

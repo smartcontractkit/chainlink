@@ -197,6 +197,10 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -218,7 +222,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		metrics:             metrics,
 		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter),
+		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }
 
@@ -326,7 +330,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
@@ -361,9 +365,6 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 
-	case vaulttypes.MethodSecretsGet:
-		h.lggr.Errorw("Get requests not allowed", "requestID", req.ID)
-		return errors.New("get request not allowed")
 	}
 
 	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)

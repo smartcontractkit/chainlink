@@ -688,6 +688,40 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 	})
 }
 
+func Test_customerFacingError(t *testing.T) {
+	t.Run("nil error returns nil", func(t *testing.T) {
+		assert.NoError(t, customerFacingError(nil))
+	})
+
+	t.Run("ArtifactFetchError returns deterministic customer message", func(t *testing.T) {
+		fetchErr := &types.ArtifactFetchError{
+			ArtifactType: "binary",
+			URL:          "https://storage.example.com/binary.wasm?Expires=123&Signature=nodeSpecificSig",
+			Err:          errors.New("connection refused"),
+		}
+		got := customerFacingError(fetchErr)
+		require.Error(t, got)
+		assert.Equal(t, "Internal error: failed to fetch workflow binary from storage. Contact support if this persists.", got.Error())
+	})
+
+	t.Run("wrapped ArtifactFetchError is still detected", func(t *testing.T) {
+		fetchErr := &types.ArtifactFetchError{
+			ArtifactType: "config",
+			URL:          "https://storage.example.com/config.yaml?Expires=456&Signature=abc",
+			Err:          errors.New("timeout"),
+		}
+		wrapped := fmt.Errorf("createWorkflowSpec: %w", fetchErr)
+		got := customerFacingError(wrapped)
+		assert.Contains(t, got.Error(), "workflow config")
+		assert.NotContains(t, got.Error(), "Expires")
+	})
+
+	t.Run("non-ArtifactFetchError passes through unchanged", func(t *testing.T) {
+		original := errors.New("some other error")
+		assert.Equal(t, original, customerFacingError(original))
+	})
+}
+
 type mockArtifactStore struct {
 	artifactStore              *artifacts.Store
 	deleteWorkflowArtifactsErr error

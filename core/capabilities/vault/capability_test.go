@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -35,10 +33,9 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -133,10 +130,9 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -304,10 +300,9 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -382,10 +377,9 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -457,10 +451,9 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -1065,24 +1058,6 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "DeleteSecrets_Invalid_Owner",
-			response: nil,
-			error:    "secret ID owner: random does not match authorized owner:",
-			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
-				req := &vault.DeleteSecretsRequest{
-					RequestId: requestID,
-					Ids: []*vault.SecretIdentifier{
-						{
-							Key:       "Foo",
-							Namespace: "Bar",
-							Owner:     "random",
-						},
-					},
-				}
-				return capability.DeleteSecrets(t.Context(), req)
-			},
-		},
-		{
 			name:  "DeleteSecrets_Invalid_Duplicates",
 			error: "duplicate secret ID found",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
@@ -1180,11 +1155,9 @@ func TestCapability_CRUD(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -1230,11 +1203,9 @@ func TestCapability_Lifecycle(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
 	require.NoError(t, err)
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
@@ -1262,11 +1233,10 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

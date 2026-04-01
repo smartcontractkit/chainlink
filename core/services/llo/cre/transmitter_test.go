@@ -10,12 +10,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	streamstypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -32,7 +32,7 @@ func Test_Transmitter(t *testing.T) {
 	}
 
 	cfg := TransmitterConfig{
-		Logger:               logger.TestLogger(t),
+		Logger:               logger.Test(t),
 		CapabilitiesRegistry: nil,
 		DonID:                donID,
 	}
@@ -79,7 +79,7 @@ func buildRegistrationRequest(t *testing.T, triggerID string, streamIDs []stream
 }
 
 func encodeReport(t *testing.T, timestamp uint64) ocr3types.ReportWithInfo[llotypes.ReportInfo] {
-	codec := NewReportCodecCapabilityTrigger(logger.TestLogger(t), donID)
+	codec := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
 	rep := llo.Report{
 		ConfigDigest:                    types.ConfigDigest{1, 2, 3},
 		SeqNr:                           32,

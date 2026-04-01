@@ -20,6 +20,10 @@ on:
         description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
         required: false
         type: string
+      exclude-refs:
+        description: "Patterns to exclude specific refs (e.g., beta,rc,v0,v1)"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -72,7 +76,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
@@ -83,6 +86,7 @@ jobs:
       PRODUCT: ${{ inputs.product }}
       NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
       REFS: ${{ inputs.refs }}
+      EXCLUDE_REFS: ${{ inputs.exclude-refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
@@ -155,6 +159,25 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
+      
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
+              echo "Service is accessible via Tailscale"
+          else
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
+          fi
+      
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
@@ -175,6 +198,10 @@ jobs:
           if [ -n "${{ env.REFS }}" ]; then
             REFS_ARGS="--refs ${{ env.REFS }}"
           fi
+          EXCLUDE_REFS_ARGS=""
+          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
+            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
@@ -182,6 +209,7 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
             ${REFS_ARGS} \
+            ${EXCLUDE_REFS_ARGS} \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
@@ -204,8 +232,8 @@ jobs:
 
       - name: Upload Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: container-logs-smoke
+          name: container-logs-smoke-${{ job.check_run_id }}
           path: ${{ env.LOGS_DIR }}
           retention-days: 3

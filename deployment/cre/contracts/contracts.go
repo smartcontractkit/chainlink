@@ -35,6 +35,7 @@ var (
 	RBACTimelock              cldf.ContractType = "RBACTimelock"              // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/RBACTimelock.sol
 	ProposerManyChainMultiSig cldf.ContractType = "ProposerManyChainMultiSig" // no type and a version in contract https://github.com/smartcontractkit/ccip-owner-contracts/blob/main/src/ManyChainMultiSig.sol
 	ShardConfig               cldf.ContractType = "ShardConfig"               // manages desired shard count configuration
+	MockKeystoneForwarder     cldf.ContractType = "MockKeystoneForwarder"     // https://github.com/smartcontractkit/chainlink-evm/blob/f2272e4b4aa6a3e315126ce7d928472bb035f940/contracts/cre/src/dev/MockKeystoneForwarder.sol#L38
 )
 
 type MCMSConfig = proposalutils.TimelockConfig

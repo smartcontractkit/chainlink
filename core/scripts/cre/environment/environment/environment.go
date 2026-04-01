@@ -70,11 +70,6 @@ var (
 	provisioningStartTime time.Time
 )
 
-const (
-	WorkflowTriggerWebTrigger = "web-trigger"
-	WorkflowTriggerCron       = "cron"
-)
-
 var EnvironmentCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Environment commands",
@@ -216,7 +211,6 @@ func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
-		exampleWorkflowTrigger   string
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
 		withContractsVersion     string
@@ -460,9 +454,6 @@ func startCmd() *cobra.Command {
 					return errors.New("no gateway connector configurations found")
 				}
 
-				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
-
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
@@ -478,11 +469,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				workflowDON, wErr := output.Dons.OneDonWithFlag(cre.WorkflowDON)
-				if wErr != nil {
-					return errors.Wrap(wErr, "failed to get workflow DON")
-				}
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -514,7 +501,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
-	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")

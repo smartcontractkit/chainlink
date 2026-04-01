@@ -12,9 +12,11 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"time"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -134,6 +136,31 @@ func (r *ReportingPluginFactory) getKeyMaterial(ctx context.Context, instanceID 
 	}
 
 	return publicKey, privateKeyShare, nil
+}
+
+const dkgPollInterval = 2 * time.Second
+
+// pollForKeyMaterial polls the DKG result package database until the key
+// material for the given instance ID is available or the context is cancelled.
+// This avoids returning an immediate error when the DKG protocol hasn't
+// completed yet, which would trigger libocr's exponential backoff (up to 2
+// minutes between retries). By polling here within the MaxDurationInitialization
+// window, the vault oracle can start as soon as the DKG result is written.
+func (r *ReportingPluginFactory) pollForKeyMaterial(ctx context.Context, instanceID string) (publicKey *tdh2easy.PublicKey, privateKeyShare *tdh2easy.PrivateShare, err error) {
+	for {
+		publicKey, privateKeyShare, err = r.getKeyMaterial(ctx, instanceID)
+		if err == nil {
+			return publicKey, privateKeyShare, nil
+		}
+
+		r.lggr.Debugw("DKG result package not yet available, will retry", "instanceID", instanceID, "error", err)
+
+		select {
+		case <-ctx.Done():
+			return nil, nil, fmt.Errorf("context cancelled while waiting for DKG key material (instanceID=%s): %w", instanceID, err)
+		case <-time.After(dkgPollInterval):
+		}
+	}
 }
 
 func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (ocr3_1types.ReportingPluginLimits, error) {
@@ -263,11 +290,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max secrets per owner limiter: %w", err)
 	}
 
-	batchSize := cresettings.Default.VaultPluginBatchSizeLimit
-	if configProto.BatchSize != 0 {
-		batchSize.DefaultValue = int(configProto.BatchSize)
-	}
-	cfg.MaxBatchSize, err = limits.MakeUpperBoundLimiter(r.limitsFactory, batchSize)
+	cfg.MaxBatchSize, err = limits.MakeUpperBoundLimiter(r.limitsFactory, cresettings.Default.VaultPluginBatchSizeLimit)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not create max batch size limiter: %w", err)
 	}
@@ -277,7 +300,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	}
 
 	r.lggr.Debugw("fetching key material for instance id", "instanceID", *configProto.DKGInstanceID)
-	publicKey, privateKeyShare, err := r.getKeyMaterial(ctx, *configProto.DKGInstanceID)
+	publicKey, privateKeyShare, err := r.pollForKeyMaterial(ctx, *configProto.DKGInstanceID)
 	if err != nil {
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not get key material from DB: %w", err)
 	}
@@ -357,9 +380,14 @@ func generateRandomNonce() ([]byte, error) {
 }
 
 func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
-	readStore := NewReadStore(keyValueReader)
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("observation finished", "seqNr", seqNr, "elapsed", time.Since(start))
+	}()
 
-	batch, err := readStore.GetPendingQueue()
+	readStore := NewReadStore(keyValueReader, r.metrics)
+
+	batch, err := readStore.GetPendingQueue(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
@@ -431,7 +459,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	// Next, get the current pending queue. We'll use this to dedupe
 	// requests when generating an observation for the next state of the
 	// pending queue.
-	pendingQueue, ierr := readStore.GetPendingQueue()
+	pendingQueue, ierr := readStore.GetPendingQueue(ctx)
 	if ierr != nil {
 		return nil, ierr
 	}
@@ -441,7 +469,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		pendingQueueHasID[item.Id] = true
 	}
 
-	observedLocalQueue := make([][]byte, 0, len(localQueueItems))
+	blobPayloads := make([][]byte, 0, len(localQueueItems))
+	blobPayloadIDs := make([]string, 0, len(localQueueItems))
+	maxObservedLocalQueueItems := 0
 	for _, item := range localQueueItems {
 		// The item is already in the pending queue. We'll be processing it
 		// this round. Let's skip it for now so we don't process duplicates.
@@ -464,33 +494,31 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 			return nil, fmt.Errorf("could not marshal pending queue item: %w", ierr2)
 		}
 
-		blobHandle, ierr2 := blobBroadcastFetcher.BroadcastBlob(ctx, itemb, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not broadcast pending queue item as blob: %w", ierr2)
+		if maxObservedLocalQueueItems == 0 {
+			l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
+			if ierr2 != nil {
+				return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
+			}
+			maxObservedLocalQueueItems = 2 * l
 		}
 
-		blobHandleBytes, ierr2 := r.marshalBlob(blobHandle)
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not marshal blob handle to bytes: %w", ierr2)
-		}
+		blobPayloads = append(blobPayloads, itemb)
+		blobPayloadIDs = append(blobPayloadIDs, item.Id)
 
-		observedLocalQueue = append(observedLocalQueue, blobHandleBytes)
-
-		l, ierr2 := r.cfg.MaxBatchSize.Limit(ctx)
-		if ierr2 != nil {
-			return nil, fmt.Errorf("could not fetch max batch size limit: %w", ierr2)
-		}
-
-		if len(observedLocalQueue) >= 2*l {
+		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
-				"queueSize", len(observedLocalQueue),
-				"batchSizeLimit", 2*l)
-			r.metrics.trackQueueOverflow(ctx, len(observedLocalQueue), 2*l)
+				"queueSize", len(blobPayloads),
+				"batchSizeLimit", maxObservedLocalQueueItems)
+			r.metrics.trackQueueOverflow(ctx, len(blobPayloads), maxObservedLocalQueueItems)
 			break
 		}
 	}
 
-	obspb.PendingQueueItems = observedLocalQueue
+	pendingQueueItems, err := r.broadcastBlobPayloads(ctx, blobBroadcastFetcher, seqNr, blobPayloads, blobPayloadIDs)
+	if err != nil {
+		return nil, err
+	}
+	obspb.PendingQueueItems = pendingQueueItems
 
 	// Second, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce idepedently, to be concatenated later on.
@@ -511,6 +539,73 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		r.lggr.Debugw("observation complete", "ids", ids, "batchSize", len(batch))
 	}
 	return types.Observation(obsb), nil
+}
+
+// broadcastBlobPayloads broadcasts each payload as a blob in parallel to reduce
+// Observation() latency (shortening this phase helps the OCR round finish within
+// DeltaProgress). Each call is given a 2-second timeout so that a single slow
+// broadcast cannot stall the entire batch. Individual broadcast failures are logged
+// and skipped rather than aborting the entire observation, so that one problematic
+// payload does not prevent the remaining items from being observed. Context
+// cancellation/deadline errors on the parent context are propagated immediately so
+// that expired rounds fail fast.
+func (r *ReportingPlugin) broadcastBlobPayloads(
+	ctx context.Context,
+	fetcher ocr3_1types.BlobBroadcastFetcher,
+	seqNr uint64,
+	payloads [][]byte,
+	requestIDs []string,
+) ([][]byte, error) {
+	results := make([][]byte, len(payloads))
+
+	start := time.Now()
+	defer func() {
+		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(payloads), "elapsed", time.Since(start))
+	}()
+
+	const perBlobTimeout = 2 * time.Second
+	var g errgroup.Group
+	for i, payload := range payloads {
+		g.Go(func() error {
+			broadcastCtx, cancel := context.WithTimeout(ctx, perBlobTimeout)
+			defer cancel()
+
+			blobHandle, err := fetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
+			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				r.lggr.Warnw("failed to broadcast pending queue item as blob, skipping",
+					"seqNr", seqNr,
+					"requestID", requestIDs[i],
+					"err", err)
+				return nil
+			}
+
+			blobHandleBytes, err := r.marshalBlob(blobHandle)
+			if err != nil {
+				r.lggr.Warnw("failed to marshal blob handle, skipping",
+					"seqNr", seqNr,
+					"requestID", requestIDs[i],
+					"err", err)
+				return nil
+			}
+
+			results[i] = blobHandleBytes
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	filtered := make([][]byte, 0, len(results))
+	for _, item := range results {
+		if item != nil {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered, nil
 }
 
 func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
@@ -599,7 +694,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, err
 	}
 
-	secret, err := reader.GetSecret(id)
+	secret, err := reader.GetSecret(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
@@ -807,7 +902,7 @@ func (r *ReportingPlugin) processListSecretIdentifiersRequest(ctx context.Contex
 		return nil, errors.New("invalid request: owner cannot be empty")
 	}
 
-	md, err := reader.GetMetadata(req.Owner)
+	md, err := reader.GetMetadata(ctx, req.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get metadata for owner: %w", err)
 	}
@@ -905,7 +1000,7 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	ss, err := reader.GetSecret(id)
+	ss, err := reader.GetSecret(ctx, id)
 	if err != nil {
 		return id, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
@@ -1034,8 +1129,8 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   This is because honest nodes will all be reading from
 	//   the same deterministic key-value store-based queue.
 	// - that all pending queue items can be fetched as blobs.
-	store := NewReadStore(keyValueReader)
-	pendingQueueItems, err := store.GetPendingQueue()
+	store := NewReadStore(keyValueReader, r.metrics)
+	pendingQueueItems, err := store.GetPendingQueue(ctx)
 	if err != nil {
 		return fmt.Errorf("could not fetch pending queue from store: %w", err)
 	}
@@ -1386,7 +1481,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 }
 
 func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReadWriter ocr3_1types.KeyValueStateReadWriter, blobFetcher ocr3_1types.BlobFetcher) (ocr3_1types.ReportsPlusPrecursor, error) {
-	store := NewWriteStore(keyValueReadWriter)
+	store := NewWriteStore(keyValueReadWriter, r.metrics)
 
 	marshalledObs := map[uint8]*vaultcommon.Observations{}
 	for _, ao := range aos {
@@ -1630,7 +1725,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, store
 		keptItems = keptItems[:errBoundLimited.Limit]
 	}
 
-	return store.WritePendingQueue(keptItems)
+	return store.WritePendingQueue(ctx, keptItems)
 }
 
 func sortKey(id string, nonce []byte) []byte {
@@ -1819,7 +1914,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not decode secret value: invalid hex" + err.Error())
 	}
 
-	secret, err := store.GetSecret(req.Id)
+	secret, err := store.GetSecret(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
@@ -1828,7 +1923,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not write to key value store: key already exists")
 	}
 
-	count, err := store.GetSecretIdentifiersCountForOwner(req.Id.Owner)
+	count, err := store.GetSecretIdentifiersCountForOwner(ctx, req.Id.Owner)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret identifiers count for owner: %w", err)
 	}
@@ -1842,7 +1937,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", ierr)
 	}
 
-	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{
+	err = store.WriteSecret(ctx, req.Id, &vaultcommon.StoredSecret{
 		EncryptedSecret: encryptedSecret,
 	})
 	if err != nil {
@@ -1935,7 +2030,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not decode secret value: invalid hex" + err.Error())
 	}
 
-	secret, err := store.GetSecret(req.Id)
+	secret, err := store.GetSecret(ctx, req.Id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
@@ -1944,7 +2039,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not write update to key value store: key does not exist")
 	}
 
-	err = store.WriteSecret(req.Id, &vaultcommon.StoredSecret{
+	err = store.WriteSecret(ctx, req.Id, &vaultcommon.StoredSecret{
 		EncryptedSecret: encryptedSecret,
 	})
 	if err != nil {
@@ -2032,7 +2127,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 		return resp, newUserError(resp.GetError())
 	}
 
-	err := store.DeleteSecret(id)
+	err := store.DeleteSecret(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete secret from key value store: %w", err)
 	}
