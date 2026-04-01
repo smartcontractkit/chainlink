@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ import (
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -825,6 +827,72 @@ func newFetcherServiceV2(
 	return fetcher.Fetch, fetcher.RetrieveURL, []commonsrv.Service{fetcher}, nil
 }
 
+// newWorkflowRegistrySyncerV2Sources instantiates the workflow registry sources.
+// Sources are detected by:
+//   - non-zero address -> ContractWorkflowSource
+//   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
+//   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
+func newWorkflowRegistrySyncerV2Sources(
+	capCfg config.Capabilities,
+	opts Opts,
+	lggr logger.Logger,
+	selector string,
+	crFactory versioning.ContractReaderFactory,
+) []syncerV2.WorkflowMetadataSource {
+	var workflowSources []syncerV2.WorkflowMetadataSource
+
+	// Only add contract source if address is configured
+	addr := capCfg.WorkflowRegistry().Address()
+	if addr != "" {
+		contractSource := syncerV2.NewContractWorkflowSource(lggr, crFactory, capCfg.WorkflowRegistry().Address(), selector)
+		workflowSources = append(workflowSources, contractSource)
+	}
+
+	additionalSources := capCfg.WorkflowRegistry().AdditionalSources()
+	for _, src := range additionalSources {
+		if strings.HasPrefix(src.GetURL(), "file://") {
+			// File source - extract path from file:// URL
+			filePath := strings.TrimPrefix(src.GetURL(), "file://")
+			fileSource, err := syncerV2.NewFileWorkflowSourceWithPath(lggr, src.GetName(), filePath)
+			if err != nil {
+				lggr.Errorw("Failed to create file workflow source",
+					"name", src.GetName(),
+					"path", filePath,
+					"error", err)
+				continue
+			}
+			workflowSources = append(workflowSources, fileSource)
+			lggr.Infow("Added file workflow source",
+				"name", src.GetName(),
+				"path", filePath)
+		} else {
+			grpcSource, err := syncerV2.NewGRPCWorkflowSource(lggr, syncerV2.GRPCWorkflowSourceConfig{
+				URL:          src.GetURL(),
+				TLSEnabled:   src.GetTLSEnabled(),
+				Name:         src.GetName(),
+				JWTGenerator: opts.JWTGenerator,
+			})
+			if err != nil {
+				lggr.Errorw("Failed to create GRPC workflow source",
+					"name", src.GetName(),
+					"url", src.GetURL(),
+					"error", err)
+				continue
+			}
+			workflowSources = append(workflowSources, grpcSource)
+			lggr.Infow("Added GRPC workflow source",
+				"name", src.GetName(),
+				"url", src.GetURL(),
+				"tls", src.GetTLSEnabled())
+		}
+	}
+
+	lggr.Infow("Initialized workflow registry with multi-source support",
+		"sourceCount", len(workflowSources),
+		"hasContractSource", addr != "")
+	return workflowSources
+}
+
 func newWorkflowRegistrySyncerV2(
 	cfg Config,
 	relayerChainInterops RelayerChainInterops,
@@ -931,21 +999,7 @@ func newWorkflowRegistrySyncerV2(
 		shardOrchestratorClient = c
 	}
 
-	addSources := capCfg.WorkflowRegistry().AdditionalSources()
-	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
-	if len(addSources) > 0 {
-		for _, src := range addSources {
-			addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
-				URL:          src.GetURL(),
-				Name:         src.GetName(),
-				TLSEnabled:   src.GetTLSEnabled(),
-				JWTGenerator: opts.JWTGenerator,
-			})
-		}
-	}
-
 	registryOpts := []syncerV2.Option{
-		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithMaxConcurrency(capCfg.WorkflowRegistry().MaxConcurrency()),
 	}
@@ -959,6 +1013,7 @@ func newWorkflowRegistrySyncerV2(
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
 		lggr,
 		crFactory,
+		newWorkflowRegistrySyncerV2Sources(capCfg, opts, lggr, selector, crFactory),
 		capCfg.WorkflowRegistry().Address(),
 		selector,
 		syncerV2.Config{

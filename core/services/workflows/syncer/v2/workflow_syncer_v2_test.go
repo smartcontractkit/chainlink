@@ -113,11 +113,13 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	testEventHandler := newTestEvtHandler(nil)
 
 	// Create the worker
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{
@@ -199,11 +201,13 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
 
 	handler := newTestEvtHandler(nil)
 
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{
@@ -309,11 +313,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPausedV2(t *testing.T) {
 	handler, err := NewEventHandler(lggr, wfStore, nil, true, capRegistry, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier)
 	require.NoError(t, err)
 
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{
@@ -413,11 +419,13 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, donNotifier, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{
@@ -490,11 +498,13 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		testEventHandler := newTestEvtHandler(nil)
 
 		// Create the worker
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		}
 		worker, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return backendTH.NewContractReader(ctx, t, bytes)
-			},
+			contractReaderFn,
+			[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 			wfRegistryAddr.Hex(),
 			"test-chain-selector",
 			Config{
@@ -564,11 +574,13 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	engineRegistry := NewEngineRegistry()
 
 	// Create the worker
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{
@@ -662,11 +674,13 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	})
 
 	// Create the worker
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return backendTH.NewContractReader(ctx, t, bytes)
+	}
 	worker, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return backendTH.NewContractReader(ctx, t, bytes)
-		},
+		contractReaderFn,
+		[]WorkflowMetadataSource{NewContractWorkflowSource(lggr, contractReaderFn, wfRegistryAddr.Hex(), "test-chain-selector")},
 		wfRegistryAddr.Hex(),
 		"test-chain-selector",
 		Config{

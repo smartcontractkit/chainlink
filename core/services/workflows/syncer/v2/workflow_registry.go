@@ -10,7 +10,6 @@ import (
 	"maps"
 	"math/big"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -73,7 +72,6 @@ type workflowRegistry struct {
 
 	lggr                    logger.Logger
 	workflowRegistryAddress string
-	chainSelector           string
 
 	// lastSeenAllowlistedRequestsCount tracks the last seen allowlisted requests count to avoid fetching the same allowlisted requests multiple times.
 	// This value is stored in memory and not persisted to the database.
@@ -160,71 +158,6 @@ type AdditionalSourceConfig struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
-// WithAdditionalSources adds additional workflow sources to the registry.
-// Sources are detected by URL scheme:
-//   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
-//   - Otherwise -> GRPCWorkflowSource (connects to GRPC server)
-//
-// These sources supplement or replace the primary contract source.
-func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
-	return func(wr *workflowRegistry) {
-		successCount := 0
-		failedSources := []string{}
-
-		for _, src := range sources {
-			// Detect source type by URL scheme
-			if strings.HasPrefix(src.URL, "file://") {
-				// File source - extract path from file:// URL
-				filePath := strings.TrimPrefix(src.URL, "file://")
-				fileSource, err := NewFileWorkflowSourceWithPath(wr.lggr, src.Name, filePath)
-				if err != nil {
-					wr.lggr.Errorw("Failed to create file workflow source",
-						"name", src.Name,
-						"path", filePath,
-						"error", err)
-					failedSources = append(failedSources, src.Name)
-					continue
-				}
-				wr.workflowSources = append(wr.workflowSources, fileSource)
-				successCount++
-				wr.lggr.Infow("Added file workflow source",
-					"name", src.Name,
-					"path", filePath)
-			} else {
-				// GRPC source (default)
-				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-					URL:          src.URL,
-					TLSEnabled:   src.TLSEnabled,
-					Name:         src.Name,
-					JWTGenerator: src.JWTGenerator,
-				})
-				if err != nil {
-					wr.lggr.Errorw("Failed to create GRPC workflow source",
-						"name", src.Name,
-						"url", src.URL,
-						"error", err)
-					failedSources = append(failedSources, src.Name)
-					continue
-				}
-				wr.workflowSources = append(wr.workflowSources, grpcSource)
-				successCount++
-				wr.lggr.Infow("Added GRPC workflow source",
-					"name", src.Name,
-					"url", src.URL,
-					"tls", src.TLSEnabled)
-			}
-		}
-
-		// Log summary if any sources failed to initialize
-		if len(failedSources) > 0 {
-			wr.lggr.Warnw("Some additional sources failed to initialize",
-				"expected", len(sources),
-				"active", successCount,
-				"failed", failedSources)
-		}
-	}
-}
-
 // Option is a functional option for configuring a workflowRegistry.
 type Option func(*workflowRegistry)
 
@@ -254,6 +187,7 @@ func WithShardID(shardID uint32) Option {
 func NewWorkflowRegistry(
 	lggr logger.Logger,
 	contractReaderFn versioning.ContractReaderFactory,
+	workflowSources []WorkflowMetadataSource,
 	addr string,
 	chainSelector string,
 	config Config,
@@ -271,24 +205,10 @@ func NewWorkflowRegistry(
 		return nil, err
 	}
 
-	var workflowSources []WorkflowMetadataSource
-
-	// Only add contract source if address is configured
-	if addr != "" {
-		contractSource := NewContractWorkflowSource(lggr, contractReaderFn, addr, chainSelector)
-		workflowSources = append(workflowSources, contractSource)
-		lggr.Infow("Added contract workflow source",
-			"contractAddress", addr,
-			"chainSelector", chainSelector)
-	} else {
-		lggr.Infow("No contract address configured, skipping contract workflow source")
-	}
-
 	wr := &workflowRegistry{
 		lggr:                             lggr,
 		contractReaderFn:                 contractReaderFn,
 		workflowRegistryAddress:          addr,
-		chainSelector:                    chainSelector,
 		lastSeenAllowlistedRequestsCount: big.NewInt(0),
 		config:                           config,
 		stopCh:                           make(services.StopChan),
@@ -309,10 +229,6 @@ func NewWorkflowRegistry(
 	for _, opt := range opts {
 		opt(wr)
 	}
-
-	lggr.Infow("Initialized workflow registry with multi-source support",
-		"sourceCount", len(wr.workflowSources),
-		"hasContractSource", addr != "")
 
 	switch wr.config.SyncStrategy {
 	case SyncStrategyReconciliation:

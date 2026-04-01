@@ -28,6 +28,12 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
+func newTestContractSources(lggr logger.Logger, contractReaderFn func(ctx context.Context, bytes []byte) (types.ContractReader, error)) []WorkflowMetadataSource {
+	return []WorkflowMetadataSource{
+		NewContractWorkflowSource(lggr, contractReaderFn, "", "test-chain-selector"),
+	}
+}
+
 func Test_generateReconciliationEventsV2(t *testing.T) {
 	// Validate that if no engines are on the node in the registry,
 	// and we see that the contract has workflow state,
@@ -38,11 +44,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -112,11 +120,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfName := "wf name 1"
 		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -188,11 +198,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -228,11 +240,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -306,11 +320,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -366,11 +382,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfName := "wf name 1"
 		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
 		require.NoError(t, err)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -425,11 +443,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -515,11 +535,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -604,11 +626,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfName := "wf name 1"
 		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -664,11 +688,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -716,11 +742,13 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		ctx := testutils.Context(t)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -797,11 +825,13 @@ func Test_Start(t *testing.T) {
 		}.NewServiceEngine(lggr)
 		h.Service = svc
 		h.eng = eng
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return mockReader, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return mockReader, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -845,11 +875,13 @@ func Test_GetAllowlistedRequests(t *testing.T) {
 		allowlistedRequests: expectedRequests,
 	}
 
+	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return mockContractReader, nil
+	}
 	wr, err := NewWorkflowRegistry(
 		lggr,
-		func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return mockContractReader, nil
-		},
+		contractReaderFn,
+		newTestContractSources(lggr, contractReaderFn),
 		"",
 		"test-chain-selector",
 		Config{
@@ -924,11 +956,13 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDContract, ContractWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -961,11 +995,13 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1014,11 +1050,13 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDContract, ContractWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1057,11 +1095,13 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 		wfID := [32]byte{1}
 		require.NoError(t, er.Add(wfID, ContractWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1105,11 +1145,13 @@ func Test_generateReconciliationEvents_SourceIsolation(t *testing.T) {
 		wfIDContract := [32]byte{1}
 		require.NoError(t, er.Add(wfIDContract, ContractWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1148,11 +1190,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDContract, ContractWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1206,11 +1250,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDGrpc1, GRPCWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc2, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1261,11 +1307,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDContract, ContractWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		_, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1302,11 +1350,13 @@ func Test_PerSourceReconciliation_FailureIsolation(t *testing.T) {
 		require.NoError(t, er.Add(wfIDGrpc1, GRPCWorkflowSourceName, &mockService{}))
 		require.NoError(t, er.Add(wfIDGrpc2, GRPCWorkflowSourceName, &mockService{}))
 
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+			return nil, nil
+		}
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-				return nil, nil
-			},
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{
@@ -1411,9 +1461,11 @@ func Test_ParallelEventHandling(t *testing.T) {
 		}
 
 		handler := newTestEvtHandler(nil)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil }
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
@@ -1483,9 +1535,11 @@ func Test_ParallelEventHandling(t *testing.T) {
 		newID := wfTypes.WorkflowID([32]byte{2})
 
 		handler := newTestEvtHandler(nil)
+		contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil }
 		wr, err := NewWorkflowRegistry(
 			lggr,
-			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			contractReaderFn,
+			newTestContractSources(lggr, contractReaderFn),
 			"",
 			"test-chain-selector",
 			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
