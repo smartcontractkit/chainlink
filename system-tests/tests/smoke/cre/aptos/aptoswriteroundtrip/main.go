@@ -89,9 +89,9 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 	}
 
 	client := aptos.Client{ChainSelector: cfg.ChainSelector}
-	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
 		Receiver: receiverBytes,
-		Report:   report,
+		Report:   reportResp,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,
@@ -105,6 +105,18 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 	}
 	if reply.TxStatus != aptos.TxStatus_TX_STATUS_SUCCESS {
 		return nil, fmt.Errorf("unexpected tx status: %s", reply.TxStatus.String())
+	}
+	if strings.TrimSpace(reply.GetTxHash()) == "" {
+		return nil, fmt.Errorf("empty tx hash in successful WriteReport reply")
+	}
+	if reply.ReceiverContractExecutionStatus == nil {
+		return nil, fmt.Errorf("missing receiver execution status in successful WriteReport reply")
+	}
+	if *reply.ReceiverContractExecutionStatus != aptos.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS {
+		return nil, fmt.Errorf("unexpected receiver execution status: %s", reply.ReceiverContractExecutionStatus.String())
+	}
+	if reply.TransactionFee == nil || *reply.TransactionFee == 0 {
+		return nil, fmt.Errorf("missing transaction fee in successful WriteReport reply")
 	}
 
 	viewReply, err := client.View(runtime, &aptos.ViewRequest{
@@ -137,6 +149,8 @@ func onAptosWriteReadRoundtripTrigger(cfg config.Config, runtime sdk.Runtime, pa
 	runtime.Logger().Info(
 		"Aptos write/read consensus succeeded",
 		"workflow", cfg.WorkflowName,
+		"txHash", reply.GetTxHash(),
+		"transactionFee", *reply.TransactionFee,
 		"benchmark", benchmark,
 		"feedID", normalizeHex(cfg.FeedIDHex),
 	)

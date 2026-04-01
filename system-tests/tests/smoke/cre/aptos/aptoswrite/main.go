@@ -135,9 +135,9 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		"maxGasAmount", cfg.MaxGasAmount,
 		"gasUnitPrice", cfg.GasUnitPrice,
 	)
-	reply, err := client.WriteReport(runtime, &aptos.WriteCreReportRequest{
+	reply, err := client.WriteReport(runtime, &aptos.WriteReportRequest{
 		Receiver: receiver,
-		Report:   report,
+		Report:   reportResp,
 		GasConfig: &aptos.GasConfig{
 			MaxGasAmount: cfg.MaxGasAmount,
 			GasUnitPrice: cfg.GasUnitPrice,
@@ -191,16 +191,34 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 			return nil, fmt.Errorf("invalid failed tx hash format: %w", err)
 		}
 
-		errorMsg := ""
-		if reply.ErrorMessage != nil {
-			errorMsg = *reply.ErrorMessage
+		if reply.ReceiverContractExecutionStatus == nil {
+			runtime.Logger().Info("Aptos write failed: expected receiver execution status on failed write", "workflow", cfg.WorkflowName)
+			return nil, fmt.Errorf("expected receiver execution status in failed WriteReport reply")
+		}
+		if *reply.ReceiverContractExecutionStatus != aptos.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_REVERTED {
+			runtime.Logger().Info(
+				"Aptos write failed: expected receiver execution revert status",
+				"workflow", cfg.WorkflowName,
+				"receiverExecutionStatus", reply.ReceiverContractExecutionStatus.String(),
+			)
+			return nil, fmt.Errorf("expected receiver execution status REVERTED, got %s", reply.ReceiverContractExecutionStatus.String())
+		}
+		if reply.TransactionFee == nil || *reply.TransactionFee == 0 {
+			runtime.Logger().Info("Aptos write failed: expected failed write transaction fee", "workflow", cfg.WorkflowName)
+			return nil, fmt.Errorf("expected non-zero transaction fee in failed WriteReport reply")
+		}
+		if reply.ErrorMessage == nil || strings.TrimSpace(*reply.ErrorMessage) == "" {
+			runtime.Logger().Info("Aptos write failed: expected failed write error message", "workflow", cfg.WorkflowName)
+			return nil, fmt.Errorf("expected non-empty error message in failed WriteReport reply")
 		}
 		runtime.Logger().Info(
 			fmt.Sprintf("Aptos write failure observed as expected txHash=%s", txHash),
 			"workflow", cfg.WorkflowName,
 			"txStatus", reply.TxStatus.String(),
 			"txHash", txHash,
-			"error", errorMsg,
+			"receiverExecutionStatus", reply.ReceiverContractExecutionStatus.String(),
+			"transactionFee", *reply.TransactionFee,
+			"error", *reply.ErrorMessage,
 		)
 		return nil, nil
 	}
@@ -223,13 +241,36 @@ func onAptosWriteTrigger(cfg config.Config, runtime sdk.Runtime, payload *cron.P
 		return nil, fmt.Errorf("expected non-empty tx hash in successful WriteReport reply")
 	}
 
+	if reply.ReceiverContractExecutionStatus == nil {
+		runtime.Logger().Info("Aptos write failed: expected receiver execution status on successful write", "workflow", cfg.WorkflowName)
+		return nil, fmt.Errorf("expected receiver execution status in successful WriteReport reply")
+	}
+	if *reply.ReceiverContractExecutionStatus != aptos.ReceiverContractExecutionStatus_RECEIVER_CONTRACT_EXECUTION_STATUS_SUCCESS {
+		runtime.Logger().Info(
+			"Aptos write failed: expected successful receiver execution status",
+			"workflow", cfg.WorkflowName,
+			"receiverExecutionStatus", reply.ReceiverContractExecutionStatus.String(),
+		)
+		return nil, fmt.Errorf("expected receiver execution status SUCCESS, got %s", reply.ReceiverContractExecutionStatus.String())
+	}
+	if reply.TransactionFee == nil || *reply.TransactionFee == 0 {
+		runtime.Logger().Info("Aptos write failed: expected transaction fee on successful write", "workflow", cfg.WorkflowName)
+		return nil, fmt.Errorf("expected non-zero transaction fee in successful WriteReport reply")
+	}
+
 	txHash, err := normalizeTxHash(txHashRaw)
 	if err != nil {
 		runtime.Logger().Info("Aptos write failed: invalid tx hash format", "workflow", cfg.WorkflowName, "error", err.Error())
 		return nil, fmt.Errorf("invalid tx hash format: %w", err)
 	}
 
-	runtime.Logger().Info("Aptos write capability succeeded", "workflow", cfg.WorkflowName, "txHash", txHash)
+	runtime.Logger().Info(
+		"Aptos write capability succeeded",
+		"workflow", cfg.WorkflowName,
+		"txHash", txHash,
+		"receiverExecutionStatus", reply.ReceiverContractExecutionStatus.String(),
+		"transactionFee", *reply.TransactionFee,
+	)
 	return nil, nil
 }
 
