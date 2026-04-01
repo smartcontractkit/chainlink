@@ -37,11 +37,11 @@ type secretsFetcher struct {
 	capRegistry core.CapabilitiesRegistry
 	lggr        logger.Logger
 
-	semaphore         limits.ResourcePoolLimiter[int]
-	secretsCallsLimit limits.BoundLimiter[int]
+	semaphore                      limits.ResourcePoolLimiter[int]
+	secretsCallsLimit              limits.BoundLimiter[int]
 	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
-	secretsCalled     int
-	mu                sync.Mutex
+	secretsCalled                  int
+	mu                             sync.Mutex
 
 	orgID                 string
 	workflowOwner         string
@@ -70,18 +70,18 @@ func NewSecretsFetcher(
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
 	return &secretsFetcher{
-		capRegistry:           capRegistry,
-		lggr:                  lggr,
-		semaphore:             semaphore,
-		secretsCallsLimit:     secretsCalls,
+		capRegistry:                    capRegistry,
+		lggr:                           lggr,
+		semaphore:                      semaphore,
+		secretsCallsLimit:              secretsCalls,
 		vaultOrgIDAsSecretOwnerEnabled: vaultOrgIDAsSecretOwnerEnabled,
-		orgID:                 orgID,
-		workflowOwner:         workflowOwner,
-		workflowName:          workflowName,
-		workflowID:            workflowID,
-		phaseID:               phaseID,
-		workflowEncryptionKey: workflowEncryptionKey,
-		metrics:               metrics,
+		orgID:                          orgID,
+		workflowOwner:                  workflowOwner,
+		workflowName:                   workflowName,
+		workflowID:                     workflowID,
+		phaseID:                        phaseID,
+		workflowEncryptionKey:          workflowEncryptionKey,
+		metrics:                        metrics,
 	}
 }
 
@@ -189,9 +189,9 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if s.vaultOrgIDAsSecretOwnerEnabled == nil {
 		orgID = ""
 	} else {
-		enabled, err := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
+		enabled, gateErr := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
+		if gateErr != nil {
+			return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", gateErr)
 		}
 		if !enabled {
 			orgID = ""

@@ -287,12 +287,6 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 
 // resolveRequestIdentity validates and normalizes the org/workflow-owner pair that the vault plugin consumes.
 func (s *Capability) resolveRequestIdentity(ctx context.Context, orgID string, workflowOwner string) (LinkedVaultRequestIdentity, error) {
-	if s.linker == nil {
-		err := errors.New("request identity linker is not configured")
-		s.lggr.Errorw("failed to resolve request identity", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
-		return LinkedVaultRequestIdentity{}, err
-	}
-
 	s.lggr.Debugw("resolving request identity", "orgID", orgID, "workflowOwner", workflowOwner)
 	linked, err := s.linker.Link(ctx, orgID, workflowOwner)
 	if err != nil {

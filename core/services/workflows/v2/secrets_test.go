@@ -354,7 +354,7 @@ func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
 		reg,
 		lggr,
 		limits.WorkflowResourcePoolLimiter[int](5),
-		limits.NewBoundLimiter[int](5),
+		limits.NewUpperBoundLimiter[int](5),
 		testVaultOrgIDAsSecretOwnerGate(t, true),
 		"org-123",
 		owner,
