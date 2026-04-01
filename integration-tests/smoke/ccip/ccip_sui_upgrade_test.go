@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -468,6 +471,16 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 }
 
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
+	newOnrampVersion := "OnRamp 1.6.1"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		sourcePath := filepath.Join(packageRoot, "sources", "onramp.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`OnRamp \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newOnrampVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+	})
+	defer suiBind.ClearTestModifier()
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -548,7 +561,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "OnRamp 1.6.1", typeAndVersion)
+	require.Equal(t, newOnrampVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionOnRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOnRampMockV2, deployment.Version1_0_0)
@@ -560,6 +573,15 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 }
 
 func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
+	newOfframpVersion := "OffRamp 1.6.1"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		sourcePath := filepath.Join(packageRoot, "sources", "offramp.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`OffRamp \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newOfframpVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+	})
+	defer suiBind.ClearTestModifier()
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -640,7 +662,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "OffRamp 1.6.1", typeAndVersion)
+	require.Equal(t, newOfframpVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionOffRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOffRampMockV2, deployment.Version1_0_0)
@@ -652,6 +674,16 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 }
 
 func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) string {
+	newFeeQuoterVersion := "FeeQuoter 1.6.2"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		sourcePath := filepath.Join(packageRoot, "sources", "fee_quoter.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`FeeQuoter \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newFeeQuoterVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o644)
+	})
+	defer suiBind.ClearTestModifier()
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -731,7 +763,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "FeeQuoter 1.6.1", typeAndVersion)
+	require.Equal(t, newFeeQuoterVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)
