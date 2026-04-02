@@ -47,7 +47,11 @@ func (p *reportingPlugin[RI]) wrapBroadcastFetcher(bbf ocr3_1types.BlobBroadcast
 	if bbf == nil {
 		return nil
 	}
-	return &instrumentedBlobBroadcastFetcher{inner: bbf, metrics: p.metrics}
+	return &instrumentedBlobBroadcastFetcher{
+		inner:                   bbf,
+		metrics:                 p.metrics,
+		instrumentedBlobFetcher: instrumentedBlobFetcher{inner: bbf, metrics: p.metrics},
+	}
 }
 
 func (p *reportingPlugin[RI]) wrapFetcher(bf ocr3_1types.BlobFetcher) ocr3_1types.BlobFetcher {

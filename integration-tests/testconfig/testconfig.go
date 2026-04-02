@@ -9,9 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/barkimedes/go-deepcopy"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -27,82 +24,14 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 
-	a_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	ccip_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-	f_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/functions"
-	keeper_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/keeper"
-	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
-	ocr_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/ocr"
-	vrf_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrf"
-	vrfv2_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
-	vrfv2plus_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2plus"
-)
-
-type UpgradeableChainlinkTestConfig interface {
-	GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig
-}
-
-type CommonTestConfig interface {
-	GetCommonConfig() *Common
-}
-
-type VRFv2TestConfig interface {
-	GetVRFv2Config() *vrfv2_config.Config
-}
-
-type VRFv2PlusTestConfig interface {
-	GetVRFv2PlusConfig() *vrfv2plus_config.Config
-}
-
-type FunctionsTestConfig interface {
-	GetFunctionsConfig() *f_config.Config
-}
-
-type KeeperTestConfig interface {
-	GetKeeperConfig() *keeper_config.Config
-}
-
-type AutomationTestConfig interface {
-	GetAutomationConfig() *a_config.Config
-}
-
-type OcrTestConfig interface {
-	GetActiveOCRConfig() *ocr_config.Config
-}
-
-type Ocr2TestConfig interface {
-	GetOCR2Config() *ocr_config.Config
-}
-
-type CCIPTestConfig interface {
-	GetCCIPConfig() *ccip_config.Config
-}
-
-type LinkTokenContractConfig interface {
-	LinkTokenContractAddress() (common.Address, error)
-	UseExistingLinkTokenContract() bool
-}
-
-const (
-	E2E_TEST_DATA_STREAMS_URL_ENV      = "E2E_TEST_DATA_STREAMS_URL"
-	E2E_TEST_DATA_STREAMS_USERNAME_ENV = "E2E_TEST_DATA_STREAMS_USERNAME"
-	E2E_TEST_DATA_STREAMS_PASSWORD_ENV = "E2E_TEST_DATA_STREAMS_PASSWORD"
 )
 
 type TestConfig struct {
 	ctf_config.TestConfig
 
-	Common     *Common                  `toml:"Common"`
-	Automation *a_config.Config         `toml:"Automation"`
-	Functions  *f_config.Config         `toml:"Functions"`
-	Keeper     *keeper_config.Config    `toml:"Keeper"`
-	LogPoller  *lp_config.Config        `toml:"LogPoller"`
-	OCR        *ocr_config.Config       `toml:"OCR"`
-	OCR2       *ocr_config.Config       `toml:"OCR2"`
-	VRF        *vrf_config.Config       `toml:"VRF"`
-	VRFv2      *vrfv2_config.Config     `toml:"VRFv2"`
-	VRFv2Plus  *vrfv2plus_config.Config `toml:"VRFv2Plus"`
-	CCIP       *ccip_config.Config      `toml:"CCIP"`
+	Common *Common             `toml:"Common"`
+	CCIP   *ccip_config.Config `toml:"CCIP"`
 
 	ConfigurationNames []string `toml:"-"`
 }
@@ -137,37 +66,6 @@ func (c *TestConfig) GetGrafanaDashboardURL() (string, error) {
 	return url, nil
 }
 
-// Saves Test Config to a local file
-func (c *TestConfig) Save() (string, error) {
-	filePath := fmt.Sprintf("test_config-%s.toml", uuid.New())
-
-	content, err := toml.Marshal(*c)
-	if err != nil {
-		return "", errors.Wrapf(err, "error marshaling test config")
-	}
-
-	err = os.WriteFile(filePath, content, 0600)
-	if err != nil {
-		return "", errors.Wrapf(err, "error writing test config")
-	}
-
-	return filePath, nil
-}
-
-// MustCopy Returns a deep copy of the Test Config or panics on error
-func (c TestConfig) MustCopy() any {
-	return deepcopy.MustAnything(c).(TestConfig)
-}
-
-// MustCopy Returns a deep copy of struct passed to it and returns a typed copy (or panics on error)
-func MustCopy[T any](c T) T {
-	return deepcopy.MustAnything(c).(T)
-}
-
-func (c *TestConfig) GetLoggingConfig() *ctf_config.LoggingConfig {
-	return c.Logging
-}
-
 func (c TestConfig) GetNetworkConfig() *ctf_config.NetworkConfig {
 	return c.Network
 }
@@ -184,65 +82,8 @@ func (c TestConfig) GetPyroscopeConfig() *ctf_config.PyroscopeConfig {
 	return c.Pyroscope
 }
 
-func (c TestConfig) GetCommonConfig() *Common {
-	return c.Common
-}
-
-func (c TestConfig) GetVRFv2Config() *vrfv2_config.Config {
-	return c.VRFv2
-}
-
-func (c TestConfig) GetFunctionsConfig() *f_config.Config {
-	return c.Functions
-}
-
-func (c TestConfig) GetVRFv2PlusConfig() *vrfv2plus_config.Config {
-	return c.VRFv2Plus
-}
-
-func (c TestConfig) GetChainlinkUpgradeImageConfig() *ctf_config.ChainlinkImageConfig {
-	return c.ChainlinkUpgradeImage
-}
-
-func (c TestConfig) GetKeeperConfig() *keeper_config.Config {
-	return c.Keeper
-}
-
-func (c TestConfig) GetAutomationConfig() *a_config.Config {
-	return c.Automation
-}
-
-func (c TestConfig) GetOCRConfig() *ocr_config.Config {
-	return c.OCR
-}
-
-func (c TestConfig) GetCCIPConfig() *ccip_config.Config {
-	return c.CCIP
-}
-
-func (c TestConfig) GetConfigurationNames() []string {
-	return c.ConfigurationNames
-}
-
 func (c TestConfig) GetSethConfig() *seth.Config {
 	return c.Seth
-}
-
-func (c TestConfig) GetActiveOCRConfig() *ocr_config.Config {
-	if c.OCR != nil {
-		return c.OCR
-	}
-
-	return c.OCR2
-}
-
-func (c *TestConfig) AsBase64() (string, error) {
-	content, err := toml.Marshal(*c)
-	if err != nil {
-		return "", errors.Wrapf(err, "error marshaling test config")
-	}
-
-	return base64.StdEncoding.EncodeToString(content), nil
 }
 
 type Common struct {
@@ -260,35 +101,8 @@ func (c *Common) Validate() error {
 type Product string
 
 const (
-	Automation    Product = "automation"
-	Cron          Product = "cron"
-	Flux          Product = "flux"
-	ForwarderOcr  Product = "forwarder_ocr"
-	ForwarderOcr2 Product = "forwarder_ocr2"
-	Functions     Product = "functions"
-	Keeper        Product = "keeper"
-	LogPoller     Product = "log_poller"
-	Node          Product = "node"
-	OCR           Product = "ocr"
-	OCR2          Product = "ocr2"
-	RunLog        Product = "runlog"
-	VRF           Product = "vrf"
-	VRFv2         Product = "vrfv2"
-	VRFv2Plus     Product = "vrfv2plus"
-
 	CCIP Product = "ccip"
 )
-
-const TestTypeEnvVarName = "TEST_TYPE"
-
-func GetConfigurationNameFromEnv() (string, error) {
-	testType := os.Getenv(TestTypeEnvVarName)
-	if testType == "" {
-		return "", fmt.Errorf("%s env var not set", TestTypeEnvVarName)
-	}
-
-	return cases.Title(language.English, cases.NoLower).String(testType), nil
-}
 
 const (
 	Base64OverrideEnvVarName = k8s_config.EnvBase64ConfigOverride
@@ -447,50 +261,10 @@ func GetConfig(configurationNames []string, product Product, extraFileNames ...s
 
 // Read config values from environment variables
 func (c *TestConfig) ReadFromEnvVar() error {
-	logger := logging.GetTestLogger(nil)
-
-	// Read values for base config from env vars
 	err := c.TestConfig.ReadFromEnvVar()
 	if err != nil {
 		return errors.Wrapf(err, "error reading test config values from env vars")
 	}
-
-	dsURL := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_URL_ENV)
-	if dsURL != "" {
-		if c.Automation == nil {
-			c.Automation = &a_config.Config{}
-		}
-		if c.Automation.DataStreams == nil {
-			c.Automation.DataStreams = &a_config.DataStreams{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.URL", E2E_TEST_DATA_STREAMS_URL_ENV)
-		c.Automation.DataStreams.URL = &dsURL
-	}
-
-	dsUsername := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_USERNAME_ENV)
-	if dsUsername != "" {
-		if c.Automation == nil {
-			c.Automation = &a_config.Config{}
-		}
-		if c.Automation.DataStreams == nil {
-			c.Automation.DataStreams = &a_config.DataStreams{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.Username", E2E_TEST_DATA_STREAMS_USERNAME_ENV)
-		c.Automation.DataStreams.Username = &dsUsername
-	}
-
-	dsPassword := ctf_config.MustReadEnvVar_String(E2E_TEST_DATA_STREAMS_PASSWORD_ENV)
-	if dsPassword != "" {
-		if c.Automation == nil {
-			c.Automation = &a_config.Config{}
-		}
-		if c.Automation.DataStreams == nil {
-			c.Automation.DataStreams = &a_config.DataStreams{}
-		}
-		logger.Debug().Msgf("Using %s env var to override Automation.DataStreams.Password", E2E_TEST_DATA_STREAMS_PASSWORD_ENV)
-		c.Automation.DataStreams.Password = &dsPassword
-	}
-
 	return nil
 }
 
@@ -674,60 +448,6 @@ func (c *TestConfig) Validate() error {
 	if c.Common != nil {
 		if err := c.Common.Validate(); err != nil {
 			return errors.Wrapf(err, "Common config validation failed")
-		}
-	}
-
-	if c.Automation != nil {
-		if err := c.Automation.Validate(); err != nil {
-			return errors.Wrapf(err, "Automation config validation failed")
-		}
-	}
-
-	if c.Functions != nil {
-		if err := c.Functions.Validate(); err != nil {
-			return errors.Wrapf(err, "Functions config validation failed")
-		}
-	}
-
-	if c.Keeper != nil {
-		if err := c.Keeper.Validate(); err != nil {
-			return errors.Wrapf(err, "Keeper config validation failed")
-		}
-	}
-
-	if c.LogPoller != nil {
-		if err := c.LogPoller.Validate(); err != nil {
-			return errors.Wrapf(err, "LogPoller config validation failed")
-		}
-	}
-
-	if c.OCR != nil {
-		if err := c.OCR.Validate(); err != nil {
-			return errors.Wrapf(err, "OCR config validation failed")
-		}
-	}
-
-	if c.OCR2 != nil {
-		if err := c.OCR2.Validate(); err != nil {
-			return errors.Wrapf(err, "OCR2 config validation failed")
-		}
-	}
-
-	if c.VRF != nil {
-		if err := c.VRF.Validate(); err != nil {
-			return errors.Wrapf(err, "VRF config validation failed")
-		}
-	}
-
-	if c.VRFv2 != nil {
-		if err := c.VRFv2.Validate(); err != nil {
-			return errors.Wrapf(err, "VRFv2 config validation failed")
-		}
-	}
-
-	if c.VRFv2Plus != nil {
-		if err := c.VRFv2Plus.Validate(); err != nil {
-			return errors.Wrapf(err, "VRFv2Plus config validation failed")
 		}
 	}
 

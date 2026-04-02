@@ -97,7 +97,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			lp := new(mocks.LogPoller)
+			lp := mocks.NewLogPoller(t)
 			lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
@@ -155,7 +155,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			lp := new(mocks.LogPoller)
+			lp := mocks.NewLogPoller(t)
 			lp.On("GetBlocksRange", mock.Anything, tc.Blocks).Return(tc.PollerBlocks, tc.Error)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
@@ -179,7 +179,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 func TestBlockSubscriber_BuildHistory(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 
 	tests := []struct {
 		Name            string
@@ -229,7 +229,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 func TestBlockSubscriber_Cleanup(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb heads.Broadcaster
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 
 	tests := []struct {
 		Name                     string
@@ -278,7 +278,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
-	lp := new(mocks.LogPoller)
+	lp := mocks.NewLogPoller(t)
 	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
 	blocks := []uint64{97, 98, 99, 100}
 	pollerBlocks := []logpoller.Block{

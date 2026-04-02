@@ -1,20 +1,19 @@
 package vault
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/leanovate/gopter"
-	"github.com/leanovate/gopter/gen"
-	"github.com/leanovate/gopter/prop"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -125,8 +124,8 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, int(cresettings.Default.VaultMaxPerOracleUnexpiredBlobCumulativePayloadSizeLimit.DefaultValue), infoObject.Limits.MaxPerOracleUnexpiredBlobCumulativePayloadBytes)
 	assert.Equal(t, cresettings.Default.VaultMaxPerOracleUnexpiredBlobCount.DefaultValue, infoObject.Limits.MaxPerOracleUnexpiredBlobCount)
 
-	// Verify that configProto overrides apply to BatchSize and MaxSecretsPerOwner,
-	// while other fields remain at cresettings defaults.
+	// Verify that configProto overrides apply to MaxSecretsPerOwner,
+	// while MaxBatchSize and other fields remain at cresettings defaults.
 	cfg = vaultcommon.ReportingPluginConfig{
 		BatchSize:                                     2,
 		MaxSecretsPerOwner:                            2,
@@ -150,7 +149,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	require.NoError(t, err)
 
 	typedRP = rp.(*ReportingPlugin)
-	assertLimit(t, 2, typedRP.cfg.MaxBatchSize)
+	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
 	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
 	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
 	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
@@ -289,6 +288,7 @@ func makeReportingPluginConfig(
 		MaxIdentifierNamespaceLengthBytes: namespaceOwnerLimiter,
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
+		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
 	}
 }
 
@@ -397,8 +397,10 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 	// We expect the pending queue observation to contain the request in the local queue.
 	assert.Len(t, obs.PendingQueueItems, 2)
 
-	assertPendingQueueItemsEqual(t, expectedID, bf.blobs[0], p)
-	assertPendingQueueItemsEqual(t, expectedID2, bf.blobs[1], p)
+	assertPendingQueueItemsContain(t, bf.blobs, map[string]proto.Message{
+		expectedID:  p,
+		expectedID2: p,
+	})
 
 	assert.NotEmpty(t, obs.SortNonce)
 }
@@ -493,8 +495,10 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 	// We expect the pending queue observation to contain the request in the local queue.
 	assert.Len(t, obs.PendingQueueItems, 2)
 
-	assertPendingQueueItemsEqual(t, expectedID, bf.blobs[0], p)
-	assertPendingQueueItemsEqual(t, expectedID2, bf.blobs[1], p)
+	assertPendingQueueItemsContain(t, bf.blobs, map[string]proto.Message{
+		expectedID:  p,
+		expectedID2: p,
+	})
 
 	assert.NotEmpty(t, obs.SortNonce)
 }
@@ -592,6 +596,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 }
 
 func assertPendingQueueItemsEqual(t *testing.T, expectedID string, got []byte, expectedPayload proto.Message) {
+	t.Helper()
 	gotMsg := &vaultcommon.StoredPendingQueueItem{}
 	err := proto.Unmarshal(got, gotMsg)
 	require.NoError(t, err)
@@ -601,6 +606,213 @@ func assertPendingQueueItemsEqual(t *testing.T, expectedID string, got []byte, e
 	require.NoError(t, err)
 
 	assert.True(t, proto.Equal(expectedPayload, gotm))
+}
+
+func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected map[string]proto.Message) {
+	t.Helper()
+
+	require.Len(t, gotItems, len(expected))
+
+	remaining := make(map[string]proto.Message, len(expected))
+	for id, payload := range expected {
+		remaining[id] = payload
+	}
+
+	for _, got := range gotItems {
+		gotMsg := &vaultcommon.StoredPendingQueueItem{}
+		err := proto.Unmarshal(got, gotMsg)
+		require.NoError(t, err)
+
+		expectedPayload, ok := remaining[gotMsg.Id]
+		require.True(t, ok, "unexpected pending queue item id %q", gotMsg.Id)
+
+		gotPayload, err := gotMsg.Item.UnmarshalNew()
+		require.NoError(t, err)
+		assert.True(t, proto.Equal(expectedPayload, gotPayload))
+
+		delete(remaining, gotMsg.Id)
+	}
+
+	assert.Empty(t, remaining)
+}
+
+type blockingBlobBroadcastFetcher struct {
+	targetStarts int32
+	started      atomic.Int32
+	maxInFlight  atomic.Int32
+	inFlight     atomic.Int32
+	allStarted   chan struct{}
+	release      chan struct{}
+	once         sync.Once
+}
+
+func (b *blockingBlobBroadcastFetcher) BroadcastBlob(ctx context.Context, _ []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	currentInFlight := b.inFlight.Add(1)
+	defer b.inFlight.Add(-1)
+
+	for {
+		maxInFlight := b.maxInFlight.Load()
+		if currentInFlight <= maxInFlight || b.maxInFlight.CompareAndSwap(maxInFlight, currentInFlight) {
+			break
+		}
+	}
+
+	if b.started.Add(1) == b.targetStarts {
+		b.once.Do(func() { close(b.allStarted) })
+	}
+
+	select {
+	case <-b.release:
+		return ocr3_1types.BlobHandle{}, nil
+	case <-ctx.Done():
+		return ocr3_1types.BlobHandle{}, ctx.Err()
+	}
+}
+
+func (b *blockingBlobBroadcastFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in Observation tests")
+}
+
+type errorBlobBroadcastFetcher struct {
+	err error
+}
+
+func (e *errorBlobBroadcastFetcher) BroadcastBlob(context.Context, []byte, ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	return ocr3_1types.BlobHandle{}, e.err
+}
+
+func (e *errorBlobBroadcastFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in Observation tests")
+}
+
+func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInParallel(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+			10,
+		),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "",
+		Key:       "my_secret",
+	}
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{pks},
+			},
+		},
+	}
+
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: "request-1"}))
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: "request-2"}))
+
+	rdr := &kv{m: make(map[string]response)}
+	bf := &blockingBlobBroadcastFetcher{
+		targetStarts: 2,
+		allStarted:   make(chan struct{}),
+		release:      make(chan struct{}),
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, bf)
+		errCh <- err
+	}()
+
+	select {
+	case <-bf.allStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for concurrent blob broadcasts")
+	}
+
+	close(bf.release)
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for Observation to finish")
+	}
+
+	assert.Equal(t, int32(2), bf.maxInFlight.Load())
+}
+
+func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	r := &ReportingPlugin{
+		lggr:  lggr,
+		store: store,
+		cfg: makeReportingPluginConfig(
+			t,
+			10,
+			nil,
+			nil,
+			1,
+			1024,
+			100,
+			100,
+			100,
+			10,
+		),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "",
+		Key:       "my_secret",
+	}
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{pks},
+			},
+		},
+	}
+
+	require.NoError(t, store.Add(&vaulttypes.Request{Payload: p, IDVal: "request-1"}))
+	rdr := &kv{m: make(map[string]response)}
+
+	obs, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &errorBlobBroadcastFetcher{err: errors.New("boom")})
+	require.NoError(t, err)
+	require.NotNil(t, obs)
+
+	warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+	assert.Equal(t, 1, warnLogs.Len())
+	fields := warnLogs.All()[0].ContextMap()
+	assert.Equal(t, "request-1", fields["requestID"])
+	assert.Contains(t, fmt.Sprint(fields["err"]), "boom")
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -771,6 +983,7 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 				EncryptionKeys: []string{pks},
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -800,6 +1013,145 @@ func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
 	assert.Len(t, p.Requests, len(batchResp.Responses))
 
 	assert.True(t, proto.Equal(batchResp.Responses[0].Id, createdID))
+}
+
+func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		cfg:           cfg,
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{m: make(map[string]response)}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	require.NoError(t, err)
+	ciphertextBytes, err := hex.DecodeString(encrypted)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
+			},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetGetSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Empty(t, batchResp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		cfg:           cfg,
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	rdr := &kv{m: make(map[string]response)}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my-secret-value", pk, orgID)
+	require.NoError(t, err)
+	ciphertextBytes, err := hex.DecodeString(encrypted)
+	require.NoError(t, err)
+
+	err = newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	})
+	require.NoError(t, err)
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{
+				Id:             id,
+				EncryptionKeys: []string{hex.EncodeToString(pubK[:])},
+			},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetGetSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Contains(t, batchResp.Responses[0].GetError(), "failed to handle get secret request")
 }
 
 func TestPlugin_Observation_GetSecretsRequest_SecretDoesNotExist(t *testing.T) {
@@ -1012,6 +1364,7 @@ func TestPlugin_Observation_GetSecretsRequest_PublicKeyIsInvalid(t *testing.T) {
 				EncryptionKeys: []string{"foo"},
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1199,6 +1552,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 				EncryptionKeys: []string{pks},
 			},
 		},
+		WorkflowOwner: owner,
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -1255,173 +1609,6 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, plaintext, gotSecret)
-}
-
-func TestPlugin_Observation_MaxBatchGetSecretsWithEncryptionKeys(t *testing.T) {
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-	store := requests.NewStore[*vaulttypes.Request]()
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-
-	batchSize := 10
-	maxRequestBatchSize := 10
-	numEncryptionKeys := 10
-
-	r := &ReportingPlugin{
-		lggr:          lggr,
-		store:         store,
-		metrics:       newTestMetrics(t),
-		marshalBlob:   mockMarshalBlob,
-		unmarshalBlob: mockUnmarshalBlob,
-		cfg: makeReportingPluginConfig(
-			t,
-			batchSize,
-			pk,
-			shares[0],
-			100,
-			2048,
-			64,
-			64,
-			64,
-			maxRequestBatchSize,
-		),
-	}
-
-	rdr := &kv{
-		m: make(map[string]response),
-	}
-	ws := newTestWriteStore(t, rdr)
-
-	// Generate encryption keys (NaCl box public keys).
-	encryptionKeys := make([]string, numEncryptionKeys)
-	for i := range encryptionKeys {
-		pubK, _, kerr := box.GenerateKey(rand.Reader)
-		require.NoError(t, kerr)
-		encryptionKeys[i] = hex.EncodeToString(pubK[:])
-	}
-
-	// Build batchSize pending queue items, each a GetSecretsRequest with 1 secret and numEncryptionKeys encryption keys.
-	pendingItems := make([]*vaultcommon.StoredPendingQueueItem, batchSize)
-	for i := 0; i < batchSize; i++ {
-		owner := fmt.Sprintf("0x%040d", i+1)
-		id := &vaultcommon.SecretIdentifier{
-			Owner:     owner,
-			Namespace: "main",
-			Key:       fmt.Sprintf("secret_%d", i),
-		}
-
-		// Encrypt a secret with the correct label for this owner.
-		var label [32]byte
-		ownerAddress := common.HexToAddress(owner)
-		copy(label[12:], ownerAddress.Bytes())
-		ciphertext, cerr := tdh2easy.EncryptWithLabel(pk, []byte(fmt.Sprintf("plaintext-%d", i)), label)
-		require.NoError(t, cerr)
-		ciphertextBytes, cerr := ciphertext.Marshal()
-		require.NoError(t, cerr)
-
-		// Store the secret in KV.
-		err = ws.WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
-			EncryptedSecret: ciphertextBytes,
-		})
-		require.NoError(t, err)
-
-		p := &vaultcommon.GetSecretsRequest{
-			Requests: []*vaultcommon.SecretRequest{
-				{
-					Id:             id,
-					EncryptionKeys: encryptionKeys,
-				},
-			},
-		}
-		anyp, aerr := anypb.New(p)
-		require.NoError(t, aerr)
-		pendingItems[i] = &vaultcommon.StoredPendingQueueItem{
-			Id:   fmt.Sprintf("request-%d", i),
-			Item: anyp,
-		}
-	}
-
-	err = ws.WritePendingQueue(t.Context(), pendingItems)
-	require.NoError(t, err)
-
-	// Add 2*batchSize items to the local store (with different IDs) so that
-	// the observation also includes the maximum number of pending queue items
-	// to be broadcast as blobs.
-	numLocalItems := 2 * batchSize
-	for i := range numLocalItems {
-		owner := fmt.Sprintf("0x%040d", batchSize+i+1)
-		id := &vaultcommon.SecretIdentifier{
-			Owner:     owner,
-			Namespace: "main",
-			Key:       fmt.Sprintf("local_secret_%d", i),
-		}
-		p := &vaultcommon.GetSecretsRequest{
-			Requests: []*vaultcommon.SecretRequest{
-				{
-					Id:             id,
-					EncryptionKeys: encryptionKeys,
-				},
-			},
-		}
-		err = store.Add(&vaulttypes.Request{Payload: p, IDVal: fmt.Sprintf("local-request-%d", i)})
-		require.NoError(t, err)
-	}
-
-	seqNr := uint64(1)
-	bf := &blobber{}
-	start := time.Now()
-	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, bf)
-	elapsed := time.Since(start)
-	require.NoError(t, err)
-	t.Logf("Observation took %s, output size: %d bytes", elapsed, len(data))
-
-	obs := &vaultcommon.Observations{}
-	err = proto.Unmarshal(data, obs)
-	require.NoError(t, err)
-
-	// Verify all pending queue requests were observed.
-	require.Len(t, obs.Observations, batchSize)
-
-	for i, o := range obs.Observations {
-		assert.Equal(t, fmt.Sprintf("request-%d", i), o.Id)
-		assert.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
-
-		batchResp := o.GetGetSecretsResponse()
-		require.Len(t, batchResp.Responses, 1)
-
-		resp := batchResp.Responses[0]
-		assert.Empty(t, resp.GetError())
-		assert.NotEmpty(t, resp.GetData().EncryptedValue)
-		assert.Len(t, resp.GetData().EncryptedDecryptionKeyShares, numEncryptionKeys)
-
-		for _, share := range resp.GetData().EncryptedDecryptionKeyShares {
-			assert.Len(t, share.Shares, 1)
-			assert.NotEmpty(t, share.Shares[0])
-		}
-	}
-
-	// Verify all local queue items were broadcast as pending queue observations.
-	// The local queue is sorted lexicographically by ID before broadcasting,
-	// so we collect the IDs into a set rather than asserting on order.
-	assert.Len(t, obs.PendingQueueItems, numLocalItems)
-	require.Len(t, bf.blobs, numLocalItems)
-	gotLocalIDs := map[string]bool{}
-	for _, blob := range bf.blobs {
-		gotMsg := &vaultcommon.StoredPendingQueueItem{}
-		err = proto.Unmarshal(blob, gotMsg)
-		require.NoError(t, err)
-		gotLocalIDs[gotMsg.Id] = true
-	}
-	for i := range numLocalItems {
-		assert.True(t, gotLocalIDs[fmt.Sprintf("local-request-%d", i)], "missing local-request-%d", i)
-	}
-
-	assert.NotEmpty(t, obs.SortNonce)
-
-	// Verify the serialized observation fits within the max observation size limit (512 KB).
-	maxObservationBytes := 512 * 1000
-	assert.LessOrEqual(t, len(data), maxObservationBytes,
-		"observation size %d exceeds max observation limit %d", len(data), maxObservationBytes)
 }
 
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -2341,6 +2528,7 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 				EncryptedValue: hex.EncodeToString(ciphertextBytes),
 			},
 		},
+		WorkflowOwner: "owner",
 	}
 	anyp, err := anypb.New(p)
 	require.NoError(t, err)
@@ -2371,6 +2559,119 @@ func TestPlugin_Observation_CreateSecretsRequest_Success(t *testing.T) {
 	resp := batchResp.Responses[0]
 
 	assert.Empty(t, resp.GetError())
+}
+
+func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+		cfg:           cfg,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "secret",
+	}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	require.NoError(t, err)
+
+	rdr := &kv{m: make(map[string]response)}
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: encrypted},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetCreateSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Empty(t, batchResp.Responses[0].GetError())
+}
+
+func TestPlugin_Observation_CreateSecretsRequest_OrgIdLabelRejectedWhenDisabled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 10, pk, shares[0], 1, 1024, 100, 100, 100, 10)
+
+	r := &ReportingPlugin{
+		lggr:          lggr,
+		store:         store,
+		metrics:       newTestMetrics(t),
+		marshalBlob:   mockMarshalBlob,
+		unmarshalBlob: mockUnmarshalBlob,
+		cfg:           cfg,
+	}
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: "main",
+		Key:       "secret",
+	}
+
+	encrypted, err := vaultutils.EncryptSecretWithOrgID("my secret value", pk, orgID)
+	require.NoError(t, err)
+
+	rdr := &kv{m: make(map[string]response)}
+	p := &vaultcommon.CreateSecretsRequest{
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{Id: id, EncryptedValue: encrypted},
+		},
+		OrgId: orgID,
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	)
+	require.NoError(t, err)
+
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	err = proto.Unmarshal(data, obs)
+	require.NoError(t, err)
+
+	require.Len(t, obs.Observations, 1)
+	batchResp := obs.Observations[0].GetCreateSecretsResponse()
+	require.Len(t, batchResp.Responses, 1)
+	assert.Contains(t, batchResp.Responses[0].GetError(), "does not match any of the provided owner labels")
 }
 
 func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
@@ -5129,6 +5430,36 @@ func mockMarshalBlob(ocr3_1types.BlobHandle) ([]byte, error) {
 	return []byte{}, nil
 }
 
+type callbackBlobFetcher struct {
+	fn func(payload []byte) error
+}
+
+func (f *callbackBlobFetcher) BroadcastBlob(_ context.Context, payload []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	if err := f.fn(payload); err != nil {
+		return ocr3_1types.BlobHandle{}, err
+	}
+	return ocr3_1types.BlobHandle{}, nil
+}
+
+func (f *callbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
+}
+
+type ctxCallbackBlobFetcher struct {
+	fn func(ctx context.Context, payload []byte) error
+}
+
+func (f *ctxCallbackBlobFetcher) BroadcastBlob(ctx context.Context, payload []byte, _ ocr3_1types.BlobExpirationHint) (ocr3_1types.BlobHandle, error) {
+	if err := f.fn(ctx, payload); err != nil {
+		return ocr3_1types.BlobHandle{}, err
+	}
+	return ocr3_1types.BlobHandle{}, nil
+}
+
+func (f *ctxCallbackBlobFetcher) FetchBlob(context.Context, ocr3_1types.BlobHandle) ([]byte, error) {
+	panic("FetchBlob should not be called in broadcastBlobPayloads tests")
+}
+
 func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -6747,7 +7078,7 @@ func TestPlugin_MaxShareSize(t *testing.T) {
 		ctb, err := ciphertext.Marshal()
 		require.NoError(t, err)
 
-		share, err := generatePlaintextShare(pk, shares[0], ctb, owner)
+		share, err := generatePlaintextShare(pk, shares[0], ctb, owner, "")
 		require.NoError(t, err)
 
 		eds, err := share.encryptWithKey(hex.EncodeToString(recipientPub[:]))
@@ -7069,5 +7400,239 @@ func TestLogUserErrorAware(t *testing.T) {
 		assert.Equal(t, "req-3", fields["id"])
 		assert.Equal(t, "abc-123", fields["requestID"])
 		assert.Contains(t, fmt.Sprint(fields["error"]), "internal error")
+	})
+}
+
+func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	t.Run("empty payloads returns empty slice", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, nil, nil)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("all payloads broadcast successfully", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 3)
+		for _, item := range result {
+			assert.Equal(t, []byte("handle"), item)
+		}
+	})
+
+	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func(payload []byte) error {
+			if string(payload) == "p2" {
+				return errors.New("broadcast error")
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 5, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 1, warnLogs.Len())
+		fields := warnLogs.All()[0].ContextMap()
+		assert.Equal(t, "req-2", fields["requestID"])
+		assert.Equal(t, uint64(5), fields["seqNr"])
+		assert.Contains(t, fmt.Sprint(fields["err"]), "broadcast error")
+	})
+
+	t.Run("all broadcasts fail returns empty slice", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &errorBlobBroadcastFetcher{err: errors.New("network down")}
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 2, warnLogs.Len())
+	})
+
+	t.Run("marshal blob failure skips item and logs warning", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return nil, errors.New("marshal error")
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error { return nil }}
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		warnLogs := observed.FilterMessage("failed to marshal blob handle, skipping")
+		assert.Equal(t, 2, warnLogs.Len())
+	})
+
+	t.Run("mix of broadcast and marshal failures", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+
+		marshalCallCount := atomic.Int32{}
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				n := marshalCallCount.Add(1)
+				if n == 1 {
+					return nil, errors.New("marshal error")
+				}
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &callbackBlobFetcher{fn: func(payload []byte) error {
+			if string(payload) == "p1" {
+				return errors.New("broadcast error")
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2"), []byte("p3")}
+		ids := []string{"req-1", "req-2", "req-3"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+
+		broadcastWarns := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		marshalWarns := observed.FilterMessage("failed to marshal blob handle, skipping")
+		assert.Equal(t, 1, broadcastWarns.Len())
+		assert.Equal(t, 1, marshalWarns.Len())
+		assert.Len(t, result, 1)
+	})
+
+	t.Run("context cancellation propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1"), []byte("p2")}
+		ids := []string{"req-1", "req-2"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.Canceled)
+	})
+
+	t.Run("context deadline exceeded propagates error", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		ctx, cancel := context.WithTimeout(t.Context(), 0)
+		defer cancel()
+		<-ctx.Done()
+
+		fetcher := &callbackBlobFetcher{fn: func([]byte) error {
+			return ctx.Err()
+		}}
+
+		payloads := [][]byte{[]byte("p1")}
+		ids := []string{"req-1"}
+
+		result, err := r.broadcastBlobPayloads(ctx, fetcher, 1, payloads, ids)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, context.DeadlineExceeded)
+	})
+
+	t.Run("slow broadcast hits per-call timeout and is skipped", func(t *testing.T) {
+		lggr, observed := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		fetcher := &ctxCallbackBlobFetcher{fn: func(ctx context.Context, payload []byte) error {
+			if string(payload) == "slow" {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		}}
+
+		payloads := [][]byte{[]byte("fast"), []byte("slow")}
+		ids := []string{"req-fast", "req-slow"}
+
+		result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+		require.NoError(t, err)
+		assert.Len(t, result, 1)
+
+		warnLogs := observed.FilterMessage("failed to broadcast pending queue item as blob, skipping")
+		assert.Equal(t, 1, warnLogs.Len())
+		fields := warnLogs.All()[0].ContextMap()
+		assert.Equal(t, "req-slow", fields["requestID"])
 	})
 }

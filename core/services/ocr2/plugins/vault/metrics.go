@@ -14,7 +14,7 @@ type pluginMetrics struct {
 	configDigest string
 
 	queueOverflow       metric.Int64Counter
-	kvOperationDuration metric.Float64Histogram
+	kvOperationDuration metric.Int64Histogram
 }
 
 func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
@@ -23,9 +23,9 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 		return nil, fmt.Errorf("failed to create queue overflow counter: %w", err)
 	}
 
-	kvOperationDuration, err := beholder.GetMeter().Float64Histogram(
-		"platform_vault_plugin_kv_operation_duration_seconds",
-		metric.WithUnit("s"),
+	kvOperationDuration, err := beholder.GetMeter().Int64Histogram(
+		"platform_vault_plugin_kv_operation_duration_ms",
+		metric.WithUnit("ms"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kv operation duration histogram: %w", err)
@@ -38,14 +38,20 @@ func newPluginMetrics(configDigest string) (*pluginMetrics, error) {
 	}, nil
 }
 
-func (m *pluginMetrics) trackKVOperation(ctx context.Context, method string, durationSeconds float64) {
-	m.kvOperationDuration.Record(ctx, durationSeconds, metric.WithAttributes(
+func (m *pluginMetrics) trackKVOperation(ctx context.Context, method string, durationMs int64) {
+	if m == nil {
+		return
+	}
+	m.kvOperationDuration.Record(ctx, durationMs, metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
 		attribute.String("method", method),
 	))
 }
 
 func (m *pluginMetrics) trackQueueOverflow(ctx context.Context, queueSize int, batchSize int) {
+	if m == nil {
+		return
+	}
 	m.queueOverflow.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("configDigest", m.configDigest),
 		attribute.Int("queueSize", queueSize),

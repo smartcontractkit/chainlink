@@ -197,6 +197,10 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
+	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -218,7 +222,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		metrics:             metrics,
 		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter),
+		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }
 

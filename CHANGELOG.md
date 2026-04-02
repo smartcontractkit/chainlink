@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.41.0
+
+### Minor Changes
+
+- [#21679](https://github.com/smartcontractkit/chainlink/pull/21679) [`f6ec944`](https://github.com/smartcontractkit/chainlink/commit/f6ec944dbb290c9f9bea4ff24f15c7a691e5147f) - Minor bump to start next version
+
+- [#21776](https://github.com/smartcontractkit/chainlink/pull/21776) [`035fa26`](https://github.com/smartcontractkit/chainlink/commit/035fa268de1308a854ad6351344061283ed63b78) - Adds support for SVR MultiCall and TransactionLifecycleID #internal
+
+### Patch Changes
+
+- [#21688](https://github.com/smartcontractkit/chainlink/pull/21688) [`f8abcbb`](https://github.com/smartcontractkit/chainlink/commit/f8abcbb3eed3bdc478f4a7721255702dd3532453) - #changed
+
+  Move Vault node-side request authorization into the gateway handler and remove duplicated authorization from the Vault capability.
+
 ## 2.40.0
 
 ### Minor Changes

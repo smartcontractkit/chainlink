@@ -848,8 +848,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
-	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
-	require.NoError(t, err)
+	chainErrs := state.ValidatePostDeploymentStateWithoutMCMSOwnership(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
+	require.Empty(t, chainErrs)
 
 	return e
 }

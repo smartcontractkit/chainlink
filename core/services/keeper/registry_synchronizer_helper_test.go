@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
@@ -38,9 +38,11 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("ConfiguredChainID").Return(big.NewInt(evmtest.NullClientChainID)).Maybe()
 	keyStore := cltest.NewKeyStore(t, db)
 	lbMock := logmocks.NewBroadcaster(t)
+	servicetest.SetupNoOpMock(lbMock)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{

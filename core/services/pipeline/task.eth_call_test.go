@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -306,7 +307,9 @@ func TestETHCallTask(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			keyStore := keystoremocks.NewEth(t)
+			keyStore.On("EnabledAddressesForChain", mock.Anything, testutils.FixtureChainID).Return([]common.Address{}, nil).Maybe()
 			txManager := txmmocks.NewMockEvmTxManager(t)
+			servicetest.SetupNoOpMock(txManager)
 			db := pgtest.NewSqlxDB(t)
 
 			var legacyChains legacyevm.LegacyChainContainer

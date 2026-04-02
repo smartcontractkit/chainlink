@@ -397,7 +397,7 @@ flowchart LR
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/deployment --> chainlink-deployments-framework
+	chainlink-sui/deployment --> chainlink-ccip/deployment
 	chainlink-sui/deployment --> chainlink/v2
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
@@ -432,14 +432,11 @@ flowchart LR
 	click chainlink-ton/deployment href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
-	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
-	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
+	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based --> chainlink-common
 	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
-	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based --> chainlink/v2
-	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/cron --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/v2/cron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-common
@@ -460,10 +457,10 @@ flowchart LR
 	click chainlink/devenv href "https://github.com/smartcontractkit/chainlink"
 	chainlink/devenv/fakes --> chainlink-testing-framework/framework/components/fake
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
-	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink-testing-framework/sentinel
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/dockercompose
@@ -481,6 +478,8 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
+	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evmread
@@ -504,6 +503,15 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/httpaction-negative href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptosread href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/blockchain/aptos
+	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/scheduler/cron
+	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
@@ -534,6 +542,8 @@ flowchart LR
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
+	cre-sdk-go/capabilities/blockchain/aptos --> cre-sdk-go
+	click cre-sdk-go/capabilities/blockchain/aptos href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/evm --> chainlink-common/pkg/workflows/sdk/v2/pb
 	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
@@ -572,7 +582,6 @@ flowchart LR
 	subgraph chainlink-repo[chainlink]
 		 chainlink/core/scripts
 		 chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
-		 chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 		 chainlink/deployment
@@ -588,6 +597,9 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
+		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
@@ -688,6 +700,7 @@ flowchart LR
 
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
+		 cre-sdk-go/capabilities/blockchain/aptos
 		 cre-sdk-go/capabilities/blockchain/evm
 		 cre-sdk-go/capabilities/blockchain/solana
 		 cre-sdk-go/capabilities/networking/http
