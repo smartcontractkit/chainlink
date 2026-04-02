@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -488,7 +489,7 @@ func (w *dispatcherWrapper) newSubservices(
 	capCfg := cfg.Capabilities()
 
 	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
-		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
 		return nil, nil
 	}
 
@@ -531,6 +532,15 @@ func (w *dispatcherWrapper) newSubservices(
 	w.dispatcher = remoteDispatcher
 	subs = append(subs, remoteDispatcher)
 	return subs, nil
+}
+
+func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
+	registry := &capabilities.TestMetadataRegistry{}
+	if localCfg != nil && localCfg.GetCapabilityConfig(capStreams.MockTriggerCapabilityID) != nil {
+		registry.WorkflowDONF = 1
+	}
+
+	return registry
 }
 
 // newDispatcherWrapper creates a new dispatcherWrapper service with peer wrappers if peering is enabled

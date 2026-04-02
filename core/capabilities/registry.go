@@ -83,31 +83,31 @@ func NewRegistry(lggr logger.Logger) *Registry {
 // interface. It is used when ExternalCapabilitiesRegistry is not available.
 type TestMetadataRegistry struct {
 	core.UnimplementedCapabilitiesRegistryMetadata
+	WorkflowDONF uint8
 }
 
 const (
-	testWorkflowDONID             = 1
-	testWorkflowDONConfigVersion  = 1
-	testWorkflowDONFaultTolerance = 1
+	testWorkflowDONID            = 1
+	testWorkflowDONConfigVersion = 1
 )
 
 func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	peerID := p2ptypes.PeerID{}
 	return capabilities.Node{
 		PeerID:         &peerID,
-		WorkflowDON:    newTestWorkflowDON(peerID),
+		WorkflowDON:    newTestWorkflowDON(peerID, t.WorkflowDONF),
 		CapabilityDONs: []capabilities.DON{},
 	}, nil
 }
 
-func newTestWorkflowDON(peerID p2ptypes.PeerID) capabilities.DON {
+func newTestWorkflowDON(peerID p2ptypes.PeerID, faultTolerance uint8) capabilities.DON {
 	return capabilities.DON{
 		ID:            testWorkflowDONID,
 		ConfigVersion: testWorkflowDONConfigVersion,
 		Members: []p2ptypes.PeerID{
 			peerID,
 		},
-		F:                testWorkflowDONFaultTolerance,
+		F:                faultTolerance,
 		IsPublic:         false,
 		AcceptsWorkflows: true,
 	}
