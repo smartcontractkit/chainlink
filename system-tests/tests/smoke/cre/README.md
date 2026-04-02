@@ -93,10 +93,12 @@ The TOML config defines how Chainlink node images are used:
 
 ### Environment Variables
 
-Only if you want to run the tests on non-default topology you need to set following variables before running the test:
+You usually do not need extra environment variables for the default local flow. The helpers default to `core/scripts/cre/environment/configs/workflow-gateway-capabilities-don.toml`.
 
-- `CTF_CONFIGS` -- either `configs/workflow-gateway-don.toml` or `configs/workflow-gateway-capabilities-don.toml`
-- `CRE_TOPOLOGY` -- either `workflow-gateway` or `workflow-gateway-capabilities`
+Set these only when you need to override the default behavior:
+
+- `CTF_CONFIGS` -- path to a specific topology TOML when you want a non-default topology
+- `TOPOLOGY_NAME` -- optional label used in some test names and logs
 - `CTF_LOG_LEVEL=debug` -- to display test debug-level logs
 
 ---
@@ -210,31 +212,20 @@ This section explains how to compile, upload, and register workflows in the CRE 
 
 ### Workflow Compilation Process
 
-The workflow compilation process follows these steps:
+The tests compile workflow sources through `system-tests/lib/cre/workflow/compile.go`.
 
-1. **Source Code Preparation**: Ensure your workflow source code is in Go and follows the CRE workflow structure
-2. **Compilation**: Use `creworkflow.CompileWorkflow()` to compile Go code to WebAssembly
-3. **Compression**: The compiled WASM is automatically compressed using Brotli and base64 encoded
-4. **File Management**: Temporary files are cleaned up automatically
+Current behavior:
 
-#### Compilation Example
+1. Workflow names must be at least 10 characters long.
+2. Go workflows run `go mod tidy` in the workflow directory before build.
+3. Go workflows are built with `GOOS=wasip1`, `GOARCH=wasm`, `CGO_ENABLED=0`.
+4. The resulting `.wasm` artifact is Brotli-compressed and base64-encoded into a `.br.b64` file.
+5. TypeScript workflows are compiled through `bun cre-compile ...`, so `bun` and the generated `package.json` from `go run . env setup` must be present.
 
-```go
-workflowFileLocation := "path/to/your/workflow/main.go"
-workflowName := "my-workflow-" + uuid.New().String()[0:4]
+Use the helper APIs that the tests already use instead of re-implementing the flow manually. The main path is:
 
-// Compile workflow to compressed WASM
-compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(ctx, workflowFileLocation, workflowName)
-require.NoError(t, compileErr, "failed to compile workflow")
-
-// Cleanup temporary files
-t.Cleanup(func() {
-    wasmErr := os.Remove(compressedWorkflowWasmPath)
-    if wasmErr != nil {
-        framework.L.Warn().Msgf("failed to remove workflow wasm file %s: %s", compressedWorkflowWasmPath, wasmErr.Error())
-    }
-})
-```
+- `t_helpers.CompileAndDeployWorkflow(...)` for smoke/regression tests
+- `creworkflow.CompileWorkflow(...)` or `CompileWorkflowToDir(...)` only when you intentionally need lower-level control
 
 #### Compilation Requirements
 
@@ -242,13 +233,13 @@ Go workflows:
 - **Workflow Name**: Must be at least 10 characters long
 - **Go Environment**: Requires `go mod tidy` to be run in the workflow directory
 - **Target Platform**: Compiles for `GOOS=wasip1` and `GOARCH=wasm`
-- **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
+- **Output Format**: Produces `.br.b64` files containing Brotli-compressed, base64-encoded WASM
 
 TypeScript workflows:
 - **Workflow Name**: Must be at least 10 characters long
-- **Bun installed**: Requires `Bun`  (automatically installed by `go run . env setup`)
+- **Bun installed**: Requires `bun` (automatically installed by `go run . env setup`)
 - **package.json**: Correct `package.json` must exist in `core/scripts/cre/environment` (automatically created by `go run . env setup`)
-- **Output Format**: Produces `.wasm.br.b64` files (compressed and base64 encoded)
+- **Output Format**: Produces `.br.b64` files containing Brotli-compressed, base64-encoded WASM
 
 ### Workflow Configuration
 
@@ -295,7 +286,7 @@ After compilation, workflow files must be distributed to the appropriate contain
 ```go
 containerTargetDir := "/home/chainlink/workflows"
 
-// Copy compiled workflow binary
+// Copy workflow artifacts to workflow-node containers
 workflowCopyErr := creworkflow.CopyArtifactsToDockerContainers(
     containerTargetDir,
     "workflow-node",
@@ -317,34 +308,25 @@ The framework automatically discovers containers by name pattern:
 
 Workflows are registered with the blockchain contract using the `RegisterWithContract` function:
 
-#### Registration Process
-
-```go
-workflowID, registerErr := creworkflow.RegisterWithContract(
-    t.Context(),
-    sethClient,                    // Blockchain client
-    workflowRegistryAddress,       // Contract address
-    donID,                        // DON identifier
-    workflowName,                 // Unique workflow name
-    "file://" + compressedWorkflowWasmPath,  // Binary URL
-    ptr.Ptr("file://" + workflowConfigFilePath), // Config URL
-    nil,                          // Secrets URL (optional)
-    &containerTargetDir,          // Container artifacts directory
-)
-require.NoError(t, registerErr, "failed to register workflow")
-```
-
 #### Registration Parameters
 
 - **Context**: Test context for timeout handling
 - **Seth Client**: Blockchain client for contract interaction
 - **Registry Address**: Workflow Registry contract address
+- **Registry Version**: Required so the helper can select the v1/v2 registration path
 - **DON ID**: Decentralized Oracle Network identifier
 - **Workflow Name**: Unique identifier for the workflow
 - **Binary URL**: Path to the compiled workflow binary on the host machine (used to read and calculate workflow ID)
 - **Config URL**: Path to the workflow configuration file on the host machine (optional, used to read and calculate workflow ID)
 - **Secrets URL**: Path to encrypted secrets on the host machine (optional)
 - **Artifacts Directory**: Container directory where workflow files are stored (e.g., `/home/chainlink/workflows`)
+
+The exact helper signature changes over time. Before adding a new manual registration flow, check:
+
+- `system-tests/lib/cre/workflow/workflow.go`
+- `system-tests/tests/test-helpers/t_helpers.go`
+
+For most smoke tests, prefer `t_helpers.CompileAndDeployWorkflow(...)` instead of calling the lower-level helpers directly.
 
 #### URL Resolution Process
 
@@ -370,63 +352,20 @@ This ensures that the Chainlink nodes can locate and load the workflow files fro
 
 ### Complete Workflow Setup Example
 
-Here's a complete example of setting up a workflow:
+For new smoke tests, use the existing helper flow instead of reproducing compilation, copy, and registration logic inline:
 
-```go
-func setupWorkflow(t *testing.T, workflowSourcePath, workflowName string, config *portypes.WorkflowConfig) {
-    // 1. Compile workflow
-    compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(workflowSourcePath, workflowName)
-    require.NoError(t, compileErr, "failed to compile workflow")
+1. Build or reuse a test environment with `t_helpers.SetupTestEnvironmentWithConfig(...)` or `SetupTestEnvironmentWithPerTestKeys(...)`.
+2. Create a workflow name that stays within the current 64-character limit. Prefer `t_helpers.UniqueWorkflowName(...)` when you need uniqueness.
+3. Prepare a typed workflow config value if the workflow needs configuration.
+4. Call `t_helpers.CompileAndDeployWorkflow(...)`.
+5. Assert execution using the helper patterns already used by nearby smoke tests.
 
-    // 2. Create configuration file (optional)
-    var configFilePath string
-    if config != nil {
-        configData, err := yaml.Marshal(config)
-        require.NoError(t, err, "failed to marshal config")
+Examples to copy from current tests:
 
-        configFilePath = workflowName + "_config.yaml"
-        err = os.WriteFile(configFilePath, configData, 0644)
-        require.NoError(t, err, "failed to write config file")
-    }
-
-    // 3. Copy files to containers
-    containerTargetDir := "/home/chainlink/workflows"
-    err := creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
-    require.NoError(t, err, "failed to copy workflow binary")
-
-    if configFilePath != "" {
-        err = creworkflow.CopyArtifactsToDockerContainers(configFilePath, "workflow-node", containerTargetDir)
-        require.NoError(t, err, "failed to copy config file")
-    }
-
-    // 4. Register with contract
-    var configURL *string
-    if configFilePath != "" {
-        configURL = ptr.Ptr("file://" + configFilePath)
-    }
-
-    workflowID, registerErr := creworkflow.RegisterWithContract(
-        t.Context(),
-        sethClient,
-        workflowRegistryAddress,
-        donID,
-        workflowName,
-        "file://" + compressedWorkflowWasmPath,
-        configURL,
-        nil, // secrets URL (optional)
-        &containerTargetDir,
-    )
-    require.NoError(t, registerErr, "failed to register workflow")
-
-    // 5. Cleanup
-    t.Cleanup(func() {
-        os.Remove(compressedWorkflowWasmPath)
-        if configFilePath != "" {
-            os.Remove(configFilePath)
-        }
-    })
-}
-```
+- EVM capability flows in `v2_evm_capability_test.go`
+- HTTP action flows in `v2_http_action_test.go`
+- gRPC source flows in `v2_grpc_source_test.go`
+- Aptos and Solana flows in the corresponding `v2_*_capability_test.go` files
 
 ---
 
@@ -470,44 +409,17 @@ secretsNames:
 
 #### Using Secrets in Workflows
 
-```go
-// 1. Set environment variables
-os.Setenv("API_KEY_ENV_VAR_ALL", "your-api-key-here")
-os.Setenv("DB_PASSWORD_ENV_VAR_ALL", "your-db-password")
+Use the current `PrepareSecrets(...)` helper only after checking its live signature in `system-tests/lib/cre/workflow/secrets.go`. It currently requires:
 
-// 2. Prepare encrypted secrets
-secretsFilePath := "path/to/secrets.yaml"
-encryptedSecretsPath, err := creworkflow.PrepareSecrets(
-    sethClient,
-    donID,
-    capabilitiesRegistryAddress,
-    workflowOwnerAddress,
-    secretsFilePath,
-)
-require.NoError(t, err, "failed to prepare secrets")
+- seth client
+- DON ID
+- capabilities registry address
+- capabilities registry version
+- workflow owner address
+- secrets config path
+- secrets output path
 
-// 3. Copy encrypted secrets to containers
-err = creworkflow.CopyArtifactsToDockerContainers(
-    encryptedSecretsPath,
-    "workflow-node",
-    "/home/chainlink/workflows",
-)
-require.NoError(t, err, "failed to copy secrets to containers")
-
-// 4. Register workflow with secrets
-workflowID, registerErr := creworkflow.RegisterWithContract(
-    ctx,
-    sethClient,
-    workflowRegistryAddress,
-    donID,
-    workflowName,
-    "file://" + compressedWorkflowWasmPath,
-    configURL,
-    &secretsURL, // Pass the encrypted secrets file path
-    &containerTargetDir,
-)
-require.NoError(t, registerErr, "failed to register workflow")
-```
+This helper is lower-level and intentionally coupled to the current registry implementation. If you only need secrets in a new smoke test, copy an up-to-date example from the current test tree instead of relying on old README snippets.
 
 #### Secrets Encryption Process
 
@@ -557,56 +469,12 @@ The generated encrypted secrets file contains:
 
 #### Complete Example
 
-```go
-func setupWorkflowWithSecrets(t *testing.T, workflowSourcePath, workflowName, secretsConfigPath string) {
-    // Set environment variables with your secrets
-    os.Setenv("API_KEY_ENV_VAR_ALL", "your-actual-api-key")
-    os.Setenv("DB_PASSWORD_ENV_VAR_ALL", "your-actual-db-password")
+Avoid copying a static README example for secrets setup. The relevant helper signatures have changed more than once. When adding a secrets-based test:
 
-    // Compile workflow
-    compressedWorkflowWasmPath, err := creworkflow.CompileWorkflow(workflowSourcePath, workflowName)
-    require.NoError(t, err, "failed to compile workflow")
-
-    // Prepare encrypted secrets
-    encryptedSecretsPath, err := creworkflow.PrepareSecrets(
-        sethClient,
-        donID,
-        capabilitiesRegistryAddress,
-        workflowOwnerAddress,
-        secretsConfigPath,
-    )
-    require.NoError(t, err, "failed to prepare secrets")
-
-    // Copy files to containers
-    containerTargetDir := "/home/chainlink/workflows"
-    err = creworkflow.CopyArtifactsToDockerContainers(compressedWorkflowWasmPath, "workflow-node", containerTargetDir)
-    require.NoError(t, err, "failed to copy workflow")
-
-    err = creworkflow.CopyArtifactsToDockerContainers(encryptedSecretsPath, "workflow-node", containerTargetDir)
-    require.NoError(t, err, "failed to copy secrets")
-
-    // Register workflow with secrets
-    secretsURL := "file://" + encryptedSecretsPath
-    workflowID, registerErr := creworkflow.RegisterWithContract(
-        t.Context(),
-        sethClient,
-        workflowRegistryAddress,
-        donID,
-        workflowName,
-        "file://" + compressedWorkflowWasmPath,
-        nil, // config URL (optional)
-        &secretsURL,
-        &containerTargetDir,
-    )
-    require.NoError(t, registerErr, "failed to register workflow")
-
-    // Cleanup
-    t.Cleanup(func() {
-        os.Remove(compressedWorkflowWasmPath)
-        os.Remove(encryptedSecretsPath)
-    })
-}
-```
+1. Start from the current helper implementations in `system-tests/lib/cre/workflow`.
+2. Verify the registry version you are targeting.
+3. Reuse the same artifact copy flow as other current smoke tests.
+4. Keep the secrets example in the test itself, close to the code that depends on it.
 
 ---
 

@@ -96,7 +96,7 @@ Slack: #topic-local-dev-environments
     - [GH CLI is not installed](#gh-cli-is-not-installed)
 
 # QUICKSTART
-Setup platform: allocate and configure the default environment with all dependencies. :rocket:
+Setup platform: allocate and configure the default environment with all dependencies.
 ```
 go run . env start --auto-setup
 ```
@@ -104,7 +104,7 @@ Note: this allocates and configures the full stack. It may take a few minutes th
 
 Deploy app: your first workflow
 ```
-go run . workflow deploy -w ./examples/workflows/v2/cron/main.go -n cron_example
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron_example
 ```
 
 <!-- TODO: add observe. The intro should be ~ setup platform, deploy app, observe -->
@@ -145,7 +145,7 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
 
   Git access to plugin repositories (e.g. `capabilities`, `confidential-compute`) is required when building the Chainlink image from source, so plugins can be pulled during the Docker build. If you use a pre-built image with plugins already baked in, Git access is not required.
 
-# QUICKSTART
+# QUICKSTART (with ECR configured)
 ```
 # e.g. AWS_ECR=<PROD_ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com
 AWS_ECR=<PROD_AWS_URL> go run . env start --auto-setup
@@ -199,12 +199,17 @@ go run . env start --with-contracts-version v1
 > Important! **Nightly** Chainlink images are retained only for one day and built at 03:00 UTC. That means that in most cases you should use today's image, not yesterday's.
 
 Optional parameters:
-- `-a`: Check if all dependencies are present and if not install them (defaults to `false`)
-- `-t`: Topology (`simplified` or `full`)
-- `-w`: Wait on error before removing up Docker containers (e.g. to inspect Docker logs, e.g. `-w 5m`)
-- `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
-- `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
-- `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
+- `-a, --auto-setup`: Run setup before starting the environment
+- `-w, --wait-on-error-timeout`: Time to wait before removing Docker containers if startup fails
+- `-l, --cleanup-on-error`: Remove Docker containers if startup fails
+- `-e, --extra-allowed-gateway-ports`: Extra allowed outgoing gateway ports
+- `-x, --with-example`: Deploy and register the example workflow
+- `-u, --example-workflow-timeout`: Time to wait for the example workflow to succeed
+- `-b, --with-beholder`: Deploy Beholder (Chip Ingress + Red Panda)
+- `-d, --with-dashboards`: Deploy the observability stack and Grafana dashboards
+- `--with-observability`: Start the observability stack
+- `--with-billing`: Deploy the billing platform service
+- `-g, --grpc-port`: gRPC port for Chip Ingress
 - `-p`: **DEPRECATED** Use `image` in TOML config instead. See [Using a pre-built Chainlink image](#using-a-pre-built-chainlink-image).
 - `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
@@ -373,18 +378,21 @@ go run . workflow deploy [flags]
 ```
 
 **Key flags:**
-- `-w, --workflow-file-path`: Path to the workflow file (default: `./examples/workflows/v2/cron/main.go`)
+- `-w, --workflow-file-path`: Path to a compiled base64 workflow file, or to a Go/TypeScript source file when `--compile` is used
 - `-c, --config-file-path`: Path to the config file (optional)
 - `-s, --secrets-file-path`: Path to the secrets file (optional)
+- `-o, --secrets-output-file-path`: Output path for encrypted secrets (optional)
 - `-t, --container-target-dir`: Path to target directory in Docker container (default: `/home/chainlink/workflows`)
-- `-o, --container-name-pattern`: Pattern to match container name (default: `workflow-node`)
-- `-n, --workflow-name`: Workflow name (default: `exampleworkflow`)
+- `-p, --container-name-pattern`: Pattern to match workflow node container names (default: `workflow-node`)
+- `-n, --name`: Workflow name
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
-- `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
-- `-b, --capabilities-registry-address`: Capabilities registry address (default: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`)
+- `-a, --workflow-registry-address`: Workflow registry address (optional; taken from local CRE state if omitted)
+- `-b, --capabilities-registry-address`: Capabilities registry address (optional; taken from local CRE state if omitted)
 - `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
 - `-e, --don-id`: DON ID (default: `1`)
+- `-x, --compile`: Compile the workflow before deploying it
+- `-l, --delete-workflow-file`: Delete the workflow artifact after deployment
+- `--with-contracts-version`: Registry contract version (`v1` or `v2`)
 
 **Example:**
 ```bash
@@ -402,9 +410,8 @@ go run . workflow delete [flags]
 **Key flags:**
 - `-n, --name`: Workflow name to delete (default: `exampleworkflow`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
-- `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
-- `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
+- `-a, --workflow-registry-address`: Workflow registry address (optional; taken from local CRE state if omitted)
+- `--with-contracts-version`: Registry contract version (`v1` or `v2`)
 
 **Example:**
 ```bash
@@ -421,9 +428,8 @@ go run . workflow delete-all [flags]
 
 **Key flags:**
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
-- `-i, --chain-id`: Chain ID (default: `1337`)
-- `-a, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
-- `-d, --workflow-owner-address`: Workflow owner address (default: `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`)
+- `-a, --workflow-registry-address`: Workflow registry address (optional; taken from local CRE state if omitted)
+- `--with-contracts-version`: Registry contract version (`v1` or `v2`)
 
 **Example:**
 ```bash
@@ -926,7 +932,7 @@ For other workflows (v2/cron, v2/node-mode, v2/http), you can deploy them manual
 
 ```bash
 # Deploy v2 cron workflow
-go run . env workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron-workflow
+go run . workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron-workflow
 
 # Deploy v2 http workflow
 go run . workflow deploy -w ./examples/workflows/v2/http/main.go --compile -n cron-workflow
