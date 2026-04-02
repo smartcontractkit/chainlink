@@ -264,11 +264,6 @@ flowchart LR
   classDef group stroke-dasharray:6,fill:none;
   class chains,products group
 
-	account-registry-service --> cre-internal-common/auth
-	account-registry-service --> cre-internal-common/aws-clients
-	account-registry-service --> cre-internal-common/kafka
-	account-registry-service --> cre-internal-common/service-utils
-	click account-registry-service href "https://github.com/smartcontractkit/account-registry-service"
 	ccip-contract-examples/chains/evm --> chainlink-ccip
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
 	ccip-owner-contracts --> chain-selectors
@@ -319,8 +314,6 @@ flowchart LR
 	chainlink-common/keystore --> smdkg
 	chainlink-common/keystore --> wsrpc
 	click chainlink-common/keystore href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-common/observability-lib
-	click chainlink-common/observability-lib href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/chipingress
 	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/monitoring
@@ -404,7 +397,7 @@ flowchart LR
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/deployment --> chainlink-ccip/deployment
+	chainlink-sui/deployment --> chainlink-deployments-framework
 	chainlink-sui/deployment --> chainlink/v2
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
@@ -439,11 +432,14 @@ flowchart LR
 	click chainlink-ton/deployment href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
-	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
+	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
+	chainlink/core/scripts --> chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
 	chainlink/core/scripts --> chainlink/system-tests/lib
 	click chainlink/core/scripts href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based --> chainlink-common
 	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based href "https://github.com/smartcontractkit/chainlink"
+	chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based --> chainlink/v2
+	click chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/cron --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/core/scripts/cre/environment/examples/workflows/v2/cron href "https://github.com/smartcontractkit/chainlink"
 	chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based --> chainlink-common
@@ -464,10 +460,10 @@ flowchart LR
 	click chainlink/devenv href "https://github.com/smartcontractkit/chainlink"
 	chainlink/devenv/fakes --> chainlink-testing-framework/framework/components/fake
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
+	chainlink/integration-tests --> chainlink-testing-framework/havoc
 	chainlink/integration-tests --> chainlink-testing-framework/sentinel
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
-	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/dockercompose
@@ -485,8 +481,6 @@ flowchart LR
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/http
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/httpaction-negative
-	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
-	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/evmread
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/smoke/cre/evmread
@@ -510,15 +504,6 @@ flowchart LR
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/networking/http
 	chainlink/system-tests/tests/regression/cre/httpaction-negative --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/regression/cre/httpaction-negative href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/blockchain/aptos
-	chainlink/system-tests/tests/smoke/cre/aptos/aptosread --> cre-sdk-go/capabilities/scheduler/cron
-	click chainlink/system-tests/tests/smoke/cre/aptos/aptosread href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/blockchain/aptos
-	chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite --> cre-sdk-go/capabilities/scheduler/cron
-	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/blockchain/aptos
-	chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip --> cre-sdk-go/capabilities/scheduler/cron
-	click chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/blockchain/evm
 	chainlink/system-tests/tests/smoke/cre/evm/evmread --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/evm/evmread href "https://github.com/smartcontractkit/chainlink"
@@ -547,28 +532,8 @@ flowchart LR
 	chainlink/v2 --> quarantine
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
-	cre-internal-common/auth --> chainlink-common
-	click cre-internal-common/auth href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/aws-clients
-	click cre-internal-common/aws-clients href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/kafka
-	click cre-internal-common/kafka href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/postgres-utils
-	click cre-internal-common/postgres-utils href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/service-utils --> chainlink-common
-	cre-internal-common/service-utils --> cre-internal-common/telemetry
-	click cre-internal-common/service-utils href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/telemetry --> chainlink-common/observability-lib
-	click cre-internal-common/telemetry href "https://github.com/smartcontractkit/cre-internal-common"
-	cre-internal-common/tenants --> chainlink-common
-	cre-internal-common/tenants --> chainlink-evm/gethwrappers
-	cre-internal-common/tenants --> chainlink-testing-framework/seth
-	cre-internal-common/tenants --> cre-internal-common/telemetry
-	click cre-internal-common/tenants href "https://github.com/smartcontractkit/cre-internal-common"
 	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
-	cre-sdk-go/capabilities/blockchain/aptos --> cre-sdk-go
-	click cre-sdk-go/capabilities/blockchain/aptos href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/blockchain/evm --> chainlink-common/pkg/workflows/sdk/v2/pb
 	cre-sdk-go/capabilities/blockchain/evm --> cre-sdk-go
 	click cre-sdk-go/capabilities/blockchain/evm href "https://github.com/smartcontractkit/cre-sdk-go"
@@ -578,15 +543,6 @@ flowchart LR
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/scheduler/cron --> cre-sdk-go
 	click cre-sdk-go/capabilities/scheduler/cron href "https://github.com/smartcontractkit/cre-sdk-go"
-	cre-storage-service --> account-registry-service
-	cre-storage-service --> cre-internal-common/postgres-utils
-	cre-storage-service --> cre-internal-common/tenants
-	click cre-storage-service href "https://github.com/smartcontractkit/cre-storage-service"
-	cre-storage-service/registryclient --> chainlink-common
-	click cre-storage-service/registryclient href "https://github.com/smartcontractkit/cre-storage-service"
-	cre-storage-service/registryclient/tests --> cre-storage-service
-	cre-storage-service/registryclient/tests --> cre-storage-service/registryclient
-	click cre-storage-service/registryclient/tests href "https://github.com/smartcontractkit/cre-storage-service"
 	freeport
 	click freeport href "https://github.com/smartcontractkit/freeport"
 	go-sumtype2
@@ -616,6 +572,7 @@ flowchart LR
 	subgraph chainlink-repo[chainlink]
 		 chainlink/core/scripts
 		 chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
+		 chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/web-trigger-based
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 		 chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 		 chainlink/deployment
@@ -631,9 +588,6 @@ flowchart LR
 		 chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative
 		 chainlink/system-tests/tests/regression/cre/http
 		 chainlink/system-tests/tests/regression/cre/httpaction-negative
-		 chainlink/system-tests/tests/smoke/cre/aptos/aptosread
-		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite
-		 chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip
 		 chainlink/system-tests/tests/smoke/cre/evm/evmread
 		 chainlink/system-tests/tests/smoke/cre/evm/logtrigger
 		 chainlink/system-tests/tests/smoke/cre/evmread
@@ -657,7 +611,6 @@ flowchart LR
 	subgraph chainlink-common-repo[chainlink-common]
 		 chainlink-common
 		 chainlink-common/keystore
-		 chainlink-common/observability-lib
 		 chainlink-common/pkg/chipingress
 		 chainlink-common/pkg/monitoring
 		 chainlink-common/pkg/values
@@ -733,33 +686,14 @@ flowchart LR
 	end
 	click chainlink-ton-repo href "https://github.com/smartcontractkit/chainlink-ton"
 
-	subgraph cre-internal-common-repo[cre-internal-common]
-		 cre-internal-common/auth
-		 cre-internal-common/aws-clients
-		 cre-internal-common/kafka
-		 cre-internal-common/postgres-utils
-		 cre-internal-common/service-utils
-		 cre-internal-common/telemetry
-		 cre-internal-common/tenants
-	end
-	click cre-internal-common-repo href "https://github.com/smartcontractkit/cre-internal-common"
-
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
-		 cre-sdk-go/capabilities/blockchain/aptos
 		 cre-sdk-go/capabilities/blockchain/evm
 		 cre-sdk-go/capabilities/blockchain/solana
 		 cre-sdk-go/capabilities/networking/http
 		 cre-sdk-go/capabilities/scheduler/cron
 	end
 	click cre-sdk-go-repo href "https://github.com/smartcontractkit/cre-sdk-go"
-
-	subgraph cre-storage-service-repo[cre-storage-service]
-		 cre-storage-service
-		 cre-storage-service/registryclient
-		 cre-storage-service/registryclient/tests
-	end
-	click cre-storage-service-repo href "https://github.com/smartcontractkit/cre-storage-service"
 
 	subgraph tdh2-repo[tdh2]
 		 tdh2/go/ocr2/decryptionplugin
@@ -768,5 +702,5 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-internal-common-repo,cre-sdk-go-repo,cre-storage-service-repo,tdh2-repo outline
+	class chainlink-repo,chainlink-ccip-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
