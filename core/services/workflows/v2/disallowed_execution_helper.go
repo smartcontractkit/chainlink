@@ -51,6 +51,6 @@ func (d disallowedExecutionHelper) EmitUserLog(msg string) error {
 	return nil
 }
 
-func (d disallowedExecutionHelper) EmitUserMetric(_ *eventsv2.WorkflowUserMetric) error {
+func (d disallowedExecutionHelper) EmitUserMetric(_ context.Context, _ *eventsv2.WorkflowUserMetric) error {
 	return errors.New("metric emission is not allowed during this execution")
 }

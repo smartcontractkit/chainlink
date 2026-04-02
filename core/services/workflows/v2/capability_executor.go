@@ -289,9 +289,8 @@ func userMetricTypeSuffix(t eventsv2.UserMetricType) string {
 	}
 }
 
-func (c *ExecutionHelper) EmitUserMetric(metric *eventsv2.WorkflowUserMetric) error {
+func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.WorkflowUserMetric) error {
 	metric.Name = userMetricPrefix + metric.Name + userMetricTypeSuffix(metric.Type)
-
 	loggerLabels := *c.loggerLabels.Load()
-	return events.EmitUserMetric(context.Background(), loggerLabels, metric)
+	return events.EmitUserMetric(ctx, loggerLabels, metric)
 }
