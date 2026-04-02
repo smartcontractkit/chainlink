@@ -27,11 +27,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -376,6 +378,37 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	payload := buildLoadTestPayload(256) // ~256 byte record (protobuf for external Chip)
 
+	// CPU snapshot at start (getrusage; cumulative from process start, so we diff).
+	var cpuStart syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
+
+	// Queue depth sampler: polls DB every 200ms throughout emit + drain phases.
+	var queueMax, queueSum, queueCnt atomic.Int64
+	samplerCtx, samplerCancel := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-samplerCtx.Done():
+				return
+			case <-ticker.C:
+				rows, _, err := queuePayloadStats(db, samplerCtx)
+				if err != nil {
+					continue
+				}
+				queueCnt.Add(1)
+				queueSum.Add(rows)
+				for {
+					old := queueMax.Load()
+					if rows <= old || queueMax.CompareAndSwap(old, rows) {
+						break
+					}
+				}
+			}
+		}
+	}()
+
 	start := time.Now()
 
 	var wg sync.WaitGroup
@@ -394,12 +427,6 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	wg.Wait()
 	emitElapsed := time.Since(start)
 
-	t.Logf("--- Emit Phase ---")
-	t.Logf("Events emitted:   %d", totalEvents)
-	t.Logf("Emit errors:      %d", emitErrors.Load())
-	t.Logf("Elapsed:          %s", emitElapsed.Round(time.Millisecond))
-	t.Logf("Emit rate:        %.0f events/sec", float64(totalEvents)/emitElapsed.Seconds())
-
 	assert.Equal(t, int64(0), emitErrors.Load(), "all emits should succeed")
 
 	// Wait for all events to be delivered and store to drain (pending list empty;
@@ -413,20 +440,97 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 		return len(pending) == 0
 	}, drainWait, 100*time.Millisecond, "store should drain completely (no pending delivery)")
 
+	samplerCancel() // stop queue poller
 	totalElapsed := time.Since(start)
 
-	t.Logf("--- Delivery Phase ---")
-	t.Logf("Server received:  %s events (mock only; use external Chip metrics otherwise)", formatMockServerEvents(srv))
-	if srv != nil {
-		t.Logf("Publish calls:    %d", srv.publishCount.Load())
-		t.Logf("Batch calls:      %d", srv.batchCount.Load())
-	}
-	t.Logf("Total elapsed:    %s", totalElapsed.Round(time.Millisecond))
-	t.Logf("End-to-end rate:  %.0f events/sec", float64(totalEvents)/totalElapsed.Seconds())
+	// CPU diff: user + system seconds consumed over the whole test.
+	var cpuEnd syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuEnd)
+	cpuUserSec := (float64(cpuEnd.Utime.Sec) + float64(cpuEnd.Utime.Usec)/1e6) -
+		(float64(cpuStart.Utime.Sec) + float64(cpuStart.Utime.Usec)/1e6)
+	cpuSysSec := (float64(cpuEnd.Stime.Sec) + float64(cpuEnd.Stime.Usec)/1e6) -
+		(float64(cpuStart.Stime.Sec) + float64(cpuStart.Stime.Usec)/1e6)
+	cpuTotalSec := cpuUserSec + cpuSysSec
+	// Utilization: fraction of available CPU time (wall × GOMAXPROCS).
+	cpuUtilPct := 100.0 * cpuTotalSec / (totalElapsed.Seconds() * float64(runtime.GOMAXPROCS(0)))
 
-	t.Logf("--- gRPC Publish / store MarkDelivered latency (%s) ---", chipIngressTargetDescription(srv))
-	t.Logf("(Publish = chipingress.Publish round-trip; MarkDelivered = UPDATE delivered_at; rows are batch-deleted asynchronously.)")
-	logPipelineDeliverySummary(t, pipe)
+	// Queue depth averages.
+	var queueAvg float64
+	if n := queueCnt.Load(); n > 0 {
+		queueAvg = float64(queueSum.Load()) / float64(n)
+	}
+
+	pubN := pipe.immPub.count()
+	pubErrs := pipe.immPubErr.Load()
+	pubP50 := durMs(pipe.immPub.percentile(0.50))
+	pubP99 := durMs(pipe.immPub.percentile(0.99))
+	pubMean := durMs(pipe.immPub.mean())
+	delN := pipe.immDel.count()
+	delP50 := durMs(pipe.immDel.percentile(0.50))
+	delP99 := durMs(pipe.immDel.percentile(0.99))
+	delMean := durMs(pipe.immDel.mean())
+
+	var bottleneck string
+	switch {
+	case pubN < 50 || delN < 50:
+		bottleneck = "too few samples — extend duration or check async backlog"
+	case pubMean > 3*delMean && pubMean > 0.5:
+		bottleneck = "Chip / gRPC bound (Publish ≫ MarkDelivered)"
+	case delMean > 3*pubMean && delMean > 0.5:
+		bottleneck = "Postgres UPDATE bound (MarkDelivered ≫ Publish)"
+	default:
+		bottleneck = "balanced (Publish ≈ MarkDelivered)"
+	}
+
+	var serverLine string
+	if srv != nil {
+		serverLine = fmt.Sprintf("%d (mock; Publish RPCs: %d)", srv.totalEvents.Load(), srv.publishCount.Load())
+	} else {
+		serverLine = "N/A  (use external Chip metrics)"
+	}
+
+	target := chipIngressTargetDescription(srv)
+
+	t.Logf("╔══════════════════════════════════════════════════════════════╗")
+	t.Logf("║          SUSTAINED THROUGHPUT TEST RESULTS                   ║")
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ Target: %-52s ║", target)
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ EMIT (DB insert, async gRPC)                                 ║")
+	t.Logf("║   Events:         %-42d ║", totalEvents)
+	t.Logf("║   Errors:         %-42d ║", emitErrors.Load())
+	t.Logf("║   Elapsed:        %-42s ║", emitElapsed.Round(time.Millisecond))
+	t.Logf("║   Rate:           %-42s ║", fmt.Sprintf("%.0f events/sec", float64(totalEvents)/emitElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ DELIVERY (Publish → MarkDelivered)                          ║")
+	t.Logf("║   Server received:%-42s ║", serverLine)
+	t.Logf("║   Total elapsed:  %-42s ║", totalElapsed.Round(time.Millisecond))
+	t.Logf("║   End-to-end rate:%-42s ║", fmt.Sprintf("%.0f events/sec", float64(totalEvents)/totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PENDING QUEUE DEPTH (polled every 200ms, delivered_at IS NULL)║")
+	t.Logf("║   Max:            %-42d ║", queueMax.Load())
+	t.Logf("║   Avg:            %-42s ║", fmt.Sprintf("%.1f rows", queueAvg))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PIPELINE LATENCY (immediate path)                            ║")
+	t.Logf("║                   %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
+	t.Logf("║   Publish:        %-10d %-10.2f %-10.2f %-10.2f ║", pubN, pubP50, pubP99, pubMean)
+	t.Logf("║   MarkDelivered:  %-10d %-10.2f %-10.2f %-10.2f ║", delN, delP50, delP99, delMean)
+	if pipe.batchPub.count() > 0 {
+		t.Logf("║   Retransmit:     %-10d %-10.2f %-10s %-10.2f ║",
+			pipe.batchPub.count(),
+			durMs(pipe.batchPub.percentile(0.50)), "—",
+			durMs(pipe.batchPub.mean()))
+	}
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PROCESS CPU (getrusage, GOMAXPROCS=%d)                       ║", runtime.GOMAXPROCS(0))
+	t.Logf("║   User:           %-42s ║", fmt.Sprintf("%.2f s", cpuUserSec))
+	t.Logf("║   System:         %-42s ║", fmt.Sprintf("%.2f s", cpuSysSec))
+	t.Logf("║   Total:          %-42s ║", fmt.Sprintf("%.2f s", cpuTotalSec))
+	t.Logf("║   Utilization:    %-42s ║", fmt.Sprintf("%.1f%% of %d cores × %.1fs wall", cpuUtilPct, runtime.GOMAXPROCS(0), totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║   Publish errors (need retransmit): %-24d ║", pubErrs)
+	t.Logf("║   Bottleneck hint: %-41s ║", bottleneck)
+	t.Logf("╚══════════════════════════════════════════════════════════════╝")
 
 	if srv != nil {
 		assert.GreaterOrEqual(t, srv.totalEvents.Load(), int64(totalEvents),
