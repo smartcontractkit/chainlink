@@ -145,6 +145,14 @@ func normalizeOwner(owner string) (string, error) {
 	return common.HexToAddress(owner).Hex(), nil
 }
 
+func vaultOrgIDAsSecretOwnerEnabled(ctx context.Context, gate limits.GateLimiter) (bool, error) {
+	if gate == nil {
+		return false, nil
+	}
+
+	return gate.Limit(ctx)
+}
+
 func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
@@ -185,31 +193,27 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	orgID := s.orgID
-	if s.vaultOrgIDAsSecretOwnerEnabled == nil {
-		orgID = ""
-	} else {
-		enabled, gateErr := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
-		if gateErr != nil {
-			return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", gateErr)
-		}
-		if !enabled {
-			orgID = ""
-		}
+	orgIDGateEnabled, err := vaultOrgIDAsSecretOwnerEnabled(ctx, s.vaultOrgIDAsSecretOwnerEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
 	}
 	metadata := capabilities.RequestMetadata{
 		WorkflowID:          s.workflowID,
 		WorkflowOwner:       s.workflowOwner,
-		OrgID:               orgID,
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
 		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 	}
+	if orgIDGateEnabled {
+		metadata.OrgID = s.orgID
+	}
 
 	vp := &vault.GetSecretsRequest{
-		OrgId:         metadata.OrgID,
-		WorkflowOwner: metadata.WorkflowOwner,
-		Requests:      make([]*vault.SecretRequest, 0),
+		Requests: make([]*vault.SecretRequest, 0),
+	}
+	if orgIDGateEnabled {
+		vp.OrgId = s.orgID
+		vp.WorkflowOwner = s.workflowOwner
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)

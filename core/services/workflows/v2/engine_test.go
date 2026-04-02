@@ -173,6 +173,59 @@ WorkflowLimit = "1"
 	require.NoError(t, engine4.Close())
 }
 
+func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+	initDoneCh := make(chan error, 1)
+	subscribedToTriggersCh := make(chan []string, 1)
+
+	cfg := defaultTestConfig(t, nil)
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}`))
+	require.NoError(t, err)
+	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	require.NoError(t, err)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.OrgResolver = &mockOrgResolver{orgID: "test-org-123"}
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Close().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
+	eventCh := make(chan capabilities.TriggerResponse)
+	var capturedTriggerRequest capabilities.TriggerRegistrationRequest
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
+		Run(func(ctx context.Context, req capabilities.TriggerRegistrationRequest) {
+			capturedTriggerRequest = req
+		}).
+		Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+	require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
+	require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
+	require.NoError(t, engine.Close())
+}
+
 func TestEngine_TriggerSubscriptions(t *testing.T) {
 	t.Parallel()
 

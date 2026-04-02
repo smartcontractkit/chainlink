@@ -179,7 +179,6 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               c.cfg.WorkflowID,
 			WorkflowOwner:            c.cfg.WorkflowOwner,
-			OrgID:                    contexts.CREValue(ctx).Org,
 			WorkflowExecutionID:      c.WorkflowExecutionID,
 			WorkflowName:             c.cfg.WorkflowName.Hex(),
 			WorkflowDonID:            localNode.WorkflowDON.ID,
@@ -192,12 +191,16 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		},
 		Config: values.EmptyMap(),
 	}
-	if c.cfg.LocalLimiters == nil || c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled == nil {
-		capReq.Metadata.OrgID = ""
-	} else if enabled, gateErr := c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled.Limit(ctx); gateErr != nil {
+	var gate limits.GateLimiter
+	if c.cfg.LocalLimiters != nil {
+		gate = c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+	}
+	enabled, gateErr := vaultOrgIDAsSecretOwnerEnabled(ctx, gate)
+	if gateErr != nil {
 		return nil, gateErr
-	} else if !enabled {
-		capReq.Metadata.OrgID = ""
+	}
+	if enabled {
+		capReq.Metadata.OrgID = contexts.CREValue(ctx).Org
 	}
 
 	execLogger.Debug("Executing capability ...")

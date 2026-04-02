@@ -453,28 +453,39 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			metadata := capabilities.RequestMetadata{
+				WorkflowID:          e.cfg.WorkflowID,
+				WorkflowOwner:       e.cfg.WorkflowOwner,
+				WorkflowName:        e.cfg.WorkflowName.Hex(),
+				WorkflowTag:         e.cfg.WorkflowTag,
+				DecodedWorkflowName: e.cfg.WorkflowName.String(),
+				WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
+				// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
+				// that I can't reproduce locally. This values is unused in trigger subscription phase
+				// so it's not a problem. Still, let's do it right when CI is fixed.
+				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				EngineVersion:                 platform.ValueWorkflowVersionV2,
+				// no WorkflowExecutionID needed (or available at this stage)
+			}
+			var gate limits.GateLimiter
+			if e.cfg.LocalLimiters != nil {
+				gate = e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+			}
+			enabled, gateErr := vaultOrgIDAsSecretOwnerEnabled(gCtx, gate)
+			if gateErr != nil {
+				return gateErr
+			}
+			if enabled {
+				metadata.OrgID = e.orgID
+			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
-				Metadata: capabilities.RequestMetadata{
-					WorkflowID:          e.cfg.WorkflowID,
-					WorkflowOwner:       e.cfg.WorkflowOwner,
-					OrgID:               e.orgID,
-					WorkflowName:        e.cfg.WorkflowName.Hex(),
-					WorkflowTag:         e.cfg.WorkflowTag,
-					DecodedWorkflowName: e.cfg.WorkflowName.String(),
-					WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
-					// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
-					// that I can't reproduce locally. This values is unused in trigger subscription phase
-					// so it's not a problem. Still, let's do it right when CI is fixed.
-					WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
-					ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-					WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-					WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
-					EngineVersion:                 platform.ValueWorkflowVersionV2,
-					// no WorkflowExecutionID needed (or available at this stage)
-				},
-				Payload: sub.Payload,
-				Method:  sub.Method,
+				Metadata:  metadata,
+				Payload:   sub.Payload,
+				Method:    sub.Method,
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
