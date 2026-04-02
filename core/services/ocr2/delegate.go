@@ -161,7 +161,7 @@ type Delegate struct {
 	capabilitiesRegistry           core.CapabilitiesRegistry
 	dontimeStore                   *dontime.Store
 	gatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
-	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	AllowlistedRequestsSyncer      syncerV2.AllowlistedRequestsSyncer
 	limitsFactory                  limits.Factory
 	ocrConfigService               capregconfig.OCRConfigService
 }
@@ -291,7 +291,7 @@ type DelegateOpts struct {
 	GatewayConnectorServiceWrapper *gatewayconnector.ServiceWrapper
 	WorkflowKs                     keystore.Workflow
 	DKGRecipientKs                 keystore.DKGRecipient
-	WorkflowRegistrySyncer         syncerV2.WorkflowRegistrySyncer
+	AllowlistedRequestsSyncer      syncerV2.AllowlistedRequestsSyncer
 	LimitsFactory                  limits.Factory
 	OCRConfigService               capregconfig.OCRConfigService
 }
@@ -326,7 +326,7 @@ func NewDelegate(
 		dontimeStore:                   opts.DonTimeStore,
 		retirementReportCache:          opts.RetirementReportCache,
 		gatewayConnectorServiceWrapper: opts.GatewayConnectorServiceWrapper,
-		WorkflowRegistrySyncer:         opts.WorkflowRegistrySyncer,
+		AllowlistedRequestsSyncer:      opts.AllowlistedRequestsSyncer,
 		limitsFactory:                  opts.LimitsFactory,
 		ocrConfigService:               opts.OCRConfigService,
 	}
@@ -617,7 +617,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.CCIPExecution:
 		return d.newServicesCCIPExecution(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	case types.VaultPlugin:
-		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.WorkflowRegistrySyncer, d.limitsFactory)
+		return d.newServicesVaultPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, d.capabilitiesRegistry, d.gatewayConnectorServiceWrapper, d.AllowlistedRequestsSyncer, d.limitsFactory)
 
 	case types.DonTimePlugin:
 		return d.newDonTimePlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc)
@@ -686,7 +686,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	lc ocrtypes.LocalConfig,
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	wrapper *gatewayconnector.ServiceWrapper,
-	syncer syncerV2.WorkflowRegistrySyncer,
+	syncer syncerV2.AllowlistedRequestsSyncer,
 	limitsFactory limits.Factory,
 ) (srvs []job.ServiceCtx, err error) {
 	spec := jb.OCR2OracleSpec

@@ -158,7 +158,7 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	lggr := logger.TestLogger(t)
 	owner := common.Address{1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer := syncerv2mocks.NewAllowlistedRequestsSyncer(t)
 	auth := NewRequestAuthorizer(lggr, mockSyncer)
 
 	// Happy path
@@ -222,7 +222,7 @@ func TestRequestAuthorizer_RetriesAllowlistReadsUntilDigestAppears(t *testing.T)
 		},
 	}
 
-	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer := syncerv2mocks.NewAllowlistedRequestsSyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return(allowlisted).Once()
@@ -245,7 +245,7 @@ func TestRequestAuthorizer_FailsAfterAllowlistReadRetries(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	req := makeListSecretsRequest(t, "123", "b")
 
-	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer := syncerv2mocks.NewAllowlistedRequestsSyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Times(allowlistReadRetryCount + 1)
 
 	auth := NewRequestAuthorizer(lggr, mockSyncer)
@@ -268,7 +268,7 @@ func TestRequestAuthorizer_StopsRetriesWhenContextCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	mockSyncer := syncerv2mocks.NewWorkflowRegistrySyncer(t)
+	mockSyncer := syncerv2mocks.NewAllowlistedRequestsSyncer(t)
 	mockSyncer.On("GetAllowlistedRequests", mock.Anything).Return([]workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{}).Once()
 
 	auth := NewRequestAuthorizer(lggr, mockSyncer)

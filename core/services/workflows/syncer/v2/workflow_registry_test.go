@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/require"
 
@@ -848,60 +847,6 @@ func Test_Start(t *testing.T) {
 		servicetest.Run(t, wr)
 		workflowDonNotifier.NotifyDonSet(commonCap.DON{})
 	})
-}
-
-func Test_GetAllowlistedRequests(t *testing.T) {
-	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-	workflowDonNotifier := capabilities.NewDonNotifier()
-	er := NewEngineRegistry()
-
-	// Mock allowlisted requests
-	expectedRequests := []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest{
-		{
-			RequestDigest:   [32]byte{1, 2, 3},
-			Owner:           common.Address{4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-			ExpiryTimestamp: 123456789,
-		},
-		{
-			RequestDigest:   [32]byte{7, 8, 9},
-			Owner:           common.Address{10, 11, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-			ExpiryTimestamp: 987654321,
-		},
-	}
-
-	// Mock contract reader to return expectedRequests
-	mockContractReader := &mockContractReader{
-		allowlistedRequests: expectedRequests,
-	}
-
-	contractReaderFn := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-		return mockContractReader, nil
-	}
-	wr, err := NewWorkflowRegistry(
-		lggr,
-		contractReaderFn,
-		newTestContractSources(lggr, contractReaderFn),
-		"",
-		"test-chain-selector",
-		Config{
-			QueryCount:   20,
-			SyncStrategy: SyncStrategyReconciliation,
-		},
-		&eventHandler{},
-		workflowDonNotifier,
-		er,
-	)
-	require.NoError(t, err)
-
-	// Simulate syncAllowlistedRequests updating the field
-	wr.allowListedMu.Lock()
-	wr.allowListedRequests = expectedRequests
-	wr.allowListedMu.Unlock()
-
-	// Test GetAllowlistedRequests returns the correct data
-	got := wr.GetAllowlistedRequests(ctx)
-	require.Equal(t, expectedRequests, got)
 }
 
 // Mock contract reader implementation

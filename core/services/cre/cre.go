@@ -112,6 +112,8 @@ type Services struct {
 
 	WorkflowRegistrySyncer syncerV2.WorkflowRegistrySyncer
 
+	AllowlistedRequestsSyncer syncerV2.AllowlistedRequestsSyncer
+
 	OrgResolver orgresolver.OrgResolver
 
 	OCRConfigService capregconfig.OCRConfigService
@@ -240,6 +242,13 @@ func (s *Services) newSubservices(
 	s.BillingClient = billingClient
 	s.WorkflowRegistrySyncer = wfSyncer
 	srvs = append(srvs, wfSyncerSrvcs...)
+
+	allowlistedSyncer, err := newAllowlistedRequestsSyncer(lggr, capCfg, relayerChainInterops)
+	if err != nil {
+		return nil, err
+	}
+	s.AllowlistedRequestsSyncer = allowlistedSyncer
+	srvs = append(srvs, allowlistedSyncer)
 
 	return srvs, nil
 }
@@ -1032,6 +1041,18 @@ func newWorkflowRegistrySyncerV2(
 	srvcs = append(srvcs, workflowRegistrySyncerV2)
 	lggr.Debugw("Created WorkflowRegistrySyncer V2")
 	return workflowRegistrySyncerV2, srvcs, nil
+}
+
+func newAllowlistedRequestsSyncer(
+	lggr logger.Logger,
+	capCfg config.Capabilities,
+	relayerChainInterops RelayerChainInterops,
+) (syncerV2.AllowlistedRequestsSyncer, error) {
+	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate contract reader factory for allowlisted syncer: %w", err)
+	}
+	return syncerV2.NewAllowlistedRequestsSyncer(lggr, crFactory, capCfg.WorkflowRegistry().Address()), nil
 }
 
 // newWorkflowRegistrySyncer creates a workflow registry syncer based on the contract version

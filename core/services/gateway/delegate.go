@@ -21,26 +21,26 @@ import (
 )
 
 type Delegate struct {
-	legacyChains           legacyevm.LegacyChainContainer
-	ks                     keystore.Eth
-	ds                     sqlutil.DataSource
-	lggr                   logger.Logger
-	capabilitiesRegistry   core.CapabilitiesRegistry
-	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
-	lf                     limits.Factory
+	legacyChains              legacyevm.LegacyChainContainer
+	ks                        keystore.Eth
+	ds                        sqlutil.DataSource
+	lggr                      logger.Logger
+	capabilitiesRegistry      core.CapabilitiesRegistry
+	allowlistedRequestsSyncer workflowsyncerv2.AllowlistedRequestsSyncer
+	lf                        limits.Factory
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, lf limits.Factory) *Delegate {
+func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, capabilitiesRegistry core.CapabilitiesRegistry, allowlistedRequestsSyncer workflowsyncerv2.AllowlistedRequestsSyncer, lggr logger.Logger, lf limits.Factory) *Delegate {
 	return &Delegate{
-		legacyChains:           legacyChains,
-		ks:                     ks,
-		ds:                     ds,
-		capabilitiesRegistry:   capabilitiesRegistry,
-		lggr:                   lggr,
-		workflowRegistrySyncer: workflowRegistrySyncer,
-		lf:                     lf,
+		legacyChains:              legacyChains,
+		ks:                        ks,
+		ds:                        ds,
+		capabilitiesRegistry:      capabilitiesRegistry,
+		lggr:                      lggr,
+		allowlistedRequestsSyncer: allowlistedRequestsSyncer,
+		lf:                        lf,
 	}
 }
 
@@ -68,7 +68,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, err
 	}
-	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.workflowRegistrySyncer, d.lggr, d.lf)
+	handlerFactory := NewHandlerFactory(d.legacyChains, d.ds, httpClient, d.capabilitiesRegistry, d.allowlistedRequestsSyncer, d.lggr, d.lf)
 	gateway, err := NewGatewayFromConfig(&gatewayConfig, handlerFactory, d.lggr, d.lf)
 	if err != nil {
 		return nil, err

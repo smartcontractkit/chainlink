@@ -11,17 +11,17 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
+	syncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 type RequestAuthorizer interface {
 	AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (isAuthorized bool, owner string, err error)
 }
 type requestAuthorizer struct {
-	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer
-	replayGuard            *DigestReplayGuard
-	lggr                   logger.Logger
-	sleep                  func(time.Duration)
+	allowlistedRequestsSyncer syncerv2.AllowlistedRequestsSyncer
+	replayGuard               *DigestReplayGuard
+	lggr                      logger.Logger
+	sleep                     func(time.Duration)
 }
 
 const (
@@ -45,9 +45,9 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 		return false, "", err
 	}
 	requestDigestBytes32 := [32]byte(requestDigestBytes)
-	if r.workflowRegistrySyncer == nil {
-		r.lggr.Errorw("AuthorizeRequest workflowRegistrySyncer is nil", "method", req.Method, "requestID", req.ID)
-		return false, "", errors.New("internal error: workflowRegistrySyncer is nil")
+	if r.allowlistedRequestsSyncer == nil {
+		r.lggr.Errorw("AuthorizeRequest allowlistedRequestsSyncer is nil", "method", req.Method, "requestID", req.ID)
+		return false, "", errors.New("internal error: allowlistedRequestsSyncer is nil")
 	}
 	allowlistedRequest, _ := r.fetchAllowlistedItemWithRetry(ctx, req.Method, req.ID, requestDigest, requestDigestBytes32)
 	if allowlistedRequest == nil {
@@ -73,7 +73,7 @@ func (r *requestAuthorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Re
 func (r *requestAuthorizer) fetchAllowlistedItemWithRetry(ctx context.Context, method string, requestID interface{}, requestDigest string, digest [32]byte) (*workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest, []string) {
 	var allowedRequestsStrs []string
 	for attempt := 0; attempt <= allowlistReadRetryCount; attempt++ {
-		allowedRequests := r.workflowRegistrySyncer.GetAllowlistedRequests(ctx)
+		allowedRequests := r.allowlistedRequestsSyncer.GetAllowlistedRequests(ctx)
 		allowedRequestsStrs = make([]string, 0, len(allowedRequests))
 		for _, rr := range allowedRequests {
 			allowedReqStr := fmt.Sprintf("Owner: %s, RequestDigest: %s, ExpiryTimestamp: %d", rr.Owner.Hex(), hex.EncodeToString(rr.RequestDigest[:]), rr.ExpiryTimestamp)
@@ -129,11 +129,11 @@ func (r *requestAuthorizer) fetchAllowlistedItem(allowListedRequests []workflow_
 	return nil
 }
 
-func NewRequestAuthorizer(lggr logger.Logger, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer) *requestAuthorizer {
+func NewRequestAuthorizer(lggr logger.Logger, allowlistedRequestsSyncer syncerv2.AllowlistedRequestsSyncer) *requestAuthorizer {
 	return &requestAuthorizer{
-		workflowRegistrySyncer: workflowRegistrySyncer,
-		lggr:                   logger.Named(lggr, "VaultRequestAuthorizer"),
-		replayGuard:            NewDigestReplayGuard(),
-		sleep:                  time.Sleep,
+		allowlistedRequestsSyncer: allowlistedRequestsSyncer,
+		lggr:                      logger.Named(lggr, "VaultRequestAuthorizer"),
+		replayGuard:               NewDigestReplayGuard(),
+		sleep:                     time.Sleep,
 	}
 }

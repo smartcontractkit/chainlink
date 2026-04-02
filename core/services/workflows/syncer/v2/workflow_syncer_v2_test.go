@@ -138,7 +138,10 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	allowlistedSyncer := NewAllowlistedRequestsSyncer(lggr, contractReaderFn, wfRegistryAddr.Hex())
+
 	servicetest.Run(t, worker)
+	servicetest.Run(t, allowlistedSyncer)
 
 	require.Eventually(t, func() bool {
 		return len(testEventHandler.GetEvents()) == numberWorkflows
@@ -148,11 +151,9 @@ func Test_InitialStateSyncV2(t *testing.T) {
 		assert.Equal(t, WorkflowActivated, event.Name)
 	}
 
-	assert.Len(t,
-		worker.GetAllowlistedRequests(t.Context()),
-		activeAllowlistedRequestsCount,
-		"synced allowlisted requests do not match expectations",
-	)
+	require.Eventually(t, func() bool {
+		return len(allowlistedSyncer.GetAllowlistedRequests(t.Context())) == activeAllowlistedRequestsCount
+	}, tests.WaitTimeout(t), time.Second, "synced allowlisted requests do not match expectations")
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDONV2(t *testing.T) {
