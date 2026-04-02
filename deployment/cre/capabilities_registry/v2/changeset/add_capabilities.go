@@ -3,7 +3,6 @@ package changeset
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -22,15 +21,10 @@ type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registryChainSel" yaml:"registryChainSel"`
 	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
-	MCMSConfig        *crecontracts.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
-	DonName           string                       `json:"donName" yaml:"donName"`   // optional if DonNames is set; for backward compatibility
-	DonNames          []string                     `json:"donNames" yaml:"donNames"` // multiple DONs to update
-	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
 
-	// DonCapabilityConfigOverrides maps DON name to a list of config overrides.
-	// Each override's Config is deep-merged into the base CapabilityConfig.Config for the matching capability.
-	// If an override's CapabilityID is empty, it applies to all capabilities for that DON.
-	DonCapabilityConfigOverrides map[string][]sequences.CapabilityConfigOverride `json:"donCapabilityConfigOverrides,omitempty" yaml:"donCapabilityConfigOverrides,omitempty"`
+	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
+	DonCapabilityConfigs map[string][]contracts.CapabilityConfig `json:"donCapabilityConfigs" yaml:"donCapabilityConfigs"`
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
@@ -40,34 +34,16 @@ type AddCapabilitiesInput struct {
 type AddCapabilities struct{}
 
 func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
-	if config.DonName != "" && len(config.DonNames) > 0 {
-		return errors.New("cannot specify both donName and donNames")
+	if len(config.DonCapabilityConfigs) == 0 {
+		return errors.New("donCapabilityConfigs must contain at least one DON entry")
 	}
-	donNames := u.donNames(config)
-	if len(donNames) == 0 {
-		return errors.New("must specify donName or donNames")
-	}
-	if slices.Contains(donNames, "") {
-		return errors.New("donName or donNames cannot contain an empty string")
-	}
-	if len(config.CapabilityConfigs) == 0 {
-		return errors.New("capabilityConfigs is required")
-	}
-	for overrideDon := range config.DonCapabilityConfigOverrides {
-		if !slices.Contains(donNames, overrideDon) {
-			return fmt.Errorf("donCapabilityConfigOverrides contains DON name %q which is not in the DON names list", overrideDon)
+	for donName, configs := range config.DonCapabilityConfigs {
+		if donName == "" {
+			return errors.New("donCapabilityConfigs keys cannot be empty strings")
 		}
-	}
-	return nil
-}
-
-// donNames returns the list of DON names to update (from DonNames or single DonName for backward compatibility).
-func (u AddCapabilities) donNames(config AddCapabilitiesInput) []string {
-	if len(config.DonNames) > 0 {
-		return config.DonNames
-	}
-	if config.DonName != "" {
-		return []string{config.DonName}
+		if len(configs) == 0 {
+			return fmt.Errorf("donCapabilityConfigs[%q] must contain at least one capability config", donName)
+		}
 	}
 	return nil
 }
@@ -89,12 +65,10 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilities,
 		sequences.AddCapabilitiesDeps{Env: &e, MCMSContracts: mcmsContracts},
 		sequences.AddCapabilitiesInput{
-			RegistryRef:                  registryRef,
-			DonNames:                     u.donNames(config),
-			CapabilityConfigs:            config.CapabilityConfigs,
-			DonCapabilityConfigOverrides: config.DonCapabilityConfigOverrides,
-			Force:                        config.Force,
-			MCMSConfig:                   config.MCMSConfig,
+			RegistryRef:          registryRef,
+			DonCapabilityConfigs: config.DonCapabilityConfigs,
+			Force:                config.Force,
+			MCMSConfig:           config.MCMSConfig,
 		},
 	)
 	if err != nil {
