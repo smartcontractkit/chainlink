@@ -372,7 +372,8 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	_ = group.Wait()
 
 	numNodeErrors := nodeErrors.Load()
-	if numNodeErrors == uint32(len(h.donConfig.Members)) && numNodeErrors > 0 {
+	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
+	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
