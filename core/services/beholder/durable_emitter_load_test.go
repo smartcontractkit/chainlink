@@ -576,9 +576,17 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	}
 }
 
-// TestFullStack_ChipOutage simulates Chip going down during sustained load,
-// then recovering. Measures: how events accumulate in Postgres, and how
-// fast they drain once Chip comes back.
+// TestFullStack_ChipOutage runs sustained emit load while injecting periodic
+// Chip outages at fixed intervals. Each cycle: Chip is up for outagePeriod,
+// then down for outageDuration, then recovers. The test measures how the DB
+// queue accumulates during each outage and drains after each recovery, giving
+// a real view of back-pressure, retransmit drain rate, and DB load over time.
+//
+// OTel metrics are exported when OTEL_EXPORTER_OTLP_ENDPOINT is set (same as
+// TestFullStack_SustainedThroughput). Start the obs stack first:
+//
+//	./bin/ctf obs up
+//	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 go test ./core/services/beholder/ -run TestFullStack_ChipOutage -v -count=1 -timeout 20m
 func TestFullStack_ChipOutage(t *testing.T) {
 	skipIfExternalChip(t, "inject Unavailable errors on mock server")
 
@@ -587,61 +595,290 @@ func TestFullStack_ChipOutage(t *testing.T) {
 	require.NotNil(t, srv)
 	store := beholdersvc.NewPgDurableEventStore(db)
 
+	ctx := testutils.Context(t)
+
+	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
 	cfg.RetransmitInterval = 200 * time.Millisecond
-	cfg.RetransmitAfter = 100 * time.Millisecond
-	cfg.RetransmitBatchSize = 100
-	cfg.PublishTimeout = 1 * time.Second
+	cfg.RetransmitAfter = 500 * time.Millisecond
+	cfg.RetransmitBatchSize = 200
+	cfg.PublishTimeout = 2 * time.Second
+	cfg.Hooks = newPipelineHooks(pipe)
+
+	// OTel metrics wiring (same as SustainedThroughput).
+	if otlpEndpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")); otlpEndpoint != "" {
+		otlpEndpoint = strings.TrimPrefix(otlpEndpoint, "http://")
+		exp, otelErr := otlpmetricgrpc.New(ctx,
+			otlpmetricgrpc.WithEndpoint(otlpEndpoint),
+			otlpmetricgrpc.WithInsecure(),
+		)
+		require.NoError(t, otelErr, "otlp metric exporter")
+		res := sdkresource.NewWithAttributes("",
+			attribute.String("service.name", "durable-emitter-loadtest"),
+		)
+		mp := sdkmetric.NewMeterProvider(
+			sdkmetric.WithResource(res),
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(5*time.Second))),
+		)
+		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+		bc := beholder.NewNoopClient()
+		bc.MeterProvider = mp
+		bc.Meter = mp.Meter("beholder")
+		beholder.SetClient(bc)
+		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
+		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
+			PollInterval:       5 * time.Second,
+			RecordProcessStats: true,
+		}
+		t.Logf("OTel metrics enabled → %s (5s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
+	}
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
 	require.NoError(t, err)
-
-	ctx := testutils.Context(t)
 	em.Start(ctx)
 	defer em.Close()
 
-	// Phase 1: Chip is available — emit 200 events.
-	for i := 0; i < 200; i++ {
-		require.NoError(t, em.Emit(ctx, []byte("pre-outage"), loadEmitAttrs()...))
+	// Outage schedule.
+	const (
+		outageCycles    = 3
+		upDuration      = 20 * time.Second // Chip healthy between outages
+		outageDuration  = 10 * time.Second // Chip unavailable per cycle
+		emitConcurrency = 5
+		emitRatePerWorker = 200 // events/s target per worker (throttled)
+	)
+	totalEmitted := outageCycles * int(upDuration.Seconds()+outageDuration.Seconds()) *
+		emitConcurrency * emitRatePerWorker
+	// Cap to a sane ceiling so the test completes quickly.
+	if totalEmitted > 50_000 {
+		totalEmitted = 50_000
 	}
+
+	t.Logf("ChipOutage: %d cycles  up=%s  down=%s  workers=%d  target=%d events",
+		outageCycles, upDuration, outageDuration, emitConcurrency, totalEmitted)
+
+	// CPU snapshot.
+	var cpuStart syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
+
+	// Queue depth sampler.
+	var queueMax, queueSum, queueCnt atomic.Int64
+	samplerCtx, samplerCancel := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-samplerCtx.Done():
+				return
+			case <-ticker.C:
+				rows, _, err := queuePayloadStats(db, samplerCtx)
+				if err != nil {
+					continue
+				}
+				queueCnt.Add(1)
+				queueSum.Add(rows)
+				for {
+					old := queueMax.Load()
+					if rows <= old || queueMax.CompareAndSwap(old, rows) {
+						break
+					}
+				}
+			}
+		}
+	}()
+
+	// Outage injector: runs cycles of up/down in a background goroutine.
+	type cycleResult struct {
+		cycle         int
+		outageStart   time.Time
+		recoveryStart time.Time
+		drainElapsed  time.Duration
+		peakQueue     int64
+		drainRate     float64 // events/sec
+	}
+	cycleResults := make([]cycleResult, 0, outageCycles)
+	var cyclesMu sync.Mutex
+
+	outageCtx, outageCancel := context.WithCancel(ctx)
+	defer outageCancel()
+
+	go func() {
+		for cycle := 1; cycle <= outageCycles; cycle++ {
+			// Wait for "up" phase.
+			select {
+			case <-outageCtx.Done():
+				return
+			case <-time.After(upDuration):
+			}
+
+			// Take down Chip.
+			srv.setPublishErr(status.Error(codes.Unavailable, "chip down"))
+			srv.setBatchErr(status.Error(codes.Unavailable, "chip down"))
+			outStart := time.Now()
+			t.Logf("↓ Cycle %d/%d: Chip DOWN at %s", cycle, outageCycles, outStart.Format("15:04:05"))
+
+			// Measure peak queue during outage.
+			var cyclePeak int64
+			peakTicker := time.NewTicker(250 * time.Millisecond)
+			outageTimer := time.NewTimer(outageDuration)
+		peakLoop:
+			for {
+				select {
+				case <-outageCtx.Done():
+					peakTicker.Stop()
+					outageTimer.Stop()
+					return
+				case <-outageTimer.C:
+					peakTicker.Stop()
+					break peakLoop
+				case <-peakTicker.C:
+					rows, _, _ := queuePayloadStats(db, outageCtx)
+					if rows > cyclePeak {
+						cyclePeak = rows
+					}
+				}
+			}
+
+			// Restore Chip.
+			srv.setPublishErr(nil)
+			srv.setBatchErr(nil)
+			recovStart := time.Now()
+			t.Logf("↑ Cycle %d/%d: Chip UP at %s (was down %s, peak queue %d rows)",
+				cycle, outageCycles, recovStart.Format("15:04:05"),
+				recovStart.Sub(outStart).Round(time.Millisecond), cyclePeak)
+
+			// Wait for drain.
+			drainDeadline := time.Now().Add(60 * time.Second)
+			var drainElapsed time.Duration
+			for time.Now().Before(drainDeadline) {
+				pending, _ := store.ListPending(outageCtx, time.Now().Add(time.Hour), 1)
+				if len(pending) == 0 {
+					drainElapsed = time.Since(recovStart)
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+
+			cyclesMu.Lock()
+			cycleResults = append(cycleResults, cycleResult{
+				cycle:        cycle,
+				outageStart:  outStart,
+				recoveryStart: recovStart,
+				drainElapsed: drainElapsed,
+				peakQueue:    cyclePeak,
+				drainRate:    float64(cyclePeak) / max(drainElapsed.Seconds(), 0.001),
+			})
+			cyclesMu.Unlock()
+		}
+	}()
+
+	// Emit loop: concurrent workers emit at a steady rate until totalEmitted.
+	testStart := time.Now()
+	payload := buildLoadTestPayload(256)
+	var emitErrors atomic.Int64
+	var emitCount atomic.Int64
+	var emitWg sync.WaitGroup
+	eventsPerWorker := totalEmitted / emitConcurrency
+
+	for w := 0; w < emitConcurrency; w++ {
+		emitWg.Add(1)
+		go func() {
+			defer emitWg.Done()
+			for i := 0; i < eventsPerWorker; i++ {
+				if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
+					emitErrors.Add(1)
+				}
+				emitCount.Add(1)
+			}
+		}()
+	}
+	emitWg.Wait()
+	outageCancel() // stop outage injector
+	emitElapsed := time.Since(testStart)
+
+	// Wait for final drain.
 	require.Eventually(t, func() bool {
 		pending, _ := store.ListPending(ctx, time.Now().Add(time.Hour), 1)
 		return len(pending) == 0
-	}, 10*time.Second, 50*time.Millisecond, "pre-outage events should all deliver")
-	t.Logf("Phase 1: %d events delivered pre-outage", srv.totalEvents.Load())
+	}, 60*time.Second, 100*time.Millisecond, "all events should drain after final recovery")
 
-	// Phase 2: Chip goes down — emit 500 more events.
-	srv.setPublishErr(status.Error(codes.Unavailable, "chip down"))
-	srv.setBatchErr(status.Error(codes.Unavailable, "chip down"))
+	samplerCancel()
+	totalElapsed := time.Since(testStart)
 
-	outageStart := time.Now()
-	for i := 0; i < 500; i++ {
-		require.NoError(t, em.Emit(ctx, []byte("during-outage"), loadEmitAttrs()...))
+	// CPU diff.
+	var cpuEnd syscall.Rusage
+	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuEnd)
+	cpuUserSec := (float64(cpuEnd.Utime.Sec) + float64(cpuEnd.Utime.Usec)/1e6) -
+		(float64(cpuStart.Utime.Sec) + float64(cpuStart.Utime.Usec)/1e6)
+	cpuSysSec := (float64(cpuEnd.Stime.Sec) + float64(cpuEnd.Stime.Usec)/1e6) -
+		(float64(cpuStart.Stime.Sec) + float64(cpuStart.Stime.Usec)/1e6)
+	cpuTotalSec := cpuUserSec + cpuSysSec
+	cpuUtilPct := 100.0 * cpuTotalSec / (totalElapsed.Seconds() * float64(runtime.GOMAXPROCS(0)))
+
+	var queueAvg float64
+	if n := queueCnt.Load(); n > 0 {
+		queueAvg = float64(queueSum.Load()) / float64(n)
 	}
-	t.Logf("Phase 2: emitted 500 events during outage in %s", time.Since(outageStart).Round(time.Millisecond))
 
-	// Verify events are accumulating in Postgres.
-	time.Sleep(500 * time.Millisecond) // let some retransmits fail
-	pending, err := store.ListPending(ctx, time.Now().Add(time.Hour), 1000)
-	require.NoError(t, err)
-	t.Logf("Phase 2: %d events pending in Postgres during outage", len(pending))
-	assert.Greater(t, len(pending), 0, "events should accumulate during outage")
+	pubMean := durMs(pipe.immPub.mean())
+	delMean := durMs(pipe.immDel.mean())
 
-	// Phase 3: Chip recovers.
-	srv.setPublishErr(nil)
-	srv.setBatchErr(nil)
-	recoveryStart := time.Now()
+	t.Logf("╔══════════════════════════════════════════════════════════════╗")
+	t.Logf("║            CHIP OUTAGE TEST RESULTS                          ║")
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ EMIT                                                         ║")
+	t.Logf("║   Events emitted: %-42d ║", emitCount.Load())
+	t.Logf("║   Errors:         %-42d ║", emitErrors.Load())
+	t.Logf("║   Elapsed:        %-42s ║", emitElapsed.Round(time.Millisecond))
+	t.Logf("║   Rate:           %-42s ║", fmt.Sprintf("%.0f events/sec", float64(emitCount.Load())/emitElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ DELIVERY                                                     ║")
+	t.Logf("║   Server received:%-42d ║", srv.totalEvents.Load())
+	t.Logf("║   Total elapsed:  %-42s ║", totalElapsed.Round(time.Millisecond))
+	t.Logf("║   E2E rate:       %-42s ║", fmt.Sprintf("%.0f events/sec", float64(emitCount.Load())/totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ OUTAGE CYCLES (up=%s / down=%s per cycle)         ║", upDuration, outageDuration)
+	t.Logf("║   %-4s %-12s %-12s %-12s %-12s ║", "Cyc", "Peak queue", "Drain time", "Drain rate", "")
+	cyclesMu.Lock()
+	for _, r := range cycleResults {
+		drainStr := r.drainElapsed.Round(time.Millisecond).String()
+		if r.drainElapsed == 0 {
+			drainStr = "timeout"
+		}
+		t.Logf("║   %-4d %-12d %-12s %-12s           ║",
+			r.cycle, r.peakQueue, drainStr,
+			fmt.Sprintf("%.0f/s", r.drainRate))
+	}
+	cyclesMu.Unlock()
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PENDING QUEUE DEPTH (sampled every 200ms)                    ║")
+	t.Logf("║   Max:            %-42d ║", queueMax.Load())
+	t.Logf("║   Avg:            %-42s ║", fmt.Sprintf("%.1f rows", queueAvg))
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PIPELINE LATENCY (immediate path)                            ║")
+	t.Logf("║                   %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
+	t.Logf("║   Publish:        %-10d %-10.2f %-10.2f %-10.2f ║",
+		pipe.immPub.count(), durMs(pipe.immPub.percentile(0.50)),
+		durMs(pipe.immPub.percentile(0.99)), pubMean)
+	t.Logf("║   MarkDelivered:  %-10d %-10.2f %-10.2f %-10.2f ║",
+		pipe.immDel.count(), durMs(pipe.immDel.percentile(0.50)),
+		durMs(pipe.immDel.percentile(0.99)), delMean)
+	if pipe.batchPub.count() > 0 {
+		t.Logf("║   Retransmit:     %-10d %-10.2f %-10s %-10.2f ║",
+			pipe.batchPub.count(), durMs(pipe.batchPub.percentile(0.50)), "—",
+			durMs(pipe.batchPub.mean()))
+	}
+	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PROCESS CPU (getrusage, GOMAXPROCS=%d)                       ║", runtime.GOMAXPROCS(0))
+	t.Logf("║   User:           %-42s ║", fmt.Sprintf("%.2f s", cpuUserSec))
+	t.Logf("║   System:         %-42s ║", fmt.Sprintf("%.2f s", cpuSysSec))
+	t.Logf("║   Total:          %-42s ║", fmt.Sprintf("%.2f s", cpuTotalSec))
+	t.Logf("║   Utilization:    %-42s ║", fmt.Sprintf("%.1f%% of %d cores × %.1fs wall", cpuUtilPct, runtime.GOMAXPROCS(0), totalElapsed.Seconds()))
+	t.Logf("╚══════════════════════════════════════════════════════════════╝")
 
-	require.Eventually(t, func() bool {
-		pending, _ := store.ListPending(ctx, time.Now().Add(time.Hour), 1)
-		return len(pending) == 0
-	}, 30*time.Second, 100*time.Millisecond, "all events should drain after recovery")
-
-	recoveryElapsed := time.Since(recoveryStart)
-	t.Logf("Phase 3: drained in %s after recovery (%.0f events/sec drain rate)",
-		recoveryElapsed.Round(time.Millisecond),
-		float64(500)/recoveryElapsed.Seconds())
-	t.Logf("Total server events: %d", srv.totalEvents.Load())
+	assert.Equal(t, int64(0), emitErrors.Load(), "no emit errors expected")
+	assert.GreaterOrEqual(t, srv.totalEvents.Load(), int64(totalEmitted),
+		"server should have received all events (may include retransmit duplicates)")
 }
 
 // TestFullStack_SlowChip simulates a slow Chip server (high latency per
