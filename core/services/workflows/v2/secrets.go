@@ -185,7 +185,10 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	orgIDGateEnabled, err := gateEnabledOrError(ctx, s.vaultOrgIDAsSecretOwnerEnabled)
+	if s.vaultOrgIDAsSecretOwnerEnabled == nil {
+		return nil, errors.New("vault org id gate is nil")
+	}
+	orgIDGateEnabled, err := s.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
 	}

@@ -470,11 +470,11 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			var gate limits.GateLimiter
-			if e.cfg.LocalLimiters != nil {
-				gate = e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+			if gate == nil {
+				return errors.New("vault org id gate is nil")
 			}
-			enabled, gateErr := gateEnabledOrError(gCtx, gate)
+			enabled, gateErr := gate.Limit(gCtx)
 			if gateErr != nil {
 				return gateErr
 			}

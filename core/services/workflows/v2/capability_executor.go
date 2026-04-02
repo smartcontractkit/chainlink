@@ -192,7 +192,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Config: values.EmptyMap(),
 	}
 	gate := c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-	enabled, gateErr := gateEnabledOrError(ctx, gate)
+	if gate == nil {
+		return nil, errors.New("vault org id gate is nil")
+	}
+	enabled, gateErr := gate.Limit(ctx)
 	if gateErr != nil {
 		return nil, gateErr
 	}
