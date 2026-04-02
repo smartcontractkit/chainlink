@@ -49,7 +49,7 @@ func TestUpdateShardCount(t *testing.T) {
 	shardConfigRef := datastore.NewAddressRefKey(
 		selector,
 		datastore.ContractType(contracts.ShardConfig),
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.0.0-dev"),
 		"test-shard-config",
 	)
 
