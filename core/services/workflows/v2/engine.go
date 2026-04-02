@@ -215,7 +215,9 @@ func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
-	// Fetch organization ID for this owner
+	// Resolve the workflow owner's org once at engine startup and treat it as stable
+	// for the lifetime of this engine instance. If org membership/linking changes, the
+	// workflow must be restarted to pick up the new org mapping.
 	e.orgID = ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
@@ -619,24 +621,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Refresh the engine org ID for this execution.
-	e.orgID = contexts.CREValue(ctx).Org
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			e.orgID = orgID
-
-			creCtx := contexts.CREValue(ctx)
-			creCtx.Org = e.orgID
-			ctx = contexts.WithCRE(ctx, creCtx)
-		}
-	}
+	// Use the org resolved at engine startup for all executions in this engine instance.
+	executionOrgID := contexts.CREValue(ctx).Org
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = e.orgID
-	e.loggerLabels.Store(&loggerLabels)
-	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
+	loggerLabels[platform.KeyOrganizationID] = executionOrgID
+	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
 
 	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
