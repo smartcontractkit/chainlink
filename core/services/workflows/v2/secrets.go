@@ -145,14 +145,6 @@ func normalizeOwner(owner string) (string, error) {
 	return common.HexToAddress(owner).Hex(), nil
 }
 
-func vaultOrgIDAsSecretOwnerEnabled(ctx context.Context, gate limits.GateLimiter) (bool, error) {
-	if gate == nil {
-		return false, nil
-	}
-
-	return gate.Limit(ctx)
-}
-
 func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
@@ -193,7 +185,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	orgIDGateEnabled, err := vaultOrgIDAsSecretOwnerEnabled(ctx, s.vaultOrgIDAsSecretOwnerEnabled)
+	orgIDGateEnabled, err := gateEnabledOrError(ctx, s.vaultOrgIDAsSecretOwnerEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
 	}

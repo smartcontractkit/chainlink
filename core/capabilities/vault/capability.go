@@ -120,9 +120,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(r.WorkflowOwner) {
-			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", r.WorkflowOwner)
-			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, r.WorkflowOwner, idx)
+		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(request.Metadata.WorkflowOwner) {
+			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
 	}
 
@@ -312,7 +312,7 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}
-	linker, err := NewOrgIDToWorkflowOwnerLinker(lggr, orgResolver, limitsFactory)
+	linker, err := NewOrgIDToWorkflowOwnerLinker(orgResolver, limitsFactory)
 	if err != nil {
 		return nil, err
 	}

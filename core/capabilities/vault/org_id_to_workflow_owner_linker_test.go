@@ -158,7 +158,7 @@ func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMi
 		Owner:     "0xabc123",
 		Namespace: "ns",
 	})
-	require.ErrorContains(t, err, "workflow owner is required when org_id is missing")
+	require.ErrorContains(t, err, "org_id and workflow owner cannot both be empty")
 	assert.Empty(t, resolver.calledWith)
 	assert.Empty(t, store.GetByIDs([]string{"request-missing-workflow-owner"}))
 }

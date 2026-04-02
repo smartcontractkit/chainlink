@@ -474,7 +474,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			if e.cfg.LocalLimiters != nil {
 				gate = e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
 			}
-			enabled, gateErr := vaultOrgIDAsSecretOwnerEnabled(gCtx, gate)
+			enabled, gateErr := gateEnabledOrError(gCtx, gate)
 			if gateErr != nil {
 				return gateErr
 			}

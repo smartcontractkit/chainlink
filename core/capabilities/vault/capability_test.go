@@ -374,7 +374,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
-func TestCapability_CapabilityCall_UsesRequestWorkflowOwner(t *testing.T) {
+func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
@@ -442,7 +442,7 @@ func TestCapability_CapabilityCall_UsesRequestWorkflowOwner(t *testing.T) {
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:       "different-metadata-workflow-owner",
+			WorkflowOwner:       workflowOwner,
 			WorkflowID:          "wf-id",
 			WorkflowExecutionID: "exec-id",
 			ReferenceID:         "ref-id",
@@ -537,7 +537,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 		Payload: anyproto,
 		Method:  vault.MethodGetSecrets,
 		Metadata: capabilities.RequestMetadata{
-			WorkflowOwner:       "different-metadata-workflow-owner",
+			WorkflowOwner:       "0xABCDef1234567890abcdef1234567890abcdef12",
 			WorkflowID:          "wf-id",
 			WorkflowExecutionID: "exec-id",
 			ReferenceID:         "ref-id",
