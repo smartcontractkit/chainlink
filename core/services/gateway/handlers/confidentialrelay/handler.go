@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -327,18 +328,15 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
 	var (
-		group        errgroup.Group
-		nodeErrors   int
-		nodeErrorsMu sync.Mutex
+		group      errgroup.Group
+		nodeErrors atomic.Uint32
 	)
 
 	for _, node := range h.donConfig.Members {
 		group.Go(func() error {
 			err := h.don.SendToNode(ctx, node.Address, &ar.req)
 			if err != nil {
-				nodeErrorsMu.Lock()
-				nodeErrors++
-				nodeErrorsMu.Unlock()
+				nodeErrors.Add(1)
 				l.Errorw("error sending request to node", "node", node.Address, "error", err)
 			}
 			return nil
@@ -347,7 +345,8 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 
 	_ = group.Wait()
 
-	if nodeErrors == len(h.donConfig.Members) && nodeErrors > 0 {
+	numNodeErrors := nodeErrors.Load()
+	if numNodeErrors == uint32(len(h.donConfig.Members)) && numNodeErrors > 0 {
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
