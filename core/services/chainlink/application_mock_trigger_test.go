@@ -45,17 +45,37 @@ func (stubCapabilityNodeConfig) Config() map[string]string {
 func TestShouldRegisterMockStreamsTrigger(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, shouldRegisterMockStreamsTrigger(nil))
-
-	require.False(t, shouldRegisterMockStreamsTrigger(stubLocalCapabilities{
-		cfgs: map[string]config.CapabilityNodeConfig{
-			"cron@1.0.0": stubCapabilityNodeConfig{},
+	tests := []struct {
+		name  string
+		local config.LocalCapabilities
+		want  bool
+	}{
+		{name: "nil config", local: nil, want: false},
+		{
+			name: "different local capability",
+			local: stubLocalCapabilities{
+				cfgs: map[string]config.CapabilityNodeConfig{
+					"cron@1.0.0": stubCapabilityNodeConfig{},
+				},
+			},
+			want: false,
 		},
-	}))
-
-	require.True(t, shouldRegisterMockStreamsTrigger(stubLocalCapabilities{
-		cfgs: map[string]config.CapabilityNodeConfig{
-			capStreams.MockTriggerCapabilityID: stubCapabilityNodeConfig{},
+		{
+			name: "mock trigger opted in",
+			local: stubLocalCapabilities{
+				cfgs: map[string]config.CapabilityNodeConfig{
+					capStreams.MockTriggerCapabilityID: stubCapabilityNodeConfig{},
+				},
+			},
+			want: true,
 		},
-	}))
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, shouldRegisterMockStreamsTrigger(tt.local))
+		})
+	}
 }

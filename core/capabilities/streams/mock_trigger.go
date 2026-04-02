@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"maps"
 	"math/big"
 	"sync"
 	"time"
@@ -26,9 +25,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const (
+	mockTriggerCapabilityName           = "mock-streams-trigger"
+	mockTriggerCapabilityVersion        = "1.0.0"
+	mockTriggerRegisterResolution       = 100
+	defaultLoopIntervalMs         int64 = 1000
+	mockSignerFaultTolerance            = 1
+	mockSignerKeyLength                 = 32
+	mockSignerKeyLastByteIndex          = mockSignerKeyLength - 1
+	reportExpiryOffsetSeconds           = 1_000_000
+	initialMockPriceA             int64 = 300_000
+	initialMockPriceB             int64 = 40_000
+	initialMockPriceC             int64 = 5_000_000
+)
+
 func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegistry) (*MockTriggerService, error) {
 	ctx := context.Background()
-	trigger, err := NewMockTriggerService(100, lggr)
+	trigger, err := NewMockTriggerService(mockTriggerRegisterResolution, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -36,13 +49,14 @@ func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegist
 		return nil, err
 	}
 	if err := capRegistry.Add(ctx, trigger); err != nil {
+		_ = trigger.Close()
 		return nil, err
 	}
 
 	return trigger, nil
 }
 
-const MockTriggerCapabilityID = "mock-streams-trigger@1.0.0"
+const MockTriggerCapabilityID = mockTriggerCapabilityName + "@" + mockTriggerCapabilityVersion
 
 var capInfo = capabilities.MustNewCapabilityInfo(
 	MockTriggerCapabilityID,
@@ -56,6 +70,7 @@ type MockTriggerService struct {
 	meta          datastreams.Metadata
 	signers       []*ecdsa.PrivateKey
 	stopCh        services.StopChan
+	closeOnce     sync.Once
 	wg            sync.WaitGroup
 	loopInterval  time.Duration
 	subscribers   map[string][]streams.FeedId
@@ -64,14 +79,14 @@ type MockTriggerService struct {
 }
 
 func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) (*MockTriggerService, error) {
-	trigger, err := triggers.NewMercuryTriggerService(tickerResolutionMs, "mock-streams-trigger", "1.0.0", lggr)
+	trigger, err := triggers.NewMercuryTriggerService(tickerResolutionMs, mockTriggerCapabilityName, mockTriggerCapabilityVersion, lggr)
 	if err != nil {
 		return nil, err
 	}
 	trigger.CapabilityInfo = capInfo
 
-	if tickerResolutionMs == 0 {
-		tickerResolutionMs = 1000
+	if tickerResolutionMs <= 0 {
+		tickerResolutionMs = defaultLoopIntervalMs
 	}
 
 	meta, signers, err := newMockMetadataAndSigners()
@@ -95,8 +110,7 @@ func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) (*MockT
 }
 
 func newMockMetadataAndSigners() (datastreams.Metadata, []*ecdsa.PrivateKey, error) {
-	f := 1
-	meta := datastreams.Metadata{MinRequiredSignatures: 2*f + 1}
+	meta := datastreams.Metadata{MinRequiredSignatures: 2*mockSignerFaultTolerance + 1}
 	signers := make([]*ecdsa.PrivateKey, 0, meta.MinRequiredSignatures)
 	for i := 0; i < meta.MinRequiredSignatures; i++ {
 		privKey, err := newMockSigner(i + 1)
@@ -110,12 +124,12 @@ func newMockMetadataAndSigners() (datastreams.Metadata, []*ecdsa.PrivateKey, err
 }
 
 func newMockSigner(index int) (*ecdsa.PrivateKey, error) {
-	bytes := make([]byte, 32)
+	bytes := make([]byte, mockSignerKeyLength)
 	lastByte, err := toUint8(index)
 	if err != nil {
 		return nil, err
 	}
-	bytes[31] = lastByte
+	bytes[mockSignerKeyLastByteIndex] = lastByte
 	privKey, err := crypto.ToECDSA(bytes)
 	if err != nil {
 		return nil, err
@@ -133,7 +147,9 @@ func (m *MockTriggerService) Start(ctx context.Context) error {
 }
 
 func (m *MockTriggerService) Close() error {
-	close(m.stopCh)
+	m.closeOnce.Do(func() {
+		close(m.stopCh)
+	})
 	m.wg.Wait()
 	return m.MercuryTriggerService.Close()
 }
@@ -171,7 +187,7 @@ func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp in
 	if err != nil {
 		return nil, err
 	}
-	expiresAt, err := toUint32(timestamp + 1000000)
+	expiresAt, err := toUint32(timestamp + reportExpiryOffsetSeconds)
 	if err != nil {
 		return nil, err
 	}
@@ -221,9 +237,8 @@ func (m *MockTriggerService) loop() {
 	ticker := time.NewTicker(m.loopInterval)
 	defer ticker.Stop()
 
-	prices := []int64{300000, 40000, 5000000}
-
-	j := 0
+	prices := []int64{initialMockPriceA, initialMockPriceB, initialMockPriceC}
+	iteration := 0
 
 	for {
 		select {
@@ -233,10 +248,10 @@ func (m *MockTriggerService) loop() {
 		}
 
 		incrementPrices(prices)
-		j++
+		iteration++
 
 		timestamp := time.Now().Unix()
-		reportCtx, err := newReportContext(j)
+		reportCtx, err := newReportContext(iteration)
 		if err != nil {
 			m.lggr.Errorw("failed to build Mock report context", "err", err, "timestamp", timestamp)
 			continue
@@ -274,8 +289,9 @@ func newReportContext(iteration int) (ocrTypes.ReportContext, error) {
 }
 
 func (m *MockTriggerService) buildReports(timestamp, price int64, reportCtx ocrTypes.ReportContext) ([]datastreams.FeedReport, error) {
-	reports := make([]datastreams.FeedReport, 0)
-	for _, feedIDs := range m.snapshotSubscribers() {
+	subscribers := m.snapshotSubscribers()
+	reports := make([]datastreams.FeedReport, 0, subscriberCount(subscribers))
+	for _, feedIDs := range subscribers {
 		for _, feedID := range feedIDs {
 			report, err := m.newSignedReport(string(feedID), price, timestamp, reportCtx)
 			if err != nil {
@@ -292,8 +308,24 @@ func (m *MockTriggerService) snapshotSubscribers() map[string][]streams.FeedId {
 	defer m.subscribersMu.Unlock()
 
 	snapshot := make(map[string][]streams.FeedId, len(m.subscribers))
-	maps.Copy(snapshot, m.subscribers)
+	for workflowID, feedIDs := range m.subscribers {
+		snapshot[workflowID] = cloneFeedIDs(feedIDs)
+	}
 	return snapshot
+}
+
+func subscriberCount(subscribers map[string][]streams.FeedId) int {
+	total := 0
+	for _, feedIDs := range subscribers {
+		total += len(feedIDs)
+	}
+	return total
+}
+
+func cloneFeedIDs(feedIDs []streams.FeedId) []streams.FeedId {
+	cloned := make([]streams.FeedId, len(feedIDs))
+	copy(cloned, feedIDs)
+	return cloned
 }
 
 func (m *MockTriggerService) newSignedReport(feedID string, price, timestamp int64, reportCtx ocrTypes.ReportContext) (datastreams.FeedReport, error) {
@@ -319,6 +351,7 @@ func (m *MockTriggerService) newSignedReport(feedID string, price, timestamp int
 func (m *MockTriggerService) signReport(report *datastreams.FeedReport) error {
 	sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
 	hash := crypto.Keccak256(sigData)
+	report.Signatures = make([][]byte, 0, m.meta.MinRequiredSignatures)
 	for n := 0; n < m.meta.MinRequiredSignatures; n++ {
 		sig, err := crypto.Sign(hash, m.signers[n])
 		if err != nil {
