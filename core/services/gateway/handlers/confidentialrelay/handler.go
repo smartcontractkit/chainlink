@@ -18,8 +18,9 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -112,8 +113,7 @@ type relayAggregator interface {
 }
 
 type Config struct {
-	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
+	RequestTimeoutSec int `json:"requestTimeoutSec"`
 }
 
 type handler struct {
@@ -125,8 +125,9 @@ type handler struct {
 	mu        sync.RWMutex
 	stopCh    services.StopChan
 
-	nodeRateLimiter *ratelimit.RateLimiter
-	requestTimeout  time.Duration
+	globalNodeRateLimiter limits.RateLimiter
+	perNodeRateLimiters   map[string]limits.RateLimiter
+	requestTimeout        time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -144,7 +145,7 @@ func (h *handler) Name() string {
 	return h.lggr.Name()
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock) (*handler, error) {
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -154,9 +155,18 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.RequestTimeoutSec = 30
 	}
 
-	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
+	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
+		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
+	}
+
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
+	for _, member := range donConfig.Members {
+		rl, makeErr := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayPerNodeRate)
+		if makeErr != nil {
+			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, makeErr)
+		}
+		perNodeRateLimiters[member.Address] = rl
 	}
 
 	metrics, err := newMetrics()
@@ -165,17 +175,18 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	return &handler{
-		donConfig:       donConfig,
-		don:             don,
-		lggr:            logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
-		requestTimeout:  time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter: nodeRateLimiter,
-		activeRequests:  make(map[string]*activeRequest),
-		mu:              sync.RWMutex{},
-		stopCh:          make(services.StopChan),
-		metrics:         metrics,
-		aggregator:      &aggregator{},
-		clock:           clock,
+		donConfig:             donConfig,
+		don:                   don,
+		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
+		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		globalNodeRateLimiter: globalNodeRateLimiter,
+		perNodeRateLimiters:   perNodeRateLimiters,
+		activeRequests:        make(map[string]*activeRequest),
+		mu:                    sync.RWMutex{},
+		stopCh:                make(services.StopChan),
+		metrics:               metrics,
+		aggregator:            &aggregator{},
+		clock:                 clock,
 	}, nil
 }
 
@@ -204,7 +215,14 @@ func (h *handler) Close() error {
 	return h.StopOnce("ConfidentialRelayHandler", func() error {
 		h.lggr.Info("closing confidential relay handler")
 		close(h.stopCh)
-		return nil
+		var err error
+		if h.globalNodeRateLimiter != nil {
+			err = errors.Join(err, h.globalNodeRateLimiter.Close())
+		}
+		for _, rl := range h.perNodeRateLimiters {
+			err = errors.Join(err, rl.Close())
+		}
+		return err
 	})
 }
 
@@ -283,8 +301,16 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	l := logger.With(h.lggr, "method", resp.Method, "requestID", resp.ID, "nodeAddr", nodeAddr)
 	l.Debugw("handling node response")
 
-	if !h.nodeRateLimiter.Allow(nodeAddr) {
+	nodeRateLimiter, ok := h.perNodeRateLimiters[nodeAddr]
+	if !ok {
+		return fmt.Errorf("received message from unexpected node %s", nodeAddr)
+	}
+	if !nodeRateLimiter.Allow(ctx) {
 		l.Debugw("node is rate limited", "nodeAddr", nodeAddr)
+		return nil
+	}
+	if !h.globalNodeRateLimiter.Allow(ctx) {
+		l.Debug("global relay rate limit exceeded")
 		return nil
 	}
 
@@ -294,8 +320,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return nil
 	}
 
-	ok := ar.addResponseForNode(nodeAddr, resp)
-	if !ok {
+	added := ar.addResponseForNode(nodeAddr, resp)
+	if !added {
 		l.Errorw("duplicate response from node, ignoring", "nodeAddr", nodeAddr)
 		return nil
 	}

@@ -14,10 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/time/rate"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -82,18 +84,13 @@ func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mock
 	}
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
-		NodeRateLimiter: ratelimit.RateLimiterConfig{
-			GlobalRPS:      100,
-			GlobalBurst:    100,
-			PerSenderRPS:   10,
-			PerSenderBurst: 10,
-		},
 	}
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
 
 	clock := clockwork.NewFakeClock()
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	h.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -394,12 +391,6 @@ func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
 func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	handlerConfig := Config{
 		RequestTimeoutSec: 30,
-		NodeRateLimiter: ratelimit.RateLimiterConfig{
-			GlobalRPS:      100,
-			GlobalBurst:    100,
-			PerSenderRPS:   0.001, // Effectively zero
-			PerSenderBurst: 1,
-		},
 	}
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
@@ -412,9 +403,12 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 		Members: []config.NodeConfig{nodeOne},
 	}
 	clock := clockwork.NewFakeClock()
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	h.aggregator = &respondingMockAggregator{}
+	h.globalNodeRateLimiter = limits.GlobalRateLimiter(rate.Limit(100), 100)
+	h.perNodeRateLimiters[nodeOne.Address] = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -541,16 +535,11 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 
 	methodConfig, err := json.Marshal(Config{
 		RequestTimeoutSec: 30,
-		NodeRateLimiter: ratelimit.RateLimiterConfig{
-			GlobalRPS:      100,
-			GlobalBurst:    100,
-			PerSenderRPS:   10,
-			PerSenderBurst: 10,
-		},
 	})
 	require.NoError(t, err)
 
-	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock())
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clockwork.NewFakeClock(), limitsFactory)
 	require.NoError(t, err)
 
 	cb := common.NewCallback()
