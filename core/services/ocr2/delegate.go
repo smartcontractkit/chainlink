@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,7 +79,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
@@ -110,26 +110,26 @@ const (
 	dontimeCapabilityID = "dontime@1.0.0"
 )
 
-type ErrJobSpecNoRelayer struct {
+type JobSpecNoRelayerError struct {
 	PluginName string
 	Err        error
 }
 
-func (e ErrJobSpecNoRelayer) Unwrap() error { return e.Err }
+func (e JobSpecNoRelayerError) Unwrap() error { return e.Err }
 
-func (e ErrJobSpecNoRelayer) Error() string {
+func (e JobSpecNoRelayerError) Error() string {
 	return fmt.Sprintf("%s services: OCR2 job spec could not get relayer ID: %s", e.PluginName, e.Err)
 }
 
-type ErrRelayNotEnabled struct {
+type RelayNotEnabledError struct {
 	PluginName string
 	Relay      string
 	Err        error
 }
 
-func (e ErrRelayNotEnabled) Unwrap() error { return e.Err }
+func (e RelayNotEnabledError) Unwrap() error { return e.Err }
 
-func (e ErrRelayNotEnabled) Error() string {
+func (e RelayNotEnabledError) Error() string {
 	return fmt.Sprintf("%s services: failed to get relay %s, is it enabled? %s", e.PluginName, e.Relay, e.Err)
 }
 
@@ -354,7 +354,7 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		d.lggr.Errorw("DeleteJob", "err", ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)})
+		d.lggr.Errorw("DeleteJob", "err", JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)})
 		return nil
 	}
 	// we only have clean to do for the EVM
@@ -516,7 +516,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	if rid.Network == relay.NetworkEVM {
@@ -601,11 +601,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	case types.Functions:
 		const (
 			_ int32 = iota
-			thresholdPluginId
-			s4PluginId
+			thresholdPluginID
+			s4PluginID
 		)
-		thresholdPluginDB := NewDB(d.ds, spec.ID, thresholdPluginId, lggr)
-		s4PluginDB := NewDB(d.ds, spec.ID, s4PluginId, lggr)
+		thresholdPluginDB := NewDB(d.ds, spec.ID, thresholdPluginID, lggr)
+		s4PluginDB := NewDB(d.ds, spec.ID, s4PluginID, lggr)
 		return d.newServicesOCR2Functions(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc)
 
 	case types.GenericPlugin:
@@ -726,8 +726,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	requestAuthorizer := vaultcap.NewRequestAuthorizer(lggr, syncer)
-	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, requestAuthorizer, d.lggr)
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
@@ -735,12 +734,12 @@ func (d *Delegate) newServicesVaultPlugin(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: string(types.VaultPlugin), Err: err}
+		return nil, JobSpecNoRelayerError{PluginName: string(types.VaultPlugin), Err: err}
 	}
 
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: string(types.VaultPlugin)}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -940,12 +939,12 @@ func (d *Delegate) newDonTimePlugin(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: "dontime", Err: err}
+		return nil, JobSpecNoRelayerError{PluginName: "dontime", Err: err}
 	}
 
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "dontime"}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "dontime"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1067,12 +1066,12 @@ func (d *Delegate) newServicesRing(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: "ring", Err: err}
+		return nil, JobSpecNoRelayerError{PluginName: "ring", Err: err}
 	}
 
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ring"}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "ring"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1259,7 +1258,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{PluginName: pCfg.PluginName, Err: err}
+		return nil, JobSpecNoRelayerError{PluginName: pCfg.PluginName, Err: err}
 	}
 
 	relayerSet, err := generic.NewRelayerSet(d.RelayGetter, jb.ExternalJobID, jb.ID, d.isNewlyCreatedJob)
@@ -1269,7 +1268,7 @@ func (d *Delegate) newServicesGenericPlugin(
 
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: pCfg.PluginName}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
@@ -1485,14 +1484,14 @@ func (d *Delegate) newServicesMercury(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "mercury"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "mercury"}
 	}
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("mercury services: expected EVM relayer got %q", rid.Network)
 	}
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "mercury"}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "mercury"}
 	}
 
 	provider, err2 := relayer.NewPluginProvider(ctx,
@@ -1591,11 +1590,11 @@ func (d *Delegate) newServicesLLO(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "streams"}
 	}
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "streams"}
 	}
 
 	provider, err2 := relayer.NewLLOProvider(ctx,
@@ -1735,7 +1734,7 @@ func (d *Delegate) newServicesMedian(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "median"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "median"}
 	}
 
 	ocrLogger := ocrcommon.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(ctx context.Context, msg string) {
@@ -1764,7 +1763,7 @@ func (d *Delegate) newServicesMedian(
 
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, PluginName: "median", Relay: spec.Relay}
+		return nil, RelayNotEnabledError{Err: err, PluginName: "median", Relay: spec.Relay}
 	}
 
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, kvStore, d.pipelineRunner, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
@@ -1832,7 +1831,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	mc := d.cfg.Mercury().Credentials(credName)
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keeper2"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "keeper2"}
 	}
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %q", rid.Network)
@@ -1841,7 +1840,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	transmitterID := spec.TransmitterID.String
 	relayer, err := d.Get(rid)
 	if err != nil {
-		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
+		return nil, RelayNotEnabledError{Err: err, Relay: spec.Relay, PluginName: "ocr2keepers"}
 	}
 
 	provider, err := relayer.NewPluginProvider(ctx,
@@ -1977,7 +1976,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 ) ([]job.ServiceCtx, error) {
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "keepers2.0"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "keepers2.0"}
 	}
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %q", rid.Network)
@@ -2111,7 +2110,7 @@ func (d *Delegate) newServicesOCR2Functions(
 
 	rid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "functions"}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: "functions"}
 	}
 	if rid.Network != relay.NetworkEVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %q", rid.Network)
@@ -2264,7 +2263,7 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 	}
 	dstRid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	logError := func(msg string) {
@@ -2332,8 +2331,8 @@ func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.Sugare
 	)
 }
 
-func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, destStartBlock uint64) config.CommitPluginConfig {
-	return config.CommitPluginConfig{
+func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, destStartBlock uint64) ccipconfig.CommitPluginConfig {
+	return ccipconfig.CommitPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: sourceStartBlock,
 		DestStartBlock:   destStartBlock,
@@ -2348,7 +2347,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 
 	dstRid, err := spec.RelayID()
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	// Write PluginConfig bytes to send source/dest relayer provider + info outside of top level rargs/pargs over the wire
@@ -2448,7 +2447,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 	dstRid, err := spec.RelayID()
 
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	logError := func(msg string) {
@@ -2498,6 +2497,10 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 		MetricsRegisterer:      prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 
+	if srcChainID > math.MaxInt64 {
+		return nil, fmt.Errorf("source chain ID %d overflows int64", srcChainID)
+	}
+
 	return ccipexec.NewExecServices(ctx, lggr, jb, srcProvider, dstProvider, int64(srcChainID), dstChainID, d.isNewlyCreatedJob, oracleArgsNoPlugin2, logError)
 }
 
@@ -2509,7 +2512,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	dstRid, err := spec.RelayID()
 
 	if err != nil {
-		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: string(spec.PluginType)}
+		return nil, JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)}
 	}
 
 	// PROVIDER BASED ARG CONSTRUCTION
@@ -2596,8 +2599,8 @@ func (d *Delegate) ccipExecGetSrcProvider(ctx context.Context, jb job.Job, plugi
 	return
 }
 
-func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) config.ExecPluginConfig {
-	return config.ExecPluginConfig{
+func newExecPluginConfig(isSourceProvider bool, srcStartBlock uint64, dstStartBlock uint64, usdcConfig ccipconfig.USDCConfig, lbtcConfigs []ccipconfig.LBTCConfig, jobID string) ccipconfig.ExecPluginConfig {
+	return ccipconfig.ExecPluginConfig{
 		IsSourceProvider: isSourceProvider,
 		SourceStartBlock: srcStartBlock,
 		DestStartBlock:   dstStartBlock,

@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -59,15 +59,24 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
 
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	requestAuthorizer.On("AuthorizeRequest", mock.Anything, mock.Anything).Return(true, owner, nil).Maybe()
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
-	handler, err := NewHandler(methodConfig, donConfig, don, nil, requestAuthorizer, lggr, clock, limitsFactory)
+	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
+	require.NoError(t, err)
+	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, jwtBasedAuth, lggr)
+	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
 	return handler, cb, don, clock
+}
+
+type stubAllowListBasedAuth struct {
+	clock clockwork.Clock
+}
+
+func (s *stubAllowListBasedAuth) AuthorizeRequest(_ context.Context, req jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
+	return vaultcap.NewAuthResult("", owner, "digest-"+req.ID, s.clock.Now().Add(time.Minute).Unix()), nil
 }
 
 type mockAggregator struct {
@@ -416,7 +425,6 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 	})
 
 	t.Run("happy path - list secret identifiers", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -453,29 +461,23 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err = json.Marshal(responseData)
 		require.NoError(t, err)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
-			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
-			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
-			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
-		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
 
 		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
-		wg.Wait()
+
+		resp, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
+		err = json.Unmarshal(resp.RawResponse, &secretsResponse)
+		require.NoError(t, err)
+		assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+		assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
 	})
 
 	t.Run("unhappy path - duplicate requestId", func(t *testing.T) {
-		var wg sync.WaitGroup
 		h, callback, don, _ := setupHandler(t)
 		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
@@ -512,29 +514,24 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		}
 		resultBytes, err = json.Marshal(responseData)
 		require.NoError(t, err)
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err2 := callback.Wait(t.Context())
-			assert.NoError(t, err2)
-			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
-			err2 = json.Unmarshal(resp.RawResponse, &secretsResponse)
-			assert.NoError(t, err2)
-			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
-			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
-		}()
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
 
 		// send duplicate request
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
-		require.ErrorContains(t, err, "request ID already exists")
+		require.ErrorContains(t, err, "request was already authorized previously")
 
 		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
-		wg.Wait()
+
+		resp, err := callback.Wait(t.Context())
+		require.NoError(t, err)
+		var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
+		err = json.Unmarshal(resp.RawResponse, &secretsResponse)
+		require.NoError(t, err)
+		assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
+		assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
 	})
 
 	t.Run("unhappy path - quorum unobtainable", func(t *testing.T) {

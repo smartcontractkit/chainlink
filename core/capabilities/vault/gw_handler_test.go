@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -11,6 +12,8 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -23,19 +26,22 @@ import (
 func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
+	authResult := func(owner string) *vaultcap.AuthResult {
+		return vaultcap.NewAuthResult("", owner, "digest-"+owner, time.Now().Add(time.Minute).Unix())
+	}
 
 	tests := []struct {
 		name          string
-		setupMocks    func(*vaulttypesmocks.SecretsService, *connector_mocks.GatewayConnector, *vaultcapmocks.RequestAuthorizer)
+		setupMocks    func(*vaulttypesmocks.SecretsService, *connector_mocks.GatewayConnector, *vaultcapmocks.Authorizer)
 		request       *jsonrpc.Request[json.RawMessage]
 		expectedError bool
 	}{
 		{
 			name: "success - create secrets",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
 					return req.Method == vaulttypes.MethodSecretsCreate && req.ID == "1"
-				})).Return(true, "0xabc", nil)
+				})).Return(authResult("0xabc"), nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return len(req.EncryptedSecrets) == 1 &&
 						req.EncryptedSecrets[0].Id.Key == "test-secret" &&
@@ -71,8 +77,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - service error",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
-				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(true, "0xabc", nil)
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(authResult("0xabc"), nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
 
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
@@ -104,7 +110,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid method",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.UnsupportedMethodError)
@@ -118,10 +124,10 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - invalid request params",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
-						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError)
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.HandlerError)
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
@@ -136,10 +142,10 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "success - delete secrets",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
 					return req.Method == vaulttypes.MethodSecretsDelete && req.ID == "1"
-				})).Return(true, "0xabc", nil)
+				})).Return(authResult("0xabc"), nil)
 				ss.EXPECT().DeleteSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.DeleteSecretsRequest) bool {
 					return len(req.Ids) == 1 &&
 						req.Ids[0].Key == "Foo" &&
@@ -174,11 +180,11 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - unauthorized request",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
-				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(false, "", errors.New("not allowlisted"))
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(nil, errors.New("not allowlisted"))
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
-						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError) &&
+						resp.Error.Code == api.ToJSONRPCErrorCode(api.HandlerError) &&
 						resp.Error.Message == "request not authorized: not allowlisted"
 				})).Return(nil)
 			},
@@ -205,7 +211,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "success - strips owner prefix from forwarded request before authorization",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
 					if req.Method != vaulttypes.MethodSecretsCreate || req.ID != "1" || req.Params == nil {
 						return false
@@ -220,7 +226,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 						len(parsed.EncryptedSecrets) == 1 &&
 						parsed.EncryptedSecrets[0].Id != nil &&
 						parsed.EncryptedSecrets[0].Id.Owner == "0xAbC"
-				})).Return(true, "0xabc", nil)
+				})).Return(authResult("0xabc"), nil)
 				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
 					return req.RequestId == "0xabc"+vaulttypes.RequestIDSeparator+"1"
 				})).Return(&vaulttypes.Response{ID: "test-secret"}, nil)
@@ -253,8 +259,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "failure - owner mismatch against authorized owner",
-			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.RequestAuthorizer) {
-				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(true, "0xdef", nil)
+			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
+				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(authResult("0xdef"), nil)
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError) &&
@@ -288,11 +294,21 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			secretsService := vaulttypesmocks.NewSecretsService(t)
 			gwConnector := connector_mocks.NewGatewayConnector(t)
-			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+			allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+			jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
+			require.NoError(t, err)
 
-			tt.setupMocks(secretsService, gwConnector, requestAuthorizer)
+			tt.setupMocks(secretsService, gwConnector, allowListBasedAuth)
 
-			handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, requestAuthorizer, lggr)
+			handler, err := vaultcap.NewGatewayHandler(
+				secretsService,
+				gwConnector,
+				nil,
+				lggr,
+				limitsFactory,
+				vaultcap.WithAuthorizer(vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)),
+			)
 			require.NoError(t, err)
 
 			err = handler.HandleGatewayMessage(ctx, "gateway-1", tt.request)
@@ -312,9 +328,19 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 
 	secretsService := vaulttypesmocks.NewSecretsService(t)
 	gwConnector := connector_mocks.NewGatewayConnector(t)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
+	allowListBasedAuth := vaultcapmocks.NewAuthorizer(t)
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
+	require.NoError(t, err)
 
-	handler, err := vaultcap.NewGatewayHandler(secretsService, gwConnector, requestAuthorizer, lggr)
+	handler, err := vaultcap.NewGatewayHandler(
+		secretsService,
+		gwConnector,
+		nil,
+		lggr,
+		limitsFactory,
+		vaultcap.WithAuthorizer(vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)),
+	)
 	require.NoError(t, err)
 
 	t.Run("start", func(t *testing.T) {

@@ -14,11 +14,13 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 var (
@@ -56,29 +58,64 @@ type gatewayConnector interface {
 	RemoveHandler(ctx context.Context, methods []string) error
 }
 
+type gatewayHandlerConfig struct {
+	authorizer Authorizer
+}
+
+// GatewayHandlerOption customizes GatewayHandler construction for tests and future auth extensions.
+type GatewayHandlerOption func(*gatewayHandlerConfig)
+
+// WithAuthorizer overrides the default Vault request authorizer.
+func WithAuthorizer(authorizer Authorizer) GatewayHandlerOption {
+	return func(cfg *gatewayHandlerConfig) {
+		cfg.authorizer = authorizer
+	}
+}
+
+// GatewayHandler serves Vault requests received from the gateway on the node side.
 type GatewayHandler struct {
 	services.Service
 	eng *services.Engine
 
-	secretsService    vaulttypes.SecretsService
-	gatewayConnector  gatewayConnector
-	requestAuthorizer RequestAuthorizer
-	lggr              logger.Logger
-	metrics           *metrics
+	secretsService   vaulttypes.SecretsService
+	gatewayConnector gatewayConnector
+	authorizer       Authorizer
+	jwtAuthService   services.Service
+	lggr             logger.Logger
+	metrics          *metrics
 }
 
-func NewGatewayHandler(secretsService vaulttypes.SecretsService, connector gatewayConnector, requestAuthorizer RequestAuthorizer, lggr logger.Logger) (*GatewayHandler, error) {
+// NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.
+func NewGatewayHandler(secretsService vaulttypes.SecretsService, connector gatewayConnector, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, limitsFactory limits.Factory, opts ...GatewayHandlerOption) (*GatewayHandler, error) {
+	cfg := gatewayHandlerConfig{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if cfg.authorizer == nil {
+		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+		jwtBasedAuth, err := NewJWTBasedAuth(JWTBasedAuthConfig{}, limitsFactory, lggr, WithDisabledJWTBasedAuth())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		}
+		cfg.authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
+		return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, jwtBasedAuth, lggr)
+	}
+	return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, nil, lggr)
+}
+
+func newGatewayHandlerWithAuthorizer(secretsService vaulttypes.SecretsService, connector gatewayConnector, authorizer Authorizer, jwtAuthService services.Service, lggr logger.Logger) (*GatewayHandler, error) {
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
 	gh := &GatewayHandler{
-		secretsService:    secretsService,
-		gatewayConnector:  connector,
-		requestAuthorizer: requestAuthorizer,
-		lggr:              lggr.Named(HandlerName),
-		metrics:           metrics,
+		secretsService:   secretsService,
+		gatewayConnector: connector,
+		authorizer:       authorizer,
+		jwtAuthService:   jwtAuthService,
+		lggr:             lggr.Named(HandlerName),
+		metrics:          metrics,
 	}
 	gh.Service, gh.eng = services.Config{
 		Name:  "GatewayHandler",
@@ -89,6 +126,11 @@ func NewGatewayHandler(secretsService vaulttypes.SecretsService, connector gatew
 }
 
 func (h *GatewayHandler) start(ctx context.Context) error {
+	if h.jwtAuthService != nil {
+		if err := h.jwtAuthService.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start JWTBasedAuth: %w", err)
+		}
+	}
 	if gwerr := h.gatewayConnector.AddHandler(ctx, h.Methods(), h); gwerr != nil {
 		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
 	}
@@ -96,10 +138,14 @@ func (h *GatewayHandler) start(ctx context.Context) error {
 }
 
 func (h *GatewayHandler) close() error {
-	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
-		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
+	var jwtAuthErr error
+	if h.jwtAuthService != nil {
+		jwtAuthErr = h.jwtAuthService.Close()
 	}
-	return nil
+	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
+		return errors.Join(fmt.Errorf("failed to remove vault handler from connector: %w", gwerr), jwtAuthErr)
+	}
+	return jwtAuthErr
 }
 
 func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
@@ -118,28 +164,28 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	case vaulttypes.MethodSecretsCreate:
 		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
-			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
 		response = h.handleSecretsCreate(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsUpdate:
 		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
-			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
 		response = h.handleSecretsUpdate(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsDelete:
 		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
-			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
 		response = h.handleSecretsDelete(ctx, gatewayID, req, owner)
 	case vaulttypes.MethodSecretsList:
 		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
-			response = h.errorResponse(ctx, gatewayID, req, api.FatalError, authErr)
+			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
 		response = h.handleSecretsList(ctx, gatewayID, req, owner)
@@ -162,8 +208,8 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 }
 
 func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) (string, error) {
-	if h.requestAuthorizer == nil {
-		err := errors.New("request authorizer is nil")
+	if h.authorizer == nil {
+		err := errors.New("authorizer is nil")
 		h.lggr.Errorw("failed to authorize gateway request", "method", req.Method, "requestID", req.ID, "error", err)
 		return "", err
 	}
@@ -183,21 +229,22 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	}
 
 	h.lggr.Debugw("authorizing gateway request", "method", req.Method, "requestID", originalRequestID)
-	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, authReq)
-	if !isAuthorized {
+	authResult, err := h.authorizer.AuthorizeRequest(ctx, authReq)
+	if err != nil {
 		authErr := fmt.Errorf("request not authorized: %w", err)
-		h.lggr.Errorw("gateway request authorization failed", "method", req.Method, "requestID", originalRequestID, "owner", owner, "error", authErr)
+		h.lggr.Errorw("gateway request authorization failed", "method", req.Method, "requestID", originalRequestID, "hasAuth", req.Auth != "", "incomingOwner", incomingOwner, "error", authErr)
 		return "", authErr
 	}
-	if incomingOwner != "" && normalizeOwner(incomingOwner) != normalizeOwner(owner) {
-		prefixErr := fmt.Errorf("request owner prefix %q does not match authorized owner %q", incomingOwner, owner)
-		h.lggr.Errorw("gateway request owner prefix mismatch", "method", req.Method, "requestID", originalRequestID, "incomingOwner", incomingOwner, "authorizedOwner", owner, "error", prefixErr)
+	authorizedOwner := authResult.AuthorizedOwner()
+	if incomingOwner != "" && normalizeOwner(incomingOwner) != normalizeOwner(authorizedOwner) {
+		prefixErr := fmt.Errorf("request owner prefix %q does not match authorized owner %q", incomingOwner, authorizedOwner)
+		h.lggr.Errorw("gateway request owner prefix mismatch", "method", req.Method, "requestID", originalRequestID, "incomingOwner", incomingOwner, "authorizedOwner", authorizedOwner, "error", prefixErr)
 		return "", prefixErr
 	}
 
-	req.ID = owner + vaulttypes.RequestIDSeparator + originalRequestID
-	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	return owner, nil
+	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + originalRequestID
+	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", authorizedOwner)
+	return authorizedOwner, nil
 }
 
 func stripPrefixedRequestIDFromParams(req *jsonrpc.Request[json.RawMessage], originalRequestID string) error {
