@@ -24,11 +24,23 @@ jobs:
       pull-requests: read
     outputs:
       affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
-      core-tests: ${{ steps.triggers.outputs.core-tests }}
-      core-fuzz-tests: ${{ steps.triggers.outputs.core-fuzz-tests }}
-      core-race-tests: ${{ steps.triggers.outputs.core-race-tests }}
-      core-integ-tests: ${{ steps.triggers.outputs.core-integration-tests }}
-      deployment-tests: ${{ steps.triggers.outputs.deployment-tests }}
+      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
+      should-run-deployment-tests: >-
+        ${{
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-some.outputs.deployment == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
+      # Runs on workflow changes, and any (non-ignored) core changes
+      should-run-core-tests: >-
+        ${{
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -36,8 +48,60 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
+          fetch-depth: 0 # fetch all history to determine changed files for PRs/pushes/merges
 
-      - name: Decide which tests to run
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: match-some
+        with:
+          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: some
+          # deployment - any changes in the deployment module
+          # workflow - any changes that could affect this workflow definition
+          #  - Assume any repository action changes affect this workflow
+          filters: |
+            deployment:
+              - 'deployment/**'
+            workflow:
+              - '.github/workflows/ci-core.yml'
+              - '.github/actions/**'
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: match-every
+        with:
+          # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          #   - Enables listing of files matching each filter.
+          #   - Paths to files will be available in `${FILTER_NAME}_files` output variable.
+          #   - Paths will be formatted as JSON array
+          predicate-quantifier: every
+          # core-non-ignored - all changes except for paths which do not affect core module
+          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
+          #  - For example: core module does not depend on deployment or integration-tests module.
+          # all - changes in any directory
+          #  - This is used resolve all affected modules based on changed files
+          list-files: json
+          filters: |
+            core-non-ignored:
+              - '**'
+              - '!deployment/**'
+              - '!integration-tests/**'
+              - '!tools/secrets/**'
+              - '!tools/docker/**'
+              - '!tools/benchmark/**'
+              - '!**/README.md'
+              - '!**/CHANGELOG.md'
+              - '!*.nix'
+              - '!sonar-project.properties'
+              - '!nix.conf'
+              - '!nix-darwin-shell-hook.sh'
+              - '!LICENSE'
+              - '!.github/**'
+              - '!core/scripts/cre/environment/examples/workflows/**'
+            all:
+              - '**'
+
+      - name: Decide which tests to run (rollout-only)
+        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
+        # before using it's output to actually gate any jobs.
+        # See: https://github.com/smartcontractkit/chainlink/commit/85434059d7ed24500107d3074f432dc0d2a88006 for end-state.
         id: triggers
         uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
         with:
@@ -207,27 +271,27 @@ jobs:
         type:
           - cmd: go_core_tests
             os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-            should-run: ${{ needs.filter.outputs.core-tests }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-            should-run: ${{ needs.filter.outputs.core-integ-tests }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
 
           - cmd: go_core_fuzz
             os: runs-on=${{ github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            should-run: ${{ needs.filter.outputs.core-fuzz-tests }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
             os: runs-on=${{ github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            should-run: ${{ needs.filter.outputs.core-race-tests }}
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6i+c7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-            should-run: ${{ needs.filter.outputs.deployment-tests }}
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
             setup-solana: "true"
@@ -408,7 +472,7 @@ jobs:
     name: test-scripts
     needs: [filter]
     runs-on: ubuntu-latest
-    if: ${{  needs.filter.outputs.core-tests == 'true' }}
+    if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
