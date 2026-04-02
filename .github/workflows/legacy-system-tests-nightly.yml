@@ -1,0 +1,363 @@
+name: (Nightly) Legacy System Tests
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # Run daily at 6 AM
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: devenv
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect devenv changes
+    runs-on: ubuntu-latest
+    outputs:
+      devenv-changes: ${{ steps.devenv-changes.outputs.changes }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
+        id: devenv-changes
+        with:
+          filters: |
+            changes:
+            - 'devenv/**/*.go'
+            - 'devenv/**/*.toml'
+            - 'devenv/**/go.mod'
+            - 'devenv/**/go.sum'
+            - 'devenv/**/*Dockerfile'
+            - '.github/workflows/devenv-nightly.yml'
+
+  summary:
+    name: "Build Information"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Print Summary
+        run: |
+          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
+          FULL_IMAGE_HINT="<sdlc_registry>/chainlink:${IMAGE_VERSION}"
+          echo "**Image:** \`${FULL_IMAGE_HINT}\`" >> $GITHUB_STEP_SUMMARY
+  test-nightly:
+    name: ${{ matrix.display_name }}
+    needs: [changes]
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    runs-on: ${{ matrix.runner }}
+    # If there's a PR that's changing devenv, run the tests
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.devenv-changes == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # quick feature tests
+          - display_name: "Test Multiple JobDistributors"
+            testcmd: "go test -v -run TestMultipleJobDistributors"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "features"
+            logs_archive_name: "multiple-jd"
+          - display_name: "Test Reorg Finality Violation"
+            testcmd: "go test -v -run TestReorgHeadTrackerFinalityViolation"
+            envcmd: "cl u env.toml,env-geth.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "features"
+            logs_archive_name: "reorg-finality-violation"
+          # smoke tests, small legacy products
+          - display_name: "Test Cron Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/cron/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "cron"
+            logs_archive_name: "cron"
+          - display_name: "Test Direct Request Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/directrequest/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "directrequest"
+            logs_archive_name: "directrequest"
+          - display_name: "Test Flux Smoke"
+            testcmd: "go test -v -run TestSmoke"
+            envcmd: "cl u env.toml,products/flux/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "flux"
+            logs_archive_name: "flux"
+          - display_name: "Test VRF Smoke"
+            testcmd: "go test -v -timeout 10m -run TestVRFBasic\\|TestVRFJobReplacement"
+            envcmd: "cl u env.toml,products/vrf/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "vrf"
+            logs_archive_name: "vrf"
+          - display_name: "Test DF1 (OCR2) Smoke"
+            testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-smoke"
+          - display_name: "Test DF1 (OCR2, Forwarders) Smoke"
+            testcmd: "go test -v -timeout 20m -run TestSmoke/rounds"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/forwarders.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-smoke-forwarders"
+          # smoke tests, medium legacy products
+          - display_name: "Automation Smoke Test, Registry 2.0"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_0"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_0"
+          - display_name: "Automation Smoke Test, Registry 2.1"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_1"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu-latest"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_1"
+          - display_name: "Automation Smoke Test, Registry 2.2"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_2"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_2"
+          - display_name: "Automation Smoke Test, Registry 2.3"
+            testcmd: "go test -v -timeout 30m -run TestRegistry_2_3"
+            envcmd: "cl u env.toml,products/automation/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-smoke-2_3"
+          - display_name: "Keepers Smoke Tests 1"
+            testcmd: "go test -v -timeout 1h -run TestKeeperBasic\\|TestKeeperSimulation\\|TestKeeperCheckPerformGasLimit\\|TestKeeperRegisterUpkeep\\|TestKeeperAddFunds\\|TestKeeperRemove\\|TestKeeperPauseRegistry\\|TestKeeperMigrateRegistry\\|TestKeeperJobReplacement"
+            envcmd: "cl u env.toml,products/keepers/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-1"
+          - display_name: "Keepers Smoke Tests 2"
+            testcmd: "go test -v -timeout 1h -run TestKeeperNodeDown"
+            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-2"
+          - display_name: "Keepers Smoke Tests 3"
+            testcmd: "go test -v -timeout 1h -run TestKeeperPauseUnPauseUpkeep\\|TestKeeperUpdateCheckData"
+            envcmd: "cl u env.toml,products/keepers/low_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-3"
+          - display_name: "Keepers Smoke Tests 4"
+            testcmd: "go test -v -timeout 1h -run TestKeeperBlockCountPerTurn"
+            envcmd: "cl u env.toml,env-geth.toml,products/keepers/high_bcptr.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "keepers"
+            logs_archive_name: "keepers-smoke-4"
+          # long-running
+          - display_name: "Automation Soak Test"
+            testcmd: "go test -v -timeout 4h -run TestLoad/registry_2_1"
+            envcmd: "cl u env.toml,env-geth.toml,products/automation/soak.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "automation"
+            logs_archive_name: "automation-soak"
+            run_on_pr: false
+          - display_name: "Test DF1 (OCR2) Soak"
+            testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-soak"
+            run_on_pr: false
+          - display_name: "Test DF1 (OCR2) Chaos"
+            testcmd: "go test -v -timeout 30m -run TestOCR2Chaos"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml; cl obs up -f"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "ocr2"
+            logs_archive_name: "df1-chaos"
+            run_on_pr: false
+          - display_name: "Test VRFv2Plus Smoke"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusSmoke"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-smoke"
+          - display_name: "Test VRFv2Plus Multiple Sending Keys"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusMultipleSendingKeys"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/two_keys.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-multiple-sending-keys"
+          - display_name: "Test VRFv2Plus With BHS"
+            testcmd: "go test -v -timeout 30m -run TestVRFV2PlusWithBHS"
+            envcmd: "cl u env-vrf2plus-bhX.toml,products/vrfv2plus/bhs.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-with-bhs"
+          - display_name: "Test VRFv2Plus With BHF"
+            testcmd: "go test -v -timeout 30m -run TestVRFV2PlusWithBHF"
+            envcmd: "cl u env-vrf2plus-bhX.toml,env-geth.toml,products/vrfv2plus/bhf.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-with-bhf"
+          - display_name: "Test VRFv2Plus Replay After Timeout"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusReplayAfterTimeout"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/replay.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-replay-after-timeout"
+          - display_name: "Test VRFv2Plus Pending Block Simulation And Zero Confirmation Delays"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusPendingBlockSimulationAndZeroConfirmationDelays"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/pending_block.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-pending-block-simulation-and-zero-confirmation-delays"
+          - display_name: "Test VRFv2Plus Migration"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusMigration"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-migration"
+          - display_name: "Test VRFv2Plus Batch Fulfillment"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2PlusBatchFulfillment"
+            envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/batch.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2plus"
+            logs_archive_name: "vrfv2plus-batch-fulfillment"
+          - display_name: "Test VRFv2 (coordinator v2) Smoke"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2Basic"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-smoke"
+          - display_name: "Test VRFv2 Multiple Sending Keys"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2MultipleSendingKeys"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/two_keys.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-multiple-sending-keys"
+          - display_name: "Test VRFv2 With BHS"
+            testcmd: "go test -v -timeout 30m -run TestVRFV2WithBHS"
+            envcmd: "cl u env-vrfv2-bhs.toml,products/vrfv2/bhs.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-with-bhs"
+          - display_name: "Test VRFv2 Batch Fulfillment"
+            testcmd: "go test -v -timeout 30m -run TestVRFv2BatchFulfillmentEnabledDisabled"
+            envcmd: "cl u env-vrfv2.toml,products/vrfv2/basic.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "vrfv2"
+            logs_archive_name: "vrfv2-batch-fulfillment"
+          - display_name: "Test LogPoller Fixed Depth"
+            testcmd: "go test -v -timeout 30m -run TestLogPoller"
+            envcmd: "cl u env.toml,tests/logpoller/fixed_depth.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "logpoller"
+            logs_archive_name: "logpoller-fixed-depth"
+          - display_name: "Test LogPoller Finality Tag"
+            testcmd: "go test -v -timeout 30m -run TestLogPoller"
+            envcmd: "cl u env.toml,tests/logpoller/finality_tag.toml"
+            runner: "ubuntu24.04-16cores-64GB"
+            tests_dir: "logpoller"
+            logs_archive_name: "logpoller-finality-tag"
+    steps:
+      - name: Check if job should run
+        id: gate
+        working-directory: .
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.run_on_pr }}" == "false" ]]; then
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping ${{ matrix.display_name }} on PR"
+          else
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout code
+        if: steps.gate.outputs.should_run == 'true'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install Just
+        if: steps.gate.outputs.should_run == 'true'
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      - name: Configure AWS credentials using OIDC
+        if: steps.gate.outputs.should_run == 'true'
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          aws-region: us-west-2
+
+      - name: Authenticate to ECR
+        if: steps.gate.outputs.should_run == 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+
+      - name: Set up Go
+        if: steps.gate.outputs.should_run == 'true'
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: devenv/go.mod
+          cache-dependency-path: devenv/go.sum
+
+      - name: Download Go dependencies
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          go mod download
+
+      - name: Set environment variables
+        if: steps.gate.outputs.should_run == 'true'
+        run: |
+          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
+          FULL_IMAGE="${{ secrets.REGISTRY_SDLC }}/chainlink:${IMAGE_VERSION}"
+          echo "CHAINLINK_IMAGE=${FULL_IMAGE}" >> $GITHUB_ENV
+
+      - name: Setup environment
+        if: steps.gate.outputs.should_run == 'true'
+        env:
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+        run: |
+          cd cmd/cl && go install . && cd -
+          ENV_CMD="${{ matrix.envcmd }}"
+          echo "Setting up environment with: $ENV_CMD"
+          eval $ENV_CMD
+
+      - name: Run tests
+        if: steps.gate.outputs.should_run == 'true'
+        working-directory: devenv/tests/${{ matrix.tests_dir }}
+        env:
+          CURRENT_TEST: ${{ matrix.testcmd }}
+        run: |
+          TESTCMD="${{ matrix.testcmd }}"
+          echo "Running tests for: $CHAINLINK_IMAGE, test: $TESTCMD"
+          eval $TESTCMD
+
+      - name: Upload Logs
+        if: always() && steps.gate.outputs.should_run == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-logs-${{ matrix.logs_archive_name }}
+          path: devenv/tests/${{ matrix.tests_dir }}/logs
+          retention-days: 3
+      
+      - name: Upload DF1 soak alloc.pprof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: alloc.pprof
+          path: devenv/tests/${{ matrix.tests_dir }}/alloc.pprof
+          retention-days: 7

@@ -15,22 +15,24 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/log"
+	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/log"
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -70,9 +72,10 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	ctx := testutils.Context(t)
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
+	servicetest.SetupNoOpMock(lb)
 	lb.On("AddDependents", 1).Maybe()
 	lb.On("Register", mock.Anything, mock.Anything).Return(func() {}).Maybe()
-	ec := clienttest.NewClient(t)
+	ec := cltest.NewEthMocksWithStartupAssertions(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
@@ -82,9 +85,22 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db)
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
+	require.NoError(t, ks.Unlock(ctx, testutils.Password))
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	evmKs := keys.NewChainStore(keystore.NewEthSigner(ks.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
-	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, evmKs, nil, nil, nil, false)
+	estimator, err := gas.NewEstimator(logger.TestLogger(t), ec, evmConfig.ChainType(), ec.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
+	require.NoError(t, err)
+	lpOpts := logpoller.Opts{
+		PollPeriod:               100 * time.Millisecond,
+		FinalityDepth:            2,
+		BackfillBatchSize:        3,
+		RPCBatchSize:             2,
+		KeepFinalizedBlocksDepth: 1000,
+	}
+	ht := headstest.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr), ec, lggr, ht, lpOpts)
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), lp, evmKs, estimator, nil, nil, false)
+	require.NoError(t, err)
 	orm := heads.NewORM(*testutils.FixtureChainID, db, 0)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)

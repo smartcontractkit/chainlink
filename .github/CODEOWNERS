@@ -9,76 +9,75 @@
 # Root
 * @smartcontractkit/foundations @smartcontractkit/core
 
-.changeset @smartcontractkit/foundations @smartcontractkit/core
+/.changeset/ @smartcontractkit/foundations @smartcontractkit/core
 
 # Chains
-/common @smartcontractkit/bix-framework @smartcontractkit/core
-/core/chains/ @smartcontractkit/bix-framework @smartcontractkit/core
-/core/chains/evm/txm @dimriou @smartcontractkit/bix-framework @smartcontractkit/core
+/common/ @smartcontractkit/bix-framework @smartcontractkit/core
+/common/txmgr/ @dimriou @smartcontractkit/bix-framework @smartcontractkit/core
 
 # Services
-/core/services/directrequest @smartcontractkit/foundations
-/core/services/feeds @smartcontractkit/core @smartcontractkit/devex-tooling
-/core/services/synchronization/telem @smartcontractkit/data-tooling @smartcontractkit/core
+/core/services/directrequest/ @smartcontractkit/foundations
+/core/services/feeds/ @smartcontractkit/core @smartcontractkit/devex-tooling
+/core/services/synchronization/telem/ @smartcontractkit/data-tooling @smartcontractkit/core
 /core/capabilities/ @smartcontractkit/keystone @smartcontractkit/capabilities-team
-/core/capabilities/ccip @smartcontractkit/ccip-offchain
-/core/capabilities/ccip/ccipsolana @smartcontractkit/bix-build
-/core/capabilities/ccip/ccipnoop @smartcontractkit/bix-build
-/core/capabilities/ccip/ccipton @smartcontractkit/bix-build
+/core/capabilities/ccip/ @smartcontractkit/ccip-offchain
+/core/capabilities/ccip/ccipsolana/ @smartcontractkit/bix-build
+/core/capabilities/ccip/ccipnoop/ @smartcontractkit/bix-build
+/core/capabilities/ccip/ccipton/ @smartcontractkit/bix-build
 
 # To be deprecated in Chainlink V3
-/core/services/fluxmonitorv2 @smartcontractkit/foundations @smartcontractkit/core
-/core/services/job @smartcontractkit/foundations @smartcontractkit/core
-/core/services/keystore @smartcontractkit/foundations
-/core/services/ocr* @smartcontractkit/foundations @smartcontractkit/core
-/core/services/periodicbackup @smartcontractkit/foundations @smartcontractkit/core
-/core/services/pg @smartcontractkit/foundations @smartcontractkit/core
-/core/services/pipeline @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
-/core/services/telemetry @smartcontractkit/data-tooling @smartcontractkit/core
-/core/services/relay/evm/mercury @smartcontractkit/data-streams-engineers @smartcontractkit/core
-/core/services/webhook @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
-/core/services/llo @smartcontractkit/data-streams-engineers @smartcontractkit/core
+/core/services/fluxmonitorv2/ @smartcontractkit/foundations @smartcontractkit/core
+/core/services/job/ @smartcontractkit/foundations @smartcontractkit/core
+/core/services/keystore/ @smartcontractkit/foundations
+/core/services/ocr*/ @smartcontractkit/foundations @smartcontractkit/core
+/core/services/periodicbackup/ @smartcontractkit/foundations @smartcontractkit/core
+/core/services/pg/ @smartcontractkit/foundations @smartcontractkit/core
+/core/services/pipeline/ @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/telemetry/ @smartcontractkit/data-tooling @smartcontractkit/core
+/core/services/relay/evm/mercury/ @smartcontractkit/data-streams-engineers @smartcontractkit/core
+/core/services/webhook/ @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
+/core/services/llo/ @smartcontractkit/data-streams-engineers @smartcontractkit/core
 
 # CCIP
-/core/services/ccip @smartcontractkit/ccip
-/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
+/core/services/ccip/ @smartcontractkit/ccip
+/core/services/ocr2/plugins/ccip/ @smartcontractkit/ccip
 
 # VRF-related services
-/core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
-/core/services/blockheaderfeeder @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/vrf/ @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/blockhashstore/ @smartcontractkit/dev-services @smartcontractkit/core
+/core/services/blockheaderfeeder/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/pipeline/task.vrf.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2.go @smartcontractkit/dev-services
 /core/services/pipeline/task.vrfv2plus.go @smartcontractkit/dev-services
-/core/scripts/vrf* @smartcontractkit/dev-services
+/core/scripts/vrf*/ @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper @smartcontractkit/dev-services
-/core/services/ocr2/plugins/ocr2keeper @smartcontractkit/dev-services
+/core/services/keeper/ @smartcontractkit/dev-services
+/core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Chainlink Functions
-core/services/functions @smartcontractkit/dev-services
-core/services/ocr2/plugins/functions @smartcontractkit/dev-services
-core/services/s4 @smartcontractkit/dev-services
-core/service/ocr2/plugins/s4 @smartcontractkit/dev-services
-core/services/ocr2/plugins/threshold @smartcontractkit/dev-services
-core/services/relay/evm/functions @smartcontractkit/dev-services
-core/scripts/functions @smartcontractkit/dev-services
-core/scripts/gateway @smartcontractkit/dev-services
+/core/services/functions/ @smartcontractkit/dev-services
+/core/services/ocr2/plugins/functions/ @smartcontractkit/dev-services
+/core/services/s4/ @smartcontractkit/dev-services
+/core/services/ocr2/plugins/s4/ @smartcontractkit/dev-services
+/core/services/ocr2/plugins/threshold/ @smartcontractkit/dev-services
+/core/services/relay/evm/functions/ @smartcontractkit/dev-services
+/core/scripts/functions/ @smartcontractkit/dev-services
+/core/scripts/gateway/ @smartcontractkit/dev-services
 
 # Keystone
-/core/services/registrysyncer @smartcontractkit/keystone
-/core/services/workflows @smartcontractkit/keystone
-/core/services/standardcapabilities @smartcontractkit/keystone
-/core/scripts/keystone @smartcontractkit/keystone
+/core/services/registrysyncer/ @smartcontractkit/keystone
+/core/services/workflows/ @smartcontractkit/keystone
+/core/services/standardcapabilities/ @smartcontractkit/keystone
+/core/scripts/keystone/ @smartcontractkit/keystone
 
 # GQL API
-/core/web/resolver @smartcontractkit/foundations @smartcontractkit/core
-/core/web/schema @smartcontractkit/foundations @smartcontractkit/core
+/core/web/resolver/ @smartcontractkit/foundations @smartcontractkit/core
+/core/web/schema/ @smartcontractkit/foundations @smartcontractkit/core
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
+/integration-tests/ccip-tests/ @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
@@ -86,28 +85,22 @@ core/scripts/gateway @smartcontractkit/dev-services
 /devenv/products/ocr2/ @smartcontractkit/devex-tooling
 
 # Deployment tooling
-/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
-/deployment/ccip/changeset/ton @smartcontractkit/bix-build @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/common @smartcontractkit/operations-platform
-/deployment/cre @smartcontractkit/keystone @smartcontractkit/operations-platform
-/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/operations-platform @smartcontractkit/core
-/deployment/vault @smartcontractkit/cld-vault @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/ @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/ccip/ @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/ccip/changeset/globals/ @smartcontractkit/ccip-offchain
+/deployment/common/ @smartcontractkit/operations-platform
+/deployment/cre/ @smartcontractkit/keystone @smartcontractkit/operations-platform
+/deployment/data-feeds/ @smartcontractkit/data-feeds-engineers @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/data-streams/ @smartcontractkit/data-streams-engineers @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/keystone/ @smartcontractkit/keystone @smartcontractkit/operations-platform @smartcontractkit/core
+/deployment/vault/ @smartcontractkit/cld-vault @smartcontractkit/operations-platform @smartcontractkit/core
 
 # CI/CD
 /.github/** @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
-/.github/workflows/performance-tests.yml @smartcontractkit/devex-tooling
-/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
-/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
-/.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
-/.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
-/.github/workflows/devenv-ocr2.yml @smartcontractkit/devex-tooling
-/tools/plugout @smartcontractkit/devex-cicd
+/.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
+/tools/plugout/ @smartcontractkit/devex-cicd
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
@@ -122,5 +115,4 @@ flake.nix @smartcontractkit/core
 flake.lock @smartcontractkit/core
 
 # Config
-./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
-./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+/docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel

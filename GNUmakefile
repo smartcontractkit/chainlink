@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.5.0"
+GOLANGCI_LINT_VERSION = "v2.11.4"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
