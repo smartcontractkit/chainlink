@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -52,12 +53,14 @@ type launcher struct {
 	dispatcher          remotetypes.Dispatcher
 	cachedShims         cachedShims
 	registry            *Registry
-	subServices         []services.Service
 	workflowDonNotifier DonNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
+
+	subServices    []services.Service
+	subServicesMux sync.RWMutex
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -235,6 +238,8 @@ func (w *launcher) Start(ctx context.Context) error {
 }
 
 func (w *launcher) Close() error {
+	w.subServicesMux.RLock()
+	defer w.subServicesMux.RUnlock()
 	for _, s := range w.subServices {
 		if err := s.Close(); err != nil {
 			w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
@@ -672,7 +677,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	if err != nil {
 		return fmt.Errorf("failed to start capability: %w", err)
 	}
-	w.subServices = append(w.subServices, cp)
+	w.appendSubService(cp)
 	return nil
 }
 
@@ -893,7 +898,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 		return fmt.Errorf("failed to start receiver: %w", err)
 	}
 
-	w.subServices = append(w.subServices, receiver)
+	w.appendSubService(receiver)
 	return nil
 }
 
@@ -1004,9 +1009,15 @@ func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.Receiv
 		_ = receiver.Close()
 		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 	}
-	w.subServices = append(w.subServices, receiver)
+	w.appendSubService(receiver)
 	w.lggr.Debugw("New remote shim started successfully for capability method", "id", capID, "method", method, "donID", donID)
 	return nil
+}
+
+func (w *launcher) appendSubService(svc services.Service) {
+	w.subServicesMux.Lock()
+	defer w.subServicesMux.Unlock()
+	w.subServices = append(w.subServices, svc)
 }
 
 func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myPeerID p2ptypes.PeerID, myDON registrysyncer.DON, idsToDONs map[uint32]capabilities.DON) error {
