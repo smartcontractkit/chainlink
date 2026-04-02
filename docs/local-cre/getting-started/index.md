@@ -84,6 +84,14 @@ Once the environment is up, run the CRE smoke package:
 go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 ```
 
+For the default smoke-test flow, start Local CRE without `--with-beholder`. Most tests start the ChIP test sink on the default gRPC port (`50051`), and Beholder uses that same port through Chip Ingress.
+
+Enable Beholder only when:
+
+- you are running Beholder-specific tests
+- you intentionally need the Beholder stack for debugging
+- you move Beholder to a different port with `--grpc-port` so it does not conflict with the test sink
+
 The smoke tests default to the capability-enabled topology when you do not override `CTF_CONFIGS`, and the test helpers can start Local CRE automatically if the state file does not exist yet.
 
 Continue with:

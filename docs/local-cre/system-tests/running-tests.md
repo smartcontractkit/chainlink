@@ -16,7 +16,7 @@ The usual local path is:
 ```bash
 cd core/scripts/cre/environment
 go run . env setup
-go run . env start --with-beholder
+go run . env start
 ```
 
 Then run the tests:
@@ -26,6 +26,14 @@ go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 ```
 
 The comments in `cre_suite_test.go` also call out the pattern of starting Local CRE first and then running the smoke package.
+
+Do not enable `--with-beholder` for the default smoke-test flow. Most CRE smoke tests start the ChIP test sink on the default gRPC port (`50051`), and Beholder starts Chip Ingress on that same port. If both try to use the default port, the test sink startup fails.
+
+Enable Beholder only when:
+
+- you are running Beholder-specific coverage
+- you need the Beholder stack for debugging
+- you start it on a different `--grpc-port` so the smoke-test sink can still bind its default port
 
 ## Environment Variables
 

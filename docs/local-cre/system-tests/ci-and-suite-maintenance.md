@@ -59,6 +59,7 @@ Some tests must replace that default topology set with explicit per-test overrid
 
 - `Test_CRE_V2_Aptos_Suite` -> `workflow-gateway-aptos`
 - `Test_CRE_V2_Solana_Suite` -> `workflow`
+- `Test_CRE_V1_Tron` -> `workflow`
 - `Test_CRE_V2_Sharding` -> `workflow-gateway-sharded`
 
 If a new test only works with a non-default topology, adding the test code is not enough. You must also add an explicit override in the workflow matrix so CI runs the test with the matching `topology` and `configs` pair.
