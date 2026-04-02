@@ -23,6 +23,15 @@ type KVStoreWrapper struct {
 	migrationEnabled bool
 }
 
+// requestScopedKVStore binds a wrapper to the orgID/workflowOwner for a single
+// top-level plugin request while preserving the existing ReadKVStore /
+// WriteKVStore interfaces used throughout plugin.go.
+type requestScopedKVStore struct {
+	wrapper       *KVStoreWrapper
+	orgID         string
+	workflowOwner string
+}
+
 // NewKVStoreWrapper creates a wrapper around the given store.
 // When migrationEnabled is true, an internal ownerMigrationAdapter handles
 // the transition from workflow_owner-keyed entries to org_id-keyed entries.
@@ -36,6 +45,18 @@ func NewKVStoreWrapper(store WriteKVStore, migrationEnabled bool, lggr logger.Lo
 		w.adapter = newOwnerMigrationAdapter(store, lggr)
 	}
 	return w
+}
+
+// WithRequest returns a store view bound to the top-level request's orgID and
+// workflowOwner. When migration is enabled, owner-scoped operations are routed
+// through the migration adapter using the bound orgID/workflowOwner while
+// preserving the plugin's existing store interface usage.
+func (w *KVStoreWrapper) WithRequest(orgID, workflowOwner string) WriteKVStore {
+	return &requestScopedKVStore{
+		wrapper:       w,
+		orgID:         orgID,
+		workflowOwner: workflowOwner,
+	}
 }
 
 // GetSecret tries orgID first, falling back to workflowOwner for legacy entries.
@@ -110,6 +131,57 @@ func (w *KVStoreWrapper) GetPendingQueue(ctx context.Context) ([]*vault.StoredPe
 // WritePendingQueue is always a pass-through (pending queue is not owner-scoped).
 func (w *KVStoreWrapper) WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error {
 	return w.store.WritePendingQueue(ctx, pending)
+}
+
+func (s *requestScopedKVStore) effectiveOwner(owner string) string {
+	if s.wrapper.migrationEnabled && s.orgID != "" {
+		return s.orgID
+	}
+	return owner
+}
+
+func (s *requestScopedKVStore) GetSecret(ctx context.Context, id *vault.SecretIdentifier) (*vault.StoredSecret, error) {
+	orgID := ""
+	if id != nil {
+		orgID = s.effectiveOwner(id.Owner)
+	}
+	return s.wrapper.GetSecret(ctx, id, orgID, s.workflowOwner)
+}
+
+func (s *requestScopedKVStore) GetMetadata(ctx context.Context, owner string) (*vault.StoredMetadata, error) {
+	return s.wrapper.GetMetadata(ctx, s.effectiveOwner(owner), s.workflowOwner)
+}
+
+func (s *requestScopedKVStore) GetSecretIdentifiersCountForOwner(ctx context.Context, owner string) (int, error) {
+	return s.wrapper.GetSecretIdentifiersCountForOwner(ctx, s.effectiveOwner(owner), s.workflowOwner)
+}
+
+func (s *requestScopedKVStore) WriteSecret(ctx context.Context, id *vault.SecretIdentifier, secret *vault.StoredSecret) error {
+	orgID := ""
+	if id != nil {
+		orgID = s.effectiveOwner(id.Owner)
+	}
+	return s.wrapper.WriteSecret(ctx, id, secret, orgID, s.workflowOwner)
+}
+
+func (s *requestScopedKVStore) WriteMetadata(ctx context.Context, owner string, metadata *vault.StoredMetadata) error {
+	return s.wrapper.WriteMetadata(ctx, s.effectiveOwner(owner), metadata)
+}
+
+func (s *requestScopedKVStore) DeleteSecret(ctx context.Context, id *vault.SecretIdentifier) error {
+	orgID := ""
+	if id != nil {
+		orgID = s.effectiveOwner(id.Owner)
+	}
+	return s.wrapper.DeleteSecret(ctx, id, orgID, s.workflowOwner)
+}
+
+func (s *requestScopedKVStore) GetPendingQueue(ctx context.Context) ([]*vault.StoredPendingQueueItem, error) {
+	return s.wrapper.GetPendingQueue(ctx)
+}
+
+func (s *requestScopedKVStore) WritePendingQueue(ctx context.Context, pending []*vault.StoredPendingQueueItem) error {
+	return s.wrapper.WritePendingQueue(ctx, pending)
 }
 
 // ownerMigrationAdapter handles the migration of secrets from workflow_owner-keyed
