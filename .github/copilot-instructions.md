@@ -21,4 +21,3 @@ Give style advice based on the following guides, in order of priority.
 3. [Google Style Guide](https://google.github.io/styleguide/go/)
 
 Style exceptions are acceptable when aligning with pre-existing "local" style from the same file or package, but they should still be noted.
-/`
