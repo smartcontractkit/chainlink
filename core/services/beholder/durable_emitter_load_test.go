@@ -46,6 +46,11 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	sdkresource "go.opentelemetry.io/otel/sdk/resource"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
@@ -350,6 +355,8 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	}
 	store := beholdersvc.NewPgDurableEventStore(db)
 
+	ctx := testutils.Context(t)
+
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
 	cfg.RetransmitInterval = 500 * time.Millisecond
@@ -360,14 +367,45 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	cfg.PublishTimeout = 5 * time.Second
 	cfg.Hooks = newPipelineHooks(pipe)
 
+	// Wire OTel metrics to the local obs stack when OTEL_EXPORTER_OTLP_ENDPOINT is set.
+	// Start the obs stack first: ./bin/ctf obs up
+	// Then run: OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 CHIP_INGRESS_TEST_ADDR=... go test ...
+	if otlpEndpoint := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")); otlpEndpoint != "" {
+		otlpEndpoint = strings.TrimPrefix(otlpEndpoint, "http://")
+		exp, otelErr := otlpmetricgrpc.New(ctx,
+			otlpmetricgrpc.WithEndpoint(otlpEndpoint),
+			otlpmetricgrpc.WithInsecure(),
+		)
+		require.NoError(t, otelErr, "otlp metric exporter")
+		res := sdkresource.NewWithAttributes("",
+			attribute.String("service.name", "durable-emitter-loadtest"),
+		)
+		mp := sdkmetric.NewMeterProvider(
+			sdkmetric.WithResource(res),
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp,
+				sdkmetric.WithInterval(5*time.Second),
+			)),
+		)
+		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+		bc := beholder.NewNoopClient()
+		bc.MeterProvider = mp
+		bc.Meter = mp.Meter("beholder")
+		beholder.SetClient(bc)
+		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
+		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
+			PollInterval:       5 * time.Second,
+			RecordProcessStats: true,
+		}
+		t.Logf("OTel metrics enabled → %s (5s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
+	}
+
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
 	em.Start(ctx)
 	defer em.Close()
 
-	totalEvents := 100_000
+	totalEvents := 1_000_000
 	//if testing.Short() {
 	//totalEvents = 10_000
 	//}
