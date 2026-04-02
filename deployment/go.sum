@@ -519,8 +519,8 @@ github.com/fsnotify/fsnotify v1.4.9/go.mod h1:znqG4EE+3YCdAaPaxE2ZRY/06pZUdp0tY4
 github.com/fsnotify/fsnotify v1.5.4/go.mod h1:OVB6XrOHzAwXMpEM7uPOzcehqUV2UqJxmVXmkdnm1bU=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
-github.com/fxamacker/cbor/v2 v2.7.0 h1:iM5WgngdRBanHcxugY4JySA0nk1wZorNOpTgCMedv5E=
-github.com/fxamacker/cbor/v2 v2.7.0/go.mod h1:pxXPTn3joSm21Gbwsv0w9OSA2y1HFR9qXEeXQVeNoDQ=
+github.com/fxamacker/cbor/v2 v2.9.0 h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=
+github.com/fxamacker/cbor/v2 v2.9.0/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
 github.com/gabriel-vasile/mimetype v1.4.13 h1:46nXokslUBsAJE/wMsp5gtO500a4F3Nkz9Ufpk2AcUM=
 github.com/gabriel-vasile/mimetype v1.4.13/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/gagliardetto/anchor-go v1.0.0 h1:YNt9I/9NOrNzz5uuzfzByAcbp39Ft07w63iPqC/wi34=
@@ -1387,8 +1387,8 @@ github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260317175207-e9ff
 github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260317175207-e9ff89561326/go.mod h1:P0/tjeeIIxfsBupk5MneRjq5uI9mj+ZQpMpYnFla6WM=
 github.com/smartcontractkit/chainlink-ccv v0.0.0-20260324000441-d4cfddc9f7d2 h1:5HdH/A6yn8INZAltYDLb7UkUi5IKemhJzJkDW4Bgxyg=
 github.com/smartcontractkit/chainlink-ccv v0.0.0-20260324000441-d4cfddc9f7d2/go.mod h1:wDHq2E0KwUWG0lQ9f5frW1a7CKVW17MJLPuvKmtSRDg=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260331163339-a3c0d217e843 h1:yzkeWzWoPTbpDvVIz0ohmNVqAkvE8UwuLqqcUt47gYk=
-github.com/smartcontractkit/chainlink-common v0.11.2-0.20260331163339-a3c0d217e843/go.mod h1:6tlxlsiWypGdpaZI+Kz5gFm53gCAcU/pTU3PR9CiFB8=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260402120824-48154c0c65a6 h1:oaXslIvcy5HD3zkWhx3nu8vRGdWGedYJ+XCsBD8mYkA=
+github.com/smartcontractkit/chainlink-common v0.11.2-0.20260402120824-48154c0c65a6/go.mod h1:Ea94/OgfFPRTByGO2Qo+uZ7/4sWhwE2HKu7dDwdojME=
 github.com/smartcontractkit/chainlink-common/keystore v1.0.2 h1:AWisx4JT3QV8tcgh6J5NCrex+wAgTYpWyHsyNPSXzsQ=
 github.com/smartcontractkit/chainlink-common/keystore v1.0.2/go.mod h1:rSkIHdomyak3YnUtXLenl6poIq8q0V3UZPiiyYqPdGA=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.10 h1:FJAFgXS9oqASnkS03RE1HQwYQQxrO4l46O5JSzxqLgg=

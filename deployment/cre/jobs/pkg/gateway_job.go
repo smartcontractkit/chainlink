@@ -457,8 +457,7 @@ func newDefaultHTTPCapabilitiesHandler() handler {
 }
 
 type confidentialRelayHandlerConfig struct {
-	RequestTimeoutSec int                   `toml:"requestTimeoutSec"`
-	NodeRateLimiter   nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	RequestTimeoutSec int `toml:"requestTimeoutSec"`
 }
 
 func newDefaultConfidentialRelayHandler(requestTimeoutSec int) handler {
@@ -467,12 +466,6 @@ func newDefaultConfidentialRelayHandler(requestTimeoutSec int) handler {
 		ServiceName: ServiceNameConfidential,
 		Config: confidentialRelayHandlerConfig{
 			RequestTimeoutSec: requestTimeoutSec,
-			NodeRateLimiter: nodeRateLimiterConfig{
-				GlobalBurst:    10,
-				GlobalRPS:      50,
-				PerSenderBurst: 10,
-				PerSenderRPS:   10,
-			},
 		},
 	}
 }

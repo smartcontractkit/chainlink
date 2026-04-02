@@ -90,7 +90,7 @@ func (hf *handlerFactory) NewHandler(
 		requestAuthorizer := vaultcap.NewRequestAuthorizer(hf.lggr, hf.workflowRegistrySyncer)
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, requestAuthorizer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	case ConfidentialRelayHandlerType:
-		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock())
+		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}
