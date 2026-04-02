@@ -85,23 +85,32 @@ type TestMetadataRegistry struct {
 	core.UnimplementedCapabilitiesRegistryMetadata
 }
 
+const (
+	testWorkflowDONID             = 1
+	testWorkflowDONConfigVersion  = 1
+	testWorkflowDONFaultTolerance = 1
+)
+
 func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	peerID := p2ptypes.PeerID{}
-	workflowDON := capabilities.DON{
-		ID:            1,
-		ConfigVersion: 1,
+	return capabilities.Node{
+		PeerID:         &peerID,
+		WorkflowDON:    newTestWorkflowDON(peerID),
+		CapabilityDONs: []capabilities.DON{},
+	}, nil
+}
+
+func newTestWorkflowDON(peerID p2ptypes.PeerID) capabilities.DON {
+	return capabilities.DON{
+		ID:            testWorkflowDONID,
+		ConfigVersion: testWorkflowDONConfigVersion,
 		Members: []p2ptypes.PeerID{
 			peerID,
 		},
-		F:                1,
+		F:                testWorkflowDONFaultTolerance,
 		IsPublic:         false,
 		AcceptsWorkflows: true,
 	}
-	return capabilities.Node{
-		PeerID:         &peerID,
-		WorkflowDON:    workflowDON,
-		CapabilityDONs: []capabilities.DON{},
-	}, nil
 }
 
 func (t *TestMetadataRegistry) NodeByPeerID(ctx context.Context, _ p2ptypes.PeerID) (capabilities.Node, error) {

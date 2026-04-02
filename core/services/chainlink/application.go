@@ -56,7 +56,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
-	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -216,10 +215,6 @@ type ApplicationOpts struct {
 	DonTimeStore             *dontime.Store
 }
 
-func shouldRegisterMockStreamsTrigger(local config.LocalCapabilities) bool {
-	return local != nil && local.GetCapabilityConfig(capStreams.MockTriggerCapabilityID) != nil
-}
-
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
@@ -295,14 +290,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
 		cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
-
-	if shouldRegisterMockStreamsTrigger(cfg.Capabilities().Local()) {
-		// Register the mock streams trigger only for test environments that explicitly opt in.
-		_, err = capStreams.RegisterMockTrigger(globalLogger, opts.CapabilitiesRegistry)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
