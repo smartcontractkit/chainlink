@@ -79,7 +79,7 @@ func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTr
 	for i := 0; i < meta.MinRequiredSignatures; i++ {
 		// test keys: need to be the same across nodes
 		bytes := make([]byte, 32)
-		bytes[31] = uint8(i + 1)
+		bytes[31] = mustUint8(i + 1)
 
 		privKey, err := crypto.ToECDSA(bytes)
 		if err != nil {
@@ -121,24 +121,24 @@ func (m *MockTriggerService) Close() error {
 	return m.MercuryTriggerService.Close()
 }
 
-func (o *MockTriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
-	ch, err := o.MercuryTriggerService.RegisterTrigger(ctx, req)
+func (m *MockTriggerService) RegisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	ch, err := m.MercuryTriggerService.RegisterTrigger(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	config, _ := o.MercuryTriggerService.ValidateConfig(req.Config)
-	o.subscribersMu.Lock()
-	defer o.subscribersMu.Unlock()
-	o.subscribers[req.Metadata.WorkflowID] = config.FeedIds
+	config, _ := m.ValidateConfig(req.Config)
+	m.subscribersMu.Lock()
+	defer m.subscribersMu.Unlock()
+	m.subscribers[req.Metadata.WorkflowID] = config.FeedIds
 	return ch, nil
 }
 
-func (o *MockTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
-	err := o.MercuryTriggerService.UnregisterTrigger(ctx, req)
-	o.subscribersMu.Lock()
-	defer o.subscribersMu.Unlock()
-	delete(o.subscribers, req.Metadata.WorkflowID)
+func (m *MockTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
+	err := m.MercuryTriggerService.UnregisterTrigger(ctx, req)
+	m.subscribersMu.Lock()
+	defer m.subscribersMu.Unlock()
+	delete(m.subscribers, req.Metadata.WorkflowID)
 	return err
 }
 
@@ -149,18 +149,32 @@ func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp in
 	v3Codec := reportcodec.NewReportCodec(feedID, lggr)
 	raw, err := v3Codec.BuildReport(context.Background(), v3.ReportFields{
 		BenchmarkPrice:     price,
-		Timestamp:          uint32(timestamp),
-		ValidFromTimestamp: uint32(timestamp),
+		Timestamp:          mustUint32(timestamp),
+		ValidFromTimestamp: mustUint32(timestamp),
 		Bid:                price,
 		Ask:                price,
 		LinkFee:            price,
 		NativeFee:          price,
-		ExpiresAt:          uint32(timestamp + 1000000),
+		ExpiresAt:          mustUint32(timestamp + 1000000),
 	})
 	if err != nil {
 		panic(err)
 	}
 	return raw
+}
+
+func mustUint32(v int64) uint32 {
+	if v < 0 || v > int64(^uint32(0)) {
+		panic("timestamp out of uint32 range")
+	}
+	return uint32(v)
+}
+
+func mustUint8(v int) uint8 {
+	if v < 0 || v > int(^uint8(0)) {
+		panic("value out of uint8 range")
+	}
+	return uint8(v)
 }
 
 func rawReportContext(reportCtx ocrTypes.ReportContext) []byte {
@@ -191,7 +205,7 @@ func (m *MockTriggerService) loop() {
 
 		// TODO: properly close
 		for i := range prices {
-			prices[i] = prices[i] + 1
+			prices[i]++
 		}
 		j++
 
@@ -199,7 +213,7 @@ func (m *MockTriggerService) loop() {
 
 		timestamp := time.Now().Unix()
 		// TODO: shouldn't we increment round rather than epoch?
-		reportCtx := ocrTypes.ReportContext{ReportTimestamp: ocrTypes.ReportTimestamp{Epoch: uint32(baseTimestamp + j)}}
+		reportCtx := ocrTypes.ReportContext{ReportTimestamp: ocrTypes.ReportTimestamp{Epoch: mustUint32(int64(baseTimestamp + j))}}
 
 		reports := []datastreams.FeedReport{}
 		subscribers := map[string][]streams.FeedId{}
@@ -228,11 +242,10 @@ func (m *MockTriggerService) loop() {
 
 				reports = append(reports, report)
 			}
-
 		}
 
 		m.lggr.Infow("New set of Mock reports", "timestamp", time.Now().Unix(), "payload", reports)
-		err := m.MercuryTriggerService.ProcessReport(reports)
+		err := m.ProcessReport(reports)
 		if err != nil {
 			m.lggr.Errorw("failed to process Mock reports", "err", err, "timestamp", time.Now().Unix(), "payload", reports)
 		}
