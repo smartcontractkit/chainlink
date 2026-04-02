@@ -63,14 +63,14 @@ func TestMetricViews(t *testing.T) {
 
 func TestFunctionTypeConstants(t *testing.T) {
 	// Verify all expected function types exist
-	require.Equal(t, FunctionType("query"), Query)
-	require.Equal(t, FunctionType("observation"), Observation)
-	require.Equal(t, FunctionType("validateObservation"), ValidateObservation)
-	require.Equal(t, FunctionType("outcome"), Outcome)
-	require.Equal(t, FunctionType("observationQuorum"), ObservationQuorum)
-	require.Equal(t, FunctionType("stateTransition"), StateTransition)
-	require.Equal(t, FunctionType("committed"), Committed)
-	require.Equal(t, FunctionType("reports"), Reports)
-	require.Equal(t, FunctionType("shouldAccept"), ShouldAccept)
-	require.Equal(t, FunctionType("shouldTransmit"), ShouldTransmit)
+	require.Equal(t, Query, FunctionType("query"))
+	require.Equal(t, Observation, FunctionType("observation"))
+	require.Equal(t, ValidateObservation, FunctionType("validateObservation"))
+	require.Equal(t, Outcome, FunctionType("outcome"))
+	require.Equal(t, ObservationQuorum, FunctionType("observationQuorum"))
+	require.Equal(t, StateTransition, FunctionType("stateTransition"))
+	require.Equal(t, Committed, FunctionType("committed"))
+	require.Equal(t, Reports, FunctionType("reports"))
+	require.Equal(t, ShouldAccept, FunctionType("shouldAccept"))
+	require.Equal(t, ShouldTransmit, FunctionType("shouldTransmit"))
 }

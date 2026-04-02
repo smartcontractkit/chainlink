@@ -3,6 +3,7 @@ package beholderwrapper
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -61,7 +62,7 @@ func (m *pluginMetrics) recordKVDuration(ctx context.Context, method string, d t
 	m.kvDurations.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("plugin", m.plugin),
 		attribute.String("method", method),
-		attribute.String("success", fmt.Sprintf("%t", success)),
+		attribute.String("success", strconv.FormatBool(success)),
 		attribute.String("configDigest", m.configDigest),
 	))
 }
@@ -70,7 +71,7 @@ func (m *pluginMetrics) recordBlobDuration(ctx context.Context, method string, d
 	m.blobDurations.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("plugin", m.plugin),
 		attribute.String("method", method),
-		attribute.String("success", fmt.Sprintf("%t", success)),
+		attribute.String("success", strconv.FormatBool(success)),
 		attribute.String("configDigest", m.configDigest),
 	))
 }
