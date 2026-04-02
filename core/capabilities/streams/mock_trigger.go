@@ -27,8 +27,11 @@ import (
 )
 
 func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegistry) (*MockTriggerService, error) {
-	ctx := context.TODO()
-	trigger := NewMockTriggerService(100, lggr)
+	ctx := context.Background()
+	trigger, err := NewMockTriggerService(100, lggr)
+	if err != nil {
+		return nil, err
+	}
 	if err := trigger.Start(ctx); err != nil {
 		return nil, err
 	}
@@ -60,10 +63,10 @@ type MockTriggerService struct {
 	lggr          logger.Logger
 }
 
-func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTriggerService {
+func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) (*MockTriggerService, error) {
 	trigger, err := triggers.NewMercuryTriggerService(tickerResolutionMs, "mock-streams-trigger", "1.0.0", lggr)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	trigger.CapabilityInfo = capInfo
 
@@ -71,7 +74,10 @@ func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTr
 		tickerResolutionMs = 1000
 	}
 
-	meta, signers := newMockMetadataAndSigners()
+	meta, signers, err := newMockMetadataAndSigners()
+	if err != nil {
+		return nil, err
+	}
 
 	// MercuryTrigger is typically wrapped by other modules that ignore the trigger's meta and provide a different one.
 	// Since we're skipping those wrappers we need to provide our own meta here.
@@ -85,29 +91,36 @@ func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTr
 		loopInterval:          time.Duration(tickerResolutionMs) * time.Millisecond,
 		subscribers:           make(map[string][]streams.FeedId),
 		lggr:                  lggr,
-	}
+	}, nil
 }
 
-func newMockMetadataAndSigners() (datastreams.Metadata, []*ecdsa.PrivateKey) {
+func newMockMetadataAndSigners() (datastreams.Metadata, []*ecdsa.PrivateKey, error) {
 	f := 1
 	meta := datastreams.Metadata{MinRequiredSignatures: 2*f + 1}
 	signers := make([]*ecdsa.PrivateKey, 0, meta.MinRequiredSignatures)
 	for i := 0; i < meta.MinRequiredSignatures; i++ {
-		privKey := mustMockSigner(i + 1)
+		privKey, err := newMockSigner(i + 1)
+		if err != nil {
+			return datastreams.Metadata{}, nil, err
+		}
 		signers = append(signers, privKey)
 		meta.Signers = append(meta.Signers, crypto.PubkeyToAddress(privKey.PublicKey).Bytes())
 	}
-	return meta, signers
+	return meta, signers, nil
 }
 
-func mustMockSigner(index int) *ecdsa.PrivateKey {
+func newMockSigner(index int) (*ecdsa.PrivateKey, error) {
 	bytes := make([]byte, 32)
-	bytes[31] = mustUint8(index)
+	lastByte, err := toUint8(index)
+	if err != nil {
+		return nil, err
+	}
+	bytes[31] = lastByte
 	privKey, err := crypto.ToECDSA(bytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return privKey
+	return privKey, nil
 }
 
 func (m *MockTriggerService) Start(ctx context.Context) error {
@@ -131,7 +144,11 @@ func (m *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 		return nil, err
 	}
 
-	config, _ := m.ValidateConfig(req.Config)
+	config, err := m.ValidateConfig(req.Config)
+	if err != nil {
+		_ = m.MercuryTriggerService.UnregisterTrigger(ctx, req)
+		return nil, err
+	}
 	m.subscribersMu.Lock()
 	defer m.subscribersMu.Unlock()
 	m.subscribers[req.Metadata.WorkflowID] = config.FeedIds
@@ -150,16 +167,24 @@ const baseTimestamp = 1000000000
 
 // NOTE: duplicated from trigger_test.go
 func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp int64) ([]byte, error) {
+	uintTimestamp, err := toUint32(timestamp)
+	if err != nil {
+		return nil, err
+	}
+	expiresAt, err := toUint32(timestamp + 1000000)
+	if err != nil {
+		return nil, err
+	}
 	v3Codec := reportcodec.NewReportCodec(feedID, lggr)
 	raw, err := v3Codec.BuildReport(context.Background(), v3.ReportFields{
 		BenchmarkPrice:     price,
-		Timestamp:          mustUint32(timestamp),
-		ValidFromTimestamp: mustUint32(timestamp),
+		Timestamp:          uintTimestamp,
+		ValidFromTimestamp: uintTimestamp,
 		Bid:                price,
 		Ask:                price,
 		LinkFee:            price,
 		NativeFee:          price,
-		ExpiresAt:          mustUint32(timestamp + 1000000),
+		ExpiresAt:          expiresAt,
 	})
 	if err != nil {
 		return nil, err
@@ -167,18 +192,18 @@ func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp in
 	return raw, nil
 }
 
-func mustUint32(v int64) uint32 {
+func toUint32(v int64) (uint32, error) {
 	if v < 0 || v > int64(^uint32(0)) {
-		panic("timestamp out of uint32 range")
+		return 0, fmt.Errorf("value %d out of uint32 range", v)
 	}
-	return uint32(v)
+	return uint32(v), nil
 }
 
-func mustUint8(v int) uint8 {
+func toUint8(v int) (uint8, error) {
 	if v < 0 || v > int(^uint8(0)) {
-		panic("value out of uint8 range")
+		return 0, fmt.Errorf("value %d out of uint8 range", v)
 	}
-	return uint8(v)
+	return uint8(v), nil
 }
 
 func rawReportContext(reportCtx ocrTypes.ReportContext) []byte {
@@ -211,7 +236,11 @@ func (m *MockTriggerService) loop() {
 		j++
 
 		timestamp := time.Now().Unix()
-		reportCtx := newReportContext(j)
+		reportCtx, err := newReportContext(j)
+		if err != nil {
+			m.lggr.Errorw("failed to build Mock report context", "err", err, "timestamp", timestamp)
+			continue
+		}
 		reports, err := m.buildReports(timestamp, prices[0], reportCtx)
 		if err != nil {
 			m.lggr.Errorw("failed to build Mock reports", "err", err, "timestamp", timestamp)
@@ -234,13 +263,14 @@ func incrementPrices(prices []int64) {
 	}
 }
 
-func newReportContext(iteration int) ocrTypes.ReportContext {
-	// We bump the epoch because this mock trigger is generating synthetic OCR rounds.
-	return ocrTypes.ReportContext{
-		ReportTimestamp: ocrTypes.ReportTimestamp{
-			Epoch: mustUint32(int64(baseTimestamp + iteration)),
-		},
+func newReportContext(iteration int) (ocrTypes.ReportContext, error) {
+	epoch, err := toUint32(int64(baseTimestamp + iteration))
+	if err != nil {
+		return ocrTypes.ReportContext{}, err
 	}
+	return ocrTypes.ReportContext{
+		ReportTimestamp: ocrTypes.ReportTimestamp{Epoch: epoch},
+	}, nil
 }
 
 func (m *MockTriggerService) buildReports(timestamp, price int64, reportCtx ocrTypes.ReportContext) ([]datastreams.FeedReport, error) {

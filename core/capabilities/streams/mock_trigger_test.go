@@ -25,7 +25,8 @@ const testFeedID triggercfg.FeedId = "0x0000000000000000000000000000000000000000
 func TestMockTriggerServiceStartClose(t *testing.T) {
 	t.Parallel()
 
-	svc := NewMockTriggerService(10, logger.TestLogger(t))
+	svc, err := NewMockTriggerService(10, logger.TestLogger(t))
+	require.NoError(t, err)
 	require.NoError(t, svc.Start(context.Background()))
 
 	done := make(chan error, 1)
@@ -45,7 +46,8 @@ func TestMockTriggerServiceRegisterEmitUnregister(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
-	svc := NewMockTriggerService(200, logger.TestLogger(t))
+	svc, err := NewMockTriggerService(200, logger.TestLogger(t))
+	require.NoError(t, err)
 	require.NoError(t, svc.MercuryTriggerService.Start(ctx))
 	t.Cleanup(func() {
 		require.NoError(t, svc.MercuryTriggerService.Close())

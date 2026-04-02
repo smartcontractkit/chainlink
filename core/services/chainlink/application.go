@@ -298,7 +298,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	if shouldRegisterMockStreamsTrigger(cfg.Capabilities().Local()) {
 		// Register the mock streams trigger only for test environments that explicitly opt in.
-		// TODO: proper component shutdown via srvcs().
 		_, err = capStreams.RegisterMockTrigger(globalLogger, opts.CapabilitiesRegistry)
 		if err != nil {
 			return nil, err
