@@ -44,3 +44,8 @@ func NewAggregator(name string, config values.Map, lggr logger.Logger) (types.Ag
 		return nil, fmt.Errorf("aggregator %s not supported", name)
 	}
 }
+
+// DEBUG: Making changes to trigger runs
+func AdamTest() string {
+	return "AdamTest"
+}

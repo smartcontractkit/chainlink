@@ -22,3 +22,8 @@ func BigIntSliceContains(slice []*big.Int, b *big.Int) bool {
 	}
 	return false
 }
+
+// DEBUG: Making changes to trigger runs
+func AdamTest() string {
+	return "AdamTest"
+}
