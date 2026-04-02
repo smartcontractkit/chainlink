@@ -277,6 +277,12 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 	workflowSignerAuthM.Lock()
 	defer workflowSignerAuthM.Unlock()
 
+	allowed, err = registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
+	require.NoError(t, err, "failed to re-check signer allowlist status")
+	if allowed {
+		return
+	}
+
 	_, err = rootRegistryChain.SethClient.Decode(registry.UpdateAllowedSigners(rootRegistryChain.SethClient.NewTXOpts(), []common.Address{signer}, true))
 	require.NoError(t, err, "failed to authorize per-test signer")
 }
