@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegistry) (*MockTriggerService, error) {
@@ -38,7 +38,9 @@ func RegisterMockTrigger(lggr logger.Logger, capRegistry core.CapabilitiesRegist
 	return trigger, nil
 }
 
-const triggerID = "mock-streams-trigger@1.0.0"
+const MockTriggerCapabilityID = "mock-streams-trigger@1.0.0"
+
+const triggerID = MockTriggerCapabilityID
 
 var capInfo = capabilities.MustNewCapabilityInfo(
 	triggerID,
@@ -53,14 +55,22 @@ type MockTriggerService struct {
 	signers       []*ecdsa.PrivateKey
 	stopCh        services.StopChan
 	wg            sync.WaitGroup
+	loopInterval  time.Duration
 	subscribers   map[string][]streams.FeedId
 	subscribersMu sync.Mutex
 	lggr          logger.Logger
 }
 
 func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTriggerService {
-	trigger, _ := triggers.NewMercuryTriggerService(tickerResolutionMs, "mock-streams-trigger", "1.0.0", lggr)
+	trigger, err := triggers.NewMercuryTriggerService(tickerResolutionMs, "mock-streams-trigger", "1.0.0", lggr)
+	if err != nil {
+		panic(err)
+	}
 	trigger.CapabilityInfo = capInfo
+
+	if tickerResolutionMs == 0 {
+		tickerResolutionMs = 1000
+	}
 
 	f := 1
 	meta := datastreams.Metadata{MinRequiredSignatures: 2*f + 1}
@@ -89,14 +99,18 @@ func NewMockTriggerService(tickerResolutionMs int64, lggr logger.Logger) *MockTr
 		MercuryTriggerService: trigger,
 		meta:                  meta,
 		signers:               signers,
+		stopCh:                make(services.StopChan),
+		loopInterval:          time.Duration(tickerResolutionMs) * time.Millisecond,
 		subscribers:           make(map[string][]streams.FeedId),
-		lggr:                  lggr}
+		lggr:                  lggr,
+	}
 }
 
 func (m *MockTriggerService) Start(ctx context.Context) error {
 	if err := m.MercuryTriggerService.Start(ctx); err != nil {
 		return err
 	}
+	m.wg.Add(1)
 	go m.loop()
 	return nil
 }
@@ -159,15 +173,22 @@ func rawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 }
 
 func (m *MockTriggerService) loop() {
-	sleepSec := 15
-	ticker := time.NewTicker(time.Duration(sleepSec) * time.Second)
+	defer m.wg.Done()
+
+	ticker := time.NewTicker(m.loopInterval)
 	defer ticker.Stop()
 
 	prices := []int64{300000, 40000, 5000000}
 
 	j := 0
 
-	for range ticker.C {
+	for {
+		select {
+		case <-m.stopCh:
+			return
+		case <-ticker.C:
+		}
+
 		// TODO: properly close
 		for i := range prices {
 			prices[i] = prices[i] + 1
