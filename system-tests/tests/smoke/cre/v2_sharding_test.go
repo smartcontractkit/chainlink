@@ -353,7 +353,7 @@ func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.
 	return datastore.NewAddressRefKey(
 		testEnv.CreEnvironment.RegistryChainSelector,
 		datastore.ContractType(deployment_contracts.ShardConfig.String()),
-		semver.MustParse("1"),
+		semver.MustParse("1.0.0-dev"),
 		"",
 	)
 }
