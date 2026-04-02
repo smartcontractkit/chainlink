@@ -118,10 +118,12 @@ func newSignedMockFeedReport(t *testing.T, svc *MockTriggerService, feedID trigg
 
 	report := datastreams.FeedReport{
 		FeedID:               string(feedID),
-		FullReport:           newReport(svc.lggr, common.HexToHash(string(feedID)), big.NewInt(123456), timestamp),
 		ReportContext:        rawReportContext(reportCtx),
 		ObservationTimestamp: timestamp,
 	}
+	fullReport, err := newReport(svc.lggr, common.HexToHash(string(feedID)), big.NewInt(123456), timestamp)
+	require.NoError(t, err)
+	report.FullReport = fullReport
 
 	sigData := append(crypto.Keccak256(report.FullReport), report.ReportContext...)
 	hash := crypto.Keccak256(sigData)
