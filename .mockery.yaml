@@ -431,6 +431,7 @@ packages:
       ORM:
       WorkflowClient:
       WorkflowRegistrySyncer:
+      AllowlistedRequestsSyncer:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:

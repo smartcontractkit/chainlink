@@ -217,7 +217,7 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
-	if capCfg.WorkflowRegistry().Address() == "" {
+	if capCfg.WorkflowRegistry().Address() == "" && len(capCfg.WorkflowRegistry().AdditionalSources()) == 0 {
 		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
 		return srvs, nil
 	}

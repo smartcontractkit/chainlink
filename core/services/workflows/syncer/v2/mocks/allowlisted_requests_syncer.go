@@ -41,6 +41,33 @@ func (_m *AllowlistedRequestsSyncer) Close() error {
 	return r0
 }
 
+// AllowlistedRequestsSyncer_Close_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Close'
+type AllowlistedRequestsSyncer_Close_Call struct {
+	*mock.Call
+}
+
+// Close is a helper method to define mock.On call
+func (_e *AllowlistedRequestsSyncer_Expecter) Close() *AllowlistedRequestsSyncer_Close_Call {
+	return &AllowlistedRequestsSyncer_Close_Call{Call: _e.mock.On("Close")}
+}
+
+func (_c *AllowlistedRequestsSyncer_Close_Call) Run(run func()) *AllowlistedRequestsSyncer_Close_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Close_Call) Return(_a0 error) *AllowlistedRequestsSyncer_Close_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Close_Call) RunAndReturn(run func() error) *AllowlistedRequestsSyncer_Close_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetAllowlistedRequests provides a mock function with given fields: ctx
 func (_m *AllowlistedRequestsSyncer) GetAllowlistedRequests(ctx context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest {
 	ret := _m.Called(ctx)
@@ -59,6 +86,34 @@ func (_m *AllowlistedRequestsSyncer) GetAllowlistedRequests(ctx context.Context)
 	}
 
 	return r0
+}
+
+// AllowlistedRequestsSyncer_GetAllowlistedRequests_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllowlistedRequests'
+type AllowlistedRequestsSyncer_GetAllowlistedRequests_Call struct {
+	*mock.Call
+}
+
+// GetAllowlistedRequests is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *AllowlistedRequestsSyncer_Expecter) GetAllowlistedRequests(ctx interface{}) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
+	return &AllowlistedRequestsSyncer_GetAllowlistedRequests_Call{Call: _e.mock.On("GetAllowlistedRequests", ctx)}
+}
+
+func (_c *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call) Run(run func(ctx context.Context)) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call) Return(_a0 []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call) RunAndReturn(run func(context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // HealthReport provides a mock function with no fields
@@ -81,6 +136,33 @@ func (_m *AllowlistedRequestsSyncer) HealthReport() map[string]error {
 	return r0
 }
 
+// AllowlistedRequestsSyncer_HealthReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'HealthReport'
+type AllowlistedRequestsSyncer_HealthReport_Call struct {
+	*mock.Call
+}
+
+// HealthReport is a helper method to define mock.On call
+func (_e *AllowlistedRequestsSyncer_Expecter) HealthReport() *AllowlistedRequestsSyncer_HealthReport_Call {
+	return &AllowlistedRequestsSyncer_HealthReport_Call{Call: _e.mock.On("HealthReport")}
+}
+
+func (_c *AllowlistedRequestsSyncer_HealthReport_Call) Run(run func()) *AllowlistedRequestsSyncer_HealthReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_HealthReport_Call) Return(_a0 map[string]error) *AllowlistedRequestsSyncer_HealthReport_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_HealthReport_Call) RunAndReturn(run func() map[string]error) *AllowlistedRequestsSyncer_HealthReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Name provides a mock function with no fields
 func (_m *AllowlistedRequestsSyncer) Name() string {
 	ret := _m.Called()
@@ -97,6 +179,33 @@ func (_m *AllowlistedRequestsSyncer) Name() string {
 	}
 
 	return r0
+}
+
+// AllowlistedRequestsSyncer_Name_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Name'
+type AllowlistedRequestsSyncer_Name_Call struct {
+	*mock.Call
+}
+
+// Name is a helper method to define mock.On call
+func (_e *AllowlistedRequestsSyncer_Expecter) Name() *AllowlistedRequestsSyncer_Name_Call {
+	return &AllowlistedRequestsSyncer_Name_Call{Call: _e.mock.On("Name")}
+}
+
+func (_c *AllowlistedRequestsSyncer_Name_Call) Run(run func()) *AllowlistedRequestsSyncer_Name_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Name_Call) Return(_a0 string) *AllowlistedRequestsSyncer_Name_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Name_Call) RunAndReturn(run func() string) *AllowlistedRequestsSyncer_Name_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // Ready provides a mock function with no fields
@@ -117,6 +226,33 @@ func (_m *AllowlistedRequestsSyncer) Ready() error {
 	return r0
 }
 
+// AllowlistedRequestsSyncer_Ready_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ready'
+type AllowlistedRequestsSyncer_Ready_Call struct {
+	*mock.Call
+}
+
+// Ready is a helper method to define mock.On call
+func (_e *AllowlistedRequestsSyncer_Expecter) Ready() *AllowlistedRequestsSyncer_Ready_Call {
+	return &AllowlistedRequestsSyncer_Ready_Call{Call: _e.mock.On("Ready")}
+}
+
+func (_c *AllowlistedRequestsSyncer_Ready_Call) Run(run func()) *AllowlistedRequestsSyncer_Ready_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Ready_Call) Return(_a0 error) *AllowlistedRequestsSyncer_Ready_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Ready_Call) RunAndReturn(run func() error) *AllowlistedRequestsSyncer_Ready_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *AllowlistedRequestsSyncer) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -135,23 +271,36 @@ func (_m *AllowlistedRequestsSyncer) Start(_a0 context.Context) error {
 	return r0
 }
 
-// AllowlistedRequestsSyncer_GetAllowlistedRequests_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAllowlistedRequests'
-type AllowlistedRequestsSyncer_GetAllowlistedRequests_Call struct {
+// AllowlistedRequestsSyncer_Start_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Start'
+type AllowlistedRequestsSyncer_Start_Call struct {
 	*mock.Call
 }
 
-// GetAllowlistedRequests is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *AllowlistedRequestsSyncer_Expecter) GetAllowlistedRequests(ctx interface{}) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
-	return &AllowlistedRequestsSyncer_GetAllowlistedRequests_Call{Call: _e.mock.On("GetAllowlistedRequests", ctx)}
+// Start is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *AllowlistedRequestsSyncer_Expecter) Start(_a0 interface{}) *AllowlistedRequestsSyncer_Start_Call {
+	return &AllowlistedRequestsSyncer_Start_Call{Call: _e.mock.On("Start", _a0)}
 }
 
-func (_c *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call) Return(_a0 []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest) *AllowlistedRequestsSyncer_GetAllowlistedRequests_Call {
+func (_c *AllowlistedRequestsSyncer_Start_Call) Run(run func(_a0 context.Context)) *AllowlistedRequestsSyncer_Start_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *AllowlistedRequestsSyncer_Start_Call) Return(_a0 error) *AllowlistedRequestsSyncer_Start_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
+func (_c *AllowlistedRequestsSyncer_Start_Call) RunAndReturn(run func(context.Context) error) *AllowlistedRequestsSyncer_Start_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewAllowlistedRequestsSyncer creates a new instance of AllowlistedRequestsSyncer. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
 func NewAllowlistedRequestsSyncer(t interface {
 	mock.TestingT
 	Cleanup(func())
