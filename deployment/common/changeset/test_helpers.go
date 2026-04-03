@@ -154,6 +154,10 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				// This has been a cause of flakiness in the past (caused an AlreadyScheduled error).
 				saltOverride := utils.RandomHash()
 				prop.SaltOverride = &saltOverride
+				_, err = prop.SetOperationIDs(t.Context(), true)
+				if err != nil {
+					return cldf.Environment{}, nil, fmt.Errorf("failed to set operation IDs for timelock proposal: %w", err)
+				}
 
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
