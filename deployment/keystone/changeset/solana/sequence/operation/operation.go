@@ -3,6 +3,7 @@ package operation
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -23,6 +24,14 @@ import (
 )
 
 var Version1_0_0 = semver.MustParse("1.0.0")
+
+var setForwarderProgramIDOnce sync.Once
+
+func ensureForwarderProgramID(id solana.PublicKey) {
+	setForwarderProgramIDOnce.Do(func() {
+		ks_forwarder.SetProgramID(id)
+	})
+}
 
 var (
 	DeployForwarderOp = operations.NewOperation(
@@ -98,9 +107,7 @@ type (
 
 func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitForwarderOutput, error) {
 	var out InitForwarderOutput
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.SetProgramID(in.ProgramID)
-	}
+	ensureForwarderProgramID(in.ProgramID)
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
@@ -180,9 +187,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 	var out ConfigureForwarderOutput
 
 	var instructions *ks_forwarder.Instruction
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.SetProgramID(in.ProgramID)
-	}
+	ensureForwarderProgramID(in.ProgramID)
 
 	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
 
