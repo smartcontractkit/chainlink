@@ -465,7 +465,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseUncurseAptos$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -746,7 +746,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_Messaging_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -764,7 +764,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_Messaging_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -782,7 +782,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -800,7 +800,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -818,7 +818,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -836,7 +836,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -854,7 +854,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -872,7 +872,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -891,7 +891,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -909,7 +909,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -927,7 +927,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_AptosMessageHasher" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -945,7 +945,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_RegulatedTokenTransfer_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -963,7 +963,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_RegulatedTokenTransfer_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -981,7 +981,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_BnM_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -999,7 +999,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_BnM_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -1017,7 +1017,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -1035,7 +1035,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -1053,7 +1053,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_EVM2Aptos" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
@@ -1071,7 +1071,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_LnR_without_TransferRef_Aptos2EVM" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    aptos_cli_version: 8.1.0
+    aptos_cli_version: 9.1.0
     install_plugins_public: true
     free_disk_space: true
 
