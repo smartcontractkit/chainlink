@@ -70,15 +70,26 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 	out.ProgramID = forwarderID
 
 	// 2. Initialize
-	initOut, err := operations.ExecuteOperation(b, operation.InitForwarderOp, deps, operation.InitForwarderInput{
-		ProgramID: out.ProgramID,
-		ChainSel:  in.ChainSel,
-	})
+	stateRef, err := deps.Datastore.Addresses().Get(datastore.NewAddressRefKey(
+		in.ChainSel,
+		datastore.ContractType(string(in.ContractType)+"State"),
+		in.Version,
+		in.Qualifier,
+	))
 
 	if err != nil {
-		return DeployForwarderSeqOutput{}, fmt.Errorf("initialize forwarder op failed: %w", err)
+		initOut, err2 := operations.ExecuteOperation(b, operation.InitForwarderOp, deps, operation.InitForwarderInput{
+			ProgramID: out.ProgramID,
+			ChainSel:  in.ChainSel,
+		})
+		if err2 != nil {
+			return DeployForwarderSeqOutput{}, fmt.Errorf("initialize forwarder op failed: %w", err2)
+		}
+		out.State = initOut.Output.StatePubKey
+	} else {
+		deps.Env.Logger.Info("Forwarder state is already present in datastore for given version and qualifier. Proceed sequence without initializing")
+		out.State = solana.MustPublicKeyFromBase58(stateRef.Address)
 	}
-	out.State = initOut.Output.StatePubKey
 
 	return out, nil
 }
