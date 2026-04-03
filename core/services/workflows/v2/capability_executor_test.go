@@ -58,10 +58,10 @@ func TestUserMetricTypeSuffix(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		metricType  eventsv2.UserMetricType
-		wantSuffix  string
-		wantErr     bool
+		name       string
+		metricType eventsv2.UserMetricType
+		wantSuffix string
+		wantErr    bool
 	}{
 		{
 			name:       "counter",
