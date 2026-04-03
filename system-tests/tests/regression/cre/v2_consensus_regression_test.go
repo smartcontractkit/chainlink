@@ -2,7 +2,6 @@ package cre
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -54,18 +53,30 @@ func ConsensusFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, consensus
 		chainID := bcOutput.CtfOutput().ChainID
 
 		testLogger.Info().Msg("Creating Consensus Fail workflow configuration...")
-		workflowName := fmt.Sprintf("consensus-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
+		workflowName := t_helpers.UniqueWorkflowName(
+			testEnv,
+			fmt.Sprintf("consensus-fail-%s-%s", chainID, consensusNegativeTest.name),
+		)
 		feedID := "018e16c38e000320000000000000000000000000000000000000000000000000" // 32 hex characters (16 bytes)
 		workflowConfig := consensus_negative_config.Config{
 			CaseToTrigger: consensusNegativeTest.caseToTrigger,
 			FeedID:        feedID,
 			PayloadSizeKB: 101, // only used for oversized payload test
 		}
-		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
 		expectedError := consensusNegativeTest.expectedError
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedError, 2*time.Minute)
-		testLogger.Info().Msg("Consensus Fail test successfully completed")
+		t_helpers.WatchWorkflowLogs(
+			t,
+			testLogger,
+			userLogsCh,
+			baseMessageCh,
+			t_helpers.WorkflowEngineInitErrorLog,
+			expectedError,
+			2*time.Minute,
+			t_helpers.WithUserLogWorkflowID(workflowID),
+		)
+		testLogger.Info().Str("test case", consensusNegativeTest.name).Msg("Consensus Fail test successfully completed")
 	}
 }

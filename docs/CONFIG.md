@@ -1406,6 +1406,7 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
+MaxConcurrency = 12 # Default
 ```
 
 
@@ -1457,6 +1458,12 @@ SyncStrategy = 'event' # Default
 ```
 SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
+
+### MaxConcurrency
+```toml
+MaxConcurrency = 12 # Default
+```
+MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -2112,6 +2119,7 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 [Pyroscope]
 ServerAddress = 'http://localhost:4040' # Example
 Environment = 'mainnet' # Default
+LinkTracesToProfiles = false # Default
 ```
 
 
@@ -2126,6 +2134,12 @@ ServerAddress sets the address that will receive the profile logs. It enables th
 Environment = 'mainnet' # Default
 ```
 Environment sets the target environment tag in which profiles will be added to.
+
+### LinkTracesToProfiles
+```toml
+LinkTracesToProfiles = false # Default
+```
+LinkTracesToProfiles enables linking traces to profiles in Grafana when Pyroscope and Tracing are enabled.
 
 ## Sentry
 ```toml
@@ -2657,6 +2671,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 [CRE]
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
+DebugMode = false # Default
 ```
 
 
@@ -2671,6 +2686,12 @@ UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not runnin
 EnableDKGRecipient = false # Default
 ```
 EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+
+### DebugMode
+```toml
+DebugMode = false # Default
+```
+DebugMode enables additional tracing and logging for workflow engines.
 
 ## Sharding
 ```toml
@@ -17402,6 +17423,9 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+ReadRequestsToMultipleNodes = false # Example
+Bundles = false # Example
+FastlaneAuctionRequestTimeout = '5s' # Example
 ```
 
 
@@ -17428,6 +17452,24 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### ReadRequestsToMultipleNodes
+```toml
+ReadRequestsToMultipleNodes = false # Example
+```
+ReadRequestsToMultipleNodes controls whether txm chain client reads use multiplexed calls.
+
+### Bundles
+```toml
+Bundles = false # Example
+```
+Bundles enables Bundles functionality for SVR.
+
+### FastlaneAuctionRequestTimeout
+```toml
+FastlaneAuctionRequestTimeout = '5s' # Example
+```
+FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 
 ## EVM.BalanceMonitor
 ```toml
@@ -18487,6 +18529,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
+LogPollerSlotsBatchSize = 1000 # Default
 ```
 
 
@@ -18658,6 +18701,12 @@ LogPollerStartingLookback
 LogPollerCPIEventsEnabled = true # Default
 ```
 LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
+
+### LogPollerSlotsBatchSize
+```toml
+LogPollerSlotsBatchSize = 1000 # Default
+```
+LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
 
 ## Solana.Workflow
 ```toml

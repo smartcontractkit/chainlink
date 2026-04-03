@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -34,7 +35,7 @@ var (
 	defaultTickInterval          = 12 * time.Second
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
-	defaultMaxConcurrency        = 50
+	defaultMaxConcurrency        = 12
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -445,14 +446,14 @@ func (w *workflowRegistry) generateReconciliationEvents(
 ) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
-	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	// workflowMetadataIDs is a set of workflow IDs present in this tick's metadata
+	workflowMetadataIDs := make(map[string]struct{}, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
-		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+		workflowMetadataIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
 	}
 
-	// Keep track of which of the engines in the engineRegistry have been touched
-	workflowsSeen := map[string]bool{}
+	// Keep track of which of the engines in the engineRegistry have been touched.
+	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
 		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
@@ -596,7 +597,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	// the workflow no longer exists in this source's metadata
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
-			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+			if _, ok := workflowMetadataIDs[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
@@ -765,6 +766,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				var wg sync.WaitGroup
 				var mu sync.Mutex
 				sem := make(chan struct{}, w.maxConcurrency)
+				batchStart := time.Now()
+				var dispatched, backoffCount int
 				for _, event := range events {
 					select {
 					case <-ctx.Done():
@@ -780,6 +783,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					mu.Unlock()
 
 					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
+						backoffCount++
 						mu.Lock()
 						pendingEventsBySource[sourceIdentifier][event.id] = event
 						reconcileReport.Backoffs[event.id] = event.nextRetryAt
@@ -795,6 +799,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						return
 					}
 
+					dispatched++
 					wg.Add(1)
 					go func(evt *reconciliationEvent) {
 						defer func() {
@@ -813,6 +818,27 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					}(event)
 				}
 				wg.Wait()
+
+				// prompt the GC to reclaim transient allocations from event handling
+				// that would otherwise be delayed because the dominant CGo/wasmtime memory is invisible to the Go GC
+				if dispatched > 0 {
+					runtime.GC()
+				}
+
+				batchDuration := time.Since(batchStart)
+				w.metrics.recordReconcileBatch(ctx, sourceName, dispatched, batchDuration)
+				if backoffCount > 0 {
+					w.metrics.recordReconcileBackoff(ctx, sourceName, backoffCount)
+				}
+
+				w.lggr.Infow("reconciliation tick completed",
+					"source", sourceName,
+					"dispatched", dispatched,
+					"backoffs", backoffCount,
+					"failed", len(pendingEventsBySource[sourceIdentifier]),
+					"durationMs", batchDuration.Milliseconds(),
+					"eventsByType", reconcileReport.NumEventsByType,
+				)
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)

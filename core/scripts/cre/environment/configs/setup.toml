@@ -52,11 +52,6 @@ local_image = "billing-platform-service:local-cre"
 local_image = "billing-platform-service:local-cre"
 ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
 
-[capabilities]
-target_path = "./binaries"
-# add "install-plugins-public" to also locally compile and copy public plugins (be aware chainlink-cosmos might fail due to issues with cross-compile)
-make_commands = ["install-plugins-private", "install-plugins-local"]
-
 [observability]
 repository = "https://github.com/smartcontractkit/chainlink-observability"
 branch = "main"

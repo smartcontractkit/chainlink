@@ -70,11 +70,6 @@ var (
 	provisioningStartTime time.Time
 )
 
-const (
-	WorkflowTriggerWebTrigger = "web-trigger"
-	WorkflowTriggerCron       = "cron"
-)
-
 var EnvironmentCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Environment commands",
@@ -216,7 +211,6 @@ func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
-		exampleWorkflowTrigger   string
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
 		withContractsVersion     string
@@ -255,6 +249,13 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to set default CTF configs")
 			}
 
+			if withPluginsDockerImage != "" {
+				envConfig := os.Getenv("CTF_CONFIGS")
+				split := strings.Split(envConfig, ",")
+				effectiveConfig := split[len(split)-1]
+				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
+			}
+
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
 			if cleanUpErr != nil {
 				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
@@ -284,7 +285,7 @@ func startCmd() *cobra.Command {
 				}
 
 				// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
-				if err := ensureDockerImagesExist(cmdContext, framework.L, in, withPluginsDockerImage); err != nil {
+				if err := ensureDockerImagesExist(cmdContext, framework.L, in); err != nil {
 					return err
 				}
 			} else {
@@ -321,10 +322,6 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to validate test configuration")
 			}
 
-			if err := validateWorkflowTriggerAndCapabilities(in, withExampleFlag, exampleWorkflowTrigger, withPluginsDockerImage); err != nil {
-				return errors.Wrap(err, "either cron binary path must be set in TOML config (%s) or you must use Docker image with all capabilities included and passed via withPluginsDockerImageFlag")
-			}
-
 			topologySummary, _, topErr := generateTopologyArtifactsForLoadedConfig(in)
 			if topErr != nil {
 				framework.L.Warn().Err(topErr).Msg("failed to generate topology visualization artifacts")
@@ -333,16 +330,24 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
+			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
+			if in.Fake != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
+			}
+			if in.FakeHTTP != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
+			}
+
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
+				ExtraAllowedPorts:   extraAllowedPorts,
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
-			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, withPluginsDockerImage, nil, features, nil, envDependencies, gatewayWhitelistConfig)
+			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
 				fmt.Fprintf(os.Stderr, "Stack trace: %s\n", string(debug.Stack()))
 
-				dxErr := trackStartup(false, hasBuiltDockerImage(in, withPluginsDockerImage), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
+				dxErr := trackStartup(false, hasBuiltDockerImage(in), in.Infra.Type, ptr.Ptr(strings.SplitN(startErr.Error(), "\n", 1)[0]), ptr.Ptr(false))
 				if dxErr != nil {
 					fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 				}
@@ -370,7 +375,7 @@ func startCmd() *cobra.Command {
 				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
 			}
 
-			dxErr := trackStartup(true, hasBuiltDockerImage(in, withPluginsDockerImage), output.CreEnvironment.Provider.Type, nil, nil)
+			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to track startup: %s\n", dxErr)
 			}
@@ -457,9 +462,6 @@ func startCmd() *cobra.Command {
 					return errors.New("no gateway connector configurations found")
 				}
 
-				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
-
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
@@ -475,11 +477,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				workflowDON, wErr := output.Dons.OneDonWithFlag(cre.WorkflowDON)
-				if wErr != nil {
-					return errors.Wrap(wErr, "failed to get workflow DON")
-				}
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -510,8 +508,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().IntSliceVarP(&extraAllowedGatewayPorts, "extra-allowed-gateway-ports", "e", []int{}, "Extra allowed ports for outgoing connections from the Gateway Connector (e.g. 8080,8081)")
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
-	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "Docker image to use (must have all capabilities included)")
-	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
+	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
@@ -678,7 +675,6 @@ func StartCLIEnvironment(
 	cmdContext context.Context,
 	relativePathToRepoRoot string,
 	in *envconfig.Config,
-	withPluginsDockerImageFlag string,
 	capabilities []cre.InstallableCapability, // Deprecated: use Features instead
 	features cre.Features,
 	extraJobSpecFunctions []cre.JobSpecFn,
@@ -686,17 +682,6 @@ func StartCLIEnvironment(
 	gatewayWhitelistConfig gateway.WhitelistConfig,
 ) (*creenv.SetupOutput, error) {
 	testLogger := framework.L
-
-	// unset DockerFilePath and DockerContext as we cannot use them with existing images
-	if withPluginsDockerImageFlag != "" {
-		for setIdx := range in.NodeSets {
-			for nodeIdx := range in.NodeSets[setIdx].NodeSpecs {
-				in.NodeSets[setIdx].NodeSpecs[nodeIdx].Node.Image = withPluginsDockerImageFlag
-				in.NodeSets[setIdx].NodeSpecs[nodeIdx].Node.DockerContext = ""
-				in.NodeSets[setIdx].NodeSpecs[nodeIdx].Node.DockerFilePath = ""
-			}
-		}
-	}
 
 	if in.JD.CSAEncryptionKey == "" {
 		// generate a new key
@@ -719,7 +704,6 @@ func StartCLIEnvironment(
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,
 		CapabilityConfigs:       in.CapabilityConfigs,
-		CopyCapabilityBinaries:  withPluginsDockerImageFlag == "", // do not copy any binaries to the containers, if we are using plugins image (they already have them)
 		Capabilities:            capabilities,
 		JobSpecFactoryFunctions: extraJobSpecFunctions,
 		StageGen:                initLocalCREStageGen(in),
@@ -791,23 +775,16 @@ func setDefaultCtfConfigs() error {
 	return nil
 }
 
-func hasBuiltDockerImage(in *envconfig.Config, withPluginsDockerImageFlag string) bool {
-	if withPluginsDockerImageFlag != "" {
-		return false
-	}
-
-	hasBuilt := false
-
+func hasBuiltDockerImage(in *envconfig.Config) bool {
 	for _, nodeset := range in.NodeSets {
 		for _, nodeSpec := range nodeset.NodeSpecs {
 			if nodeSpec.Node != nil && nodeSpec.Node.DockerFilePath != "" {
-				hasBuilt = true
-				break
+				return true
 			}
 		}
 	}
 
-	return hasBuilt
+	return false
 }
 
 func oneLineErrorMessage(errOrPanic any) string {
@@ -831,33 +808,6 @@ func initDxTracker() {
 	}
 }
 
-func validateWorkflowTriggerAndCapabilities(in *envconfig.Config, withExampleFlag bool, workflowTrigger, withPluginsDockerImageFlag string) error {
-	if withExampleFlag && workflowTrigger == WorkflowTriggerCron {
-		// assume it has cron binary if we are using plugins image
-		if withPluginsDockerImageFlag != "" {
-			return nil
-		}
-
-		// otherwise, make sure we have cron binary path set in TOML config
-		if in.CapabilityConfigs == nil {
-			return errors.New("capability configs is not set in TOML config")
-		}
-
-		cronCapConfig, ok := in.CapabilityConfigs[cre.CronCapability]
-		if !ok {
-			return errors.New("cron capability config is not set in TOML config")
-		}
-
-		if cronCapConfig.BinaryPath == "" {
-			return errors.New("cron binary path must be set in TOML config")
-		}
-
-		return nil
-	}
-
-	return nil
-}
-
 func ensureDockerIsRunning(ctx context.Context) error {
 	dockerClient, dockerClientErr := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if dockerClientErr != nil {
@@ -871,7 +821,7 @@ func ensureDockerIsRunning(ctx context.Context) error {
 	return nil
 }
 
-func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config, withPluginsDockerImageFlag string) error {
+func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *envconfig.Config) error {
 	// Skip checks in CI environment
 	if os.Getenv("CI") == "true" {
 		return nil
@@ -881,12 +831,6 @@ func ensureDockerImagesExist(ctx context.Context, logger zerolog.Logger, in *env
 	if in.Infra != nil && in.Infra.IsKubernetes() {
 		logger.Info().Msg("Skipping Docker image checks for Kubernetes provider")
 		return nil
-	}
-
-	if withPluginsDockerImageFlag != "" {
-		if err := ensureDockerImageExists(ctx, logger, withPluginsDockerImageFlag); err != nil {
-			return errors.Wrapf(err, "Plugins image '%s' not found. Make sure it exists locally", withPluginsDockerImageFlag)
-		}
 	}
 
 	if in.JD != nil {

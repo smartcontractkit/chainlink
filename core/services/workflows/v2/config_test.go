@@ -74,6 +74,8 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	require.NoError(t, err)
 	limiters, err := v2.NewLimiters(lf, cfgFn)
 	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(lf, cfgFn)
+	require.NoError(t, err)
 	subscriberMock := capmocks.NewDonSubscriber(t)
 	subscriberMock.EXPECT().Subscribe(matches.AnyContext).Return(make(<-chan commoncaps.DON), func() {}, nil).Maybe()
 	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
@@ -93,6 +95,7 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 		WorkflowEncryptionKey:             workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
+		FeatureFlags:                      featureFlags,
 		GlobalExecutionConcurrencyLimiter: sLimiter,
 		BeholderEmitter:                   &noopBeholderEmitter{},
 		BillingClient:                     metmocks.NewBillingClient(t),

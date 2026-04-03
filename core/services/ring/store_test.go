@@ -377,6 +377,44 @@ func TestStore_GetWorkflowMappingsBatch(t *testing.T) {
 	require.Equal(t, uint64(2), version)
 }
 
+func TestStore_SyncRoutes_PrunesStaleEntries(t *testing.T) {
+	store := NewStore()
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 3},
+	})
+
+	store.SetShardForWorkflow("wf-1", 0)
+	store.SetShardForWorkflow("wf-2", 1)
+	store.SetShardForWorkflow("wf-3", 2)
+	require.Len(t, store.GetAllRoutingState(), 3)
+
+	store.SyncRoutes(map[string]uint32{"wf-1": 0, "wf-3": 1})
+
+	routes := store.GetAllRoutingState()
+	require.Len(t, routes, 2)
+	require.Equal(t, uint32(0), routes["wf-1"])
+	require.Equal(t, uint32(1), routes["wf-3"])
+	require.NotContains(t, routes, "wf-2")
+
+	meta, _ := store.GetWorkflowMappingsBatch([]string{"wf-2"})
+	require.Empty(t, meta)
+}
+
+func TestStore_SyncRoutes_EmptyPrunesAll(t *testing.T) {
+	store := NewStore()
+	store.SetRoutingState(&ringpb.RoutingState{
+		State: &ringpb.RoutingState_RoutableShards{RoutableShards: 2},
+	})
+
+	store.SetShardForWorkflow("wf-1", 0)
+	store.SetShardForWorkflow("wf-2", 1)
+	require.Len(t, store.GetAllRoutingState(), 2)
+
+	store.SyncRoutes(map[string]uint32{})
+
+	require.Empty(t, store.GetAllRoutingState())
+}
+
 func TestStore_SubmitWorkflowsForAllocation(t *testing.T) {
 	store := NewStore()
 

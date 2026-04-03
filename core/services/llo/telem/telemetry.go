@@ -15,11 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	legacytelem "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -325,7 +325,27 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 		if t.sampler.Sample(typ, msg) {
 			t.monitoringEndpoint.SendTypedLog(typ, bytes)
 		}
-	default: // synchronization.LLOOutcome, synchronization.LLOReport
+	case synchronization.LLOOutcome:
+		// Outcome telemetry: overwrite rather than append. Outcome() can be
+		// called multiple times for the same seqNr across epoch transitions
+		// (when the first epoch fails prepare-quorum). The buffer is only
+		// flushed on Transmit(), which happens after commit-quorum, so the
+		// last Outcome() call is always from the committed epoch.
+		t.telemetryBufferMu.Lock()
+		defer t.telemetryBufferMu.Unlock()
+
+		if _, ok := t.telemetryBuffer[digest]; !ok {
+			t.telemetryBuffer[digest] = make(map[uint64][]telemetryEntry)
+		}
+		if t.sampler.Sample(typ, msg) {
+			t.telemetryBuffer[digest][seqNr] = []telemetryEntry{{
+				telemType: typ,
+				msg:       msg,
+			}}
+		}
+	default: // synchronization.LLOReport and other buffered types
+		// Report telemetry: append, since multiple reports per seqNr is
+		// expected (one per reportable channel).
 		t.telemetryBufferMu.Lock()
 		defer t.telemetryBufferMu.Unlock()
 

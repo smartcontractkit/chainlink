@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
@@ -47,7 +47,7 @@ func TestLBTCReader_callAttestationApi(t *testing.T) {
 	t.Skipf("Skipping test because it uses the real LBTC attestation API")
 	attestationURI, err := url.ParseRequestURI("https://bridge-manager.staging.lombard.finance")
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 
 	attestation, err := lbtcService.callAttestationAPI(t.Context(), [32]byte(common.FromHex(lbtcMessageHash)))
@@ -74,7 +74,7 @@ func TestLBTCReader_callAttestationApiMock(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, common.Address{}, APIIntervalRateLimitDisabled)
 	attestation, err := lbtcService.callAttestationAPI(t.Context(), [32]byte(common.FromHex(lbtcMessageHash)))
 	require.NoError(t, err)
@@ -174,7 +174,7 @@ func TestLBTCReader_callAttestationApiMockError(t *testing.T) {
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, test.customTimeoutSeconds, common.Address{}, APIIntervalRateLimitDisabled)
 
 			parentCtx, cancel := context.WithTimeout(t.Context(), time.Duration(test.parentTimeoutSeconds)*time.Second)
@@ -258,7 +258,7 @@ func TestLBTCReader_rateLimiting(t *testing.T) {
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), tc.rateConfig)
 
 			ctx := t.Context()
@@ -343,7 +343,7 @@ func TestLBTCReader_skipApiOnFullPayload(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
-	lggr, logs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	lggr, logs := logger.TestObserved(t, zapcore.InfoLevel)
 	lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), APIIntervalRateLimitDefault)
 
 	ctx := t.Context()
@@ -459,7 +459,7 @@ func TestLBTCReader_expectedOutput(t *testing.T) {
 			attestationURI, err := url.ParseRequestURI(ts.URL)
 			require.NoError(t, err)
 
-			lggr := logger.TestLogger(t)
+			lggr := logger.Test(t)
 			lbtcService := NewLBTCTokenDataReader(lggr, attestationURI, 0, utils.RandomAddress(), APIIntervalRateLimitDefault)
 
 			ctx := t.Context()

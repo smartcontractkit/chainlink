@@ -1,4 +1,4 @@
-package types
+package types //nolint:revive // meaningless name already referenced
 
 import (
 	"github.com/ethereum/go-ethereum/common"
@@ -10,6 +10,9 @@ type WorkflowConfig struct {
 	// name of the secret that stores authentication key
 	AuthKeySecretName string `yaml:"auth_key_secret_name"`
 	ChainSelector     uint64 `yaml:"chain_selector,omitempty"`
+	// CronSchedule overrides the default cron trigger schedule (*/30 * * * * *).
+	// Leave empty to use the default. Example: "15/30 * * * * *"
+	CronSchedule string `yaml:"cron_schedule,omitempty"`
 	BalanceReaderConfig
 	ComputeConfig
 }

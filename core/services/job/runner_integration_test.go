@@ -76,9 +76,11 @@ func TestRunner(t *testing.T) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
 
-	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil).Maybe()
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
 	require.NoError(t, pipelineORM.Start(ctx))

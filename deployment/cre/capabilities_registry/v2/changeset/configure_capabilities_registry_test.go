@@ -444,6 +444,105 @@ dons:
 	assert.Equal(t, 40*time.Second, oc.ConsensusCapOffchainConfig.RequestTimeout)
 }
 
+func TestConfigureCapabilitiesRegistryInput_YAMLFromFile_DontimeConfig(t *testing.T) {
+	yamlConfig := `
+chainSelector: 421614
+capabilitiesRegistryAddress: "0x1234567890123456789012345678901234567890"
+nops:
+  - admin: "0x1111111111111111111111111111111111111111"
+    name: "Node Operator Alpha"
+capabilities:
+  - capabilityID: "dontime@1.0.0"
+    configurationContract: "0x0000000000000000000000000000000000000000"
+    metadata:
+      capabilityType: 2
+      responseType: 0
+nodes:
+  - nop: "test-nop"
+    signer: ` + signer1 + `
+    p2pID: ` + p2pID1 + `
+    encryptionPublicKey: ` + encryptionPublicKey + `
+    csaKey: ` + csaKey + `
+    capabilityIDs: ["dontime@1.0.0"]
+dons:
+  - name: "dontime-don"
+    donFamilies: ["dontime"]
+    config:
+      defaultConfig: {}
+    capabilityConfigurations:
+      - capabilityID: "dontime@1.0.0"
+        config:
+          ocr3Configs:
+            __default__:
+              deltaProgressMillis: 3000
+              deltaResendMillis: 5000
+              deltaInitialMillis: 500
+              deltaRoundMillis: 500
+              deltaGraceMillis: 200
+              deltaCertifiedCommitRequestMillis: 1000
+              deltaStageMillis: 30000
+              maxRoundsPerEpoch: 10
+              transmissionSchedule: [7]
+              maxFaultyOracles: 2
+              uniqueReports: true
+              maxDurationQueryMillis: 500
+              maxDurationObservationMillis: 500
+              maxDurationShouldAcceptMillis: 500
+              maxDurationShouldTransmitMillis: 500
+              dontimeOffchainConfig:
+                maxQueryLengthBytes: 500000
+                maxObservationLengthBytes: 500000
+                maxOutcomeLengthBytes: 500000
+                maxReportLengthBytes: 500000
+                maxReportCount: 10
+                maxBatchSize: 50
+                minTimeIncrease: 100
+                executionRemovalTime: "10m"
+    nodes: [` + nodeID1 + `]
+    f: 1
+    isPublic: true
+    acceptsWorkflows: false
+`
+
+	var input changeset.ConfigureCapabilitiesRegistryInput
+	err := yaml.Unmarshal([]byte(yamlConfig), &input)
+	require.NoError(t, err, "should be able to parse YAML config with dontime offchain config")
+
+	assert.Equal(t, uint64(421614), input.ChainSelector)
+	require.Len(t, input.DONs, 1)
+	assert.Equal(t, "dontime-don", input.DONs[0].Name)
+
+	require.Len(t, input.DONs[0].CapabilityConfigurations, 1)
+	assert.Equal(t, "dontime@1.0.0", input.DONs[0].CapabilityConfigurations[0].CapabilityID)
+
+	ocr3Configs, ok := input.DONs[0].CapabilityConfigurations[0].Config["ocr3Configs"].(map[string]any)
+	require.True(t, ok, "ocr3Configs should be a map")
+	defaultEntry, ok := ocr3Configs["__default__"]
+	require.True(t, ok, "__default__ key should exist in ocr3Configs")
+
+	ocrJSON, err := json.Marshal(defaultEntry)
+	require.NoError(t, err)
+	var oc ocr3.OracleConfig
+	require.NoError(t, json.Unmarshal(ocrJSON, &oc))
+
+	assert.Equal(t, uint32(3000), oc.DeltaProgressMillis)
+	assert.Equal(t, 2, oc.MaxFaultyOracles)
+	assert.True(t, oc.UniqueReports)
+	assert.Nil(t, oc.ConsensusCapOffchainConfig, "consensusCapOffchainConfig should be nil")
+	assert.Nil(t, oc.ChainCapOffchainConfig, "chainCapOffchainConfig should be nil")
+
+	require.NotNil(t, oc.DontimeOffchainConfig, "dontimeOffchainConfig should be parsed")
+	dt := oc.DontimeOffchainConfig
+	assert.Equal(t, uint32(500000), dt.MaxQueryLengthBytes)
+	assert.Equal(t, uint32(500000), dt.MaxObservationLengthBytes)
+	assert.Equal(t, uint32(500000), dt.MaxOutcomeLengthBytes)
+	assert.Equal(t, uint32(500000), dt.MaxReportLengthBytes)
+	assert.Equal(t, uint32(10), dt.MaxReportCount)
+	assert.Equal(t, uint32(50), dt.MaxBatchSize)
+	assert.Equal(t, int64(100), dt.MinTimeIncrease)
+	assert.Equal(t, 10*time.Minute, dt.ExecutionRemovalTime)
+}
+
 // setupCapabilitiesRegistryWithMCMS sets up a test environment with MCMS infrastructure
 func setupCapabilitiesRegistryWithMCMS(t *testing.T) *testFixture {
 	selector := chainselectors.TEST_90000001.Selector

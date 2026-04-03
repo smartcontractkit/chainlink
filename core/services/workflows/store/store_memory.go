@@ -167,11 +167,16 @@ func (s *InMemoryStore) Name() string {
 func (s *InMemoryStore) DeleteByWorkflowID(_ context.Context, workflowID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// Build a new map instead of deleting in-place so the old backing array
+	// becomes eligible for GC.  Go maps never shrink their bucket storage
+	// after delete, which can retain significant memory after bulk removals.
+	newMap := make(map[string]*WorkflowExecution, len(s.idToExecution))
 	for id, state := range s.idToExecution {
-		if state.WorkflowID == workflowID {
-			delete(s.idToExecution, id)
+		if state.WorkflowID != workflowID {
+			newMap[id] = state
 		}
 	}
+	s.idToExecution = newMap
 	return nil
 }
 

@@ -36,6 +36,9 @@ type OverrideDefaultCfg struct {
 	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100).
 	ForwarderLookbackBlocks int64  `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
 	CREForwarderAddress     string `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	// DeltaStage is the time delay between sequential transmissions in staggered transmission scheduling.
+	// If set to 0 or omitted, transmission scheduling is treated as disabled and the capability will expect the transmission to be controlled in the wf engine.
+	DeltaStage time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.
 	ReceiverGasMinimum            uint64        `json:"receiverGasMinimum,omitempty" yaml:"receiverGasMinimum,omitempty"`
@@ -44,7 +47,6 @@ type OverrideDefaultCfg struct {
 	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
 	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
 	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
-	DeltaStage                    time.Duration `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
 }
 
 type EVMCapabilityInput struct {
@@ -64,8 +66,11 @@ type ProposeEVMCapJobSpecInput struct {
 	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
 	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 	// ForwarderLookbackBlocks defines how many blocks back to search for the ReportProcessed event (default 100)
-	ForwarderLookbackBlocks int64                `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
-	EVMCapabilityInputs     []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
+	ForwarderLookbackBlocks int64 `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
+	// DeltaStage is the time delay between sequential transmissions in staggered transmission scheduling.
+	// If set to 0 or omitted, transmission scheduling is treated as disabled and the capability will expect the transmission to be controlled in the wf engine.
+	DeltaStage          time.Duration        `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	EVMCapabilityInputs []EVMCapabilityInput `json:"evmCapabilityInputs" yaml:"evmCapabilityInputs"`
 }
 
 type ProposeEVMCapJobSpec struct{}
@@ -111,6 +116,9 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 	}
 	if input.ForwardersQualifier == "" {
 		return errors.New("cre forwarder qualifier is required")
+	}
+	if input.DeltaStage <= 0 {
+		return fmt.Errorf("deltaStage (%s) must be greater than 0", input.DeltaStage)
 	}
 
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
@@ -231,6 +239,7 @@ func (u ProposeEVMCapJobSpec) Apply(e cldf.Environment, input ProposeEVMCapJobSp
 		cfg.Network = network
 		cfg.NodeAddress = string(evmOCRConfig.TransmitAccount)
 		cfg.CREForwarderAddress = fwdAddress.Address
+		cfg.DeltaStage = input.DeltaStage
 		if cfg.ForwarderLookbackBlocks == 0 {
 			cfg.ForwarderLookbackBlocks = input.ForwarderLookbackBlocks
 		}

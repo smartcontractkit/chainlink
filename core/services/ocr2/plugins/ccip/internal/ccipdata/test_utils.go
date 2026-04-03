@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 // NewSimulation returns a client and a simulated backend.
@@ -22,7 +21,7 @@ func NewSimulation(t testing.TB) (*bind.TransactOpts, *client.SimulatedBackendCl
 			Balance: big.NewInt(0).Mul(big.NewInt(3), big.NewInt(1e18)),
 		},
 	}, simulated.WithBlockGasLimit(10e6))
-	simulatedBackendClient := client.NewSimulatedBackendClient(t, simulatedBackend, testutils.SimulatedChainID)
+	simulatedBackendClient := client.NewSimulatedBackendClient(t, simulatedBackend, evmtestutils.SimulatedChainID)
 	return user, simulatedBackendClient
 }
 

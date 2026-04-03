@@ -248,7 +248,8 @@ func TransferToDeployer(e cldf.Environment, cfg TransferToDeployerConfig) (cldf.
 var _ cldf.ChangeSet[RenounceTimelockDeployerConfig] = RenounceTimelockDeployer
 
 type RenounceTimelockDeployerConfig struct {
-	ChainSel uint64
+	ChainSel  uint64
+	Qualifier string
 }
 
 func (cfg RenounceTimelockDeployerConfig) Validate(e cldf.Environment) error {
@@ -262,7 +263,7 @@ func (cfg RenounceTimelockDeployerConfig) Validate(e cldf.Environment) error {
 	}
 
 	// MCMS should already exists
-	contracts, err := state.MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	contracts, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
 	if err != nil {
 		return err
 	}
@@ -284,7 +285,7 @@ func RenounceTimelockDeployer(e cldf.Environment, cfg RenounceTimelockDeployerCo
 		return cldf.ChangesetOutput{}, err
 	}
 
-	contracts, err := state.MaybeLoadMCMSWithTimelockState(e, []uint64{cfg.ChainSel})
+	contracts, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

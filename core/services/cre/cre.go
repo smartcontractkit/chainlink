@@ -115,7 +115,7 @@ type Services struct {
 	OCRConfigService capregconfig.OCRConfigService
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
-	SetDelegatesDeps func(*standardcapabilities.Delegate) error
+	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -409,19 +409,16 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
-		// will be called when the Delegate is ready
-		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) error {
-			// abstraction for the Delegate
+		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
 			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
-				return fmt.Errorf("could not create local capability manager: %w", lcmErr)
+				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
-			srvcs = append(srvcs, localCapMgr) // srvcs is still valid when the callback is called
-			return nil
+			return localCapMgr, nil
 		}
 	}
 
@@ -731,6 +728,11 @@ func newWorkflowRegistrySyncerV1(
 		return nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+	}
+
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
@@ -745,6 +747,7 @@ func newWorkflowRegistrySyncerV1(
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,
+		featureFlags,
 		workflowRateLimiter,
 		workflowLimits,
 		artifactsStore,
@@ -876,6 +879,11 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine limiters: %w", err)
 	}
 
+	featureFlags, err := v2.NewFeatureFlags(lf, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
+	}
+
 	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
@@ -890,6 +898,7 @@ func newWorkflowRegistrySyncerV2(
 		engineRegistry,
 		custmsg.NewLabeler(),
 		engineLimiters,
+		featureFlags,
 		workflowRateLimiter,
 		workflowLimits,
 		artifactsStore,
@@ -898,6 +907,8 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -936,6 +947,7 @@ func newWorkflowRegistrySyncerV2(
 	registryOpts := []syncerV2.Option{
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+		syncerV2.WithMaxConcurrency(capCfg.WorkflowRegistry().MaxConcurrency()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,

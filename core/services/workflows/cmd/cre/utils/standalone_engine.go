@@ -92,6 +92,10 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
+	featureFlags, err := v2.NewFeatureFlags(lf, workflowSettingsCfgFn)
+	if err != nil {
+		return nil, nil, err
+	}
 	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      defaultRPS,
 		GlobalBurst:    defaultBurst,
@@ -172,6 +176,7 @@ func NewStandaloneEngine(
 
 		LocalLimits:                       v2.EngineLimits{},
 		LocalLimiters:                     limiters,
+		FeatureFlags:                      featureFlags,
 		GlobalExecutionConcurrencyLimiter: workflowLimits,
 
 		BeholderEmitter: custmsg.NewLabeler(),

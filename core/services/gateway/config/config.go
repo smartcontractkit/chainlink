@@ -63,6 +63,16 @@ type ShardedDONConfig struct {
 	F       int
 	Shards  []Shard
 }
+
+// ShardDONID returns the donID for a given shard
+func ShardDONID(donName string, shardIdx int) string {
+	if shardIdx == 0 {
+		// NOTE: special case for backward compatibility - shard 0 doesn't have an index suffix
+		return donName
+	}
+	return fmt.Sprintf("%s_%d", donName, shardIdx)
+}
+
 type Shard struct {
 	Nodes []NodeConfig
 }

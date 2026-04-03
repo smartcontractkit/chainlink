@@ -74,32 +74,57 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 	chainSelector := env.RegistrySelector
 
-	// Missing DON name
+	capCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
+
+	// Empty map
 	err := cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
-		RegistryChainSel:  chainSelector,
-		RegistryQualifier: "qual",
-		DonName:           "", // invalid
-		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
+		RegistryChainSel:     chainSelector,
+		RegistryQualifier:    "qual",
+		DonCapabilityConfigs: nil,
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "DONName")
+	assert.Contains(t, err.Error(), "donCapabilityConfigs must contain at least one DON entry")
 
-	// Missing capability configs
+	// Empty DON name key
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonName:           "don-1",
-		CapabilityConfigs: nil,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"": capCfg,
+		},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "capabilityConfigs")
+	assert.Contains(t, err.Error(), "cannot be empty strings")
 
-	// Valid
+	// Empty config list for a DON
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonName:           "don-1",
-		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"don-1": {},
+		},
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at least one capability config")
+
+	// Valid (single DON)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"don-1": capCfg,
+		},
+	})
+	require.NoError(t, err)
+
+	// Valid (multiple DONs)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			"don-1": capCfg,
+			"don-2": capCfg,
+		},
 	})
 	require.NoError(t, err)
 }
@@ -108,15 +133,16 @@ func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonName:           test.DONName,
-		CapabilityConfigs: []contracts.CapabilityConfig{{
-			Capability: contracts.Capability{
-				CapabilityID:          capID,
-				ConfigurationContract: common.Address{},
-				Metadata:              newCapMetadata,
-			},
-			Config: newCapConfig,
-		}},
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: {{
+				Capability: contracts.Capability{
+					CapabilityID:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              newCapMetadata,
+				},
+				Config: newCapConfig,
+			}},
+		},
 		Force: true,
 	}
 
@@ -207,15 +233,16 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonName:           test.DONName,
-		CapabilityConfigs: []contracts.CapabilityConfig{{
-			Capability: contracts.Capability{
-				CapabilityID:          newCapID,
-				ConfigurationContract: common.Address{},
-				Metadata:              newCapMetadata,
-			},
-			Config: newCapConfig,
-		}},
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: {{
+				Capability: contracts.Capability{
+					CapabilityID:          newCapID,
+					ConfigurationContract: common.Address{},
+					Metadata:              newCapMetadata,
+				},
+				Config: newCapConfig,
+			}},
+		},
 		Force: true,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,

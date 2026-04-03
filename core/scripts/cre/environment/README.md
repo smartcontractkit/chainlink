@@ -13,8 +13,9 @@ Slack: #topic-local-dev-environments
    - [Prerequisites (for Docker)](#prerequisites-for-docker)
    - [Setup](#setup)
    - [Start Environment](#start-environment)
-      - [Using Existing Docker plugins image](#using-existing-docker-plugins-image)
+      - [Using a pre-built Chainlink image](#using-a-pre-built-chainlink-image)
       - [Beholder](#beholder)
+      - [Beholder vs. ChIP Test Sink](#beholder-vs-chip-test-sink-port-conflict-and-using-both-together)
       - [Storage](#storage)
    - [Purging environment state](#purging-environment-state)
    - [Stop Environment](#stop-environment)
@@ -63,33 +64,32 @@ Slack: #topic-local-dev-environments
 6. [Enabling Already Implemented Capabilities](#enabling-already-implemented-capabilities)
    - [Available Configuration Files](#available-configuration-files)
    - [Capability Types and Configuration](#capability-types-and-configuration)
-   - [Binary Requirements](#binary-requirements)
+   - [Capability availability](#capability-availability)
    - [Enabling Capabilities in Your Topology](#enabling-capabilities-in-your-topology)
    - [Configuration Examples](#configuration-examples)
    - [Custom Capability Configuration](#custom-capability-configuration)
    - [Important Notes](#important-notes-2)
    - [Troubleshooting Capability Issues](#troubleshooting-capability-issues)
-7. [Binary Location and Naming](#binary-location-and-naming)
-8. [Hot swapping](#hot-swapping)
+7. [Hot swapping](#hot-swapping)
    - [Chainlink nodes' Docker image](#chainlink-nodes-docker-image)
    - [Capability binary](#capability-binary)
    - [Automated Hot Swapping with fswatch](#automated-hot-swapping-with-fswatch)
-9. [Telemetry Configuration](#telemetry-configuration)
+8. [Telemetry Configuration](#telemetry-configuration)
    - [OTEL Stack (OpenTelemetry)](#otel-stack-opentelemetry)
    - [Chip Ingress (Beholder)](#chip-ingress-beholder)
    - [Expected Error Messages](#expected-error-messages)
-10. [Using a Specific Docker Image for Chainlink Node](#using-a-specific-docker-image-for-chainlink-node)
-11. [Using Existing EVM & P2P Keys](#using-existing-evm--p2p-keys)
-12. [TRON Integration](#tron-integration)
+9. [Using a Specific Docker Image for Chainlink Node](#using-a-specific-docker-image-for-chainlink-node)
+10. [Using Existing EVM & P2P Keys](#using-existing-evm--p2p-keys)
+11. [TRON Integration](#tron-integration)
     - [How It Works](#how-it-works)
     - [Example Configuration](#example-configuration)
-13. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
-14. [Kubernetes Deployment](#kubernetes-deployment)
+12. [Connecting to external/public blockchains](#connecting-to-externalpublic-blockchains)
+13. [Kubernetes Deployment](#kubernetes-deployment)
     - [Prerequisites](#prerequisites-for-kubernetes)
     - [Configuration](#kubernetes-configuration)
     - [Config and Secrets Overrides](#config-and-secrets-overrides)
     - [Example Configuration](#kubernetes-example-configuration)
-15. [Troubleshooting](#troubleshooting)
+14. [Troubleshooting](#troubleshooting)
     - [Chainlink Node Migrations Fail](#chainlink-node-migrations-fail)
     - [Docker Image Not Found](#docker-image-not-found)
     - [Docker fails to download public images](#docker-fails-to-download-public-images)
@@ -143,7 +143,7 @@ It will compile local CRE as `local_cre`. With it installed you will be able to 
   - Chip Config (Beholder stack)
   - Job Distributor
 
-  Git access to `Capabilities` repository is required in order to build capability binaries. Unless you plan on only using Docker images with all capabilities baked in.
+  Git access to plugin repositories (e.g. `capabilities`, `confidential-compute`) is required when building the Chainlink image from source, so plugins can be pulled during the Docker build. If you use a pre-built image with plugins already baked in, Git access is not required.
 
 # QUICKSTART
 ```
@@ -162,41 +162,32 @@ Environment can be setup by running `go run . env setup` inside `core/scripts/cr
 - you have AWS CLI installed and configured
 - you have GH CLI installed and authenticated
 - you have required Job Distributor, Chip Ingress, and Chip Config images
-- install and copy all capability binaries to expected location
 
 **Image Versioning:**
 
 Docker images for Beholder services (chip-ingress, chip-config) use commit-based tags instead of mutable tags like `local-cre`. This ensures you always know which version is running and prevents hard-to-debug issues from version mismatches. The exact versions are defined in [configs/setup.toml](configs/setup.toml).
 
-Capability installation is two fold. Private and local plugins are compiled locally and then copied to the running Docker container. Public plugins are installed, when the Docker image is built. The reason is that capability developers need a way to quickly test capabilities they are working on, without having to push the code to remote repository, so that it could be installed in the Docker image (and that's because local capability code is usually located outside Docker build context and thus unavailable).
+**Plugin installation during image build:**
 
-Private capabilities are defined in [plugins.private.yaml](../../../../plugins/plugins.private.yaml) file, public in [plugins.public.yaml](../../../../plugins/plugins.public.yaml). Local ones include:
-- `chainlink-evm`
-- `chainlink-medianpoc`
-- `chainlink-ocr3-capability`
-- `log-event-trigger`
+All plugins (private, public, local) are installed when the Chainlink Docker image is built. Plugin sources are defined in:
+- [plugins/plugins.private.yaml](../../../../plugins/plugins.private.yaml) for private plugins
+- [plugins/plugins.public.yaml](../../../../plugins/plugins.public.yaml) for public plugins
 
-If you need to modify make commands that are used navigate to [configs/setup.toml](configs/setup.toml) file and adjust following lines:
-```toml
-[capabilities]
-target_path = "./binaries"
-# add "install-plugins-public" to also locally compile and copy public plugins (be aware chainlink-cosmos might fail due to issues with cross-compile)
-make_commands = ["install-plugins-private", "install-plugins-local"]
-```
+Each plugin entry specifies a `moduleURI` and `gitRef` (commit, branch, or tag). To use a new version of a plugin:
+
+1. Push your changes to the remote Git repository
+2. Update the `gitRef` in the YAML file to point to your new commit/branch/tag
+3. Start the environment (or rebuild the image); plugins will be pulled and compiled during the Docker build
+
+Builds that access private repositories require `GITHUB_TOKEN` to be set (e.g. `export GITHUB_TOKEN=$(gh auth token)`).
 
 ## Start Environment
 ```bash
 # while in core/scripts/cre/environment
 go run . env start [--auto-setup]
 
-# to start environment with an example workflow web API-based workflow
+# to start environment with the PoR v2 cron example workflow
 go run . env start --with-example
-
- # to start environment with an example workflow cron-based workflow (this requires the `cron` capability binary present in `/binaries` folder)
-go run . env start --with-example --example-workflow-trigger cron
-
-# to start environment using image with all supported capabilities
-go run . env start --with-plugins-docker-image <SDLC_ACCOUNT_ID>dkr.ecr.<SDLC_ACCOUNT_REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins
 
 # to start environment with local Beholder
 go run . env start --with-beholder
@@ -214,8 +205,7 @@ Optional parameters:
 - `-e`: Extra ports for which external access by the DON should be allowed (e.g. when making API calls or downloading WASM workflows)
 - `-x`: Registers an example PoR workflow using CRE CLI and verifies it executed successfuly
 - `-s`: Time to wait for example workflow to execute successfuly (defaults to `5m`)
-- `-p`: Docker `plugins` image to use (must contain all of the following capabilities: `ocr3`, `cron`, `readcontract` and `logevent`)
-- `-y`: Trigger for example workflow to deploy (web-trigger or cron). Default: `web-trigger`. **Important!** `cron` trigger requires user to either provide the capbility binary path in TOML config or Docker image that has it baked in
+- `-p`: **DEPRECATED** Use `image` in TOML config instead. See [Using a pre-built Chainlink image](#using-a-pre-built-chainlink-image).
 - `--with-contracts-version`: Version of workflow/capability registries to use (`v2` by default, use `v1` explicitly for legacy coverage)
 
 ## Purging environment state
@@ -227,9 +217,17 @@ go run . env state purge
 
 This might be helpful if you suspect that state files might be corrupt and you're unable to start the environment.
 
-### Using existing Docker Plugins image
+### Using a pre-built Chainlink image
 
-If you don't want to build Chainlink image from your local branch (default behaviour) or you don't want to go through the hassle of downloading capabilities binaries in order to enable them on your environment you should use the `--with-plugins-docker-image` flag. It is recommended to use a nightly `core plugins` image that's build by [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml) as it contains all supported capability binaries.
+By default, the environment builds the Chainlink image from your local branch. To use a pre-built image instead (e.g. a nightly with all plugins), set the `image` field in your topology TOML for each node:
+
+```toml
+[nodesets.node_specs.node]
+  image = "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/chainlink:nightly-<YYYMMDD>-plugins"
+  # Leave docker_ctx and docker_file empty or omit them
+```
+
+Apply this to **all** nodes in the nodeset. Nightly images are built by the [Docker Build action](https://github.com/smartcontractkit/chainlink/actions/workflows/docker-build.yml).
 
 ### Beholder
 
@@ -262,6 +260,35 @@ go run . env setup
 # Or pull from ECR (requires AWS SSO access)
 AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup
 ```
+
+#### Beholder vs. ChIP Test Sink: Port Conflict and Using Both Together
+
+Both the **real Beholder** (Chip Ingress + Red Panda) and the **ChIP Test Sink** (used by CRE system tests for assertions) bind to the same gRPC port by default (50051). Chainlink nodes are configured to send workflow telemetry to `host.docker.internal:50051`, so only one service can receive on that port at a time.
+
+**Default behavior in tests:**
+- Most CRE smoke/regression tests use the **test sink** (`t_helpers.StartChipTestSink`). The sink listens on 50051, receives CloudEvents from nodes, and runs test assertions. No Kafka/Red Panda.
+- Beholder-specific tests (e.g. `Test_CRE_V2_Suite` with Cron Beholder scenario, `Test_CRE_V1_Billing_Cron_Beholder`) use **real Beholder** via `t_helpers.StartBeholder`. They start Beholder on 50051, consume from Kafka, and run assertions. The test cleanup stops Beholder so subsequent tests can use the test sink.
+
+**To use both together** (test assertions + Red Panda/Kafka observability):
+
+1. **Start Beholder on a different port** (e.g. 50052):
+   ```bash
+   go run . env beholder start --grpc-port 50052
+   ```
+   Or, when starting the full environment:
+   ```bash
+   go run . env start --with-beholder --grpc-port 50052
+   ```
+
+2. **Run the test sink on the default port (50051)** so it receives events from nodes. The test sink must listen on 50051 because node config is fixed to that port.
+
+3. **Configure the test sink to forward to Beholder** by setting `UpstreamEndpoint` in the sink config. The `chiptestsink` package supports this, but `t_helpers.StartChipTestSink` does not expose it. To use both:
+   - Use `chiptestsink.NewServer` directly with `Config{UpstreamEndpoint: "localhost:50052", ...}` instead of `StartChipTestSink`, or
+   - Extend the test helper to accept an optional upstream endpoint.
+
+4. **Resulting flow:** Nodes → test sink (50051) → assertions + forward → Beholder (50052) → Kafka/Red Panda.
+
+**Summary:** Use either Beholder or the test sink alone for simplicity. Use both only when you need test assertions and Red Panda observability in the same run; then run Beholder on a non-default port and configure the sink to forward to it.
 
 ### Storage
 
@@ -302,11 +329,15 @@ export CTF_CLNODE_DLV="true"
 Nodes will open a Delve server on port `40000 + node index` (e.g. first node will be on `40000`, second on `40001` etc). You can connect to it using your IDE or `dlv` CLI.
 
 ## Debugging capabilities (mac)
-Build the capability with the following flags (this ensures that the binary is not run using rosetta as this prevents dlv from attaching)
+Build the capability with debug symbols (this ensures the binary is not run via Rosetta, which prevents dlv from attaching):
 ```bash
 GOOS=linux GOARCH=arm64 go build -gcflags "all=-N -l" -o <capability binary name>
 ```
-Copy the capability binary to `core/scripts/cre/environment/binaries` folder.
+
+Use `env swap capability` to deploy the binary to running containers without restarting the environment:
+```bash
+go run . env swap capability -n <capability-flag> -b /path/to/your/binary
+```
 
 Add or update the `custom_ports` entry in the topology file (e.g., `core/scripts/cre/environment/configs/workflow-gateway-don.toml`) to include the port mapping for the Delve debugger. For example:
 ```toml
@@ -399,12 +430,12 @@ go run . workflow delete-all [flags]
 go run . workflow delete-all
 ```
 
-### `workflow deploy-and-verify-example`
-Deploys and verifies the example workflow.
+### `workflow run-por-example`
+Deploys and verifies the PoR v2 cron example workflow.
 
 **Usage:**
 ```bash
-go run . workflow deploy-and-verify-example
+go run . workflow run-por-example
 ```
 
 This command uses default values and is useful for testing the workflow deployment process.
@@ -739,23 +770,17 @@ Remember that the CRE CLI version needs to match your CPU architecture and opera
      go run . topology generate
      ```
    - `env start` now prints a compact topology summary with a capability matrix.
-2. **Download or Build Capability Binaries**
-   - Some capabilities like `cron`, `log-event-trigger`, or `read-contract` are not embedded in all Chainlink images.
-   - If your use case requires them, you should build them manually by:
-      - Cloning [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities) repository (Make sure they are built for `linux/amd64`!)
-      - Building each capability manually by running `GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o evm` inside capability's folder or building all of them at once with `./nx run-many -t build` in root of `capabilities` folder
-
-     **Once that is done copy them to `core/scripts/cre/environment/binaries` folder.**  Each binary will be copied to the Docker image (if the DON has that capability enabled).
-   - If the capability is already baked into your CL image (check the Dockerfile), comment out the TOML path line to skip copying. (they will be commented out by default)
-3.  **Decide whether to build or reuse Chainlink Docker Image**
-     - By default, the config builds the Docker image from your local branch. To use an existing image change to:
+2. **Working on plugins**
+   - Plugins are installed during the Docker image build from the YAML configs (`plugins/plugins.private.yaml`, `plugins/plugins.public.yaml`).
+   - To use your plugin changes: push to the remote repo, update the `gitRef` in the YAML to your commit/branch/tag, then start the environment (image will rebuild).
+   - For quick iteration without full rebuilds, use `env swap capability` to hot-swap a locally built binary into running containers.
+3. **Decide whether to build or reuse Chainlink Docker image**
+   - By default, the config builds the image from your local branch (plugins are pulled per the YAML `gitRef` during build). To use a pre-built image:
      ```toml
      [nodesets.node_specs.node]
      image = "<your-Docker-image>:<your-tag>"
      ```
-      - Make these changes for **all** nodes in the nodeset in the TOML config.
-      - If you decide to reuse a Chainlink Docker Image using the `--with-plugins-docker-image` flag, please notice that this will not copy any capability binaries to the image.
-        You will need to make sure that all the capabilities you need are baked in the image you are using.
+   - Make these changes for **all** nodes in the nodeset. Omit or clear `docker_ctx` and `docker_file` when using a pre-built image.
 
 4. **Decide whether to use Docker or k8s**
     - Read [Docker vs Kubernetes in guidelines.md](../../../../system-tests/tests/smoke/cre/guidelines.md) to learn how to switch between Docker and Kubernetes
@@ -857,58 +882,43 @@ The environment includes several example workflows located in `core/scripts/cre/
 - **`v2/node-mode/`**: Node mode workflow example
 - **`v2/http/`**: HTTP-based workflow example
 
-#### V1 Workflows
-- **`v1/proof-of-reserve/cron-based/`**: Cron-based proof-of-reserve workflow
-- **`v1/proof-of-reserve/web-trigger-based/`**: Web API trigger-based proof-of-reserve workflow
+- **`v2/proof-of-reserve/cron-based/`**: Cron-based proof-of-reserve workflow example
 
 ### Deployable Example Workflows
 
-The following workflows can be deployed using the `workflow deploy-and-verify-example` command:
+The following workflow can be deployed using the `workflow run-por-example` command:
 
-#### Proof-of-Reserve Workflows
-Both proof-of-reserve workflows execute a proof-of-reserve-like scenario with the following steps:
+#### Proof-of-Reserve Workflow
+The proof-of-reserve workflow executes a proof-of-reserve-like scenario with the following steps:
 - Call external HTTP API and fetch value of test asset
 - Reach consensus on that value
 - Write that value in the consumer contract on chain
 
 **Usage:**
 ```bash
-go run . workflow deploy-and-verify-example [flags]
+go run . workflow run-por-example [flags]
 ```
 
 **Key flags:**
-- `-y, --example-workflow-trigger`: Trigger type (`web-trigger` or `cron`, default: `web-trigger`)
 - `-u, --example-workflow-timeout`: Time to wait for workflow execution (default: `5m`)
-- `-g, --gateway-url`: Gateway URL for web API trigger (default: `http://localhost:5002`)
-- `-d, --don-id`: DON ID for web API trigger (default: `vault`)
+- `-d, --workflow-don-id`: Workflow DON ID from the registry (default: `1`)
 - `-w, --workflow-registry-address`: Workflow registry address (default: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`)
 - `-r, --rpc-url`: RPC URL (default: `http://localhost:8545`)
 
 **Examples:**
 ```bash
-# Deploy cron-based proof-of-reserve workflow
-go run . workflow deploy-and-verify-example -y cron
+# Deploy the PoR v2 cron example
+go run . workflow run-por-example
 
-# Deploy web-trigger-based proof-of-reserve workflow with custom timeout
-go run . workflow deploy-and-verify-example -y web-trigger -u 10m
+# Deploy the PoR v2 cron example with custom timeout
+go run . workflow run-por-example -u 10m
 ```
 
 #### Cron-based Workflow
 - **Trigger**: Every 30 seconds on a schedule
 - **Behavior**: Keeps executing until paused or deleted
 - **Requirements**: External `cron` capability binary (must be manually compiled or downloaded and configured in TOML)
-- **Source**: [`examples/workflows/v1/proof-of-reserve/cron-based/main.go`](./examples/workflows/v1/proof-of-reserve/cron-based/main.go)
-
-#### Web API Trigger-based Workflow
-- **Trigger**: Only when a precisely crafted and cryptographically signed request is made to the gateway node
-- **Behavior**: Triggers workflow **once** and only if:
-  - Sender is whitelisted in the workflow
-  - Topic is whitelisted in the workflow
-- **Source**: [`examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go`](./examples/workflows/v1/proof-of-reserve/web-trigger-based/main.go)
-
-**Note**: You might see multiple attempts to trigger and verify the workflow when running the example. This is expected and could happen because:
-- Topic hasn't been registered yet (nodes haven't downloaded the workflow yet)
-- Consensus wasn't reached in time
+- **Source**: [`examples/workflows/v2/proof-of-reserve/cron-based/main.go`](./examples/workflows/v2/proof-of-reserve/cron-based/main.go)
 
 ### Manual Workflow Deployment
 
@@ -1176,11 +1186,11 @@ func nodeConfigFn(input cre.GenerateConfigsInput) (cre.NodeIndexToConfigOverride
 
 ### Step 5: Add Default Configuration
 
-Add default configuration and binary path to `core/scripts/cre/environment/configs/capability_defaults.toml`:
+Add default configuration to `core/scripts/cre/environment/configs/capability_defaults.toml`. For plugin-based capabilities, the binary is installed during image build; set `binary_name` (the full path is `/usr/local/bin/` + binary_name):
 
 ```toml
 [capability_configs.random-number-generator]
-  binary_path = "./binaries/random-number-generator"
+  binary_name = "random-number-generator"
 
 [capability_configs.random-number-generator.values]
   # Add default configuration values here
@@ -1188,7 +1198,7 @@ Add default configuration and binary path to `core/scripts/cre/environment/confi
   MaxRange = 1000
 
 [capability_configs.gas-estimator]
-  binary_path = "./binaries/gas-estimator"
+  binary_name = "gas-estimator"
 
 [capability_configs.gas-estimator.values]
   # Add default configuration values here
@@ -1265,7 +1275,7 @@ Common configuration files:
 ### Important Notes
 
 - **Fake capabilities**: The examples above (random number generator, gas estimator) are fictional and don't exist in the actual codebase
-- **Binary paths**: Capabilities require binaries to be available in the container. Use `factory.BinaryPathBuilder` for standard paths
+- **Plugin sources**: Capabilities are installed during image build from `plugins/plugins.private.yaml` and `plugins/plugins.public.yaml`; update `gitRef` to pick a version.
 - **Bootstrap nodes**: Don't run capabilities on bootstrap nodes - they only run on worker nodes
 
 ---
@@ -1426,26 +1436,17 @@ Declare every capability inside the `capabilities` array. The same list now cove
 - **DON-wide flags** (no suffix): `ocr3`, `consensus`, `custom-compute`, `web-api-target`, `web-api-trigger`, `vault`, `cron`, `http-trigger`, `http-action`, `mock`.
 - **Chain-scoped bases** (append `-<chainID>`): `evm`, `write-evm`, `read-contract`, `log-event-trigger`, plus any new capability that needs per-chain overrides.
 
-### Binary Requirements
+### Capability availability
 
-Some capabilities require external binaries to be available. These are specified in `capability_defaults.toml`:
+Capabilities are installed into the Chainlink image during the Docker build. Plugin sources are defined in `plugins/plugins.private.yaml` and `plugins/plugins.public.yaml`; each entry has a `moduleURI` and `gitRef` (commit, branch, or tag).
 
-```toml
-[capability_configs.cron]
-  binary_path = "./binaries/cron"
-
-[capability_configs.read-contract]
-  binary_path = "./binaries/readcontract"
-
-[capability_configs.log-event-trigger]
-  binary_path = "./binaries/log-event-trigger"
-```
-
-**Built-in capabilities** (no binary required):
+**Built-in capabilities** (no separate plugin):
 - `ocr3`, `consensus`, `custom-compute`, `web-api-target`, `web-api-trigger`, `vault`, `write-evm`
 
-**Binary-dependent capabilities** (require external binaries):
+**Plugin-based capabilities** (installed from YAML during image build):
 - `cron`, `http-trigger`, `http-action`, `read-contract`, `log-event-trigger`, `evm`, `mock`
+
+To use a new plugin version: push your changes, update `gitRef` in the YAML, then rebuild the image (or start the environment).
 
 ### Enabling Capabilities in Your Topology
 
@@ -1473,22 +1474,19 @@ Edit your topology (e.g., `workflow-gateway-don.toml`) and list every capability
 - Add the unsuffixed flag once for DON-wide functionality.
 - Add one suffixed entry per chain for every chain-aware capability you need.
 
-#### 2. Provide Required Binaries
+#### 2. Ensure plugins are in your image
 
-For capabilities that require binaries, either:
+Plugins are installed during the Docker image build. Either:
 
-**Option A: Use pre-built Docker image with binaries**
-```bash
-go run . env start --with-plugins-docker-image <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/chainlink:nightly-<DATE>-plugins
+**Option A: Build from source** (default) – the image is built from your local branch; plugins are pulled from the YAML `gitRef` during build. Ensure `GITHUB_TOKEN` is set for private repos.
+
+**Option B: Use a pre-built image** – set `image` in the TOML for each node to a image that already has the plugins (e.g. nightly):
+```toml
+[nodesets.node_specs.node]
+  image = "<ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/chainlink:nightly-<DATE>-plugins"
 ```
 
-**Option B: Build binaries manually**
-1. Clone the [capabilities repository](https://github.com/smartcontractkit/capabilities)
-2. Build required binaries for `linux/amd64`:
-   ```bash
-   GOOS="linux" GOARCH="amd64" CGO_ENABLED=0 go build -o <capability-name>
-   ```
-3. Place binaries in the `binaries/` directory relative to the environment folder
+**Option C: Hot-swap for iteration** – use `env swap capability -n <flag> -b /path/to/binary` to deploy a locally built binary to running containers without restarting.
 
 ### Configuration Examples
 
@@ -1595,14 +1593,14 @@ To override capability configs for a specific DON, declare a `[nodesets.capabili
     GasLimitDefault = 700_000
     AcceptanceTimeout = "60s"
 
-  # Override binary path (you can optionally add a `.values` table alongside it)
+  # Override binary name (optional; path is /usr/local/bin/<binary_name>)
   [nodesets.capability_configs.read-contract-1337]
-    binary_path = "/some-other/binary_path"
+    binary_name = "readcontract"
 ```
 
 ### Important Notes
 
-- **Binary availability**: Ensure all required binaries are available before starting the environment
+- **Plugin availability**: Ensure required capabilities are in your Chainlink image (built from source with plugins YAML, or use a pre-built image)
 - **Chain IDs**: Chain-scoped capability flags (e.g., `write-evm-<chainID>`) must use chain IDs that exist in your blockchain configuration
 - **Port conflicts**: Each nodeset should use different `http_port_range_start` values
 - **DON limitations**: Only one `workflow` DON and one `gateway` DON are allowed per environment
@@ -1610,11 +1608,8 @@ To override capability configs for a specific DON, declare a `[nodesets.capabili
 
 ### Troubleshooting Capability Issues
 
-**Binary not found:**
-```
-Error: capability binary not found: ./binaries/cron
-```
-- Solution: Either provide the binary or use a plugins Docker image
+**Capability binary not found:**
+- Solution: Ensure the capability is installed in your Chainlink image. Either build from source (plugins are pulled from YAML during build) or use a pre-built image with plugins. For quick iteration, use `env swap capability` to deploy a locally built binary.
 
 **Capability not supported:**
 ```
@@ -1629,27 +1624,6 @@ Error: chain 1337 not found for capability write-evm
 - Solution: Ensure the chain ID exists in your `[[blockchains]]` configuration
 
 ---
-
-## Binary Location and Naming
-
-External capability binaries must be placed in the `binaries/` directory relative to the environment folder (`core/scripts/cre/environment/binaries/`). Expected filenames are defined in `capability_defaults.toml`:
-
-```bash
-# Expected directory structure:
-core/scripts/cre/environment/
-├── binaries/
-│   ├── cron                    # for cron capability
-│   ├── readcontract           # for read-contract capability
-│   ├── log-event-trigger      # for log-event-trigger capability
-│   ├── evm                    # for evm capability
-│   ├── http_action            # for http-action capability
-│   ├── http_trigger           # for http-trigger capability
-│   └── mock                   # for mock capability
-└── configs/
-    └── capability_defaults.toml  # Contains binary_path definitions
-```
-
-To check expected filenames, refer to the `binary_path` field in `capability_defaults.toml` for each capability.
 
 ---
 
@@ -1751,6 +1725,73 @@ go run . env start --with-beholder
 ```bash
 go run . env beholder start
 ```
+
+### OTel Tracing Configuration
+
+To enable OpenTelemetry (OTel) tracing for workflow engines and see traces in Tempo/Grafana, **multiple configuration toggles must be set**:
+
+| Toggle | Location | Required Value | Purpose |
+|--------|----------|----------------|---------|
+| `Tracing.Enabled` | Node TOML | `true` | **Required.** Gates trace export; without this, no traces are exported even when `Telemetry.Enabled` is true |
+| `Tracing.CollectorTarget` | Node TOML | e.g., `host.docker.internal:4318` | OTLP endpoint for trace export. Must differ from `Telemetry.Endpoint` when both [Tracing] and [Telemetry] are enabled |
+| `Tracing.SamplingRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate for the span exporter (0 = no traces, 1 = 100%) |
+| `Telemetry.Enabled` | Node TOML | `true` | Enables the OTel/beholder exporter |
+| `Telemetry.TraceSampleRatio` | Node TOML | `> 0` (e.g., `1.0`) | Sampling rate used by the beholder client (0 = no traces, 1 = 100%) |
+| `CRE.DebugMode` | Node TOML | `true` | Enables detailed tracing in workflow engines and syncer |
+| `OTEL_SERVICE_NAME` | Environment variable | e.g., `chainlink-node` | Sets the service name for traces in Tempo |
+| `Pyroscope.LinkTracesToProfiles` | Node TOML | `true` | Enables traces-to-profiles linking in Grafana (requires Pyroscope) |
+
+**Sampling ratios:** When both [Tracing] and [Telemetry] are enabled, `Tracing.SamplingRatio` controls the span exporter and `Telemetry.TraceSampleRatio` is used by the beholder client. Set both to the same value (e.g., `1.0`) for consistent trace capture.
+
+**Example TOML configuration:**
+
+```toml
+[Tracing]
+Enabled = true
+CollectorTarget = 'host.docker.internal:4318'  # Must differ from Telemetry.Endpoint when both enabled
+SamplingRatio = 1.0  # 100% sampling - adjust for production
+Mode = 'unencrypted'  # Use for local dev; use 'tls' in production
+
+[Telemetry]
+Enabled = true
+Endpoint = 'host.docker.internal:4317'  # Must differ from Tracing.CollectorTarget
+InsecureConnection = true
+TraceSampleRatio = 1.0  # 100% sampling - adjust for production
+
+[CRE]
+DebugMode = true  # WARNING: Not suitable for production due to overhead
+
+[Pyroscope]
+ServerAddress = 'http://pyroscope:4040'
+LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
+```
+
+**Note:** When both [Tracing] and [Telemetry] are enabled, config validation requires `Tracing.CollectorTarget` and `Telemetry.Endpoint` to be different. For a single OTel collector, use different ports (e.g., gRPC on 4317, HTTP on 4318) if your collector exposes both.
+
+**Example environment variable (in nodeset config):**
+
+```toml
+[[nodesets]]
+  env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+```
+
+**Common issues:**
+
+| Symptom | Likely Cause |
+|---------|--------------|
+| No traces at all | `Tracing.Enabled = false`, `Telemetry.Enabled = false`, or sampling ratios set to `0` |
+| No workflow engine traces | `CRE.DebugMode = false` |
+| Traces show `unknown_service:chainlink` | Missing `OTEL_SERVICE_NAME` env var |
+| Traces not exported | Telemetry endpoint unreachable (check `go run . obs up -f `) |
+| No traces-to-profiles link in Grafana | `Pyroscope.LinkTracesToProfiles = false` or Pyroscope not running |
+
+**Important notes:**
+
+- `CRE.DebugMode` adds performance overhead and should only be enabled during development/debugging, not in production environments.
+- **Tracing is only implemented for V2 components:**
+  - **V2 Syncer**: Only used when workflow registry contracts are v2.x. If you're using v1.x contracts, the V1 syncer is used and has no tracing.
+  - **V2 Engine (NoDAG)**: Only used by V2/NoDAG workflows. V1/DAG workflows use the V1 engine which has no tracing.
+- To use tracing, ensure your environment is configured with **v2 workflow registry contracts** and you're deploying **V2 workflows**.
 
 ### Expected Error Messages
 

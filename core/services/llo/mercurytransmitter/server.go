@@ -21,12 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
-
-	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -112,7 +110,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 	if verboseLogging {
 		codecLggr = lggr
 	} else {
-		codecLggr = corelogger.NullLogger
+		codecLggr = logger.Nop()
 	}
 
 	s := &server{
@@ -124,7 +122,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		NewTransmitQueue(lggr, serverURL, int(cfg.TransmitQueueMaxSize()), pm),
 		serverURL,
 		evm.NewReportCodecPremiumLegacy(codecLggr, pm.DonID()),
-		evm.NewReportCodecStreamlined(),
+		evm.NewReportCodecStreamlined(codecLggr),
 		llo.JSONReportCodec{},
 		promTransmitSuccessCount.WithLabelValues(donIDStr, serverURL),
 		promTransmitDuplicateCount.WithLabelValues(donIDStr, serverURL),

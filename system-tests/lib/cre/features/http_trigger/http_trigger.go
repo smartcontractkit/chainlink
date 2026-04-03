@@ -105,7 +105,7 @@ func (o *HTTPTrigger) PostEnvStartup(
 		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
-	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 	if cErr != nil {
 		return errors.Wrap(cErr, "failed to get command for HTTP Trigger capability")
 	}

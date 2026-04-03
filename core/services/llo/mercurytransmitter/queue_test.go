@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
 var _ asyncDeleter = &mockAsyncDeleter{}
@@ -31,7 +31,7 @@ func Test_Queue(t *testing.T) {
 	t.Parallel()
 	const maxSize = 7
 
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.ErrorLevel)
 
 	t.Run("cannot init with more transmissions than capacity", func(t *testing.T) {
 		transmissions := makeSampleTransmissions(maxSize+1, sURL)
@@ -74,7 +74,7 @@ func Test_Queue(t *testing.T) {
 			}
 
 			// expecting testTransmissions[0] to get evicted and not present in the queue anymore
-			testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
+			tests.AssertLogEventually(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
 			var transmissions []*Transmission
 			for range 7 {
 				tr := tq.BlockingPop()

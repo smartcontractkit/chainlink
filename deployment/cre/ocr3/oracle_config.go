@@ -11,6 +11,7 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	evmcapocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/consensus/ocr3/types"
+	dontimepb "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 )
 
 type OracleConfig struct {
@@ -34,6 +35,7 @@ type OracleConfig struct {
 
 	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig
 	ChainCapOffchainConfig     *ChainCapOffchainConfig
+	DontimeOffchainConfig      *DontimeOffchainConfig
 }
 
 func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
@@ -168,5 +170,69 @@ func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
 		MaxBatchSize:              oc.MaxBatchSize,
+	}, nil
+}
+
+type DontimeOffchainConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxOutcomeLengthBytes     uint32
+	MaxReportLengthBytes      uint32
+	MaxReportCount            uint32
+	MaxBatchSize              uint32
+	MinTimeIncrease           int64
+	ExecutionRemovalTime      time.Duration
+}
+
+func (oc *DontimeOffchainConfig) UnmarshalJSON(data []byte) error {
+	type aliasT DontimeOffchainConfig
+	temp := &struct {
+		ExecutionRemovalTime string `json:"ExecutionRemovalTime"`
+		*aliasT
+	}{
+		aliasT: (*aliasT)(oc),
+	}
+	if err := json.Unmarshal(data, temp); err != nil {
+		return fmt.Errorf("failed to unmarshal DontimeOffchainConfig: %w", err)
+	}
+
+	if temp.ExecutionRemovalTime == "" {
+		oc.ExecutionRemovalTime = 0
+	} else {
+		d, err := time.ParseDuration(temp.ExecutionRemovalTime)
+		if err != nil {
+			return fmt.Errorf("failed to parse ExecutionRemovalTime: %w", err)
+		}
+		oc.ExecutionRemovalTime = d
+	}
+
+	return nil
+}
+
+func (oc *DontimeOffchainConfig) MarshalJSON() ([]byte, error) {
+	type aliasT DontimeOffchainConfig
+	return json.Marshal(&struct {
+		ExecutionRemovalTime string `json:"ExecutionRemovalTime"`
+		*aliasT
+	}{
+		ExecutionRemovalTime: oc.ExecutionRemovalTime.String(),
+		aliasT:               (*aliasT)(oc),
+	})
+}
+
+func (oc *DontimeOffchainConfig) ToProto() (proto.Message, error) {
+	var execRemovalTime *durationpb.Duration
+	if oc.ExecutionRemovalTime > 0 {
+		execRemovalTime = durationpb.New(oc.ExecutionRemovalTime)
+	}
+	return &dontimepb.Config{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
+		MinTimeIncrease:           oc.MinTimeIncrease,
+		ExecutionRemovalTime:      execRemovalTime,
 	}, nil
 }

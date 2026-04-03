@@ -393,6 +393,96 @@ func TestAddressesForChain(t *testing.T) {
 	})
 }
 
+func TestGetMCMSWithTimelockState(t *testing.T) {
+	selector := chain_selectors.TEST_90000001.Selector
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+	)
+	require.NoError(t, err)
+
+	chain := env.BlockChains.EVMChains()[selector]
+
+	sharedMcm := deployMCMEvm(t, chain, &mcmstypes.Config{Quorum: 1, Signers: []common.Address{
+		common.HexToAddress("0x0000000000000000000000000000000000000001"),
+	}})
+	sharedAddress := strings.ToLower(sharedMcm.Address().Hex())
+
+	timelock := deployTimelockEvm(t, chain, big.NewInt(1),
+		common.HexToAddress("0x0000000000000000000000000000000000000004"),
+		[]common.Address{common.HexToAddress("0x0000000000000000000000000000000000000005")},
+		[]common.Address{common.HexToAddress("0x0000000000000000000000000000000000000006")},
+		[]common.Address{common.HexToAddress("0x0000000000000000000000000000000000000007")},
+		[]common.Address{common.HexToAddress("0x0000000000000000000000000000000000000008")},
+	)
+	callProxy := deployCallProxyEvm(t, chain,
+		common.HexToAddress("0x0000000000000000000000000000000000000009"))
+	proposerMcm := deployMCMEvm(t, chain, &mcmstypes.Config{Quorum: 1, Signers: []common.Address{
+		common.HexToAddress("0x0000000000000000000000000000000000000002"),
+	}})
+
+	// timelock, callProxy, proposer shared by both stores
+	commonRefs := []datastore.AddressRef{
+		{ChainSelector: selector, Address: strings.ToLower(timelock.Address().Hex()), Type: datastore.ContractType(types.RBACTimelock), Version: &deployment.Version1_0_0},
+		{ChainSelector: selector, Address: strings.ToLower(callProxy.Address().Hex()), Type: datastore.ContractType(types.CallProxy), Version: &deployment.Version1_0_0},
+		{ChainSelector: selector, Address: strings.ToLower(proposerMcm.Address().Hex()), Type: datastore.ContractType(types.ProposerManyChainMultisig), Version: &deployment.Version1_0_0},
+	}
+
+	t.Run("shared address for bypasser and canceller", func(t *testing.T) {
+		// Store DS with bypasser/canceller sharing the same address
+		store := datastore.NewMemoryDataStore()
+		for _, ref := range commonRefs {
+			require.NoError(t, store.Addresses().Add(ref))
+		}
+		require.NoError(t, store.Addresses().Add(datastore.AddressRef{
+			ChainSelector: selector, Address: sharedAddress,
+			Type: datastore.ContractType(types.BypasserManyChainMultisig), Version: &deployment.Version1_0_0, Qualifier: "bypasser",
+		}))
+		require.NoError(t, store.Addresses().Add(datastore.AddressRef{
+			ChainSelector: selector, Address: sharedAddress,
+			Type: datastore.ContractType(types.CancellerManyChainMultisig), Version: &deployment.Version1_0_0, Qualifier: "canceller",
+		}))
+
+		state, err := GetMCMSWithTimelockState(store.Seal().Addresses(), chain, "")
+		require.NoError(t, err)
+
+		require.NotNil(t, state.Timelock, "timelock should be loaded")
+		require.NotNil(t, state.CallProxy, "call proxy should be loaded")
+		require.NotNil(t, state.ProposerMcm, "proposer should be loaded")
+		require.NotNil(t, state.BypasserMcm, "bypasser should be loaded despite shared address")
+		require.NotNil(t, state.CancellerMcm, "canceller should be loaded despite shared address")
+
+		require.Equal(t, sharedMcm.Address(), state.BypasserMcm.Address())
+		require.Equal(t, sharedMcm.Address(), state.CancellerMcm.Address())
+	})
+
+	t.Run("legacy ManyChainMultisig type is ignored", func(t *testing.T) {
+		// Store with legacy ManyChainMultisig typed bypasser/canceller
+		legacyStore := datastore.NewMemoryDataStore()
+		for _, ref := range commonRefs {
+			require.NoError(t, legacyStore.Addresses().Add(ref))
+		}
+		require.NoError(t, legacyStore.Addresses().Add(datastore.AddressRef{
+			ChainSelector: selector, Address: sharedAddress,
+			Type: datastore.ContractType(types.ManyChainMultisig), Version: &deployment.Version1_0_0, Qualifier: "bypasser",
+			Labels: datastore.NewLabelSet(types.BypasserRole.String()),
+		}))
+		require.NoError(t, legacyStore.Addresses().Add(datastore.AddressRef{
+			ChainSelector: selector, Address: sharedAddress,
+			Type: datastore.ContractType(types.ManyChainMultisig), Version: &deployment.Version1_0_0, Qualifier: "canceller",
+			Labels: datastore.NewLabelSet(types.CancellerRole.String()),
+		}))
+
+		state, err := GetMCMSWithTimelockState(legacyStore.Seal().Addresses(), chain, "")
+		require.NoError(t, err)
+
+		require.NotNil(t, state.Timelock, "timelock should still load")
+		require.NotNil(t, state.CallProxy, "callProxy should still load")
+		require.NotNil(t, state.ProposerMcm, "proposer should still load")
+		require.Nil(t, state.BypasserMcm, "legacy ManyChainMultisig bypasser should not load")
+		require.Nil(t, state.CancellerMcm, "legacy ManyChainMultisig canceller should not load")
+	})
+}
+
 // ----- helpers -----
 
 func toJSON[T any](t *testing.T, value T) string {

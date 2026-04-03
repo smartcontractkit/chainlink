@@ -63,6 +63,8 @@ func TestScripts(t *testing.T) {
 	}
 	t.Parallel()
 
+	require.NoError(t, os.Setenv("TMPDIR", "/tmp")) // osx default is too long for go-plugin sockets
+
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {
 		t.Run(strings.TrimPrefix(path, "testdata/scripts/"), func(t *testing.T) {
 			t.Parallel()

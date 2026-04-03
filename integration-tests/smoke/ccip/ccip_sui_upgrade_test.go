@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -197,12 +200,12 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "offramp",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "offramp",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)
@@ -210,12 +213,12 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	// Block ccip v1 feequoter
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "fee_quoter",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)
@@ -440,12 +443,12 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	// Block ccip v1 FQ
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "fee_quoter",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)
@@ -468,10 +471,22 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 }
 
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
+	newOnrampVersion := "OnRamp 1.6.1"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
+		sourcePath := filepath.Join(packageRoot, "sources", "onramp.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`OnRamp \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newOnrampVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600) // #nosec G703
+	})
+	defer suiBind.ClearTestModifier()
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	// compile packages
@@ -485,7 +500,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
 		"upgrade_cap":         state.SuiChains[sourceChain].OnRampUpgradeCapId,
 		"signer":              signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -547,7 +562,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "OnRamp 1.6.1", typeAndVersion)
+	require.Equal(t, newOnrampVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionOnRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOnRampMockV2, deployment.Version1_0_0)
@@ -559,10 +574,21 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 }
 
 func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
+	newOfframpVersion := "OffRamp 1.6.1"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
+		sourcePath := filepath.Join(packageRoot, "sources", "offramp.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`OffRamp \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newOfframpVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600) // #nosec G703
+	})
+	defer suiBind.ClearTestModifier()
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	// compile packages
@@ -576,7 +602,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"original_offramp_pkg": state.SuiChains[sourceChain].OffRampAddress,
 		"upgrade_cap":          state.SuiChains[sourceChain].OffRampUpgradeCapId,
 		"signer":               signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -638,7 +664,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "OffRamp 1.6.1", typeAndVersion)
+	require.Equal(t, newOfframpVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionOffRampMockV2 := cldf.NewTypeAndVersion(deployment.SuiOffRampMockV2, deployment.Version1_0_0)
@@ -650,10 +676,22 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 }
 
 func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) string {
+	newFeeQuoterVersion := "FeeQuoter 1.6.2"
+	suiBind.SetTestModifier(func(packageRoot string) error {
+		// #nosec G703 - packageRoot is a controlled test parameter from suiBind
+		sourcePath := filepath.Join(packageRoot, "sources", "fee_quoter.move")
+		content, _ := os.ReadFile(sourcePath)
+		re := regexp.MustCompile(`FeeQuoter \d+\.\d+\.\d+`)
+		modified := re.ReplaceAllString(string(content), newFeeQuoterVersion)
+		return os.WriteFile(sourcePath, []byte(modified), 0o600) // #nosec G703
+	})
+	defer suiBind.ClearTestModifier()
+
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	signerAddr, err := e.Env.BlockChains.SuiChains()[sourceChain].Signer.GetAddress()
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	signerAddr, err := suiChain.Signer.GetAddress()
 	require.NoError(t, err)
 
 	t.Log("UPGRADECAP, SIGNER: ", state.SuiChains[sourceChain].CCIPUpgradeCapObjectId, signerAddr)
@@ -666,7 +704,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
 		"upgrade_cap":       state.SuiChains[sourceChain].CCIPUpgradeCapObjectId,
 		"signer":            signerAddr,
-	}, true, "")
+	}, true, suiChain.URL)
 	require.NoError(t, err)
 
 	// decode modules from base64 -> [][]byte
@@ -728,7 +766,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "FeeQuoter 1.6.1", typeAndVersion)
+	require.Equal(t, newFeeQuoterVersion, typeAndVersion)
 
 	// save the new pkgId to addressbook
 	typeAndVersionCCIPMockV2 := cldf.NewTypeAndVersion(deployment.SuiCCIPMockV2, deployment.Version1_0_0)

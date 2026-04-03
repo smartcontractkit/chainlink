@@ -529,6 +529,91 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Equal(t, uint32(10), decoded.DonId)
 		})
 	})
+
+	t.Run("overwrites previous outcome for same seqNr (epoch transition)", func(t *testing.T) {
+		// Simulates the bug scenario: Outcome() is called twice for the
+		// same seqNr across two epochs (first epoch fails prepare-quorum,
+		// second commits). Only the last outcome should survive in the
+		// buffer and be flushed.
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+		tm := newTelemeter(TelemeterParams{
+			Logger:                  lggr,
+			MonitoringEndpoint:      m,
+			DonID:                   donID,
+			CaptureOutcomeTelemetry: true,
+		})
+		servicetest.Run(t, tm)
+		ch := tm.GetOutcomeTelemetryCh()
+		require.NotNil(t, ch)
+
+		opts := &mockOpts{}
+		cd := opts.ConfigDigest()
+
+		// First outcome (from failed epoch)
+		epoch1Outcome := &datastreamsllo.LLOOutcomeTelemetry{
+			LifeCycleStage:                  "production",
+			ObservationTimestampNanoseconds: 1000000001,
+			SeqNr:                           opts.SeqNr(),
+			ConfigDigest:                    cd[:],
+			DonId:                           10,
+		}
+		ch <- epoch1Outcome
+
+		testutils.RequireEventually(t, func() bool {
+			tm.telemetryBufferMu.Lock()
+			defer tm.telemetryBufferMu.Unlock()
+			return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) > 0
+		})
+
+		// Second outcome (from committed epoch) — different observation timestamp
+		epoch2Outcome := &datastreamsllo.LLOOutcomeTelemetry{
+			LifeCycleStage:                  "production",
+			ObservationTimestampNanoseconds: 2000000002,
+			SeqNr:                           opts.SeqNr(),
+			ConfigDigest:                    cd[:],
+			DonId:                           10,
+		}
+		ch <- epoch2Outcome
+
+		testutils.RequireEventually(t, func() bool {
+			tm.telemetryBufferMu.Lock()
+			defer tm.telemetryBufferMu.Unlock()
+			buf := tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]
+			if len(buf) == 0 {
+				return false
+			}
+			// Wait until the buffer contains the second outcome
+			msg := buf[0].msg.(*datastreamsllo.LLOOutcomeTelemetry)
+			return msg.ObservationTimestampNanoseconds == 2000000002
+		})
+
+		// Verify buffer has exactly 1 entry (overwritten, not appended)
+		tm.telemetryBufferMu.Lock()
+		bufLen := len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()])
+		tm.telemetryBufferMu.Unlock()
+		assert.Equal(t, 1, bufLen, "expected exactly 1 outcome in buffer (overwrite), got %d", bufLen)
+
+		// Flush and verify only one message is sent
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
+
+		tLog := <-m.chTypedLogs
+		assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
+		decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+		require.NoError(t, proto.Unmarshal(tLog.log, decoded))
+
+		// The flushed outcome should be from the second (committed) epoch
+		assert.Equal(t, uint64(2000000002), decoded.ObservationTimestampNanoseconds,
+			"expected observation timestamp from committed epoch")
+		assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+
+		// Verify no additional messages were sent
+		select {
+		case extra := <-m.chTypedLogs:
+			t.Fatalf("expected no more outcome messages, but got one with type %v", extra.telemType)
+		default:
+			// good — no extra messages
+		}
+	})
 }
 
 func Test_Telemeter_reportTelemetry(t *testing.T) {
@@ -644,6 +729,69 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
 		})
+	})
+
+	t.Run("appends multiple reports for same seqNr (one per channel)", func(t *testing.T) {
+		// Report telemetry must append, not overwrite. Reports() generates
+		// one report per reportable channel (up to ~1000+), all sharing
+		// the same seqNr. Overwriting would lose all but the last channel.
+		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
+		tm := newTelemeter(TelemeterParams{
+			Logger:                 lggr,
+			MonitoringEndpoint:     m,
+			DonID:                  donID,
+			CaptureReportTelemetry: true,
+		})
+		servicetest.Run(t, tm)
+		ch := tm.GetReportTelemetryCh()
+		require.NotNil(t, ch)
+
+		opts := &mockOpts{}
+		cd := opts.ConfigDigest()
+
+		// Send 3 reports for different channels, all with the same seqNr
+		for i := uint32(1); i <= 3; i++ {
+			ch <- &datastreamsllo.LLOReportTelemetry{
+				ChannelId:    i,
+				SeqNr:        opts.SeqNr(),
+				ConfigDigest: cd[:],
+			}
+		}
+
+		// Wait until all 3 are buffered
+		testutils.RequireEventually(t, func() bool {
+			tm.telemetryBufferMu.Lock()
+			defer tm.telemetryBufferMu.Unlock()
+			return len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()]) == 3
+		})
+
+		// Verify buffer has all 3 entries (appended, not overwritten)
+		tm.telemetryBufferMu.Lock()
+		bufLen := len(tm.telemetryBuffer[cd.Hex()][opts.SeqNr()])
+		tm.telemetryBufferMu.Unlock()
+		assert.Equal(t, 3, bufLen, "expected 3 reports in buffer (append), got %d", bufLen)
+
+		// Flush and verify all 3 messages are sent
+		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
+
+		receivedChannels := make([]uint32, 0, 3)
+		for i := 0; i < 3; i++ {
+			tLog := <-m.chTypedLogs
+			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
+			decoded := &datastreamsllo.LLOReportTelemetry{}
+			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
+			receivedChannels = append(receivedChannels, decoded.ChannelId)
+		}
+		assert.ElementsMatch(t, []uint32{1, 2, 3}, receivedChannels,
+			"all 3 channel reports should be flushed")
+
+		// Verify no additional messages were sent
+		select {
+		case extra := <-m.chTypedLogs:
+			t.Fatalf("expected no more report messages, but got one with type %v", extra.telemType)
+		default:
+			// good — no extra messages
+		}
 	})
 }
 

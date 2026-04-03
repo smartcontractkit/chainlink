@@ -255,6 +255,158 @@ Name = "dummy"
 	require.NoError(t, cfg.Validate())
 }
 
+func TestGateway_NewGatewayFromConfig_NewStyleConfig(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := buildConfig(`
+[[shardedDONs]]
+DonName = "donA"
+F = 1
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s0_n0"
+Address = "0x0001020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s0_n1"
+Address = "0x0002020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s0_n2"
+Address = "0x0003020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s0_n3"
+Address = "0x0004020304050607080900010203040506070809"
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s1_n0"
+Address = "0x0005020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s1_n1"
+Address = "0x0006020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s1_n2"
+Address = "0x0007020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s1_n3"
+Address = "0x0008020304050607080900010203040506070809"
+
+[[shardedDONs]]
+DonName = "donB"
+F = 1
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "donB_s0_n0"
+Address = "0x0011020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donB_s0_n1"
+Address = "0x0012020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donB_s0_n2"
+Address = "0x0013020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "donB_s0_n3"
+Address = "0x0014020304050607080900010203040506070809"
+
+[[services]]
+ServiceName = "workflows"
+DONs = ["donA"]
+
+[[services.Handlers]]
+Name = "dummy"
+
+[[services]]
+ServiceName = "vault"
+DONs = ["donB"]
+
+[[services.Handlers]]
+Name = "dummy"
+`)
+
+	lggr := logger.Test(t)
+	cfg := parseTOMLConfig(t, tomlConfig)
+	require.NoError(t, cfg.Validate())
+
+	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+	require.NotNil(t, gatewayObj)
+}
+
+func TestGateway_NewGatewayFromConfig_NewStyleConfig_UserRouting(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := buildConfig(`
+[[shardedDONs]]
+DonName = "donA"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "donA_s0_n0"
+Address = "0x0001020304050607080900010203040506070809"
+
+[[services]]
+ServiceName = "svcA"
+DONs = ["donA"]
+
+[[services.Handlers]]
+Name = "dummy"
+ServiceName = "svcA"
+
+[[services.Handlers]]
+Name = "dummy2"
+ServiceName = "svcA"
+`)
+
+	newServiceHandler := func(method string) *handlermocks.Handler {
+		h := handlermocks.NewHandler(t)
+		h.On("Methods").Return([]string{method})
+		h.On("HandleJSONRPCUserMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+			req := args.Get(1).(jsonrpc.Request[json.RawMessage])
+			cb := args.Get(2).(handlers.Callback)
+			rm := json.RawMessage(`{"result":"OK"}`)
+			resp, err := json.Marshal(&jsonrpc.Response[json.RawMessage]{
+				Version: jsonrpc.JsonRpcVersion, ID: req.ID, Method: req.Method, Result: &rm,
+			})
+			require.NoError(t, err)
+			require.NoError(t, cb.SendResponse(handlers.UserCallbackPayload{RawResponse: resp, ErrorCode: api.NoError}))
+		}).Maybe()
+		return h
+	}
+
+	handler1 := newServiceHandler("svcA.action1")
+	handler2 := newServiceHandler("svcA.action2")
+	factory := &handlerFactory{handlers: map[string]handlers.Handler{
+		"dummy":  handler1,
+		"dummy2": handler2,
+	}}
+
+	lggr := logger.Test(t)
+	cfg := parseTOMLConfig(t, tomlConfig)
+	require.NoError(t, cfg.Validate())
+
+	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, factory, lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+
+	ctx := testutils.Context(t)
+
+	req := newJSONRpcRequest(t, "r1", "svcA.action1", []byte(`{}`))
+	response, statusCode := gatewayObj.ProcessRequest(ctx, req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, "svcA.action1", response, "r1", `{"result":"OK"}`)
+
+	req = newJSONRpcRequest(t, "r2", "svcA.action2", []byte(`{}`))
+	response, statusCode = gatewayObj.ProcessRequest(ctx, req, "")
+	require.Equal(t, 200, statusCode, string(response))
+	requireJSONRPCResult(t, "svcA.action2", response, "r2", `{"result":"OK"}`)
+
+	req = newJSONRpcRequest(t, "r3", "unknown.method", []byte(`{}`))
+	response, statusCode = gatewayObj.ProcessRequest(ctx, req, "")
+	require.Equal(t, 400, statusCode)
+	requireJSONRPCError(t, response, "r3", jsonrpc.ErrInvalidRequest, "Service name not found: unknown")
+}
+
 func TestGateway_CleanStartAndClose(t *testing.T) {
 	t.Parallel()
 

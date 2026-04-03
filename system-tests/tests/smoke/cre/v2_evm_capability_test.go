@@ -2,9 +2,13 @@ package cre
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
+
+	"slices"
 	"testing"
 	"time"
 
@@ -16,6 +20,7 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -59,43 +64,89 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 
 	lggr := framework.L
 	const workflowFileLocation = "./evm/evmread/main.go"
-	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
 
-	userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
-	baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
+	for _, tc := range testCases {
+		t.Run("Read "+tc.String(), func(t *testing.T) {
+			if parallelEnabled && fanoutEnabled {
+				t.Parallel()
+			}
 
-	// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, "./logs/evm_read_workflow_test.log"))
-	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
-	})
+			// Each case uses a fresh per-test execution context to avoid shared-signer nonce collisions,
+			// while still reusing the shared environment cache (sync.Once) for admin sessions.
+			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
 
-	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {
-		chainID := bcOutput.CtfOutput().ChainID
-		if _, ok := enabledChains[chainID]; !ok {
-			lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
-			continue
-		}
+			userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
+			baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
 
-		for _, tc := range testCases {
-			t.Run(fmt.Sprintf("Read %s on chain %s", tc.String(), chainID), func(t *testing.T) {
-				workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
-				lggr.Info().
-					Str("workflow_name", workflowName).
-					Str("chain_id", chainID).
-					Str("test_case", tc.String()).
-					Msg("Creating EVM Read workflow configuration...")
-				require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
-				evmChain := bcOutput.(*evm.Blockchain)
-				workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
-				t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
-
-				validateWorkflowExecution(t, lggr, testEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+			// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
+			server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, evmReadLogFilePath(t, perCaseEnv)))
+			t.Cleanup(func() {
+				server.Shutdown(t.Context())
+				close(userLogsCh)
+				close(baseMessageCh)
 			})
+
+			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
+				chainID := bcOutput.CtfOutput().ChainID
+				if _, ok := enabledChains[chainID]; !ok {
+					lggr.Info().Msgf("Skipping chain %s as it is not enabled for EVM Read workflow test", chainID)
+					continue
+				}
+
+				t.Run("on chain "+chainID, func(t *testing.T) {
+					workflowName := fmt.Sprintf("evm-read-workflow-%s-%04d", chainID, rand.Intn(10000))
+					lggr.Info().
+						Str("workflow_name", workflowName).
+						Str("chain_id", chainID).
+						Str("test_case", tc.String()).
+						Msg("Creating EVM Read workflow configuration...")
+					require.IsType(t, &evm.Blockchain{}, bcOutput, "expected EVM blockchain type")
+					evmChain := bcOutput.(*evm.Blockchain)
+					workflowConfig := configureEVMReadWorkflow(t, lggr, evmChain, tc, workflowName)
+					t_helpers.CompileAndDeployWorkflow(t, perCaseEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+					validateWorkflowExecution(t, lggr, perCaseEnv, evmChain, workflowName, common.BytesToAddress(workflowConfig.ContractAddress), workflowConfig.ExpectedReceipt.BlockNumber.Uint64())
+				})
+			}
+		})
+	}
+}
+
+func evmReadLogFilePath(t *testing.T, testEnv *ttypes.TestEnvironment) string {
+	t.Helper()
+	suffix := t.Name()
+	if testEnv != nil && testEnv.Execution != nil && testEnv.Execution.TestID != "" {
+		suffix = testEnv.Execution.TestID
+	}
+
+	safeSuffix := sanitizeLogToken(suffix)
+	if safeSuffix == "" {
+		safeSuffix = "default"
+	}
+
+	return fmt.Sprintf("./logs/evm_read_workflow_%s.log", safeSuffix)
+}
+
+func sanitizeLogToken(input string) string {
+	var b strings.Builder
+	b.Grow(len(input))
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
 		}
 	}
+
+	return b.String()
 }
 
 func makeSinkCh[T any]() chan T {
@@ -265,6 +316,66 @@ func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blo
 	}, msgEmitter
 }
 
+// connectTriggerDB connects to the Postgres database where BaseTrigger persists
+// pending events for the given chainID. Which database that is depends on
+// which DON owns the evm-{chainID} capability.
+func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sql.DB {
+	t.Helper()
+
+	var port int
+	var label string
+	evmFlag := "evm-" + chainID
+
+	// Check workflow NodeSet first (local takes precedence).
+	for _, ns := range nodeSets {
+		if slices.Contains(ns.DONTypes, cre.WorkflowDON) && slices.Contains(ns.Capabilities, evmFlag) {
+			port = ns.DbInput.Port
+			label = ns.Name
+			break
+		}
+	}
+
+	// Fall back to any NodeSet that has the capability (e.g. capabilities DON).
+	if port == 0 {
+		for _, ns := range nodeSets {
+			if slices.Contains(ns.Capabilities, evmFlag) {
+				port = ns.DbInput.Port
+				label = ns.Name
+				break
+			}
+		}
+	}
+	require.NotZerof(t, port, "no NodeSet found with evm-%s capability", chainID)
+
+	dsn := fmt.Sprintf(
+		"host=localhost port=%d user=chainlink password=thispasswordislongenough dbname=db_0 sslmode=disable",
+		port,
+	)
+	db, err := sql.Open("postgres", dsn)
+	require.NoError(t, err)
+	require.NoError(t, db.PingContext(t.Context()))
+	t.Logf("connected to %s node DB (port %d) for trigger event tracking on chain %s", label, port, chainID)
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+type tableStats struct {
+	inserts int64
+	deletes int64
+}
+
+// snapshotTriggerStats returns the current cumulative insert/delete counts for
+// the trigger_pending_events table from pg_stat_user_tables.
+func snapshotTriggerStats(ctx context.Context, db *sql.DB) (tableStats, error) {
+	var s tableStats
+	err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(n_tup_ins,0), COALESCE(n_tup_del,0)
+		   FROM pg_stat_user_tables
+		  WHERE relname = 'trigger_pending_events'`,
+	).Scan(&s.inserts, &s.deletes)
+	return s, err
+}
+
 func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	const workflowFileLocation = "./evm/logtrigger/main.go"
 	lggr := framework.L
@@ -294,14 +405,20 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
+		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
+
+		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
+		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
+		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
+
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
 
 		workflowName := fmt.Sprintf("evm-logTrigger-workflow-%s-%04d", chainID, rand.Intn(10000))
 		lggr.Info().Msgf("About to deploy Workflow %s on chain %s", workflowName, chainID)
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
-		message := "Data for log trigger"
+		message := "Data for log trigger chain " + chainID
 		// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
 		var emittedEventCount int64
 		ticker := time.NewTicker(10 * time.Second)
@@ -327,8 +444,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		}()
 		expectedUserLog := "OnTrigger decoded message: message:" + message
 
-		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute)
+		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
 		emitCancelFn()
+		lggr.Info().Msgf("Found expected user log: '%s' on chain %s", expectedUserLog, chainID)
+
+		// TODO: (CRE-2314) Re-enable trigger event ACKS
+		// verifyTriggerEventACKs(t, triggerDB, baselineStats)
 
 		lggr.Info().Msgf("🎉 LogTrigger Workflow %s executed successfully on chain %s", workflowName, chainID)
 		successfulLogTriggerChains = append(successfulLogTriggerChains, chainID)
@@ -340,3 +461,24 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	lggr.Info().Msgf("✅ LogTrigger test ran for chains: %v", successfulLogTriggerChains)
 }
+
+// verifyTriggerEventACKs ensures the Base Trigger persisted events and processed ACKs
+// by checking cumulative insert/delete counters in pg_stat_user_tables.
+// This works for both local triggers (where ACK is near-instant) and remote
+// triggers (where there's a network round-trip).
+func verifyTriggerEventACKs(t *testing.T, lggr zerolog.Logger, triggerDB *sql.DB, baselineStats tableStats) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		cur, sErr := snapshotTriggerStats(t.Context(), triggerDB)
+		if sErr != nil {
+			lggr.Error().Msgf("stats query error: %v", sErr)
+			return false
+		}
+		newInserts := cur.inserts - baselineStats.inserts
+		newDeletes := cur.deletes - baselineStats.deletes
+		lggr.Info().Msgf("trigger_pending_events stats delta: inserts=%d deletes=%d", newInserts, newDeletes)
+		return newInserts > 0 && newDeletes > 0
+	}, 2*time.Minute, time.Second, "trigger events were never inserted and/or ACKed in the database")
+}
+
+var _ = verifyTriggerEventACKs

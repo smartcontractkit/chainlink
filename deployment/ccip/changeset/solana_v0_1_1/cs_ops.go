@@ -141,7 +141,9 @@ func UpdateOffRampRefAddresses(
 		solana.PublicKey{},
 		"",
 	)
-	solOffRamp.SetProgramID(chainState.OffRamp)
+	runSafely(func() {
+		solOffRamp.SetProgramID(chainState.OffRamp)
+	})
 	ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
 		routerToSet,
 		feeQuoterToSet,
@@ -355,7 +357,9 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 		solana.PublicKey{},
 		"")
 
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -455,7 +459,9 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 			e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
 			receiverAddress = chainState.Receiver
 		}
-		solTestReceiver.SetProgramID(receiverAddress)
+		runSafely(func() {
+			solTestReceiver.SetProgramID(receiverAddress)
+		})
 		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverAddress)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
@@ -521,7 +527,9 @@ func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOut
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	feeQuoterConfigPDA, _, _ := solState.FindConfigPDA(chainState.FeeQuoter)
 
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	routerIx, err := solRouter.NewSetLinkTokenMintInstruction(
 		chainState.LinkToken,
 		routerConfigPDA,
@@ -532,7 +540,9 @@ func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOut
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	})
 	feeQuoterIx, err := solFeeQuoter.NewSetLinkTokenMintInstruction(
 		feeQuoterConfigPDA,
 		chainState.LinkToken,
@@ -610,7 +620,9 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	ixn, err := solRouter.NewSetDefaultCodeVersionInstruction(
 		solRouter.CodeVersion(cfg.VersionEnum),
 		chainState.RouterConfigPDA,
@@ -638,7 +650,9 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		shared.OffRamp,
 		solana.PublicKey{},
 		"")
-	solOffRamp.SetProgramID(chainState.OffRamp)
+	runSafely(func() {
+		solOffRamp.SetProgramID(chainState.OffRamp)
+	})
 	ixn2, err := solOffRamp.NewSetDefaultCodeVersionInstruction(
 		solOffRamp.CodeVersion(cfg.VersionEnum),
 		chainState.OffRampConfigPDA,
@@ -665,7 +679,9 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	})
 	ixn3, err := solFeeQuoter.NewSetDefaultCodeVersionInstruction(
 		solFeeQuoter.CodeVersion(cfg.VersionEnum),
 		chainState.FeeQuoterConfigPDA,
@@ -760,7 +776,9 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	ixn, err := solRouter.NewUpdateSvmChainSelectorInstruction(
 		cfg.NewChainSelector,
 		routerConfigPDA,
@@ -788,7 +806,9 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 		shared.OffRamp,
 		solana.PublicKey{},
 		"")
-	solOffRamp.SetProgramID(chainState.OffRamp)
+	runSafely(func() {
+		solOffRamp.SetProgramID(chainState.OffRamp)
+	})
 	ixn2, err := solOffRamp.NewUpdateSvmChainSelectorInstruction(
 		cfg.NewChainSelector,
 		chainState.OffRampConfigPDA,
@@ -870,7 +890,9 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 		shared.OffRamp,
 		solana.PublicKey{},
 		"")
-	solOffRamp.SetProgramID(chainState.OffRamp)
+	runSafely(func() {
+		solOffRamp.SetProgramID(chainState.OffRamp)
+	})
 	ixn2, err := solOffRamp.NewUpdateEnableManualExecutionAfterInstruction(
 		cfg.EnableManualExecution,
 		chainState.OffRampConfigPDA,
@@ -970,7 +992,9 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	var ixn solana.Instruction
 	switch cfg.Operation {
 	case Bump:
@@ -1068,7 +1092,9 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 		shared.Router,
 		solana.PublicKey{},
 		"")
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	ixn, err := solRouter.NewRemoveOfframpInstruction(
 		cfg.ChainSelector,
 		cfg.OffRamp,
