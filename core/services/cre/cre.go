@@ -932,15 +932,13 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
-	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
-	if len(addSources) > 0 {
-		for _, src := range addSources {
-			addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
-				URL:          src.GetURL(),
-				Name:         src.GetName(),
-				TLSEnabled:   src.GetTLSEnabled(),
-				JWTGenerator: opts.JWTGenerator,
-			})
+	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, len(addSources))
+	for i, src := range addSources {
+		addSourceConfigs[i] = syncerV2.AdditionalSourceConfig{
+			URL:          src.GetURL(),
+			Name:         src.GetName(),
+			TLSEnabled:   src.GetTLSEnabled(),
+			JWTGenerator: opts.JWTGenerator,
 		}
 	}
 
