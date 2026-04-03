@@ -551,6 +551,3 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 
 // requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
 replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
-
-// TODO: Remove once https://github.com/smartcontractkit/chainlink-common/pull/1924 is merged
-replace github.com/smartcontractkit/chainlink-common => github.com/smartcontractkit/chainlink-common v0.11.2-0.20260401081634-802d10985a53

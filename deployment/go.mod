@@ -549,6 +549,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// TODO: Remove once https://github.com/smartcontractkit/chainlink-common/pull/1924 is merged
-replace github.com/smartcontractkit/chainlink-common => github.com/smartcontractkit/chainlink-common v0.11.2-0.20260401081634-802d10985a53
