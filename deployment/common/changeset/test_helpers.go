@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -150,8 +152,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				// We need to supply a salt override, otherwise the validUntil timestamp will be used to generate the salt.
 				// In tests, validUntil is not always guaranteed to produce a unique operation ID because proposals often get generated within the same second.
 				// This has been a cause of flakiness in the past (caused an AlreadyScheduled error).
-				// saltOverride := utils.RandomHash()
-				// prop.SaltOverride = &saltOverride
+				saltOverride := utils.RandomHash()
+				prop.SaltOverride = &saltOverride
 
 				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
 				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
