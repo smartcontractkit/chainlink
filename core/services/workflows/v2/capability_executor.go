@@ -192,17 +192,6 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		},
 		Config: values.EmptyMap(),
 	}
-	gate := c.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-	if gate == nil {
-		return nil, errors.New("vault org id gate is nil")
-	}
-	enabled, gateErr := gate.Limit(ctx)
-	if gateErr != nil {
-		return nil, gateErr
-	}
-	if enabled {
-		capReq.Metadata.OrgID = contexts.CREValue(ctx).Org
-	}
 
 	execLogger.Debug("Executing capability ...")
 	c.metrics.With(platform.KeyCapabilityID, request.Id).IncrementCapabilityInvocationCounter(ctx)
@@ -278,19 +267,23 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 
 const userMetricPrefix = "user_workflow_"
 
-func userMetricTypeSuffix(t eventsv2.UserMetricType) string {
+func userMetricTypeSuffix(t eventsv2.UserMetricType) (string, error) {
 	switch t {
 	case eventsv2.UserMetricType_USER_METRIC_TYPE_COUNTER:
-		return "_counter"
+		return "_counter", nil
 	case eventsv2.UserMetricType_USER_METRIC_TYPE_GAUGE:
-		return "_gauge"
+		return "_gauge", nil
 	default:
-		return ""
+		return "", fmt.Errorf("unsupported user metric type: %v", t)
 	}
 }
 
 func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.WorkflowUserMetric) error {
-	metric.Name = userMetricPrefix + metric.Name + userMetricTypeSuffix(metric.Type)
+	suffix, err := userMetricTypeSuffix(metric.Type)
+	if err != nil {
+		return err
+	}
+	metric.Name = userMetricPrefix + metric.Name + suffix
 	loggerLabels := *c.loggerLabels.Load()
 	return events.EmitUserMetric(ctx, loggerLabels, metric)
 }
