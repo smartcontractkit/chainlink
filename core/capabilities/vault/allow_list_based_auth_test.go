@@ -180,8 +180,8 @@ func testAuthForRequests(t *testing.T, allowlistedRequest, notAllowlistedRequest
 	authResult, err := auth.AuthorizeRequest(t.Context(), allowlistedRequest)
 	require.NoError(t, err)
 	require.Equal(t, owner.Hex(), authResult.AuthorizedOwner())
-	require.Equal(t, expiry, authResult.GetExpiresAt())
-	require.NotEmpty(t, authResult.GetDigest())
+	require.Equal(t, expiry, authResult.ExpiresAt())
+	require.NotEmpty(t, authResult.Digest())
 
 	// Same request is still authorized here; replay protection lives in the generic Authorizer.
 	authResult, err = auth.AuthorizeRequest(t.Context(), allowlistedRequest)
@@ -237,7 +237,7 @@ func TestAllowListBasedAuth_RetriesUntilRequestIsAllowlisted(t *testing.T) {
 	authResult, err := auth.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
 	require.Equal(t, owner.Hex(), authResult.AuthorizedOwner())
-	require.Equal(t, expiry, authResult.GetExpiresAt())
+	require.Equal(t, expiry, authResult.ExpiresAt())
 }
 
 func TestAllowListBasedAuth_FailsAfterAllowlistReadRetries(t *testing.T) {

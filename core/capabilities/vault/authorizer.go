@@ -29,6 +29,22 @@ func NewAuthResult(orgID, workflowOwner, digest string, expiresAt int64) *AuthRe
 	}
 }
 
+// OrgID returns the authorized org ID, if present.
+func (a *AuthResult) OrgID() string {
+	if a == nil {
+		return ""
+	}
+	return a.orgID
+}
+
+// WorkflowOwner returns the authorized workflow owner, if present.
+func (a *AuthResult) WorkflowOwner() string {
+	if a == nil {
+		return ""
+	}
+	return a.workflowOwner
+}
+
 // AuthorizedOwner returns the canonical owner to use for request scoping.
 func (a *AuthResult) AuthorizedOwner() string {
 	if a == nil {
@@ -40,32 +56,21 @@ func (a *AuthResult) AuthorizedOwner() string {
 	return a.workflowOwner
 }
 
-// GetDigest returns the request digest used for replay protection.
-func (a *AuthResult) GetDigest() string {
+// Digest returns the request digest used for replay protection.
+func (a *AuthResult) Digest() string {
 	if a == nil {
 		return ""
 	}
 	return a.digest
 }
 
-// GetExpiresAt returns the unix timestamp (UTC) after which this
+// ExpiresAt returns the unix timestamp (UTC) after which this
 // authorization is no longer valid.
-func (a *AuthResult) GetExpiresAt() int64 {
+func (a *AuthResult) ExpiresAt() int64 {
 	if a == nil {
 		return 0
 	}
 	return a.expiresAt
-}
-
-// GetUntrustedWorkflowOwner returns the workflow owner only for JWTBasedAuth results.
-func (a *AuthResult) GetUntrustedWorkflowOwner() (string, error) {
-	if a == nil {
-		return "", errors.New("auth result is nil")
-	}
-	if a.orgID == "" {
-		return "", errors.New("untrusted workflow owner only applies to JWTBasedAuth results")
-	}
-	return a.workflowOwner, nil
 }
 
 // Authorizer selects the applicable auth mechanism for a Vault request.
@@ -99,11 +104,11 @@ func (a *authorizer) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[j
 		a.lggr.Errorw("auth mechanism returned nil auth result", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "")
 		return nil, err
 	}
-	if err := a.replayGuard.CheckAndRecord(authResult.GetDigest(), authResult.GetExpiresAt()); err != nil {
-		a.lggr.Debugw("replay guard rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.GetDigest(), "expiresAt", authResult.GetExpiresAt(), "hasAuth", req.Auth != "", "error", err)
+	if err := a.replayGuard.CheckAndRecord(authResult.Digest(), authResult.ExpiresAt()); err != nil {
+		a.lggr.Debugw("replay guard rejected request", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "", "error", err)
 		return nil, err
 	}
-	a.lggr.Debugw("request authorized", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.GetDigest(), "expiresAt", authResult.GetExpiresAt(), "hasAuth", req.Auth != "")
+	a.lggr.Debugw("request authorized", "method", req.Method, "requestID", req.ID, "owner", authResult.AuthorizedOwner(), "digest", authResult.Digest(), "expiresAt", authResult.ExpiresAt(), "hasAuth", req.Auth != "")
 	return authResult, nil
 }
 

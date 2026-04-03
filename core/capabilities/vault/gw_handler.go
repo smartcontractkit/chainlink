@@ -162,33 +162,33 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	var response *jsonrpc.Response[json.RawMessage]
 	switch req.Method {
 	case vaulttypes.MethodSecretsCreate:
-		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		authResult, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
 			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
-		response = h.handleSecretsCreate(ctx, gatewayID, req, owner)
+		response = h.handleSecretsCreate(ctx, gatewayID, req, authResult)
 	case vaulttypes.MethodSecretsUpdate:
-		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		authResult, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
 			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
-		response = h.handleSecretsUpdate(ctx, gatewayID, req, owner)
+		response = h.handleSecretsUpdate(ctx, gatewayID, req, authResult)
 	case vaulttypes.MethodSecretsDelete:
-		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		authResult, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
 			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
-		response = h.handleSecretsDelete(ctx, gatewayID, req, owner)
+		response = h.handleSecretsDelete(ctx, gatewayID, req, authResult)
 	case vaulttypes.MethodSecretsList:
-		owner, authErr := h.authorizeAndPrefixRequest(ctx, req)
+		authResult, authErr := h.authorizeAndPrefixRequest(ctx, req)
 		if authErr != nil {
 			response = h.errorResponse(ctx, gatewayID, req, api.HandlerError, authErr)
 			break
 		}
-		response = h.handleSecretsList(ctx, gatewayID, req, owner)
+		response = h.handleSecretsList(ctx, gatewayID, req, authResult)
 	case vaulttypes.MethodPublicKeyGet:
 		response = h.handlePublicKeyGet(ctx, gatewayID, req)
 	default:
@@ -207,11 +207,11 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	return nil
 }
 
-func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) (string, error) {
+func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage]) (*AuthResult, error) {
 	if h.authorizer == nil {
 		err := errors.New("authorizer is nil")
 		h.lggr.Errorw("failed to authorize gateway request", "method", req.Method, "requestID", req.ID, "error", err)
-		return "", err
+		return nil, err
 	}
 
 	originalRequestID := req.ID
@@ -225,7 +225,7 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	authReq.ID = originalRequestID
 	if err := stripPrefixedRequestIDFromParams(&authReq, originalRequestID); err != nil {
 		h.lggr.Errorw("failed to normalize gateway request for authorization", "method", req.Method, "requestID", originalRequestID, "error", err)
-		return "", err
+		return nil, err
 	}
 
 	h.lggr.Debugw("authorizing gateway request", "method", req.Method, "requestID", originalRequestID)
@@ -233,18 +233,18 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	if err != nil {
 		authErr := fmt.Errorf("request not authorized: %w", err)
 		h.lggr.Errorw("gateway request authorization failed", "method", req.Method, "requestID", originalRequestID, "hasAuth", req.Auth != "", "incomingOwner", incomingOwner, "error", authErr)
-		return "", authErr
+		return nil, authErr
 	}
 	authorizedOwner := authResult.AuthorizedOwner()
 	if incomingOwner != "" && normalizeOwner(incomingOwner) != normalizeOwner(authorizedOwner) {
 		prefixErr := fmt.Errorf("request owner prefix %q does not match authorized owner %q", incomingOwner, authorizedOwner)
 		h.lggr.Errorw("gateway request owner prefix mismatch", "method", req.Method, "requestID", originalRequestID, "incomingOwner", incomingOwner, "authorizedOwner", authorizedOwner, "error", prefixErr)
-		return "", prefixErr
+		return nil, prefixErr
 	}
 
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + originalRequestID
-	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", authorizedOwner)
-	return authorizedOwner, nil
+	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", authorizedOwner, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner())
+	return authResult, nil
 }
 
 func stripPrefixedRequestIDFromParams(req *jsonrpc.Request[json.RawMessage], originalRequestID string) error {
@@ -296,18 +296,50 @@ func rewriteRequestParams(req *jsonrpc.Request[json.RawMessage], payload any) er
 	return nil
 }
 
-func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
+func setAuthorizedIdentityFields(req any, authResult *AuthResult) error {
+	if authResult == nil {
+		return errors.New("auth result is nil")
+	}
+
+	// Critical: the Vault capability trusts OrgId and WorkflowOwner to be set by
+	// the Vault node only after authorization and request validation succeed. We
+	// must overwrite any JSON-provided values here; otherwise a malicious request
+	// could smuggle mismatched identity fields into the capability call.
+	switch r := req.(type) {
+	case *vaultcommon.CreateSecretsRequest:
+		r.OrgId = authResult.OrgID()
+		r.WorkflowOwner = authResult.WorkflowOwner()
+	case *vaultcommon.UpdateSecretsRequest:
+		r.OrgId = authResult.OrgID()
+		r.WorkflowOwner = authResult.WorkflowOwner()
+	case *vaultcommon.DeleteSecretsRequest:
+		r.OrgId = authResult.OrgID()
+		r.WorkflowOwner = authResult.WorkflowOwner()
+	case *vaultcommon.ListSecretIdentifiersRequest:
+		r.OrgId = authResult.OrgID()
+		r.WorkflowOwner = authResult.WorkflowOwner()
+	default:
+		return fmt.Errorf("unsupported vault request type %T", req)
+	}
+
+	return nil
+}
+
+func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	vaultCapRequest := vaultcommon.CreateSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
+	authorizedOwner := authResult.AuthorizedOwner()
 	vaultCapRequest.RequestId = req.ID
-	vaultCapRequest.WorkflowOwner = owner
+	if err := setAuthorizedIdentityFields(&vaultCapRequest, authResult); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
 	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
-		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
-			h.lggr.Debugw("create secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", owner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, owner, idx))
+		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(authorizedOwner) {
+			h.lggr.Debugw("create secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", authorizedOwner, "index", idx)
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, authorizedOwner, idx))
 		}
 	}
 
@@ -324,17 +356,20 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	return jsonResponse
 }
 
-func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	vaultCapRequest := vaultcommon.UpdateSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+	authorizedOwner := authResult.AuthorizedOwner()
 	vaultCapRequest.RequestId = req.ID
-	vaultCapRequest.WorkflowOwner = owner
+	if err := setAuthorizedIdentityFields(&vaultCapRequest, authResult); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
 	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
-		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
-			h.lggr.Debugw("update secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", owner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, owner, idx))
+		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(authorizedOwner) {
+			h.lggr.Debugw("update secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", authorizedOwner, "index", idx)
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, authorizedOwner, idx))
 		}
 	}
 
@@ -351,17 +386,20 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 	return jsonResponse
 }
 
-func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.DeleteSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+	authorizedOwner := authResult.AuthorizedOwner()
 	r.RequestId = req.ID
-	r.WorkflowOwner = owner
+	if err := setAuthorizedIdentityFields(r, authResult); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
 	for idx, secretID := range r.Ids {
-		if secretID != nil && normalizeOwner(secretID.Owner) != normalizeOwner(owner) {
-			h.lggr.Debugw("delete secrets request owner mismatch", "requestID", req.ID, "secretOwner", secretID.Owner, "authorizedOwner", owner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", secretID.Owner, owner, idx))
+		if secretID != nil && normalizeOwner(secretID.Owner) != normalizeOwner(authorizedOwner) {
+			h.lggr.Debugw("delete secrets request owner mismatch", "requestID", req.ID, "secretOwner", secretID.Owner, "authorizedOwner", authorizedOwner, "index", idx)
+			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", secretID.Owner, authorizedOwner, idx))
 		}
 	}
 
@@ -384,13 +422,16 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
-func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], owner string) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	r.RequestId = req.ID
-	r.Owner = owner
+	r.Owner = authResult.AuthorizedOwner()
+	if err := setAuthorizedIdentityFields(r, authResult); err != nil {
+		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
+	}
 
 	h.lggr.Debugf("Processing authorized and normalized list secrets request [%s]", r.String())
 	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
