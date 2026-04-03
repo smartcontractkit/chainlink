@@ -303,6 +303,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 	}
 
 	vaultCapRequest.RequestId = req.ID
+	vaultCapRequest.WorkflowOwner = owner
 	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
 		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
 			h.lggr.Debugw("create secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", owner, "index", idx)
@@ -329,6 +330,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	vaultCapRequest.RequestId = req.ID
+	vaultCapRequest.WorkflowOwner = owner
 	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
 		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(owner) {
 			h.lggr.Debugw("update secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", owner, "index", idx)
@@ -355,6 +357,7 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 	r.RequestId = req.ID
+	r.WorkflowOwner = owner
 	for idx, secretID := range r.Ids {
 		if secretID != nil && normalizeOwner(secretID.Owner) != normalizeOwner(owner) {
 			h.lggr.Debugw("delete secrets request owner mismatch", "requestID", req.ID, "secretOwner", secretID.Owner, "authorizedOwner", owner, "index", idx)
