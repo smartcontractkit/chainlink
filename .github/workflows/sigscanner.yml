@@ -10,11 +10,15 @@ on:
 
 permissions: {}
 
-# GPG key fingerprint for chainlink-release-pusher[bot]. Commits signed
-# with this key are exempt from SigScanner. Stored here (not in Secrets)
-# so that any change requires code-review approval.
+# SSH key fingerprint for the release-pusher bot's signing key. Commits
+# signed with this key are exempt from SigScanner. Stored here (not in
+# Secrets) so that any change requires code-review approval.
+# The bot signs via a GitHub App SSH key that is not linked to an account,
+# so GitHub reports verified=false/unknown_key — we must extract the
+# public key from the SSH signature and compute its fingerprint ourselves.
 env:
-  BOT_SIGN_KEY_FP_RELEASE_PUSHER: "SHA256:ZbmANK1Txn2p21TXLqLn9OdfsgPNW9Nt1s9s1i0/1bc"
+  BOT_KEY_FP: "SHA256:ZbmANK1Txn2p21TXLqLn9OdfsgPNW9Nt1s9s1i0/1bc"
+  BOT_LOGIN: "chainlink-release-pusher[bot]"
 
 jobs:
   sigscanner-check:
@@ -27,40 +31,69 @@ jobs:
       contents: read
     env:
       # On pull_request, github.sha is a temporary merge commit; use the
-      # actual PR head commit so we verify the developer's signed commit.
+      # actual PR head commit so we verify the author's signed commit.
       # On push, github.sha is the real commit on develop.
       COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Checkout commit
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 1
-          persist-credentials: false
-
       - name: Check if commit is signed by release-pusher bot
         id: bot-sig-check
-        run: |
-          echo "🔑 Checking commit signature against release-pusher bot fingerprint …"
-          echo "Bot key fingerprint: ${BOT_SIGN_KEY_FP_RELEASE_PUSHER}"
+        # Only call the GitHub API when the PR was opened by the bot.
+        # github.event.pull_request.user.login is set server-side by
+        # GitHub and cannot be spoofed. On push events (no PR context)
+        # this condition is false, so we skip straight to SigScanner.
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login == 'chainlink-release-pusher[bot]'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const crypto = require('crypto');
 
-          # Extract the fingerprint that signed this commit (empty if unsigned/unverified)
-          SIGN_FP=$(git log --format='%GF' -1 "${COMMIT_SHA}")
+            const expectedFP = process.env.BOT_KEY_FP;
+            const commitSHA = process.env.COMMIT_SHA;
+            core.info(`🔑 PR opened by ${process.env.BOT_LOGIN} — verifying commit signature …`);
+            core.info(`Expected bot key fingerprint: ${expectedFP}`);
 
-          if [[ -n "${SIGN_FP}" && "${SIGN_FP}" == "${BOT_SIGN_KEY_FP_RELEASE_PUSHER}" ]]; then
-            echo "✅ Commit is signed by the release-pusher bot — skipping SigScanner"
-            echo "signed_by_bot=true" | tee -a "$GITHUB_OUTPUT"
-          else
-            if [[ -n "${SIGN_FP}" ]]; then
-              echo "ℹ️  Commit is GPG-signed but NOT by the bot (signer: ${SIGN_FP})"
-            else
-              echo "ℹ️  Commit has no valid GPG signature"
-            fi
-            echo "signed_by_bot=false" | tee -a "$GITHUB_OUTPUT"
-          fi
+            // The bot signs commits with an SSH key from a GitHub App that is not
+            // linked to a GitHub account, so the API reports verified=false with
+            // reason=unknown_key. We cannot rely on verification status. Instead,
+            // extract the public key embedded in the SSH signature and compute its
+            // SHA256 fingerprint to compare against the known bot key fingerprint.
+            const { data: commit } = await github.rest.repos.getCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: commitSHA,
+            });
+
+            const sig = commit.commit.verification?.signature;
+            if (!sig) {
+              core.setFailed('PR is from the bot but the commit has no signature');
+              return;
+            }
+
+            // Parse the SSH signature to extract the embedded public key and
+            // compute its SHA256 fingerprint.
+            // SSH signature binary format:
+            //   'SSHSIG' magic (6 bytes) + uint32 version (4 bytes) +
+            //   string publickey (uint32 length + key blob) + ...
+            const sigB64 = sig.split('\n').filter(l => !l.startsWith('-----')).join('');
+            const buf = Buffer.from(sigB64, 'base64');
+            const pkLen = buf.readUInt32BE(10);
+            const pkBlob = buf.subarray(14, 14 + pkLen);
+            const fp = 'SHA256:' + crypto.createHash('sha256')
+              .update(pkBlob).digest('base64').replace(/=+$/, '');
+
+            core.info(`Commit signature fingerprint: ${fp}`);
+
+            if (fp === expectedFP) {
+              core.info('✅ Commit is signed by the release-pusher bot — skipping SigScanner');
+              core.setOutput('signed_by_bot', 'true');
+            } else {
+              core.setFailed(`PR is from the bot but commit is signed by unknown key (${fp})`);
+            }
 
       - name: "SigScanner checking ${{ env.COMMIT_SHA }} by ${{ github.actor }}"
-        if: steps.bot-sig-check.outputs.signed_by_bot == 'false'
+        if: steps.bot-sig-check.outputs.signed_by_bot != 'true'
         env:
           API_TOKEN: ${{ secrets.SIGSCANNER_API_TOKEN }}
           API_URL: ${{ secrets.SIGSCANNER_API_URL }}
