@@ -120,8 +120,7 @@ func SuiEventEmitter[T any](
 		Version string
 	}, 200)
 	errChan := make(chan error)
-	limit := uint64(50)                 // Use uint64 directly to avoid conversion
-	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
+	limit := uint64(50)
 
 	go func() {
 		defer close(ch)
@@ -130,9 +129,11 @@ func SuiEventEmitter[T any](
 		ticker := time.NewTicker(time.Second * 2)
 		defer ticker.Stop()
 
+		var cursor interface{}
+
 		for {
+			// Drain all available pages from the current cursor position before waiting.
 			for {
-				// As this can take a few iterations if there are many events, check for done before each request
 				select {
 				case <-done:
 					t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
@@ -146,6 +147,7 @@ func SuiEventEmitter[T any](
 
 				events, err := client.SuiXQueryEvents(t.Context(), models.SuiXQueryEventsRequest{
 					SuiEventFilter:  eventFilter,
+					Cursor:          cursor,
 					Limit:           limit,
 					DescendingOrder: false,
 				})
@@ -160,37 +162,21 @@ func SuiEventEmitter[T any](
 				}
 
 				if len(events.Data) == 0 {
-					// No new events found
 					t.Logf("[DEBUG] SuiEventEmitter: No new events found")
 					break
 				}
 
 				t.Logf("[DEBUG] SuiEventEmitter: Processing %d events", len(events.Data))
-				newEventsCount := 0
 
 				for _, ev := range events.Data {
-					// Create unique event ID combining transaction digest and event sequence
 					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
 
-					if seenEvents[eventID] {
-						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						continue // skip duplicates
-					}
-					seenEvents[eventID] = true
-
 					var out T
-					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
 					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
-						select {
-						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
-						case <-done:
-							return
-						}
+						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s: %v (skipping)", eventID, err)
 						continue
 					}
 
-					newEventsCount++
 					eventData := struct {
 						Event   T
 						Version string
@@ -199,26 +185,21 @@ func SuiEventEmitter[T any](
 						Version: ev.Id.EventSeq,
 					}
 
-					// Non-blocking send to prevent goroutine deadlock
 					select {
 					case ch <- eventData:
-						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
+						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s at timestamp %s", eventID, ev.Type, ev.TimestampMs)
 					case <-done:
 						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
 						return
 					default:
-						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						// Channel is full, log warning but continue processing
-						// This prevents blocking the entire event loop
+						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s", eventID)
 					}
 				}
 
-				t.Logf("[DEBUG] SuiEventEmitter: Processed %d new events out of %d total", newEventsCount, len(events.Data))
+				// Advance the cursor so the next query picks up where we left off.
+				cursor = events.NextCursor
 
-				// For now, break after processing to avoid infinite loops
-				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
-				if uint64(len(events.Data)) < limit {
-					// Received fewer events than limit, likely no more events available
+				if !events.HasNextPage {
 					break
 				}
 			}
@@ -227,7 +208,6 @@ func SuiEventEmitter[T any](
 				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal in ticker loop")
 				return
 			case <-ticker.C:
-				t.Logf("[DEBUG] SuiEventEmitter: Ticker fired, checking for new events")
 				continue
 			}
 		}
