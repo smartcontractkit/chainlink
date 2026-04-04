@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -34,6 +35,8 @@ import (
 func TestBuildProposalFromBatchesV2(t *testing.T) {
 	quarantine.Flaky(t, "DX-1824")
 	t.Parallel()
+
+	clock := func() time.Time { return time.Date(2036, time.December, 31, 23, 59, 59, 999999999, time.UTC) }
 
 	evmSelector := chain_selectors.TEST_90000001.Selector
 	solSelector := chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -92,10 +95,11 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 
 	description := "Test Proposal"
 	minDelay := 24 * time.Hour
-	solpk := solanasdk.NewWallet().PublicKey()
+	solpk, err := solanasdk.WalletFromPrivateKeyBase58("5LfM6zhzXT8STNaCVKn8y2FXP2L3KLYn1Z4bGycNh2kz9W4yopTSR2bL587PSeJSCU8Ek6UqiTAhY3TWonJiim72")
+	require.NoError(t, err)
 
 	evmTx := types.Transaction{To: "0xRecipient1", Data: []byte("data1"), AdditionalFields: json.RawMessage(`{"value": 0}`)}
-	solTx, err := solana.NewTransaction(solpk.String(), []byte("data1"), big.NewInt(0), []*solanasdk.AccountMeta{}, "", []string{})
+	solTx, err := solana.NewTransaction(solpk.PublicKey().String(), []byte("data1"), big.NewInt(0), []*solanasdk.AccountMeta{}, "", []string{})
 	require.NoError(t, err)
 	batches := []types.BatchOperation{
 		{
@@ -124,7 +128,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 		BaseProposal: mcms.BaseProposal{
 			Version:    "v1",
 			Kind:       "TimelockProposal",
-			ValidUntil: 1234,
+			ValidUntil: 2114639999,
 			ChainMetadata: map[types.ChainSelector]types.ChainMetadata{
 				types.ChainSelector(evmSelector): evmMetadata,
 				types.ChainSelector(solSelector): solMetadata,
@@ -141,8 +145,16 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 			return copiedAddrs
 		}(timelockAddressPerChain),
 		Operations: []types.BatchOperation{
-			{ChainSelector: types.ChainSelector(evmSelector), Transactions: []types.Transaction{evmTx}},
-			{ChainSelector: types.ChainSelector(solSelector), Transactions: []types.Transaction{solTx}},
+			{
+				OperationID:   gethcommon.HexToHash("0xfd99d0c0641d26ed0e7d64c4674e58051823182216161d4b59967f98e6b888ba"),
+				ChainSelector: types.ChainSelector(evmSelector),
+				Transactions:  []types.Transaction{evmTx},
+			},
+			{
+				OperationID:   gethcommon.HexToHash("0x1f6e97592a5d0197b18504d909ae8e51a61cfecabb07e7b06c190a4abfa2da4b"),
+				ChainSelector: types.ChainSelector(solSelector),
+				Transactions:  []types.Transaction{solTx},
+			},
 		},
 	}
 
@@ -158,14 +170,14 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 			name:       "success: explicit inspectors",
 			batches:    batches,
 			inspectors: inspectorPerChain,
-			options:    []proposalutils.BuildProposalOption{},
+			options:    []proposalutils.BuildProposalOption{proposalutils.WithClock(clock)},
 			want:       wantProposal,
 		},
 		{
 			name:       "success: implicit inspectors",
 			batches:    batches,
 			inspectors: nil,
-			options:    []proposalutils.BuildProposalOption{},
+			options:    []proposalutils.BuildProposalOption{proposalutils.WithClock(clock)},
 			want:       wantProposal,
 		},
 		{
@@ -173,6 +185,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 			batches:    batches,
 			inspectors: nil,
 			options: []proposalutils.BuildProposalOption{
+				proposalutils.WithClock(clock),
 				proposalutils.WithChainMetadata(proposalutils.ChainMetadata{
 					evmSelector: map[string]any{
 						"gasLimit": 100,
@@ -190,8 +203,6 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 					},
 					types.ChainSelector(solSelector): solMetadata,
 				}
-				t.Logf("PROPOSAL1.ChainMetadata:     %#v", proposal.ChainMetadata)
-				t.Logf("WANTPROPOSAL1.ChainMetadata: %#v", wantProposal.ChainMetadata)
 				return &proposal
 			}(),
 		},
@@ -223,7 +234,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				require.Empty(t, cmp.Diff(tt.want, proposal,
-					cmpopts.IgnoreFields(mcms.BaseProposal{}, "useSimulatedBackend", "ValidUntil")))
+					cmpopts.IgnoreFields(mcms.BaseProposal{}, "useSimulatedBackend")))
 			} else {
 				require.Nil(t, proposal)
 				require.ErrorContains(t, err, tt.wantErr)

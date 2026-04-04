@@ -200,12 +200,19 @@ func (c *ChainMetadata) Set(chainSelector uint64, key string, value any) *ChainM
 type BuildProposalOption func(*buildProposalOptions)
 
 type buildProposalOptions struct {
+	clock         func() time.Time
 	chainMetadata ChainMetadata
 }
 
 func WithChainMetadata(chainMetadata ChainMetadata) BuildProposalOption {
 	return func(opts *buildProposalOptions) {
 		opts.chainMetadata = chainMetadata
+	}
+}
+
+func WithClock(clock func() time.Time) BuildProposalOption {
+	return func(opts *buildProposalOptions) {
+		opts.clock = clock
 	}
 }
 
@@ -220,7 +227,7 @@ func BuildProposalFromBatchesV2(
 	mcmsCfg TimelockConfig,
 	opts ...BuildProposalOption,
 ) (*mcmslib.TimelockProposal, error) {
-	buildOptions := buildProposalOptions{}
+	buildOptions := buildProposalOptions{clock: time.Now}
 	for _, opt := range opts {
 		opt(&buildOptions)
 	}
@@ -252,7 +259,7 @@ func BuildProposalFromBatchesV2(
 	if mcmsCfg.ValidDuration != nil {
 		proposalDuration = mcmsCfg.ValidDuration.Duration()
 	}
-	validUntil := time.Now().Add(proposalDuration).Unix()
+	validUntil := buildOptions.clock().Add(proposalDuration).Unix()
 
 	builder := mcmslib.NewTimelockProposalBuilder()
 	builder.
