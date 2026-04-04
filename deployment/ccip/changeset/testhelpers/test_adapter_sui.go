@@ -13,11 +13,10 @@ import (
 	"github.com/block-vision/sui-go-sdk/models"
 	"github.com/block-vision/sui-go-sdk/sui"
 
-	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
+	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -32,10 +31,10 @@ type SuiAdapter struct {
 	cldf_sui.Chain
 }
 
-func (a *SuiAdapter) offRampPkgID() string {
-	if v2 := a.state.OffRampMockV2PackageId; v2 != "" {
-		return v2
-	}
+// offRampOriginalPkgID returns the original (V1) package ID, which must be used
+// for event queries. In Sui, struct types (including events) always carry the
+// original defining package's ID regardless of which upgraded version emitted them.
+func (a *SuiAdapter) offRampOriginalPkgID() string {
 	return a.state.OffRampAddress
 }
 
@@ -83,7 +82,7 @@ func (a *SuiAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 		t,
 		sourceSelector,
 		a.Chain,
-		a.offRampPkgID(),
+		a.offRampOriginalPkgID(),
 		startBlock,
 		seqNumRange,
 		true,
@@ -96,7 +95,7 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 		t,
 		sourceSelector,
 		a.Chain,
-		a.offRampPkgID(),
+		a.offRampOriginalPkgID(),
 		startBlock,
 		seqNrs,
 	)
@@ -172,7 +171,7 @@ func SuiEventEmitter[T any](
 					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
 
 					var out T
-					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
+					if err := codec.DecodeSuiJsonValue(ev.ParsedJson, &out); err != nil {
 						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s: %v (skipping)", eventID, err)
 						continue
 					}
@@ -305,7 +304,7 @@ func confirmExecWithExpectedSeqNrsSui(
 	defer close(done)
 
 	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
-	sink, errChan := SuiEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
 
 	t.Log("[DEBUG] Event subscription established")
 
