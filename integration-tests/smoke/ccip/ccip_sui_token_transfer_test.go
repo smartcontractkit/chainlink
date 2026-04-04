@@ -1392,7 +1392,7 @@ func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 // 	})
 // }
 
-func Test_CCIPTokenTransfer_EVM2SUI_BurnMintTokenPool(t *testing.T) {
+func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
