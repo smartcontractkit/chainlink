@@ -220,6 +220,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	e.RefreshAdapters()
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -321,6 +323,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
+
+	e.RefreshAdapters()
 
 	var (
 		nonce  uint64
@@ -444,8 +448,22 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	e.RefreshAdapters()
+
+	setup = messagingtest.NewTestSetupWithDeployedEnv(
+		t,
+		e,
+		state,
+		sourceChain,
+		destChain,
+		sender,
+		false,
+	)
+
 	t.Run("CCIP FQ upgraded blocked v1: Message to Sui - Should Succeed", func(t *testing.T) {
-		// ccipChainState := state.SuiChains[destChain]
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
 			messagingtest.TestCase{

@@ -1093,9 +1093,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
@@ -1112,6 +1109,9 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -1153,7 +1153,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1409,11 +1409,11 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -1621,11 +1621,11 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -1714,11 +1714,11 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -1842,11 +1842,11 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}) // sourceChain=EVM, destChain=SUI
 	require.NoError(t, err)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	// update env to include deployed contracts
 	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(
 		t,

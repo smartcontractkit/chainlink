@@ -32,6 +32,13 @@ type SuiAdapter struct {
 	cldf_sui.Chain
 }
 
+func (a *SuiAdapter) offRampPkgID() string {
+	if v2 := a.state.OffRampMockV2PackageId; v2 != "" {
+		return v2
+	}
+	return a.state.OffRampAddress
+}
+
 func NewSuiAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
 	c, ok := chain.(cldf_sui.Chain)
 	if !ok {
@@ -76,7 +83,7 @@ func (a *SuiAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 		t,
 		sourceSelector,
 		a.Chain,
-		a.state.OffRampAddress,
+		a.offRampPkgID(),
 		startBlock,
 		seqNumRange,
 		true,
@@ -89,7 +96,7 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 		t,
 		sourceSelector,
 		a.Chain,
-		a.state.OffRampAddress,
+		a.offRampPkgID(),
 		startBlock,
 		seqNrs,
 	)
