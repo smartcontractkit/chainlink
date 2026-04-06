@@ -398,7 +398,7 @@ func Test_SecretsWorker(t *testing.T) {
 			store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
 			wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 			capRegistry := corecaps.NewRegistry(lggr)
-			capRegistry.SetLocalRegistry(corecaps.NewTestMetadataRegistry())
+			capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 			engineRegistry := NewEngineRegistry()
 			donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
@@ -587,7 +587,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(corecaps.NewTestMetadataRegistry())
+	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
@@ -686,7 +686,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	require.NoError(t, err)
 	wfStore := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 	capRegistry := corecaps.NewRegistry(lggr)
-	capRegistry.SetLocalRegistry(corecaps.NewTestMetadataRegistry())
+	capRegistry.SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 

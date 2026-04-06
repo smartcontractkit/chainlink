@@ -72,9 +72,7 @@ func TestNewLocalTestMetadataRegistry(t *testing.T) {
 			t.Parallel()
 
 			registry := newLocalTestMetadataRegistry(tt.localCfg)
-			node, err := registry.LocalNode(t.Context())
-			require.NoError(t, err)
-			require.Equal(t, tt.expectedF, node.WorkflowDON.F)
+			require.Equal(t, tt.expectedF, registry.WorkflowDONF)
 		})
 	}
 }
