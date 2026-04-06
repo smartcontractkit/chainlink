@@ -84,6 +84,8 @@ type Engine struct {
 
 	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
 	tracer trace.Tracer
+
+	orgID string
 }
 
 type triggerCapability struct {
@@ -213,21 +215,23 @@ func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
-	// Fetch organization ID for this owner
-	organizationID := ""
+	// Resolve the workflow owner's org once at engine startup and treat it as stable
+	// for the lifetime of this engine instance. If org membership/linking changes, the
+	// workflow must be restarted to pick up the new org mapping.
+	e.orgID = ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
-			organizationID = orgID
+			e.orgID = orgID
 		}
 	}
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
+	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -449,27 +453,39 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			metadata := capabilities.RequestMetadata{
+				WorkflowID:          e.cfg.WorkflowID,
+				WorkflowOwner:       e.cfg.WorkflowOwner,
+				WorkflowName:        e.cfg.WorkflowName.Hex(),
+				WorkflowTag:         e.cfg.WorkflowTag,
+				DecodedWorkflowName: e.cfg.WorkflowName.String(),
+				WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
+				// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
+				// that I can't reproduce locally. This values is unused in trigger subscription phase
+				// so it's not a problem. Still, let's do it right when CI is fixed.
+				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				EngineVersion:                 platform.ValueWorkflowVersionV2,
+				// no WorkflowExecutionID needed (or available at this stage)
+			}
+			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+			if gate == nil {
+				return errors.New("vault org id gate is nil")
+			}
+			enabled, gateErr := gate.Limit(gCtx)
+			if gateErr != nil {
+				return gateErr
+			}
+			if enabled {
+				metadata.OrgID = e.orgID
+			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
-				Metadata: capabilities.RequestMetadata{
-					WorkflowID:          e.cfg.WorkflowID,
-					WorkflowOwner:       e.cfg.WorkflowOwner,
-					WorkflowName:        e.cfg.WorkflowName.Hex(),
-					WorkflowTag:         e.cfg.WorkflowTag,
-					DecodedWorkflowName: e.cfg.WorkflowName.String(),
-					WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
-					// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
-					// that I can't reproduce locally. This values is unused in trigger subscription phase
-					// so it's not a problem. Still, let's do it right when CI is fixed.
-					WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
-					ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-					WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-					WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
-					EngineVersion:                 platform.ValueWorkflowVersionV2,
-					// no WorkflowExecutionID needed (or available at this stage)
-				},
-				Payload: sub.Payload,
-				Method:  sub.Method,
+				Metadata:  metadata,
+				Payload:   sub.Payload,
+				Method:    sub.Method,
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
@@ -616,24 +632,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Fetch organization ID for this execution
-	organizationID := contexts.CREValue(ctx).Org
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			organizationID = orgID
-
-			creCtx := contexts.CREValue(ctx)
-			creCtx.Org = organizationID
-			ctx = contexts.WithCRE(ctx, creCtx)
-		}
-	}
+	// Use the org resolved at engine startup for all executions in this engine instance.
+	executionOrgID := contexts.CREValue(ctx).Org
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
-	e.loggerLabels.Store(&loggerLabels)
-	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
+	loggerLabels[platform.KeyOrganizationID] = executionOrgID
+	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
 
 	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
@@ -872,6 +875,8 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
+		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,

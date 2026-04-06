@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/Masterminds/semver/v3"
@@ -30,10 +31,8 @@ type AddCapabilitiesDeps struct {
 }
 
 type AddCapabilitiesInput struct {
-	CapabilityConfigs []contracts.CapabilityConfig // if Config subfield is nil, a default config is used
-
-	// DonNames are the DONs to update. At least one is required.
-	DonNames []string
+	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
+	DonCapabilityConfigs map[string][]contracts.CapabilityConfig
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
@@ -44,14 +43,16 @@ type AddCapabilitiesInput struct {
 }
 
 func (i *AddCapabilitiesInput) Validate() error {
-	if len(i.DonNames) == 0 {
-		return errors.New("must specify at least one DON name")
+	if len(i.DonCapabilityConfigs) == 0 {
+		return errors.New("donCapabilityConfigs must contain at least one DON entry")
 	}
-	if slices.Contains(i.DonNames, "") {
-		return errors.New("donNames cannot contain an empty string")
-	}
-	if len(i.CapabilityConfigs) == 0 {
-		return errors.New("capabilityConfigs is required")
+	for donName, configs := range i.DonCapabilityConfigs {
+		if donName == "" {
+			return errors.New("donCapabilityConfigs keys cannot be empty strings")
+		}
+		if len(configs) == 0 {
+			return fmt.Errorf("donCapabilityConfigs[%q] must contain at least one capability config", donName)
+		}
 	}
 	return nil
 }
@@ -90,8 +91,8 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			return AddCapabilitiesOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 		}
 
-		// Build capabilities list once (registry-level; same for all DONs).
-		capabilities, err := buildCapabilitiesFromConfigs(input.CapabilityConfigs)
+		// Build capabilities list once (registry-level; union across all DONs).
+		capabilities, err := buildCapabilitiesFromAllDONConfigs(input.DonCapabilityConfigs)
 		if err != nil {
 			return AddCapabilitiesOutput{}, err
 		}
@@ -137,7 +138,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 		var allUpdatedNodes []capabilities_registry_v2.CapabilitiesRegistryNodeParams
 
 		// Update each DON: get nodes, update node configs, update DON.
-		for _, donName := range input.DonNames {
+		for donName, donCapConfigs := range input.DonCapabilityConfigs {
 			don, nodes, err := GetDonNodes(donName, capReg)
 			if err != nil {
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to get DON %s nodes: %w", donName, err)
@@ -148,7 +149,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				p2pIDs = append(p2pIDs, node.P2pId)
 			}
 
-			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, input.CapabilityConfigs)
+			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, donCapConfigs)
 			if err != nil {
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
 			}
@@ -182,7 +183,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				contracts.UpdateDONInput{
 					ChainSelector:                     chainSel,
 					P2PIDs:                            p2pIDs,
-					CapabilityConfigs:                 input.CapabilityConfigs,
+					CapabilityConfigs:                 donCapConfigs,
 					MergeCapabilityConfigsWithOnChain: true,
 					DonName:                           donName,
 					F:                                 don.F,
@@ -233,17 +234,23 @@ func toOpsSlice(opPtrs ...*types.BatchOperation) []types.BatchOperation {
 	return result
 }
 
-// buildCapabilitiesFromConfigs builds the capability list for RegisterCapabilities (registry-level, no DON).
-func buildCapabilitiesFromConfigs(configs []contracts.CapabilityConfig) ([]contracts.RegisterableCapability, error) {
-	out := make([]contracts.RegisterableCapability, len(configs))
-	for i, cfg := range configs {
-		out[i] = contracts.RegisterableCapability{
-			Metadata:              cfg.Capability.Metadata,
-			CapabilityID:          cfg.Capability.CapabilityID,
-			ConfigurationContract: cfg.Capability.ConfigurationContract,
+// buildCapabilitiesFromAllDONConfigs collects the unique capabilities across all DONs' configs
+// for registry-level registration.
+func buildCapabilitiesFromAllDONConfigs(donConfigs map[string][]contracts.CapabilityConfig) ([]contracts.RegisterableCapability, error) {
+	uniqueCaps := make(map[string]contracts.RegisterableCapability)
+	for _, configs := range donConfigs {
+		for _, cfg := range configs {
+			if _, ok := uniqueCaps[cfg.Capability.CapabilityID]; ok {
+				continue
+			}
+			uniqueCaps[cfg.Capability.CapabilityID] = contracts.RegisterableCapability{
+				Metadata:              cfg.Capability.Metadata,
+				CapabilityID:          cfg.Capability.CapabilityID,
+				ConfigurationContract: cfg.Capability.ConfigurationContract,
+			}
 		}
 	}
-	return out, nil
+	return slices.Collect(maps.Values(uniqueCaps)), nil
 }
 
 // buildNodeUpdatesForDON builds node config updates for a DON's nodes (adds the new capabilities to each node).

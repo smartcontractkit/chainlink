@@ -353,3 +353,11 @@ jobs:
           name: container-logs-${{ matrix.logs_archive_name }}
           path: devenv/tests/${{ matrix.tests_dir }}/logs
           retention-days: 3
+      
+      - name: Upload DF1 soak alloc.pprof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: alloc.pprof
+          path: devenv/tests/${{ matrix.tests_dir }}/alloc.pprof
+          retention-days: 7

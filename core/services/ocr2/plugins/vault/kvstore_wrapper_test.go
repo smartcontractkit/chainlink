@@ -34,7 +34,7 @@ func writeTestSecret(ctx context.Context, t *testing.T, store WriteKVStore, owne
 // --- GetSecret tests ---
 
 func TestKVStoreWrapper_GetSecret_FoundUnderOrgID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "secret1", []byte("org-data"))
 
@@ -48,7 +48,7 @@ func TestKVStoreWrapper_GetSecret_FoundUnderOrgID(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_FallbackToWorkflowOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
 
@@ -62,7 +62,7 @@ func TestKVStoreWrapper_GetSecret_FallbackToWorkflowOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_NotFoundUnderEither(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
@@ -74,7 +74,7 @@ func TestKVStoreWrapper_GetSecret_NotFoundUnderEither(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_PrefersOrgIDOverWorkflowOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "secret1", []byte("org-data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
@@ -89,7 +89,7 @@ func TestKVStoreWrapper_GetSecret_PrefersOrgIDOverWorkflowOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_NoFallbackWhenWorkflowOwnerEmpty(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "secret1", []byte("legacy-data"))
 
@@ -102,7 +102,7 @@ func TestKVStoreWrapper_GetSecret_NoFallbackWhenWorkflowOwnerEmpty(t *testing.T)
 }
 
 func TestKVStoreWrapper_GetSecret_NoFallbackWhenSameOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
@@ -114,7 +114,7 @@ func TestKVStoreWrapper_GetSecret_NoFallbackWhenSameOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_NilID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -123,7 +123,7 @@ func TestKVStoreWrapper_GetSecret_NilID(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecret_DifferentOwnersPerCall(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, "org_A", "main", "s1", []byte("data-A"))
 	writeTestSecret(ctx, t, inner, "wo_B", "main", "s2", []byte("data-B"))
@@ -146,7 +146,7 @@ func TestKVStoreWrapper_GetSecret_DifferentOwnersPerCall(t *testing.T) {
 // --- GetMetadata tests ---
 
 func TestKVStoreWrapper_GetMetadata_OnlyOrgID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "secret1", []byte("data"))
 
@@ -160,7 +160,7 @@ func TestKVStoreWrapper_GetMetadata_OnlyOrgID(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_OnlyWorkflowOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "legacy1", []byte("data"))
 
@@ -174,7 +174,7 @@ func TestKVStoreWrapper_GetMetadata_OnlyWorkflowOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_MergeAndDedup(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "shared_key", []byte("org-data"))
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "org_only", []byte("data1"))
@@ -201,7 +201,7 @@ func TestKVStoreWrapper_GetMetadata_MergeAndDedup(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_BothEmpty(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -211,7 +211,7 @@ func TestKVStoreWrapper_GetMetadata_BothEmpty(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_NoMergeWhenSameOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "secret1", []byte("data"))
 
@@ -223,7 +223,7 @@ func TestKVStoreWrapper_GetMetadata_NoMergeWhenSameOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_CrossNamespaceDedup(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "ns1", "secret1", []byte("data-ns1"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "ns2", "secret1", []byte("data-ns2"))
@@ -238,7 +238,7 @@ func TestKVStoreWrapper_GetMetadata_CrossNamespaceDedup(t *testing.T) {
 // --- GetSecretIdentifiersCountForOwner tests ---
 
 func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Merged(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s2", []byte("data"))
@@ -250,7 +250,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Merged(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Deduped(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "shared", []byte("data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "shared", []byte("data"))
@@ -262,7 +262,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Deduped(t *testing.T) 
 }
 
 func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Empty(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -274,7 +274,7 @@ func TestKVStoreWrapper_GetSecretIdentifiersCountForOwner_Empty(t *testing.T) {
 // --- GetPendingQueue / WritePendingQueue pass-through tests ---
 
 func TestKVStoreWrapper_GetPendingQueue_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 
 	empty, err := anypb.New(&emptypb.Empty{})
@@ -294,7 +294,7 @@ func TestKVStoreWrapper_GetPendingQueue_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_WritePendingQueue_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -314,7 +314,7 @@ func TestKVStoreWrapper_WritePendingQueue_Passthrough(t *testing.T) {
 // --- WriteSecret tests ---
 
 func TestKVStoreWrapper_WriteSecret_WritesUnderOrgID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -334,7 +334,7 @@ func TestKVStoreWrapper_WriteSecret_WritesUnderOrgID(t *testing.T) {
 }
 
 func TestKVStoreWrapper_WriteSecret_LazyMigration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "legacy_secret", []byte("old-data"))
 
@@ -361,7 +361,7 @@ func TestKVStoreWrapper_WriteSecret_LazyMigration(t *testing.T) {
 }
 
 func TestKVStoreWrapper_WriteSecret_NoMigrationWhenNoLegacy(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -374,7 +374,7 @@ func TestKVStoreWrapper_WriteSecret_NoMigrationWhenNoLegacy(t *testing.T) {
 }
 
 func TestKVStoreWrapper_WriteSecret_NoMigrationWhenSameOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -385,7 +385,7 @@ func TestKVStoreWrapper_WriteSecret_NoMigrationWhenSameOwner(t *testing.T) {
 // --- WriteMetadata test ---
 
 func TestKVStoreWrapper_WriteMetadata_WritesUnderOrgID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -405,7 +405,7 @@ func TestKVStoreWrapper_WriteMetadata_WritesUnderOrgID(t *testing.T) {
 // --- DeleteSecret tests ---
 
 func TestKVStoreWrapper_DeleteSecret_DeletesFromOrgID(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "to_delete", []byte("data"))
 
@@ -419,7 +419,7 @@ func TestKVStoreWrapper_DeleteSecret_DeletesFromOrgID(t *testing.T) {
 }
 
 func TestKVStoreWrapper_DeleteSecret_FallsBackToWorkflowOwner(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "legacy_del", []byte("data"))
 
@@ -433,7 +433,7 @@ func TestKVStoreWrapper_DeleteSecret_FallsBackToWorkflowOwner(t *testing.T) {
 }
 
 func TestKVStoreWrapper_DeleteSecret_CleansBothOwners(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "both_owners", []byte("org-data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "both_owners", []byte("legacy-data"))
@@ -452,7 +452,7 @@ func TestKVStoreWrapper_DeleteSecret_CleansBothOwners(t *testing.T) {
 }
 
 func TestKVStoreWrapper_DeleteSecret_NotFoundAnywhere(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
 
@@ -464,7 +464,7 @@ func TestKVStoreWrapper_DeleteSecret_NotFoundAnywhere(t *testing.T) {
 // --- End-to-end migration scenarios ---
 
 func TestKVStoreWrapper_CreateOldFlow_ReadNewFlow(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "migrating_secret", []byte("old-data"))
 
@@ -477,7 +477,7 @@ func TestKVStoreWrapper_CreateOldFlow_ReadNewFlow(t *testing.T) {
 }
 
 func TestKVStoreWrapper_CreateOldFlow_UpdateNewFlow_LazyMigration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "migrating", []byte("old"))
 
@@ -496,7 +496,7 @@ func TestKVStoreWrapper_CreateOldFlow_UpdateNewFlow_LazyMigration(t *testing.T) 
 }
 
 func TestKVStoreWrapper_CreateOldFlow_ListNewFlow(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "legacy1", []byte("d1"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "alt", "legacy2", []byte("d2"))
@@ -512,7 +512,7 @@ func TestKVStoreWrapper_CreateOldFlow_ListNewFlow(t *testing.T) {
 }
 
 func TestKVStoreWrapper_CreateOldFlow_DeleteNewFlow(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "to_delete", []byte("data"))
 
@@ -526,7 +526,7 @@ func TestKVStoreWrapper_CreateOldFlow_DeleteNewFlow(t *testing.T) {
 }
 
 func TestKVStoreWrapper_UpdateMigration_ThenListShowsNoDuplicates(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s1", []byte("old1"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s2", []byte("old2"))
@@ -662,7 +662,7 @@ func TestNeedsMigration(t *testing.T) {
 // --- Error propagation tests ---
 
 func TestKVStoreWrapper_GetSecret_PropagatesInnerError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	inner := &kv{m: map[string]response{}}
 	inner.m["Metadata::"+testOrgID] = response{err: assert.AnError}
 	store := NewKVStoreWrapper(NewWriteStore(inner, newTestMetrics(t)), true, logger.TestLogger(t))
@@ -672,7 +672,7 @@ func TestKVStoreWrapper_GetSecret_PropagatesInnerError(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_PropagatesOrgIDError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	inner := &kv{m: map[string]response{}}
 	inner.m["Metadata::"+testOrgID] = response{err: assert.AnError}
 	store := NewKVStoreWrapper(NewWriteStore(inner, newTestMetrics(t)), true, logger.TestLogger(t))
@@ -682,7 +682,7 @@ func TestKVStoreWrapper_GetMetadata_PropagatesOrgIDError(t *testing.T) {
 }
 
 func TestKVStoreWrapper_GetMetadata_PropagatesWorkflowOwnerError(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	inner := &kv{m: map[string]response{}}
 	orgMdBytes, _ := proto.Marshal(&vault.StoredMetadata{SecretIdentifiers: []*vault.SecretIdentifier{}})
 	inner.m["Metadata::"+testOrgID] = response{data: orgMdBytes}
@@ -696,7 +696,7 @@ func TestKVStoreWrapper_GetMetadata_PropagatesWorkflowOwnerError(t *testing.T) {
 // --- Migration disabled (passthrough) tests ---
 
 func TestKVStoreWrapper_Disabled_GetSecret_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("data"))
 
@@ -710,7 +710,7 @@ func TestKVStoreWrapper_Disabled_GetSecret_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_GetSecret_NoFallback(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s1", []byte("legacy"))
 
@@ -723,7 +723,7 @@ func TestKVStoreWrapper_Disabled_GetSecret_NoFallback(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_GetMetadata_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("data"))
 
@@ -736,7 +736,7 @@ func TestKVStoreWrapper_Disabled_GetMetadata_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_GetMetadata_NoMerge(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "org_secret", []byte("data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "legacy_secret", []byte("data"))
@@ -750,7 +750,7 @@ func TestKVStoreWrapper_Disabled_GetMetadata_NoMerge(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_GetSecretIdentifiersCountForOwner_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s2", []byte("data"))
@@ -762,7 +762,7 @@ func TestKVStoreWrapper_Disabled_GetSecretIdentifiersCountForOwner_Passthrough(t
 }
 
 func TestKVStoreWrapper_Disabled_WriteSecret_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
 
@@ -776,7 +776,7 @@ func TestKVStoreWrapper_Disabled_WriteSecret_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_WriteSecret_NoLazyMigration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s1", []byte("legacy"))
 
@@ -790,7 +790,7 @@ func TestKVStoreWrapper_Disabled_WriteSecret_NoLazyMigration(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_WriteMetadata_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
 
@@ -808,7 +808,7 @@ func TestKVStoreWrapper_Disabled_WriteMetadata_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_DeleteSecret_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("data"))
 
@@ -822,7 +822,7 @@ func TestKVStoreWrapper_Disabled_DeleteSecret_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_DeleteSecret_NoDualOwnerCleanup(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	writeTestSecret(ctx, t, inner, testOrgID, "main", "s1", []byte("org-data"))
 	writeTestSecret(ctx, t, inner, testWorkflowOwner, "main", "s1", []byte("legacy-data"))
@@ -837,7 +837,7 @@ func TestKVStoreWrapper_Disabled_DeleteSecret_NoDualOwnerCleanup(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_GetPendingQueue_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 
 	empty, err := anypb.New(&emptypb.Empty{})
@@ -853,7 +853,7 @@ func TestKVStoreWrapper_Disabled_GetPendingQueue_Passthrough(t *testing.T) {
 }
 
 func TestKVStoreWrapper_Disabled_WritePendingQueue_Passthrough(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)
 	store := NewKVStoreWrapper(inner, false, logger.TestLogger(t))
 
