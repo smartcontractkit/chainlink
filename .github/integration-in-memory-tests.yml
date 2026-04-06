@@ -1148,6 +1148,7 @@ runner-test-matrix:
     sui_cli_version: mainnet-1.68.1
     install_plugins_public: true
     free_disk_space: true
+    test_artifacts_on_failure: integration-tests/logs/
 
   - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_CommonPkg_EVM2Sui
     path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
