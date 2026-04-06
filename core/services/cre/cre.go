@@ -537,6 +537,8 @@ func (w *dispatcherWrapper) newSubservices(
 func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
 	registry := &capabilities.TestMetadataRegistry{}
 	if localCfg != nil && localCfg.GetCapabilityConfig(capStreams.MockTriggerCapabilityID) != nil {
+		// The mock streams trigger emits 2F+1 signatures, so the synthetic local
+		// workflow DON needs to advertise F=1 only for that opt-in compatibility path.
 		registry.WorkflowDONF = 1
 	}
 

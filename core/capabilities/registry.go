@@ -83,6 +83,8 @@ func NewRegistry(lggr logger.Logger) *Registry {
 // interface. It is used when ExternalCapabilitiesRegistry is not available.
 type TestMetadataRegistry struct {
 	core.UnimplementedCapabilitiesRegistryMetadata
+	// WorkflowDONF allows local CRE to override the synthetic workflow DON fault
+	// tolerance for compatibility paths that still expect a multi-signer shape.
 	WorkflowDONF uint8
 }
 

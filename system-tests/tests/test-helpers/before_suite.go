@@ -277,6 +277,8 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 	workflowSignerAuthM.Lock()
 	defer workflowSignerAuthM.Unlock()
 
+	// Another test may have allowlisted the signer while we were waiting on the
+	// mutex, so re-check under the lock before sending a second transaction.
 	allowed, err = registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
 	require.NoError(t, err, "failed to re-check signer allowlist status")
 	if allowed {
