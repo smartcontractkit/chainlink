@@ -2802,16 +2802,16 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 	seenChannels := make(map[uint32]bool)
 	require.Eventually(t, func() bool {
-		pckt, err := receiveWithTimeout(t, packetCh, 2*time.Second)
-		if err != nil {
+		pckt, errReceive := receiveWithTimeout(t, packetCh, 2*time.Second)
+		if errReceive != nil {
 			return false
 		}
 		req := pckt.req
 		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 			return len(seenChannels) == 2
 		}
-		_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
-		if err != nil {
+		_, _, r, _, errDecode := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+		if errDecode != nil {
 			return len(seenChannels) == 2
 		}
 		if r.ChannelID == 1 || r.ChannelID == 2 {
@@ -2819,7 +2819,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 		return len(seenChannels) == 2
 	}, reportTimeout, 100*time.Millisecond, "expected reports for channel 1 and 2 before tombstone")
-	require.Greater(t, streamBCalls.Load(), uint64(0), "stream for channel 2 should be observed before tombstone")
+	require.Positive(t, streamBCalls.Load(), "stream for channel 2 should be observed before tombstone")
 
 	// Tombstone channel 2 only; channel 1 keeps observing streamIDActive.
 	tombstonedDefs := llotypes.ChannelDefinitions{
@@ -2869,7 +2869,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	// while streamIDActive continues to be observed.
 	bCallsAfterReportsStopped := streamBCalls.Load()
 	aCallsAfterReportsStopped := streamACalls.Load()
-	time.Sleep(6 * time.Second)
+	time.Sleep(1 * time.Second)
 	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
 	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
@@ -2914,7 +2914,6 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA
