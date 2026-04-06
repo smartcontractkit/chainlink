@@ -12,17 +12,17 @@ func TestTestMetadataRegistry_LocalNode_UsesConfiguredWorkflowDONF(t *testing.T)
 
 	tests := []struct {
 		name         string
-		registry     TestMetadataRegistry
+		registry     *TestMetadataRegistry
 		expectedDonF uint8
 	}{
 		{
 			name:         "default workflow DON fault tolerance",
-			registry:     TestMetadataRegistry{},
+			registry:     NewTestMetadataRegistry(),
 			expectedDonF: 0,
 		},
 		{
 			name:         "mock trigger workflow DON fault tolerance",
-			registry:     TestMetadataRegistry{WorkflowDONF: 1},
+			registry:     NewTestMetadataRegistryWithWorkflowDONFaultTolerance(1),
 			expectedDonF: 1,
 		},
 	}
