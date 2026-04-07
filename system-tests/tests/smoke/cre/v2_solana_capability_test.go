@@ -88,7 +88,7 @@ func getSolChain(t *testing.T, ds datastore.DataStore, s *setup, bcs []blockchai
 		if !w.IsFamily(chainselectors.FamilySolana) {
 			continue
 		}
-		require.IsType(t, &solana.Blockchain{}, solChain, "expected Solana blockchain type")
+		require.IsType(t, &solana.Blockchain{}, w, "expected Solana blockchain type")
 		solChain = w.(*solana.Blockchain)
 		s.ForwarderProgramID = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderContract)
 		s.ForwarderState = mustGetContract(t, ds, solChain.ChainSelector(), ks_sol.ForwarderState)
