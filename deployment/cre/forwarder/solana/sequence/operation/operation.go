@@ -225,7 +225,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			owner,
 		).ValidateAndBuild()
 		if err != nil {
-			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
+			return out, fmt.Errorf("cant build update oracle instruction: %w", err)
 		}
 	}
 
