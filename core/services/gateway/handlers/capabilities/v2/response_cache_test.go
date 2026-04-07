@@ -1,9 +1,12 @@
 package v2
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -315,6 +318,80 @@ func TestFetch(t *testing.T) {
 		_, exists := cache.cache[req.Hash()]
 		require.False(t, exists, "5xx response should not be cached")
 	})
+}
+
+func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+	workflowID := "workflow-123"
+
+	const n = 10
+	const fetchDelay = 100 * time.Millisecond
+
+	var wg sync.WaitGroup
+	wg.Add(n)
+
+	start := time.Now()
+	for i := 0; i < n; i++ {
+		go func(idx int) {
+			defer wg.Done()
+			req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
+			fetchFn := func() gateway_common.OutboundHTTPResponse {
+				time.Sleep(fetchDelay)
+				return createTestResponse(200, fmt.Sprintf("response-%d", idx))
+			}
+			resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+			assert.Equal(t, 200, resp.StatusCode)
+		}(i)
+	}
+	wg.Wait()
+	elapsed := time.Since(start)
+
+	// If requests run in parallel, total time should be ~fetchDelay (100ms).
+	// If serialized, it would be ~n*fetchDelay (1000ms).
+	// Use 3x fetchDelay as a generous upper bound to avoid flakiness.
+	maxExpected := 3 * fetchDelay
+	assert.Less(t, elapsed, maxExpected,
+		"concurrent fetches to different keys should run in parallel, took %v (max expected %v)", elapsed, maxExpected)
+}
+
+func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+	workflowID := "workflow-123"
+
+	const n = 5
+	var fetchCount int32
+	var mu sync.Mutex
+
+	var wg sync.WaitGroup
+	wg.Add(n)
+
+	req := createTestRequest("GET", "https://example.com/dedup")
+	expectedResp := createTestResponse(200, "deduplicated")
+
+	for i := 0; i < n; i++ {
+		go func() {
+			defer wg.Done()
+			fetchFn := func() gateway_common.OutboundHTTPResponse {
+				mu.Lock()
+				fetchCount++
+				mu.Unlock()
+				time.Sleep(100 * time.Millisecond)
+				return expectedResp
+			}
+			resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+			assert.Equal(t, expectedResp, resp)
+		}()
+	}
+	wg.Wait()
+
+	mu.Lock()
+	count := fetchCount
+	mu.Unlock()
+
+	// Singleflight should deduplicate: only 1 fetchFn call for the same key
+	assert.Equal(t, int32(1), count, "singleflight should deduplicate concurrent requests to the same key")
 }
 
 func TestSet(t *testing.T) {

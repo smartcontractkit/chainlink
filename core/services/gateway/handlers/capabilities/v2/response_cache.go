@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
@@ -16,6 +18,7 @@ import (
 type responseCache struct {
 	cacheMu sync.Mutex
 	cache   map[string]*cachedResponse
+	flight  singleflight.Group
 	lggr    logger.Logger
 	ttl     time.Duration
 	metrics *metrics.Metrics
@@ -55,22 +58,44 @@ func (rc *responseCache) isExpiredOrNotCached(_ string, req gateway.OutboundHTTP
 // the age of cached response is less than the max age of the request.
 // If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 // and caches the response if it is cacheable and storeOnFetch is true.
+//
+// The mutex is only held during cache map access (microseconds), not during fetchFn execution.
+// Singleflight deduplicates concurrent requests to the same cache key so only one fetchFn
+// runs per key, while requests to different keys execute in parallel.
 func (rc *responseCache) Fetch(ctx context.Context, workflowID string, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse, storeOnFetch bool) gateway.OutboundHTTPResponse {
-	rc.cacheMu.Lock()
-	defer rc.cacheMu.Unlock()
+	cacheKey := req.Hash()
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
-	cachedResp, exists := rc.cache[req.Hash()]
+
+	// Short lock: check cache
+	rc.cacheMu.Lock()
+	cachedResp, exists := rc.cache[cacheKey]
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
+		rc.cacheMu.Unlock()
 		rc.metrics.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
-	response := fetchFn()
-	if storeOnFetch && isCacheableStatusCode(response.StatusCode) && rc.isExpiredOrNotCached(workflowID, req) {
-		rc.cache[req.Hash()] = &cachedResponse{
-			response: response,
-			storedAt: time.Now(),
+	rc.cacheMu.Unlock()
+
+	// Fetch without holding mutex. Singleflight deduplicates concurrent
+	// requests to the same cache key — only one fetchFn runs, others
+	// wait for its result. Requests to different keys run in parallel.
+	result, _, _ := rc.flight.Do(cacheKey, func() (interface{}, error) {
+		return fetchFn(), nil
+	})
+	response := result.(gateway.OutboundHTTPResponse)
+
+	// Short lock: store result
+	if storeOnFetch && isCacheableStatusCode(response.StatusCode) {
+		rc.cacheMu.Lock()
+		if rc.isExpiredOrNotCached(workflowID, req) {
+			rc.cache[cacheKey] = &cachedResponse{
+				response: response,
+				storedAt: time.Now(),
+			}
 		}
+		rc.cacheMu.Unlock()
 	}
+
 	return response
 }
 
