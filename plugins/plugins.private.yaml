@@ -40,7 +40,7 @@ plugins:
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "a4f1b5316a8faec6e35411ddbf52122653fc5921"
+      gitRef: "50016e5171b4bb900d2be3aa89c72dc165b54bb5"
       installPath: "."
   solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
