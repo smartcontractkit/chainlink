@@ -1,4 +1,4 @@
-name: CRE PoR Memory Leak Soak Test
+name: CRE Resource Regression Test
 
 on:
   workflow_dispatch:
@@ -24,7 +24,7 @@ on:
 
 jobs:
   soak:
-    name: CRE PoR Memory Leak Soak
+    name: CRE Resource Regression Test
     environment:
       name: integration
       deployment: false
@@ -112,7 +112,7 @@ jobs:
         shell: bash
         run: go install gotest.tools/gotestsum@v1.12.3
 
-      - name: Run CRE PoR Memory Leak Soak test
+      - name: Run CRE Resource Regression Test
         id: run-soak
         shell: bash
         working-directory: system-tests/tests
@@ -154,7 +154,7 @@ jobs:
       deployment: false
     runs-on: ubuntu-latest
     steps:
-      - name: Send slack notification for failed migration tests
+      - name: Send slack notification for failed resource regression tests
         id: send-slack-notification
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
@@ -164,20 +164,20 @@ jobs:
           payload: |
             {
               "channel": "C0117GGJB6Y",
-              "text": "CRE Memory Leak Test Failed. Investigation is required.",
+              "text": "CRE Resource Regression Test Failed. Investigation is required.",
               "blocks": [
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*:rotating_light: CRE Memory Leak Test Failed. Investigation is required. :rotating_light:*"
+                    "text": "*:rotating_light: CRE Resource Regression Test Failed. Investigation is required. :rotating_light:*"
                   }
                 },
                 {
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Alerting <@U033CGL3CDT>, CRE Memory Leak Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
+                    "text": "Alerting <@U033CGL3CDT>, CRE Resource Regression Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
                   }
                 },
                 {
@@ -187,7 +187,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Check the Docker logs and the alloc.pprof file to investigate the issue."
+                    "text": "Chainlink nodes used more resources than expected. Check the Docker logs and the alloc.pprof file."
                   }
                 }
               ]
