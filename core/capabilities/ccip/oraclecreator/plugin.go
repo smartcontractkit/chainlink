@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -272,7 +273,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to setup observation metrics collector: %w", err)
 	}
 
-	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
+	oracleArgs := libocr3.OCR3OracleArgs2[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
 		// NOTE: when specifying V2Bootstrappers here we actually do NOT need to run a full bootstrap node!
@@ -297,7 +298,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
-		OnchainKeyring:         onchainKeyring,
+		OnchainKeyring:         ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyring),
 		ReportingPluginFactory: factory,
 	}
 	oracle, err := libocr3.NewOracle(oracleArgs)
