@@ -19,6 +19,9 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	req1a := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	req1b := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
+	reqSola := getSolWriteRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
+	reqSolb := getSolWriteRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
+	reqSol2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 
 	hasher := NewWriteReportExcludeSignaturesHasher()
 	hash1a, err := hasher.Hash(req1a)
@@ -27,6 +30,15 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(req2)
 	require.NoError(t, err)
+	hash1sola, err := hasher.Hash(reqSola)
+	require.NoError(t, err)
+	hash1solb, err := hasher.Hash(reqSolb)
+	require.NoError(t, err)
+	hashsol2, err := hasher.Hash(reqSol2)
+	require.NoError(t, err)
+
+	require.Equal(t, hash1sola, hash1solb)
+	require.NotEqual(t, hash1sola, hashsol2)
 
 	require.Equal(t, hash1a, hash1b)   // same data, different signatures
 	require.NotEqual(t, hash1a, hash2) // different data, same signatures
@@ -184,6 +196,33 @@ func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	return &types.MessageBody{
 		Payload:      capReqBytes,
 		CapabilityId: "evm:123",
+	}
+}
+func getSolWriteRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
+	attrSigs := []*sdk.AttributedSignature{}
+	for i, sig := range sigs {
+		attrSigs = append(attrSigs, &sdk.AttributedSignature{
+			Signature: sig,
+			SignerId:  uint32(i), //nolint:gosec // G115
+		})
+	}
+	report := &sdk.ReportResponse{
+		RawReport: data,
+		Sigs:      attrSigs,
+	}
+	wrReq := &solcappb.WriteReportRequest{
+		Report: report,
+	}
+	wrAny, err := anypb.New(wrReq)
+	require.NoError(t, err)
+	capReq := capabilities.CapabilityRequest{
+		Payload: wrAny,
+	}
+	capReqBytes, err := pb.MarshalCapabilityRequest(capReq)
+	require.NoError(t, err)
+	return &types.MessageBody{
+		Payload:      capReqBytes,
+		CapabilityId: "solana:abc",
 	}
 }
 
