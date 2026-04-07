@@ -66,11 +66,9 @@ func TestAuthorizer_UsesJWTWhenGateEnabled(t *testing.T) {
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
+	require.Equal(t, "org-1", authResult.OrgID())
+	require.Equal(t, "0xworkflow", authResult.WorkflowOwner())
 	require.Equal(t, "org-1", authResult.AuthorizedOwner())
-
-	untrustedWorkflowOwner, err := authResult.GetUntrustedWorkflowOwner()
-	require.NoError(t, err)
-	require.Equal(t, "0xworkflow", untrustedWorkflowOwner)
 }
 
 func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
@@ -91,6 +89,8 @@ func TestAuthorizer_DelegatesDigestVerificationToJWTAuth(t *testing.T) {
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
+	require.Equal(t, "org-1", authResult.OrgID())
+	require.Empty(t, authResult.WorkflowOwner())
 	require.Equal(t, "org-1", authResult.AuthorizedOwner())
 }
 
@@ -133,6 +133,8 @@ func TestAuthorizer_RejectsAllowListBasedAuthReplay(t *testing.T) {
 
 	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.NoError(t, err)
+	require.Empty(t, authResult.OrgID())
+	require.Equal(t, "0xabc", authResult.WorkflowOwner())
 	require.Equal(t, "0xabc", authResult.AuthorizedOwner())
 
 	authResult, err = a.AuthorizeRequest(t.Context(), req)

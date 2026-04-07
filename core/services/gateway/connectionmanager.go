@@ -305,9 +305,9 @@ func (m *donConnectionManager) getHandler(method string) (handlers.Handler, erro
 			return h, nil // supports legacy single-handler case
 		}
 	}
-	serviceName := strings.Split(method, ".")[0]
+	serviceName, _, hasDot := strings.Cut(method, ".")
 	// Special case for legacy methods - default to "workflows" service.
-	if !strings.Contains(method, ".") {
+	if !hasDot {
 		serviceName = "workflows"
 	}
 	handler, ok := m.handlers[serviceName]

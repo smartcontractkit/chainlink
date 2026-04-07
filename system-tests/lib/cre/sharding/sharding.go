@@ -132,7 +132,7 @@ func deployShardConfigContract(creEnv *cre.Environment, logger zerolog.Logger, d
 
 	crecontracts.MergeAllDataStores(creEnv, out)
 
-	shardConfigAddrStr := crecontracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, deployment_contracts.ShardConfig.String(), semver.MustParse("1"), "")
+	shardConfigAddrStr := crecontracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, deployment_contracts.ShardConfig.String(), semver.MustParse("1.0.0-dev"), "")
 	shardConfigAddr := common.HexToAddress(shardConfigAddrStr)
 	logger.Info().Msgf("Deployed Shard Config v1 contract on chain %d at %s", creEnv.RegistryChainSelector, shardConfigAddr.Hex())
 

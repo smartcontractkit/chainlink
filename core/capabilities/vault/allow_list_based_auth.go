@@ -15,7 +15,10 @@ import (
 )
 
 const (
-	allowListBasedAuthRetryCount    = 3
+	// The workflow registry syncer polls every 12s by default. Keep the
+	// retry window comfortably above that so newly allowlisted requests
+	// can propagate to every node before auth gives up.
+	allowListBasedAuthRetryCount    = 10
 	allowListBasedAuthRetryInterval = 3 * time.Second
 )
 
