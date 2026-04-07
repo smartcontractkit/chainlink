@@ -1044,3 +1044,50 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		}
 	}
 }
+
+// TestTokenPoolConfig_ExplicitAddress verifies that setting an explicit Address in TokenPoolConfig
+// bypasses the (symbol, type, version) state-map lookup and uses the specified address directly.
+// This enables deterministic pool targeting when multiple pools of the same type exist on a chain.
+func TestTokenPoolConfig_ExplicitAddress(t *testing.T) {
+	t.Parallel()
+
+	e, selectorA, _, tokens := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.Test(t), true)
+
+	// Deploy a pool
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
+		selectorA: {
+			Type:               shared.BurnMintTokenPool,
+			TokenAddress:       tokens[selectorA].Address,
+			LocalTokenDecimals: testhelpers.LocalTokenDecimals,
+		},
+	}, true)
+
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// Get the deployed pool address
+	chainState := state.Chains[selectorA]
+	poolAddress, ok := v1_5_1.GetTokenPoolAddressFromSymbolTypeAndVersion(
+		chainState, e.BlockChains.EVMChains()[selectorA], testhelpers.TestTokenSymbol,
+		shared.BurnMintTokenPool, deployment.Version1_5_1)
+	require.True(t, ok, "pool should exist")
+
+	// Test 1: Validation succeeds with explicit address (skipping ownership check for simplicity)
+	cfg := v1_5_1.TokenPoolConfig{
+		Type:                    shared.BurnMintTokenPool,
+		Version:                 deployment.Version1_5_1,
+		Address:                 poolAddress,
+		SkipOwnershipValidation: true,
+	}
+	err = cfg.Validate(e.GetContext(), e.BlockChains.EVMChains()[selectorA], state, false, testhelpers.TestTokenSymbol)
+	require.NoError(t, err, "validation should succeed with explicit address")
+
+	// Test 2: Validation succeeds without explicit address (backward compatibility)
+	cfgNoAddress := v1_5_1.TokenPoolConfig{
+		Type:                    shared.BurnMintTokenPool,
+		Version:                 deployment.Version1_5_1,
+		SkipOwnershipValidation: true,
+	}
+	err = cfgNoAddress.Validate(e.GetContext(), e.BlockChains.EVMChains()[selectorA], state, false, testhelpers.TestTokenSymbol)
+	require.NoError(t, err, "validation should succeed without explicit address (backward compatibility)")
+}

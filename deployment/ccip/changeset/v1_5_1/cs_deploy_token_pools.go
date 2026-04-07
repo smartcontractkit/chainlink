@@ -123,9 +123,15 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain cldf_evm.Chain
 	}
 
 	// We should check if a token pool with this type, version, and symbol already exists
-	_, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, shared.CurrentTokenPoolVersion)
+	// Use the actual version that would be deployed for this pool type
+	checkVersion := shared.CurrentTokenPoolVersion
+	if i.Type == shared.BurnMintWithExternalMinterTokenPool || i.Type == shared.HybridWithExternalMinterTokenPool ||
+		i.Type == shared.BurnMintWithExternalMinterFastTransferTokenPool || i.Type == shared.HybridWithExternalMinterFastTransferTokenPool {
+		checkVersion = deployment.Version1_6_0
+	}
+	_, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, checkVersion)
 	if ok {
-		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, shared.CurrentTokenPoolVersion, tokenSymbol, chain)
+		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, checkVersion, tokenSymbol, chain)
 	}
 
 	return nil
