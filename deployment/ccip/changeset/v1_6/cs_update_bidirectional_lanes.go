@@ -12,6 +12,7 @@ import (
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
 	fqv2seq "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/sequences"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/nonce_manager"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
@@ -24,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -56,6 +58,8 @@ type UpdateBidirectionalLanesConfig struct {
 	Lanes []BidirectionalLaneDefinition
 	// TestRouter indicates if we want to enable these lanes on the test router.
 	TestRouter bool
+	// SkipNonceManagerUpdates skips auto-detection of v1.5 contracts and NonceManager previous ramps updates, default=false
+	SkipNonceManagerUpdates bool
 }
 
 type UpdateBidirectionalLanesChangesetConfigs struct {
@@ -213,7 +217,7 @@ func UpdateLanesPrecondition(e cldf.Environment, configs UpdateBidirectionalLane
 func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLanesConfig) (cldf.ChangesetOutput, error) {
 	configs := c.BuildConfigs()
 
-	return UpdateLanesLogic(e, c.MCMSConfig, configs)
+	return UpdateLanesLogic(e, c.MCMSConfig, c.SkipNonceManagerUpdates, configs)
 }
 
 // UpdateLanesLogic configures CCIP lanes by updating OnRamp destinations, OffRamp sources,
@@ -221,8 +225,12 @@ func updateBidirectionalLanesLogic(e cldf.Environment, c UpdateBidirectionalLane
 // On chains where a v2 FeeQuoter is deployed alongside the active v1.6 FeeQuoter, both are updated.
 // Already-configured destinations are skipped to ensure idempotency. Configs provided can be unidirectional
 // TODO: UpdateBidirectionalLanesChangesetConfigs name is misleading, it also accepts unidirectional lane updates
-func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
-	state, err := stateview.LoadOnchainState(e)
+func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConfig, skipNonceManagerUpdates bool, configs UpdateBidirectionalLanesChangesetConfigs) (cldf.ChangesetOutput, error) {
+	var loadOpts []stateview.LoadOption
+	if !skipNonceManagerUpdates {
+		loadOpts = append(loadOpts, stateview.WithLoadLegacyContracts(true))
+	}
+	state, err := stateview.LoadOnchainState(e, loadOpts...)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -273,6 +281,19 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		v1FeeQuoterPriceUpdates[chainSel] = update
 	}
 
+	// Build NonceManager updates by auto-detecting v1.5 contracts
+	var nonceManagerInput ccipseqs.NonceManagerUpdatesSequenceInput
+	if !skipNonceManagerUpdates {
+		nonceManagerInput, err = buildNonceManagerUpdatesFromV15Contracts(e, state, configs, mcmsConfig)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build nonce manager updates: %w", err)
+		}
+		if len(nonceManagerInput.UpdatesByChain) > 0 {
+			e.Logger.Infow("Auto-detected v1.5 contracts, adding NonceManager previous ramps updates",
+				"chainsWithUpdates", len(nonceManagerInput.UpdatesByChain))
+		}
+	}
+
 	report, err := operations.ExecuteSequence(e.OperationsBundle, ccipseqs.UpdateLanesSequence, e.BlockChains.EVMChains(), ccipseqs.UpdateLanesSequenceInput{
 		FeeQuoterApplyDestChainConfigUpdatesSequenceInput: ccipseqs.FeeQuoterApplyDestChainConfigUpdatesSequenceInput{
 			UpdatesByChain: v1FeeQuoterDestsUpdates,
@@ -283,6 +304,7 @@ func UpdateLanesLogic(e cldf.Environment, mcmsConfig *proposalutils.TimelockConf
 		OffRampApplySourceChainConfigUpdatesSequenceInput: configs.UpdateOffRampSourcesConfig.ToSequenceInput(state),
 		OnRampApplyDestChainConfigUpdatesSequenceInput:    configs.UpdateOnRampDestsConfig.ToSequenceInput(state),
 		RouterApplyRampUpdatesSequenceInput:               configs.UpdateRouterRampsConfig.ToSequenceInput(state),
+		NonceManagerUpdatesSequenceInput:                  nonceManagerInput,
 	})
 	output, err := opsutil.AddEVMCallSequenceToCSOutput(
 		e,
@@ -539,4 +561,144 @@ func resolveUpdateLanesFeeQuoterAddressAndVersion(
 	chainSel uint64,
 ) (common.Address, semver.Version, error) {
 	return shared.ResolveFeeQuoterAddressAndVersion(addresses, chainSel)
+}
+
+// buildNonceManagerUpdatesFromV15Contracts auto-detects v1.5 OnRamp/OffRamp contracts for the lanes
+// being updated and builds NonceManager previous ramps updates to preserve nonce continuity
+func buildNonceManagerUpdatesFromV15Contracts(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	configs UpdateBidirectionalLanesChangesetConfigs,
+	mcmsConfig *proposalutils.TimelockConfig,
+) (ccipseqs.NonceManagerUpdatesSequenceInput, error) {
+	updates := make(map[uint64]ccipseqs.NonceManagerUpdateInput)
+
+	// OnRamp updates: source -> dest, OffRamp updates: dest -> source
+	lanePairs := make(map[uint64]map[uint64]struct{}) // source -> dest -> exists
+
+	for srcChain, dests := range configs.UpdateOnRampDestsConfig.UpdatesByChain {
+		if lanePairs[srcChain] == nil {
+			lanePairs[srcChain] = make(map[uint64]struct{})
+		}
+		for destChain := range dests {
+			lanePairs[srcChain][destChain] = struct{}{}
+		}
+	}
+
+	// From OffRamp config (dest -> source, so we need source -> dest)
+	for destChain, sources := range configs.UpdateOffRampSourcesConfig.UpdatesByChain {
+		for srcChain := range sources {
+			if lanePairs[srcChain] == nil {
+				lanePairs[srcChain] = make(map[uint64]struct{})
+			}
+			lanePairs[srcChain][destChain] = struct{}{}
+		}
+	}
+
+	// For each lane pair, check if v1.5 contracts exist and need NonceManager updates
+	for srcChain, destChains := range lanePairs {
+		for destChain := range destChains {
+			if err := maybeAddPreviousRampUpdate(e, state, updates, srcChain, destChain, mcmsConfig); err != nil {
+				return ccipseqs.NonceManagerUpdatesSequenceInput{}, err
+			}
+			if err := maybeAddPreviousRampUpdate(e, state, updates, destChain, srcChain, mcmsConfig); err != nil {
+				return ccipseqs.NonceManagerUpdatesSequenceInput{}, err
+			}
+		}
+	}
+
+	return ccipseqs.NonceManagerUpdatesSequenceInput{UpdatesByChain: updates}, nil
+}
+
+func maybeAddPreviousRampUpdate(
+	e cldf.Environment,
+	state stateview.CCIPOnChainState,
+	updates map[uint64]ccipseqs.NonceManagerUpdateInput,
+	localChain, remoteChain uint64,
+	mcmsConfig *proposalutils.TimelockConfig,
+) error {
+	chainState := state.Chains[localChain]
+	if chainState.NonceManager == nil {
+		return nil
+	}
+
+	// Check if v1.5 OnRamp exists
+	var hasV15OnRamp bool
+	if chainState.EVM2EVMOnRamp != nil {
+		if onRamp := chainState.EVM2EVMOnRamp[remoteChain]; onRamp != nil && onRamp.Address() != (common.Address{}) {
+			hasV15OnRamp = true
+		}
+	}
+
+	// Check if v1.5 OffRamp exist
+	var hasV15OffRamp bool
+	if chainState.EVM2EVMOffRamp != nil {
+		if offRamp := chainState.EVM2EVMOffRamp[remoteChain]; offRamp != nil && offRamp.Address() != (common.Address{}) {
+			hasV15OffRamp = true
+		}
+	}
+
+	if !hasV15OnRamp && !hasV15OffRamp {
+		return nil
+	}
+
+	// Check if already configured
+	prevRamps, err := chainState.NonceManager.GetPreviousRamps(&bind.CallOpts{Context: e.GetContext()}, remoteChain)
+	if err != nil {
+		return fmt.Errorf("failed to get previous ramps for chain %d -> %d: %w", localChain, remoteChain, err)
+	}
+
+	var wantOnRamp, wantOffRamp common.Address
+	if hasV15OnRamp {
+		wantOnRamp = chainState.EVM2EVMOnRamp[remoteChain].Address()
+	}
+	if hasV15OffRamp {
+		wantOffRamp = chainState.EVM2EVMOffRamp[remoteChain].Address()
+	}
+
+	// Skip only if the CORRECT addresses are already configured
+	if prevRamps.PrevOnRamp == wantOnRamp && prevRamps.PrevOffRamp == wantOffRamp {
+		return nil
+	}
+
+	if mcmsConfig != nil {
+		if err := commoncs.ValidateOwnership(
+			e.GetContext(),
+			true,
+			e.BlockChains.EVMChains()[localChain].DeployerKey.From,
+			chainState.Timelock.Address(),
+			chainState.NonceManager,
+		); err != nil {
+			return fmt.Errorf("NonceManager ownership validation failed on chain %d: %w", localChain, err)
+		}
+	}
+
+	prevRampArgs := nonce_manager.NonceManagerPreviousRampsArgs{
+		RemoteChainSelector:   remoteChain,
+		OverrideExistingRamps: true, // Always override to support multiple lanes with same remote chain
+		PrevRamps: nonce_manager.NonceManagerPreviousRamps{
+			PrevOnRamp:  wantOnRamp,
+			PrevOffRamp: wantOffRamp,
+		},
+	}
+
+	e.Logger.Infow("Registering v1.5 ramp addresses in NonceManager",
+		"chain", localChain,
+		"remoteChain", remoteChain,
+		"v15OnRamp", wantOnRamp.Hex(),
+		"v15OffRamp", wantOffRamp.Hex())
+
+	update := updates[localChain]
+	if update.PreviousRampsArgs == nil {
+		update.PreviousRampsArgs = &opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
+			Address:       chainState.NonceManager.Address(),
+			ChainSelector: localChain,
+			CallInput:     make([]nonce_manager.NonceManagerPreviousRampsArgs, 0),
+			NoSend:        mcmsConfig != nil,
+		}
+	}
+	update.PreviousRampsArgs.CallInput = append(update.PreviousRampsArgs.CallInput, prevRampArgs)
+	updates[localChain] = update
+
+	return nil
 }
