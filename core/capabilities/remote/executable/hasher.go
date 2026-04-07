@@ -155,7 +155,7 @@ var (
 
 func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
 	ss := strings.Split(msg.CapabilityId, ":")
-	if len(ss) < 1 {
+	if len(ss) < 1 || ss[0] == "" {
 		return "", errors.New("failed to parse family from capability id")
 	}
 	family := ss[0]
