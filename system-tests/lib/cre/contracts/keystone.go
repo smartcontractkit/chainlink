@@ -178,7 +178,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 	return nil
 }
 
-func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, extraSignerFamilies []string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
 	capabilities := make([]contracts.RegisterableCapability, 0)
@@ -213,15 +213,15 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		}
 		for i, nop := range don.Nops {
 			nopName := nop.Name
-			if _, exists := nopMap[nopName]; !exists {
-				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
-					Admin: adminAddrs[i],
-					Name:  nopName,
-				}
 
+			if _, exists := nopMap[nopName]; !exists {
 				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
 				if err != nil {
 					panic(err)
+				}
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
+					Admin: adminAddrs[i],
+					Name:  nopName,
 				}
 
 				// Add nodes for this NOP
@@ -258,17 +258,26 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		for _, cap := range don.Capabilities {
 			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
 			configBytes := []byte("{}")
-			if cap.Config != nil {
-				if cap.UseCapRegOCRConfig {
-					ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
-					if ocrConfig == nil {
-						panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
-					}
-					if err := d.embedOCR3Config(cap.Config, don, chainSelector, ocrConfig, extraSignerFamilies); err != nil {
-						panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
-					}
+
+			capConfig := cap.Config
+			shouldMarshalProtoConfig := capConfig != nil
+			if cap.UseCapRegOCRConfig {
+				if capConfig == nil {
+					capConfig = &capabilitiespb.CapabilityConfig{}
 				}
-				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+				shouldMarshalProtoConfig = true
+
+				ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
+				if ocrConfig == nil {
+					panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
+				}
+				if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig, capabilityToExtraSignerFamilies[cap.Capability.LabelledName]); err != nil {
+					panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
+				}
+			}
+
+			if shouldMarshalProtoConfig {
+				if protoBytes, err := proto.Marshal(capConfig); err == nil {
 					configBytes = protoBytes
 				}
 			}
@@ -387,7 +396,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
+		// add capabilities that were passed directly via feature startup hooks
 		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donMetadata.ID] != nil {
 			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donMetadata.ID]...)
 		}
@@ -456,7 +465,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 				if ocrConfig == nil {
 					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)
 				}
-				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig, input.ExtraSignerFamilies); err != nil {
+				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig, input.CapabilityToExtraSignerFamilies[cap.Capability.LabelledName]); err != nil {
 					return nil, fmt.Errorf("failed to embed OCR3 config for capability %s: %w", cap.Capability.LabelledName, err)
 				}
 			}
@@ -490,7 +499,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 		capReg = &registryWrapper{V1: capRegContract.Contract}
 	} else {
 		// Transform dons data to V2 sequence input format
-		v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.ExtraSignerFamilies)
+		v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToExtraSignerFamilies)
 		_, seqErr := operations.ExecuteSequence(
 			input.CldEnv.OperationsBundle,
 			cap_reg_v2_seq.ConfigureCapabilitiesRegistry,

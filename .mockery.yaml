@@ -27,7 +27,7 @@ packages:
       DonSubscriber:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/vault:
     interfaces:
-      RequestAuthorizer:
+      Authorizer:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes:
     interfaces:
       SecretsService:
@@ -434,4 +434,3 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:
-

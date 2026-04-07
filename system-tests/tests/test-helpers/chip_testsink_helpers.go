@@ -150,6 +150,15 @@ func safeSendBaseMessage(ch chan *commonevents.BaseMessage, msg *commonevents.Ba
 	ch <- msg
 }
 
+func safeSendProtoMessage(ch chan proto.Message, msg proto.Message) {
+	// Same race as safeSendUserLogs; avoid panic on send to closed channel.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
 func ChipSinkFanoutEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_CHIP_SINK_FANOUT_ENABLED")))
 	return v == "1" || v == "true" || v == "yes"
@@ -322,6 +331,31 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 	}
 
 	return publishFn
+}
+
+// GetWorkflowV2LifecyclePublishFn returns a CHiP publish handler that demuxes workflow lifecycle v2 events.
+func GetWorkflowV2LifecyclePublishFn(testLogger zerolog.Logger, workflowEventCh chan proto.Message) chiptestsink.PublishFn {
+	return func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+		var typedMsg proto.Message
+		switch event.Type {
+		case "workflows.v2.WorkflowActivated":
+			typedMsg = &workfloweventsv2.WorkflowActivated{}
+		case "workflows.v2.WorkflowPaused":
+			typedMsg = &workfloweventsv2.WorkflowPaused{}
+		case "workflows.v2.WorkflowDeleted":
+			typedMsg = &workfloweventsv2.WorkflowDeleted{}
+		default:
+			return &chippb.PublishResponse{}, nil
+		}
+
+		if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
+			testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
+			return &chippb.PublishResponse{}, nil
+		}
+
+		safeSendProtoMessage(workflowEventCh, typedMsg)
+		return &chippb.PublishResponse{}, nil
+	}
 }
 
 // GetLoggingPublishFn returns a CHiP publish handler that demuxes events into the provided channels and saves all events to a file.

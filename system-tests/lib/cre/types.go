@@ -73,6 +73,7 @@ const (
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
 	SolanaCapability          CapabilityFlag = "solana"
+	AptosCapability           CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
@@ -232,9 +233,10 @@ type CapabilityConfig struct {
 }
 
 // mergeCapabilityConfigs copies entries from src to dst only for keys that
-// do not already exist in dst. This is NOT a deep merge - if a key exists
-// in dst, its entire CapabilityConfig is preserved without modification.
-// Users who override a capability config must provide all required values.
+// do not already exist in dst. This is NOT a deep merge - when a key exists
+// in dst, only BinaryName may be backfilled from src and Values are preserved
+// exactly as provided by the override. Users who override a capability config
+// must still provide all required Values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {
@@ -399,9 +401,10 @@ type ConfigureCapabilityRegistryInput struct {
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
 
-	// Non-EVM chain families whose signing keys should be included in OCR3
-	// config signers (e.g. ["solana"]). EVM is always included.
-	ExtraSignerFamilies []string
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -563,11 +566,16 @@ type DonMetadata struct {
 
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
+	aptosChainIDs, err := c.GetEnabledChainIDsForCapability(AptosCapability)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve Aptos chain ids for node metadata: %w", err)
+	}
 	for i, nodeSpec := range c.NodeSpecs {
 		cfg := NodeMetadataConfig{
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
+				AptosChainIDs:   aptosChainIDs,
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
@@ -1313,6 +1321,11 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	return out
 }
 
+// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, aptos-4).
+func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
+	return c.chainCapabilityIDs()
+}
+
 func (c *NodeSet) Flags() []string {
 	var stringCaps []string
 
@@ -1445,6 +1458,7 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 type NodeKeyInput struct {
 	EVMChainIDs    []uint64
 	SolanaChainIDs []string
+	AptosChainIDs  []uint64
 	Password       string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
@@ -1461,6 +1475,9 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		importedKeys, err := secrets.ImportNodeKeys(input.ImportedSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse imported secrets")
+		}
+		if len(input.AptosChainIDs) > 0 && importedKeys.Aptos == nil {
+			return nil, errors.New("imported secrets are missing an Aptos key; regenerate node secrets with Aptos support")
 		}
 
 		return importedKeys, nil
@@ -1495,6 +1512,14 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		}
 		out.Solana[chainID] = k
 	}
+	if len(input.AptosChainIDs) > 0 {
+		k, err := crypto.NewAptosKey(input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Aptos key: %w", err)
+		}
+		out.Aptos = k
+		out.AptosChainIDs = append([]uint64(nil), input.AptosChainIDs...)
+	}
 
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
@@ -1502,7 +1527,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		Bool("imported", input.ImportedSecrets != "").
 		Float64("duration_s", roundSeconds(time.Since(start))).
 		Msg("Node key generation completed")
-
 	return out, nil
 }
 
@@ -1669,7 +1693,8 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
-	// Non-EVM chain families whose signing keys should be included in OCR3
-	// config signers (e.g. ["solana"]). EVM is always included.
-	ExtraSignerFamilies []string
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }
