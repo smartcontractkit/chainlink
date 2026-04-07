@@ -64,7 +64,10 @@ func deployForwarder(b operations.Bundle, deps operation.Deps, in DeployForwarde
 		forwarderID = deployOut.Output.ProgramID
 	} else {
 		deps.Env.Logger.Info("Forwarder program ID is already present in datastore for given version and qualifier. Proceed sequence without deploying")
-		forwarderID = solana.MustPublicKeyFromBase58(programID.Address)
+		forwarderID, err = solana.PublicKeyFromBase58(programID.Address)
+		if err != nil {
+			return DeployForwarderSeqOutput{}, fmt.Errorf("failed to parse forwarder program ID: %w", err)
+		}
 	}
 
 	out.ProgramID = forwarderID

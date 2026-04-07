@@ -184,11 +184,14 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 		ks_forwarder.SetProgramID(in.ProgramID)
 	}
 
-	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
+	configPDA, err := solana.PublicKeyFromBase58(in.ConfigPDA)
+	if err != nil {
+		return out, fmt.Errorf("failed to parse config PDA: %w", err)
+	}
 
 	var oracleExists bool
 
-	_, err := deps.Chain.Client.GetAccountInfo(b.GetContext(), configPDA)
+	_, err = deps.Chain.Client.GetAccountInfo(b.GetContext(), configPDA)
 	if err != nil {
 		if !errors.Is(err, rpc.ErrNotFound) {
 			return out, fmt.Errorf("can't confirm oracle existence: %w", err)
@@ -198,7 +201,10 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 		oracleExists = true
 	}
 
-	owner := solana.MustPublicKeyFromBase58(in.Owner)
+	owner, err := solana.PublicKeyFromBase58(in.Owner)
+	if err != nil {
+		return out, fmt.Errorf("failed to parse owner address: %w", err)
+	}
 
 	if !oracleExists {
 		instructions, err = ks_forwarder.NewInitOraclesConfigInstruction(

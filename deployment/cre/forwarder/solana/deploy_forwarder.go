@@ -325,8 +325,16 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest) (
 		if err != nil {
 			return nil, fmt.Errorf("failed load forwarder for chain sel %d", chain.Selector)
 		}
-		configPDA := getConfigPDA(solana.MustPublicKeyFromBase58(forwarderState.Address),
-			cfg.DonID, cfg.ConfigVersion, solana.MustPublicKeyFromBase58(forwarderProgramID.Address))
+		forwarderStatePubKey, err := solana.PublicKeyFromBase58(forwarderState.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse forwarder state address for chain sel %d: %w", chain.Selector, err)
+		}
+		forwarderProgramPubKey, err := solana.PublicKeyFromBase58(forwarderProgramID.Address)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse forwarder program ID for chain sel %d: %w", chain.Selector, err)
+		}
+		configPDA := getConfigPDA(forwarderStatePubKey,
+			cfg.DonID, cfg.ConfigVersion, forwarderProgramPubKey)
 
 		owner := chain.DeployerKey.PublicKey()
 		if req.MCMS != nil {
@@ -345,14 +353,14 @@ func configureForwarders(env cldf.Environment, req *ConfigureForwarderRequest) (
 		}
 		signers := toSolSigners(cfg.Signers)
 		opOut, err := operations.ExecuteOperation(env.OperationsBundle, operation.ConfigureForwarderOp, deps, operation.ConfigureForwarderInput{
-			ProgramID:      solana.MustPublicKeyFromBase58(forwarderProgramID.Address),
+			ProgramID:      forwarderProgramPubKey,
 			MCMS:           req.MCMS,
 			Owner:          owner.String(),
 			Signers:        signers,
 			DonID:          cfg.DonID,
 			ConfigVersion:  cfg.ConfigVersion,
 			F:              cfg.F,
-			ForwarderState: solana.MustPublicKeyFromBase58(forwarderState.Address),
+			ForwarderState: forwarderStatePubKey,
 			ConfigPDA:      configPDA.String(),
 			Type:           cldf.ContractType(ForwarderContract),
 		})
