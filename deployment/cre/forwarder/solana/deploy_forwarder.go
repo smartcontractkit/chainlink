@@ -289,7 +289,7 @@ func (cs ConfigureForwarders) Apply(env cldf.Environment, req *ConfigureForwarde
 			proposers,
 			inspectors,
 			[]mcmsTypes.BatchOperation{batch},
-			"proposal to transfer ownership of keystone forwarder contract to timelock",
+			"proposal to configure keystone forwarder oracle config",
 			*req.MCMS)
 
 		if err != nil {
