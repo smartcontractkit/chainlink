@@ -279,15 +279,16 @@ func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonName:           test.DONName,
-		CapabilityConfigs: []contracts.CapabilityConfig{{
-			Capability: contracts.Capability{
-				CapabilityID:          capID,
-				ConfigurationContract: common.Address{},
-				Metadata:              newCapMetadata,
-			},
-			Config: maps.Clone(newCapConfig),
-		}},
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: {{
+				Capability: contracts.Capability{
+					CapabilityID:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              newCapMetadata,
+				},
+				Config: maps.Clone(newCapConfig),
+			}},
+		},
 		Force: true,
 	}
 
