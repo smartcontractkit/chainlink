@@ -50,8 +50,8 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260407180755-4f014e290fb5
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260407180755-4f014e290fb5
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260407183401-f1a4eb83985c
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260407183401-f1a4eb83985c
 	github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e
 	github.com/smartcontractkit/mcms v0.38.2
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
