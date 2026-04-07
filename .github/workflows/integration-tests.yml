@@ -326,6 +326,8 @@ jobs:
       actions: write
     env:
       E2E_BIN_ARTIFACT_NAME: e2e-test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      # secrets are not allowed in step `if:`; compute once at job level (allowed in job env).
+      GATI_SECRETS_PRESENT: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN != '' && secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL != '' }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
@@ -341,7 +343,7 @@ jobs:
 
       - name: Setup GitHub token using GATI
         id: github-token
-        if: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN != '' && secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL != '' }}
+        if: env.GATI_SECRETS_PRESENT == 'true'
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
