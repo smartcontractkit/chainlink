@@ -573,35 +573,32 @@ func buildNonceManagerUpdatesFromV15Contracts(
 ) (ccipseqs.NonceManagerUpdatesSequenceInput, error) {
 	updates := make(map[uint64]ccipseqs.NonceManagerUpdateInput)
 
-	// OnRamp updates: source -> dest, OffRamp updates: dest -> source
-	lanePairs := make(map[uint64]map[uint64]struct{}) // source -> dest -> exists
+	// Collect all unique directed pairs (both directions) from the lane configs.
+	pairs := make(map[uint64]map[uint64]struct{})
+	addPair := func(src, dest uint64) {
+		if pairs[src] == nil {
+			pairs[src] = make(map[uint64]struct{})
+		}
+		pairs[src][dest] = struct{}{}
+	}
 
 	for srcChain, dests := range configs.UpdateOnRampDestsConfig.UpdatesByChain {
-		if lanePairs[srcChain] == nil {
-			lanePairs[srcChain] = make(map[uint64]struct{})
-		}
 		for destChain := range dests {
-			lanePairs[srcChain][destChain] = struct{}{}
+			addPair(srcChain, destChain)
+			addPair(destChain, srcChain) // reverse direction
 		}
 	}
-
-	// From OffRamp config (dest -> source, so we need source -> dest)
 	for destChain, sources := range configs.UpdateOffRampSourcesConfig.UpdatesByChain {
 		for srcChain := range sources {
-			if lanePairs[srcChain] == nil {
-				lanePairs[srcChain] = make(map[uint64]struct{})
-			}
-			lanePairs[srcChain][destChain] = struct{}{}
+			addPair(srcChain, destChain)
+			addPair(destChain, srcChain) // reverse direction
 		}
 	}
 
-	// For each lane pair, check if v1.5 contracts exist and need NonceManager updates
-	for srcChain, destChains := range lanePairs {
+	// Check each directed pair for v1.5 contracts
+	for sourceChain, destChains := range pairs {
 		for destChain := range destChains {
-			if err := maybeAddPreviousRampUpdate(e, state, updates, srcChain, destChain, mcmsConfig); err != nil {
-				return ccipseqs.NonceManagerUpdatesSequenceInput{}, err
-			}
-			if err := maybeAddPreviousRampUpdate(e, state, updates, destChain, srcChain, mcmsConfig); err != nil {
+			if err := maybeAddPreviousRampUpdate(e, state, updates, sourceChain, destChain, mcmsConfig); err != nil {
 				return ccipseqs.NonceManagerUpdatesSequenceInput{}, err
 			}
 		}
@@ -614,10 +611,10 @@ func maybeAddPreviousRampUpdate(
 	e cldf.Environment,
 	state stateview.CCIPOnChainState,
 	updates map[uint64]ccipseqs.NonceManagerUpdateInput,
-	localChain, remoteChain uint64,
+	sourceChain, destChain uint64,
 	mcmsConfig *proposalutils.TimelockConfig,
 ) error {
-	chainState := state.Chains[localChain]
+	chainState := state.Chains[sourceChain]
 	if chainState.NonceManager == nil {
 		return nil
 	}
@@ -625,35 +622,31 @@ func maybeAddPreviousRampUpdate(
 	// Check if v1.5 OnRamp exists
 	var hasV15OnRamp bool
 	if chainState.EVM2EVMOnRamp != nil {
-		if onRamp := chainState.EVM2EVMOnRamp[remoteChain]; onRamp != nil && onRamp.Address() != (common.Address{}) {
+		if onRamp := chainState.EVM2EVMOnRamp[destChain]; onRamp != nil && onRamp.Address() != (common.Address{}) {
 			hasV15OnRamp = true
 		}
 	}
 
-	// Check if v1.5 OffRamp exist
+	// Check if v1.5 OffRamp exists
 	var hasV15OffRamp bool
 	if chainState.EVM2EVMOffRamp != nil {
-		if offRamp := chainState.EVM2EVMOffRamp[remoteChain]; offRamp != nil && offRamp.Address() != (common.Address{}) {
+		if offRamp := chainState.EVM2EVMOffRamp[destChain]; offRamp != nil && offRamp.Address() != (common.Address{}) {
 			hasV15OffRamp = true
 		}
 	}
 
-	if !hasV15OnRamp && !hasV15OffRamp {
+	// Require both v1.5 OnRamp and OffRamp to exist
+	if !hasV15OnRamp || !hasV15OffRamp {
 		return nil
 	}
 
-	// Check if already configured
-	prevRamps, err := chainState.NonceManager.GetPreviousRamps(&bind.CallOpts{Context: e.GetContext()}, remoteChain)
-	if err != nil {
-		return fmt.Errorf("failed to get previous ramps for chain %d -> %d: %w", localChain, remoteChain, err)
-	}
+	wantOnRamp := chainState.EVM2EVMOnRamp[destChain].Address()
+	wantOffRamp := chainState.EVM2EVMOffRamp[destChain].Address()
 
-	var wantOnRamp, wantOffRamp common.Address
-	if hasV15OnRamp {
-		wantOnRamp = chainState.EVM2EVMOnRamp[remoteChain].Address()
-	}
-	if hasV15OffRamp {
-		wantOffRamp = chainState.EVM2EVMOffRamp[remoteChain].Address()
+	// Check if already configured
+	prevRamps, err := chainState.NonceManager.GetPreviousRamps(&bind.CallOpts{Context: e.GetContext()}, destChain)
+	if err != nil {
+		return fmt.Errorf("failed to get previous ramps for chain %d -> %d: %w", sourceChain, destChain, err)
 	}
 
 	// Skip only if the CORRECT addresses are already configured
@@ -662,19 +655,26 @@ func maybeAddPreviousRampUpdate(
 	}
 
 	if mcmsConfig != nil {
+		if chainState.Timelock == nil {
+			return fmt.Errorf("Timelock not deployed on chain %d", sourceChain)
+		}
+		evmChain, ok := e.BlockChains.EVMChains()[sourceChain]
+		if !ok {
+			return fmt.Errorf("chain %d not found in environment", sourceChain)
+		}
 		if err := commoncs.ValidateOwnership(
 			e.GetContext(),
 			true,
-			e.BlockChains.EVMChains()[localChain].DeployerKey.From,
+			evmChain.DeployerKey.From,
 			chainState.Timelock.Address(),
 			chainState.NonceManager,
 		); err != nil {
-			return fmt.Errorf("NonceManager ownership validation failed on chain %d: %w", localChain, err)
+			return fmt.Errorf("NonceManager ownership validation failed on chain %d: %w", sourceChain, err)
 		}
 	}
 
 	prevRampArgs := nonce_manager.NonceManagerPreviousRampsArgs{
-		RemoteChainSelector:   remoteChain,
+		RemoteChainSelector:   destChain,
 		OverrideExistingRamps: true, // Always override to support multiple lanes with same remote chain
 		PrevRamps: nonce_manager.NonceManagerPreviousRamps{
 			PrevOnRamp:  wantOnRamp,
@@ -683,22 +683,22 @@ func maybeAddPreviousRampUpdate(
 	}
 
 	e.Logger.Infow("Registering v1.5 ramp addresses in NonceManager",
-		"chain", localChain,
-		"remoteChain", remoteChain,
+		"sourceChain", sourceChain,
+		"destChain", destChain,
 		"v15OnRamp", wantOnRamp.Hex(),
 		"v15OffRamp", wantOffRamp.Hex())
 
-	update := updates[localChain]
+	update := updates[sourceChain]
 	if update.PreviousRampsArgs == nil {
 		update.PreviousRampsArgs = &opsutil.EVMCallInput[[]nonce_manager.NonceManagerPreviousRampsArgs]{
 			Address:       chainState.NonceManager.Address(),
-			ChainSelector: localChain,
+			ChainSelector: sourceChain,
 			CallInput:     make([]nonce_manager.NonceManagerPreviousRampsArgs, 0),
 			NoSend:        mcmsConfig != nil,
 		}
 	}
 	update.PreviousRampsArgs.CallInput = append(update.PreviousRampsArgs.CallInput, prevRampArgs)
-	updates[localChain] = update
+	updates[sourceChain] = update
 
 	return nil
 }
