@@ -48,7 +48,7 @@ plugins:
       installPath: "."
   aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "232da22eecffc8c826b72819df37b0efc82dc472"
+      gitRef: "cb250a07e73a839972eded3b15d3d846f8be9db5"
       installPath: "."
   mock:
     - moduleURI: "github.com/smartcontractkit/capabilities/mock"
