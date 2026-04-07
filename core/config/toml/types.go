@@ -1985,7 +1985,7 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode         *bool                   `toml:",omitempty"`
+	DebugMode         *bool                    `toml:",omitempty"`
 	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
