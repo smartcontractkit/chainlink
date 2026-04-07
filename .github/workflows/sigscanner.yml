@@ -10,15 +10,18 @@ on:
 
 permissions: {}
 
-# SSH key fingerprint for the release-pusher bot's signing key. Commits
-# signed with this key are exempt from SigScanner. Stored here (not in
-# Secrets) so that any change requires code-review approval.
-# The bot signs via a GitHub App SSH key that is not linked to an account,
-# so GitHub reports verified=false/unknown_key — we must extract the
-# public key from the SSH signature and compute its fingerprint ourselves.
 env:
-  BOT_KEY_FP: "SHA256:ZbmANK1Txn2p21TXLqLn9OdfsgPNW9Nt1s9s1i0/1bc"
-  BOT_LOGIN: "chainlink-release-pusher[bot]"
+  # Bot logins mapped to their SSH signing-key fingerprints. Commits signed
+  # by a known bot key are exempt from SigScanner. Stored here (not in
+  # Secrets) so that any change requires code-review approval.
+  # These bots sign via GitHub App SSH keys that are not linked to accounts,
+  # so GitHub reports verified=false/unknown_key — we must extract the
+  # public key from the SSH signature and compute its fingerprint ourselves.
+  # To add a new bot, append a "login": "fingerprint" entry to BOT_KEYS.
+  BOT_KEYS: >-
+    {
+      "chainlink-release-pusher[bot]": "SHA256:ZbmANK1Txn2p21TXLqLn9OdfsgPNW9Nt1s9s1i0/1bc"
+    }
 
 jobs:
   sigscanner-check:
@@ -35,23 +38,29 @@ jobs:
       # On push, github.sha is the real commit on develop.
       COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
-      - name: Check if commit is signed by release-pusher bot
+      - name: Check if commit is signed by a known bot
         id: bot-sig-check
-        # Only call the GitHub API when the PR was opened by the bot.
-        # github.event.pull_request.user.login is set server-side by
-        # GitHub and cannot be spoofed. On push events (no PR context)
+        # On pull_request events, check whether the PR author is a known
+        # bot. github.event.pull_request.user.login is set server-side
+        # by GitHub and cannot be spoofed. On push events (no PR context)
         # this condition is false, so we skip straight to SigScanner.
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'chainlink-release-pusher[bot]'
-        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
         with:
           script: |
             const crypto = require('crypto');
 
-            const expectedFP = process.env.BOT_KEY_FP;
+            const botKeys = JSON.parse(process.env.BOT_KEYS);
+            const prAuthor = context.payload.pull_request.user.login;
+            const expectedFP = botKeys[prAuthor];
+
+            if (!expectedFP) {
+              core.info(`PR author ${prAuthor} is not a known bot — SigScanner will run`);
+              return;
+            }
+
             const commitSHA = process.env.COMMIT_SHA;
-            core.info(`🔑 PR opened by ${process.env.BOT_LOGIN} — verifying commit signature …`);
+            core.info(`🔑 PR opened by known bot ${prAuthor} — verifying commit signature …`);
             core.info(`Expected bot key fingerprint: ${expectedFP}`);
 
             // The bot signs commits with an SSH key from a GitHub App that is not
@@ -67,7 +76,7 @@ jobs:
 
             const sig = commit.commit.verification?.signature;
             if (!sig) {
-              core.setFailed('PR is from the bot but the commit has no signature');
+              core.setFailed('PR is from a known bot but the commit has no signature');
               return;
             }
 
@@ -86,10 +95,10 @@ jobs:
             core.info(`Commit signature fingerprint: ${fp}`);
 
             if (fp === expectedFP) {
-              core.info('✅ Commit is signed by the release-pusher bot — skipping SigScanner');
+              core.info(`✅ Commit is signed by known bot ${prAuthor} — skipping SigScanner`);
               core.setOutput('signed_by_bot', 'true');
             } else {
-              core.setFailed(`PR is from the bot but commit is signed by unknown key (${fp})`);
+              core.setFailed(`PR is from bot ${prAuthor} but commit is signed by unknown key (${fp})`);
             }
 
       - name: "SigScanner checking ${{ env.COMMIT_SHA }} by ${{ github.actor }}"
