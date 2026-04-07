@@ -2,6 +2,7 @@ package sets
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
 	consensus_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
@@ -32,6 +33,7 @@ func New() cre.Features {
 		&http_trigger_feature.HTTPTrigger{},
 		&log_event_trigger_feature.LogEventTrigger{},
 		&mock_feature.Mock{},
+		&aptos_feature.Aptos{},
 		&read_contract_feature.ReadContract{},
 		&web_api_target_feature.WebAPITarget{},
 		&web_api_trigger_feature.WebAPITrigger{},

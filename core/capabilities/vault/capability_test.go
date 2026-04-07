@@ -35,7 +35,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -53,6 +53,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	}
 
 	gsr := &vault.GetSecretsRequest{
+		WorkflowOwner: owner,
 		Requests: []*vault.SecretRequest{
 			{
 				Id:             sid,
@@ -132,7 +133,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -149,6 +150,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	}
 
 	gsr := &vault.GetSecretsRequest{
+		WorkflowOwner: owner,
 		Requests: []*vault.SecretRequest{
 			{
 				Id:             sid,
@@ -302,7 +304,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -321,6 +323,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			}
 
 			gsr := &vault.GetSecretsRequest{
+				WorkflowOwner: tc.workflowOwner,
 				Requests: reqs,
 			}
 			anyproto, err := anypb.New(gsr)
@@ -371,6 +374,184 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
+func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	workflowOwner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		OrgId:         "",
+		WorkflowOwner: workflowOwner,
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	expectedResponse := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: workflowOwner},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	}
+	data, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) == 1 {
+					reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: data})
+					return
+				}
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       workflowOwner,
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	assert.Empty(t, resolver.calledWith)
+}
+
+func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		OrgId:         "org-123",
+		WorkflowOwner: "0xABCDef1234567890abcdef1234567890abcdef12",
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "0xABCDef1234567890abcdef1234567890abcdef12",
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+	responsePayload, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "owner",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	var (
+		wg          sync.WaitGroup
+		forward     *vault.GetSecretsRequest
+		forwardedOK bool
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				cloned, ok := proto.Clone(payload).(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				forward = cloned
+				forwardedOK = true
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: responsePayload})
+				return
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "0xABCDef1234567890abcdef1234567890abcdef12",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	require.True(t, forwardedOK)
+	require.NotNil(t, forward)
+	assert.Equal(t, "org-123", forward.OrgId)
+	assert.Equal(t, "0xABCDef1234567890abcdef1234567890abcdef12", forward.WorkflowOwner)
+	assert.Empty(t, resolver.calledWith)
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
@@ -379,7 +560,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -397,6 +578,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	}
 
 	gsr := &vault.GetSecretsRequest{
+		WorkflowOwner: owner,
 		Requests: []*vault.SecretRequest{
 			{
 				Id:             sid,
@@ -453,7 +635,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, lf)
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
@@ -471,6 +653,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	}
 
 	gsr := &vault.GetSecretsRequest{
+		WorkflowOwner: owner,
 		Requests: []*vault.SecretRequest{
 			{
 				Id:             sid,
@@ -1157,7 +1340,7 @@ func TestCapability_CRUD(t *testing.T) {
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf)
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -1205,7 +1388,7 @@ func TestCapability_Lifecycle(t *testing.T) {
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
 	require.NoError(t, err)
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
@@ -1236,7 +1419,7 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, nil, lf)
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

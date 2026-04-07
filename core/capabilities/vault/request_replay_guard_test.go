@@ -9,39 +9,39 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDigestReplayGuard_FirstCallSucceeds(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_FirstCallSucceeds(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	err := guard.CheckAndRecord("digest-1", futureExpiry)
 	require.NoError(t, err)
 }
 
-func TestDigestReplayGuard_DuplicateRejected(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_DuplicateRejected(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	err := guard.CheckAndRecord("digest-1", futureExpiry)
 	require.NoError(t, err)
 
 	err = guard.CheckAndRecord("digest-1", futureExpiry)
-	require.ErrorIs(t, err, ErrDigestAlreadySeen)
+	require.ErrorIs(t, err, ErrRequestAlreadySeen)
 }
 
-func TestDigestReplayGuard_DifferentDigestsIndependent(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_DifferentDigestsIndependent(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	require.NoError(t, guard.CheckAndRecord("digest-1", futureExpiry))
 	require.NoError(t, guard.CheckAndRecord("digest-2", futureExpiry))
 	require.NoError(t, guard.CheckAndRecord("digest-3", futureExpiry))
 
-	require.ErrorIs(t, guard.CheckAndRecord("digest-1", futureExpiry), ErrDigestAlreadySeen)
-	require.ErrorIs(t, guard.CheckAndRecord("digest-2", futureExpiry), ErrDigestAlreadySeen)
+	require.ErrorIs(t, guard.CheckAndRecord("digest-1", futureExpiry), ErrRequestAlreadySeen)
+	require.ErrorIs(t, guard.CheckAndRecord("digest-2", futureExpiry), ErrRequestAlreadySeen)
 }
 
-func TestDigestReplayGuard_ExpiredEntryCleaned(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_ExpiredEntryCleaned(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
 
@@ -57,8 +57,8 @@ func TestDigestReplayGuard_ExpiredEntryCleaned(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDigestReplayGuard_NonExpiredEntryRetained(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_NonExpiredEntryRetained(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
 
@@ -69,11 +69,11 @@ func TestDigestReplayGuard_NonExpiredEntryRetained(t *testing.T) {
 	guard.nowFunc = func() time.Time { return now.Add(50 * time.Second) }
 
 	err := guard.CheckAndRecord("digest-1", futureExpiry)
-	require.ErrorIs(t, err, ErrDigestAlreadySeen)
+	require.ErrorIs(t, err, ErrRequestAlreadySeen)
 }
 
-func TestDigestReplayGuard_MixedExpiryCleanup(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_MixedExpiryCleanup(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
 
@@ -90,11 +90,11 @@ func TestDigestReplayGuard_MixedExpiryCleanup(t *testing.T) {
 	require.NoError(t, guard.CheckAndRecord("short-lived", now.Add(50*time.Second).UTC().Unix()+100))
 
 	// Long-lived should still be rejected
-	require.ErrorIs(t, guard.CheckAndRecord("long-lived", longExpiry), ErrDigestAlreadySeen)
+	require.ErrorIs(t, guard.CheckAndRecord("long-lived", longExpiry), ErrRequestAlreadySeen)
 }
 
-func TestDigestReplayGuard_ConcurrentAccess(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_ConcurrentAccess(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	const goroutines = 100
@@ -116,7 +116,7 @@ func TestDigestReplayGuard_ConcurrentAccess(t *testing.T) {
 		if err == nil {
 			successCount++
 		} else {
-			require.ErrorIs(t, err, ErrDigestAlreadySeen)
+			require.ErrorIs(t, err, ErrRequestAlreadySeen)
 			duplicateCount++
 		}
 	}
@@ -125,8 +125,8 @@ func TestDigestReplayGuard_ConcurrentAccess(t *testing.T) {
 	assert.Equal(t, goroutines-1, duplicateCount, "all others should be rejected as duplicates")
 }
 
-func TestDigestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	const goroutines = 50
@@ -148,8 +148,8 @@ func TestDigestReplayGuard_ConcurrentDifferentDigests(t *testing.T) {
 	}
 }
 
-func TestDigestReplayGuard_ClearExpiredIndependently(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_ClearExpiredIndependently(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	now := time.Now()
 	guard.nowFunc = func() time.Time { return now }
 
@@ -174,10 +174,10 @@ func TestDigestReplayGuard_ClearExpiredIndependently(t *testing.T) {
 	assert.True(t, durablePresent, "non-expired entry should remain")
 }
 
-func TestDigestReplayGuard_EmptyDigest(t *testing.T) {
-	guard := NewDigestReplayGuard()
+func TestRequestReplayGuard_EmptyDigest(t *testing.T) {
+	guard := NewRequestReplayGuard()
 	futureExpiry := time.Now().UTC().Unix() + 100
 
 	require.NoError(t, guard.CheckAndRecord("", futureExpiry))
-	require.ErrorIs(t, guard.CheckAndRecord("", futureExpiry), ErrDigestAlreadySeen)
+	require.ErrorIs(t, guard.CheckAndRecord("", futureExpiry), ErrRequestAlreadySeen)
 }

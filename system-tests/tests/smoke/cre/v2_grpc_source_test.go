@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -134,14 +135,15 @@ func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironmen
 	require.NoError(t, err, "failed to decode owner hex")
 	artifacts := compileAndCopyWorkflow(t, testEnv, grpcWorkflowName, ownerHex)
 
-	// Start Beholder listener for workflow events
-	testLogger.Info().Msg("Starting Beholder listener for workflow lifecycle events...")
-	beholderCtx, messageChan, errChan := startWorkflowEventBeholder(t, testEnv)
+	// Start CHiP sink listener for workflow events
+	testLogger.Info().Msg("Starting CHiP sink listener for workflow lifecycle events...")
+	eventsCtx, messageChan := startWorkflowEventSink(t)
+	grpcWorkflowID := hex.EncodeToString(artifacts.WorkflowID[:])
 
 	// Step 1: (Optional) Verify contract workflow is activated
 	if runIsolationChecks {
-		testLogger.Info().Str("workflowName", contractWorkflowName).Msg("Step 1: Verifying contract-source workflow is active...")
-		assertWorkflowActivated(t, beholderCtx, messageChan, errChan, contractWorkflowName, 2*grpcSourceTestSyncerInterval)
+		testLogger.Info().Str("workflowName", contractWorkflowName).Msg("Step 1: Verifying contract workflow isolation baseline...")
+		assertWorkflowStillExecuting(t, testEnv, contractWorkflowName)
 	} else {
 		testLogger.Info().Msg("Skipping contract workflow isolation checks (no contract workflow configured)")
 	}
@@ -162,7 +164,7 @@ func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironmen
 	require.NoError(t, err, "failed to add workflow via private registry API")
 
 	// Verify gRPC workflow activation
-	assertWorkflowActivated(t, beholderCtx, messageChan, errChan, grpcWorkflowName, 2*grpcSourceTestSyncerInterval)
+	assertWorkflowActivated(t, eventsCtx, messageChan, grpcWorkflowName, grpcWorkflowID, 2*grpcSourceTestSyncerInterval)
 
 	// Step 3: (Optional) Verify contract workflow is still running (isolation check)
 	if runIsolationChecks {
@@ -176,7 +178,7 @@ func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironmen
 	require.NoError(t, err, "failed to pause workflow via private registry API")
 
 	// Verify gRPC workflow paused
-	assertWorkflowPaused(t, beholderCtx, messageChan, errChan, grpcWorkflowName, 2*grpcSourceTestSyncerInterval)
+	assertWorkflowPaused(t, eventsCtx, messageChan, grpcWorkflowName, grpcWorkflowID, 2*grpcSourceTestSyncerInterval)
 
 	// Step 5: (Optional) Verify contract workflow is still running (isolation check)
 	if runIsolationChecks {
@@ -190,7 +192,7 @@ func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironmen
 	require.NoError(t, err, "failed to resume workflow via private registry API")
 
 	// Verify gRPC workflow reactivated
-	assertWorkflowActivated(t, beholderCtx, messageChan, errChan, grpcWorkflowName, 2*grpcSourceTestSyncerInterval)
+	assertWorkflowActivated(t, eventsCtx, messageChan, grpcWorkflowName, grpcWorkflowID, 2*grpcSourceTestSyncerInterval)
 
 	// Step 7: Delete gRPC workflow
 	testLogger.Info().Str("workflowName", grpcWorkflowName).Msg("Step 7: Deleting gRPC workflow...")
@@ -198,7 +200,7 @@ func ExecuteGRPCSourceLifecycleTest(t *testing.T, testEnv *ttypes.TestEnvironmen
 	require.NoError(t, err, "failed to delete workflow via private registry API")
 
 	// Verify gRPC workflow deleted
-	assertWorkflowDeleted(t, beholderCtx, messageChan, errChan, grpcWorkflowName, 2*grpcSourceTestSyncerInterval)
+	assertWorkflowDeleted(t, eventsCtx, messageChan, grpcWorkflowName, grpcWorkflowID, 2*grpcSourceTestSyncerInterval)
 
 	// Step 8: (Optional) Final isolation check - contract workflow still running
 	if runIsolationChecks {
@@ -242,12 +244,13 @@ func ExecuteGRPCSourceAuthRejectionTest(t *testing.T, testEnv *ttypes.TestEnviro
 	err = mockServer.PrivateRegistryService().AddWorkflow(ctx, registration)
 	require.NoError(t, err, "failed to add workflow via private registry API")
 
-	// Start Beholder listener
-	beholderCtx, messageChan, errChan := startWorkflowEventBeholder(t, testEnv)
+	// Start CHiP sink listener
+	eventsCtx, messageChan := startWorkflowEventSink(t)
+	workflowIDHex := hex.EncodeToString(registration.WorkflowID[:])
 
 	// Wait for 2 sync intervals - workflow should NOT be activated
 	testLogger.Info().Msg("Waiting to verify workflow is NOT activated (auth rejection)...")
-	assertNoWorkflowActivated(t, beholderCtx, messageChan, errChan, registration.WorkflowName, 2*grpcSourceTestSyncerInterval)
+	assertNoWorkflowActivated(t, eventsCtx, messageChan, registration.WorkflowName, workflowIDHex, 2*grpcSourceTestSyncerInterval)
 
 	// Verify nodes are still healthy (no panics)
 	testLogger.Info().Msg("Verifying nodes are still healthy after auth rejection...")
@@ -258,35 +261,23 @@ func ExecuteGRPCSourceAuthRejectionTest(t *testing.T, testEnv *ttypes.TestEnviro
 
 // Helper functions
 
-func startWorkflowEventBeholder(t *testing.T, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
+func startWorkflowEventSink(t *testing.T) (context.Context, <-chan proto.Message) {
 	t.Helper()
 
-	beholder, err := t_helpers.NewBeholder(framework.L, testEnv.TestConfig)
-	require.NoError(t, err, "failed to create beholder instance")
-
-	// Register for workflow deployment events
-	messageTypes := map[string]func() proto.Message{
-		"workflows.v2.WorkflowActivated": func() proto.Message { return &workflowsv2.WorkflowActivated{} },
-		"workflows.v2.WorkflowPaused":    func() proto.Message { return &workflowsv2.WorkflowPaused{} },
-		"workflows.v2.WorkflowDeleted":   func() proto.Message { return &workflowsv2.WorkflowDeleted{} },
-	}
+	messageChan := make(chan proto.Message, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetWorkflowV2LifecyclePublishFn(framework.L, messageChan))
+	t.Cleanup(func() {
+		server.Shutdown(t.Context())
+		close(messageChan)
+	})
 
 	timeout := 5 * time.Minute
-	beholderCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
+	eventsCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
 	t.Cleanup(func() {
 		cancelListener()
 	})
 
-	messageChan, errChan := beholder.SubscribeToBeholderMessages(beholderCtx, messageTypes)
-
-	// Fail fast if there's an immediate error
-	select {
-	case err := <-errChan:
-		require.NoError(t, err, "Beholder subscription failed during initialization")
-	default:
-	}
-
-	return beholderCtx, messageChan, errChan
+	return eventsCtx, messageChan
 }
 
 // workflowEvent is an interface that abstracts common fields across workflow lifecycle events
@@ -308,37 +299,44 @@ type workflowEventMatcher struct {
 }
 
 // assertWorkflowEvent is a generic function to wait for and validate a workflow lifecycle event.
-// It listens on messageChan for messages matching the specified matcher and workflowName.
+// It listens on messageChan for messages matching the specified matcher and workflowID.
 func assertWorkflowEvent(
 	t *testing.T,
 	ctx context.Context, //nolint:revive // test helper conventionally has t first
 	messageChan <-chan proto.Message,
-	errChan <-chan error,
 	workflowName string,
+	expectedWorkflowID string,
 	timeout time.Duration,
 	matcher workflowEventMatcher,
 ) {
 	t.Helper()
 	testLogger := framework.L
+	normalizedExpectedWorkflowID := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(expectedWorkflowID)), "0x")
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
 	for {
 		select {
-		case msg := <-messageChan:
+		case msg, ok := <-messageChan:
+			if !ok || msg == nil {
+				continue
+			}
 			if event, ok := matcher.tryMatch(msg); ok {
 				wfKey := event.GetWorkflow().GetWorkflowKey()
-				if wfKey.GetWorkflowName() == workflowName {
+				normalizedEventWorkflowID := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(wfKey.GetWorkflowID())), "0x")
+				if normalizedEventWorkflowID == normalizedExpectedWorkflowID {
 					require.Empty(t, event.GetErrorMessage(), matcher.errorAssertionMsg)
 					testLogger.Info().
 						Str("workflowName", wfKey.GetWorkflowName()).
 						Str("workflowID", wfKey.GetWorkflowID()).
+						Str("expectedWorkflowName", workflowName).
+						Str("expectedWorkflowID", expectedWorkflowID).
 						Msgf("%s event received", matcher.eventName)
 					return
 				}
 			}
-		case err := <-errChan:
-			require.NoError(t, err, "Beholder error during %s assertion", matcher.eventName)
-		case <-time.After(timeout):
-			t.Fatalf("Timeout waiting for %s event for workflow %s", matcher.eventName, workflowName)
+		case <-timer.C:
+			t.Fatalf("Timeout waiting for %s event for workflowID %s (workflowName: %s)", matcher.eventName, expectedWorkflowID, workflowName)
 		case <-ctx.Done():
 			t.Fatalf("Context cancelled while waiting for %s event", matcher.eventName)
 		}
@@ -384,49 +382,59 @@ var (
 // assertWorkflowActivated waits for a WorkflowActivated event for the given workflow name.
 //
 //nolint:revive // test helper conventionally has t first
-func assertWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
+func assertWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, workflowName string, workflowID string, timeout time.Duration) {
 	t.Helper()
-	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowActivatedMatcher)
+	assertWorkflowEvent(t, ctx, messageChan, workflowName, workflowID, timeout, workflowActivatedMatcher)
 }
 
 // assertWorkflowPaused waits for a WorkflowPaused event for the given workflow name.
 //
 //nolint:revive // test helper conventionally has t first
-func assertWorkflowPaused(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
+func assertWorkflowPaused(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, workflowName string, workflowID string, timeout time.Duration) {
 	t.Helper()
-	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowPausedMatcher)
+	assertWorkflowEvent(t, ctx, messageChan, workflowName, workflowID, timeout, workflowPausedMatcher)
 }
 
 // assertWorkflowDeleted waits for a WorkflowDeleted event for the given workflow name.
 //
 //nolint:revive // test helper conventionally has t first
-func assertWorkflowDeleted(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
+func assertWorkflowDeleted(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, workflowName string, workflowID string, timeout time.Duration) {
 	t.Helper()
-	assertWorkflowEvent(t, ctx, messageChan, errChan, workflowName, timeout, workflowDeletedMatcher)
+	assertWorkflowEvent(t, ctx, messageChan, workflowName, workflowID, timeout, workflowDeletedMatcher)
 }
 
 //nolint:revive // test helper conventionally has t first
-func assertNoWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, errChan <-chan error, workflowName string, timeout time.Duration) {
+func assertNoWorkflowActivated(t *testing.T, ctx context.Context, messageChan <-chan proto.Message, workflowName string, expectedWorkflowID string, timeout time.Duration) {
 	t.Helper()
 	testLogger := framework.L
+	normalizedExpectedWorkflowID := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(expectedWorkflowID)), "0x")
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 
-	select {
-	case msg := <-messageChan:
-		if activated, ok := msg.(*workflowsv2.WorkflowActivated); ok {
-			wfKey := activated.GetWorkflow().GetWorkflowKey()
-			if wfKey.GetWorkflowName() == workflowName {
-				t.Fatalf("Workflow %s should NOT be activated when auth is rejected", workflowName)
+	for {
+		select {
+		case msg, ok := <-messageChan:
+			if !ok || msg == nil {
+				continue
 			}
+			if activated, ok := msg.(*workflowsv2.WorkflowActivated); ok {
+				wfKey := activated.GetWorkflow().GetWorkflowKey()
+				normalizedEventWorkflowID := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(wfKey.GetWorkflowID())), "0x")
+				if normalizedEventWorkflowID == normalizedExpectedWorkflowID {
+					t.Fatalf("Workflow %s (workflowID %s) should NOT be activated when auth is rejected", workflowName, expectedWorkflowID)
+				}
+			}
+		case <-timer.C:
+			// Success - no activation received
+			testLogger.Info().
+				Str("workflowName", workflowName).
+				Str("workflowID", expectedWorkflowID).
+				Msg("Confirmed: No WorkflowActivated event received (expected for auth rejection)")
+			return
+		case <-ctx.Done():
+			// Context cancelled, which is fine
+			return
 		}
-	case err := <-errChan:
-		require.NoError(t, err, "Beholder error during assertNoWorkflowActivated")
-	case <-time.After(timeout):
-		// Success - no activation received
-		testLogger.Info().
-			Str("workflowName", workflowName).
-			Msg("Confirmed: No WorkflowActivated event received (expected for auth rejection)")
-	case <-ctx.Done():
-		// Context cancelled, which is fine
 	}
 }
 

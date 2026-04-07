@@ -18529,6 +18529,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
+LogPollerSlotsBatchSize = 1000 # Default
 ```
 
 
@@ -18700,6 +18701,12 @@ LogPollerStartingLookback
 LogPollerCPIEventsEnabled = true # Default
 ```
 LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
+
+### LogPollerSlotsBatchSize
+```toml
+LogPollerSlotsBatchSize = 1000 # Default
+```
+LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
 
 ## Solana.Workflow
 ```toml

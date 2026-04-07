@@ -51,7 +51,9 @@ import (
 	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -800,16 +802,17 @@ func newFetcherServiceV2(
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
+	wfStorage := capCfg.WorkflowRegistry().WorkflowStorage()
 	storageClient := opts.StorageClient
-	if capCfg.WorkflowRegistry().WorkflowStorage().URL() != "" {
+	if wfStorage.URL() != "" {
 		workflowOpts := []storage.WorkflowClientOpt{
 			storage.WithJWTGenerator(opts.JWTGenerator),
 		}
-		if capCfg.WorkflowRegistry().WorkflowStorage().TLSEnabled() {
+		if wfStorage.TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
 
-		sc, err := storage.NewWorkflowClient(lggr, capCfg.WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
+		sc, err := storage.NewWorkflowClient(lggr, wfStorage.URL(), workflowOpts...)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to create storage client: %w", err)
 		}
@@ -889,6 +892,35 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
 
+	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
+	if err != nil {
+		return nil, nil, errors.New("failed to instantiate contract reader factory")
+	}
+
+	var shardOrchestratorClient shardorchestrator.ClientInterface
+	if opts.ShardOrchestratorClient != nil {
+		shardOrchestratorClient = opts.ShardOrchestratorClient
+	} else {
+		var c shardorchestrator.ClientInterface
+		c, err = newShardOrchestratorClient(cfg, lggr)
+		if err != nil {
+			return nil, nil, err
+		}
+		shardOrchestratorClient = c
+	}
+
+	shardingEnabled := cfg.Sharding().ShardingEnabled()
+	shardIndex := uint32(cfg.Sharding().ShardIndex())
+
+	var shardRoutingSteady *shardownership.SteadySignal
+	if shardingEnabled {
+		steadyMetrics, errSteady := wfmonitoring.GlobalSteadySignalMetrics()
+		if errSteady != nil {
+			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
+		}
+		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
+	}
+
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
 		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -909,38 +941,21 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
-	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
-	if err != nil {
-		return nil, nil, errors.New("failed to instantiate contract reader factory")
-	}
-
-	var shardOrchestratorClient shardorchestrator.ClientInterface
-	if opts.ShardOrchestratorClient != nil {
-		shardOrchestratorClient = opts.ShardOrchestratorClient
-	} else {
-		var c shardorchestrator.ClientInterface
-		c, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
-		}
-		shardOrchestratorClient = c
-	}
-
 	addSources := capCfg.WorkflowRegistry().AdditionalSources()
-	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
-	if len(addSources) > 0 {
-		for _, src := range addSources {
-			addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
-				URL:          src.GetURL(),
-				Name:         src.GetName(),
-				TLSEnabled:   src.GetTLSEnabled(),
-				JWTGenerator: opts.JWTGenerator,
-			})
+	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, len(addSources))
+	for i, src := range addSources {
+		addSourceConfigs[i] = syncerV2.AdditionalSourceConfig{
+			URL:          src.GetURL(),
+			Name:         src.GetName(),
+			TLSEnabled:   src.GetTLSEnabled(),
+			JWTGenerator: opts.JWTGenerator,
 		}
 	}
 
@@ -954,6 +969,9 @@ func newWorkflowRegistrySyncerV2(
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 		)
+		if shardRoutingSteady != nil {
+			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
+		}
 	}
 
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
