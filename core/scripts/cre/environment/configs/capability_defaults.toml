@@ -143,7 +143,7 @@
 
 [capability_configs.solana.values]
   TxAcceptanceState = 3
-  TxRetentonTimeout = "120s"
+  TxRetentionTimeout = "120s"
   AcceptanceTimeout = "30s"
   PollPeriod = "2s"
   SkipPreflight = true
