@@ -288,8 +288,18 @@ func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 }
 
 func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
-	relativePathToRepoRoot := "../../../../"
-	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")
+	t.Helper()
+
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+
+	repoRoot, err := findChainlinkRepoRoot(wd)
+	require.NoError(t, err, "resolve chainlink repo root from wd=%s (need core/scripts/cre/environment)", wd)
+
+	relativePathToRepoRoot, err := filepath.Rel(wd, repoRoot)
+	require.NoError(t, err)
+
+	environmentDirPath := filepath.Join(relativePathToRepoRoot, "core", "scripts", "cre", "environment")
 
 	return &ttypes.TestConfig{
 		RelativePathToRepoRoot: relativePathToRepoRoot,
@@ -297,6 +307,23 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
 		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
+	}
+}
+
+// findChainlinkRepoRoot walks up from startDir until it finds core/scripts/cre/environment.
+// This matches both `go test` (cwd = package dir) and prebuilt binaries run from system-tests/tests.
+func findChainlinkRepoRoot(startDir string) (string, error) {
+	dir := startDir
+	for {
+		envPath := filepath.Join(dir, "core", "scripts", "cre", "environment")
+		if fi, err := os.Stat(envPath); err == nil && fi.IsDir() {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.Errorf("chainlink repo root not found under %s (expected core/scripts/cre/environment)", startDir)
+		}
+		dir = parent
 	}
 }
 

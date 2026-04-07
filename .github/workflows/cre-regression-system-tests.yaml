@@ -17,11 +17,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-      prebuilt_cre_test_binaries_artifact:
-        required: false
-        type: string
-        default: ""
-        description: "Artifact name from build-cre-test-binaries; when empty, matrix jobs compile with go test."
   workflow_call:
     inputs:
       ecr_name:
@@ -38,11 +33,6 @@ on:
         type: string
         description: "The version of Chainlink repository to use for the tests."
         default: "develop"
-      prebuilt_cre_test_binaries_artifact:
-        required: false
-        type: string
-        default: ""
-        description: "Artifact name from build-cre-test-binaries; when empty, matrix jobs compile with go test."
 
 jobs:
   define-test-matrix:
@@ -96,7 +86,6 @@ jobs:
   run-system-tests:
     permissions:
       contents: read
-      actions: read
       id-token: write
     strategy:
       fail-fast: false
@@ -112,7 +101,6 @@ jobs:
       deployment: false
     timeout-minutes: 10
     env:
-      PREBUILT_CRE_TEST_BINARIES: ${{ inputs.prebuilt_cre_test_binaries_artifact != '' && 'true' || 'false' }}
       ENABLE_AUTO_QUARANTINE: "true"
       # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
       # Beholder stack will be started only for the Beholder tests
@@ -131,17 +119,6 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version }}
           persist-credentials: false
-
-      - name: Download prebuilt CRE test binaries
-        if: ${{ inputs.prebuilt_cre_test_binaries_artifact != '' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ inputs.prebuilt_cre_test_binaries_artifact }}
-          path: .
-
-      - name: Extract CRE test binaries
-        if: ${{ inputs.prebuilt_cre_test_binaries_artifact != '' }}
-        run: tar xzf cre-test-binaries.tar.gz -C system-tests/tests
 
       - name: Set up Go
         id: setup-go
@@ -218,22 +195,13 @@ jobs:
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
-          if [[ "${PREBUILT_CRE_TEST_BINARIES}" == "true" ]]; then
-            gotestsum \
-              --jsonfile=/tmp/gotest-regression.log \
-              --junitfile=/tmp/junit-report-regression.xml \
-              --format=github-actions \
-              --raw-command \
-              -- go tool test2json -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre -t ./.cre-test-bin/regression/cre/cre.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
-          else
-            gotestsum \
-              --jsonfile=/tmp/gotest-regression.log \
-              --junitfile=/tmp/junit-report-regression.xml \
-              --format=github-actions \
-              -- \
-              -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=${PARALLEL_COUNT} \
-              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
-          fi
+          gotestsum \
+            --jsonfile=/tmp/gotest-regression.log \
+            --junitfile=/tmp/junit-report-regression.xml \
+            --format=github-actions \
+            -- \
+            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=${PARALLEL_COUNT} \
+            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
           exit_code=$?
