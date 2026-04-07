@@ -949,19 +949,6 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
-	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
-	if err != nil {
-		return nil, nil, errors.New("failed to instantiate contract reader factory")
-	}
-
-	shardOrchestratorClient := opts.ShardOrchestratorClient
-	if shardOrchestratorClient == nil {
-		shardOrchestratorClient, err = newShardOrchestratorClient(cfg, lggr)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
 	addSources := wfReg.AdditionalSources()
 	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, len(addSources))
 	for i, src := range addSources {
