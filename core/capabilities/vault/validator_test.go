@@ -128,10 +128,15 @@ func TestEnsureRightLabelOnSecret_NeitherMatches(t *testing.T) {
 	wrongAddr := "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 	wrongOrgID := "org_wrong"
 	secret := encryptWithEthAddressLabel(t, pk, ethAddr)
+	expectedWorkflowOwnerLabelBytes := vaultutils.WorkflowOwnerToLabel(wrongAddr)
+	expectedOrgIDLabelBytes := vaultutils.OrgIDToLabel(wrongOrgID)
+	expectedWorkflowOwnerLabel := hex.EncodeToString(expectedWorkflowOwnerLabelBytes[:])
+	expectedOrgIDLabel := hex.EncodeToString(expectedOrgIDLabelBytes[:])
 
 	err := EnsureRightLabelOnSecret(pk, secret, wrongAddr, wrongOrgID)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
+	assert.Contains(t, err.Error(), "expectedLabels=["+expectedWorkflowOwnerLabel+", "+expectedOrgIDLabel+"]")
 }
 
 func TestEnsureRightLabelOnSecret_BothEmpty(t *testing.T) {
@@ -142,6 +147,7 @@ func TestEnsureRightLabelOnSecret_BothEmpty(t *testing.T) {
 	err := EnsureRightLabelOnSecret(pk, secret, "", "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match any of the provided owner labels")
+	assert.Contains(t, err.Error(), "expectedLabels=[]")
 }
 
 func TestEnsureRightLabelOnSecret_NilPublicKey(t *testing.T) {

@@ -800,16 +800,17 @@ func newFetcherServiceV2(
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
+	wfStorage := capCfg.WorkflowRegistry().WorkflowStorage()
 	storageClient := opts.StorageClient
-	if capCfg.WorkflowRegistry().WorkflowStorage().URL() != "" {
+	if wfStorage.URL() != "" {
 		workflowOpts := []storage.WorkflowClientOpt{
 			storage.WithJWTGenerator(opts.JWTGenerator),
 		}
-		if capCfg.WorkflowRegistry().WorkflowStorage().TLSEnabled() {
+		if wfStorage.TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
 
-		sc, err := storage.NewWorkflowClient(lggr, capCfg.WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
+		sc, err := storage.NewWorkflowClient(lggr, wfStorage.URL(), workflowOpts...)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to create storage client: %w", err)
 		}

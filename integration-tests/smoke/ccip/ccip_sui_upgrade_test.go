@@ -200,12 +200,12 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "offramp",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "offramp",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)
@@ -213,12 +213,12 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	// Block ccip v1 feequoter
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "fee_quoter",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)
@@ -443,12 +443,12 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	// Block ccip v1 FQ
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
-			SuiChainSelector: destChain,
-			CCIPPackageId:    state.SuiChains[destChain].CCIPAddress,
-			StateObjectId:    state.SuiChains[destChain].CCIPObjectRef,
-			OwnerCapObjectId: state.SuiChains[destChain].CCIPOwnerCapObjectId,
-			ModuleName:       "fee_quoter",
-			Version:          1,
+			SuiChainSelector:      destChain,
+			CCIPPackageId:         state.SuiChains[destChain].CCIPAddress,
+			CCIPObjectRefObjectId: state.SuiChains[destChain].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[destChain].CCIPOwnerCapObjectId,
+			ModuleName:            "fee_quoter",
+			Version:               1,
 		}),
 	})
 	require.NoError(t, err)

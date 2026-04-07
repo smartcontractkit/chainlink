@@ -22,6 +22,8 @@ const (
 	TriggerExecutionStarted string = "TriggerExecutionStarted"
 	// WorkflowUserLog represents user log events
 	WorkflowUserLog string = "WorkflowUserLog"
+	// WorkflowUserMetric represents user metric events
+	WorkflowUserMetric string = "WorkflowUserMetric"
 	// UserLogs represents user logs events (v1 event type)
 	UserLogs string = "UserLogs"
 
@@ -45,6 +47,7 @@ const (
 	SchemaCapabilityFinishedV2 string = "/cre-events-capability-finished/v2"
 	SchemaTriggerStartedV2     string = "/cre-events-trigger-started/v2"
 	SchemaUserLogsV2           string = "/cre-events-user-logs/v2"
+	SchemaUserMetricV2         string = "/cre-events-user-metric/v2"
 	SchemaWorkflowActivatedV2  string = "/cre-events-workflow-activated/v2"
 	SchemaWorkflowPausedV2     string = "/cre-events-workflow-paused/v2"
 	SchemaWorkflowDeletedV2    string = "/cre-events-workflow-deleted/v2"
