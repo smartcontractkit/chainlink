@@ -21,7 +21,7 @@ concurrency:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@3dce5f3234c4e38eee7273c741996e473eef0366
     with:
       test_path: .github/e2e-tests.yml
       chainlink_version: ${{ github.sha }}

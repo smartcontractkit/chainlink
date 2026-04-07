@@ -308,6 +308,77 @@ jobs:
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}
 
+  build-e2e-test-binaries:
+    name: Build E2E test binaries
+    if: github.actor != 'dependabot[bot]' && (needs.run-core-e2e-tests-setup.outputs.should-run == 'true' || needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true')
+    environment:
+      name: integration
+      deployment: false
+    runs-on: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
+    needs:
+      - labels
+      - enforce-ctf-version
+      - run-core-e2e-tests-setup
+      - run-ccip-e2e-tests-setup
+    permissions:
+      id-token: write
+      contents: read
+      actions: write
+    env:
+      E2E_BIN_ARTIFACT_NAME: e2e-test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
+
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        if: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN != '' && secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL != '' }}
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Apply go-get dependency overrides
+        if: inputs.evm-ref != ''
+        shell: bash
+        run: |
+          set -e
+          go get "github.com/smartcontractkit/chainlink-evm@${{ inputs.evm-ref }}"
+          go mod tidy
+
+      - name: Build E2E test binaries
+        env:
+          GOPRIVATE: github.com/smartcontractkit/*
+        run: bash integration-tests/scripts/ci/build-e2e-test-binaries.sh
+
+      - name: Pack E2E test binaries
+        run: tar czf e2e-test-binaries.tar.gz -C integration-tests .e2e-test-bin
+
+      - name: Upload E2E test binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.E2E_BIN_ARTIFACT_NAME }}
+          path: e2e-test-binaries.tar.gz
+          retention-days: 2
+
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
     runs-on: ubuntu-latest
@@ -471,7 +542,7 @@ jobs:
           fi
 
   run-core-e2e-tests:
-    needs: [run-core-e2e-tests-setup, build-chainlink, changes, labels]
+    needs: [run-core-e2e-tests-setup, build-chainlink, build-e2e-test-binaries, changes, labels]
     name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
@@ -480,7 +551,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@3dce5f3234c4e38eee7273c741996e473eef0366 # prebuilt E2E binaries + ctf-run-tests 0.13.0
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -491,6 +562,7 @@ jobs:
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
+      prebuilt_e2e_test_binaries_artifact: e2e-test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -577,9 +649,9 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
+    needs: [build-chainlink, build-e2e-test-binaries, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@3dce5f3234c4e38eee7273c741996e473eef0366 # prebuilt E2E binaries + ctf-run-tests 0.13.0
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -591,6 +663,7 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       team: "CCIP"
       quarantine: "true"
+      prebuilt_e2e_test_binaries_artifact: e2e-test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

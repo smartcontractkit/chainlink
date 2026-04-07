@@ -18,11 +18,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd integration-tests/smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" -test.timeout 25m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
@@ -39,11 +48,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd integration-tests/smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" -test.timeout 25m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" ccip_reorg_test.go -timeout 25m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
@@ -62,11 +80,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPTokenPriceUpdates$" -test.timeout 18m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -87,11 +114,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -test.timeout 18m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -111,11 +147,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPGasPriceUpdatesDeviation$" -test.timeout 18m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -136,11 +181,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$" -timeout 30m -parallel=1 -count=1; \
+      fi
     test_go_project_path: integration-tests
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
@@ -160,11 +214,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -185,11 +248,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_NotEnoughObservers$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_NotEnoughObservers$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_NotEnoughObservers$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -209,11 +281,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_DifferentSigners$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_DifferentSigners$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_DifferentSigners$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -234,11 +315,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_NotEnoughSigners$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_NotEnoughSigners$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_NotEnoughSigners$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -258,11 +348,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_DifferentRmnNodesForDifferentChains$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_DifferentRmnNodesForDifferentChains$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_DifferentRmnNodesForDifferentChains$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -282,11 +381,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_TwoMessagesOneSourceChainCursed$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -308,11 +416,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/test.json \
         --format=github-actions \
-        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/test.json \
+        --format=github-actions \
+        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -333,11 +450,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_IncorrectSig$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_IncorrectSig$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_IncorrectSig$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -357,11 +483,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -381,11 +516,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -405,11 +549,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Recover$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -430,11 +583,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$" -timeout 30m -parallel=1 -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$" -test.timeout 30m -test.parallel 1 -test.count 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^Test_CCIPReorg_BelowFinality_OnSource_WithRMN_Block$" -timeout 30m -parallel=1 -count=1; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -456,11 +618,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestDeleteCCIPJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestDeleteCCIPJobs$" -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestDeleteCCIPJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -481,11 +652,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRevokeJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        --raw-command \
+        -- ../../.e2e-test-bin/smoke/ccip/ccip.test -test.v -test.json -test.run "^TestRevokeJobs$" -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "^TestRevokeJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip; \
+      fi
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -508,11 +688,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -531,11 +720,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -554,11 +752,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -577,11 +784,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -600,11 +816,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -623,11 +848,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -645,11 +879,20 @@ runner-test-matrix:
     # - Nightly E2E Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPForBidirectionalLane$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPForBidirectionalLane$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -668,11 +911,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPTokenPoolRateLimits$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPTokenPoolRateLimits$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPTokenPoolRateLimits$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -690,11 +942,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPMulticall$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPMulticall$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPMulticall$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -713,11 +974,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -735,11 +1005,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPOnRampLimits$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPOnRampLimits$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOnRampLimits$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -755,11 +1034,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPOffRampCapacityLimit$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPOffRampCapacityLimit$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOffRampCapacityLimit$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -775,11 +1063,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPOffRampAggRateLimit$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPOffRampAggRateLimit$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPOffRampAggRateLimit$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -797,11 +1094,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPReorgBelowFinality$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPReorgBelowFinality$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgBelowFinality$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -821,11 +1127,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPReorgAboveFinalityAtDestination$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPReorgAboveFinalityAtDestination$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgAboveFinalityAtDestination$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -844,11 +1159,20 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -run "^TestSmokeCCIPReorgAboveFinalityAtSource$" -timeout 30m -count=1 -parallel=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/smoke/smoke.test -test.v -test.json -test.run "^TestSmokeCCIPReorgAboveFinalityAtSource$" -test.timeout 30m -test.count 1 -test.parallel 1; \
+      else \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -run "^TestSmokeCCIPReorgAboveFinalityAtSource$" -timeout 30m -count=1 -parallel=1; \
+      fi
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
@@ -863,12 +1187,22 @@ runner-test-matrix:
       - E2E CCIP Chaos Tests
     test_cmd: |
       cd ccip-tests/chaos && \
+      if [[ "${PREBUILT_E2E_BINARIES:-}" == "true" ]]; then \
       DETACH_RUNNER=false \
       gotestsum \
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v ccip_test.go -parallel=11 -timeout 60m -count=1
+        --raw-command \
+        -- ../../.e2e-test-bin/ccip-tests/chaos/chaos.test -test.v -test.json -test.parallel 11 -test.timeout 60m -test.count 1; \
+      else \
+      DETACH_RUNNER=false \
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v ccip_test.go -parallel=11 -timeout 60m -count=1; \
+      fi
     test_env_vars:
       TEST_SUITE: chaos
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
