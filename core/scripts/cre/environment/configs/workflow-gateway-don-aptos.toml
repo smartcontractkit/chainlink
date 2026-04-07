@@ -1,0 +1,79 @@
+# Same as workflow-gateway-don.toml but with Aptos chain and a single Aptos capability.
+# Anvil 1337: registry and gateway. Aptos: local devnet (chain_id 4). Run: env config path <this file>, then env start.
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "aptos"
+  chain_id = "4"
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  # change to your version
+  image = "job-distributor:0.22.1"
+
+#[s3provider]
+#  # use all defaults
+#  port = 9000
+#  console_port = 9001
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_types = ["workflow"]
+  override_mode = "all"
+  http_port_range_start = 10100
+
+  # Keep the registry chain (1337) in node TOML even though this DON's chain-scoped
+  # capability is Aptos-only; the workflow stack still needs the EVM registry chain.
+  supported_evm_chains = [1337]
+  # Workflow runtime limits still need both the EVM registry chain and the Aptos chain selector.
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","4457093679053095497":"true"}}}}' }
+  capabilities = ["cron", "consensus", "aptos-4"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  supported_evm_chains = [1337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002", "15002:15002"]
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = ""

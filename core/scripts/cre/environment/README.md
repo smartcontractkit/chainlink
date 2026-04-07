@@ -1762,7 +1762,7 @@ TraceSampleRatio = 1.0  # 100% sampling - adjust for production
 DebugMode = true  # WARNING: Not suitable for production due to overhead
 
 [Pyroscope]
-ServerAddress = 'http://host.docker.internal:4040'
+ServerAddress = 'http://pyroscope:4040'
 LinkTracesToProfiles = true  # Enables traces-to-profiles in Grafana
 ```
 

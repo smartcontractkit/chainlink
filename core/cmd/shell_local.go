@@ -552,6 +552,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.AptosEnabled() {
+		for _, k := range s.Config.ImportedAptosKeys().List() {
+			lggr.Debug("Importing aptos key")
+			_, err2 := app.GetKeyStore().Aptos().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Aptos key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(fmt.Errorf("error importing aptos key: %w", err2))
+			}
+			lggr.Debugf("Imported aptos key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
 		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure aptos key: %w", err2)

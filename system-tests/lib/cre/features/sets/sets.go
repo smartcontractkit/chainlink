@@ -2,6 +2,7 @@ package sets
 
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
 	consensus_v1_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v1"
 	consensus_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
@@ -22,7 +23,6 @@ import (
 
 func New() cre.Features {
 	return cre.NewFeatures(
-		&consensus_v1_feature.Consensus{},
 		&consensus_v2_feature.Consensus{},
 		&cron_feature.Cron{},
 		&custom_compute_feature.CustomCompute{},
@@ -33,10 +33,14 @@ func New() cre.Features {
 		&http_trigger_feature.HTTPTrigger{},
 		&log_event_trigger_feature.LogEventTrigger{},
 		&mock_feature.Mock{},
+		&aptos_feature.Aptos{},
 		&read_contract_feature.ReadContract{},
 		&web_api_target_feature.WebAPITarget{},
 		&web_api_trigger_feature.WebAPITrigger{},
-		&vault_feature.Vault{},
 		&solana_v2_feature.Solana{},
+		// Keep OCR3 late in PostEnvStartup so ConfigWatcher health waits do not block
+		// the rest of the job-oriented features from making progress.
+		&consensus_v1_feature.Consensus{},
+		&vault_feature.Vault{},
 	)
 }

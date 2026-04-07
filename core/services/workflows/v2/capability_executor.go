@@ -18,6 +18,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -187,7 +188,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			DecodedWorkflowName:      c.cfg.WorkflowName.String(),
 			SpendLimits:              spendLimits,
 			WorkflowTag:              c.cfg.WorkflowTag,
-			// TODO(CRE-2087): Propagate execution timestamp to capability calls (including remote)
+			ExecutionTimestamp:       c.ExecutionTimestamp,
 		},
 		Config: values.EmptyMap(),
 	}
@@ -262,4 +263,27 @@ func (c *ExecutionHelper) EmitUserLog(msg string) error {
 		c.logger().Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
+}
+
+const userMetricPrefix = "user_workflow_"
+
+func userMetricTypeSuffix(t eventsv2.UserMetricType) (string, error) {
+	switch t {
+	case eventsv2.UserMetricType_USER_METRIC_TYPE_COUNTER:
+		return "_counter", nil
+	case eventsv2.UserMetricType_USER_METRIC_TYPE_GAUGE:
+		return "_gauge", nil
+	default:
+		return "", fmt.Errorf("unsupported user metric type: %v", t)
+	}
+}
+
+func (c *ExecutionHelper) EmitUserMetric(ctx context.Context, metric *eventsv2.WorkflowUserMetric) error {
+	suffix, err := userMetricTypeSuffix(metric.Type)
+	if err != nil {
+		return err
+	}
+	metric.Name = userMetricPrefix + metric.Name + suffix
+	loggerLabels := *c.loggerLabels.Load()
+	return events.EmitUserMetric(ctx, loggerLabels, metric)
 }
