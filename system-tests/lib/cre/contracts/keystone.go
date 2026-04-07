@@ -137,7 +137,7 @@ func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
 
 // embedOCR3Config computes the full OCR3 configuration for a consensus V2 DON
 // and embeds it in the capability config proto's Ocr3Configs map.
-func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig) error {
+func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don donConfig, registryChainSelector uint64, oracleConfig *ocr3.OracleConfig, extraSignerFamilies []string) error {
 	oracleConfig.TransmissionSchedule = []int{len(don.Nops[0].Nodes)}
 
 	var allNodeIDs []string
@@ -150,7 +150,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 		return fmt.Errorf("failed to get node info: %w", err)
 	}
 
-	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil)
+	ocrConfig, err := ocr3.GenerateOCR3ConfigFromNodes(*oracleConfig, nodes, registryChainSelector, d.env.OCRSecrets, nil, extraSignerFamilies)
 	if err != nil {
 		return fmt.Errorf("failed to generate OCR3 config: %w", err)
 	}
@@ -178,7 +178,7 @@ func (d *dons) embedOCR3Config(capConfig *capabilitiespb.CapabilityConfig, don d
 	return nil
 }
 
-func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
+func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress string, capabilityToOCR3Config map[string]*ocr3.OracleConfig, capabilityToExtraSignerFamilies map[string][]string) cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput {
 	nops := make([]capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams, 0)
 	nodes := make([]contracts.NodesInput, 0)
 	capabilities := make([]contracts.RegisterableCapability, 0)
@@ -213,15 +213,15 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		}
 		for i, nop := range don.Nops {
 			nopName := nop.Name
-			if _, exists := nopMap[nopName]; !exists {
-				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
-					Admin: adminAddrs[i],
-					Name:  nopName,
-				}
 
+			if _, exists := nopMap[nopName]; !exists {
 				ns, err := deployment.NodeInfo(nop.Nodes, d.offChain)
 				if err != nil {
 					panic(err)
+				}
+				nopMap[nopName] = capabilities_registry_v2.CapabilitiesRegistryNodeOperatorParams{
+					Admin: adminAddrs[i],
+					Name:  nopName,
 				}
 
 				// Add nodes for this NOP
@@ -258,17 +258,26 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 		for _, cap := range don.Capabilities {
 			capID := fmt.Sprintf("%s@%s", cap.Capability.LabelledName, cap.Capability.Version)
 			configBytes := []byte("{}")
-			if cap.Config != nil {
-				if cap.UseCapRegOCRConfig {
-					ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
-					if ocrConfig == nil {
-						panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
-					}
-					if err := d.embedOCR3Config(cap.Config, don, chainSelector, ocrConfig); err != nil {
-						panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
-					}
+
+			capConfig := cap.Config
+			shouldMarshalProtoConfig := capConfig != nil
+			if cap.UseCapRegOCRConfig {
+				if capConfig == nil {
+					capConfig = &capabilitiespb.CapabilityConfig{}
 				}
-				if protoBytes, err := proto.Marshal(cap.Config); err == nil {
+				shouldMarshalProtoConfig = true
+
+				ocrConfig := capabilityToOCR3Config[cap.Capability.LabelledName]
+				if ocrConfig == nil {
+					panic("no OCR3 config found for capability " + cap.Capability.LabelledName)
+				}
+				if err := d.embedOCR3Config(capConfig, don, chainSelector, ocrConfig, capabilityToExtraSignerFamilies[cap.Capability.LabelledName]); err != nil {
+					panic(fmt.Sprintf("failed to embed OCR3 config for capability %s: %s", cap.Capability.LabelledName, err))
+				}
+			}
+
+			if shouldMarshalProtoConfig {
+				if protoBytes, err := proto.Marshal(capConfig); err == nil {
 					configBytes = protoBytes
 				}
 			}
@@ -387,7 +396,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 			capabilities = append(capabilities, enabledCapabilities...)
 		}
 
-		// add capabilities that were passed directly via the input (from the PostDONStartup of features)
+		// add capabilities that were passed directly via feature startup hooks
 		if input.DONCapabilityWithConfigs != nil && input.DONCapabilityWithConfigs[donMetadata.ID] != nil {
 			capabilities = append(capabilities, input.DONCapabilityWithConfigs[donMetadata.ID]...)
 		}
@@ -436,7 +445,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	return dons, nil
 }
 
-func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
+func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -445,6 +454,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 	if dErr != nil {
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
+	var capReg CapabilitiesRegistry
 	if !input.WithV2Registries {
 		for _, don := range dons.donsOrderedByID() {
 			for i, cap := range don.Capabilities {
@@ -455,7 +465,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 				if ocrConfig == nil {
 					return nil, fmt.Errorf("no OCR3 config found for capability %s", cap.Capability.LabelledName)
 				}
-				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig); err != nil {
+				if err := dons.embedOCR3Config(don.Capabilities[i].Config, don, input.ChainSelector, ocrConfig, input.CapabilityToExtraSignerFamilies[cap.Capability.LabelledName]); err != nil {
 					return nil, fmt.Errorf("failed to embed OCR3 config for capability %s: %w", cap.Capability.LabelledName, err)
 				}
 			}
@@ -478,7 +488,7 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
 		}
 
-		capReg, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
+		capRegContract, cErr := cre_contracts.GetOwnedContractV2[*kcr.CapabilitiesRegistry](
 			input.CldEnv.DataStore.Addresses(),
 			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 			input.CapabilitiesRegistryAddress.Hex(),
@@ -486,43 +496,59 @@ func ConfigureCapabilityRegistry(input cre.ConfigureCapabilityRegistryInput) (Ca
 		if cErr != nil {
 			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 		}
-		return &registryWrapper{V1: capReg.Contract}, nil
+		capReg = &registryWrapper{V1: capRegContract.Contract}
+	} else {
+		// Transform dons data to V2 sequence input format
+		v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToExtraSignerFamilies)
+		_, seqErr := operations.ExecuteSequence(
+			input.CldEnv.OperationsBundle,
+			cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
+			cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
+				Env: input.CldEnv,
+			},
+			v2Input,
+		)
+		if seqErr != nil {
+			return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+		}
+
+		capRegContract, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
+			input.CldEnv.DataStore.Addresses(),
+			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
+			input.CapabilitiesRegistryAddress.Hex(),
+		)
+		if cErr != nil {
+			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
+		}
+
+		capReg = &registryWrapper{V2: capRegContract.Contract}
 	}
 
-	// Transform dons data to V2 sequence input format
-	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config)
-	_, seqErr := operations.ExecuteSequence(
-		input.CldEnv.OperationsBundle,
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
-		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
-			Env: input.CldEnv,
-		},
-		v2Input,
-	)
-	if seqErr != nil {
-		return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
+	// TODO: remove this once the race condition is fixed (CRE-2684)
+	if waitErr := waitForWorkflowWorkersCapabilityRegistrySync(ctx, input); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for workflow nodes to sync capability registry state")
 	}
 
-	capReg, cErr := cre_contracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
-		input.CldEnv.DataStore.Addresses(),
-		input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
-		input.CapabilitiesRegistryAddress.Hex(),
-	)
-	if cErr != nil {
-		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
-	}
-
-	return &registryWrapper{V2: capReg.Contract}, nil
+	return capReg, nil
 }
 
 type DonInfo struct {
+	ID          uint32
 	F           uint8
 	ConfigCount uint32
 	NodeP2PIds  [][32]byte
 }
 
+// DonForResolution holds the data needed to resolve a DON's contract ID from the Capabilities Registry.
+type DonForResolution struct {
+	Name       string
+	NodeP2PIds [][32]byte
+}
+
 type CapabilitiesRegistry interface {
 	GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, error)
+	GetDONByName(opts *bind.CallOpts, donName string) (DonInfo, error)
+	GetDONs(opts *bind.CallOpts) ([]DonInfo, error)
 }
 
 type registryWrapper struct {
@@ -546,6 +572,7 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 		}
 
 		return DonInfo{
+			ID:          d.Id,
 			F:           d.F,
 			ConfigCount: d.ConfigCount,
 			NodeP2PIds:  d.NodeP2PIds,
@@ -559,6 +586,7 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 		}
 
 		return DonInfo{
+			ID:          d.Id,
 			F:           d.F,
 			ConfigCount: d.ConfigCount,
 			NodeP2PIds:  d.NodeP2PIds,
@@ -566,4 +594,219 @@ func (rw *registryWrapper) GetDON(opts *bind.CallOpts, donID uint32) (DonInfo, e
 	}
 
 	return DonInfo{}, errors.New("no valid capabilities registry contract")
+}
+
+func (rw *registryWrapper) GetDONByName(opts *bind.CallOpts, donName string) (DonInfo, error) {
+	if rw.V1 != nil {
+		return DonInfo{}, errors.New("GetDONByName not supported for V1 capabilities registry")
+	}
+	if rw.V2 == nil {
+		return DonInfo{}, errors.New("nil capabilities registry contract")
+	}
+
+	d, err := rw.V2.GetDONByName(opts, donName)
+	if err != nil {
+		return DonInfo{}, err
+	}
+
+	return DonInfo{
+		ID:          d.Id,
+		F:           d.F,
+		ConfigCount: d.ConfigCount,
+		NodeP2PIds:  d.NodeP2PIds,
+	}, nil
+}
+
+func (rw *registryWrapper) GetDONs(opts *bind.CallOpts) ([]DonInfo, error) {
+	if rw.V2 != nil {
+		return nil, errors.New("GetDONs for V2 should use GetDONs with pagination; use GetDONByName for resolution")
+	}
+	if rw.V1 == nil {
+		return nil, errors.New("nil capabilities registry contract")
+	}
+
+	dons, err := rw.V1.GetDONs(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]DonInfo, len(dons))
+	for i, d := range dons {
+		result[i] = DonInfo{
+			ID:          d.Id,
+			F:           d.F,
+			ConfigCount: d.ConfigCount,
+			NodeP2PIds:  d.NodeP2PIds,
+		}
+	}
+	return result, nil
+}
+
+// ResolveContractDonIDs retrieves the actual contract donIDs for the given DONs.
+// For V2: uses GetDONByName with donName = don.Name + "-don"
+// For V1: uses GetDONs and matches by node P2P IDs (one match is enough; P2P IDs are unique)
+func ResolveContractDonIDs(
+	capReg CapabilitiesRegistry,
+	dons []DonForResolution,
+	withV2Registries bool,
+) (map[string]uint32, error) {
+	result := make(map[string]uint32)
+
+	if withV2Registries {
+		for _, don := range dons {
+			donName := don.Name + "-don"
+			info, err := capReg.GetDONByName(nil, donName)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get DON by name %s", donName)
+			}
+			result[don.Name] = info.ID
+		}
+		return result, nil
+	}
+
+	// V1: match by P2P IDs
+	contractDons, err := capReg.GetDONs(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get DONs from capabilities registry")
+	}
+
+	// Build an index once so resolution is O(#ourP2P) per DON.
+	contractDonIDByP2P := make(map[[32]byte]uint32)
+	for _, cd := range contractDons {
+		for _, contractP2P := range cd.NodeP2PIds {
+			if existingDonID, exists := contractDonIDByP2P[contractP2P]; exists && existingDonID != cd.ID {
+				return nil, fmt.Errorf(
+					"duplicate contract P2P ID found across DONs: p2pID=%x, donIDs=%d and %d",
+					contractP2P,
+					existingDonID,
+					cd.ID,
+				)
+			}
+			contractDonIDByP2P[contractP2P] = cd.ID
+		}
+	}
+
+	for _, don := range dons {
+		found := false
+		for _, ourP2P := range don.NodeP2PIds {
+			if donID, ok := contractDonIDByP2P[ourP2P]; ok {
+				result[don.Name] = donID
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("failed to resolve contract donID for DON %s: no matching P2P IDs in registry", don.Name)
+		}
+	}
+	return result, nil
+}
+
+// ResolveAndApplyContractDonIDs resolves contract donIDs from the Capabilities Registry and applies them
+// to topology, dons, and nodeSets. Uses GetDONByName (V2) or GetDONs+P2P match (V1).
+func ResolveAndApplyContractDonIDs(
+	capReg CapabilitiesRegistry,
+	dons *cre.Dons,
+	topology *cre.Topology,
+	nodeSets []*cre.NodeSet,
+	withV2Registries bool,
+) error {
+	resolvedDonIDs, err := resolveContractDonIDsFromDons(capReg, dons, withV2Registries)
+	if err != nil {
+		return err
+	}
+	if len(resolvedDonIDs) == 0 {
+		return nil
+	}
+
+	return applyResolvedContractDonIDs(resolvedDonIDs, nodeSets, dons, topology)
+}
+
+func resolveContractDonIDsFromDons(
+	capReg CapabilitiesRegistry,
+	dons *cre.Dons,
+	withV2Registries bool,
+) (map[string]uint32, error) {
+	registeredDons := make([]*cre.Don, 0)
+	for _, don := range dons.List() {
+		if !flags.HasNoOtherFlags(don.Flags, []string{cre.GatewayDON, cre.BootstrapDON}) {
+			registeredDons = append(registeredDons, don)
+		}
+	}
+	if len(registeredDons) == 0 {
+		return nil, nil
+	}
+
+	donsForResolution := make([]DonForResolution, 0, len(registeredDons))
+	for _, don := range registeredDons {
+		workers, err := don.Workers()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get workers for DON %s", don.Name)
+		}
+
+		nodeP2PIds := make([][32]byte, 0, len(workers))
+		for _, worker := range workers {
+			if worker.Keys.P2PKey == nil {
+				continue
+			}
+			peerID, err := p2pkey.MakePeerID(worker.Keys.P2PKey.PeerID.String())
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to make peer ID for node in DON %s", don.Name)
+			}
+			nodeP2PIds = append(nodeP2PIds, peerID)
+		}
+		if len(nodeP2PIds) == 0 {
+			return nil, fmt.Errorf("DON %s has no valid worker P2P IDs", don.Name)
+		}
+
+		donsForResolution = append(donsForResolution, DonForResolution{
+			Name:       don.Name,
+			NodeP2PIds: nodeP2PIds,
+		})
+	}
+
+	return ResolveContractDonIDs(capReg, donsForResolution, withV2Registries)
+}
+
+func applyResolvedContractDonIDs(
+	resolvedDonIDs map[string]uint32,
+	nodeSets []*cre.NodeSet,
+	dons *cre.Dons,
+	topology *cre.Topology,
+) error {
+	workflowDonsMetadata, wErr := topology.DonsMetadata.WorkflowDONs()
+	if wErr != nil {
+		return errors.Wrap(wErr, "failed to get workflow DONs metadata")
+	}
+
+	topology.WorkflowDONIDs = make([]uint64, 0, len(workflowDonsMetadata))
+	for _, donMeta := range workflowDonsMetadata {
+		if id, ok := resolvedDonIDs[donMeta.Name]; ok {
+			topology.WorkflowDONIDs = append(topology.WorkflowDONIDs, uint64(id))
+			donMeta.ID = uint64(id)
+		}
+	}
+	for _, donMeta := range topology.DonsMetadata.List() {
+		if !flags.HasNoOtherFlags(donMeta.Flags, []string{cre.GatewayDON, cre.BootstrapDON}) {
+			if id, ok := resolvedDonIDs[donMeta.Name]; ok {
+				donMeta.ID = uint64(id)
+			}
+		}
+	}
+	for _, don := range dons.List() {
+		if !flags.HasNoOtherFlags(don.Flags, []string{cre.GatewayDON, cre.BootstrapDON}) {
+			if id, ok := resolvedDonIDs[don.Name]; ok {
+				don.ID = uint64(id)
+			}
+		}
+	}
+	for _, ns := range nodeSets {
+		if !flags.HasNoOtherFlags(ns.Flags(), []string{cre.GatewayDON, cre.BootstrapDON}) {
+			if id, ok := resolvedDonIDs[ns.Name]; ok {
+				ns.ContractDonID = uint64(id)
+			}
+		}
+	}
+
+	return nil
 }

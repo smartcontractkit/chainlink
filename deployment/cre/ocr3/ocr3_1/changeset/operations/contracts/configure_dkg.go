@@ -40,6 +40,7 @@ type ConfigureDKGInput struct {
 
 	MCMSConfig            *contracts.MCMSConfig
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
+	ExtraSignerFamilies   []string `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 func (i ConfigureDKGInput) UseMCMS() bool {
@@ -80,6 +81,7 @@ var ConfigureDKG = operations.NewOperation(
 			input.ChainSelector,
 			deps.Env.OCRSecrets,
 			input.ReportingPluginConfig,
+			input.ExtraSignerFamilies,
 		)
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)

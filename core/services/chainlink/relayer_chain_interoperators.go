@@ -46,7 +46,9 @@ type LoopRelayerStorer interface {
 // LegacyChainer is an interface for getting legacy chains
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
+// Deprecated: use the Relayer interface
 type LegacyChainer interface {
+	// Deprecated: use the relayer interface
 	LegacyEVMChains() legacyevm.LegacyChainContainer
 }
 
@@ -294,6 +296,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
+// Deprecated: use the Relayer interface
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()

@@ -457,9 +457,9 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			},
 			primitives.Unconfirmed,
 		)
-		require.NoError(t, err)
-		return len(executedMsgs[chainS1]) == 2
-	}, 90*time.Second, 50*time.Millisecond)
+		return err == nil && len(executedMsgs[chainS1]) == 2
+	}, 90*time.Second, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
 }
@@ -495,9 +495,11 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 			},
 			primitives.Unconfirmed,
 		)
-		require.NoError(t, err)
-		return executedMsgs[chainS1][0] == 15 && executedMsgs[chainS2][0] == 15
-	}, 90*time.Second, 50*time.Millisecond)
+		return err == nil &&
+			len(executedMsgs[chainS1]) > 0 && executedMsgs[chainS1][0] == 15 &&
+			len(executedMsgs[chainS2]) > 0 && executedMsgs[chainS2][0] == 15
+	}, 90*time.Second, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS1])
 	assert.Len(t, executedMsgs, 2)
@@ -536,9 +538,9 @@ func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
 			},
 			primitives.Unconfirmed,
 		)
-		require.NoError(t, err)
-		return len(executedMsgs) == 2
-	}, 90*time.Second, 50*time.Millisecond)
+		return err == nil && len(executedMsgs) == 2
+	}, 90*time.Second, 500*time.Millisecond)
+	require.NoError(t, err)
 
 	assert.Len(t, executedMsgs[chainS1], 3)
 	assert.Len(t, executedMsgs[chainS2], 2)
@@ -1370,7 +1372,7 @@ func testSetup(
 	db := pgtest.NewSqlxDB(t)
 
 	lpOpts := logpoller.Opts{
-		PollPeriod:               time.Millisecond,
+		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            params.FinalityDepth,
 		BackfillBatchSize:        10,
 		RPCBatchSize:             10,

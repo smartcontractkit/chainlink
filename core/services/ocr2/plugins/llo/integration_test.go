@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2692,6 +2693,189 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
+// TestIntegration_LLO_tombstone_stops_observations_and_reports checks that once a channel is
+// tombstoned, the DON stops observing its streams (no bridge traffic for those stream jobs)
+// and no longer transmits reports for that channel.
+func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
+	t.Parallel()
+
+	const (
+		salt              = 500
+		donID             = uint32(777666)
+		streamIDActive    = uint32(190)
+		streamIDTombstone = uint32(191)
+	)
+
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+		EnableObservationCompression:        true,
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_tombstone", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-tombstone", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	var streamACalls, streamBCalls atomic.Uint64
+	priceA := decimal.NewFromFloat(111.1)
+	priceB := decimal.NewFromFloat(222.2)
+	for i, node := range nodes {
+		bridgeA := createSingleDecimalCountingBridge(t, "tomb-active", i, priceA, node.App.BridgeORM(), &streamACalls)
+		addSingleDecimalStreamJob(t, node, streamIDActive, bridgeA)
+		bridgeB := createSingleDecimalCountingBridge(t, "tomb-stone", i, priceB, node.App.BridgeORM(), &streamBCalls)
+		addSingleDecimalStreamJob(t, node, streamIDTombstone, bridgeB)
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"tombstone-stream-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		1: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDActive, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+		2: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDTombstone, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+	)
+
+	seenChannels := make(map[uint32]bool)
+	require.Eventually(t, func() bool {
+		pckt, errReceive := receiveWithTimeout(t, packetCh, 2*time.Second)
+		if errReceive != nil {
+			return false
+		}
+		req := pckt.req
+		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+			return len(seenChannels) == 2
+		}
+		_, _, r, _, errDecode := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+		if errDecode != nil {
+			return len(seenChannels) == 2
+		}
+		if r.ChannelID == 1 || r.ChannelID == 2 {
+			seenChannels[r.ChannelID] = true
+		}
+		return len(seenChannels) == 2
+	}, reportTimeout, 100*time.Millisecond, "expected reports for channel 1 and 2 before tombstone")
+	require.Positive(t, streamBCalls.Load(), "stream for channel 2 should be observed before tombstone")
+
+	// Tombstone channel 2 only; channel 1 keeps observing streamIDActive.
+	tombstonedDefs := llotypes.ChannelDefinitions{
+		1: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDActive, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+		2: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Tombstone:    true,
+			Streams: []llotypes.Stream{
+				{StreamID: streamIDTombstone, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url2, sha2 := newChannelDefinitionsServer(t, tombstonedDefs)
+	_, err = configStore.SetChannelDefinitions(steve, donID, url2, sha2)
+	require.NoError(t, err)
+	backend.Commit()
+
+	tombstonedChannel := map[uint32]bool{2: true}
+	checkNoReportsWindow := 5 * time.Second
+	require.Eventually(t, func() bool {
+		start := time.Now()
+		sawTombstoned := false
+		for time.Since(start) < checkNoReportsWindow {
+			pckt, err := receiveWithTimeout(t, packetCh, 1*time.Second)
+			if err != nil {
+				continue
+			}
+			req := pckt.req
+			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+				continue
+			}
+			_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+			if err == nil && tombstonedChannel[r.ChannelID] {
+				sawTombstoned = true
+				break
+			}
+		}
+		return !sawTombstoned
+	}, 45*time.Second, 200*time.Millisecond, "channel 2 should stop producing reports after tombstone")
+
+	// After reports for channel 2 have stopped, bridge traffic for streamIDTombstone should stop
+	// while streamIDActive continues to be observed.
+	bCallsAfterReportsStopped := streamBCalls.Load()
+	aCallsAfterReportsStopped := streamACalls.Load()
+	time.Sleep(1 * time.Second)
+	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
+		"tombstoned channel's stream should not be observed (no additional bridge calls)")
+	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
+		"active channel's stream should still be observed")
+}
+
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
@@ -2730,7 +2914,6 @@ func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.Chann
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(channelDefinitionsServer.Close)
 	return channelDefinitionsServer.URL, channelDefinitionsSHA

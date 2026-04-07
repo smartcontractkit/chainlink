@@ -9,6 +9,9 @@ type CRE interface {
 	UseLocalTimeProvider() bool
 	EnableDKGRecipient() bool
 	Linking() CRELinking
+	// DebugMode returns true if debug mode is enabled for workflow engines.
+	// When enabled, additional OTel tracing and logging is performed.
+	DebugMode() bool
 	LocalSecrets() map[string]string
 }
 

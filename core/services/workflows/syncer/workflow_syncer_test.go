@@ -113,6 +113,7 @@ func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DO
 }
 
 func Test_EventHandlerStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -810,6 +811,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 }
 
 func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)

@@ -203,7 +203,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", binaryURL, err)
+		return nil, nil, &types.ArtifactFetchError{ArtifactType: "binary", URL: binaryURL, Err: err}
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
@@ -247,7 +247,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 
 		config, err2 = h.fetchFn(ctx, messageID(configURL, workflowID), req)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err2)
+			return nil, nil, &types.ArtifactFetchError{ArtifactType: "config", URL: configURL, Err: err2}
 		}
 	}
 	return decodedBinary, config, nil

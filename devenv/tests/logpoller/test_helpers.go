@@ -1,12 +1,10 @@
 package logpoller
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
 	"math/rand"
@@ -931,18 +929,6 @@ func chaosPauseSyncFn(ctx context.Context, dtc *chaos.DockerChaos, l zerolog.Log
 		TargetComponent: targetComponent,
 		ContaineName:    containerName,
 	}}
-}
-
-// readStdPipe continuously read a pipe from the command
-func readStdPipe(pipe io.ReadCloser, outputFunction func(string)) {
-	scanner := bufio.NewScanner(pipe)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		m := scanner.Text()
-		if outputFunction != nil {
-			outputFunction(m)
-		}
-	}
 }
 
 type ChaosPauseData struct {

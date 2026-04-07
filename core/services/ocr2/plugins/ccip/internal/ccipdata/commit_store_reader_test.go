@@ -23,13 +23,13 @@ import (
 	rollupMocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups/mocks"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/commit_store_helper"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/mock_rmn_contract"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -139,7 +139,7 @@ func TestCommitOnchainConfig(t *testing.T) {
 
 func TestCommitStoreReaders(t *testing.T) {
 	user, ec := newSim(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,

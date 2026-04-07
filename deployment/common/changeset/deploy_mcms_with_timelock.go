@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -173,7 +172,7 @@ type GrantRoleInput struct {
 }
 
 func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := loadMCMSStatePerChainWithQualifier(e, cfg)
 	if err != nil {
 		return err
 	}
@@ -208,8 +207,25 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 	return nil
 }
 
+// loads MCMS state for each chain using per-chain qualifiers from cfg.MCMS.TimelockQualifierPerChain when available
+func loadMCMSStatePerChainWithQualifier(e cldf.Environment, cfg GrantRoleInput) (map[uint64]*state.MCMSWithTimelockState, error) {
+	result := make(map[uint64]*state.MCMSWithTimelockState)
+	for selector := range cfg.ExistingProposerByChain {
+		qualifier := ""
+		if cfg.MCMS != nil && cfg.MCMS.TimelockQualifierPerChain != nil {
+			qualifier = cfg.MCMS.TimelockQualifierPerChain[selector]
+		}
+		chainState, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{selector}, qualifier)
+		if err != nil {
+			return nil, err
+		}
+		result[selector] = chainState[selector]
+	}
+	return result, nil
+}
+
 func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	mcmsState, err := loadMCMSStatePerChainWithQualifier(e, cfg)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

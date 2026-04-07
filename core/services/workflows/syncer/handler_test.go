@@ -326,6 +326,7 @@ const (
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {
+	t.Parallel()
 	binaryURL := "http://example.com/binary"
 	secretsURL := "http://example.com/secrets"
 	configURL := "http://example.com/config"
@@ -880,6 +881,7 @@ func newMockArtifactStore(as *artifacts.Store, deleteWorkflowArtifactsErr error)
 }
 
 func Test_workflowDeletedHandler(t *testing.T) {
+	t.Parallel()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	t.Run("success deleting existing engine and spec", func(t *testing.T) {
 		var (
@@ -1123,6 +1125,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 }
 
 func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
+	t.Parallel()
 	t.Run("success pausing activating and updating existing engine and spec", func(t *testing.T) {
 		var (
 			ctx     = testutils.Context(t)

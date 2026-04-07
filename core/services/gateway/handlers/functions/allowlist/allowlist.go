@@ -343,7 +343,12 @@ func (a *onchainAllowlist) updateAllowedSendersBatch(
 	for _, addr := range allowedSendersBatch {
 		currentAllowedSenderList[addr] = struct{}{}
 	}
-	a.allowlist.Store(&currentAllowedSenderList)
+
+	snapshot := make(map[common.Address]struct{}, len(currentAllowedSenderList))
+	for k, v := range currentAllowedSenderList {
+		snapshot[k] = v
+	}
+	a.allowlist.Store(&snapshot)
 	a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
 
 	// persist each batch to the underalying orm layer

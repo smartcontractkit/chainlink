@@ -142,6 +142,12 @@ keys vrf export # Export VRF key to keyfile
 keys vrf import # Import VRF key from keyfile
 keys vrf list # List the VRF keys
 node # Commands for admin actions that must be run locally
+node ccv # CCV (Cross-Chain Verification) commands
+node ccv chain-statuses # List, enable, disable, or set finalized block height for CCV chain statuses. Shut down the node before enable/disable/set-finalized-height; changes take effect on next start.
+node ccv chain-statuses disable # Set disabled = true for the given chain and verifier. Shut down the node before running; changes take effect on next start.
+node ccv chain-statuses enable # Set disabled = false for the given chain and verifier. Shut down the node before running; changes take effect on next start.
+node ccv chain-statuses list # List all chain status rows
+node ccv chain-statuses set-finalized-height # Set finalized_block_height for the given chain and verifier. Shut down the node before running; changes take effect on next start.
 node db # Commands for managing the database.
 node db create-migration # Create a new migration.
 node db delete-chain # Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.

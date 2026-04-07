@@ -9,9 +9,9 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/don_id_claimer"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/don_id_claimer"
 	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"

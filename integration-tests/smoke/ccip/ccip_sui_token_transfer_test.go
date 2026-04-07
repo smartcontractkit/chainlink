@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	module_lock_release_token_pool "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_token_pools/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"

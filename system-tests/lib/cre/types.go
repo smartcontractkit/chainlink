@@ -6,9 +6,11 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +19,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -70,6 +73,7 @@ const (
 	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
 	HTTPActionCapability      CapabilityFlag = "http-action"
 	SolanaCapability          CapabilityFlag = "solana"
+	AptosCapability           CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
@@ -224,21 +228,22 @@ type CapabilityConfigs = map[CapabilityFlag]CapabilityConfig
 // in the user's config, the entire CapabilityConfig is used as-is without
 // merging individual fields with defaults.
 type CapabilityConfig struct {
-	BinaryPath string         `toml:"binary_path"`
+	BinaryName string         `toml:"binary_name"`
 	Values     map[string]any `toml:"values"`
 }
 
 // mergeCapabilityConfigs copies entries from src to dst only for keys that
-// do not already exist in dst. This is NOT a deep merge - if a key exists
-// in dst, its entire CapabilityConfig is preserved without modification.
-// Users who override a capability config must provide all required values.
+// do not already exist in dst. This is NOT a deep merge - when a key exists
+// in dst, only BinaryName may be backfilled from src and Values are preserved
+// exactly as provided by the override. Users who override a capability config
+// must still provide all required Values.
 func mergeCapabilityConfigs(dst, src CapabilityConfigs) {
 	for srcKey, srcValue := range src {
 		if dstValue, exists := dst[srcKey]; !exists {
 			dst[srcKey] = srcValue
 		} else {
-			if srcValue.BinaryPath != "" {
-				dstValue.BinaryPath = srcValue.BinaryPath
+			if srcValue.BinaryName != "" {
+				dstValue.BinaryName = srcValue.BinaryName
 			}
 			dst[srcKey] = dstValue
 		}
@@ -385,6 +390,7 @@ type ConfigureCapabilityRegistryInput struct {
 	NodeSets                    []*NodeSet
 	CapabilityRegistryConfigFns []CapabilityRegistryConfigFn
 	Blockchains                 []blockchains.Blockchain
+	Provider                    infra.Provider
 
 	CapabilitiesRegistryAddress *common.Address
 
@@ -394,6 +400,11 @@ type ConfigureCapabilityRegistryInput struct {
 
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }
 
 func (c *ConfigureCapabilityRegistryInput) Validate() error {
@@ -416,9 +427,12 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 	return nil
 }
 
-type GatewayConfig struct {
-	Name     string // DON name
-	Handlers []string
+// GatewayServiceConfig represents a service in the service-centric gateway format.
+// Each service groups handlers and references the DON names it operates on.
+type GatewayServiceConfig struct {
+	ServiceName string   `yaml:"servicename"`
+	Handlers    []string `yaml:"handlers"`
+	DONs        []string `yaml:"dons"`
 }
 
 type GatewayConnectors struct {
@@ -562,11 +576,16 @@ type DonMetadata struct {
 
 func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*DonMetadata, error) {
 	cfgs := make([]NodeMetadataConfig, len(c.NodeSpecs))
+	aptosChainIDs, err := c.GetEnabledChainIDsForCapability(AptosCapability)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve Aptos chain ids for node metadata: %w", err)
+	}
 	for i, nodeSpec := range c.NodeSpecs {
 		cfg := NodeMetadataConfig{
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
+				AptosChainIDs:   aptosChainIDs,
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
 			},
@@ -577,10 +596,16 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		cfgs[i] = cfg
 	}
 
+	newNodesStart := time.Now()
 	nodes, err := newNodes(cfgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create nodes metadata: %w", err)
 	}
+	framework.L.Info().
+		Str("don", c.Name).
+		Int("nodes", len(cfgs)).
+		Float64("duration_s", roundSeconds(time.Since(newNodesStart))).
+		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
 	if capErr != nil {
@@ -720,6 +745,10 @@ func (m *DonMetadata) MustNodeSet() *NodeSet {
 
 func (m *DonMetadata) EVMChains() []uint64 {
 	return m.ns.EVMChains()
+}
+
+func (m *DonMetadata) SolanaChains() []string {
+	return slices.Clone(m.ns.SupportedSolChains)
 }
 
 func (m *DonMetadata) RequiresOCR() bool {
@@ -1207,13 +1236,26 @@ func NewNodeMetadata(c NodeMetadataConfig) (*NodeMetadata, error) {
 
 func newNodes(cfgs []NodeMetadataConfig) ([]*NodeMetadata, error) {
 	nodes := make([]*NodeMetadata, len(cfgs))
+	if len(cfgs) == 0 {
+		return nodes, nil
+	}
 
-	for i := range nodes {
-		node, err := NewNodeMetadata(cfgs[i])
-		if err != nil {
-			return nil, fmt.Errorf("failed to create node (index: %d): %w", i, err)
-		}
-		nodes[i] = node
+	errGroup := errgroup.Group{}
+	errGroup.SetLimit(min(len(cfgs), runtime.GOMAXPROCS(0)))
+
+	for i := range cfgs {
+		errGroup.Go(func() error {
+			node, err := NewNodeMetadata(cfgs[i])
+			if err != nil {
+				return fmt.Errorf("failed to create node (index: %d): %w", i, err)
+			}
+			nodes[i] = node
+			return nil
+		})
+	}
+
+	if err := errGroup.Wait(); err != nil {
+		return nil, err
 	}
 
 	return nodes, nil
@@ -1249,6 +1291,8 @@ type NodeSet struct {
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
 
+	// ContractDonID is the donID assigned by the Capabilities Registry contract. 0 = use optimistic i+1.
+	ContractDonID                uint64   `toml:"contract_don_id"`
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
@@ -1311,6 +1355,11 @@ func (c *NodeSet) chainCapabilityIDs() []uint64 {
 	slices.Sort(out)
 
 	return out
+}
+
+// ChainCapabilityChainIDs returns the set of chain IDs supported by this node set's chain-scoped capabilities (e.g. read-contract-4, aptos-4).
+func (c *NodeSet) ChainCapabilityChainIDs() []uint64 {
+	return c.chainCapabilityIDs()
 }
 
 func (c *NodeSet) Flags() []string {
@@ -1445,12 +1494,14 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 type NodeKeyInput struct {
 	EVMChainIDs    []uint64
 	SolanaChainIDs []string
+	AptosChainIDs  []uint64
 	Password       string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
 }
 
 func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
+	start := time.Now()
 	out := &secrets.NodeKeys{
 		EVM:    make(map[uint64]*crypto.EVMKey),
 		Solana: make(map[string]*crypto.SolKey),
@@ -1460,6 +1511,9 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		importedKeys, err := secrets.ImportNodeKeys(input.ImportedSecrets)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to parse imported secrets")
+		}
+		if len(input.AptosChainIDs) > 0 && importedKeys.Aptos == nil {
+			return nil, errors.New("imported secrets are missing an Aptos key; regenerate node secrets with Aptos support")
 		}
 
 		return importedKeys, nil
@@ -1494,6 +1548,21 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 		}
 		out.Solana[chainID] = k
 	}
+	if len(input.AptosChainIDs) > 0 {
+		k, err := crypto.NewAptosKey(input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Aptos key: %w", err)
+		}
+		out.Aptos = k
+		out.AptosChainIDs = append([]uint64(nil), input.AptosChainIDs...)
+	}
+
+	framework.L.Debug().
+		Int("evm_chains", len(input.EVMChainIDs)).
+		Int("solana_chains", len(input.SolanaChainIDs)).
+		Bool("imported", input.ImportedSecrets != "").
+		Float64("duration_s", roundSeconds(time.Since(start))).
+		Msg("Node key generation completed")
 	return out, nil
 }
 
@@ -1663,4 +1732,8 @@ type PreEnvStartupOutput struct {
 	DONCapabilityWithConfig []keystone_changeset.DONCapabilityWithConfig
 	// keyed by LabelledName
 	CapabilityToOCR3Config map[string]*ocr3.OracleConfig
+	// keyed by LabelledName. Non-EVM chain families whose signing keys should be
+	// included in OCR3 config signers for that capability (e.g. ["solana"]).
+	// EVM is always included.
+	CapabilityToExtraSignerFamilies map[string][]string
 }

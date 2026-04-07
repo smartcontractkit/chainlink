@@ -99,7 +99,7 @@ func newMessage(t *testing.T) *jsonrpc.Response[json.RawMessage] {
 	return &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  (*json.RawMessage)(&rawResp),
 	}
 }
@@ -119,7 +119,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  (*json.RawMessage)(nil),
 		Error: &jsonrpc.WireError{
 			Code:    123,
@@ -180,7 +180,7 @@ func TestAggregator_InsufficientResponses(t *testing.T) {
 	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  &rm,
 	}
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
@@ -206,21 +206,21 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 	resp1 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  &rm1,
 	}
 	rm2 := json.RawMessage([]byte(`{"foo": "bar"}`))
 	resp2 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  &rm2,
 	}
 	rm3 := json.RawMessage([]byte(`{"baz": "qux"}`))
 	resp3 := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "1",
-		Method:  vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsCreate,
 		Result:  &rm3,
 	}
 	responses := map[string]jsonrpc.Response[json.RawMessage]{

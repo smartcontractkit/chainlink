@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -134,6 +133,10 @@ func deployWorkflowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			initDxTracker()
 			var regErr error
+			resolver, resolverErr := TryLoadLocalCREStateResolver()
+			if resolverErr != nil {
+				return errors.Wrap(resolverErr, "failed to load local CRE state")
+			}
 
 			defer func() {
 				metaData := map[string]any{}
@@ -165,33 +168,31 @@ func deployWorkflowCmd() *cobra.Command {
 				workflowFilePathFlag = compiledWorkflowPath
 			}
 
-			var workflowRegistryAddress string
-			var workflowRegistryVersion *semver.Version
-			if workflowRegistryAddressFlag != "" {
-				workflowRegistryAddress = workflowRegistryAddressFlag
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
+			rpcURL := rpcURLFlag
+			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+				if stateRPC, err := resolver.RegistryRPC(); err == nil {
+					rpcURL = stateRPC
 				}
-				workflowRegistryAddress = addrRef.Address
-				workflowRegistryVersion = addrRef.Version
 			}
 
-			var capabilitiesRegistryAddress string
-			var capabilitiesRegistryVersion *semver.Version
-			if capabilitiesRegistryAddressFlag != "" {
-				capabilitiesRegistryAddress = capabilitiesRegistryAddressFlag
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.CapabilitiesRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get capabilities registry address from state file")
+			donID := donIDFlag
+			if !cmd.Flags().Changed("don-id") && resolver != nil {
+				if stateDONID, err := resolver.WorkflowDONID(); err == nil {
+					donID = stateDONID
 				}
-				capabilitiesRegistryAddress = addrRef.Address
-				capabilitiesRegistryVersion = addrRef.Version
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, deleteWorkflowFileFlag)
+			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			if resolveErr != nil {
+				return errors.Wrap(resolveErr, "❌ failed to resolve workflow registry")
+			}
+
+			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, contractsVersionFlag, "capabilities-registry-address")
+			if resolveErr != nil {
+				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
+			}
+
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, deleteWorkflowFileFlag)
 
 			return regErr
 		},
@@ -227,7 +228,6 @@ func deployWorkflowCmd() *cobra.Command {
 func deleteWorkflowCmd() *cobra.Command {
 	var (
 		workflowNameFlag            string
-		workflowOwnerAddressFlag    string
 		workflowRegistryAddressFlag string
 		rpcURLFlag                  string
 		contractsVersionFlag        string
@@ -240,6 +240,17 @@ func deleteWorkflowCmd() *cobra.Command {
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚙️ Deleting workflow '%s' from the workflow registry\n\n", workflowNameFlag)
+			resolver, resolverErr := TryLoadLocalCREStateResolver()
+			if resolverErr != nil {
+				return errors.Wrap(resolverErr, "failed to load local CRE state")
+			}
+
+			rpcURL := rpcURLFlag
+			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+				if stateRPC, err := resolver.RegistryRPC(); err == nil {
+					rpcURL = stateRPC
+				}
+			}
 
 			var privateKey string
 			if os.Getenv("PRIVATE_KEY") != "" {
@@ -249,7 +260,7 @@ func deleteWorkflowCmd() *cobra.Command {
 			}
 
 			sethClient, scErr := seth.NewClientBuilder().
-				WithRpcUrl(rpcURLFlag).
+				WithRpcUrl(rpcURL).
 				WithPrivateKeys([]string{privateKey}).
 				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
 				Build()
@@ -257,18 +268,9 @@ func deleteWorkflowCmd() *cobra.Command {
 				return errors.Wrap(scErr, "failed to create Seth client")
 			}
 
-			var workflowRegistryAddress string
-			var contractsVersion *semver.Version
-			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
-				workflowRegistryAddress = workflowRegistryAddressFlag
-				contractsVersion = semver.MustParse(contractsVersionFlag)
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
-				}
-				workflowRegistryAddress = addrRef.Address
-				contractsVersion = addrRef.Version
+			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			if err != nil {
+				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
 
 			workflowNames, workflowNamesErr := creworkflow.GetWorkflowNames(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
@@ -294,7 +296,6 @@ func deleteWorkflowCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
 	cmd.Flags().StringVarP(&workflowNameFlag, "name", "n", "", "Workflow name")
 	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
@@ -308,7 +309,6 @@ func deleteWorkflowCmd() *cobra.Command {
 
 func deleteAllWorkflowsCmd() *cobra.Command {
 	var (
-		workflowOwnerAddressFlag    string
 		workflowRegistryAddressFlag string
 		rpcURLFlag                  string
 		contractsVersionFlag        string
@@ -321,6 +321,17 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
+			resolver, resolverErr := TryLoadLocalCREStateResolver()
+			if resolverErr != nil {
+				return errors.Wrap(resolverErr, "failed to load local CRE state")
+			}
+
+			rpcURL := rpcURLFlag
+			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+				if stateRPC, err := resolver.RegistryRPC(); err == nil {
+					rpcURL = stateRPC
+				}
+			}
 
 			var privateKey string
 			if os.Getenv("PRIVATE_KEY") != "" {
@@ -330,7 +341,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 			}
 
 			sethClient, scErr := seth.NewClientBuilder().
-				WithRpcUrl(rpcURLFlag).
+				WithRpcUrl(rpcURL).
 				WithPrivateKeys([]string{privateKey}).
 				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
 				Build()
@@ -338,18 +349,9 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				return errors.Wrap(scErr, "failed to create Seth client")
 			}
 
-			var workflowRegistryAddress string
-			var contractsVersion *semver.Version
-			if workflowRegistryAddressFlag != "" && contractsVersionFlag != "" {
-				workflowRegistryAddress = workflowRegistryAddressFlag
-				contractsVersion = semver.MustParse(contractsVersionFlag)
-			} else {
-				addrRef, addrErr := addressRefFromStateFile(keystone_changeset.WorkflowRegistry)
-				if addrErr != nil {
-					return errors.Wrap(addrErr, "❌ failed to get workflow registry address from state file")
-				}
-				workflowRegistryAddress = addrRef.Address
-				contractsVersion = addrRef.Version
+			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
+			if err != nil {
+				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
 
 			deleteErr := creworkflow.DeleteAllWithContract(cmd.Context(), sethClient, common.HexToAddress(workflowRegistryAddress), contractsVersion)
@@ -364,9 +366,8 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
-	cmd.Flags().StringVarP(&workflowOwnerAddressFlag, "owner-address", "d", DefaultWorkflowOwnerAddress, "Workflow owner address")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "a", "", "Workflow registry address (if not provided, address from the state file will be used)")
-	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "", "Version of workflow registry contract to use (v1 or v2)")
+	cmd.Flags().StringVar(&contractsVersionFlag, "with-contracts-version", "v2", "Version of workflow registry contract to use (v1 or v2)")
 
 	return cmd
 }
@@ -607,23 +608,60 @@ func resolveWorkflowArtifactDeployModeFromState(containerNamePattern string) (cr
 	}
 }
 
-func addressRefFromStateFile(contractType deployment.ContractType) (*datastore.AddressRef, error) {
-	in := &envconfig.Config{}
-	err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load state file")
-	}
+// func addressRefFromStateFile(contractType deployment.ContractType) (*datastore.AddressRef, error) {
+// 	in := &envconfig.Config{}
+// 	err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+// 	if err != nil {
+// 		return nil, errors.Wrap(err, "failed to load state file")
+// 	}
 
-	addresses, aErr := in.GetAddresses()
-	if aErr != nil {
-		return nil, errors.Wrap(aErr, "failed to get addresses from cached input")
-	}
+// 	addresses, aErr := in.GetAddresses()
+// 	if aErr != nil {
+// 		return nil, errors.Wrap(aErr, "failed to get addresses from cached input")
+// 	}
 
-	for _, addrRef := range addresses {
-		if datastore.ContractType(contractType) == addrRef.Type {
-			return &addrRef, nil
+//	for _, addrRef := range addresses {
+//		if datastore.ContractType(contractType) == addrRef.Type {
+//			return &addrRef, nil
+func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, versionFlag, addressFlagName string) (string, *semver.Version, error) {
+	if cmd.Flags().Changed(addressFlagName) {
+		if strings.TrimSpace(explicitAddress) == "" {
+			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", addressFlagName, addressFlagName)
 		}
+
+		if strings.TrimSpace(versionFlag) == "" {
+			return "", nil, fmt.Errorf("❌ %s is required when %s is provided", versionFlag, addressFlagName)
+		}
+
+		version, err := semverFromFlag(versionFlag)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return explicitAddress, version, nil
 	}
 
-	return nil, fmt.Errorf("did not find any address for %s contract", contractType)
+	if resolver != nil {
+		addrRef, err := resolver.AddressRef(contractType)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return addrRef.Address, addrRef.Version, nil
+	}
+
+	if strings.TrimSpace(versionFlag) == "" {
+		return "", nil, fmt.Errorf("❌ %s is required when no %s is provided", versionFlag, addressFlagName)
+	}
+
+	version, err := semverFromFlag(versionFlag)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if strings.TrimSpace(explicitAddress) != "" {
+		return explicitAddress, version, nil
+	}
+
+	return "", nil, fmt.Errorf("no %s available from flags or local CRE state", contractType)
 }

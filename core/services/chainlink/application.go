@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	otelpyroscope "github.com/grafana/otel-profiling-go"
 	"github.com/grafana/pyroscope-go"
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
@@ -201,6 +202,7 @@ type ApplicationOpts struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 	VersionTag               string
+	DockerTag                string
 	RestrictedHTTPClient     *http.Client
 	UnrestrictedHTTPClient   *http.Client
 	SecretGenerator          SecretGenerator
@@ -222,7 +224,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
-	srvcs = append(srvcs, &heartbeat)
+	nodePlatformBuildInfo := NewNodePlatformBuildInfoService(NewNodePlatformBuildInfoConfig(opts))
+	srvcs = append(srvcs, &heartbeat, &nodePlatformBuildInfo)
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
@@ -418,6 +421,18 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
 		if err != nil {
 			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+		}
+
+		if cfg.Pyroscope().LinkTracesToProfiles() && cfg.Tracing().Enabled() {
+			// Enable span profiling - link OTel traces to Pyroscope profiles
+			// This wraps the global tracer provider to record span IDs alongside profile samples
+			otel.SetTracerProvider(
+				otelpyroscope.NewTracerProvider(
+					otel.GetTracerProvider(),
+					otelpyroscope.WithAppName("chainlink-node"),
+					otelpyroscope.WithPyroscopeURL(cfg.Pyroscope().ServerAddress()),
+				),
+			)
 		}
 	} else {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is disabled")
@@ -721,6 +736,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.GatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.WorkflowRegistrySyncer,
+				OrgResolver:                    creServices.OrgResolver,
 				LimitsFactory:                  limitsFactory,
 				OCRConfigService:               creServices.OCRConfigService,
 			},

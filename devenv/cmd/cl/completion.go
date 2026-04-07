@@ -59,18 +59,18 @@ func getSubCommands(parent string) []prompt.Suggest {
 		fallthrough
 	case "restart":
 		return []prompt.Suggest{
-			{Text: "env.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 4 CL nodes"},
+			{Text: "env.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 5 CL nodes"},
 			{Text: "env.toml,products/cron/basic.toml", Description: "1 Anvil, 1 CL Node, Cron trigger"},
 			{Text: "env.toml,products/cron/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Cron triggers for soak testing"},
 			{Text: "env.toml,products/directrequest/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
 			{Text: "env.toml,products/directrequest/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
 			{Text: "env.toml,products/flux/basic.toml", Description: "1 Anvil, 1 CL Node, Runlog trigger"},
 			{Text: "env.toml,products/flux/soak.toml", Description: "1 Anvil, 1 CL Node, 10 Runlog triggers for soak testing"},
-			{Text: "env.toml,products/ocr2/basic.toml", Description: "2 Anvils, 4 CL Nodes, 1 OCRv2 product"},
-			{Text: "env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml", Description: "2 Anvils, 4 CL Nodes, 10 OCRv2 product for soak testing"},
-			{Text: "env.toml,env-cl-rebuild.toml", Description: "Spin up Anvil <> Anvil local chains, all services, 4 CL nodes (custom build)"},
-			{Text: "env.toml,env-geth.toml", Description: "Spin up Geth <> Geth local chains (clique), all services, 4 CL nodes"},
-			{Text: "env.toml,env-fuji-fantom.toml", Description: "Spin up testnets: Fuji <> Fantom, all services, 4 CL nodes"},
+			{Text: "env.toml,products/ocr2/basic.toml", Description: "2 Anvils, 5 CL nodes, 1 OCRv2 product"},
+			{Text: "env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml", Description: "2 Anvils, 5 CL nodes, 10 OCRv2 product for soak testing"},
+			{Text: "env.toml,products/ocr2/basic.toml,env-cl-rebuild.toml", Description: "Spin OCR2 product + 5 CL nodes + build local CL image"},
+			{Text: "env.toml,env-geth.toml", Description: "Spin up Geth <> Geth local chains (clique), all services, 5 CL nodes"},
+			{Text: "env.toml,env-fuji-fantom.toml", Description: "Spin up testnets: Fuji <> Fantom, all services, 5 CL nodes"},
 		}
 	default:
 		return []prompt.Suggest{}

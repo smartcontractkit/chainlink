@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -64,9 +65,10 @@ func (r *simpleHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
-	// Exclude SpendLimits from RequestMetadata to ensure identical requests
-	// with different SpendLimits produce the same hash
+	// Exclude per-node-divergent metadata fields to ensure identical requests
+	// with different values produce the same hash
 	req.Metadata.SpendLimits = nil
+	req.Metadata.ExecutionTimestamp = time.Time{}
 
 	reqBytes, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
@@ -92,9 +94,10 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		return [32]byte{}, errors.New("capability request payload is nil")
 	}
 
-	// Exclude SpendLimits from RequestMetadata to ensure identical requests
-	// with different SpendLimits produce the same hash
+	// Exclude per-node-divergent metadata fields to ensure identical requests
+	// with different values produce the same hash
 	req.Metadata.SpendLimits = nil
+	req.Metadata.ExecutionTimestamp = time.Time{}
 	family, familyErr := getWriteReportFamily(msg)
 	if familyErr != nil {
 		return [32]byte{}, familyErr
@@ -132,7 +135,6 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		}
 	default:
 		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
-
 	}
 
 	req.Payload = payload

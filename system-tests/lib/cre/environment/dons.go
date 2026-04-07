@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -18,7 +20,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -51,6 +52,44 @@ func (s *StartedDONs) DONs() []*cre.Don {
 	return dons
 }
 
+// ensureGithubTokenForPrivatePlugins checks if any nodeset has nodes with empty image (requiring
+// a Docker build). If so, ensures GITHUB_TOKEN is set so BuildImageOnce can install plugins from
+// private repos. If GITHUB_TOKEN is unset, tries to obtain it via `gh auth token`.
+func ensureGithubTokenForPrivatePlugins(ctx context.Context, nodeSets []*cre.NodeSet) error {
+	if os.Getenv("CTF_CHAINLINK_IMAGE") != "" {
+		return nil // image provided via env, no build needed
+	}
+	needsBuild := false
+	for _, nodeSet := range nodeSets {
+		for _, spec := range nodeSet.NodeSpecs {
+			if spec != nil && spec.Node != nil && spec.Node.Image == "" {
+				needsBuild = true
+				break
+			}
+		}
+		if needsBuild {
+			break
+		}
+	}
+	if !needsBuild {
+		return nil
+	}
+	if os.Getenv("GITHUB_TOKEN") != "" {
+		return nil
+	}
+	cmd := exec.CommandContext(ctx, "gh", "auth", "token")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("GITHUB_TOKEN is not set and `gh auth token` failed (is gh CLI installed and configured?): %w", err)
+	}
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return errors.New("GITHUB_TOKEN is not set and `gh auth token` returned empty output")
+	}
+	os.Setenv("GITHUB_TOKEN", token)
+	return nil
+}
+
 func StartDONs(
 	ctx context.Context,
 	lggr zerolog.Logger,
@@ -58,7 +97,6 @@ func StartDONs(
 	infraInput infra.Provider,
 	registryChainBlockchainOutput *blockchain.Output,
 	capabilityConfigs cre.CapabilityConfigs,
-	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
@@ -77,7 +115,6 @@ func StartDONs(
 			infraInput,
 			registryChainBlockchainOutput,
 			capabilityConfigs,
-			copyCapabilityBinaries,
 			nodeSets,
 			remoteRuntime,
 		)
@@ -108,7 +145,7 @@ func startDONsKubernetes(
 		return nil, err
 	}
 
-	return buildDONsConcurrently(ctx, lggr, false, nodeSets, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
+	return buildDONsConcurrently(ctx, lggr, false, nodeSets, infraInput, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
 		lggr.Info().Msgf("Kubernetes mode: using existing DON named %s", configuredNodeSet.Name)
 		return buildStartedDON(ctx, topology, configuredIndex, configuredNodeSet, configuredNodeSet.Out)
 	})
@@ -121,7 +158,6 @@ func startDONsContainerized(
 	infraInput infra.Provider,
 	registryChainBlockchainOutput *blockchain.Output,
 	capabilityConfigs cre.CapabilityConfigs,
-	copyCapabilityBinaries bool,
 	nodeSets []*cre.NodeSet,
 	remoteRuntime *remoteclient.Runtime,
 ) (*StartedDONs, error) {
@@ -129,40 +165,11 @@ func startDONsContainerized(
 		normalizeForExecution(topology, nodeSets, remoteRuntime.RemoteHostIP)
 	}
 
-	// Skip binary operations for remote DONs.
-	if infraInput.IsDocker() {
-		for donIdx, donMetadata := range topology.DonsMetadata.List() {
-			if !copyCapabilityBinaries {
-				continue
-			}
-			if donMetadata.MustNodeSet().Placement == string(config.PlacementRemote) {
-				continue
-			}
-
-			customBinariesPaths := make(map[cre.CapabilityFlag]string)
-			for flag, config := range capabilityConfigs {
-				if flags.HasFlagForAnyChain(donMetadata.Flags, flag) && config.BinaryPath != "" {
-					customBinariesPaths[flag] = config.BinaryPath
-				}
-			}
-
-			executableErr := crecapabilities.MakeBinariesExecutable(customBinariesPaths)
-			if executableErr != nil {
-				return nil, pkgerrors.Wrap(executableErr, "failed to make binaries executable")
-			}
-
-			ns, err := crecapabilities.AppendBinariesPathsNodeSpec(nodeSets[donIdx], donMetadata, customBinariesPaths)
-			if err != nil {
-				return nil, pkgerrors.Wrapf(err, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
-			}
-			nodeSets[donIdx] = ns
-		}
-	}
 	if err := applyNodeSetEnvVars(topology, nodeSets); err != nil {
 		return nil, err
 	}
 
-	return buildDONsConcurrently(ctx, lggr, true, nodeSets, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
+	return buildDONsConcurrently(ctx, lggr, true, nodeSets, infraInput, func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error) {
 		return startDON(
 			ctx,
 			lggr,
@@ -201,8 +208,15 @@ func buildDONsConcurrently(
 	lggr zerolog.Logger,
 	printFailedContainerLogs bool,
 	nodeSets []*cre.NodeSet,
+	infraInput infra.Provider,
 	startFn func(configuredIndex int, configuredNodeSet *cre.NodeSet) (*StartedDON, error),
 ) (*StartedDONs, error) {
+	if !infraInput.IsKubernetes() {
+		if err := ensureGithubTokenForPrivatePlugins(ctx, nodeSets); err != nil {
+			return nil, err
+		}
+	}
+
 	errGroup, _ := errgroup.WithContext(ctx)
 	startedDONs := make(StartedDONs, len(nodeSets))
 
@@ -503,6 +517,11 @@ func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) 
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
 		return solKey.PublicAddress.String(), nil
+	case chainselectors.FamilyAptos:
+		if node.Keys != nil && node.Keys.Aptos != nil && node.Keys.Aptos.Account != "" {
+			return node.Keys.Aptos.Account, nil
+		}
+		return "", nil // Skip nodes without Aptos keys for this chain
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
