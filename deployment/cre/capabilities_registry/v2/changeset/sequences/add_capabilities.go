@@ -162,7 +162,7 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 				Env:     deps.Env,
 				DonName: donName,
 				P2PIDs:  p2pIDs,
-				Configs: input.CapabilityConfigs, // modified in place
+				Configs: donCapConfigs, // modified in place
 			}
 			for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
 				if err := mod.Modify(modifierParams); err != nil {
