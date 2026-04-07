@@ -224,7 +224,7 @@ jobs:
               --junitfile=/tmp/junit-report-regression.xml \
               --format=github-actions \
               --raw-command \
-              -- ./.cre-test-bin/regression/cre/cre.test -test.v -test.json -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+              -- go tool test2json -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre -t ./.cre-test-bin/regression/cre/cre.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
           else
             gotestsum \
               --jsonfile=/tmp/gotest-regression.log \
