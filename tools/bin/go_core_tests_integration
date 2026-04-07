@@ -10,7 +10,7 @@ EXTRA_FLAGS=""
 
 # Install gotestsum as test runner
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.12.3
+go install gotest.tools/gotestsum@v1.13.0
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
