@@ -51,7 +51,9 @@ import (
 	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -891,6 +893,35 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
 
+	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
+	if err != nil {
+		return nil, nil, errors.New("failed to instantiate contract reader factory")
+	}
+
+	var shardOrchestratorClient shardorchestrator.ClientInterface
+	if opts.ShardOrchestratorClient != nil {
+		shardOrchestratorClient = opts.ShardOrchestratorClient
+	} else {
+		var c shardorchestrator.ClientInterface
+		c, err = newShardOrchestratorClient(cfg, lggr)
+		if err != nil {
+			return nil, nil, err
+		}
+		shardOrchestratorClient = c
+	}
+
+	shardingEnabled := cfg.Sharding().ShardingEnabled()
+	shardIndex := uint32(cfg.Sharding().ShardIndex())
+
+	var shardRoutingSteady *shardownership.SteadySignal
+	if shardingEnabled {
+		steadyMetrics, errSteady := wfmonitoring.GlobalSteadySignalMetrics()
+		if errSteady != nil {
+			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
+		}
+		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
+	}
+
 	eventHandler, err := syncerV2.NewEventHandler(
 		lggr,
 		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
@@ -911,6 +942,8 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
@@ -950,6 +983,9 @@ func newWorkflowRegistrySyncerV2(
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 		)
+		if shardRoutingSteady != nil {
+			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
+		}
 	}
 
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(

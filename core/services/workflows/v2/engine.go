@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
@@ -694,6 +695,41 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
 		}
 	}()
+
+	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
+	if e.cfg.ShardingEnabled && e.cfg.ShardOrchestratorClient != nil && needShardOwnerCheck {
+		verdict, mapResp, ownErr := shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+		switch verdict {
+		case shardownership.Allow:
+		case shardownership.DenyOrchestratorError:
+			lggr.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr)
+			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			executionStatus = store.StatusErrored
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
+			}
+			return
+		case shardownership.DenyNotOwner:
+			logFields := []interface{}{
+				"executionID", executionID,
+				"myShardID", e.cfg.MyShardID,
+				"routingStateId", mapResp.GetRoutingStateId(),
+				"routingSteady", mapResp.GetRoutingSteady(),
+			}
+			if m, ok := mapResp.GetMappings()[e.cfg.WorkflowID]; ok {
+				logFields = append(logFields, "mappedShard", m)
+			}
+			lggr.Infow("Skipping execution: workflow not owned by this shard per orchestrator", logFields...)
+			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			executionStatus = store.StatusErrored
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
+			}
+			return
+		}
+	}
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
