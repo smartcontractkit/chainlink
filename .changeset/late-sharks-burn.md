@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Wire user metric limiters to WASM ModuleConfig 
+#bugfix Wire user metric limiters to WASM ModuleConfig 
