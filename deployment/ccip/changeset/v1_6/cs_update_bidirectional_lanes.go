@@ -656,7 +656,7 @@ func maybeAddPreviousRampUpdate(
 
 	if mcmsConfig != nil {
 		if chainState.Timelock == nil {
-			return fmt.Errorf("Timelock not deployed on chain %d", sourceChain)
+			return fmt.Errorf("timelock not deployed on chain %d", sourceChain)
 		}
 		evmChain, ok := e.BlockChains.EVMChains()[sourceChain]
 		if !ok {
