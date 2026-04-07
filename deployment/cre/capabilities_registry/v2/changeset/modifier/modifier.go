@@ -45,7 +45,7 @@ type aptosDonModifier struct{}
 
 func (aptosDonModifier) Modify(params CapabilityConfigModifierParams) error {
 	for i := range params.Configs {
-		sel, isAptos, parseErr := parseAptosChainSelectorFromCapabilityID(params.Configs[i].Capability.CapabilityID)
+		sel, isAptos, parseErr := parseChainSelectorFromCapabilityID(params.Configs[i].Capability.CapabilityID, aptosCapabilityIDPrefix)
 		if parseErr != nil {
 			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, parseErr)
 		}
@@ -58,11 +58,11 @@ func (aptosDonModifier) Modify(params CapabilityConfigModifierParams) error {
 		if params.Configs[i].Config == nil {
 			params.Configs[i].Config = make(map[string]any)
 		}
-		p2pMap, mapErr := buildAptosP2PToTransmitterMap(params.Env.Offchain, params.P2PIDs, sel)
+		p2pMap, mapErr := buildP2PToTransmitterMap(params.Env.Offchain, params.P2PIDs, sel)
 		if mapErr != nil {
 			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, mapErr)
 		}
-		if mergeErr := mergeAptosP2PToTransmitterIntoConfig(params.Configs[i].Config, p2pMap); mergeErr != nil {
+		if mergeErr := mergeP2PToTransmitterIntoConfig(params.Configs[i].Config, p2pMap); mergeErr != nil {
 			return fmt.Errorf("capability %q: %w", params.Configs[i].Capability.CapabilityID, mergeErr)
 		}
 	}
@@ -73,22 +73,22 @@ func (aptosDonModifier) Modify(params CapabilityConfigModifierParams) error {
 // (label before optional "@<version>"), e.g. aptos:ChainSelector:12345@1.0.0.
 const aptosCapabilityIDPrefix = "aptos:ChainSelector:"
 
-// parseAptosChainSelectorFromCapabilityID parses registry capability IDs of the form
-// aptos:ChainSelector:<decimal>@<version>. The part after the last "@" is ignored for
+// parseChainSelectorFromCapabilityID parses registry capability IDs of the form
+// <prefix><decimal>@<version>. The part after the last "@" is ignored for
 // parsing so only the label matters (e.g. aptos:ChainSelector:12345@1.0.0 → 12345).
 //
-// Returns isAptos false and no error when the id does not start with aptosCapabilityIDPrefix
-// (after stripping "@…"). Returns isAptos true and an error if the prefix is present but the
+// Returns matched false and no error when the id does not start with prefix
+// (after stripping "@…"). Returns matched true and an error if the prefix is present but the
 // selector is empty or not a base-10 uint64.
-func parseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint64, isAptos bool, err error) {
+func parseChainSelectorFromCapabilityID(capabilityID, prefix string) (selector uint64, matched bool, err error) {
 	capID := capabilityID
 	if i := strings.LastIndex(capabilityID, "@"); i >= 0 {
 		capID = capabilityID[:i]
 	}
-	if !strings.HasPrefix(capID, aptosCapabilityIDPrefix) {
+	if !strings.HasPrefix(capID, prefix) {
 		return 0, false, nil
 	}
-	raw := strings.TrimPrefix(capID, aptosCapabilityIDPrefix)
+	raw := strings.TrimPrefix(capID, prefix)
 	if raw == "" {
 		return 0, true, fmt.Errorf("missing chain selector in capability id %q", capabilityID)
 	}
@@ -99,17 +99,17 @@ func parseAptosChainSelectorFromCapabilityID(capabilityID string) (selector uint
 	return u, true, nil
 }
 
-// buildAptosP2PToTransmitterMap asks Job Distributor for node metadata for donPeerIDs
-// Then builds a map used for CapabilityConfig spec:
-// - lowercase hex of the 32-byte P2P id -> Aptos transmit account (OCR TransmitAccount)
-// for the given aptosChainSelector.
+// buildP2PToTransmitterMap asks Job Distributor for node metadata for donPeerIDs
+// and builds a map used for CapabilityConfig spec:
+// - lowercase hex of the 32-byte P2P id -> transmit account (OCR TransmitAccount)
+// for the given chainSelector.
 //
 // It walks only the nodes returned by NodeInfo. Each must have OCR config for
-// aptosChainSelector and a non-empty transmit account after trim, or this returns an error.
-func buildAptosP2PToTransmitterMap(
+// chainSelector and a non-empty transmit account after trim, or this returns an error.
+func buildP2PToTransmitterMap(
 	offChainClient deployment.NodeChainConfigsLister,
 	donPeerIDs []p2pkey.PeerID,
-	aptosChainSelector uint64,
+	chainSelector uint64,
 ) (map[string]string, error) {
 	if offChainClient == nil {
 		return nil, errors.New("offchain client is nil")
@@ -127,32 +127,32 @@ func buildAptosP2PToTransmitterMap(
 	}
 	out := make(map[string]string, len(nodes))
 	for _, node := range nodes {
-		ocrCfg, ok := node.OCRConfigForChainSelector(aptosChainSelector)
+		ocrCfg, ok := node.OCRConfigForChainSelector(chainSelector)
 		if !ok {
 			return nil, fmt.Errorf("node %s (%s) has no OCR2 config for chain selector %d",
-				node.Name, node.PeerID.String(), aptosChainSelector)
+				node.Name, node.PeerID.String(), chainSelector)
 		}
 		transmitter := strings.TrimSpace(string(ocrCfg.TransmitAccount))
 		if transmitter == "" {
-			return nil, fmt.Errorf("empty Aptos transmit account for node %s (%s)", node.Name, node.PeerID.String())
+			return nil, fmt.Errorf("empty transmit account for node %s (%s)", node.Name, node.PeerID.String())
 		}
 		out[hex.EncodeToString(node.PeerID[:])] = transmitter
 	}
 	return out, nil
 }
 
-// mergeAptosP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
+// mergeP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
 // Caller must omit specConfig or leave it empty; any non-empty specConfig returns an error for now.
 // NOTE: we can make this smarter later if needed. Add overwriting / merging logic etc.
 //
 // specConfig is protobuf values.v1.Map JSON; we build it with values.Wrap so pkg.MarshalProto succeeds.
-func mergeAptosP2PToTransmitterIntoConfig(cfg map[string]any, p2pMap map[string]string) error {
+func mergeP2PToTransmitterIntoConfig(cfg map[string]any, p2pMap map[string]string) error {
 	if cfg == nil {
 		return errors.New("nil capability config map")
 	}
 	if raw, ok := cfg["specConfig"]; ok && raw != nil {
-		if !isEmptySpecConfigForAptosMerge(raw) {
-			return errors.New("specConfig must be empty (omit or {}) for Aptos p2pToTransmitterMap injection")
+		if !isEmptySpecConfig(raw) {
+			return errors.New("specConfig must be empty (omit or {}) for p2pToTransmitterMap injection")
 		}
 	}
 	p2pVal, err := values.Wrap(p2pMap)
@@ -173,9 +173,9 @@ func mergeAptosP2PToTransmitterIntoConfig(cfg map[string]any, p2pMap map[string]
 	return nil
 }
 
-// isEmptySpecConfigForAptosMerge reports whether user-provided specConfig is absent-equivalent:
+// isEmptySpecConfig reports whether user-provided specConfig is absent-equivalent:
 // nil, {}, or values.v1.Map JSON with no entries ({ "fields": {} }).
-func isEmptySpecConfigForAptosMerge(raw any) bool {
+func isEmptySpecConfig(raw any) bool {
 	if raw == nil {
 		return true
 	}
