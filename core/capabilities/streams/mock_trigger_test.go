@@ -92,6 +92,31 @@ func TestMockTriggerServiceRegisterEmitUnregister(t *testing.T) {
 	}
 }
 
+func TestMockTriggerServiceUnregisterKeepsSubscriberStateOnError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc, err := NewMockTriggerService(200, logger.TestLogger(t))
+	require.NoError(t, err)
+	require.NoError(t, svc.MercuryTriggerService.Start(ctx))
+	t.Cleanup(func() {
+		require.NoError(t, svc.MercuryTriggerService.Close())
+	})
+
+	req := newMockTriggerRequest(t, "workflow-a", "trigger-a", 200)
+	_, err = svc.RegisterTrigger(ctx, req)
+	require.NoError(t, err)
+
+	badReq := req
+	badReq.TriggerID = "trigger-b"
+	err = svc.UnregisterTrigger(ctx, badReq)
+	require.Error(t, err)
+
+	svc.subscribersMu.Lock()
+	require.Equal(t, []triggercfg.FeedId{testFeedID}, svc.subscribers[req.Metadata.WorkflowID])
+	svc.subscribersMu.Unlock()
+}
+
 func newMockTriggerRequest(t *testing.T, workflowID, triggerID string, maxFrequencyMs uint64) commoncap.TriggerRegistrationRequest {
 	t.Helper()
 

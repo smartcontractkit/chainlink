@@ -173,15 +173,19 @@ func (m *MockTriggerService) RegisterTrigger(ctx context.Context, req capabiliti
 
 func (m *MockTriggerService) UnregisterTrigger(ctx context.Context, req capabilities.TriggerRegistrationRequest) error {
 	err := m.MercuryTriggerService.UnregisterTrigger(ctx, req)
+	if err != nil {
+		return err
+	}
+
 	m.subscribersMu.Lock()
 	defer m.subscribersMu.Unlock()
 	delete(m.subscribers, req.Metadata.WorkflowID)
-	return err
+	return nil
 }
 
 const baseTimestamp = 1000000000
 
-// NOTE: duplicated from trigger_test.go
+// NOTE: duplicated from codec_test.go
 func newReport(lggr logger.Logger, feedID [32]byte, price *big.Int, timestamp int64) ([]byte, error) {
 	uintTimestamp, err := toUint32(timestamp)
 	if err != nil {
