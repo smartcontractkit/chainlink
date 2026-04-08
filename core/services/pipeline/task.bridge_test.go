@@ -330,6 +330,112 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	require.Equal(t, runInfo.IsRetryable, runInfo2.IsRetryable)
 }
 
+func TestBridgeTask_CacheFallbackOnMissingRequiredJSONPath(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.Body.Close())
+		w.Header().Set("Content-Type", "application/json")
+		if callCount.Add(1) == 1 {
+			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
+			require.NoError(t, json.NewEncoder(w).Encode(resp))
+			return
+		}
+		// HTTP 200 but missing data.result — should fall back to cache when required paths are set.
+		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
+		require.NoError(t, err)
+	}))
+	defer s1.Close()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+
+	task := pipeline.BridgeTask{
+		BaseTask:      pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:          bridge.Name.String(),
+		RequestData:   btcUSDPairing,
+		CacheTTL:      "30s",
+		CheckRequired: "true",
+	}
+	pipeline.TestingSetBridgeRequiredJSONPaths(&task, [][]string{{"data", "result"}})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	ctx := testutils.Context(t)
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.NoError(t, result.Error)
+	require.False(t, runInfo.IsRetryable)
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.NoError(t, result2.Error)
+	require.False(t, runInfo2.IsRetryable)
+	require.Equal(t, result.Value, result2.Value)
+
+	var parsed struct {
+		Data struct {
+			Result decimal.Decimal `json:"result"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result2.Value.(string)), &parsed))
+	require.Equal(t, decimal.NewFromInt(42), parsed.Data.Result)
+}
+
+func TestBridgeTask_SkipsRequiredPathValidationWhenCheckRequiredFalse(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.Body.Close())
+		w.Header().Set("Content-Type", "application/json")
+		if callCount.Add(1) == 1 {
+			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
+			require.NoError(t, json.NewEncoder(w).Encode(resp))
+			return
+		}
+		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
+		require.NoError(t, err)
+	}))
+	defer s1.Close()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "30s",
+		// checkRequired omitted: do not run JSON path validation or cache fallback for it.
+	}
+	pipeline.TestingSetBridgeRequiredJSONPaths(&task, [][]string{{"data", "result"}})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	ctx := testutils.Context(t)
+	_, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.False(t, runInfo.IsRetryable)
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.False(t, runInfo2.IsRetryable)
+	require.NoError(t, result2.Error)
+	require.Contains(t, result2.Value.(string), `"data":{}`)
+}
+
 func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	t.Parallel()
 

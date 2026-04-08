@@ -73,12 +73,22 @@ type BridgeTask struct {
 	Async             string `json:"async"`
 	CacheTTL          string `json:"cacheTTL"`
 	Headers           string `json:"headers"`
+	// CheckRequired when "true" enables validation that the HTTP response JSON
+	// contains paths required by strict downstream jsonparse tasks (see
+	// requiredJSONPaths). When empty or "false", that check is skipped.
+	CheckRequired string `json:"checkRequired"`
 
 	specId       int32
 	orm          bridges.ORM
 	config       Config
 	bridgeConfig BridgeConfig
 	httpClient   *http.Client
+
+	// requiredJSONPaths is populated in runner.InitializePipeline from strict
+	// downstream jsonparse tasks. When CheckRequired is true and cacheTTL is set,
+	// validation uses these paths to fall back to cache when the live response
+	// omits required keys.
+	requiredJSONPaths [][]string
 }
 
 type BridgeTelemetry struct {
@@ -115,6 +125,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		includeInputAtKey StringParam
 		cacheTTL          Uint64Param
 		reqHeaders        StringSliceParam
+		checkRequired     BoolParam
 	)
 	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
@@ -122,6 +133,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
 		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
+		errors.Wrap(ResolveParam(&checkRequired, From(NonemptyString(t.CheckRequired), false)), "checkRequired"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -222,6 +234,12 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	// check for external adapter response object status
 	if code, ok := eautils.BestEffortExtractEAStatus(responseBytes); ok {
 		statusCode = code
+	}
+
+	if err == nil && statusCode == http.StatusOK && cacheTTL > 0 && bool(checkRequired) && len(t.requiredJSONPaths) > 0 {
+		if verr := jsonDecodeValidateRequiredPaths(responseBytes, t.requiredJSONPaths); verr != nil {
+			err = errors.Wrap(verr, "bridge response failed required JSON path check for downstream jsonparse")
+		}
 	}
 
 	if err != nil || statusCode != http.StatusOK {
