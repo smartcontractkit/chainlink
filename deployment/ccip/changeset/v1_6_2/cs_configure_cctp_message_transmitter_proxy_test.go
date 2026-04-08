@@ -123,13 +123,11 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 }
 
 func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
-	t.Parallel()
-
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	chains := rt.Environment().BlockChains.EVMChains()
 	require.GreaterOrEqual(t, len(chains), 1)
 
-	chain := slices.Collect(maps.Values(chains))[0]
+	chain := chains[slices.Sorted(maps.Keys(chains))[0]]
 
 	addressBook := cldf.NewMemoryAddressBook()
 	_, tokenMsngr := setupCCTPMsgTransmitterProxyContractsForConfigure(t, rt.Environment().Logger, chain, addressBook)
