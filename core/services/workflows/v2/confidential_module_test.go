@@ -24,6 +24,7 @@ import (
 
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+	wfpb "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 )
 
 // stubExecutionHelper implements host.ExecutionHelper for testing.
@@ -43,6 +44,9 @@ func (s *stubExecutionHelper) GetWorkflowExecutionID() string { return s.executi
 func (s *stubExecutionHelper) GetNodeTime() time.Time         { return time.Time{} }
 func (s *stubExecutionHelper) GetDONTime() (time.Time, error) { return time.Time{}, nil }
 func (s *stubExecutionHelper) EmitUserLog(string) error       { return nil }
+func (s *stubExecutionHelper) EmitUserMetric(context.Context, *wfpb.WorkflowUserMetric) error {
+	return nil
+}
 
 func TestParseWorkflowAttributes(t *testing.T) {
 	t.Run("valid JSON with all fields", func(t *testing.T) {
