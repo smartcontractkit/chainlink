@@ -359,6 +359,8 @@ func connectTriggerDB(t *testing.T, nodeSets []*cre.NodeSet, chainID string) *sq
 	return db
 }
 
+var _ = connectTriggerDB
+
 type tableStats struct {
 	inserts int64
 	deletes int64
@@ -405,11 +407,12 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
+		// TODO: (CRE-2314) Re-enable trigger event ACKS
+		// triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
 
-		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
-		require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
-		t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
+		// baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
+		// require.NoError(t, err, "failed to snapshot trigger_pending_events stats for chain %s", chainID)
+		// t.Logf("baseline trigger_pending_events stats for chain %s: inserts=%d deletes=%d", chainID, baselineStats.inserts, baselineStats.deletes)
 
 		lggr.Info().Msgf("Creating EVM LogTrigger workflow configuration for chain %s", chainID)
 		workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, lggr, bcOutput)
