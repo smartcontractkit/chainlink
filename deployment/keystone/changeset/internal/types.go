@@ -242,6 +242,9 @@ func NewRegisteredDon(env cldf.Environment, cfg RegisteredDonConfig) (*Registere
 	}
 
 	di, err := capReg.GetDONs(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get dons: %w, address: %s", err, capReg.Address())
+	}
 
 	// load the nodes from the offchain client
 	nodes, err := deployment.NodeInfo(cfg.NodeIDs, env.Offchain)
