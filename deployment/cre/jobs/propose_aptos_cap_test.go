@@ -1,6 +1,8 @@
 package jobs_test
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,9 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
+	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
 const (
@@ -243,4 +249,122 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_overrideMismatches(t *testin
 		in.AptosCapabilityInputs[0].OverrideDefaultCfg.CREForwarderAddress = fwdAddr
 		require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(env, in))
 	})
+}
+
+type aptosCapTestSetup struct {
+	env             *cldf.Environment
+	nodeIDs         []string
+	aptosCapInputs  []jobs.AptosCapabilityInput
+	baseInput       jobs.ProposeAptosCapJobSpecInput
+}
+
+func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
+	t.Helper()
+	testEnv := test.SetupEnvV2(t, false)
+
+	ocrSel := testEnv.RegistrySelector
+	aptosSel := testEnv.AptosSelector
+
+	ds := datastore.NewMemoryDataStore()
+	seedAptosAddresses(t, ds, ocrSel, aptosSel,
+		"0x1111111111111111111111111111111111111111",
+		"0x2222222222222222222222222222222222222222222222222222222222222222",
+	)
+	env := testEnv.Env
+	env.DataStore = ds.Seal()
+
+	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+	require.NoError(t, err)
+
+	var nodeIDs []string
+	var aptosCapInputs []jobs.AptosCapabilityInput
+	mockGetter := &tenv.MockJobApproverGetter{JobApprovers: make(map[string]*tenv.MockJobApprover)}
+	for _, n := range nodes.GetNodes() {
+		if strings.Contains(n.Id, "bootstrap") {
+			continue
+		}
+		nodeIDs = append(nodeIDs, n.Id)
+		mockGetter.JobApprovers[n.Id] = &tenv.MockJobApprover{}
+		aptosCapInputs = append(aptosCapInputs, minimalAptosCapInput(n.Id))
+	}
+
+	client := tenv.NewJobServiceClient(mockGetter)
+	testEnv.TestJD.JobServiceClient = client
+
+	env.Offchain = struct {
+		jobv1.JobServiceClient
+		node.NodeServiceClient
+		csav1.CSAServiceClient
+	}{
+		JobServiceClient:  client,
+		NodeServiceClient: env.Offchain,
+		CSAServiceClient:  env.Offchain,
+	}
+
+	baseInput := jobs.ProposeAptosCapJobSpecInput{
+		Environment:           "test",
+		Zone:                  test.Zone,
+		Domain:                "cre",
+		DONName:               test.DONName,
+		ChainSelector:         aptosSel,
+		OCRChainSelector:      ocrSel,
+		BootstrapperOCR3Urls:  []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:  testAptosOCRQualifier,
+		ForwardersQualifier:   testAptosForwarderQualifier,
+		DeltaStage:            time.Second,
+		TxSearchStartingBuffer: 30 * time.Second,
+		AptosCapabilityInputs: aptosCapInputs,
+	}
+
+	return aptosCapTestSetup{
+		env:            env,
+		nodeIDs:        nodeIDs,
+		aptosCapInputs: aptosCapInputs,
+		baseInput:      baseInput,
+	}
+}
+
+func TestProposeAptosCapJobSpec_Apply_success(t *testing.T) {
+	setup := setupAptosCapTest(t)
+	env := setup.env
+
+	const (
+		overrideDelta    = int64(2 * time.Second)
+		txSearchBuffer   = int64(60 * time.Second)
+	)
+
+	input := setup.baseInput
+	input.DeltaStage = time.Duration(overrideDelta)
+	input.TxSearchStartingBuffer = time.Duration(txSearchBuffer)
+
+	require.GreaterOrEqual(t, len(setup.aptosCapInputs), 4, "need at least 4 nodes for this test")
+	input.AptosCapabilityInputs = setup.aptosCapInputs[:4]
+
+	require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(*env, input))
+
+	out, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	require.NoError(t, err)
+	assert.Len(t, out.Reports, 1)
+
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	countDelta := strings.Count(outputStr, fmt.Sprintf(`"deltaStage":%d`, overrideDelta))
+	countTxBuf := strings.Count(outputStr, fmt.Sprintf(`"txSearchStartingBuffer":%d`, txSearchBuffer))
+	assert.Equal(t, 4, countDelta, "expected deltaStage to be applied to all nodes")
+	assert.Equal(t, 4, countTxBuf, "expected txSearchStartingBuffer to be applied to all nodes")
+}
+
+func TestProposeAptosCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
+	setup := setupAptosCapTest(t)
+	env := setup.env
+
+	input := setup.baseInput
+	require.GreaterOrEqual(t, len(setup.aptosCapInputs), 2, "need at least 2 nodes")
+	input.AptosCapabilityInputs = []jobs.AptosCapabilityInput{
+		setup.aptosCapInputs[0],
+		setup.aptosCapInputs[0],
+	}
+
+	_, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate nodeID")
 }
