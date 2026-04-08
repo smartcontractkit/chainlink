@@ -1985,12 +1985,20 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode *bool `toml:",omitempty"`
+	DebugMode         *bool                    `toml:",omitempty"`
+	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
 type WorkflowFetcherConfig struct {
 	URL *string `toml:",omitempty"`
+}
+
+// ConfidentialRelayConfig holds the configuration for the confidential relay handler.
+// When Enabled is true, the node participates in the confidential relay DON,
+// validating enclave attestations and proxying capability requests.
+type ConfidentialRelayConfig struct {
+	Enabled *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -2045,6 +2053,15 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.ConfidentialRelay != nil {
+		if c.ConfidentialRelay == nil {
+			c.ConfidentialRelay = &ConfidentialRelayConfig{}
+		}
+		if v := f.ConfidentialRelay.Enabled; v != nil {
+			c.ConfidentialRelay.Enabled = v
+		}
 	}
 }
 

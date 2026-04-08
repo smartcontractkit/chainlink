@@ -172,6 +172,9 @@ func (p *Plugin) getHealthyShards(shardHealth map[uint32]int) []uint32 {
 }
 
 func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
+	if len(aos) == 0 {
+		return nil, errors.New("RingOCR Outcome: no attributed observations")
+	}
 	currentShardHealth, allWorkflows, nows, wantShardVotes := p.collectShardInfo(aos)
 	p.lggr.Infow("RingOCR Outcome collect shard info", "currentShardHealth", currentShardHealth, "wantShardVotes", wantShardVotes)
 

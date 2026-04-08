@@ -22,7 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -68,6 +70,11 @@ type EngineConfig struct {
 
 	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
 	SdkName string
+
+	ShardOrchestratorClient shardorchestrator.ClientInterface
+	ShardingEnabled         bool
+	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 }
 
 type EngineLimiters struct {
@@ -98,7 +105,14 @@ type EngineLimiters struct {
 	ConfidentialHTTPCalls limits.BoundLimiter[int]
 	SecretsCalls          limits.BoundLimiter[int]
 
+	UserMetricEnabled          limits.GateLimiter
+	UserMetricPayload          limits.BoundLimiter[config.Size]
+	UserMetricNameLength       limits.BoundLimiter[int]
+	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
+	UserMetricLabelValueLength limits.BoundLimiter[int]
+
 	ExecutionTimestampsEnabled limits.GateLimiter
+	VaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -192,6 +206,26 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.UserMetricEnabled, err = limits.MakeGateLimiter(lf, cfg.UserMetricEnabled)
+	if err != nil {
+		return
+	}
+	l.UserMetricPayload, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricPayloadLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricNameLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricNameLengthLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelsPerMetric, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelsPerMetric)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelValueLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelValueLength)
+	if err != nil {
+		return
+	}
 	l.ChainAllowed, err = limits.MakeGateLimiter(lf, cfg.ChainAllowed)
 	if err != nil {
 		return
@@ -224,6 +258,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -249,6 +287,11 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
 		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
@@ -285,6 +328,11 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
 		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,

@@ -6,39 +6,40 @@ import (
 	"time"
 )
 
-var ErrDigestAlreadySeen = errors.New("request already authorized previously")
+var ErrRequestAlreadySeen = errors.New("request was already authorized previously")
 
-// DigestReplayGuard prevents replay of already-processed requests by tracking
+// RequestReplayGuard prevents replay of already-processed requests by tracking
 // request digests with expiry timestamps. It is safe for concurrent use.
 //
-// Used by both the on-chain allowlist flow and the JWT auth flow to ensure
+// Used by both the AllowListBasedAuth flow and the JWTBasedAuth flow to ensure
 // that a given request digest is only accepted once.
-type DigestReplayGuard struct {
+type RequestReplayGuard struct {
 	mu      sync.Mutex
 	seen    map[string]int64 // digest → unix expiry timestamp
 	nowFunc func() time.Time // injectable for testing
 }
 
-func NewDigestReplayGuard() *DigestReplayGuard {
-	return &DigestReplayGuard{
+// NewRequestReplayGuard creates a replay guard for authorized Vault requests.
+func NewRequestReplayGuard() *RequestReplayGuard {
+	return &RequestReplayGuard{
 		seen:    make(map[string]int64),
 		nowFunc: time.Now,
 	}
 }
 
-// CheckAndRecord returns ErrDigestAlreadySeen if the digest was previously
+// CheckAndRecord returns ErrRequestAlreadySeen if the digest was previously
 // recorded and has not yet expired. Otherwise it records the digest with
 // the given expiry timestamp (unix seconds, UTC).
 //
 // Expired entries are cleaned up on every call.
-func (g *DigestReplayGuard) CheckAndRecord(digest string, expiresAtUnix int64) error {
+func (g *RequestReplayGuard) CheckAndRecord(digest string, expiresAtUnix int64) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
 	g.clearExpiredLocked()
 
 	if _, exists := g.seen[digest]; exists {
-		return ErrDigestAlreadySeen
+		return ErrRequestAlreadySeen
 	}
 
 	g.seen[digest] = expiresAtUnix
@@ -47,13 +48,13 @@ func (g *DigestReplayGuard) CheckAndRecord(digest string, expiresAtUnix int64) e
 
 // ClearExpired removes all entries whose expiry timestamp is in the past.
 // Call this to eagerly reclaim memory even when CheckAndRecord is not invoked.
-func (g *DigestReplayGuard) ClearExpired() {
+func (g *RequestReplayGuard) ClearExpired() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.clearExpiredLocked()
 }
 
-func (g *DigestReplayGuard) clearExpiredLocked() {
+func (g *RequestReplayGuard) clearExpiredLocked() {
 	now := g.nowFunc().UTC().Unix()
 	for digest, expiry := range g.seen {
 		if now > expiry {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
@@ -179,9 +180,11 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, work
 		return errors.New("failed to verify encrypted value:" + err.Error())
 	}
 	secretLabel := cipherText.Label()
+	expectedLabels := make([]string, 0, 2)
 
 	if workflowOwner != "" {
 		expected := vaultutils.WorkflowOwnerToLabel(workflowOwner)
+		expectedLabels = append(expectedLabels, hex.EncodeToString(expected[:]))
 		if secretLabel == expected {
 			return nil
 		}
@@ -189,10 +192,11 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, work
 
 	if orgID != "" {
 		expected := vaultutils.OrgIDToLabel(orgID)
+		expectedLabels = append(expectedLabels, hex.EncodeToString(expected[:]))
 		if secretLabel == expected {
 			return nil
 		}
 	}
 
-	return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match any of the provided owner labels")
+	return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match any of the provided owner labels; expectedLabels=[" + strings.Join(expectedLabels, ", ") + "]")
 }
