@@ -204,9 +204,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -248,9 +246,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		serialized := caperrors.NewPublicUserError(errors.New("rpc error: EVM error invalid argument"), caperrors.FailedPrecondition).SerializeToRemoteString()
 		msgWithError := &types.MessageBody{
@@ -294,9 +290,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -355,9 +349,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msg := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -752,6 +744,14 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			assert.Equal(t, delays[i-1], delays[i], "v2 capabilities should be all at once")
 		}
 	})
+}
+
+func drainInitialPeerSends(t *testing.T, d *clientRequestTestDispatcher, numCapabilityPeers int) {
+	t.Helper()
+	for range numCapabilityPeers {
+		<-d.msgs
+	}
+	assert.Empty(t, d.msgs)
 }
 
 func capabilityDon(t *testing.T, numCapabilityPeers int, f uint8) ([]p2ptypes.PeerID, commoncap.DON, commoncap.CapabilityInfo) {
