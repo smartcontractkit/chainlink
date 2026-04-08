@@ -423,6 +423,9 @@ URL = 'https://workflow.fetcher.url'
 URL = ''
 TLSEnabled = true
 
+[CRE.ConfidentialRelay]
+Enabled = false
+
 [Billing]
 URL = 'localhost:4319'
 TLSEnabled = true

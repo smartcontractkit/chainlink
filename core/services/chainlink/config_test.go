@@ -663,6 +663,9 @@ func TestConfig_Marshal(t *testing.T) {
 			URL:        ptr(""),
 			TLSEnabled: ptr(true),
 		},
+		ConfidentialRelay: &toml.ConfidentialRelayConfig{
+			Enabled: ptr(false),
+		},
 	}
 	full.Billing = toml.Billing{
 		URL:        ptr("localhost:4319"),

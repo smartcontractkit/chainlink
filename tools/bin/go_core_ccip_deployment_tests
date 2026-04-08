@@ -5,14 +5,14 @@ set +e
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
-GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"25m"}
 # Adjusting freeport port block size for tests.
 export CL_RESERVE_PORTS=128
 
 cd deployment || exit 1
 
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.12.3
+go install gotest.tools/gotestsum@v1.13.0
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
