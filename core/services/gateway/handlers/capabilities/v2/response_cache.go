@@ -16,7 +16,7 @@ import (
 // It uses a map to store responses keyed by a unique identifier generated from the request
 // cache key is prefixed by workflowID to avoid collisions between different workflows.
 type responseCache struct {
-	cacheMu sync.Mutex
+	cacheMu sync.RWMutex
 	cache   map[string]*cachedResponse
 	flight  singleflight.Group
 	lggr    logger.Logger
@@ -45,7 +45,7 @@ func isCacheableStatusCode(statusCode int) bool {
 }
 
 // isExpiredOrNotCached returns true if the cached response is expired or not cached.
-// IMPORTANT: this method does not lock the cache map. MUST be called with the cacheMu locked.
+// IMPORTANT: this method does not lock the cache map. MUST be called with cacheMu write-locked.
 func (rc *responseCache) isExpiredOrNotCached(_ string, req gateway.OutboundHTTPRequest) bool {
 	cachedResp, exists := rc.cache[req.Hash()]
 	if !exists || time.Now().After(cachedResp.storedAt.Add(rc.ttl)) {
@@ -66,15 +66,14 @@ func (rc *responseCache) Fetch(ctx context.Context, workflowID string, req gatew
 	cacheKey := req.Hash()
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 
-	// Short lock: check cache
-	rc.cacheMu.Lock()
+	// Short read lock: check cache
+	rc.cacheMu.RLock()
 	cachedResp, exists := rc.cache[cacheKey]
+	rc.cacheMu.RUnlock()
 	if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
-		rc.cacheMu.Unlock()
 		rc.metrics.IncrementCacheHitCount(ctx, rc.lggr)
 		return cachedResp.response
 	}
-	rc.cacheMu.Unlock()
 
 	// Fetch without holding mutex. Singleflight deduplicates concurrent
 	// requests to the same cache key — only one fetchFn runs, others

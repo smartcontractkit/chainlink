@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -328,31 +329,30 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 	const n = 10
 	const fetchDelay = 100 * time.Millisecond
 
-	var wg sync.WaitGroup
-	wg.Add(n)
+	synctest.Test(t, func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
 
-	start := time.Now()
-	for i := 0; i < n; i++ {
-		go func(idx int) {
-			defer wg.Done()
-			req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
-			fetchFn := func() gateway_common.OutboundHTTPResponse {
-				time.Sleep(fetchDelay)
-				return createTestResponse(200, fmt.Sprintf("response-%d", idx))
-			}
-			resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
-			assert.Equal(t, 200, resp.StatusCode)
-		}(i)
-	}
-	wg.Wait()
-	elapsed := time.Since(start)
+		start := time.Now()
+		for i := 0; i < n; i++ {
+			go func(idx int) {
+				defer wg.Done()
+				req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
+				fetchFn := func() gateway_common.OutboundHTTPResponse {
+					time.Sleep(fetchDelay)
+					return createTestResponse(200, fmt.Sprintf("response-%d", idx))
+				}
+				resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+				assert.Equal(t, 200, resp.StatusCode)
+			}(i)
+		}
+		wg.Wait()
+		elapsed := time.Since(start)
 
-	// If requests run in parallel, total time should be ~fetchDelay (100ms).
-	// If serialized, it would be ~n*fetchDelay (1000ms).
-	// Use 3x fetchDelay as a generous upper bound to avoid flakiness.
-	maxExpected := 3 * fetchDelay
-	assert.Less(t, elapsed, maxExpected,
-		"concurrent fetches to different keys should run in parallel, took %v (max expected %v)", elapsed, maxExpected)
+		// If requests run in parallel, total time should be exactly fetchDelay.
+		assert.Equal(t, fetchDelay, elapsed,
+			"concurrent fetches to different keys should run in parallel, took %v (expected %v)", elapsed, fetchDelay)
+	})
 }
 
 func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
@@ -364,34 +364,36 @@ func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 	var fetchCount int32
 	var mu sync.Mutex
 
-	var wg sync.WaitGroup
-	wg.Add(n)
-
 	req := createTestRequest("GET", "https://example.com/dedup")
 	expectedResp := createTestResponse(200, "deduplicated")
 
-	for i := 0; i < n; i++ {
-		go func() {
-			defer wg.Done()
-			fetchFn := func() gateway_common.OutboundHTTPResponse {
-				mu.Lock()
-				fetchCount++
-				mu.Unlock()
-				time.Sleep(100 * time.Millisecond)
-				return expectedResp
-			}
-			resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
-			assert.Equal(t, expectedResp, resp)
-		}()
-	}
-	wg.Wait()
+	synctest.Test(t, func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
 
-	mu.Lock()
-	count := fetchCount
-	mu.Unlock()
+		for i := 0; i < n; i++ {
+			go func() {
+				defer wg.Done()
+				fetchFn := func() gateway_common.OutboundHTTPResponse {
+					mu.Lock()
+					fetchCount++
+					mu.Unlock()
+					time.Sleep(100 * time.Millisecond)
+					return expectedResp
+				}
+				resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+				assert.Equal(t, expectedResp, resp)
+			}()
+		}
+		wg.Wait()
 
-	// Singleflight should deduplicate: only 1 fetchFn call for the same key
-	assert.Equal(t, int32(1), count, "singleflight should deduplicate concurrent requests to the same key")
+		mu.Lock()
+		count := fetchCount
+		mu.Unlock()
+
+		// Singleflight should deduplicate: only 1 fetchFn call for the same key
+		assert.Equal(t, int32(1), count, "singleflight should deduplicate concurrent requests to the same key")
+	})
 }
 
 func TestSet(t *testing.T) {
