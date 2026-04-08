@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.97
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260403093224-b39dab3bfe2a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260406055916-9aa6b6c0ae81
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20251211140724-319861e514c4
 	github.com/smartcontractkit/chainlink-data-streams v0.1.13
@@ -58,11 +58,11 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260326111235-8c09d1a4491f
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.14-0.20260407061621-8b95300e430d
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.14-0.20260408121742-1bc2cf163288
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.20
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
-	github.com/smartcontractkit/libocr v0.0.0-20260304194147-a03701e2c02e
+	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
@@ -315,7 +315,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/gorilla/sessions v1.2.2 // indirect
 	github.com/grafana/otel-profiling-go v0.5.1 // indirect
-	github.com/grafana/pyroscope-go v1.2.7 // indirect
+	github.com/grafana/pyroscope-go v1.2.8 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect
 	github.com/graph-gophers/dataloader v5.0.0+incompatible // indirect
 	github.com/graph-gophers/graphql-go v1.5.0 // indirect
@@ -508,7 +508,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.1-0.20260203131522-bb8bc5c423b3 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260331131550-45e89529badc // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260407162454-407b2a207dcc // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260403160819-db38ee3fbcde // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0 // indirect

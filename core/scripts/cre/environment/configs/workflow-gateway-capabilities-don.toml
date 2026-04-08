@@ -70,6 +70,7 @@
   exposes_remote_capabilities = true
   override_mode = "all"
   http_port_range_start = 10200
+  ocr2_p2p_port_range_start = 15010
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
   # to identify nodes in the gateway configuration (required by both web-api-target and vault capabilities)
@@ -97,6 +98,7 @@
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
+  ocr2_p2p_port_range_start = 15020
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   supported_evm_chains = [1337, 2337]

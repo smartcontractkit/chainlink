@@ -1,6 +1,14 @@
-# CRE Remote Execution Architecture
+---
+id: local-cre-reference-remote-execution-architecture
+title: Remote Execution Architecture
+sidebar_label: Remote Execution Architecture
+sidebar_position: 1
+---
+
+# Remote Execution Architecture
 
 ## Goal
+
 Keep responsibilities co-located so contributors can reason about hybrid local/remote execution without hopping across unrelated packages.
 
 ## Ownership Boundaries

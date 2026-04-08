@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -24,11 +25,12 @@ import (
 )
 
 const (
-	FunctionsHandlerType   HandlerType = "functions"
-	DummyHandlerType       HandlerType = "dummy"
-	WebAPICapabilitiesType HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
-	HTTPCapabilityType     HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
-	VaultHandlerType       HandlerType = "vault"
+	FunctionsHandlerType         HandlerType = "functions"
+	DummyHandlerType             HandlerType = "dummy"
+	WebAPICapabilitiesType       HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
+	HTTPCapabilityType           HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
+	VaultHandlerType             HandlerType = "vault"
+	ConfidentialRelayHandlerType HandlerType = "confidential-compute-relay"
 )
 
 type handlerFactory struct {
@@ -85,6 +87,8 @@ func (hf *handlerFactory) NewHandler(
 		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf)
 	case VaultHandlerType:
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
+	case ConfidentialRelayHandlerType:
+		return confidentialrelay.NewHandler(handlerConfig, donConfig, don, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	default:
 		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
 	}
