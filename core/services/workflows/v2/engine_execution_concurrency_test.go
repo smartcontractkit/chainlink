@@ -2,7 +2,9 @@ package v2_test
 
 import (
 	"context"
-	"sync/atomic"
+	"runtime"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -30,14 +32,18 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 	t.Parallel()
 
 	continueFirst := make(chan struct{})
-	var execRunCount atomic.Int32
+	var execMu sync.Mutex
+	var execOrder []string
 
 	module := modulemocks.NewModuleV2(t)
 	module.EXPECT().Start().Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Run(
-		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) {
-			n := execRunCount.Add(1)
+		func(_ context.Context, _ *sdkpb.ExecuteRequest, eh host.ExecutionHelper) {
+			execMu.Lock()
+			execOrder = append(execOrder, eh.GetWorkflowExecutionID())
+			n := len(execOrder)
+			execMu.Unlock()
 			if n == 1 {
 				<-continueFirst
 			}
@@ -100,8 +106,11 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		},
 	}
 
-	require.Eventually(t, func() bool { return execRunCount.Load() == 1 }, 2*time.Second, 5*time.Millisecond,
-		"first execution should start")
+	require.Eventually(t, func() bool {
+		execMu.Lock()
+		defer execMu.Unlock()
+		return len(execOrder) == 1 && execOrder[0] == wantExecID1
+	}, 2*time.Second, 5*time.Millisecond, "first execution should start")
 
 	eventCh <- capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
@@ -111,14 +120,22 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		},
 	}
 
-	time.Sleep(100 * time.Millisecond)
-	require.Equal(t, int32(1), execRunCount.Load(),
+	for i := 0; i < 10_000; i++ {
+		runtime.Gosched()
+	}
+	execMu.Lock()
+	gotMid := slices.Clone(execOrder)
+	execMu.Unlock()
+	require.Equal(t, []string{wantExecID1}, gotMid,
 		"second execution must not start while the first holds the executions semaphore")
 
 	continueFirst <- struct{}{}
 
-	require.Eventually(t, func() bool { return execRunCount.Load() == 2 }, 2*time.Second, 5*time.Millisecond,
-		"second execution should start after the first completes")
+	require.Eventually(t, func() bool {
+		execMu.Lock()
+		defer execMu.Unlock()
+		return slices.Equal(execOrder, []string{wantExecID1, wantExecID2})
+	}, 2*time.Second, 5*time.Millisecond, "second execution should start after the first completes")
 
 	finishedIDs := make([]string, 0, 2)
 	for id := range executionFinishedCh {
