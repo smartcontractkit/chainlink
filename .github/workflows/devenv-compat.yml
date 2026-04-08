@@ -230,10 +230,18 @@ jobs:
             echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload Logs
+      - name: Collect Docker container logs
         if: always()
-        uses: actions/upload-artifact@v7
+        run: |
+          mkdir -p logs
+          for container in $(docker ps -q); do
+            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
+            docker logs $container > "logs/${container_name}.log" 2>&1
+          done
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: container-logs-smoke-${{ job.check_run_id }}
           path: ${{ env.LOGS_DIR }}
-          retention-days: 3

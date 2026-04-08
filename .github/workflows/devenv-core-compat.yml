@@ -13,9 +13,6 @@ permissions:
   contents: read
 
 jobs:
-  # CREcluster compatibility and upgrade test
-  # TODO
-
   # Data Feeds v1 upgrade test
   # this verifies that all the versions existing in RANE SOT for Data Feeds v1 can be upgraded to the latest version
   # TODO: disabled for now until we have connectivity
@@ -63,7 +60,7 @@ jobs:
       # directory with your developer environment to run buildcmd and envcmd
       working-directory: "devenv"
       # directory for executing your tests, to run testcmd
-      logs-directory: "./devenv/tests/ocr2/logs"
+      logs-directory: "./devenv/logs"
       # CTF log level
       ctf-log-level: "info"
       # this is needed to remove 'v' from Git tags to match SDLC ECR tags
