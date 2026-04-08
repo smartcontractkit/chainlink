@@ -3,14 +3,14 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
-      chainlink_image_repo:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
         required: true
         type: string
       chainlink_image_tag:
         required: true
         type: string
-        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
+        description: "Chainlink image tag to use."
       ecr:
         required: true
         type: choice
@@ -26,14 +26,14 @@ on:
         default: ""
   workflow_call:
     inputs:
-      chainlink_image_repo:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
         required: true
         type: string
       chainlink_image_tag:
         required: true
         type: string
-        description: "Tag used with chainlink_image_repo."
+        description: "Chainlink image tag to use."
       ecr:
         type: string
         required: true
@@ -232,7 +232,7 @@ jobs:
         working-directory: .github/scripts
         shell: bash
         env:
-          CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
           CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
           ECR_TYPE: ${{ inputs.ecr }}
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}

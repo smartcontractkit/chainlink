@@ -56,10 +56,10 @@ test_full_image_tag() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=public" \
-    "CHAINLINK_IMAGE_REPO=chainlink" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
     "CHAINLINK_IMAGE_TAG=v2.1.0"
   assert_eq "${RUN_STATUS}" "0" "public ecr exits 0"
-  assert_eq "${RUN_STDOUT}" "gallery.ecr.aws/chainlink:v2.1.0" "public image is returned to stdout"
+  assert_eq "${RUN_STDOUT}" "public.ecr.aws/chainlink:v2.1.0" "public image is returned to stdout"
   assert_eq "${RUN_STDERR}" "" "public ecr success does not write stderr"
 }
 
@@ -67,7 +67,7 @@ test_repo_and_tag() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=sdlc" \
-    "CHAINLINK_IMAGE_REPO=chainlink-integration-tests" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink-integration-tests" \
     "CHAINLINK_IMAGE_TAG=v2.1.0" \
     "AWS_ACCOUNT_NUMBER=123456789012" \
     "AWS_REGION=us-west-2"
@@ -80,7 +80,7 @@ test_default_repo_and_version() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=sdlc" \
-    "CHAINLINK_IMAGE_REPO=chainlink" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
     "CHAINLINK_IMAGE_TAG=abc123" \
     "AWS_ACCOUNT_NUMBER=123456789012" \
     "AWS_REGION=us-west-2"
@@ -92,17 +92,17 @@ test_tag_wins_over_version() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=PuBLic" \
-    "CHAINLINK_IMAGE_REPO=ChAinLink" \
+    "CHAINLINK_IMAGE_REPO_PATH=ChAinLink" \
     "CHAINLINK_IMAGE_TAG=V2.1.0"
   assert_eq "${RUN_STATUS}" "0" "case-insensitive inputs exit 0"
-  assert_eq "${RUN_STDOUT}" "gallery.ecr.aws/chainlink:v2.1.0" "inputs are lowercased"
+  assert_eq "${RUN_STDOUT}" "public.ecr.aws/chainlink:v2.1.0" "inputs are lowercased"
 }
 
 test_whitespace_trimming() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=  SDLC  " \
-    "CHAINLINK_IMAGE_REPO=  chainlink-integration-tests  " \
+    "CHAINLINK_IMAGE_REPO_PATH=  chainlink-integration-tests  " \
     "CHAINLINK_IMAGE_TAG=  V2.1.0  " \
     "AWS_ACCOUNT_NUMBER=  123456789012  " \
     "AWS_REGION=  US-WEST-2  "
@@ -113,7 +113,7 @@ test_whitespace_trimming() {
 test_missing_ecr_type() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
-    "CHAINLINK_IMAGE_REPO=chainlink" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
     "CHAINLINK_IMAGE_TAG=v2.1.0"
   assert_eq "${RUN_STATUS}" "1" "missing ecr type exits 1"
   assert_contains "${RUN_STDERR}" "'ECR_TYPE' must be set" "missing ecr type error is reported"
@@ -123,7 +123,7 @@ test_invalid_ecr_type() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=other" \
-    "CHAINLINK_IMAGE_REPO=chainlink" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
     "CHAINLINK_IMAGE_TAG=v2.1.0"
   assert_eq "${RUN_STATUS}" "1" "invalid ecr type exits 1"
   assert_contains "${RUN_STDERR}" "Invalid 'ECR_TYPE'" "invalid ecr type error is reported"
@@ -135,14 +135,14 @@ test_missing_repo() {
     "ECR_TYPE=public" \
     "CHAINLINK_IMAGE_TAG=v2.1.0"
   assert_eq "${RUN_STATUS}" "1" "missing repo exits 1"
-  assert_contains "${RUN_STDERR}" "'CHAINLINK_IMAGE_REPO' must be set" "missing repo error is reported"
+  assert_contains "${RUN_STDERR}" "'CHAINLINK_IMAGE_REPO_PATH' must be set" "missing repo error is reported"
 }
 
 test_missing_tag() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=public" \
-    "CHAINLINK_IMAGE_REPO=chainlink"
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink"
   assert_eq "${RUN_STATUS}" "1" "missing tag exits 1"
   assert_contains "${RUN_STDERR}" "'CHAINLINK_IMAGE_TAG' must be set" "missing tag error is reported"
 }
@@ -151,7 +151,7 @@ test_missing_aws_envs() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=sdlc" \
-    "CHAINLINK_IMAGE_REPO=chainlink" \
+    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
     "CHAINLINK_IMAGE_TAG=v2.1.0"
   assert_eq "${RUN_STATUS}" "1" "missing AWS env vars exits 1"
   assert_contains "${RUN_STDERR}" "For 'ECR_TYPE=sdlc'" "missing AWS env vars error is reported"
