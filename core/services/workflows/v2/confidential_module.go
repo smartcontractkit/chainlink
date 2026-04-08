@@ -67,16 +67,16 @@ type BinaryURLResolver func(ctx context.Context, workflowID string) (string, err
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry        core.CapabilitiesRegistry
-	binaryURL          string
-	binaryHash         []byte
-	workflowID         string
-	workflowOwner      string
-	workflowName       string
-	workflowTag        string
-	vaultDonSecrets    []SecretIdentifier
-	binaryURLResolver  BinaryURLResolver
-	lggr               logger.Logger
+	capRegistry       core.CapabilitiesRegistry
+	binaryURL         string
+	binaryHash        []byte
+	workflowID        string
+	workflowOwner     string
+	workflowName      string
+	workflowTag       string
+	vaultDonSecrets   []SecretIdentifier
+	binaryURLResolver BinaryURLResolver
+	lggr              logger.Logger
 }
 
 var _ host.ModuleV2 = (*ConfidentialModule)(nil)
