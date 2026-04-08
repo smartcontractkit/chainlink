@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -812,7 +813,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
 	}
 
-	oracleArgs := libocr2.OCR3_1OracleArgs[[]byte]{
+	oracleArgs := libocr2.OCR3_1OracleArgs2[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer3_1,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
@@ -828,7 +829,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		MonitoringEndpoint:      oracleEndpoint,
 		OffchainConfigDigester:  configDigester,
 		OffchainKeyring:         kb,
-		OnchainKeyring:          onchainKeyringAdapter,
+		OnchainKeyring:          ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
 		MetricsRegisterer:       prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	rpf, err := vaultocrplugin.NewReportingPluginFactory(
@@ -1027,7 +1028,7 @@ func (d *Delegate) newDonTimePlugin(
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
 	}
 
-	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+	oracleArgs := libocr2.OCR3OracleArgs2[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        configTracker,
@@ -1038,7 +1039,7 @@ func (d *Delegate) newDonTimePlugin(
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       configDigester,
 		OffchainKeyring:              kb,
-		OnchainKeyring:               onchainKeyringAdapter,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	baseFactory, err := dontime.NewFactory(d.dontimeStore, lggr.Named("DonTimePluginFactory"))
@@ -1195,7 +1196,7 @@ func (d *Delegate) newServicesRing(
 		onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
 	}
 
-	oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+	oracleArgs := libocr2.OCR3OracleArgs2[[]byte]{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractConfigTracker:        provider.ContractConfigTracker(),
@@ -1206,7 +1207,7 @@ func (d *Delegate) newServicesRing(
 		MonitoringEndpoint:           oracleEndpoint,
 		OffchainConfigDigester:       provider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
-		OnchainKeyring:               onchainKeyringAdapter,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
 		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 	}
 	oracleArgs.ReportingPluginFactory, err = ring.NewFactory(ringStore, arbiterScalerClient, lggr.Named("RingPluginFactory"), &ring.ConsensusConfig{
@@ -1442,7 +1443,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		} else {
 			onchainKeyringAdapter = ocrcommon.NewOCR3OnchainKeyringAdapter(kb)
 		}
-		oracleArgs := libocr2.OCR3OracleArgs[[]byte]{
+		oracleArgs := libocr2.OCR3OracleArgs2[[]byte]{
 			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
 			ContractConfigTracker:        provider.ContractConfigTracker(),
@@ -1453,7 +1454,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			MonitoringEndpoint:           oracleEndpoint,
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
-			OnchainKeyring:               onchainKeyringAdapter,
+			OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
 			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin
