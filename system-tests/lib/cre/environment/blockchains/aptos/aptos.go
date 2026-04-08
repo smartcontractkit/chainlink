@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -236,19 +237,37 @@ func (a *Deployer) Start(ctx context.Context, input *blockchain.Input) (*blockch
 	return bcOut, nil
 }
 
+func From(testLogger zerolog.Logger, out *blockchain.Output) (*Blockchain, error) {
+	if out == nil {
+		return nil, pkgerrors.New("blockchain output is nil")
+	}
+
+	selector, err := aptosChainSelector(out.ChainID)
+	if err != nil {
+		return nil, err
+	}
+
+	chainID, err := strconv.ParseUint(out.ChainID, 10, 64)
+	if err != nil {
+		return nil, pkgerrors.Wrapf(err, "failed to parse chain id %s", out.ChainID)
+	}
+
+	return NewBlockchain(testLogger, chainID, selector, out), nil
+}
+
 // aptosChainSelector returns the chain selector for the given Aptos chain ID.
 // Uses chain-selectors when available; falls back to known Aptos localnet selector for chain_id 4.
-func aptosChainSelector(chainIDStr string, chainID uint64) (uint64, error) {
-	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainIDStr, chainselectors.FamilyAptos)
+func aptosChainSelector(chainID string) (uint64, error) {
+	chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainID, chainselectors.FamilyAptos)
 	if err == nil {
 		return chainDetails.ChainSelector, nil
 	}
 	// Fallback: Aptos local devnet (aptos node run-local-testnet) uses chain_id 4 and this selector
-	if chainID == 4 {
+	if chainID == "4" {
 		const aptosLocalnetSelector = 4457093679053095497
 		return aptosLocalnetSelector, nil
 	}
-	return 0, pkgerrors.Wrapf(err, "failed to get chain selector for Aptos chain id %s", chainIDStr)
+	return 0, pkgerrors.Wrapf(err, "failed to get chain selector for Aptos chain id %s", chainID)
 }
 
 func aptosNodeURLWithV1(rawURL string) (string, error) {

@@ -11,6 +11,7 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/tron"
@@ -31,6 +32,8 @@ func blockchainFromOutput(testLogger zerolog.Logger, input *blockchain.Input, ou
 		return tron.From(testLogger, output)
 	case blockchain.TypeSolana:
 		return solana.From(input, output)
+	case blockchain.TypeAptos:
+		return aptos.From(testLogger, output)
 	default:
 		return nil, fmt.Errorf("unsupported blockchain type for reconstruction: %s", output.Type)
 	}
