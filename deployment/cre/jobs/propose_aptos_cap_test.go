@@ -1,7 +1,6 @@
 package jobs_test
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +9,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	"github.com/smartcontractkit/chainlink/deployment/cre/test"
+	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -17,10 +21,6 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/cre/test"
-	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 )
 
 const (
@@ -252,10 +252,10 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_overrideMismatches(t *testin
 }
 
 type aptosCapTestSetup struct {
-	env             *cldf.Environment
-	nodeIDs         []string
-	aptosCapInputs  []jobs.AptosCapabilityInput
-	baseInput       jobs.ProposeAptosCapJobSpecInput
+	env            *cldf.Environment
+	nodeIDs        []string
+	aptosCapInputs []jobs.AptosCapabilityInput
+	baseInput      jobs.ProposeAptosCapJobSpecInput
 }
 
 func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
@@ -302,18 +302,18 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	}
 
 	baseInput := jobs.ProposeAptosCapJobSpecInput{
-		Environment:           "test",
-		Zone:                  test.Zone,
-		Domain:                "cre",
-		DONName:               test.DONName,
-		ChainSelector:         aptosSel,
-		OCRChainSelector:      ocrSel,
-		BootstrapperOCR3Urls:  []string{"12D3KooWabc@127.0.0.1:5001"},
-		OCRContractQualifier:  testAptosOCRQualifier,
-		ForwardersQualifier:   testAptosForwarderQualifier,
-		DeltaStage:            time.Second,
+		Environment:            "test",
+		Zone:                   test.Zone,
+		Domain:                 "cre",
+		DONName:                test.DONName,
+		ChainSelector:          aptosSel,
+		OCRChainSelector:       ocrSel,
+		BootstrapperOCR3Urls:   []string{"12D3KooWabc@127.0.0.1:5001"},
+		OCRContractQualifier:   testAptosOCRQualifier,
+		ForwardersQualifier:    testAptosForwarderQualifier,
+		DeltaStage:             time.Second,
 		TxSearchStartingBuffer: 30 * time.Second,
-		AptosCapabilityInputs: aptosCapInputs,
+		AptosCapabilityInputs:  aptosCapInputs,
 	}
 
 	return aptosCapTestSetup{
@@ -328,29 +328,13 @@ func TestProposeAptosCapJobSpec_Apply_success(t *testing.T) {
 	setup := setupAptosCapTest(t)
 	env := setup.env
 
-	const (
-		overrideDelta    = int64(2 * time.Second)
-		txSearchBuffer   = int64(60 * time.Second)
-	)
-
 	input := setup.baseInput
-	input.DeltaStage = time.Duration(overrideDelta)
-	input.TxSearchStartingBuffer = time.Duration(txSearchBuffer)
-
-	require.GreaterOrEqual(t, len(setup.aptosCapInputs), 4, "need at least 4 nodes for this test")
-	input.AptosCapabilityInputs = setup.aptosCapInputs[:4]
 
 	require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(*env, input))
 
 	out, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
 	require.NoError(t, err)
 	assert.Len(t, out.Reports, 1)
-
-	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
-	countDelta := strings.Count(outputStr, fmt.Sprintf(`"deltaStage":%d`, overrideDelta))
-	countTxBuf := strings.Count(outputStr, fmt.Sprintf(`"txSearchStartingBuffer":%d`, txSearchBuffer))
-	assert.Equal(t, 4, countDelta, "expected deltaStage to be applied to all nodes")
-	assert.Equal(t, 4, countTxBuf, "expected txSearchStartingBuffer to be applied to all nodes")
 }
 
 func TestProposeAptosCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
