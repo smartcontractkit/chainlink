@@ -322,11 +322,11 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4
-	signers := []ocr2key.KeyBundle{}
-	for range nSigners {
+	signers := make([]ocr2key.KeyBundle, nSigners)
+	for i := range nSigners {
 		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
 		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
-		signers = append(signers, signer)
+		signers[i] = signer
 	}
 	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)
 	if err := registry.Add(ctx, consensusserver.NewConsensusServer(fakeConsensusNoDAG)); err != nil {

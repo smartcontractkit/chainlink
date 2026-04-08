@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.42.0
+
+### Minor Changes
+
+- [#21771](https://github.com/smartcontractkit/chainlink/pull/21771) [`9a1136d`](https://github.com/smartcontractkit/chainlink/commit/9a1136d4fbe399ebc34d1e5a788d54b0e049b44c) - #changed add support for log filters in fake EVM capability
+
+- [#21803](https://github.com/smartcontractkit/chainlink/pull/21803) [`5765674`](https://github.com/smartcontractkit/chainlink/commit/5765674b7b928b5b8f04890d829568db4109dde5) - Minor bump to start next version
+
+- [#21817](https://github.com/smartcontractkit/chainlink/pull/21817) [`0e5dbb7`](https://github.com/smartcontractkit/chainlink/commit/0e5dbb7d1e699cc587fa6f1ebf6802cacf3700b0) - #added Add support for user-emitted CRE workflow metrics via WASM host function emit_metric
+
+### Patch Changes
+
+- [#21766](https://github.com/smartcontractkit/chainlink/pull/21766) [`3536f50`](https://github.com/smartcontractkit/chainlink/commit/3536f50f81f0dac6ad21e200621e4a36984cd7e0) - #internal
+
+  Add Aptos local CRE read/write support, including Capabilities Registry OCR config for Aptos write and CI coverage for the Aptos write roundtrip and expected-failure scenarios.
+
 ## 2.41.0
 
 ### Minor Changes
