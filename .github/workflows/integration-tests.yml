@@ -887,6 +887,7 @@ jobs:
     # if: ${{ github.ref_name == 'develop' && failure() }}
     needs: [check-e2e-test-results, run-solana-smoke-tests]
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Send slack notification for failed migration tests
         id: send-slack-notification

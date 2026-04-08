@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -41,8 +43,27 @@ func (a *aggregator) Aggregate(resps map[string]jsonrpc.Response[json.RawMessage
 		if shaToCount[sha] > maxShaToCount {
 			maxShaToCount = shaToCount[sha]
 		}
-		if shaToCount[sha] >= requiredQuorum {
-			return &r, nil
+	}
+
+	var qualifiedDigests []string
+	for sha, n := range shaToCount {
+		if n >= requiredQuorum {
+			qualifiedDigests = append(qualifiedDigests, sha)
+		}
+	}
+	if len(qualifiedDigests) > 0 {
+		slices.Sort(qualifiedDigests)
+		want := qualifiedDigests[0]
+		for _, k := range slices.Sorted(maps.Keys(resps)) {
+			r := resps[k]
+			sha, err := r.Digest()
+			if err != nil {
+				continue
+			}
+			if sha == want {
+				out := r
+				return &out, nil
+			}
 		}
 	}
 
