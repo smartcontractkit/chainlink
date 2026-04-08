@@ -354,10 +354,10 @@ jobs:
           path: devenv/tests/${{ matrix.tests_dir }}/logs
           retention-days: 3
       
-      - name: Upload DF1 soak alloc.pprof
+      - name: Upload Go pprof
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: alloc.pprof
+          name: alloc.pprof-${{ job.check_run_id }}
           path: devenv/tests/${{ matrix.tests_dir }}/alloc.pprof
           retention-days: 7

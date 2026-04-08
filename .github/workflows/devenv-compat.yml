@@ -232,6 +232,7 @@ jobs:
 
       - name: Collect Docker container logs
         if: always()
+        working-directory: ${{ env.WORKING_DIR }}
         run: |
           mkdir -p logs
           for container in $(docker ps -q); do
