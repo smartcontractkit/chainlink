@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
+	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
@@ -56,6 +57,12 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = setupMockBillingClient(t)
+
+	wantExecID1, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "event_concurrency_1")
+	require.NoError(t, err)
+	wantExecID2, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "event_concurrency_2")
+	require.NoError(t, err)
+
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -65,6 +72,9 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		},
 		OnExecutionFinished: func(executionID string, _ string) {
 			executionFinishedCh <- executionID
+			if executionID == wantExecID2 {
+				close(executionFinishedCh)
+			}
 		},
 	}
 
@@ -110,8 +120,11 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 	require.Eventually(t, func() bool { return execRunCount.Load() == 2 }, 2*time.Second, 5*time.Millisecond,
 		"second execution should start after the first completes")
 
-	<-executionFinishedCh
-	<-executionFinishedCh
+	finishedIDs := make([]string, 0, 2)
+	for id := range executionFinishedCh {
+		finishedIDs = append(finishedIDs, id)
+	}
+	require.Equal(t, []string{wantExecID1, wantExecID2}, finishedIDs)
 
 	require.NoError(t, engine.Close())
 }
