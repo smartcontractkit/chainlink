@@ -23,7 +23,7 @@ func stopCmd() *cobra.Command {
 		Example:          "go run . env stop",
 		PersistentPreRun: globalPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := stopLocalResources(relativePathToRepoRoot, false, false); err != nil {
+			if err := stopLocalResources(cmd.Context(), relativePathToRepoRoot, false, false); err != nil {
 				return err
 			}
 			remoteConfiguredSummary, _ := loadRemoteStopTargets(relativePathToRepoRoot)
@@ -53,7 +53,7 @@ func stopAllCmd() *cobra.Command {
 					return err
 				}
 			}
-			if err := stopLocalResources(relativePathToRepoRoot, true, false); err != nil {
+			if err := stopLocalResources(cmd.Context(), relativePathToRepoRoot, true, false); err != nil {
 				return err
 			}
 			fmt.Println("All resources stopped successfully")
@@ -182,7 +182,7 @@ func stopRemoteTargets(ctx context.Context, relativePathToRepoRoot string, targe
 	return nil
 }
 
-func stopLocalResources(relativePathToRepoRoot string, removeAllState bool, stopRelay bool) error {
+func stopLocalResources(ctx context.Context, relativePathToRepoRoot string, removeAllState bool, stopRelay bool) error {
 	if stopRelay {
 		if err := stopRelaySupervisor(relativePathToRepoRoot); err != nil {
 			framework.L.Warn().Err(err).Msg("failed to stop relay supervisor")
@@ -227,6 +227,19 @@ func stopLocalResources(relativePathToRepoRoot string, removeAllState bool, stop
 	default:
 		framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
 	}
+
+	runningExtras := runningExtraServiceStopHints(detectServiceStatus(ctx))
+	if len(runningExtras) > 0 {
+		fmt.Println()
+		fmt.Println("The following extra services appear to still be running:")
+		for _, hint := range runningExtras {
+			fmt.Printf("- %s: stop with `%s`\n", hint.serviceName, hint.stopCommand)
+		}
+		fmt.Print("\n- All extra services: stop with `go run . env stop --all`\n")
+	}
+
+	fmt.Print("\nLocal CRE environment stopped successfully\n")
+
 	return nil
 }
 

@@ -82,6 +82,7 @@ func init() {
 	EnvironmentCmd.AddCommand(stopAllCmd())
 	EnvironmentCmd.AddCommand(remoteCmds())
 	EnvironmentCmd.AddCommand(relaySupervisorCmd())
+	EnvironmentCmd.AddCommand(statusCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
@@ -660,6 +661,117 @@ func applyRemoteAgentEnvFallback(logger zerolog.Logger, agentState *remoteAgentS
 	setIfEmpty("CRE_REMOTE_AGENT_EC2_INSTANCE_ID", agentState.RemoteAgentEC2InstanceID)
 	setIfEmpty("CRE_REMOTE_AGENT_PORT", agentState.RemoteAgentPort)
 	setIfEmpty("AWS_PROFILE", agentState.AWSProfile)
+}
+
+type serviceStopHint struct {
+	serviceName string
+	stopCommand string
+}
+
+type serviceStatus struct {
+	environmentRunning   bool
+	beholderRunning      bool
+	billingRunning       bool
+	observabilityRunning bool
+}
+
+func runningExtraServiceStopHints(status serviceStatus) []serviceStopHint {
+	var hints []serviceStopHint
+
+	if status.beholderRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Beholder",
+			stopCommand: "go run . env beholder stop",
+		})
+	}
+
+	if status.billingRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Billing",
+			stopCommand: "go run . env billing stop",
+		})
+	}
+
+	if status.observabilityRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Observability",
+			stopCommand: "go run . obs down",
+		})
+	}
+
+	return hints
+}
+
+func detectServiceStatus(cmdContext context.Context) serviceStatus {
+	return serviceStatus{
+		environmentRunning:   envconfig.LocalCREStateFileExists(relativePathToRepoRoot),
+		beholderRunning:      envconfig.ChipIngressStateFileExists(relativePathToRepoRoot),
+		billingRunning:       envconfig.BillingStateFileExists(relativePathToRepoRoot),
+		observabilityRunning: isObservabilityGrafanaRunning(cmdContext),
+	}
+}
+
+func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return false
+	}
+	defer dockerClient.Close()
+
+	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
+	defer cancel()
+
+	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		return false
+	}
+
+	for _, c := range containers {
+		// Observability is typically started from the CTF compose bundle and identified by compose labels.
+		if c.Labels["com.docker.compose.service"] == "grafana" && c.Labels["com.docker.compose.project"] == "compose" {
+			return true
+		}
+
+		// Fallback for CTF-managed containers if labels differ.
+		if c.Labels["framework"] == "ctf" {
+			for _, name := range c.Names {
+				if strings.Contains(strings.ToLower(name), "grafana") {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func statusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "status",
+		Short:            "Shows status of local CRE services",
+		Long:             "Shows status of local CRE environment and extra services",
+		PersistentPreRun: globalPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			status := detectServiceStatus(cmd.Context())
+			statusText := func(running bool) string {
+				if running {
+					return "running"
+				}
+				return "stopped"
+			}
+
+			fmt.Println()
+			fmt.Println("Local CRE service status:")
+			fmt.Printf("- Environment: %s\n", statusText(status.environmentRunning))
+			fmt.Printf("- Beholder: %s\n", statusText(status.beholderRunning))
+			fmt.Printf("- Billing: %s\n", statusText(status.billingRunning))
+			fmt.Printf("- Observability: %s\n", statusText(status.observabilityRunning))
+			fmt.Println()
+			return nil
+		},
+	}
+
+	return cmd
 }
 
 func StartCLIEnvironment(

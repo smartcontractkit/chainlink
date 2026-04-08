@@ -596,12 +596,17 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	labeler := h.emitter
 	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                       lggr,
-		Labeler:                      labeler,
-		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		Logger:                               lggr,
+		Labeler:                              labeler,
+		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
+		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
+		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
+		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
+		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
 		SdkLabeler: func(name string) {
 			sdkName = name
 			h.emitterMu.Lock()
