@@ -844,6 +844,7 @@ func newWorkflowRegistrySyncerV2(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
+	wfReg := capCfg.WorkflowRegistry()
 	key := opts.WorkflowKey
 
 	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(opts, capCfg, lggr, gatewayConnectorWrapper)
@@ -862,13 +863,13 @@ func newWorkflowRegistrySyncerV2(
 		lf,
 		artifactsV2.WithMaxArtifactSize(
 			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
-				MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
+				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
+				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
+				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
 			},
 		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
-			ArtifactStorageHost: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactStorageHost(),
+			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),
 	)
 	if err != nil {
@@ -887,7 +888,7 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
 	}
 
-	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
+	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
 	}
@@ -937,7 +938,7 @@ func newWorkflowRegistrySyncerV2(
 		key,
 		workflowDonNotifier,
 		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
+		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
 		syncerV2.WithOrgResolver(orgResolver),
 		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
 		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
@@ -948,7 +949,7 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
-	addSources := capCfg.WorkflowRegistry().AdditionalSources()
+	addSources := wfReg.AdditionalSources()
 	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, len(addSources))
 	for i, src := range addSources {
 		addSourceConfigs[i] = syncerV2.AdditionalSourceConfig{
@@ -962,7 +963,7 @@ func newWorkflowRegistrySyncerV2(
 	registryOpts := []syncerV2.Option{
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
-		syncerV2.WithMaxConcurrency(capCfg.WorkflowRegistry().MaxConcurrency()),
+		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,
@@ -977,11 +978,11 @@ func newWorkflowRegistrySyncerV2(
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
 		lggr,
 		crFactory,
-		capCfg.WorkflowRegistry().Address(),
+		wfReg.Address(),
 		selector,
 		syncerV2.Config{
 			QueryCount:   100,
-			SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+			SyncStrategy: syncerV2.SyncStrategy(wfReg.SyncStrategy()),
 		},
 		eventHandler,
 		workflowDonNotifier,

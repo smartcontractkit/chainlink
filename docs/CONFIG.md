@@ -2693,6 +2693,19 @@ DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
 
+## CRE.ConfidentialRelay
+```toml
+[CRE.ConfidentialRelay]
+Enabled = false # Default
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled controls whether the confidential relay gateway handler should be configured.
+
 ## Sharding
 ```toml
 [Sharding]

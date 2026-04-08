@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v4"
@@ -164,7 +165,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				// This is a performance optimization
 			})
 
-			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs[llotypes.ReportInfo]{
+			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs2[llotypes.ReportInfo]{
 				BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
@@ -175,7 +176,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
-				OnchainKeyring:               d.cfg.OnchainKeyring,
+				OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
 				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
 					datastreamsllo.NewPluginFactory(
 						datastreamsllo.PluginFactoryParams{
