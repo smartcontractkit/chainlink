@@ -21,7 +21,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	reqSola := getSolWriteRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	reqSolb := getSolWriteRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
-	reqSol2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
+	reqSol2 := getSolWriteRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 
 	hasher := NewWriteReportExcludeSignaturesHasher()
 	hash1a, err := hasher.Hash(req1a)
