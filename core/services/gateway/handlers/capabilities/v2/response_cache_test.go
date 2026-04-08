@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -177,11 +178,11 @@ func TestRequestHash(t *testing.T) {
 func TestIsExpiredOrNotCached(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 1000, testMetrics) // 1 second TTL
-	workflowID := "workflow-123"
+
 	req := createTestRequest("GET", "https://example.com")
 
 	t.Run("returns true for non-existent entry", func(t *testing.T) {
-		result := cache.isExpiredOrNotCached(workflowID, req)
+		result := cache.isExpiredOrNotCached(req)
 		require.True(t, result)
 	})
 
@@ -191,7 +192,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 			storedAt: time.Now(),
 		}
 
-		result := cache.isExpiredOrNotCached(workflowID, req)
+		result := cache.isExpiredOrNotCached(req)
 		require.False(t, result)
 	})
 
@@ -201,7 +202,7 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 			storedAt: time.Now().Add(-2 * time.Second),
 		}
 
-		result := cache.isExpiredOrNotCached(workflowID, req)
+		result := cache.isExpiredOrNotCached(req)
 		require.True(t, result)
 	})
 }
@@ -209,7 +210,6 @@ func TestIsExpiredOrNotCached(t *testing.T) {
 func TestFetch(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics) // 10 seconds TTL
-	workflowID := "workflow-123"
 
 	t.Run("calls fetchFn when cache miss", func(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/miss")
@@ -221,7 +221,7 @@ func TestFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -243,7 +243,7 @@ func TestFetch(t *testing.T) {
 			return createTestResponse(200, "should not be called")
 		}
 
-		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), req, fetchFn, true)
 
 		require.False(t, fetchCalled, "fetchFn should not be called on cache hit")
 		require.Equal(t, cachedResp, result)
@@ -265,7 +265,7 @@ func TestFetch(t *testing.T) {
 			return expectedResp
 		}
 
-		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), req, fetchFn, true)
 
 		require.True(t, fetchCalled)
 		require.Equal(t, expectedResp, result)
@@ -279,7 +279,7 @@ func TestFetch(t *testing.T) {
 			return response
 		}
 
-		cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+		cache.Fetch(t.Context(), req, fetchFn, true)
 
 		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
@@ -294,7 +294,7 @@ func TestFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, false)
+		result := cache.Fetch(t.Context(), req, fetchFn, false)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
@@ -311,7 +311,7 @@ func TestFetch(t *testing.T) {
 			return response
 		}
 
-		result := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+		result := cache.Fetch(t.Context(), req, fetchFn, true)
 
 		// Should return the response but not cache it
 		require.Equal(t, response, result)
@@ -324,7 +324,6 @@ func TestFetch(t *testing.T) {
 func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
-	workflowID := "workflow-123"
 
 	const n = 10
 	const fetchDelay = 100 * time.Millisecond
@@ -342,7 +341,7 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 					time.Sleep(fetchDelay)
 					return createTestResponse(200, fmt.Sprintf("response-%d", idx))
 				}
-				resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+				resp := cache.Fetch(t.Context(), req, fetchFn, true)
 				assert.Equal(t, 200, resp.StatusCode)
 			}(i)
 		}
@@ -358,11 +357,9 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
-	workflowID := "workflow-123"
 
 	const n = 5
-	var fetchCount int32
-	var mu sync.Mutex
+	var fetchCount atomic.Int32
 
 	req := createTestRequest("GET", "https://example.com/dedup")
 	expectedResp := createTestResponse(200, "deduplicated")
@@ -375,37 +372,73 @@ func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 			go func() {
 				defer wg.Done()
 				fetchFn := func() gateway_common.OutboundHTTPResponse {
-					mu.Lock()
-					fetchCount++
-					mu.Unlock()
+					fetchCount.Add(1)
 					time.Sleep(100 * time.Millisecond)
 					return expectedResp
 				}
-				resp := cache.Fetch(t.Context(), workflowID, req, fetchFn, true)
+				resp := cache.Fetch(t.Context(), req, fetchFn, true)
 				assert.Equal(t, expectedResp, resp)
 			}()
 		}
 		wg.Wait()
 
-		mu.Lock()
-		count := fetchCount
-		mu.Unlock()
-
 		// Singleflight should deduplicate: only 1 fetchFn call for the same key
-		assert.Equal(t, int32(1), count, "singleflight should deduplicate concurrent requests to the same key")
+		assert.Equal(t, int32(1), fetchCount.Load(), "singleflight should deduplicate concurrent requests to the same key")
+	})
+}
+
+func TestFetch_PanicInFetchFn_PropagatedToCaller(t *testing.T) {
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+
+	req := createTestRequest("GET", "https://example.com/panic")
+	fetchFn := func() gateway_common.OutboundHTTPResponse {
+		panic("unexpected error in HTTP callback")
+	}
+
+	require.Panics(t, func() {
+		cache.Fetch(t.Context(), req, fetchFn, true)
+	})
+}
+
+func TestFetch_PanicInFetchFn_PropagatedToAllWaiters(t *testing.T) {
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+
+	const n = 5
+	req := createTestRequest("GET", "https://example.com/panic-shared")
+
+	synctest.Test(t, func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(n)
+
+		for i := 0; i < n; i++ {
+			go func() {
+				defer wg.Done()
+				defer func() {
+					r := recover()
+					assert.NotNil(t, r, "panic from fetchFn should propagate to all waiters")
+				}()
+				fetchFn := func() gateway_common.OutboundHTTPResponse {
+					time.Sleep(50 * time.Millisecond)
+					panic("shared panic")
+				}
+				cache.Fetch(t.Context(), req, fetchFn, true)
+			}()
+		}
+		wg.Wait()
 	})
 }
 
 func TestSet(t *testing.T) {
 	testMetrics := createCacheTestMetrics(t)
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
-	workflowID := "workflow-123"
 
 	t.Run("sets cacheable response", func(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/set")
 		response := createTestResponse(200, "response to cache")
 
-		cache.Set(workflowID, req, response)
+		cache.Set(req, response)
 
 		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
@@ -416,7 +449,7 @@ func TestSet(t *testing.T) {
 		req := createTestRequest("GET", "https://example.com/nonset")
 		response := createTestResponse(500, "server error")
 
-		cache.Set(workflowID, req, response)
+		cache.Set(req, response)
 
 		_, exists := cache.cache[req.Hash()]
 		require.False(t, exists, "5xx response should not be cached")
@@ -427,10 +460,10 @@ func TestSet(t *testing.T) {
 		originalResponse := createTestResponse(200, "original")
 		newResponse := createTestResponse(200, "new")
 
-		cache.Set(workflowID, req, originalResponse)
+		cache.Set(req, originalResponse)
 
 		// Immediately try to set again
-		cache.Set(workflowID, req, newResponse)
+		cache.Set(req, newResponse)
 
 		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
@@ -446,7 +479,7 @@ func TestSet(t *testing.T) {
 		}
 
 		newResponse := createTestResponse(200, "fresh")
-		cache.Set(workflowID, req, newResponse)
+		cache.Set(req, newResponse)
 
 		cachedEntry, exists := cache.cache[req.Hash()]
 		require.True(t, exists)
@@ -501,12 +534,12 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("zero TTL cache", func(t *testing.T) {
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 0, testMetrics)
-		workflowID := "workflow-123"
+
 		req := createTestRequest("GET", "https://example.com/zero-ttl")
 
-		require.True(t, cache.isExpiredOrNotCached(workflowID, req))
+		require.True(t, cache.isExpiredOrNotCached(req))
 
-		cache.Set(workflowID, req, createTestResponse(200, "test"))
+		cache.Set(req, createTestResponse(200, "test"))
 		count := cache.DeleteExpired(t.Context())
 		require.Equal(t, 1, count, "entry should be immediately expired")
 	})
@@ -514,7 +547,7 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("handles nil response headers", func(t *testing.T) {
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
-		workflowID := "workflow-123"
+
 		req := createTestRequest("GET", "https://example.com/nil-headers")
 
 		resp := gateway_common.OutboundHTTPResponse{
@@ -523,9 +556,9 @@ func TestEdgeCases(t *testing.T) {
 			Headers:    nil,
 		}
 
-		cache.Set(workflowID, req, resp)
+		cache.Set(req, resp)
 
-		result := cache.Fetch(t.Context(), workflowID, req, func() gateway_common.OutboundHTTPResponse {
+		result := cache.Fetch(t.Context(), req, func() gateway_common.OutboundHTTPResponse {
 			return resp
 		}, true)
 		require.Equal(t, resp, result)
@@ -534,7 +567,6 @@ func TestEdgeCases(t *testing.T) {
 	t.Run("handles empty request", func(t *testing.T) {
 		testMetrics := createCacheTestMetrics(t)
 		cache := newResponseCache(logger.Test(t), 5000, testMetrics)
-		workflowID := "workflow-123"
 
 		emptyReq := gateway_common.OutboundHTTPRequest{
 			CacheSettings: gateway_common.CacheSettings{MaxAgeMs: 1000},
@@ -543,6 +575,6 @@ func TestEdgeCases(t *testing.T) {
 		hash := emptyReq.Hash()
 		require.NotEmpty(t, hash)
 
-		cache.Set(workflowID, emptyReq, createTestResponse(200, "test"))
+		cache.Set(emptyReq, createTestResponse(200, "test"))
 	})
 }
