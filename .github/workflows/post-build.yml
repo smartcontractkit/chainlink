@@ -41,7 +41,7 @@ jobs:
             exclude-refs: "ccip"
             working-directory: "devenv"
             logs-directory: "./devenv/tests/ocr2/logs"
-            ctf-log-level: "info"
+            ctf-log-level: "debug"
             strip-image-suffix: "v"
         secrets: inherit
 
@@ -61,6 +61,6 @@ jobs:
             exclude-refs: "ccip"
             working-directory: "./system-tests/tests"
             logs-directory: "./system-tests/tests/smoke/cre/logs"
-            ctf-log-level: "info"
+            ctf-log-level: "debug"
             strip-image-suffix: "v"
         secrets: inherit

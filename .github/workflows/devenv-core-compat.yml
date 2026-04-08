@@ -30,7 +30,7 @@ jobs:
   #     no-git-rollback: true
   #     working-directory: "devenv"
   #     logs-directory: "./devenv/tests/ocr2/logs"
-  #     ctf-log-level: "info"
+  #     ctf-log-level: "debug" # trace, debug, info
   #     strip-image-suffix: "v"
   #   secrets: inherit
 
@@ -92,7 +92,7 @@ jobs:
       # directory for executing your tests, to run testcmd
       logs-directory: "./system-tests/tests/smoke/cre/logs"
       # CTF log level
-      ctf-log-level: "info"
+      ctf-log-level: "debug"
       # this is needed to remove 'v' from Git tags to match SDLC ECR tags
       strip-image-suffix: "v"
     secrets: inherit
