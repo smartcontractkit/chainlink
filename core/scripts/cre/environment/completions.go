@@ -223,6 +223,7 @@ func buildCommandTree() *CompletionNode {
 		Suggestions: []prompt.Suggest{
 			{Text: "start", Description: "Spin up the development environment"},
 			{Text: "stop", Description: "Tear down the development environment"},
+			{Text: "status", Description: "Show status of local CRE services"},
 			{Text: "restart", Description: "Restart the development environment"},
 			{Text: "setup", Description: "Setup the CRE environment prerequisites"},
 			{Text: "build-caps", Description: "Build capabilities binaries"},
@@ -257,7 +258,7 @@ func buildCommandTree() *CompletionNode {
 	// ENV STOP - flags
 	envStopNode := &CompletionNode{
 		Flags: []prompt.Suggest{
-			{Text: "--all", Description: "Remove also all extra services (beholder, billing) (default: false)"},
+			{Text: "--all", Description: "Remove also all extra services (beholder, billing, observability) (default: false)"},
 		},
 	}
 
@@ -269,6 +270,7 @@ func buildCommandTree() *CompletionNode {
 
 	envNode.Children["start"] = envStartNode
 	envNode.Children["stop"] = envStopNode
+	envNode.Children["status"] = &CompletionNode{}
 	envNode.Children["restart"] = envRestartNode
 
 	// ENV SETUP - setup prerequisites
