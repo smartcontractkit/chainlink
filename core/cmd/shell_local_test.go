@@ -507,6 +507,15 @@ func TestShell_RemoveBlocks(t *testing.T) {
 
 func TestShell_BeforeNode(t *testing.T) {
 	testutils.SkipShortDB(t)
+
+	// Use a dedicated test database so subtests share state without leaking
+	// data to the shared test database. The "incorrect password" subtest relies
+	// on a key ring created by the "correct password" subtest to verify that
+	// decryption fails with the wrong password.
+	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Insecure.OCRDevelopmentMode = nil
+	})
+
 	tests := []struct {
 		name         string
 		pwdfile      string
@@ -519,14 +528,6 @@ func TestShell_BeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
-				c.Insecure.OCRDevelopmentMode = nil
-			})
-
 			shell := cmd.Shell{
 				Config: cfg,
 				KeyStoreAuthenticator: cmd.TerminalKeyStoreAuthenticator{
@@ -577,6 +578,13 @@ func TestShell_BeforeNode(t *testing.T) {
 }
 
 func TestShell_RunNode_WithBeforeNode(t *testing.T) {
+	// Use a dedicated test database so subtests share state without leaking
+	// data to the shared test database. The "incorrect password" subtest relies
+	// on keystore entries from prior setup to verify decryption failure.
+	cfg, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Insecure.OCRDevelopmentMode = nil
+	})
+
 	tests := []struct {
 		name        string
 		pwdfile     string
@@ -588,16 +596,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
-				// seems to be needed for config validate
-				c.Insecure.OCRDevelopmentMode = nil
-			})
-
-			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
 			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), audit.NoopLogger)
 
