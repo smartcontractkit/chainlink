@@ -118,7 +118,7 @@ func migrateDB(ctx context.Context, config Config) error {
 	return db.Close()
 }
 
-func dropAndCreateDB(parsed url.URL, force bool) (err error) {
+func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -132,14 +132,9 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 			err = errors.Join(err, cerr)
 		}
 	}()
-	if force {
-		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
-		_, err = db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, dbname)
-		if err != nil {
-			return fmt.Errorf("unable to terminate connections to postgres database: %w", err)
-		}
-	}
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
+	// DROP ... WITH (FORCE) requires PostgreSQL 13+; replaces pg_terminate_backend + DROP for older versions.
+	// Second parameter kept for ResetDatabase API compatibility (preparetest --force).
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
@@ -151,10 +146,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 }
 
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	if err = terminateConnectionsToDatabase(db, testdb.PristineDBName); err != nil {
-		return fmt.Errorf("unable to terminate connections to postgres database %q: %w", testdb.PristineDBName, err)
-	}
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, testdb.PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
@@ -163,13 +155,6 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
 	return nil
-}
-
-// terminateConnectionsToDatabase disconnects client backends for dbname so DROP DATABASE can succeed.
-// db must be connected to a different database than dbname.
-func terminateConnectionsToDatabase(db *sqlx.DB, dbname string) error {
-	_, err := db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, dbname)
-	return err
 }
 
 func downAndUpDB(ctx context.Context, cfg Config, baseVersionID int64) error {
@@ -273,9 +258,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				terr := terminateConnectionsToDatabase(db, dbname)
-				gerr := cutils.JustError(db.Exec(`DROP DATABASE IF EXISTS ` + dbname))
-				errCh <- errors.Join(terr, gerr)
+				errCh <- cutils.JustError(db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", pq.QuoteIdentifier(dbname))))
 			}
 		}()
 	}

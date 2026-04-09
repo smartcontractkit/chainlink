@@ -185,7 +185,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -202,7 +202,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
