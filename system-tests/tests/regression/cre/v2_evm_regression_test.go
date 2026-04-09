@@ -342,7 +342,7 @@ var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
 	// WriteReport - corrupt receiver address
 	// malformed values
 	{"zero", "0", writeReportInvalidGas, expectedWriteReportInvalidGas},
-	{"low", "100000", writeReportInvalidGas, expectedWriteReportInvalidGas},
+	{"low", "100000", writeReportInvalidGas, "lower than minimum gas limit"},
 	{"too high", "100000000000", writeReportInvalidGas, "gas limit exceeds configured limit"},
 }
 
