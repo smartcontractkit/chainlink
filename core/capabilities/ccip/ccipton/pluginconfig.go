@@ -10,7 +10,7 @@ import (
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-// InitializePluginConfig returns a pluginConfig for TON chains.
+// InitializePluginConfig returns a pluginConfig for TON chains
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		AddressCodec:       codec.NewAddressCodec(),
