@@ -54,22 +54,6 @@ func (state MCMSWithTimelockContracts) Validate() error {
 	return nil
 }
 
-func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, error) {
-	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
-	}
-
-	switch chainFamily {
-	case chain_selectors.FamilyEVM:
-		return &mcmsevmsdk.TimelockConverter{}, nil
-	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.TimelockConverter{}, nil
-	default:
-		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
-	}
-}
-
 type mcmsInspectorOptions struct {
 	AptosRole mcmsaptossdk.TimelockRole
 }
