@@ -253,6 +253,7 @@ jobs:
       contents: read
       actions: read
     steps:
+      # DEBUG: Monitor resource usage
       - name: Monitor
         uses: kalverra/octometrics-action@main
         with:

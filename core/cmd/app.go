@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+// DEBUG: Go changes to trigger test runs
+
 func removeHidden(cmds ...cli.Command) []cli.Command {
 	var ret []cli.Command
 	for _, cmd := range cmds {
