@@ -207,7 +207,6 @@ jobs:
       # when they should not be using it, while still allowing us to DRY up the setup
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
       CI_GO_TEST_PROFILE_DIR: ${{ github.workspace }}/go_test_profiles
-      CI_GO_TEST_PROFILE_PARALLEL: "8"
     strategy:
       fail-fast: false
       matrix:

@@ -3,6 +3,8 @@ set -o pipefail
 set +e
 
 SCRIPT_PATH=$(dirname "$0"); SCRIPT_PATH=$(eval "cd \"$SCRIPT_PATH\" && pwd")
+# shellcheck source=go_test_package_parallelism.bash
+source "$SCRIPT_PATH/go_test_package_parallelism.bash"
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"25m"}
@@ -61,7 +63,7 @@ if [[ "${CI_GO_TEST_PROFILE:-}" == "1" ]]; then
   echo "CI_GO_TEST_PROFILE: running gotestsum once per integration package with CPU and mem profiles"
   PROFILE_DIR="${CI_GO_TEST_PROFILE_DIR:-./go_test_profiles}"
   mkdir -p "$PROFILE_DIR"
-  PROFILE_PARALLEL="${CI_GO_TEST_PROFILE_PARALLEL:-8}"
+  PROFILE_PARALLEL="$(go_test_package_parallelism)"
   GO_TEST_FLAGS=$(echo " $GO_TEST_FLAGS " | sed -E 's/ -coverprofile=[^ ]+ / /g;s/ -covermode=[^ ]+ / /g;s/ -coverpkg=[^ ]+ / /g' | tr -s ' ' | sed 's/^ //;s/ $//')
   RERUN_FLAGS=""
   JUNIT_FLAG=""
