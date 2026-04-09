@@ -15,6 +15,8 @@
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
   # change to your version
   image = "job-distributor:0.22.1"
+  # change from default 8080 to 8082, because 8080 is used by Aptos
+  wsrpc_port = "8082"
 
 #[s3provider]
 #  # use all defaults
