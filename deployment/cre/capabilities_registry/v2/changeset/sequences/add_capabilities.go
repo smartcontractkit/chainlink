@@ -20,6 +20,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
@@ -152,6 +153,21 @@ var AddCapabilities = operations.NewSequence[AddCapabilitiesInput, AddCapabiliti
 			nodeUpdates, err := buildNodeUpdatesForDON(p2pIDs, donCapConfigs)
 			if err != nil {
 				return AddCapabilitiesOutput{}, fmt.Errorf("failed to build node updates for DON %s: %w", donName, err)
+			}
+
+			// apply modifiers to capability configs
+			// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+			// more modifiers can be added here as needed
+			modifierParams := modifier.CapabilityConfigModifierParams{
+				Env:     deps.Env,
+				DonName: donName,
+				P2PIDs:  p2pIDs,
+				Configs: donCapConfigs, // modified in place
+			}
+			for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
+				if err := mod.Modify(modifierParams); err != nil {
+					return AddCapabilitiesOutput{}, fmt.Errorf("modify capability configs for DON %s: %w", donName, err)
+				}
 			}
 
 			updateNodesReport, err := operations.ExecuteOperation(
