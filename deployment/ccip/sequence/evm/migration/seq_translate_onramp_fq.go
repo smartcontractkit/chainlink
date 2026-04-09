@@ -87,11 +87,11 @@ var (
 
 					// This is per token in 1.5.0 onRamp, but in FeeQuoter its per destination chain,
 					// But RDD values are just redundant & can be adjusted by the premium multiplier, so simplified in 1.6 FQ
-					// So we can just use the any token's config (the last one in the loop here)
+					// So we can just use the first enabled token's config in the loop here
 					onRampFeeTokenCfgReport := evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}
 
-					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, len(allFeeTokensOp.Output))
-					for idx, ft := range allFeeTokensOp.Output {
+					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, 0, len(allFeeTokensOp.Output))
+					for _, ft := range allFeeTokensOp.Output {
 						feetokenCfgReport, err := operations.ExecuteOperation(
 							b, migration_ops.EVM2EVMOnrampGetFeeTokenConfigOp,
 							migration_ops.MigrateOnRampToFQDeps{
@@ -107,10 +107,14 @@ var (
 							return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps: %w", err)
 						}
 
+						if !feetokenCfgReport.Output.Enabled {
+							continue // skip disabled fee tokens, same as TTFC loop below
+						}
+
 						// Translate the feeToken PremiumMultiplierCfg to 1.6 FeeQuoter config
 						premiumMultiplierCfg := EVM2EVMOnRampMigratePremiumMultiplierCfg{}
 						premiumMultiplierCfg.TranslateOnrampToFeeQFeePremiumCfg(ft, feetokenCfgReport.Output)
-						feeTokenPremiumMultipliers[idx] = premiumMultiplierCfg.FeeQuoterPremiumMultiplierWeiPerEthArgs
+						feeTokenPremiumMultipliers = append(feeTokenPremiumMultipliers, premiumMultiplierCfg.FeeQuoterPremiumMultiplierWeiPerEthArgs)
 						if onRampFeeTokenCfgReport == (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}) {
 							onRampFeeTokenCfgReport = feetokenCfgReport.Output
 						}
