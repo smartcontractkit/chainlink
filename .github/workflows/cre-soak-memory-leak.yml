@@ -133,8 +133,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: alloc.pprof
-          path: system-tests/tests/soak/cre/alloc.pprof
+          name: pprof
+          path: system-tests/tests/soak/cre/*.pprof
           retention-days: 7
 
       - name: Upload Docker logs
