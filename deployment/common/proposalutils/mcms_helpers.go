@@ -1,14 +1,12 @@
 package proposalutils
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -21,50 +19,44 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-// MCMSWithTimelockContracts holds the Go bindings
-// for a MCMSWithTimelock contract deployment.
-// It is public for use in product specific packages.
-// Either all fields are nil or all fields are non-nil.
-type MCMSWithTimelockContracts struct {
-	CancellerMcm *owner_helpers.ManyChainMultiSig
-	BypasserMcm  *owner_helpers.ManyChainMultiSig
-	ProposerMcm  *owner_helpers.ManyChainMultiSig
-	Timelock     *owner_helpers.RBACTimelock
-	CallProxy    *owner_helpers.CallProxy
-}
-
-// Validate checks that all fields are non-nil, ensuring it's ready
-// for use generating views or interactions.
-func (state MCMSWithTimelockContracts) Validate() error {
-	if state.Timelock == nil {
-		return errors.New("timelock not found")
-	}
-	if state.CancellerMcm == nil {
-		return errors.New("canceller not found")
-	}
-	if state.ProposerMcm == nil {
-		return errors.New("proposer not found")
-	}
-	if state.BypasserMcm == nil {
-		return errors.New("bypasser not found")
-	}
-	if state.CallProxy == nil {
-		return errors.New("call proxy not found")
-	}
-	return nil
-}
+//// MCMSWithTimelockContracts holds the Go bindings
+//// for a MCMSWithTimelock contract deployment.
+//// It is public for use in product specific packages.
+//// Either all fields are nil or all fields are non-nil.
+//type MCMSWithTimelockContracts struct {
+//	CancellerMcm *owner_helpers.ManyChainMultiSig
+//	BypasserMcm  *owner_helpers.ManyChainMultiSig
+//	ProposerMcm  *owner_helpers.ManyChainMultiSig
+//	Timelock     *owner_helpers.RBACTimelock
+//	CallProxy    *owner_helpers.CallProxy
+//}
+//
+//// Validate checks that all fields are non-nil, ensuring it's ready
+//// for use generating views or interactions.
+//func (state MCMSWithTimelockContracts) Validate() error {
+//	if state.Timelock == nil {
+//		return errors.New("timelock not found")
+//	}
+//	if state.CancellerMcm == nil {
+//		return errors.New("canceller not found")
+//	}
+//	if state.ProposerMcm == nil {
+//		return errors.New("proposer not found")
+//	}
+//	if state.BypasserMcm == nil {
+//		return errors.New("bypasser not found")
+//	}
+//	if state.CallProxy == nil {
+//		return errors.New("call proxy not found")
+//	}
+//	return nil
+//}
 
 type mcmsInspectorOptions struct {
 	AptosRole mcmsaptossdk.TimelockRole
 }
 
 type MCMSInspectorOption func(*mcmsInspectorOptions)
-
-func WithAptosRole(role mcmsaptossdk.TimelockRole) MCMSInspectorOption {
-	return func(opts *mcmsInspectorOptions) {
-		opts.AptosRole = role
-	}
-}
 
 func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspectorOption) (mcmssdk.Inspector, error) {
 	var options mcmsInspectorOptions
