@@ -134,7 +134,7 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 	}()
 	if force {
 		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
-		_, err = db.Exec(fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s';", dbname))
+		_, err = db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, dbname)
 		if err != nil {
 			return fmt.Errorf("unable to terminate connections to postgres database: %w", err)
 		}
@@ -151,6 +151,9 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 }
 
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
+	if err = terminateConnectionsToDatabase(db, testdb.PristineDBName); err != nil {
+		return fmt.Errorf("unable to terminate connections to postgres database %q: %w", testdb.PristineDBName, err)
+	}
 	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
@@ -160,6 +163,13 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
 	return nil
+}
+
+// terminateConnectionsToDatabase disconnects client backends for dbname so DROP DATABASE can succeed.
+// db must be connected to a different database than dbname.
+func terminateConnectionsToDatabase(db *sqlx.DB, dbname string) error {
+	_, err := db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`, dbname)
+	return err
 }
 
 func downAndUpDB(ctx context.Context, cfg Config, baseVersionID int64) error {
@@ -263,8 +273,9 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
+				terr := terminateConnectionsToDatabase(db, dbname)
 				gerr := cutils.JustError(db.Exec(`DROP DATABASE IF EXISTS ` + dbname))
-				errCh <- gerr
+				errCh <- errors.Join(terr, gerr)
 			}
 		}()
 	}
