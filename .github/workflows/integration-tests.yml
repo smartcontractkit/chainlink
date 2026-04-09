@@ -744,7 +744,7 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
       - name: Download All Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: cl_node_coverage_data
           pattern: cl_node_coverage_data_*
@@ -893,7 +893,7 @@ jobs:
     steps:
       - name: Send slack notification for failed migration tests
         id: send-slack-notification
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
         with:
           errors: "true"
           method: chat.postMessage

@@ -148,7 +148,7 @@ jobs:
         # Skip for now as it's always failing on scheduled runs
         if: false
         # if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
@@ -396,7 +396,7 @@ jobs:
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
           matrix.type.should-run == 'true'
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@af78098f536edbc4de71162a307590698245be95 # v3.0.1
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
@@ -448,7 +448,7 @@ jobs:
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
 
       - name: Download all workflow artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
@@ -529,7 +529,7 @@ jobs:
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
-        uses: sonarsource/sonarqube-scan-action@aecaf43ae57e412bd97d70ef9ce6076e672fe0a9 # v2.3.0
+        uses: sonarsource/sonarqube-scan-action@299e4b793aaa83bf2aba7c9c14bedbb485688ec4 # v7.1.0
         with:
           args: ${{ env.SONARQUBE_ARGS }}
         env:

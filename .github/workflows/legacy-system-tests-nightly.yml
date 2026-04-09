@@ -290,13 +290,13 @@ jobs:
 
       - name: Install Just
         if: steps.gate.outputs.should_run == 'true'
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
         with:
           just-version: "1.40.0"
 
       - name: Configure AWS credentials using OIDC
         if: steps.gate.outputs.should_run == 'true'
-        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
+        uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
           aws-region: us-west-2
@@ -304,11 +304,11 @@ jobs:
       - name: Authenticate to ECR
         if: steps.gate.outputs.should_run == 'true'
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        uses: aws-actions/amazon-ecr-login@f2e9fc6c2b355c1890b65e6f6f0e2ac3e6e22f78 # v2.1.2
 
       - name: Set up Go
         if: steps.gate.outputs.should_run == 'true'
-        uses: actions/setup-go@v6 # v6
+        uses: actions/setup-go@v6
         with:
           cache: true
           go-version-file: devenv/go.mod
