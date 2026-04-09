@@ -130,6 +130,17 @@
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
 
+# Aptos chain capability plugin (View + WriteReport). Runtime values are injected per chain.
+[capability_configs.aptos]
+  binary_name = "aptos"
+
+[capability_configs.aptos.values]
+  # These values build the Aptos capability config registered in CapReg.
+  # ChainID and forwarder address are injected separately at job proposal time.
+  # They are not emitted as top-level worker job-spec fields.
+  RequestTimeout = "30s"
+  DeltaStage = "1500ms"
+
 [capability_configs.solana.values]
   TxAcceptanceState = 3
   TxRetentonTimeout = "120s"

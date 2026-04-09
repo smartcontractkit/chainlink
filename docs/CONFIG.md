@@ -2693,6 +2693,19 @@ DebugMode = false # Default
 ```
 DebugMode enables additional tracing and logging for workflow engines.
 
+## CRE.ConfidentialRelay
+```toml
+[CRE.ConfidentialRelay]
+Enabled = false # Default
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled controls whether the confidential relay gateway handler should be configured.
+
 ## Sharding
 ```toml
 [Sharding]
@@ -17423,6 +17436,7 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
 FastlaneAuctionRequestTimeout = '5s' # Example
 ```
@@ -17451,6 +17465,12 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### ReadRequestsToMultipleNodes
+```toml
+ReadRequestsToMultipleNodes = false # Example
+```
+ReadRequestsToMultipleNodes controls whether txm chain client reads use multiplexed calls.
 
 ### Bundles
 ```toml
@@ -18522,6 +18542,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
+LogPollerSlotsBatchSize = 1000 # Default
 ```
 
 
@@ -18693,6 +18714,12 @@ LogPollerStartingLookback
 LogPollerCPIEventsEnabled = true # Default
 ```
 LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
+
+### LogPollerSlotsBatchSize
+```toml
+LogPollerSlotsBatchSize = 1000 # Default
+```
+LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
 
 ## Solana.Workflow
 ```toml

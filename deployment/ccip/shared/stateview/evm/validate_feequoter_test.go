@@ -2,6 +2,7 @@ package evm_test
 
 import (
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,12 +43,12 @@ import (
 )
 
 func TestValidateFeeQuoter_HappyPath(t *testing.T) {
-	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+	slices.Sort(evmChains)
 	for _, sel := range evmChains {
 		chainState := state.MustGetEVMChainState(sel)
 		v16Active := buildV16ActiveChains(t, tenv, state)
@@ -255,7 +256,7 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			MaxDataBytes:                      v15Cfg.MaxDataBytes,
 			MaxPerMsgGasLimit:                 v15Cfg.MaxPerMsgGasLimit,
 			DefaultTokenDestGasOverhead:       v15Cfg.DefaultTokenDestGasOverhead,
-			DefaultTokenFeeUSDCents:           v15Cfg.DefaultTokenFeeUSDCents,
+			DefaultTokenFeeUSDCents:           25, // topology: non-ETH EVM→EVM
 			EnforceOutOfOrder:                 v15Cfg.EnforceOutOfOrder,
 			DestGasPerPayloadByteBase:         uint8(v15Cfg.DestGasPerPayloadByte), //nolint:gosec // match v1.5 truncation
 			DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
@@ -264,7 +265,7 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			NetworkFeeUSDCents:                10,
 			GasPriceStalenessThreshold:        86400,
 			ChainFamilySelector:               [4]byte{0x28, 0x12, 0xd5, 0x2c},
-			GasMultiplierWeiPerEth:            1e18,
+			GasMultiplierWeiPerEth:            11e17, // deploy-constant
 		}
 		tenv, err = commonchangeset.Apply(t, tenv,
 			commonchangeset.Configure(
@@ -286,7 +287,7 @@ func TestValidateFeeQuoter_CrossVersionValidation(t *testing.T) {
 			DestGasOverhead:             goodV16Cfg.DestGasOverhead,
 			DestGasPerPayloadByteBase:   goodV16Cfg.DestGasPerPayloadByteBase,
 			ChainFamilySelector:         goodV16Cfg.ChainFamilySelector,
-			DefaultTokenFeeUSDCents:     goodV16Cfg.DefaultTokenFeeUSDCents,
+			DefaultTokenFeeUSDCents:     25, // topology: non-ETH EVM→EVM
 			DefaultTokenDestGasOverhead: goodV16Cfg.DefaultTokenDestGasOverhead,
 			DefaultTxGasLimit:           200_000,
 			NetworkFeeUSDCents:          10,
