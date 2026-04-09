@@ -51,7 +51,9 @@ import (
 	artifactsV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	artifactsV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	wfmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	syncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -115,7 +117,7 @@ type Services struct {
 	OCRConfigService capregconfig.OCRConfigService
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
-	SetDelegatesDeps func(*standardcapabilities.Delegate) error
+	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -409,19 +411,16 @@ func (s *Services) newRegistrySyncer(
 	// callback to wire LocalCapabilityManager into the launcher if local capabilities are configured.
 	localCfg := cfg.Capabilities().Local()
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
-		// will be called when the Delegate is ready
-		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) error {
-			// abstraction for the Delegate
+		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
 			newServicesFn := func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error) {
 				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{})
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
-				return fmt.Errorf("could not create local capability manager: %w", lcmErr)
+				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
-			srvcs = append(srvcs, localCapMgr) // srvcs is still valid when the callback is called
-			return nil
+			return localCapMgr, nil
 		}
 	}
 
@@ -803,16 +802,17 @@ func newFetcherServiceV2(
 		return nil, nil, nil, errors.New("unable to create workflow registry syncer without gateway connector")
 	}
 
+	wfStorage := capCfg.WorkflowRegistry().WorkflowStorage()
 	storageClient := opts.StorageClient
-	if capCfg.WorkflowRegistry().WorkflowStorage().URL() != "" {
+	if wfStorage.URL() != "" {
 		workflowOpts := []storage.WorkflowClientOpt{
 			storage.WithJWTGenerator(opts.JWTGenerator),
 		}
-		if capCfg.WorkflowRegistry().WorkflowStorage().TLSEnabled() {
+		if wfStorage.TLSEnabled() {
 			workflowOpts = append(workflowOpts, storage.WithWorkflowTransportCredentials(credentials.NewClientTLSFromCert(nil, "")))
 		}
 
-		sc, err := storage.NewWorkflowClient(lggr, capCfg.WorkflowRegistry().WorkflowStorage().URL(), workflowOpts...)
+		sc, err := storage.NewWorkflowClient(lggr, wfStorage.URL(), workflowOpts...)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to create storage client: %w", err)
 		}
@@ -844,6 +844,7 @@ func newWorkflowRegistrySyncerV2(
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
+	wfReg := capCfg.WorkflowRegistry()
 	key := opts.WorkflowKey
 
 	fetcherFunc, retrieverFunc, srvcs, err := newFetcherServiceV2(opts, capCfg, lggr, gatewayConnectorWrapper)
@@ -862,13 +863,13 @@ func newWorkflowRegistrySyncerV2(
 		lf,
 		artifactsV2.WithMaxArtifactSize(
 			artifactsV2.ArtifactConfig{
-				MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
-				MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
-				MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
+				MaxBinarySize:  uint64(wfReg.MaxBinarySize()),
+				MaxSecretsSize: uint64(wfReg.MaxEncryptedSecretsSize()),
+				MaxConfigSize:  uint64(wfReg.MaxConfigSize()),
 			},
 		),
 		artifactsV2.WithConfig(artifactsV2.StoreConfig{
-			ArtifactStorageHost: capCfg.WorkflowRegistry().WorkflowStorage().ArtifactStorageHost(),
+			ArtifactStorageHost: wfReg.WorkflowStorage().ArtifactStorageHost(),
 		}),
 	)
 	if err != nil {
@@ -887,33 +888,9 @@ func newWorkflowRegistrySyncerV2(
 		return nil, nil, fmt.Errorf("could not instantiate engine feature flags: %w", err)
 	}
 
-	selector, err := chainSelector(capCfg.WorkflowRegistry().ChainID(), capCfg.WorkflowRegistry().NetworkID())
+	selector, err := chainSelector(wfReg.ChainID(), wfReg.NetworkID())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get workflow registry chain details by chain ID and network ID: %w", err)
-	}
-
-	eventHandler, err := syncerV2.NewEventHandler(
-		lggr,
-		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		dontimeStore,
-		opts.UseLocalTimeProvider,
-		opts.CapabilitiesRegistry,
-		engineRegistry,
-		custmsg.NewLabeler(),
-		engineLimiters,
-		featureFlags,
-		workflowRateLimiter,
-		workflowLimits,
-		artifactsStore,
-		key,
-		workflowDonNotifier,
-		syncerV2.WithBillingClient(billingClient),
-		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
-		syncerV2.WithOrgResolver(orgResolver),
-		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
-	)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
 	}
 
 	crFactory, err := newContractReaderFactory(capCfg, relayerChainInterops)
@@ -933,39 +910,79 @@ func newWorkflowRegistrySyncerV2(
 		shardOrchestratorClient = c
 	}
 
-	addSources := capCfg.WorkflowRegistry().AdditionalSources()
-	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, 0, len(addSources))
-	if len(addSources) > 0 {
-		for _, src := range addSources {
-			addSourceConfigs = append(addSourceConfigs, syncerV2.AdditionalSourceConfig{
-				URL:          src.GetURL(),
-				Name:         src.GetName(),
-				TLSEnabled:   src.GetTLSEnabled(),
-				JWTGenerator: opts.JWTGenerator,
-			})
+	shardingEnabled := cfg.Sharding().ShardingEnabled()
+	shardIndex := uint32(cfg.Sharding().ShardIndex())
+
+	var shardRoutingSteady *shardownership.SteadySignal
+	if shardingEnabled {
+		steadyMetrics, errSteady := wfmonitoring.GlobalSteadySignalMetrics()
+		if errSteady != nil {
+			lggr.Warnw("Failed to register shard routing steady signal metrics; continuing without steady instrumentation", "err", errSteady)
+		}
+		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
+	}
+
+	eventHandler, err := syncerV2.NewEventHandler(
+		lggr,
+		workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		dontimeStore,
+		opts.UseLocalTimeProvider,
+		opts.CapabilitiesRegistry,
+		engineRegistry,
+		custmsg.NewLabeler(),
+		engineLimiters,
+		featureFlags,
+		workflowRateLimiter,
+		workflowLimits,
+		artifactsStore,
+		key,
+		workflowDonNotifier,
+		syncerV2.WithBillingClient(billingClient),
+		syncerV2.WithWorkflowRegistry(wfReg.Address(), selector),
+		syncerV2.WithOrgResolver(orgResolver),
+		syncerV2.WithDebugMode(cfg.CRE().DebugMode()),
+		syncerV2.WithLocalSecrets(lggr, cfg.CRE().LocalSecrets()),
+		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
+		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create workflow registry event handler: %w", err)
+	}
+
+	addSources := wfReg.AdditionalSources()
+	addSourceConfigs := make([]syncerV2.AdditionalSourceConfig, len(addSources))
+	for i, src := range addSources {
+		addSourceConfigs[i] = syncerV2.AdditionalSourceConfig{
+			URL:          src.GetURL(),
+			Name:         src.GetName(),
+			TLSEnabled:   src.GetTLSEnabled(),
+			JWTGenerator: opts.JWTGenerator,
 		}
 	}
 
 	registryOpts := []syncerV2.Option{
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
-		syncerV2.WithMaxConcurrency(capCfg.WorkflowRegistry().MaxConcurrency()),
+		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,
 			syncerV2.WithShardEnabled(true),
 			syncerV2.WithShardID(uint32(cfg.Sharding().ShardIndex())),
 		)
+		if shardRoutingSteady != nil {
+			registryOpts = append(registryOpts, syncerV2.WithRegistryShardRoutingObserver(shardRoutingSteady))
+		}
 	}
 
 	workflowRegistrySyncerV2, err := syncerV2.NewWorkflowRegistry(
 		lggr,
 		crFactory,
-		capCfg.WorkflowRegistry().Address(),
+		wfReg.Address(),
 		selector,
 		syncerV2.Config{
 			QueryCount:   100,
-			SyncStrategy: syncerV2.SyncStrategy(capCfg.WorkflowRegistry().SyncStrategy()),
+			SyncStrategy: syncerV2.SyncStrategy(wfReg.SyncStrategy()),
 		},
 		eventHandler,
 		workflowDonNotifier,

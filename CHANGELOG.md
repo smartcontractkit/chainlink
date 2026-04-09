@@ -1,5 +1,85 @@
 # Changelog Chainlink Core
 
+## 2.42.0
+
+### Minor Changes
+
+- [#21771](https://github.com/smartcontractkit/chainlink/pull/21771) [`9a1136d`](https://github.com/smartcontractkit/chainlink/commit/9a1136d4fbe399ebc34d1e5a788d54b0e049b44c) - #changed add support for log filters in fake EVM capability
+
+- [#21803](https://github.com/smartcontractkit/chainlink/pull/21803) [`5765674`](https://github.com/smartcontractkit/chainlink/commit/5765674b7b928b5b8f04890d829568db4109dde5) - Minor bump to start next version
+
+- [#21817](https://github.com/smartcontractkit/chainlink/pull/21817) [`0e5dbb7`](https://github.com/smartcontractkit/chainlink/commit/0e5dbb7d1e699cc587fa6f1ebf6802cacf3700b0) - #added Add support for user-emitted CRE workflow metrics via WASM host function emit_metric
+
+### Patch Changes
+
+- [#21766](https://github.com/smartcontractkit/chainlink/pull/21766) [`3536f50`](https://github.com/smartcontractkit/chainlink/commit/3536f50f81f0dac6ad21e200621e4a36984cd7e0) - #internal
+
+  Add Aptos local CRE read/write support, including Capabilities Registry OCR config for Aptos write and CI coverage for the Aptos write roundtrip and expected-failure scenarios.
+
+## 2.41.0
+
+### Minor Changes
+
+- [#21679](https://github.com/smartcontractkit/chainlink/pull/21679) [`f6ec944`](https://github.com/smartcontractkit/chainlink/commit/f6ec944dbb290c9f9bea4ff24f15c7a691e5147f) - Minor bump to start next version
+
+- [#21776](https://github.com/smartcontractkit/chainlink/pull/21776) [`035fa26`](https://github.com/smartcontractkit/chainlink/commit/035fa268de1308a854ad6351344061283ed63b78) - Adds support for SVR MultiCall and TransactionLifecycleID #internal
+
+### Patch Changes
+
+- [#21688](https://github.com/smartcontractkit/chainlink/pull/21688) [`f8abcbb`](https://github.com/smartcontractkit/chainlink/commit/f8abcbb3eed3bdc478f4a7721255702dd3532453) - #changed
+
+  Move Vault node-side request authorization into the gateway handler and remove duplicated authorization from the Vault capability.
+
+## 2.40.0
+
+### Minor Changes
+
+- [#21566](https://github.com/smartcontractkit/chainlink/pull/21566) [`540693c`](https://github.com/smartcontractkit/chainlink/commit/540693cc71f44ccfcb89f36c959890fd5cf324fa) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21643](https://github.com/smartcontractkit/chainlink/pull/21643) [`e034db3`](https://github.com/smartcontractkit/chainlink/commit/e034db36cc3a02a79aec1a3b44ccc71ddc2f21ed) - #added Add ListPendingJobProposals and ApproveJobProposalByID to the GQL SDK Client
+
+- [#21550](https://github.com/smartcontractkit/chainlink/pull/21550) [`6ed0e26`](https://github.com/smartcontractkit/chainlink/commit/6ed0e268f955a20b38a0c052efd2acac07c798c2) - #changed Bumps the chainlink-ccip reference and replaces all references to `latest` with version-locked imports
+
+- [#21604](https://github.com/smartcontractkit/chainlink/pull/21604) [`4561cb7`](https://github.com/smartcontractkit/chainlink/commit/4561cb741754d00b2910599952ef5e1a5abde45c) - #added Emit gas-related metrics through Beholder
+
+## 2.39.0
+
+### Minor Changes
+
+- [#21480](https://github.com/smartcontractkit/chainlink/pull/21480) [`a58e1d7`](https://github.com/smartcontractkit/chainlink/commit/a58e1d764d12d6af08161723c5676c32670db62f) - Minor bump to start next version
+
+- [#21548](https://github.com/smartcontractkit/chainlink/pull/21548) [`a893225`](https://github.com/smartcontractkit/chainlink/commit/a893225701cb64f6c34c6df9fb18acc0d7b6a7c1) - Add supportsDualBroadcast to txm/txmv2 to indicate if it can run SVR feeds
+
+### Patch Changes
+
+- [#21349](https://github.com/smartcontractkit/chainlink/pull/21349) [`2f048a6`](https://github.com/smartcontractkit/chainlink/commit/2f048a6cd4d5b2b28241512889c790d62f198906) - #bugfix llo outcome telemetry is only output for epochs where enough quourom is reached
+
+## 2.38.0
+
+### Minor Changes
+
+- [#21411](https://github.com/smartcontractkit/chainlink/pull/21411) [`281a8b9`](https://github.com/smartcontractkit/chainlink/commit/281a8b929631362d208da8b21ace76e7f3e670f3) - #updated Bump libocr
+
+- [#21386](https://github.com/smartcontractkit/chainlink/pull/21386) [`1a94b32`](https://github.com/smartcontractkit/chainlink/commit/1a94b321eb0343011c849c599f8c9eaf94f22128) - Minor bump to start next version
+
+  #internal
+
+### Patch Changes
+
+- [#21465](https://github.com/smartcontractkit/chainlink/pull/21465) [`62d65a6`](https://github.com/smartcontractkit/chainlink/commit/62d65a6187d4690545c8cc444e7918d5f020445e) - #changed Update MetaClient to support multiple dapps
+
+- [#21120](https://github.com/smartcontractkit/chainlink/pull/21120) [`c9df802`](https://github.com/smartcontractkit/chainlink/commit/c9df802a4779b155c5e3024bf2fce691eca90aa8) - Expanded `admin profile` to collect PPROF profiles from LOOP Plugins. Added `-vitals` flag for more granular profiling.
+
+## 2.37.0
+
+### Minor Changes
+
+- [#21294](https://github.com/smartcontractkit/chainlink/pull/21294) [`0c3919a`](https://github.com/smartcontractkit/chainlink/commit/0c3919a85046f3a172cef8496ebb4513a3432505) - Minor bump to start next version
+
+- [#21354](https://github.com/smartcontractkit/chainlink/pull/21354) [`5f3b013`](https://github.com/smartcontractkit/chainlink/commit/5f3b0136b2a95a7b60e4ef1d964335a5a58bbb1e) - Introduces bundling for SVR (It's not enabled by default) #added
+
 ## 2.36.0
 
 ### Minor Changes

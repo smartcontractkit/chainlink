@@ -1,0 +1,106 @@
+env CL_EVM_CMD=chainlink-evm
+env CL_SOLANA_CMD=chainlink-solana
+
+# start node
+exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
+exec chainlink node -c config.toml start -p password -a creds &
+
+# initialize client
+env NODEURL=http://localhost:$PORT
+exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+
+exec chainlink --remote-node-url $NODEURL admin profile -seconds 1 -output_dir ./profiles
+stderr 'Collecting profiles from host and 8 plugins: \[allocs block cmdline goroutine heap mutex profile threadcreate trace\]'
+
+exec sh -c 'eval "ls -R $WORK"'
+
+# Ensure we have a profile dir for host and each plugin
+stdout $WORK/profiles/debuginfo-.*:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/aptos.42:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/cosmos.Foo:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/evm.1:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/solana.Bar:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/starknet.Baz:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/sui.67:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/ton.-217:$
+stdout $WORK/profiles/debuginfo-[^/]*/plugins/tron.1001:$
+
+-- go:build.integration --
+-- testdb.txt --
+CL_DATABASE_URL
+-- testport.txt --
+PORT
+
+-- password --
+T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+-- creds --
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+
+-- config.toml.tmpl --
+InsecurePPROFHeap = true
+
+[Webserver]
+HTTPPort = $PORT
+
+[[Aptos]]
+ChainID = '42'
+
+[[Aptos.Nodes]]
+Name = 'primary'
+URL = 'http://aptos.blockchain'
+
+[[Cosmos]]
+ChainID = 'Foo'
+
+[[Cosmos.Nodes]]
+Name = 'primary'
+TendermintURL = 'http://tender.mint'
+
+[[EVM]]
+ChainID = '1'
+
+[[EVM.Nodes]]
+Name = 'fake'
+WSURL = 'wss://foo.bar/ws'
+HTTPURL = 'https://foo.bar'
+
+[[Solana]]
+ChainID = 'Bar'
+
+[[Solana.Nodes]]
+Name = 'primary'
+URL = 'http://solana.web'
+
+[[Starknet]]
+ChainID = 'Baz'
+
+[[Starknet.Nodes]]
+Name = 'primary'
+URL = 'http://stark.node'
+
+[[Sui]]
+ChainID = '67'
+NetworkName = 'foo'
+NetworkNameFull = 'foobar'
+
+[[Sui.Nodes]]
+Name = 'node'
+URL = 'https://sui.rpc'
+
+[[Ton]]
+ChainID = '-217'
+
+[[Ton.Nodes]]
+Name = 'node'
+URL = 'liteserver://dummypublickey@127.0.0.1:4443'
+
+[[Tron]]
+ChainID = '1001'
+
+[[Tron.Nodes]]
+Name = 'example'
+URL = 'http://tron.org'
+SolidityURL = 'https://solidity.evm'

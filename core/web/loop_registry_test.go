@@ -17,16 +17,19 @@ import (
 	"github.com/smartcontractkit/freeport"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 type mockLoopImpl struct {
 	t *testing.T
-	*loop.PromServer
+	services.Service
 }
 
 // test prom var to avoid collision with real chainlink metrics
@@ -45,17 +48,9 @@ func configurePromRegistry() {
 
 func newMockLoopImpl(t *testing.T, port int) *mockLoopImpl {
 	return &mockLoopImpl{
-		t:          t,
-		PromServer: loop.PromServerOpts{Handler: testHandler}.New(port, logger.TestLogger(t).Named("mock-loop")),
+		t:       t,
+		Service: loop.WebServerOpts{Handler: testHandler}.New(logger.TestLogger(t).Named("mock-loop"), port),
 	}
-}
-
-func (m *mockLoopImpl) start() {
-	require.NoError(m.t, m.Start())
-}
-
-func (m *mockLoopImpl) close() {
-	require.NoError(m.t, m.Close())
 }
 
 func (m *mockLoopImpl) run() {
@@ -79,7 +74,10 @@ func TestLoopRegistry(t *testing.T) {
 	// note we expect this to be an ordered result
 	expectedLabels := []model.LabelSet{
 		model.LabelSet{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
-		model.LabelSet{"__metrics_path__": model.LabelValue(expectedLooppEndPoint)},
+		model.LabelSet{
+			"__metrics_path__":      model.LabelValue(expectedLooppEndPoint),
+			web.LabelMetaPluginName: model.LabelValue("mockLoopImpl"),
+		},
 	}
 
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
@@ -95,8 +93,7 @@ func TestLoopRegistry(t *testing.T) {
 	// our mock loop impl and isolated from the default prom register
 	configurePromRegistry()
 	mockLoop := newMockLoopImpl(t, loop.EnvCfg.PrometheusPort)
-	mockLoop.start()
-	defer mockLoop.close()
+	servicetest.Run(t, mockLoop)
 	mockLoop.run()
 
 	client := app.NewHTTPClient(nil)

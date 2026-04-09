@@ -17,7 +17,7 @@ func ExecuteBillingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	timeout := 2 * time.Minute
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
-	workflowName := "cronbilling"
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "cronbilling")
 
 	billingState := getBillingAssertionState(t, testEnv.TestConfig.RelativePathToRepoRoot) // establish a baseline
 

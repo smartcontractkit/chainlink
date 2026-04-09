@@ -10,20 +10,18 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260217195306-9fec97c5dfbd"
+      gitRef: "v0.0.0-20260324144720-484863604698"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
-      # current version is v0.0.0-20260223231841-af91ea434e03
-      gitRef: "v0.0.0-20260223231841-af91ea434e03"
+      # current version is v0.0.0-20260303203615-9d8cc32a70e7
+      gitRef: "v0.0.0-20260408023220-974ac248027c"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      # Git reference - can be a tag, branch, or commit hash
-      # If not specified, uses the latest version.
       gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
       installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
       # These will be copied into /usr/lib in the container.
@@ -37,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260310220441-e6b1a3e0933d"
+      gitRef: "v1.1.2-0.20260409203251-51e31d9d11e9"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -47,12 +45,12 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.12-0.20260227110503-42b236799872"
+      gitRef: "v0.1.13"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260223231247-735246035dab"
+      gitRef: "v0.0.0-20260403084332-41521300fa9b"
       installPath: "./cmd/chainlink-ton"
 
   tron:

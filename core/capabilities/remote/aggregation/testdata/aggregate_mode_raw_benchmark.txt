@@ -1,0 +1,54 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation
+cpu: Apple M3 Max
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	222551481	         5.401 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	219683704	         5.551 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	206173624	         5.574 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	229645402	         5.203 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	225613774	         5.238 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_identical_payloads_-_returns_A-14         	220228659	         5.377 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	252919063	         4.426 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	283354431	         4.119 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	298910098	         4.017 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	298851042	         4.044 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	287628613	         4.116 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/3_identical_payloads_-_returns_A-14         	279908298	         4.241 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  207847	      5471 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  217500	      5343 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  232759	      5464 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  233397	      5417 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  227596	      5301 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_5_different_-_returns_A-14          	  238802	      5284 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  215630	      5497 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  216494	      5475 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  230018	      5545 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  213571	      5431 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  225447	      5365 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_3×A_+_4×B_-_returns_B_(mode)-14           	  225266	      5475 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	232269152	         5.201 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	228310303	         5.226 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	235422214	         5.094 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	225712828	         5.418 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	223602483	         5.269 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_4×A_+_3×B_-_returns_A_(mode)-14           	221815747	         5.520 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	220471143	         5.377 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	220703421	         5.373 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	225019899	         5.429 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	228841460	         5.318 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	234572863	         5.154 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_6×A_+_1×B_-_returns_A_(mode)-14           	229786855	         5.188 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  228939	      5342 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  232429	      5210 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  230918	      5248 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  232554	      5183 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  233356	      5261 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[A_A_B_B_C_C_C]_-_returns_C_(mode)-14     	  228063	      5267 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  232585	      5118 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  239976	      5082 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  231559	      5094 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  236022	      5266 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  230274	      5320 ns/op	       0 B/op	       0 allocs/op
+Benchmark_AggregateModeRaw/7_payloads:_[B_B_A_A_C_C_C]_-_returns_C_(mode)-14     	  227611	      5370 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation	58.447s

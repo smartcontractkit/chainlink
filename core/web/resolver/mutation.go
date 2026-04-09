@@ -950,7 +950,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
+	if !utils.CheckPasswordHash(args.Input.OldPassword, string(dbUser.HashedPassword)) {
 		r.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]any{"user": dbUser.Email})
 
 		return NewUpdatePasswordPayload(nil, map[string]string{

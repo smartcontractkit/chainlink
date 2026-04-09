@@ -15,7 +15,6 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -59,34 +58,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		require.Nil(t, handler)
 	})
 
-	t.Run("invalid rate limiter config", func(t *testing.T) {
-		cfg := ServiceConfig{
-			NodeRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:   -1, // Invalid negative rate
-				GlobalBurst: 100,
-			},
-		}
-		configBytes, err := json.Marshal(cfg)
-		require.NoError(t, err)
-
-		donConfig := &config.DONConfig{DonId: "test-don"}
-		mockDon := handlermocks.NewDON(t)
-		mockHTTPClient := httpmocks.NewHTTPClient(t)
-		lggr := logger.Test(t)
-
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr})
-		require.Error(t, err)
-		require.Nil(t, handler)
-	})
-
 	t.Run("applies default config values", func(t *testing.T) {
 		cfg := ServiceConfig{
-			NodeRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      100,
-				GlobalBurst:    100,
-				PerSenderRPS:   10,
-				PerSenderBurst: 10,
-			},
 			// CleanUpPeriodMs not set - should get default
 		}
 		configBytes, err := json.Marshal(cfg)
@@ -480,15 +453,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 }
 
 func serviceCfg() ServiceConfig {
-	cfg := ServiceConfig{
-		NodeRateLimiter: ratelimit.RateLimiterConfig{
-			GlobalRPS:      100,
-			GlobalBurst:    100,
-			PerSenderRPS:   10,
-			PerSenderBurst: 10,
-		},
-	}
-	return WithDefaults(cfg)
+	return WithDefaults(ServiceConfig{})
 }
 
 func createTestHandler(t *testing.T) *gatewayHandler {
@@ -510,6 +475,10 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 
 	donConfig := &config.DONConfig{
 		DonId: "test-don",
+		Members: []config.NodeConfig{
+			{Name: "node1", Address: "node1"},
+			{Name: "node2", Address: "node2"},
+		},
 	}
 	mockDon := handlermocks.NewDON(t)
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
@@ -913,16 +882,11 @@ func expectSuccessfulRequest(mockHTTPClient *httpmocks.HTTPClient, mockDon *hand
 }
 
 func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
-	t.Run("node rate limiting with AllowVerbose", func(t *testing.T) {
-		cfg := ServiceConfig{
-			NodeRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      100,
-				GlobalBurst:    100,
-				PerSenderRPS:   1, // Very low per-sender rate to trigger limits
-				PerSenderBurst: 1,
-			},
-		}
-		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, cfg)
+	t.Run("per-node rate limiting", func(t *testing.T) {
+		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
+		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(100, 100)    // high global rate
+		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(1, 1) // very low per-node rate to trigger limits
+		handler.perNodeRateLimiters["node2"] = limits.GlobalRateLimiter(1, 1) // very low per-node rate to trigger limits
 
 		// First request should succeed
 		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")
@@ -939,15 +903,10 @@ func TestGatewayHandler_MakeOutgoingRequest_NodeRateLimiting(t *testing.T) {
 	})
 
 	t.Run("global rate limiting", func(t *testing.T) {
-		cfg := ServiceConfig{
-			NodeRateLimiter: ratelimit.RateLimiterConfig{
-				GlobalRPS:      1, // Very low global rate to trigger limits
-				GlobalBurst:    1,
-				PerSenderRPS:   100,
-				PerSenderBurst: 100,
-			},
-		}
-		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, cfg)
+		handler, resp, mockHTTPClient, mockDon := setupRateLimitingTest(t, ServiceConfig{})
+		handler.globalNodeRateLimiter = limits.GlobalRateLimiter(1, 1)            // very low global rate to trigger limits
+		handler.perNodeRateLimiters["node1"] = limits.GlobalRateLimiter(100, 100) // high per-node rate for node1
+		handler.perNodeRateLimiters["node2"] = limits.GlobalRateLimiter(100, 100) // high per-node rate for node2
 
 		// First request should succeed
 		expectSuccessfulRequest(mockHTTPClient, mockDon, "node1")

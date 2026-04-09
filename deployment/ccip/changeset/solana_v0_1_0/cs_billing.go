@@ -170,7 +170,9 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	chainState := state.SolChains[cfg.ChainSelector]
 
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	})
 
 	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMS, cfg.IsUpdate, chainState.FeeQuoter, chainState.Router)
 	if err != nil {
@@ -262,7 +264,9 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 		shared.FeeQuoter,
 		solana.PublicKey{},
 		"")
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	})
 	ix, err := solFeeQuoter.NewSetTokenTransferFeeConfigInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
@@ -371,7 +375,9 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 	fqAllowedPriceUpdaterPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(cfg.PriceUpdater, feeQuoterID)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterID)
 
-	solFeeQuoter.SetProgramID(feeQuoterID)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(feeQuoterID)
+	})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -474,7 +480,9 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 	fqAllowedPriceUpdaterPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(cfg.PriceUpdater, feeQuoterID)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterID)
 
-	solFeeQuoter.SetProgramID(feeQuoterID)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(feeQuoterID)
+	})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -576,7 +584,9 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 		solana.PublicKey{},
 		"")
 
-	solRouter.SetProgramID(chainState.Router)
+	runSafely(func() {
+		solRouter.SetProgramID(chainState.Router)
+	})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,
@@ -665,7 +675,9 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 		solana.PublicKey{},
 		"")
 
-	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(chainState.FeeQuoter)
+	})
 	authority := GetAuthorityForIxn(
 		&e,
 		chain,

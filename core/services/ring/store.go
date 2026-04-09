@@ -297,6 +297,45 @@ func (s *Store) RegisterWorkflowsFromShard(shardID uint32, workflowIDs []string)
 	s.mappingVersion++
 }
 
+// SyncRoutes atomically replaces the routing map with the authoritative set
+// from the OCR outcome, pruning any workflow IDs that are no longer present.
+func (s *Store) SyncRoutes(routes map[string]uint32) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	inTransition := !IsInSteadyState(s.currentState)
+
+	for wfID, shardID := range routes {
+		old := s.routingState[wfID]
+		s.routingState[wfID] = shardID
+		s.routingStateMeta[wfID] = &MappingMeta{
+			OldShardID:   old,
+			NewShardID:   shardID,
+			InTransition: inTransition,
+			UpdatedAt:    now,
+		}
+		if waiters, ok := s.pendingAllocs[wfID]; ok {
+			for _, ch := range waiters {
+				select {
+				case ch <- shardID:
+				default:
+				}
+			}
+			delete(s.pendingAllocs, wfID)
+		}
+	}
+
+	for wfID := range s.routingState {
+		if _, keep := routes[wfID]; !keep {
+			delete(s.routingState, wfID)
+			delete(s.routingStateMeta, wfID)
+		}
+	}
+
+	s.mappingVersion++
+}
+
 func (s *Store) SubmitWorkflowsForAllocation(workflowIDs []string) (dropped int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

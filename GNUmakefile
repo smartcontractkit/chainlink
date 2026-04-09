@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.5.0"
+GOLANGCI_LINT_VERSION = "v2.11.4"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -80,27 +80,15 @@ install-loopinstall:
 
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
-	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
-	else \
-		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml; \
-	fi
+	@go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml
 
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
-	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
-	else \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml; \
-	fi
+	GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml
 
 .PHONY: install-plugins-testing
 install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins).
-	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
-	else \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
-	fi
+	GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml
 
 
 .PHONY: install-plugins-local
@@ -115,6 +103,7 @@ install-plugins-local: ## Build & install local plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
 
 .PHONY: docker ## Build the chainlink docker image
+docker: DOCKER_TAG=develop
 docker:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -124,19 +113,22 @@ docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f core/chainlink.Dockerfile . \
-	-t chainlink:develop \
+	-t chainlink:$(DOCKER_TAG) \
 	--load
 
 .PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip: DOCKER_TAG=latest
 docker-ccip:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:$(DOCKER_TAG)
 
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
@@ -146,6 +138,7 @@ docker-ccip:
 # Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
 comma := ,
 .PHONY: docker-plugins ## Build the EXPERIMENTAL chainlink-plugins docker image
+docker-plugins: DOCKER_TAG=latest
 docker-plugins:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -155,11 +148,12 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile . \
-	-t chainlink-plugins:latest
+	-t chainlink-plugins:$(DOCKER_TAG)
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -267,6 +261,17 @@ test-short: ## Run 'go test -short' and suppress uninteresting output
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
+
+.PHONY: dependabot
+ifndef DEPENDABOT_SEVERITY
+DEPENDABOT_SEVERITY := "critical,high"
+endif
+dependabot: gomods
+	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
+      '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
+      jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+      xargs -L1 -t bash -c 'cd $$0 && go get $$1@v$$2 || go get $$1'
+	gomods tidy
 
 help:
 	@echo ""

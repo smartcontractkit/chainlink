@@ -14,10 +14,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
 
@@ -55,7 +54,7 @@ func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Trans
 }
 
 func Test_Cleanup(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	lp := &mockLogPoller{}
 	ds := pgtest.NewSqlxDB(t)
@@ -124,15 +123,15 @@ func Test_Cleanup(t *testing.T) {
 
 func Test_StaleTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	const n = 13
 
 	transmissions := makeSampleTransmissions(n)
 	torm := mercurytransmitter.NewORM(ds, 1)
-	err := torm.Insert(testutils.Context(t), transmissions)
+	err := torm.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 	pgtest.MustExec(t, ds, `
 UPDATE llo_mercury_transmit_queue
@@ -157,9 +156,9 @@ WHERE transmission_hash IN (
 
 func Test_OrphanedTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	const n = 13
 
@@ -171,7 +170,7 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	// add transmissions from a DON not present in ocr2 specs
 	transmissions := makeSampleTransmissions(n)
 	torm := mercurytransmitter.NewORM(ds, 1)
-	err := torm.Insert(testutils.Context(t), transmissions)
+	err := torm.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 
 	d, err := tr.reap(ctx, n, "orphaned")
@@ -179,7 +178,7 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	assert.Equal(t, int64(n), d)
 
 	torm2 := mercurytransmitter.NewORM(ds, 2)
-	err = torm2.Insert(testutils.Context(t), transmissions)
+	err = torm2.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 
 	d, err = tr.reap(ctx, n, "orphaned")

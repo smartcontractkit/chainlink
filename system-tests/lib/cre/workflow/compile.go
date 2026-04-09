@@ -28,8 +28,24 @@ const (
 // It will return an error if the workflow name is less than 10 characters long.
 // It will return an error if the workflow file path is not a valid file path.
 func CompileWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
+	return CompileWorkflowToDir(ctx, workflowFilePath, workflowName, "")
+}
+
+// CompileWorkflowToDir compiles a workflow and stores build artifacts in outputDir.
+// If outputDir is empty, a temporary directory is created automatically.
+func CompileWorkflowToDir(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
 	if len(workflowName) < 10 {
 		return "", errors.New("workflow name must be at least 10 characters long")
+	}
+	if outputDir == "" {
+		var err error
+		outputDir, err = os.MkdirTemp("", "cre-workflow-build-*")
+		if err != nil {
+			return "", errors.Wrap(err, "failed to create temporary workflow build dir")
+		}
+	}
+	if mkErr := os.MkdirAll(outputDir, 0o755); mkErr != nil {
+		return "", errors.Wrap(mkErr, "failed to prepare workflow build dir")
 	}
 
 	language, lErr := delectLanguage(workflowFilePath)
@@ -41,9 +57,9 @@ func CompileWorkflow(ctx context.Context, workflowFilePath, workflowName string)
 	var err error
 	switch language {
 	case LanguageGo:
-		workflowWasmAbsPath, err = compileGoWorkflow(ctx, workflowFilePath, workflowName)
+		workflowWasmAbsPath, err = compileGoWorkflow(ctx, workflowFilePath, workflowName, outputDir)
 	case LanguageTS:
-		workflowWasmAbsPath, err = compileTSWorkflow(ctx, workflowFilePath, workflowName)
+		workflowWasmAbsPath, err = compileTSWorkflow(ctx, workflowFilePath, workflowName, outputDir)
 	default:
 		return "", fmt.Errorf("unsupported workflow language: %s", language)
 	}
@@ -76,16 +92,16 @@ func delectLanguage(workflowFilePath string) (Language, error) {
 	}
 }
 
-func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
-	workflowWasmPath := workflowName + ".wasm"
+func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
+	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
 
-	compileCmd := exec.CommandContext(ctx, "bun", "cre-compile", workflowFilePath, filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+	compileCmd := exec.CommandContext(ctx, "bun", "cre-compile", workflowFilePath, workflowWasmPath) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	if output, err := compileCmd.CombinedOutput(); err != nil {
 		fmt.Fprint(os.Stderr, string(output))
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
-	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
+	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)
 	if workflowWasmAbsPathErr != nil {
 		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
 	}
@@ -93,8 +109,8 @@ func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 	return workflowWasmAbsPath, nil
 }
 
-func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName string) (string, error) {
-	workflowWasmPath := workflowName + ".wasm"
+func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
+	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
 
 	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
 	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
@@ -110,7 +126,7 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName strin
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
-	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(filepath.Join(filepath.Dir(workflowFilePath), workflowWasmPath))
+	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)
 	if workflowWasmAbsPathErr != nil {
 		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
 	}

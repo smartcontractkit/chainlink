@@ -21,3 +21,7 @@ func (p *pyroscopeConfig) ServerAddress() string {
 func (p *pyroscopeConfig) Environment() string {
 	return *p.c.Environment
 }
+
+func (p *pyroscopeConfig) LinkTracesToProfiles() bool {
+	return *p.c.LinkTracesToProfiles
+}

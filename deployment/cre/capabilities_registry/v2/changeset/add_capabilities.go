@@ -21,9 +21,10 @@ type AddCapabilitiesInput struct {
 	RegistryChainSel  uint64 `json:"registryChainSel" yaml:"registryChainSel"`
 	RegistryQualifier string `json:"registryQualifier" yaml:"registryQualifier"`
 
-	MCMSConfig        *crecontracts.MCMSConfig     `json:"mcmsConfig" yaml:"mcmsConfig"`
-	DonName           string                       `json:"donName" yaml:"donName"`
-	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"`
+	MCMSConfig *crecontracts.MCMSConfig `json:"mcmsConfig" yaml:"mcmsConfig"`
+
+	// DonCapabilityConfigs maps DON name to the list of capability configs for that DON.
+	DonCapabilityConfigs map[string][]contracts.CapabilityConfig `json:"donCapabilityConfigs" yaml:"donCapabilityConfigs"`
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
@@ -33,11 +34,16 @@ type AddCapabilitiesInput struct {
 type AddCapabilities struct{}
 
 func (u AddCapabilities) VerifyPreconditions(_ cldf.Environment, config AddCapabilitiesInput) error {
-	if config.DonName == "" {
-		return errors.New("must specify DONName")
+	if len(config.DonCapabilityConfigs) == 0 {
+		return errors.New("donCapabilityConfigs must contain at least one DON entry")
 	}
-	if len(config.CapabilityConfigs) == 0 {
-		return errors.New("capabilityConfigs is required")
+	for donName, configs := range config.DonCapabilityConfigs {
+		if donName == "" {
+			return errors.New("donCapabilityConfigs keys cannot be empty strings")
+		}
+		if len(configs) == 0 {
+			return fmt.Errorf("donCapabilityConfigs[%q] must contain at least one capability config", donName)
+		}
 	}
 	return nil
 }
@@ -59,11 +65,10 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		sequences.AddCapabilities,
 		sequences.AddCapabilitiesDeps{Env: &e, MCMSContracts: mcmsContracts},
 		sequences.AddCapabilitiesInput{
-			RegistryRef:       registryRef,
-			DonName:           config.DonName,
-			CapabilityConfigs: config.CapabilityConfigs,
-			Force:             config.Force,
-			MCMSConfig:        config.MCMSConfig,
+			RegistryRef:          registryRef,
+			DonCapabilityConfigs: config.DonCapabilityConfigs,
+			Force:                config.Force,
+			MCMSConfig:           config.MCMSConfig,
 		},
 	)
 	if err != nil {

@@ -107,7 +107,7 @@ func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitF
 		return out, fmt.Errorf("failed to create random keys: %w", err)
 	}
 
-	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), deps.Chain.DeployerKey.PublicKey(), solana.SystemProgramID)
+	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), deps.Chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
 	if err != nil {
 		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
 	}
@@ -210,7 +210,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			configPDA,
 			owner,
 			solana.SystemProgramID,
-		)
+		).ValidateAndBuild()
 		if err != nil {
 			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
 		}
@@ -223,7 +223,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			in.ForwarderState,
 			configPDA,
 			owner,
-		)
+		).ValidateAndBuild()
 		if err != nil {
 			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
 		}

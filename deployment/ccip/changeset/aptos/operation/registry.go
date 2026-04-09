@@ -27,6 +27,7 @@ func GetAptosOperations() []*cld_ops.Operation[any, any, any] {
 	operations = append(operations, TokenOperations...)
 	operations = append(operations, aptos.CurseMultipleOp.AsUntypedRelaxed())
 	operations = append(operations, aptos.UncurseMultipleOp.AsUntypedRelaxed())
+	operations = append(operations, aptos.InitializeAllowedCursersOp.AsUntypedRelaxed())
 
 	return operations
 }

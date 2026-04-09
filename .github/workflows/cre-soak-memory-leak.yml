@@ -1,0 +1,194 @@
+name: CRE Resource Regression Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      ecr_name:
+        description: "ECR repository name (default: chainlink)"
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        description: "Chainlink image tag to use"
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      ecr_name:
+        required: false
+        type: string
+        default: "chainlink"
+      chainlink_image_tag:
+        required: true
+        type: string
+
+jobs:
+  soak:
+    name: CRE Resource Regression Test
+    environment:
+      name: integration
+      deployment: false
+    runs-on: runs-on=${{ github.run_id }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+    timeout-minutes: 270 # 4h30m — test timeout is 4h20m
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
+      CRE_SOAK_DURATION: "2h"
+      CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+      CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink' }}:${{ inputs.chainlink_image_tag }}"
+      CHIP_INGRESS_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
+      CHIP_CONFIG_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
+
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        id: setup-go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: true
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-duration-seconds: 3600
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install CTF binary
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CTF_TAG: "framework/v0.15.2"
+        run: |
+          echo "::startgroup::Install CTF binary"
+          mkdir -p bin
+          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+          echo "::endgroup::"
+
+      - name: Start observability stack
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          echo "::startgroup::Starting observability stack (required by leak package)"
+          ./bin/ctf obs up -f
+          echo "::endgroup::"
+
+      - name: Start local CRE
+        shell: bash
+        working-directory: core/scripts/cre/environment
+        run: |
+          echo "::startgroup::Starting local CRE"
+          go run . env start --cleanup-on-error=false
+          echo "::endgroup::"
+
+      - name: Install gotestsum
+        shell: bash
+        run: go install gotest.tools/gotestsum@v1.12.3
+
+      - name: Run CRE Resource Regression Test
+        id: run-soak
+        shell: bash
+        working-directory: system-tests/tests
+        env:
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+        run: |
+          gotestsum \
+            --jsonfile=/tmp/gotest.log \
+            --junitfile=/tmp/junit-report.xml \
+            --format=github-actions \
+            -- \
+            -v -run "^Test_CRE_PoR_MemoryLeakSoak$" \
+            -timeout 4h20m \
+            -count=1 \
+            github.com/smartcontractkit/chainlink/system-tests/tests/soak/cre
+
+      - name: Upload alloc.pprof
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: alloc.pprof
+          path: system-tests/tests/soak/cre/alloc.pprof
+          retention-days: 7
+
+      - name: Upload Docker logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-docker-logs
+          path: system-tests/tests/soak/cre/logs
+          retention-days: 7
+
+  notify-test-failure:
+    name: Notify about test Failure
+    if: failure()
+    needs: [soak]
+    environment:
+      name: integration
+      deployment: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send slack notification for failed resource regression tests
+        id: send-slack-notification
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          payload: |
+            {
+              "channel": "C0117GGJB6Y",
+              "text": "CRE Resource Regression Test Failed. Investigation is required.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: CRE Resource Regression Test Failed. Investigation is required. :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Alerting <@U033CGL3CDT>, CRE Resource Regression Test failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Chainlink nodes used more resources than expected. Check the Docker logs and the alloc.pprof file."
+                  }
+                }
+              ]
+            }

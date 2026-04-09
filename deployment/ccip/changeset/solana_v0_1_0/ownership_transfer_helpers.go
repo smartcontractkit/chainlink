@@ -111,7 +111,10 @@ func transferOwnershipRouter(
 
 	// Build specialized closures
 	buildTransfer := func(newOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		ccip_router.SetProgramID(routerProgramID)
+		runSafely(
+			func() {
+				ccip_router.SetProgramID(routerProgramID)
+			})
 		ix, err := ccip_router.NewTransferOwnershipInstruction(
 			newOwner, config, authority,
 		).ValidateAndBuild()
@@ -126,7 +129,10 @@ func transferOwnershipRouter(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		ccip_router.SetProgramID(routerProgramID)
+		runSafely(
+			func() {
+				ccip_router.SetProgramID(routerProgramID)
+			})
 		// If the router has its own accept function, use that
 		ix, err := ccip_router.NewAcceptOwnershipInstruction(
 			config, newOwnerAuthority,
@@ -181,7 +187,10 @@ func transferOwnershipFeeQuoter(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		fee_quoter.SetProgramID(feeQuoterProgramID)
+		runSafely(
+			func() {
+				fee_quoter.SetProgramID(feeQuoterProgramID)
+			})
 		ix, err := fee_quoter.NewTransferOwnershipInstruction(
 			proposedOwner, config, authority,
 		).ValidateAndBuild()
@@ -196,7 +205,10 @@ func transferOwnershipFeeQuoter(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		fee_quoter.SetProgramID(feeQuoterProgramID)
+		runSafely(
+			func() {
+				fee_quoter.SetProgramID(feeQuoterProgramID)
+			})
 		// If the router has its own accept function, use that
 		ix, err := fee_quoter.NewAcceptOwnershipInstruction(
 			config, newOwnerAuthority,
@@ -251,7 +263,10 @@ func transferOwnershipOffRamp(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		ccip_offramp.SetProgramID(offRampProgramID)
+		runSafely(
+			func() {
+				ccip_offramp.SetProgramID(offRampProgramID)
+			})
 		ix, err := ccip_offramp.NewTransferOwnershipInstruction(
 			proposedOwner, config, authority,
 		).ValidateAndBuild()
@@ -266,7 +281,10 @@ func transferOwnershipOffRamp(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		ccip_offramp.SetProgramID(offRampProgramID)
+		runSafely(
+			func() {
+				ccip_offramp.SetProgramID(offRampProgramID)
+			})
 		// If the router has its own accept function, use that
 		ix, err := ccip_offramp.NewAcceptOwnershipInstruction(
 			config, newOwnerAuthority,
@@ -320,7 +338,10 @@ func transferOwnershipBurnMintTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPools[tokenPoolMetadata])
+		runSafely(
+			func() {
+				burnmint.SetProgramID(state.BurnMintTokenPools[tokenPoolMetadata])
+			})
 		ix, err := burnmint.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
@@ -335,7 +356,10 @@ func transferOwnershipBurnMintTokenPools(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		burnmint.SetProgramID(state.BurnMintTokenPools[tokenPoolMetadata])
+		runSafely(
+			func() {
+				burnmint.SetProgramID(state.BurnMintTokenPools[tokenPoolMetadata])
+			})
 		// If the router has its own accept function, use that
 		ix, err := burnmint.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -389,7 +413,10 @@ func transferOwnershipLockReleaseTokenPools(
 
 	// Build specialized closures
 	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPools[tokenPoolMetadata])
+		runSafely(
+			func() {
+				lockrelease.SetProgramID(state.LockReleaseTokenPools[tokenPoolMetadata])
+			})
 		ix, err := lockrelease.NewTransferOwnershipInstruction(
 			proposedOwner, config, tokenMint, authority,
 		).ValidateAndBuild()
@@ -404,7 +431,10 @@ func transferOwnershipLockReleaseTokenPools(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		lockrelease.SetProgramID(state.LockReleaseTokenPools[tokenPoolMetadata])
+		runSafely(
+			func() {
+				lockrelease.SetProgramID(state.LockReleaseTokenPools[tokenPoolMetadata])
+			})
 		// If the router has its own accept function, use that
 		ix, err := lockrelease.NewAcceptOwnershipInstruction(
 			config, tokenMint, newOwnerAuthority,
@@ -460,7 +490,10 @@ func transferOwnershipRMNRemote(
 
 	// Build specialized closures
 	buildTransfer := func(newOwner, config, cursesConfig, authority solana.PublicKey) (solana.Instruction, error) {
-		rmn_remote.SetProgramID(rmnRemoteProgramID)
+		runSafely(
+			func() {
+				rmn_remote.SetProgramID(rmnRemoteProgramID)
+			})
 		ix, err := rmn_remote.NewTransferOwnershipInstruction(
 			newOwner, config, cursesConfig, authority,
 		).ValidateAndBuild()
@@ -475,7 +508,10 @@ func transferOwnershipRMNRemote(
 		return ix, nil
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
-		rmn_remote.SetProgramID(rmnRemoteProgramID)
+		runSafely(
+			func() {
+				rmn_remote.SetProgramID(rmnRemoteProgramID)
+			})
 		// If the router has its own accept function, use that
 		ix, err := rmn_remote.NewAcceptOwnershipInstruction(
 			config, newOwnerAuthority,

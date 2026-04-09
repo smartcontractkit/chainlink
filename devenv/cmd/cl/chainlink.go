@@ -23,6 +23,8 @@ const (
 	LocalCLDashboard              = "http://localhost:3000/d/f8a04cef-653f-46d3-86df-87c532300672/cl-load-test?orgId=1&refresh=5s"
 )
 
+var DefaultEnvUpTimeout = 7 * time.Minute
+
 var rootCmd = &cobra.Command{
 	Use:   "cl",
 	Short: "A Chainlink local environment tool",
@@ -59,7 +61,7 @@ var restartCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("failed to clean Docker resources: %w", err)
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), DefaultEnvUpTimeout)
 		defer cancel()
 		return de.NewEnvironment(ctx)
 	},
@@ -80,7 +82,7 @@ var upCmd = &cobra.Command{
 		framework.L.Info().Str("Config", configFile).Msg("Creating development environment")
 		_ = os.Setenv("CTF_CONFIGS", configFile)
 		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), DefaultEnvUpTimeout)
 		defer cancel()
 		return de.NewEnvironment(ctx)
 	},

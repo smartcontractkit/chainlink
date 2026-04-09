@@ -1,0 +1,66 @@
+name: "Post-Build Chainlink"
+
+on:
+    # to be used with post-release tests
+    workflow_call:
+        inputs:
+            chainlink_core_full_image:
+                required: false
+                type: string
+                description: "The Chainlink (core) image to use for the tests."
+            chainlink_ccip_full_image:
+                required: false
+                type: string
+                description: "The Chainlink (CCIP) image to use for the tests."
+            chainlink_version:
+                required: false
+                type: string
+                description: "The version of Chainlink repository to use for the tests. If empty github.sha will be used."
+
+permissions:
+    actions: read
+    checks: write
+    id-token: write
+    contents: read
+
+jobs:
+    # Upgrade compatibility tests
+    df1-compat:
+        uses: ./.github/workflows/devenv-compat.yml
+        name: Data Feeds v1 Upgrade Test
+        with:
+            buildcmd: "just cli"
+            envcmd: "cl u env.toml,products/ocr2/basic.toml"
+            testcmd: "cl test ocr2 TestSmoke/rounds"
+            upgrade-nodes: "3"
+            node-name-template: "don-node%d"
+            versions-back: "3"
+            # uncomment once we have tested this pipeline with beta/rc releases
+            # exclude-refs: "beta,rc,ccip"
+            # remove when ^^ is uncommented
+            exclude-refs: "ccip"
+            working-directory: "devenv"
+            logs-directory: "./devenv/tests/ocr2/logs"
+            ctf-log-level: "debug"
+            strip-image-suffix: "v"
+        secrets: inherit
+
+    cre-compat:
+        uses: ./.github/workflows/devenv-compat.yml
+        name: CRE Upgrade Test
+        with:
+            buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
+            envcmd: "go run -C ../../core/scripts/cre/environment . env start"
+            testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
+            upgrade-nodes: "3"
+            node-name-template: "workflow-node%d"
+            versions-back: "3"
+            # uncomment once we have tested this pipeline with beta/rc releases
+            # exclude-refs: "beta,rc,ccip"
+            # remove when ^^ is uncommented
+            exclude-refs: "ccip"
+            working-directory: "./system-tests/tests"
+            logs-directory: "./system-tests/tests/smoke/cre/logs"
+            ctf-log-level: "debug"
+            strip-image-suffix: "v"
+        secrets: inherit

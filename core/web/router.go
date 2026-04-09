@@ -74,7 +74,6 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		engine.Use(prometheus.Instrument())
 	}
 	engine.Use(helmet.Default())
-
 	rl := config.WebServer().RateLimit()
 	api := engine.Group(
 		"/",
@@ -233,6 +232,8 @@ func loopRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	loopRegistry := NewLoopRegistryServer(app)
 	r.GET("/discovery", ginHandlerFromHTTP(loopRegistry.discoveryHandler))
 	r.GET("/plugins/:name/metrics", loopRegistry.pluginMetricHandler)
+	r.GET("/plugins/:name/debug/pprof/*profile", loopRegistry.pluginPPROFHandler)
+	r.POST("/plugins/:name/debug/pprof/symbol", loopRegistry.pluginPPROFPOSTSymbolHandler)
 }
 
 func v2Routes(app chainlink.Application, r *gin.RouterGroup) {

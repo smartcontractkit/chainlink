@@ -65,6 +65,10 @@ func (c *Consensus) PreEnvStartup(
 		CapabilityToOCR3Config: map[string]*ocr3.OracleConfig{
 			consensusLabelledName: contracts.DefaultOCR3Config(),
 		},
+		CapabilityToExtraSignerFamilies: cre.CapabilityToExtraSignerFamilies(
+			cre.OCRExtraSignerFamilies(creEnv.Blockchains),
+			consensusLabelledName,
+		),
 	}, nil
 }
 
@@ -106,7 +110,7 @@ func createJobs(
 		return fmt.Errorf("config for '%s' capability not found for %s DON", flag, don.GetName())
 	}
 
-	command, commandErr := standardcapability.GetCommand(capabilityConfig.BinaryPath, creEnv.Provider)
+	command, commandErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 	if commandErr != nil {
 		return fmt.Errorf("failed to get command for consensus capability: %w", commandErr)
 	}
@@ -137,7 +141,6 @@ func createJobs(
 	}
 
 	specs := make(map[string][]string)
-
 	// Create node job
 	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
 		return err
@@ -221,8 +224,13 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 		inputs["config"] = configStr
 	}
 
-	// Add Solana chain selector if present
+	// Add non-EVM OCR selectors when present so consensus can select the correct
+	// offchain key bundle path for report generation.
 	for _, blockchain := range creEnv.Blockchains {
+		if blockchain.IsFamily(chainselectors.FamilyAptos) {
+			inputs["chainSelectorAptos"] = blockchain.ChainSelector()
+			continue
+		}
 		if blockchain.IsFamily(chainselectors.FamilySolana) {
 			inputs["chainSelectorSolana"] = blockchain.ChainSelector()
 			break
@@ -249,6 +257,12 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 
 	report, applyErr := proposer.Apply(*creEnv.CldfEnvironment, input)
 	if applyErr != nil {
+		if strings.Contains(applyErr.Error(), "no aptos ocr2 config for node") {
+			return nil, fmt.Errorf(
+				"failed to propose Consensus v2 node job spec: %w; Aptos workflows require Aptos OCR2 key bundles on all workflow DON nodes",
+				applyErr,
+			)
+		}
 		return nil, fmt.Errorf("failed to propose Consensus v2 node job spec: %w", applyErr)
 	}
 

@@ -39,7 +39,8 @@ type ConfigureOCR3_1Input struct {
 
 	ReportingPluginConfigOverride []byte
 
-	MCMSConfig *contracts.MCMSConfig
+	MCMSConfig          *contracts.MCMSConfig
+	ExtraSignerFamilies []string `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 func (i ConfigureOCR3_1Input) UseMCMS() bool {
@@ -80,6 +81,7 @@ var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR
 			input.ChainSelector,
 			deps.Env.OCRSecrets,
 			input.ReportingPluginConfigOverride,
+			input.ExtraSignerFamilies,
 		)
 		if err != nil {
 			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)

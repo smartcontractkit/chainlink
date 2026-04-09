@@ -64,12 +64,12 @@ github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
 github.com/smartcontractkit/chain-selectors v1.0.90 h1:M+1Xgum6WxxEMgUIkE2KJomsf60IntavaypUb9O/OI0=
 github.com/smartcontractkit/chain-selectors v1.0.90/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260304224222-c5c5976d3417 h1:WEmNgQGjbYJH50EtaII8iX5Vx3VcOX10AMuhmK8VTaA=
-github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260304224222-c5c5976d3417/go.mod h1:Jqt53s27Tr0jDl8mdBXg1xhu6F8Fci8JOuq43tgHOM8=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260408132951-ec901b7b5b59 h1:byE20JYy4B3SboHf7nMxq2V/AIF47QJWV7SdSZVUXgc=
+github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260408132951-ec901b7b5b59/go.mod h1:Jqt53s27Tr0jDl8mdBXg1xhu6F8Fci8JOuq43tgHOM8=
 github.com/smartcontractkit/cre-sdk-go v1.3.1-0.20260225184421-f0b13c7a76a7 h1:gRSJQQgLhQ+vbO3KAu18aHBgWo+IBJfxYqMivbkmE2Q=
 github.com/smartcontractkit/cre-sdk-go v1.3.1-0.20260225184421-f0b13c7a76a7/go.mod h1:yYrQFz1UH7hhRbPO0q4fgo1tfsJNd4yXnI3oCZE0RzM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260304224616-a1bcb0c1f370 h1:LtbTgVaO299UN1keyom/9yoE1sI/OwoinWhWiG8umMM=
-github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260304224616-a1bcb0c1f370/go.mod h1:m2/3ouMkrJNL1x0LvJIkzIKyhSuIHR8UBOCXbteAXxU=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260408175057-40ad8563d0b4 h1:eXT4HwjteKIFy2RU+B6YKd98ZZY+ku+QsDZ2sQposn4=
+github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260408175057-40ad8563d0b4/go.mod h1:QwmWctmKysfBo3695gQpTHEsn4OYUgphPyw6RWVkgiU=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 h1:RN5mrigyirb8anBEtdjtHFIufXdacyTi6i4KBfeNXeo=
 github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091/go.mod h1:VlduQ80JcGJSargkRU4Sg9Xo63wZD/l8A5NC/Uo1/uU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

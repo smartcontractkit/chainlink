@@ -6,9 +6,9 @@ require (
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.14.0
 	github.com/smartcontractkit/chain-selectors v1.0.97
-	github.com/smartcontractkit/cre-sdk-go v1.1.0
-	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.1-0.20260303175242-573e7e1ec998
-	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
+	github.com/smartcontractkit/cre-sdk-go v1.5.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/solana v0.1.0
+	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -18,7 +18,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
-	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -33,7 +33,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260303174316-33ff4336e600 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260226130359-963f935e0396 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect
