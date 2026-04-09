@@ -52,7 +52,7 @@ jobs:
       # cl node Docker container name template, omit if you are using 'devenv'
       node-name-template: "don-node%d"
       # previous versions to test (sorted by tags, SemVer)
-      versions-back: "3"
+      versions-back: "5"
       # patterns to exclude specific refs
       exclude-refs: "beta,rc,ccip"
       # Git refs to test, should be used only for tool testing purposes.
@@ -82,7 +82,7 @@ jobs:
       # cl node Docker container name template, omit if you are using 'devenv'
       node-name-template: "workflow-node%d"
       # previous versions to test (sorted by tags, SemVer)
-      versions-back: "3"
+      versions-back: "5"
       # patterns to exclude specific refs
       exclude-refs: "beta,rc,ccip"
       # Git refs to test, should be used only for tool testing purposes.
