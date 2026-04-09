@@ -70,7 +70,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		}
 	}()
 	defer logProvider.Close()
-	defer cancel() // cancel ctx before Close so provider goroutines stop before log poller cleanup
+	defer cancel() // Close stops provider goroutines; cancel tears down the test context used by poller/wait helpers
 
 	logsRounds := 10
 
@@ -200,8 +200,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	quarantine.Flaky(t, "DX-1766")
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -244,7 +243,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		}
 	}()
 	defer logProvider.Close()
-	defer cancel() // cancel ctx before Close so provider goroutines stop before log poller cleanup
+	defer cancel() // Close stops provider goroutines; cancel tears down the test context used by poller/wait helpers
 
 	waitLogProvider(ctx, t, logProvider, 3)
 
