@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -41,7 +41,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
 		"vrfKey": map[string]any{
@@ -53,7 +53,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	variables := map[string]any{
@@ -123,7 +123,7 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 	for range 2 {
 		fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		uncompressed, err := fakeKey.PublicKey.StringUncompressed()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fakeKeys = append(fakeKeys, fakeKey)
 		expectedKeys = append(expectedKeys, map[string]string{
@@ -139,7 +139,7 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 			"results": expectedKeys,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -179,7 +179,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
 		"createVRFKey": map[string]any{
@@ -191,7 +191,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -238,7 +238,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
 		"deleteVRFKey": map[string]any{
@@ -250,7 +250,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	variables := map[string]any{

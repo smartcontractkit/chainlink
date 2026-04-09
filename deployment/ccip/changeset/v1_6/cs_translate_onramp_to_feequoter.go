@@ -155,6 +155,9 @@ func (cfg TranslateEVM2EVMOnRampsToFeeQuoterConfig) toSequenceInput(e cldf.Envir
 				newFeeQuoterParams[destChainSel] = cfg.NewFeeQuoterParamsPerSource[sel]
 			}
 		}
+		if len(onRamps) == 0 {
+			continue
+		}
 		input[sel] = opsutil.EVMCallInput[migrate_seq.OnRampToFeeQuoterDestChainConfigInput]{
 			ChainSelector: sel,
 			Address:       state.Chains[sel].FeeQuoter.Address(),

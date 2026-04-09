@@ -81,6 +81,8 @@ func NewLegacyChains(
 	}
 	return
 }
+
+// Deprecated: use the Relayer interface
 func NewLegacyChainsAndConfig(
 	lggr logger.Logger,
 	ks keystore.Eth,

@@ -109,7 +109,7 @@ var evmNegativeTestsEstimateGasInvalidToAddress = []evmNegativeTest{
 	{"empty", "", estimateGasInvalidToAddress, "EVM error StackUnderflow"},
 	{"a letter", "a", estimateGasInvalidToAddress, "EVM error PrecompileError"},
 	{"a symbol", "/", estimateGasInvalidToAddress, "EVM error StackUnderflow"},
-	{"not authored contract", "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512", estimateGasInvalidToAddress, "execution reverted"},
+	{"invalid call data", "replaced-during-runtime-with-contract-address", estimateGasInvalidToAddress, "execution reverted"},
 	{"cut hex", "0x", estimateGasInvalidToAddress, "EVM error StackUnderflow"}, // equivalent to "0x0"
 }
 
@@ -225,11 +225,32 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 				BalanceReaderAddress: readBalancesAddress,
 			},
 		}
-		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
-		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
-		testLogger.Info().Msg("EVM Read Fail test successfully completed")
+		if evmNegativeTest.functionToTest == estimateGasInvalidToAddress && evmNegativeTest.name == "invalid call data" {
+			workflowConfig.InvalidInput = readBalancesAddress.String()
+		}
+
+		workflowName := fmt.Sprintf("evm-read-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
+		workflowID := t_helpers.CompileAndDeployWorkflow(
+			t,
+			testEnv,
+			testLogger,
+			workflowName,
+			&workflowConfig,
+			workflowFileLocation,
+		)
+
+		t_helpers.WatchWorkflowLogs(
+			t,
+			testLogger,
+			userLogsCh,
+			baseMessageCh,
+			t_helpers.WorkflowEngineInitErrorLog,
+			evmNegativeTest.expectedError,
+			2*time.Minute,
+			t_helpers.WithUserLogWorkflowID(workflowID),
+		)
+		testLogger.Info().Msgf("EVM Read Fail test successfully completed for test case %s and chain %s", evmNegativeTest.name, chainID)
 	}
 }
 
@@ -264,16 +285,31 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 			ChainSelector:  bcOutput.ChainSelector(),
 			InvalidAddress: evmNegativeTest.invalidInput,
 		}
+
 		workflowName := fmt.Sprintf("evm-logtrigger-fail-workflow-%s-%04d", chainID, rand.Intn(10000))
-		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(
+			t,
+			testEnv,
+			testLogger,
+			workflowName,
+			&workflowConfig,
+			workflowFileLocation,
+			// log event trigger is located on the capabilities DON, so it needs workflow artifacts copied to the capabilities DON
+			t_helpers.WithArtifactCopyDONTypes(cre.WorkflowDON, cre.CapabilitiesDON),
+		)
 
 		// For LogTrigger with EOA address, we expect engine initialization failure
 		// This is the correct behavior - the workflow engine should fail to initialize when trying to register a trigger with an invalid address
-		baseMsg := t_helpers.WatchBaseMessages(t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, 2*time.Minute)
-		require.NotEmpty(t, baseMsg.Labels, "no labels found in base message")
-		require.NotEmpty(t, baseMsg.Labels["err"], "no error label found in base message")
-		require.Contains(t, baseMsg.Labels["err"], evmNegativeTest.expectedError, "expected error message to contain "+evmNegativeTest.expectedError)
-		testLogger.Info().Msg("EVM LogTrigger Fail test successfully completed")
+		_ = t_helpers.WatchBaseMessages(
+			t,
+			testLogger,
+			baseMessageCh,
+			t_helpers.WorkflowEngineInitErrorLog,
+			2*time.Minute,
+			t_helpers.WithBaseMessageWorkflowID(workflowID),
+			t_helpers.WithBaseMessageLabelContains("err", evmNegativeTest.expectedError),
+		)
+		testLogger.Info().Msgf("EVM LogTrigger Fail test successfully completed for test case %s and chain %s", evmNegativeTest.name, chainID)
 	}
 }
 
@@ -313,7 +349,8 @@ var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
 var evmNegativeTestsLogTriggerInvalidAddress = []evmNegativeTest{
 	// using a well-known EOA address that is guaranteed to not be a contract
 	{"EOA address", "0x0000000000000000000000000000000000000001", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
-	{"another EOA", "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
+	// Anvil's & Geth's default dev account
+	{"another EOA", "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", logTriggerInvalidAddress, expectedLogTriggerInvalidAddress},
 }
 
 func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativeTest evmNegativeTest) {
@@ -357,9 +394,18 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 				DataFeedsCacheAddress: dataFeedsCacheAddress,
 			},
 		}
-		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 
-		t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, evmNegativeTest.expectedError, 2*time.Minute)
+		t_helpers.WatchWorkflowLogs(
+			t,
+			testLogger,
+			userLogsCh,
+			baseMessageCh,
+			t_helpers.WorkflowEngineInitErrorLog,
+			evmNegativeTest.expectedError,
+			2*time.Minute,
+			t_helpers.WithUserLogWorkflowID(workflowID),
+		)
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")
 	}
 }

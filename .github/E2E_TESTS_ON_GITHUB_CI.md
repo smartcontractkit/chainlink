@@ -55,8 +55,6 @@ These are dispatched parametrized workflows, that may be triggered manually for 
 - [On-Demand Automation Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/automation-ondemand-tests.yml)
 - [CCIP Chaos Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-chaos-tests.yml)
 - [CCIP Load Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/ccip-load-tests.yml)
-- [VRFv2Plus Smoke Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-smoke-tests.yml)
-- [VRFv2Plus Performance Tests](https://github.com/smartcontractkit/chainlink/actions/workflows/on-demand-vrfv2plus-performance-test.yml)
 
 ### Test workflows setup in CI
 

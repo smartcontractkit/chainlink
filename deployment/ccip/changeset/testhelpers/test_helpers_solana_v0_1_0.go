@@ -23,61 +23,20 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
-
-	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
-
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
-	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
-	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
-
-	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/base_token_pool"
 	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/ccip_common"
@@ -90,21 +49,45 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
+	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/mock_v3_aggregator_contract"
+	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
+	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
+	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 	"github.com/smartcontractkit/chainlink/deployment"
-
+	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
+	ccipChangeSetSolanaV0_1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
+	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
-
+	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
+	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink-ccv/verifier/commit"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/commit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

@@ -646,7 +646,8 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		keyStore,
 		estimator,
 		ht,
-		nil)
+		nil,
+		false)
 	require.NoError(t, err, "can't create tx manager")
 
 	_, unsub := broadcaster.Subscribe(txm)

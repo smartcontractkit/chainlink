@@ -27,9 +27,13 @@ type Topology struct {
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
 	for i := range nodeSet {
-		// TODO take more care about the ID assignment, it should match what the capabilities registry will assign
-		// currently we optimistically set the id to the that which the capabilities registry will assign it
-		d, err := NewDonMetadata(nodeSet[i], libc.MustSafeUint64FromInt(i+1), provider, capabilityConfigs)
+		// Use ContractDonID from NodeSet when set (resolved from Capabilities Registry contract).
+		// Otherwise use optimistic i+1; the ID may be overwritten later when resolving from the contract.
+		id := nodeSet[i].ContractDonID
+		if id == 0 {
+			id = libc.MustSafeUint64FromInt(i + 1)
+		}
+		d, err := NewDonMetadata(nodeSet[i], id, provider, capabilityConfigs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create DON metadata: %w", err)
 		}

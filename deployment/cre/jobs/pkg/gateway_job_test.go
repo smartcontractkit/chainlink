@@ -30,6 +30,16 @@ func TestGateway_Validate_ServiceCentric(t *testing.T) {
 	require.ErrorContains(t, g.Validate(), "must provide at least one service")
 }
 
+func TestNewDefaultConfidentialRelayHandler(t *testing.T) {
+	t.Parallel()
+
+	got := newDefaultConfidentialRelayHandler(14)
+
+	assert.Equal(t, GatewayHandlerTypeConfidentialRelay, got.Name)
+	assert.Equal(t, ServiceNameConfidential, got.ServiceName)
+	assert.Equal(t, confidentialRelayHandlerConfig{RequestTimeoutSec: 14}, got.Config)
+}
+
 const (
 	expected = `type = 'gateway'
 schemaVersion = 1
@@ -289,6 +299,12 @@ ServiceName = 'workflows'
 
 [gatewayConfig.Services.Handlers.Config]
 CleanUpPeriodMs = 600000
+
+[gatewayConfig.Services.Handlers.Config.NodeRateLimiter]
+globalBurst = 100
+globalRPS = 500
+perSenderBurst = 100
+perSenderRPS = 100
 
 [[gatewayConfig.Services]]
 ServiceName = 'vault'

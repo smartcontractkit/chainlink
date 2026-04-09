@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 )
 
-const defaultCommitGasLimit = 500_000
-
 // InitializePluginConfig returns a PluginConfig for EVM chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{

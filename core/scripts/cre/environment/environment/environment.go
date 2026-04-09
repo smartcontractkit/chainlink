@@ -70,11 +70,6 @@ var (
 	provisioningStartTime time.Time
 )
 
-const (
-	WorkflowTriggerWebTrigger = "web-trigger"
-	WorkflowTriggerCron       = "cron"
-)
-
 var EnvironmentCmd = &cobra.Command{
 	Use:   "env",
 	Short: "Environment commands",
@@ -84,6 +79,7 @@ var EnvironmentCmd = &cobra.Command{
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd())
+	EnvironmentCmd.AddCommand(statusCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
@@ -216,7 +212,6 @@ func startCmd() *cobra.Command {
 	var (
 		extraAllowedGatewayPorts []int
 		withExampleFlag          bool
-		exampleWorkflowTrigger   string
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
 		withContractsVersion     string
@@ -336,8 +331,16 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
+			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
+			if in.Fake != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
+			}
+			if in.FakeHTTP != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
+			}
+
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
+				ExtraAllowedPorts:   extraAllowedPorts,
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
@@ -460,9 +463,6 @@ func startCmd() *cobra.Command {
 					return errors.New("no gateway connector configurations found")
 				}
 
-				// use first gateway for example workflow
-				gatewayURL := fmt.Sprintf("%s://%s:%d%s", output.GatewayConnectors.Configurations[0].Incoming.Protocol, output.GatewayConnectors.Configurations[0].Incoming.Host, output.GatewayConnectors.Configurations[0].Incoming.ExternalPort, output.GatewayConnectors.Configurations[0].Incoming.Path)
-
 				fmt.Print(libformat.PurpleText("\nRegistering and verifying example workflow\n\n"))
 				workflowRegistryAddress := libcontracts.MustGetAddressFromDataStore(output.CreEnvironment.CldfEnvironment.DataStore, output.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
@@ -478,11 +478,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				workflowDON, wErr := output.Dons.OneDonWithFlag(cre.WorkflowDON)
-				if wErr != nil {
-					return errors.Wrap(wErr, "failed to get workflow DON")
-				}
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, gatewayURL, workflowDON.Name, workflowDonID, exampleWorkflowTimeout, exampleWorkflowTrigger, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -514,7 +510,6 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withExampleFlag, "with-example", "x", false, "Deploys and registers example workflow")
 	cmd.Flags().DurationVarP(&exampleWorkflowTimeout, "example-workflow-timeout", "u", 5*time.Minute, "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().StringVarP(&withPluginsDockerImage, "with-plugins-docker-image", "p", "", "DEPRECATED:Docker image to use (set Docker image in TOML config instead)")
-	cmd.Flags().StringVarP(&exampleWorkflowTrigger, "example-workflow-trigger", "y", "web-trigger", "Trigger for example workflow to deploy (web-trigger or cron)")
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
@@ -663,16 +658,137 @@ func stopCmd() *cobra.Command {
 				if cErr != nil {
 					framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
 				} else {
-					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
+					framework.L.Info().Msgf("Removed local CRE state file: %s", creStateFile)
+				}
+
+				runningExtras := runningExtraServiceStopHints(detectServiceStatus(cmd.Context()))
+				if len(runningExtras) > 0 {
+					fmt.Println()
+					fmt.Println("The following extra services appear to still be running:")
+					for _, hint := range runningExtras {
+						fmt.Printf("- %s: stop with `%s`\n", hint.serviceName, hint.stopCommand)
+					}
+					fmt.Print("\n- All extra services: stop with `go run . env stop --all`\n")
 				}
 			}
 
-			fmt.Println("Environment stopped successfully")
+			fmt.Print("\nLocal CRE environment stopped successfully\n")
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing)")
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing, observability)")
+
+	return cmd
+}
+
+type serviceStopHint struct {
+	serviceName string
+	stopCommand string
+}
+
+type serviceStatus struct {
+	environmentRunning   bool
+	beholderRunning      bool
+	billingRunning       bool
+	observabilityRunning bool
+}
+
+func runningExtraServiceStopHints(status serviceStatus) []serviceStopHint {
+	var hints []serviceStopHint
+
+	if status.beholderRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Beholder",
+			stopCommand: "go run . env beholder stop",
+		})
+	}
+
+	if status.billingRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Billing",
+			stopCommand: "go run . env billing stop",
+		})
+	}
+
+	if status.observabilityRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Observability",
+			stopCommand: "go run . obs down",
+		})
+	}
+
+	return hints
+}
+
+func detectServiceStatus(cmdContext context.Context) serviceStatus {
+	return serviceStatus{
+		environmentRunning:   envconfig.LocalCREStateFileExists(relativePathToRepoRoot),
+		beholderRunning:      envconfig.ChipIngressStateFileExists(relativePathToRepoRoot),
+		billingRunning:       envconfig.BillingStateFileExists(relativePathToRepoRoot),
+		observabilityRunning: isObservabilityGrafanaRunning(cmdContext),
+	}
+}
+
+func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return false
+	}
+	defer dockerClient.Close()
+
+	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
+	defer cancel()
+
+	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		return false
+	}
+
+	for _, c := range containers {
+		// Observability is typically started from the CTF compose bundle and identified by compose labels.
+		if c.Labels["com.docker.compose.service"] == "grafana" && c.Labels["com.docker.compose.project"] == "compose" {
+			return true
+		}
+
+		// Fallback for CTF-managed containers if labels differ.
+		if c.Labels["framework"] == "ctf" {
+			for _, name := range c.Names {
+				if strings.Contains(strings.ToLower(name), "grafana") {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func statusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "status",
+		Short:            "Shows status of local CRE services",
+		Long:             "Shows status of local CRE environment and extra services",
+		PersistentPreRun: globalPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			status := detectServiceStatus(cmd.Context())
+			statusText := func(running bool) string {
+				if running {
+					return "running"
+				}
+				return "stopped"
+			}
+
+			fmt.Println()
+			fmt.Println("Local CRE service status:")
+			fmt.Printf("- Environment: %s\n", statusText(status.environmentRunning))
+			fmt.Printf("- Beholder: %s\n", statusText(status.beholderRunning))
+			fmt.Printf("- Billing: %s\n", statusText(status.billingRunning))
+			fmt.Printf("- Observability: %s\n", statusText(status.observabilityRunning))
+			fmt.Println()
+			return nil
+		},
+	}
 
 	return cmd
 }

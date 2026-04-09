@@ -57,6 +57,9 @@ type EngineMetrics struct {
 	executionTimestampFallbackCounter metric.Int64Counter
 	executionIDFullCounter            metric.Int64Counter
 	executionIDLegacyCounter          metric.Int64Counter
+
+	shardExecutionDeniedNotOwnerCounter     metric.Int64Counter
+	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -262,6 +265,16 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.executionIDLegacyCounter, err = beholder.GetMeter().Int64Counter("platform_engine_execution_id_legacy")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register execution id legacy counter: %w", err)
+	}
+
+	em.shardExecutionDeniedNotOwnerCounter, err = beholder.GetMeter().Int64Counter("platform_engine_shard_execution_denied_not_owner")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register shard execution denied not owner counter: %w", err)
+	}
+
+	em.shardExecutionDeniedOrchestratorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_shard_execution_denied_orchestrator_error")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register shard execution denied orchestrator error counter: %w", err)
 	}
 
 	return em, nil
@@ -499,4 +512,14 @@ func (c WorkflowsMetricLabeler) IncrementExecutionIDFullCounter(ctx context.Cont
 func (c WorkflowsMetricLabeler) IncrementExecutionIDLegacyCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.executionIDLegacyCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedNotOwnerCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.shardExecutionDeniedNotOwnerCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.shardExecutionDeniedOrchestratorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

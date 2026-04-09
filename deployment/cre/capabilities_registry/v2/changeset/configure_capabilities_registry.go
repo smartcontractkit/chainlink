@@ -198,6 +198,8 @@ type configCountFunc func(capID, ocrConfigKey string) (uint64, error)
 //	            deltaProgressMillis: 5000
 //	            maxFaultyOracles: 2
 //	            transmissionSchedule: [10]
+//	          extraSignerFamilies:
+//	            - aptos
 //
 // Example output (the __default__ entry is replaced in-place):
 //
@@ -217,10 +219,11 @@ func expandOCR3Configs(
 	configCountFn configCountFunc,
 ) error {
 	type genEntry struct {
-		capIdx       int
-		capID        string
-		ocrConfigKey string
-		oracleConfig *ocr3.OracleConfig
+		capIdx              int
+		capID               string
+		ocrConfigKey        string
+		oracleConfig        *ocr3.OracleConfig
+		extraSignerFamilies []string
 	}
 	var entries []genEntry
 
@@ -248,11 +251,18 @@ func expandOCR3Configs(
 					capCfg.CapabilityID, key, err)
 			}
 
+			extraFamilies, err := parseExtraSignerFamilies(entryMap)
+			if err != nil {
+				return fmt.Errorf("capability %q, ocr3Configs[%q].extraSignerFamilies: %w",
+					capCfg.CapabilityID, key, err)
+			}
+
 			entries = append(entries, genEntry{
-				capIdx:       i,
-				capID:        capCfg.CapabilityID,
-				ocrConfigKey: key,
-				oracleConfig: oc,
+				capIdx:              i,
+				capID:               capCfg.CapabilityID,
+				ocrConfigKey:        key,
+				oracleConfig:        oc,
+				extraSignerFamilies: extraFamilies,
 			})
 		}
 	}
@@ -272,7 +282,7 @@ func expandOCR3Configs(
 
 	for i, entry := range entries {
 		ocrConfig, err := ocr3.ComputeOCR3Config(
-			e, chainSel, nodes, *entry.oracleConfig, nil,
+			e, chainSel, nodes, *entry.oracleConfig, nil, entry.extraSignerFamilies,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to generate OCR3 config for %q[%q]: %w",
@@ -310,6 +320,31 @@ func extractOCR3Configs(config map[string]any) map[string]any {
 		return nil
 	}
 	return ocr3Configs
+}
+
+// parseExtraSignerFamilies extracts and validates the optional "extraSignerFamilies"
+// string slice from an ocr3Config entry map.
+func parseExtraSignerFamilies(entryMap map[string]any) ([]string, error) {
+	raw, ok := entryMap["extraSignerFamilies"]
+	if !ok {
+		return nil, nil
+	}
+	rawSlice, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("expected []string, got %T", raw)
+	}
+	families := make([]string, 0, len(rawSlice))
+	for i, v := range rawSlice {
+		s, ok := v.(string)
+		if !ok {
+			return nil, fmt.Errorf("element [%d]: expected string, got %T", i, v)
+		}
+		families = append(families, s)
+	}
+	if err := ocr3.ValidateExtraSignerFamilies(families); err != nil {
+		return nil, err
+	}
+	return families, nil
 }
 
 // ParseOracleConfig JSON-roundtrips an untyped map into an OracleConfig.

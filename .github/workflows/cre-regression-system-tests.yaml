@@ -43,19 +43,19 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.chainlink_version }}
           persist-credentials: false
 
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
@@ -95,8 +95,11 @@ jobs:
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-    environment: "integration"
-    timeout-minutes: 60
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
+    timeout-minutes: 10
     env:
       ENABLE_AUTO_QUARANTINE: "true"
       # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
@@ -107,19 +110,19 @@ jobs:
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ inputs.chainlink_version }}
           persist-credentials: false
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
@@ -183,6 +186,11 @@ jobs:
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 30m
+          PARALLEL_COUNT: "10"
+          # parallelisation flags for tests
+          # fanout is necessary, because multiple tests would otherwise start chip test sinks at the same port, causing conflicts
+          CRE_TEST_PARALLEL_ENABLED: "true"
+          CRE_TEST_CHIP_SINK_FANOUT_ENABLED: "true"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
@@ -192,7 +200,7 @@ jobs:
             --junitfile=/tmp/junit-report-regression.xml \
             --format=github-actions \
             -- \
-            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=1 \
+            -v -run "^(${TEST_NAME})$" -timeout ${TEST_TIMEOUT} -count=1 -parallel=${PARALLEL_COUNT} \
             github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
 
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
@@ -230,7 +238,7 @@ jobs:
 
       - name: Upload all artifacts as single package
         if: failure()
-        uses: actions/upload-artifact@v4.6.2
+        uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |

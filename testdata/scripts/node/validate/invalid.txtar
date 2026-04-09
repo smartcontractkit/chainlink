@@ -444,6 +444,9 @@ URL = ''
 URL = ''
 TLSEnabled = true
 
+[CRE.ConfidentialRelay]
+Enabled = false
+
 [Billing]
 URL = ''
 TLSEnabled = true

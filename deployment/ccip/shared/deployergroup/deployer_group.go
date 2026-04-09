@@ -450,14 +450,13 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 }
 
 func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
-	batches := make([]mcmstypes.BatchOperation, 0)
+	var count uint64
 	for _, batchOperation := range timelockProposal.Operations {
 		if batchOperation.ChainSelector == chain {
-			batches = append(batches, batchOperation)
+			count++
 		}
 	}
-
-	return uint64(len(batches))
+	return count
 }
 
 func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {

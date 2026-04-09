@@ -30,12 +30,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -92,6 +94,11 @@ type eventHandler struct {
 
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
+
+	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardingEnabled         bool
+	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
 }
 
 // EventHandlerOption is a functional option for configuring an eventHandler.
@@ -126,6 +133,20 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardOrchestratorClient = client
+		e.shardingEnabled = shardingEnabled
+		e.myShardID = shardID
+	}
+}
+
+func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardRoutingSteady = signal
 	}
 }
 
@@ -330,13 +351,14 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
 		err = h.workflowActivatedEvent(ctx, payload)
 		if err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			h.lggr.Errorw("failed to handle workflow activated event", "error", err, "workflowID", wfID)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
 			return err
 		}
 
@@ -610,12 +632,17 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	labeler := h.emitter
 	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                       lggr,
-		Labeler:                      labeler,
-		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		Logger:                               lggr,
+		Labeler:                              labeler,
+		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
+		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
+		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
+		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
+		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
 		SdkLabeler: func(name string) {
 			sdkName = name
 			h.emitterMu.Lock()
@@ -657,7 +684,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 
-			BillingClient: h.billingClient,
+			BillingClient:           h.billingClient,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardingEnabled:         h.shardingEnabled,
+			MyShardID:               h.myShardID,
+			ShardRoutingSteady:      h.shardRoutingSteady,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
@@ -707,6 +738,11 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		DebugMode:                     h.debugMode,
 		SecretsFetcher:                h.secretsFetcher,
 		SdkName:                       sdkName,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
 	}
 
 	// Wire the initDone channel to the OnInitialized lifecycle hook.
@@ -819,6 +855,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
 	}
+	// Free the hex-encoded binary string as it is not needed beyond this decode
+	spec.Workflow = ""
 
 	// Workflow Registry version >2 no longer handles secrets
 	secretsURL := ""
@@ -829,7 +867,8 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	if err != nil {
 		return fmt.Errorf("failed to decode owner: %w", err)
 	}
-	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	configBytes := []byte(spec.Config)
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
@@ -852,16 +891,19 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 
-	engine, err := h.engineFactory(
-		ctx,
-		spec.WorkflowID,
-		spec.WorkflowOwner,
-		workflowName,
-		spec.WorkflowTag,
-		[]byte(spec.Config),
-		decodedBinary,
-		initDone,
-	)
+	// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
+	engine, err := func() (services.Service, error) {
+		return h.engineFactory(
+			ctx,
+			spec.WorkflowID,
+			spec.WorkflowOwner,
+			workflowName,
+			spec.WorkflowTag,
+			configBytes,
+			decodedBinary,
+			initDone,
+		)
+	}()
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -942,6 +984,20 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 			}
 			return nil
 		})
+}
+
+// customerFacingError returns a deterministic, user-actionable error for beholder emission.
+// Internal errors (e.g. ArtifactFetchError with per-node signed URLs) are replaced with a
+// clean message so that workflow-service can aggregate error_message across nodes.
+func customerFacingError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var fetchErr *types.ArtifactFetchError
+	if errors.As(err, &fetchErr) {
+		return errors.New(fetchErr.CustomerError())
+	}
+	return err
 }
 
 func newHandlerTypeError(data any) error {

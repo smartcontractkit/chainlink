@@ -114,7 +114,7 @@ func dataIDtoBytes(dataID string) ([16]byte, error) {
 }
 
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
-	tt := time.NewTicker(time.Second * 5)
+	tt := time.NewTicker(time.Second * 2)
 	defer tt.Stop()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*4)
 	defer cancel()

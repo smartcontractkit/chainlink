@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -239,9 +240,19 @@ func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
 		Port: port,
 	}
 
-	fakeOutput, err := fake.NewFakeDataProvider(fakeInput)
-	if err != nil {
-		return nil, err
+	var startErr error
+	fakeProviderStarted.Do(func() {
+		_, startErr = fake.NewFakeDataProvider(fakeInput)
+	})
+	if startErr != nil {
+		return nil, startErr
+	}
+
+	// The fake server might already be running due to another parallel test.
+	// Build URLs deterministically from the configured port.
+	fakeOutput := &fake.Output{
+		BaseURLHost:   fmt.Sprintf("http://localhost:%d", port),
+		BaseURLDocker: fmt.Sprintf("%s:%d", framework.HostDockerInternal(), port),
 	}
 
 	// Set up the /orders endpoint
@@ -251,7 +262,7 @@ func startTestOrderServer(t *testing.T, port int) (*fake.Output, error) {
 		"message": "Order processed successfully",
 	}
 
-	err = fake.JSON("POST", "/orders", response, 200)
+	err := fake.JSON("POST", "/orders", response, 200)
 	require.NoError(t, err, "failed to set up /orders endpoint")
 
 	framework.L.Info().Msgf("Test order server started on port %d at: %s", port, fakeOutput.BaseURLHost)

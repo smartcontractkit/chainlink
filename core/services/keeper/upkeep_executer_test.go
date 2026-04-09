@@ -49,7 +49,7 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 	keeper.Registry,
 	keeper.UpkeepRegistration,
 	job.Job,
-	cltest.JobPipelineV2TestHelper,
+	JobPipelineV2TestHelper,
 	*txmmocks.MockEvmTxManager,
 	keystore.Master,
 	legacyevm.Chain,
@@ -63,11 +63,13 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 	})
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	ethClient := evmtest.NewEthClientMock(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("ConfiguredChainID").Return(cfg.EVMConfigs()[0].ChainID.ToInt()).Maybe()
 	ethClient.On("IsL2").Return(false).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewMockEvmTxManager(t)
+	servicetest.SetupNoOpMock(txm)
+	txm.On("OnNewLongestChain", mock.Anything, mock.Anything).Return().Maybe()
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		TxManager:      txm,
 		DB:             db,
@@ -78,7 +80,7 @@ func setup(t *testing.T, overrideFn func(c *chainlink.Config, s *chainlink.Secre
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
 	})
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
+	jpv2 := NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
 	orm := keeper.NewORM(db, logger.TestLogger(t))
 	registry, jb := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
@@ -265,8 +267,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, db, registry)
 		lggr := logger.TestLogger(t)
 		executer := keeper.NewUpkeepExecuter(jb, orm, jpv2.Pr, ethMock, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, cfg.Keeper(), jb.KeeperSpec.FromAddress.Address())
-		err := executer.Start(testutils.Context(t))
-		require.NoError(t, err)
+		servicetest.Run(t, executer)
 		head := newHead()
 		executer.OnNewLongestChain(testutils.Context(t), &head)
 		// TODO we want to see an errored run result once this is completed

@@ -7,6 +7,23 @@ on:
         description: "Strip image suffix from tag so it matches the registry tag"
         required: false
         type: string
+      product:
+        description: "Product name to query in RANE SOT (jq '.nodes[].jobs[].product')"
+        required: false
+        type: string
+      no-git-rollback:
+        description: "Skip git rollback during compatibility testing"
+        required: false
+        type: boolean
+        default: false
+      refs:
+        description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
+        required: false
+        type: string
+      exclude-refs:
+        description: "Patterns to exclude specific refs (e.g., beta,rc,v0,v1)"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -19,10 +36,15 @@ on:
         description: "Test command to run"
         required: true
         type: string
-      nodes:
-        description: "Number of nodes for the test"
+      upgrade-nodes:
+        description: "Number of nodes to upgrade when testing"
         required: false
         default: "3"
+        type: string
+      don-nodes:
+        description: "Number of available DON nodes after envcmd"
+        required: false
+        default: "5"
         type: string
       node-name-template:
         description: "Template for the node name"
@@ -49,24 +71,27 @@ on:
         default: "info"
         type: string
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: true
-
 jobs:
   compatibility:
     permissions:
       id-token: write
       contents: read
-      pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
-    environment: "integration"
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     env:
       STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
+      PRODUCT: ${{ inputs.product }}
+      NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
+      REFS: ${{ inputs.refs }}
+      EXCLUDE_REFS: ${{ inputs.exclude-refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
-      NODES: ${{ inputs.nodes }}
+      UPGRADE_NODES: ${{ inputs.upgrade-nodes }}
+      DON_NODES: ${{ inputs.don-nodes }}
       NODE_NAME_TEMPLATE: ${{ inputs.node-name-template }}
       VERSIONS_BACK: ${{ inputs.versions-back }}
       WORKING_DIR: ${{ inputs.working-directory }}
@@ -134,6 +159,25 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
+      
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
+              echo "Service is accessible via Tailscale"
+          else
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
+          fi
+      
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
@@ -142,26 +186,63 @@ jobs:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
           REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
+          PRODUCT: ${{ env.PRODUCT }}
+          NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
           NODES: ${{ env.NODES }}
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
         run: |
+          REFS_ARGS=""
+          if [ -n "${{ env.REFS }}" ]; then
+            REFS_ARGS="--refs ${{ env.REFS }}"
+          fi
+          EXCLUDE_REFS_ARGS=""
+          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
+            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
-            --nodes "${NODES}" \
+            --product "${PRODUCT}" \
+            ${REFS_ARGS} \
+            ${EXCLUDE_REFS_ARGS} \
+            --upgrade-nodes "${UPGRADE_NODES}" \
+            --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
-            --versions-back "${VERSIONS_BACK}"
+            --versions-back "${VERSIONS_BACK}" \
+            ${{ env.NO_GIT_ROLLBACK }}
 
-      - name: Upload Logs
+      - name: Attach CI Summary
+        working-directory: ${{ env.WORKING_DIR }}
+        if: always()
+        run: |
+          if [ -f "ci_summary.txt" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Collect Docker container logs
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mkdir -p logs
+          for container in $(docker ps -q); do
+            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
+            docker logs $container > "logs/${container_name}.log" 2>&1
+          done
+
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: container-logs-smoke
+          name: container-logs-smoke-${{ job.check_run_id }}
           path: ${{ env.LOGS_DIR }}
-          retention-days: 3
