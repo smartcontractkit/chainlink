@@ -26,6 +26,7 @@ func init() {
 }
 
 func Main() (code int) {
+	fmt.Println("DEBUG: Trigger test runs!!!")
 	recovery.ReportPanics(func() {
 		app := cmd.NewApp(newProductionClient())
 		if err := app.Run(os.Args); err != nil {
