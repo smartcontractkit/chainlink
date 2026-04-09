@@ -274,7 +274,7 @@ jobs:
 
       - name: Setup Aptos
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        uses: aptos-labs/actions/install-aptos-cli@528ef7ad9427a8c0720ea3eea790a9190d6e377d # 2026-04-09
         with:
           CLI_VERSION: 8.1.0
 
