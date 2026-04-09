@@ -147,7 +147,8 @@ jobs:
 
   notify-test-failure:
     name: Notify about test Failure
-    if: failure()
+    if: false # TODO: Remove before merging
+    # if: failure()
     needs: [soak]
     environment:
       name: integration
