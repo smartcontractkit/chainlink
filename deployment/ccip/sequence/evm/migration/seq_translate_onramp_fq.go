@@ -90,7 +90,6 @@ var (
 					// So we can just use the first enabled token's config in the loop here
 					onRampFeeTokenCfgReport := evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}
 
-					enabledFeeTokens := make([]common.Address, 0, len(allFeeTokensOp.Output))
 					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, 0, len(allFeeTokensOp.Output))
 					for _, ft := range allFeeTokensOp.Output {
 						feetokenCfgReport, err := operations.ExecuteOperation(
@@ -112,7 +111,6 @@ var (
 							continue // skip disabled fee tokens, same as TTFC loop below
 						}
 
-						enabledFeeTokens = append(enabledFeeTokens, ft)
 						// Translate the feeToken PremiumMultiplierCfg to 1.6 FeeQuoter config
 						premiumMultiplierCfg := EVM2EVMOnRampMigratePremiumMultiplierCfg{}
 						premiumMultiplierCfg.TranslateOnrampToFeeQFeePremiumCfg(ft, feetokenCfgReport.Output)
@@ -126,7 +124,7 @@ var (
 						feeQuoterUpdates[chainSel] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 					}
 					feeQuoterUpdates[chainSel][destChainSel] = feeQuoterTranslatedDestCfg.FeeQuoterDestChainConfig
-					allFeeTokens[chainSel] = append(allFeeTokens[chainSel], enabledFeeTokens...)
+					allFeeTokens[chainSel] = append(allFeeTokens[chainSel], allFeeTokensOp.Output...)
 					allFeetokenPremiumMultipliers[chainSel] = append(allFeetokenPremiumMultipliers[chainSel], feeTokenPremiumMultipliers...)
 				}
 			}
