@@ -1,5 +1,5 @@
 name: CI Core
-run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: CI Core
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -16,27 +16,11 @@ on:
   schedule:
     - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
-    inputs:
-      distinct_run_name:
-        description: Optional suffix for the workflow run name
-        required: false
-        type: string
-        default: ""
-      go_test_profile:
-        description: Per-package CPU/mem pprof (or set workflow env DEBUG_GO_TEST_PROFILE to 1)
-        required: false
-        type: boolean
-        default: false
-      go_test_profile_trace:
-        description: Execution traces (or set workflow env DEBUG_GO_TEST_PROFILE_TRACE to 1)
-        required: false
-        type: boolean
-        default: false
 
-# Flip to 1 while debugging; revert before merge. Applies to every trigger (PR, push, schedule, etc.).
+# Debugging: set to "1" for per-package CPU/mem pprof under go_test_profiles/ (optional trace). Revert before merge.
 env:
-  DEBUG_GO_TEST_PROFILE: "1"
-  DEBUG_GO_TEST_PROFILE_TRACE: "1"
+  CI_GO_TEST_PROFILE: "1"
+  CI_GO_TEST_PROFILE_TRACE: "1"
 
 jobs:
   filter:
@@ -222,8 +206,6 @@ jobs:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
       # when they should not be using it, while still allowing us to DRY up the setup
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
-      CI_GO_TEST_PROFILE: ${{ (env.DEBUG_GO_TEST_PROFILE == '1' || (github.event_name == 'workflow_dispatch' && inputs.go_test_profile == true)) && '1' || '' }}
-      CI_GO_TEST_PROFILE_TRACE: ${{ (env.DEBUG_GO_TEST_PROFILE_TRACE == '1' || (github.event_name == 'workflow_dispatch' && inputs.go_test_profile_trace == true)) && '1' || '' }}
       CI_GO_TEST_PROFILE_DIR: ${{ github.workspace }}/go_test_profiles
       CI_GO_TEST_PROFILE_PARALLEL: "8"
     strategy:
