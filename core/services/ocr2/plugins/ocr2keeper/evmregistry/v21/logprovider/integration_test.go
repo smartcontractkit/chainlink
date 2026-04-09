@@ -38,7 +38,6 @@ import (
 
 func TestIntegration_LogEventProvider(t *testing.T) {
 	ctx, cancel := context.WithCancel(testutils.Context(t))
-	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -71,6 +70,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		}
 	}()
 	defer logProvider.Close()
+	defer cancel() // cancel ctx before Close so provider goroutines stop before log poller cleanup
 
 	logsRounds := 10
 
@@ -201,8 +201,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	quarantine.Flaky(t, "DX-1766")
-	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
-	defer cancel()
+	ctx, cancel := context.WithCancel(testutils.Context(t))
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
@@ -245,6 +244,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		}
 	}()
 	defer logProvider.Close()
+	defer cancel() // cancel ctx before Close so provider goroutines stop before log poller cleanup
 
 	waitLogProvider(ctx, t, logProvider, 3)
 
@@ -337,6 +337,9 @@ func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.
 		allPayloads = append(allPayloads, logs...)
 		rounds--
 	}
+	if len(allPayloads) < n && ctx.Err() != nil {
+		require.FailNowf(t, "collectPayloads", "context done with %d/%d payloads: %v", len(allPayloads), n, ctx.Err())
+	}
 	return allPayloads
 }
 
@@ -348,8 +351,10 @@ func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.
 		if currentPartition > uint64(partition) { // make sure we went over all items
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(testutils.TestInterval)
 	}
+	require.Greater(t, logProvider.CurrentPartitionIdx(), uint64(partition),
+		"timed out waiting for log provider to pass partition %d", partition)
 }
 
 // waitLogPoller waits until the log poller is familiar with the given block
@@ -360,6 +365,9 @@ func waitLogPoller(ctx context.Context, t *testing.T, commit func() common.Hash,
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
+		if err := ctx.Err(); err != nil {
+			require.FailNowf(t, "waitLogPoller", "context done before poller reached block %d: %v", latestBlock, err)
+		}
 		latestPolled, lberr := lp.LatestBlock(ctx)
 		require.NoError(t, lberr)
 		if latestPolled.BlockNumber >= latestBlock {
