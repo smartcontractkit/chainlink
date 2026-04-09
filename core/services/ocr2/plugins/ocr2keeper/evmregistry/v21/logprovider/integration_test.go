@@ -344,16 +344,16 @@ func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.
 }
 
 // waitLogProvider waits until the provider reaches the given partition
-func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition int) {
+func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition uint64) {
 	t.Logf("waiting for log provider to reach partition %d", partition)
 	for ctx.Err() == nil {
 		currentPartition := logProvider.CurrentPartitionIdx()
-		if currentPartition > uint64(partition) { // make sure we went over all items
+		if currentPartition > partition { // make sure we went over all items
 			break
 		}
 		time.Sleep(testutils.TestInterval)
 	}
-	require.Greater(t, logProvider.CurrentPartitionIdx(), uint64(partition),
+	require.Greater(t, logProvider.CurrentPartitionIdx(), partition,
 		"timed out waiting for log provider to pass partition %d", partition)
 }
 
