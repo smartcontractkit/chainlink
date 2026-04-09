@@ -16,6 +16,27 @@ on:
   schedule:
     - cron: "0 0,6,12,18 * * *"
   workflow_dispatch:
+    inputs:
+      distinct_run_name:
+        description: Optional suffix for the workflow run name
+        required: false
+        type: string
+        default: ""
+      go_test_profile:
+        description: Per-package CPU/mem pprof (or set workflow env DEBUG_GO_TEST_PROFILE to 1)
+        required: false
+        type: boolean
+        default: false
+      go_test_profile_trace:
+        description: Execution traces (or set workflow env DEBUG_GO_TEST_PROFILE_TRACE to 1)
+        required: false
+        type: boolean
+        default: false
+
+# Flip to 1 while debugging; revert before merge. Applies to every trigger (PR, push, schedule, etc.).
+env:
+  DEBUG_GO_TEST_PROFILE: "1"
+  DEBUG_GO_TEST_PROFILE_TRACE: "1"
 
 jobs:
   filter:
@@ -201,6 +222,10 @@ jobs:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
       # when they should not be using it, while still allowing us to DRY up the setup
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+      CI_GO_TEST_PROFILE: ${{ (env.DEBUG_GO_TEST_PROFILE == '1' || (github.event_name == 'workflow_dispatch' && inputs.go_test_profile == true)) && '1' || '' }}
+      CI_GO_TEST_PROFILE_TRACE: ${{ (env.DEBUG_GO_TEST_PROFILE_TRACE == '1' || (github.event_name == 'workflow_dispatch' && inputs.go_test_profile_trace == true)) && '1' || '' }}
+      CI_GO_TEST_PROFILE_DIR: ${{ github.workspace }}/go_test_profiles
+      CI_GO_TEST_PROFILE_PARALLEL: "8"
     strategy:
       fail-fast: false
       matrix:
@@ -346,7 +371,7 @@ jobs:
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() && env.CI_GO_TEST_PROFILE != '1' }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "./junit.xml"
@@ -393,6 +418,15 @@ jobs:
             ./postgres_logs.txt
             ./junit.xml
             ./deployment/junit.xml
+          retention-days: 7
+
+      - name: Upload Go test profiles
+        if: ${{ always() && matrix.type.should-run == 'true' && env.CI_GO_TEST_PROFILE == '1' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.type.cmd }}_go_test_profiles
+          path: go_test_profiles/
+          if-no-files-found: ignore
           retention-days: 7
 
       - name: Notify Slack on Race Test Failure

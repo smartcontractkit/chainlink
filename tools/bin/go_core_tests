@@ -39,18 +39,69 @@ echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 echo "Test execution results: ---------------------"
 echo ""
 
-# For matching `go test` output - use --format='standard-quiet' and --hide-summary=skipped
-# For matching `go test -v` output - use only --format='standard-verbose'
-gotestsum \
-  --format='standard-quiet' \
-  --hide-summary=skipped \
-  $RERUN_FLAGS \
-  --packages='./...' \
-  --jsonfile "$OUTPUT_FILE" \
-  "$JUNIT_FLAG" \
-  -- $GO_TEST_FLAGS
+if [[ "${CI_GO_TEST_PROFILE:-}" == "1" ]]; then
+  # go test only allows -cpuprofile/-memprofile/-trace when testing a single package per invocation.
+  echo "CI_GO_TEST_PROFILE: running gotestsum once per package with CPU and mem profiles"
+  PROFILE_DIR="${CI_GO_TEST_PROFILE_DIR:-./go_test_profiles}"
+  mkdir -p "$PROFILE_DIR"
+  PROFILE_PARALLEL="${CI_GO_TEST_PROFILE_PARALLEL:-8}"
+  # Strip coverage flags (single shared coverprofile path conflicts with per-package profiles)
+  GO_TEST_FLAGS=$(echo " $GO_TEST_FLAGS " | sed -E 's/ -coverprofile=[^ ]+ / /g;s/ -covermode=[^ ]+ / /g;s/ -coverpkg=[^ ]+ / /g' | tr -s ' ' | sed 's/^ //;s/ $//')
+  RERUN_FLAGS=""
+  JUNIT_FLAG=""
+  echo "Profile mode: rerun and junit disabled for this run; merge JSON events into $OUTPUT_FILE"
+  export GO_TEST_FLAGS_FOR_PROFILE="$GO_TEST_FLAGS"
+  export PROFILE_DIR
+  export CI_GO_TEST_PROFILE_TRACE_VALUE="${CI_GO_TEST_PROFILE_TRACE:-0}"
 
-EXITCODE=${PIPESTATUS[0]}
+  mapfile -t PKGS < <(go list -e -f '{{if (or .TestGoFiles .XTestGoFiles)}}{{.ImportPath}}{{end}}' ./... 2>/dev/null | grep -v '^$' || true)
+  if [[ ${#PKGS[@]} -eq 0 ]]; then
+    echo "No packages with tests found"
+    exit 1
+  fi
+  echo "Profiling ${#PKGS[@]} packages (parallelism=${PROFILE_PARALLEL})"
+  : >"$OUTPUT_FILE"
+  if printf '%s\0' "${PKGS[@]}" | xargs -0 -n1 -P"${PROFILE_PARALLEL}" bash -c '
+    set -euo pipefail
+    pkg="$1"
+    safe=$(echo "$pkg" | sed "s/[^a-zA-Z0-9._-]/_/g")
+    TRACE_FLAGS=()
+    if [[ "${CI_GO_TEST_PROFILE_TRACE_VALUE}" == "1" ]]; then
+      TRACE_FLAGS=(-trace="${PROFILE_DIR}/trace_${safe}.out")
+    fi
+    gotestsum \
+      --format=standard-quiet \
+      --hide-summary=skipped \
+      --packages="$pkg" \
+      --jsonfile="${PROFILE_DIR}/events_${safe}.jsonl" \
+      -- ${GO_TEST_FLAGS_FOR_PROFILE} \
+        -cpuprofile="${PROFILE_DIR}/cpu_${safe}.prof" \
+        -memprofile="${PROFILE_DIR}/mem_${safe}.prof" \
+        "${TRACE_FLAGS[@]}"
+  ' bash; then
+    EXITCODE=0
+  else
+    EXITCODE=1
+  fi
+  shopt -s nullglob
+  for f in "$PROFILE_DIR"/events_*.jsonl; do
+    cat "$f"
+  done >"$OUTPUT_FILE"
+  shopt -u nullglob
+else
+  # For matching `go test` output - use --format='standard-quiet' and --hide-summary=skipped
+  # For matching `go test -v` output - use only --format='standard-verbose'
+  gotestsum \
+    --format='standard-quiet' \
+    --hide-summary=skipped \
+    $RERUN_FLAGS \
+    --packages='./...' \
+    --jsonfile "$OUTPUT_FILE" \
+    "$JUNIT_FLAG" \
+    -- $GO_TEST_FLAGS
+
+  EXITCODE=${PIPESTATUS[0]}
+fi
 
 # Assert no known sensitive strings present in test logger output
 printf "\n----------------------------------------------\n\n"
