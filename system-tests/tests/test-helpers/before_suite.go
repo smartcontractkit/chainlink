@@ -57,8 +57,7 @@ type sharedEnvironmentEntry struct {
 var (
 	sharedEnvMu         sync.Mutex
 	sharedEnvironments  = make(map[string]*sharedEnvironmentEntry)
-	workflowSignerAuthM sync.Mutex
-	fundingNonceLock    sync.Mutex
+	rootSignerNonceLock sync.Mutex
 )
 
 // SetupTestEnvironmentWithConfig creates a test environment backed by the shared
@@ -210,7 +209,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 			Build()
 		require.NoErrorf(t, clientErr, "failed to create per-test seth client for selector %d", evmChain.ChainSelector())
 
-		fundingNonceLock.Lock()
+		rootSignerNonceLock.Lock()
 		require.NoError(
 			t,
 			rootChain.Fund(t.Context(), ownerAddress.Hex(), perTestEVMFundingAmountWei),
@@ -218,7 +217,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 			ownerAddress.Hex(),
 			evmChain.ChainSelector(),
 		)
-		fundingNonceLock.Unlock()
+		rootSignerNonceLock.Unlock()
 
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
@@ -274,8 +273,8 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 		return
 	}
 
-	workflowSignerAuthM.Lock()
-	defer workflowSignerAuthM.Unlock()
+	rootSignerNonceLock.Lock()
+	defer rootSignerNonceLock.Unlock()
 
 	_, err = rootRegistryChain.SethClient.Decode(registry.UpdateAllowedSigners(rootRegistryChain.SethClient.NewTXOpts(), []common.Address{signer}, true))
 	require.NoError(t, err, "failed to authorize per-test signer")
