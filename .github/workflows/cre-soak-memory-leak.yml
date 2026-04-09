@@ -12,6 +12,10 @@ on:
         description: "Chainlink image tag to use"
         required: true
         type: string
+      chainlink_version:
+        description: "Test / orchestration code reference to use (defaults to github.sha)"
+        required: false
+        type: string
   workflow_call:
     inputs:
       ecr_name:
@@ -20,6 +24,10 @@ on:
         default: "chainlink"
       chainlink_image_tag:
         required: true
+        type: string
+      chainlink_version:
+        description: "Test / orchestration code reference to use (defaults to github.sha)"
+        required: false
         type: string
 
 jobs:
@@ -51,7 +59,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
       - name: Set up Go
