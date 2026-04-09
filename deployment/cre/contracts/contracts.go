@@ -180,7 +180,7 @@ func getOwnerReference[T Ownable](contract T, store datastore.AddressRefStore, c
 // GetOwnableContractV2 retrieves a contract instance of type T from the datastore.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
-func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, targetAddr string) (*T, error) {
+func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf_evm.Chain, targetAddr string, qualifier string) (*T, error) {
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
@@ -194,7 +194,14 @@ func GetOwnableContractV2[T Ownable](addrs datastore.AddressRefStore, chain cldf
 		return nil, fmt.Errorf("unsupported contract type %T", *new(T))
 	}
 
-	addresses := addrs.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(targetAddr))
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{
+		datastore.AddressRefByChainSelector(chain.Selector),
+		datastore.AddressRefByAddress(targetAddr),
+	}
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+	addresses := addrs.Filter(filters...)
 	if len(addresses) != 1 {
 		return nil, fmt.Errorf("expected exactly one address for contract at %s on chain %d, found %d", targetAddr, chain.Selector, len(addresses))
 	}
@@ -241,17 +248,24 @@ func createContractInstance[T Ownable](addr string, chain cldf_evm.Chain) (*T, e
 }
 
 // GetOwnedContractV2 retrieves an OwnedContract instance of type T from the datastore for a specific address.
-func GetOwnedContractV2[T Ownable](store datastore.AddressRefStore, chain cldf_evm.Chain, addr string) (*OwnedContract[T], error) {
-	addresses := store.Filter(datastore.AddressRefByChainSelector(chain.Selector), datastore.AddressRefByAddress(addr))
+func GetOwnedContractV2[T Ownable](store datastore.AddressRefStore, chain cldf_evm.Chain, addr string, qualifier string) (*OwnedContract[T], error) {
+	filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{
+		datastore.AddressRefByChainSelector(chain.Selector),
+		datastore.AddressRefByAddress(addr),
+	}
+	if qualifier != "" {
+		filters = append(filters, datastore.AddressRefByQualifier(qualifier))
+	}
+	addresses := store.Filter(filters...)
 
 	if len(addresses) == 0 {
 		return nil, fmt.Errorf("address %s not found in address ref store for chain %d", addr, chain.Selector)
 	}
-	// should not happen since address is unique
+	// should not happen since address+qualifier is unique
 	if len(addresses) > 1 {
 		return nil, fmt.Errorf("multiple addresses found for %s in address ref store for chain %d", addr, chain.Selector)
 	}
-	contract, err := GetOwnableContractV2[T](store, chain, addr)
+	contract, err := GetOwnableContractV2[T](store, chain, addr, qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)
 	}
