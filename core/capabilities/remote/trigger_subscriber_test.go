@@ -95,9 +95,9 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	// register trigger
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
-		RegistrationExpiry:      10 * time.Second,
+		RegistrationExpiry:      5 * time.Second,
 		MinResponsesToAggregate: 2,
-		MessageExpiry:           10 * time.Second,
+		MessageExpiry:           1 * time.Second,
 	}
 	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
@@ -118,17 +118,15 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	<-awaitRegistrationMessageCh
 
 	// receive trigger events:
-	// cleanup loop happens every 10 seconds, at 0:00, 0:10, 0:20, etc.
-	// send the event from the first node around 0:02 (this is a bad node
+	// send the event from the first node early (this is a bad node
 	// that sends it too early)
 	triggerEvent := buildTriggerEvent(t, capDon.Members[0][:])
-	time.Sleep(2 * time.Second)
+	time.Sleep(200 * time.Millisecond)
 	subscriber.Receive(t.Context(), triggerEvent)
 
-	// send events from nodes 2 & 3 (the good ones) around 0:15 so that
-	// the diff between 0:02 and 0:15 exceeds the expiry threshold but
-	// we don't hit the cleanup loop yet
-	time.Sleep(13 * time.Second)
+	// send events from nodes 2 & 3 (the good ones) after the expiry
+	// threshold so that event 1 is considered expired
+	time.Sleep(1300 * time.Millisecond)
 	triggerEvent.Sender = capDon.Members[1][:]
 	subscriber.Receive(t.Context(), triggerEvent)
 	// the aggregation shouldn't happen after events 1 and 2 as they
