@@ -2,6 +2,7 @@ package v02
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -26,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -91,13 +93,14 @@ func setupClient(t *testing.T) *client {
 	mercuryConfig := NewMockMercuryConfigProvider()
 	threadCtl := utils.NewThreadControl()
 
-	client := NewClient(
+	c := NewClient(
 		mercuryConfig,
 		mockHttpClient,
 		threadCtl,
 		lggr,
 	)
-	return client
+	require.NoError(t, c.StartOnce("v02_request", func() error { return nil }))
+	return c
 }
 
 func TestV02_SingleFeedRequest(t *testing.T) {
@@ -690,15 +693,17 @@ func TestV02_DoMercuryRequestV02_Timeout(t *testing.T) {
 	}
 	hc.On("Do", mock.Anything).Return(resp, nil).Once() // First request sends result normally
 
-	resp2 := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader([]byte{})),
-	}
-	// Second request has timeout
-	serverTimeout := 15 * time.Second // Server has delay of 15s, higher than mercury.RequestTimeout = 10s
+	// Second request simulates a server that takes longer than mercury.RequestTimeout.
+	// Block until the request context is cancelled rather than using time.Sleep,
+	// so the goroutine exits promptly during cleanup.
+	serverTimeout := 15 * time.Second
 	hc.On("Do", mock.Anything).Run(func(args mock.Arguments) {
-		time.Sleep(serverTimeout)
-	}).Return(resp2, nil).Once()
+		req := args.Get(0).(*http.Request)
+		select {
+		case <-req.Context().Done():
+		case <-time.After(serverTimeout):
+		}
+	}).Return((*http.Response)(nil), context.DeadlineExceeded).Once()
 
 	c.httpClient = hc
 
