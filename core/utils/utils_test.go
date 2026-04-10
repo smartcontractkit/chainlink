@@ -465,7 +465,7 @@ func TestCronTicker(t *testing.T) {
 	assert.True(t, ct.Stop())
 	close(done)
 	c := counter.Load()
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 	assert.Equal(t, c, counter.Load())
 }
 
