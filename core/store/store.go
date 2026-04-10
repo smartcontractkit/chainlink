@@ -136,11 +136,13 @@ func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	// Second parameter kept for ResetDatabase API compatibility (preparetest --force).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, pq.QuoteIdentifier(dbname)))
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, pq.QuoteIdentifier(dbname)))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, pq.QuoteIdentifier(dbname)))
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s`, pq.QuoteIdentifier(dbname)))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -150,11 +152,11 @@ func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s" WITH (FORCE)`, pq.QuoteIdentifier(testdb.PristineDBName)))
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, pq.QuoteIdentifier(testdb.PristineDBName)))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template)))
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE %s WITH TEMPLATE %s`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template)))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
