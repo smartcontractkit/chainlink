@@ -60,6 +60,12 @@ type mcmsInspectorOptions struct {
 
 type MCMSInspectorOption func(*mcmsInspectorOptions)
 
+func WithAptosRole(role mcmsaptossdk.TimelockRole) MCMSInspectorOption {
+	return func(opts *mcmsInspectorOptions) {
+		opts.AptosRole = role
+	}
+}
+
 func McmsInspectorForChain(env cldf.Environment, chain uint64, opts ...MCMSInspectorOption) (mcmssdk.Inspector, error) {
 	var options mcmsInspectorOptions
 	for _, opt := range opts {
