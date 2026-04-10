@@ -91,7 +91,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 
 	testEmail := "test@test.com"
 	apiToken := "example"
-	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration())
+	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration() - time.Second)
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', $3)", testEmail, apiToken, expiredTime)
 	require.NoError(t, err)
 
