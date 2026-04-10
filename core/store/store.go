@@ -156,7 +156,9 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE %s WITH TEMPLATE %s`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template)))
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s WITH TEMPLATE %s`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template)))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -242,7 +244,9 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(string(fixturesSQL))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, string(fixturesSQL))
 	return err
 }
 
@@ -264,7 +268,11 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				errCh <- cutils.JustError(db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", pq.QuoteIdentifier(dbname))))
+				errCh <- func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					return cutils.JustError(db.ExecContext(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %s WITH (FORCE)", pq.QuoteIdentifier(dbname))))
+				}()
 			}
 		}()
 	}
@@ -317,7 +325,11 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		}
 		randNum.Add(randNum, big.NewInt(minimumSequenceValue))
 
-		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
+		if err = func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			return cutils.JustError(db.ExecContext(ctx, fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)))
+		}(); err != nil {
 			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
 		}
 	}
