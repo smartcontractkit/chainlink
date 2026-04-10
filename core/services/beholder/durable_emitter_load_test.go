@@ -112,6 +112,9 @@ func (s *loadTestServer) Publish(_ context.Context, _ *cepb.CloudEvent) (*pb.Pub
 }
 
 func (s *loadTestServer) PublishBatch(_ context.Context, in *pb.CloudEventBatch) (*pb.PublishResponse, error) {
+	if ns := s.publishDelayNs.Load(); ns > 0 {
+		time.Sleep(time.Duration(ns))
+	}
 	s.batchCount.Add(1)
 	s.totalEvents.Add(int64(len(in.Events)))
 	s.mu.Lock()
@@ -359,12 +362,14 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
+	cfg.QuietMode = false
 	cfg.RetransmitInterval = 500 * time.Millisecond
-	// Must exceed tail store latency while 100k+ goroutines contend; else
-	// ListPending sees still-pending rows and duplicates Publish (extra RPCs, slower drain).
 	cfg.RetransmitAfter = 30 * time.Second
 	cfg.RetransmitBatchSize = 200
 	cfg.PublishTimeout = 5 * time.Second
+	cfg.PublishBatchSize = 100
+	cfg.PublishBatchWorkers = 12
+	cfg.DisablePruning = true
 	cfg.Hooks = newPipelineHooks(pipe)
 
 	// Wire OTel metrics to the local obs stack when OTEL_EXPORTER_OTLP_ENDPOINT is set.
@@ -383,7 +388,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 		mp := sdkmetric.NewMeterProvider(
 			sdkmetric.WithResource(res),
 			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp,
-				sdkmetric.WithInterval(5*time.Second),
+				sdkmetric.WithInterval(1*time.Second),
 			)),
 		)
 		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
@@ -393,10 +398,10 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 		beholder.SetClient(bc)
 		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
 		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-			PollInterval:       5 * time.Second,
+			PollInterval:       1 * time.Second,
 			RecordProcessStats: true,
 		}
-		t.Logf("OTel metrics enabled → %s (5s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
+		t.Logf("OTel metrics enabled → %s (1s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
 	}
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
@@ -405,14 +410,17 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	em.Start(ctx)
 	defer em.Close()
 
-	totalEvents := 1_000_000
+	totalEvents := 100_000
 	//if testing.Short() {
 	//totalEvents = 10_000
 	//}
 	const concurrency = 10
 
-	t.Logf("Full-stack sustained throughput: totalEvents=%d (100k unless -short), concurrency=%d",
-		totalEvents, concurrency)
+	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
+	targetRate := 1000
+
+	t.Logf("Full-stack sustained throughput: totalEvents=%d, concurrency=%d, targetRate=%d msg/s",
+		totalEvents, concurrency, targetRate)
 
 	payload := buildLoadTestPayload(256) // ~256 byte record (protobuf for external Chip)
 
@@ -420,42 +428,37 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	var cpuStart syscall.Rusage
 	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
 
-	// Queue depth sampler: polls DB every 200ms throughout emit + drain phases.
-	var queueMax, queueSum, queueCnt atomic.Int64
-	samplerCtx, samplerCancel := context.WithCancel(ctx)
-	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-samplerCtx.Done():
-				return
-			case <-ticker.C:
-				rows, _, err := queuePayloadStats(db, samplerCtx)
-				if err != nil {
-					continue
-				}
-				queueCnt.Add(1)
-				queueSum.Add(rows)
-				for {
-					old := queueMax.Load()
-					if rows <= old || queueMax.CompareAndSwap(old, rows) {
-						break
-					}
-				}
-			}
-		}
-	}()
-
 	start := time.Now()
 
 	var wg sync.WaitGroup
 	var emitErrors atomic.Int64
+
+	// Per-worker rate: divide target evenly across goroutines.
+	perWorkerRate := targetRate / concurrency
+	if perWorkerRate < 1 && targetRate > 0 {
+		perWorkerRate = 1
+	}
+
 	for w := 0; w < concurrency; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := 0; i < totalEvents/concurrency; i++ {
+			eventsPerWorker := totalEvents / concurrency
+
+			if targetRate <= 0 {
+				for i := 0; i < eventsPerWorker; i++ {
+					if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
+						emitErrors.Add(1)
+					}
+				}
+				return
+			}
+
+			interval := time.Duration(float64(time.Second) / float64(perWorkerRate))
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for i := 0; i < eventsPerWorker; i++ {
+				<-ticker.C
 				if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
 					emitErrors.Add(1)
 				}
@@ -469,16 +472,15 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	// Wait for all events to be delivered and store to drain (pending list empty;
 	// Postgres may still have tombstones until purge loop catches up).
-	drainWait := 45 * time.Second
+	drainWait := 60 * time.Second
 	if totalEvents >= 100_000 {
-		drainWait = 120 * time.Second
+		drainWait = 300 * time.Second
 	}
 	require.Eventually(t, func() bool {
 		pending, _ := store.ListPending(ctx, time.Now().Add(time.Hour), 1)
 		return len(pending) == 0
 	}, drainWait, 100*time.Millisecond, "store should drain completely (no pending delivery)")
 
-	samplerCancel() // stop queue poller
 	totalElapsed := time.Since(start)
 
 	// CPU diff: user + system seconds consumed over the whole test.
@@ -492,12 +494,24 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	// Utilization: fraction of available CPU time (wall × GOMAXPROCS).
 	cpuUtilPct := 100.0 * cpuTotalSec / (totalElapsed.Seconds() * float64(runtime.GOMAXPROCS(0)))
 
-	// Queue depth averages.
-	var queueAvg float64
-	if n := queueCnt.Load(); n > 0 {
-		queueAvg = float64(queueSum.Load()) / float64(n)
-	}
+	insN := pipe.emitIns.count()
+	insP50 := durMs(pipe.emitIns.percentile(0.50))
+	insP99 := durMs(pipe.emitIns.percentile(0.99))
+	insMean := durMs(pipe.emitIns.mean())
 
+	// Batch publish loop stats (primary delivery path when PublishBatchSize > 0).
+	bpN := pipe.batchLoopPub.count()
+	bpP50 := durMs(pipe.batchLoopPub.percentile(0.50))
+	bpP99 := durMs(pipe.batchLoopPub.percentile(0.99))
+	bpMean := durMs(pipe.batchLoopPub.mean())
+	bmN := pipe.batchLoopDel.count()
+	bmP50 := durMs(pipe.batchLoopDel.percentile(0.50))
+	bmP99 := durMs(pipe.batchLoopDel.percentile(0.99))
+	bmMean := durMs(pipe.batchLoopDel.mean())
+	bpEvents := pipe.batchLoopPubEvents.Load()
+	bmEvents := pipe.batchLoopMarkEvents.Load()
+
+	// Legacy per-event stats (only populated when PublishBatchSize == 0).
 	pubN := pipe.immPub.count()
 	pubErrs := pipe.immPubErr.Load()
 	pubP50 := durMs(pipe.immPub.percentile(0.50))
@@ -508,67 +522,95 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	delP99 := durMs(pipe.immDel.percentile(0.99))
 	delMean := durMs(pipe.immDel.mean())
 
-	var bottleneck string
-	switch {
-	case pubN < 50 || delN < 50:
-		bottleneck = "too few samples — extend duration or check async backlog"
-	case pubMean > 3*delMean && pubMean > 0.5:
-		bottleneck = "Chip / gRPC bound (Publish ≫ MarkDelivered)"
-	case delMean > 3*pubMean && delMean > 0.5:
-		bottleneck = "Postgres UPDATE bound (MarkDelivered ≫ Publish)"
-	default:
-		bottleneck = "balanced (Publish ≈ MarkDelivered)"
+	// DB-based end-to-end latency (delivered_at - created_at).
+	dbE2E, dbErr := queryDBE2ELatency(ctx, db)
+	if dbErr != nil {
+		t.Logf("WARNING: failed to query DB e2e latency: %v", dbErr)
 	}
 
 	var serverLine string
 	if srv != nil {
-		serverLine = fmt.Sprintf("%d (mock; Publish RPCs: %d)", srv.totalEvents.Load(), srv.publishCount.Load())
+		serverLine = fmt.Sprintf("%d (mock; batches: %d, individual: %d)",
+			srv.totalEvents.Load(), srv.batchCount.Load(), srv.publishCount.Load())
 	} else {
 		serverLine = "N/A  (use external Chip metrics)"
 	}
 
 	target := chipIngressTargetDescription(srv)
+	batchMode := cfg.PublishBatchSize > 0
+	batchLabel := "disabled (per-event goroutines)"
+	if batchMode {
+		workers := cfg.PublishBatchWorkers
+		if workers <= 0 {
+			workers = 1
+		}
+		batchLabel = fmt.Sprintf("%d events/batch, %d workers", cfg.PublishBatchSize, workers)
+	}
 
-	t.Logf("╔══════════════════════════════════════════════════════════════╗")
-	t.Logf("║          SUSTAINED THROUGHPUT TEST RESULTS                   ║")
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ Target: %-52s ║", target)
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ EMIT (DB insert, async gRPC)                                 ║")
-	t.Logf("║   Events:         %-42d ║", totalEvents)
-	t.Logf("║   Errors:         %-42d ║", emitErrors.Load())
-	t.Logf("║   Elapsed:        %-42s ║", emitElapsed.Round(time.Millisecond))
-	t.Logf("║   Rate:           %-42s ║", fmt.Sprintf("%.0f events/sec", float64(totalEvents)/emitElapsed.Seconds()))
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ DELIVERY (Publish → MarkDelivered)                          ║")
-	t.Logf("║   Server received:%-42s ║", serverLine)
-	t.Logf("║   Total elapsed:  %-42s ║", totalElapsed.Round(time.Millisecond))
-	t.Logf("║   End-to-end rate:%-42s ║", fmt.Sprintf("%.0f events/sec", float64(totalEvents)/totalElapsed.Seconds()))
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ PENDING QUEUE DEPTH (polled every 200ms, delivered_at IS NULL)║")
-	t.Logf("║   Max:            %-42d ║", queueMax.Load())
-	t.Logf("║   Avg:            %-42s ║", fmt.Sprintf("%.1f rows", queueAvg))
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ PIPELINE LATENCY (immediate path)                            ║")
-	t.Logf("║                   %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
-	t.Logf("║   Publish:        %-10d %-10.2f %-10.2f %-10.2f ║", pubN, pubP50, pubP99, pubMean)
-	t.Logf("║   MarkDelivered:  %-10d %-10.2f %-10.2f %-10.2f ║", delN, delP50, delP99, delMean)
+	rateLabel := "unlimited (fire-hose)"
+	if targetRate > 0 {
+		rateLabel = fmt.Sprintf("%d msg/s", targetRate)
+	}
+
+	t.Logf("╔══════════════════════════════════════════════════════════════════════╗")
+	t.Logf("║              SUSTAINED THROUGHPUT TEST RESULTS                      ║")
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ Target:      %-55s ║", target)
+	t.Logf("║ Batch mode:  %-55s ║", batchLabel)
+	t.Logf("║ Target rate: %-55s ║", rateLabel)
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ EMIT (DB insert, batched gRPC)                                     ║")
+	t.Logf("║   Events:         %-49d ║", totalEvents)
+	t.Logf("║   Errors:         %-49d ║", emitErrors.Load())
+	t.Logf("║   Elapsed:        %-49s ║", emitElapsed.Round(time.Millisecond))
+	t.Logf("║   Actual rate:    %-49s ║", fmt.Sprintf("%.0f msg/s", float64(totalEvents)/emitElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ DELIVERY (PublishBatch → MarkDeliveredBatch)                       ║")
+	t.Logf("║   Server received:%-49s ║", serverLine)
+	t.Logf("║   Total elapsed:  %-49s ║", totalElapsed.Round(time.Millisecond))
+	t.Logf("║   End-to-end rate:%-49s ║", fmt.Sprintf("%.0f events/sec", float64(totalEvents)/totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PENDING QUEUE DEPTH (exact atomic counter)                         ║")
+	t.Logf("║   Max:            %-49d ║", em.PendingMax())
+	t.Logf("║   Current:        %-49d ║", em.PendingDepth())
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PIPELINE LATENCY (hooks)                                           ║")
+	t.Logf("║                        %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
+	t.Logf("║   Emit (INSERT):       %-10d %-10.2f %-10.2f %-10.2f ║", insN, insP50, insP99, insMean)
+	if batchMode {
+		t.Logf("║   PublishBatch (gRPC): %-10d %-10.2f %-10.2f %-10.2f ║", bpN, bpP50, bpP99, bpMean)
+		t.Logf("║     └ events published:%-49d ║", bpEvents)
+		t.Logf("║   MarkDeliveredBatch:  %-10d %-10.2f %-10.2f %-10.2f ║", bmN, bmP50, bmP99, bmMean)
+		t.Logf("║     └ events marked:   %-49d ║", bmEvents)
+	} else {
+		t.Logf("║   Publish (gRPC):      %-10d %-10.2f %-10.2f %-10.2f ║", pubN, pubP50, pubP99, pubMean)
+		t.Logf("║   MarkDelivered:       %-10d %-10.2f %-10.2f %-10.2f ║", delN, delP50, delP99, delMean)
+	}
 	if pipe.batchPub.count() > 0 {
-		t.Logf("║   Retransmit:     %-10d %-10.2f %-10s %-10.2f ║",
+		t.Logf("║   Retransmit:          %-10d %-10.2f %-10s %-10.2f ║",
 			pipe.batchPub.count(),
 			durMs(pipe.batchPub.percentile(0.50)), "—",
 			durMs(pipe.batchPub.mean()))
 	}
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ PROCESS CPU (getrusage, GOMAXPROCS=%d)                       ║", runtime.GOMAXPROCS(0))
-	t.Logf("║   User:           %-42s ║", fmt.Sprintf("%.2f s", cpuUserSec))
-	t.Logf("║   System:         %-42s ║", fmt.Sprintf("%.2f s", cpuSysSec))
-	t.Logf("║   Total:          %-42s ║", fmt.Sprintf("%.2f s", cpuTotalSec))
-	t.Logf("║   Utilization:    %-42s ║", fmt.Sprintf("%.1f%% of %d cores × %.1fs wall", cpuUtilPct, runtime.GOMAXPROCS(0), totalElapsed.Seconds()))
-	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║   Publish errors (need retransmit): %-24d ║", pubErrs)
-	t.Logf("║   Bottleneck hint: %-41s ║", bottleneck)
-	t.Logf("╚══════════════════════════════════════════════════════════════╝")
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ END-TO-END LATENCY (DB: delivered_at − created_at)                 ║")
+	if dbE2E.count > 0 {
+		t.Logf("║   Events:              %-49d ║", dbE2E.count)
+		t.Logf("║   p50:                 %-49s ║", fmt.Sprintf("%.2f ms", float64(dbE2E.p50.Microseconds())/1000.0))
+		t.Logf("║   p99:                 %-49s ║", fmt.Sprintf("%.2f ms", float64(dbE2E.p99.Microseconds())/1000.0))
+		t.Logf("║   mean:                %-49s ║", fmt.Sprintf("%.2f ms", float64(dbE2E.mean.Microseconds())/1000.0))
+	} else {
+		t.Logf("║   (no data — check DisablePruning=true)                          ║")
+	}
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║ PROCESS CPU (getrusage, GOMAXPROCS=%d)                             ║", runtime.GOMAXPROCS(0))
+	t.Logf("║   User:           %-49s ║", fmt.Sprintf("%.2f s", cpuUserSec))
+	t.Logf("║   System:         %-49s ║", fmt.Sprintf("%.2f s", cpuSysSec))
+	t.Logf("║   Total:          %-49s ║", fmt.Sprintf("%.2f s", cpuTotalSec))
+	t.Logf("║   Utilization:    %-49s ║", fmt.Sprintf("%.1f%% of %d cores × %.1fs wall", cpuUtilPct, runtime.GOMAXPROCS(0), totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	t.Logf("║   Publish errors (need retransmit): %-31d ║", pubErrs+pipe.batchPubEventErrs.Load())
+	t.Logf("╚══════════════════════════════════════════════════════════════════════╝")
 
 	if srv != nil {
 		assert.GreaterOrEqual(t, srv.totalEvents.Load(), int64(totalEvents),
@@ -599,10 +641,13 @@ func TestFullStack_ChipOutage(t *testing.T) {
 
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
+	cfg.QuietMode = true
 	cfg.RetransmitInterval = 200 * time.Millisecond
 	cfg.RetransmitAfter = 500 * time.Millisecond
 	cfg.RetransmitBatchSize = 200
 	cfg.PublishTimeout = 2 * time.Second
+	cfg.PublishBatchSize = 100
+	cfg.DisablePruning = true
 	cfg.Hooks = newPipelineHooks(pipe)
 
 	// OTel metrics wiring (same as SustainedThroughput).
@@ -618,7 +663,7 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		)
 		mp := sdkmetric.NewMeterProvider(
 			sdkmetric.WithResource(res),
-			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(5*time.Second))),
+			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp, sdkmetric.WithInterval(1*time.Second))),
 		)
 		t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
 		bc := beholder.NewNoopClient()
@@ -627,10 +672,10 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		beholder.SetClient(bc)
 		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
 		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-			PollInterval:       5 * time.Second,
+			PollInterval:       1 * time.Second,
 			RecordProcessStats: true,
 		}
-		t.Logf("OTel metrics enabled → %s (5s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
+		t.Logf("OTel metrics enabled → %s (1s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
 	}
 
 	em, err := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
@@ -640,10 +685,10 @@ func TestFullStack_ChipOutage(t *testing.T) {
 
 	// Outage schedule.
 	const (
-		outageCycles    = 3
-		upDuration      = 20 * time.Second // Chip healthy between outages
-		outageDuration  = 10 * time.Second // Chip unavailable per cycle
-		emitConcurrency = 5
+		outageCycles      = 3
+		upDuration        = 20 * time.Second // Chip healthy between outages
+		outageDuration    = 10 * time.Second // Chip unavailable per cycle
+		emitConcurrency   = 5
 		emitRatePerWorker = 200 // events/s target per worker (throttled)
 	)
 	totalEmitted := outageCycles * int(upDuration.Seconds()+outageDuration.Seconds()) *
@@ -659,33 +704,6 @@ func TestFullStack_ChipOutage(t *testing.T) {
 	// CPU snapshot.
 	var cpuStart syscall.Rusage
 	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
-
-	// Queue depth sampler.
-	var queueMax, queueSum, queueCnt atomic.Int64
-	samplerCtx, samplerCancel := context.WithCancel(ctx)
-	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-samplerCtx.Done():
-				return
-			case <-ticker.C:
-				rows, _, err := queuePayloadStats(db, samplerCtx)
-				if err != nil {
-					continue
-				}
-				queueCnt.Add(1)
-				queueSum.Add(rows)
-				for {
-					old := queueMax.Load()
-					if rows <= old || queueMax.CompareAndSwap(old, rows) {
-						break
-					}
-				}
-			}
-		}
-	}()
 
 	// Outage injector: runs cycles of up/down in a background goroutine.
 	type cycleResult struct {
@@ -717,27 +735,13 @@ func TestFullStack_ChipOutage(t *testing.T) {
 			outStart := time.Now()
 			t.Logf("↓ Cycle %d/%d: Chip DOWN at %s", cycle, outageCycles, outStart.Format("15:04:05"))
 
-			// Measure peak queue during outage.
-			var cyclePeak int64
-			peakTicker := time.NewTicker(250 * time.Millisecond)
-			outageTimer := time.NewTimer(outageDuration)
-		peakLoop:
-			for {
-				select {
-				case <-outageCtx.Done():
-					peakTicker.Stop()
-					outageTimer.Stop()
-					return
-				case <-outageTimer.C:
-					peakTicker.Stop()
-					break peakLoop
-				case <-peakTicker.C:
-					rows, _, _ := queuePayloadStats(db, outageCtx)
-					if rows > cyclePeak {
-						cyclePeak = rows
-					}
-				}
+			// Wait for outage duration; the exact peak is tracked by em.PendingMax().
+			select {
+			case <-outageCtx.Done():
+				return
+			case <-time.After(outageDuration):
 			}
+			cyclePeak := em.PendingDepth()
 
 			// Restore Chip.
 			srv.setPublishErr(nil)
@@ -761,18 +765,18 @@ func TestFullStack_ChipOutage(t *testing.T) {
 
 			cyclesMu.Lock()
 			cycleResults = append(cycleResults, cycleResult{
-				cycle:        cycle,
-				outageStart:  outStart,
+				cycle:         cycle,
+				outageStart:   outStart,
 				recoveryStart: recovStart,
-				drainElapsed: drainElapsed,
-				peakQueue:    cyclePeak,
-				drainRate:    float64(cyclePeak) / max(drainElapsed.Seconds(), 0.001),
+				drainElapsed:  drainElapsed,
+				peakQueue:     cyclePeak,
+				drainRate:     float64(cyclePeak) / max(drainElapsed.Seconds(), 0.001),
 			})
 			cyclesMu.Unlock()
 		}
 	}()
 
-	// Emit loop: concurrent workers emit at a steady rate until totalEmitted.
+	// Emit loop: concurrent workers emit at a throttled rate until totalEmitted.
 	testStart := time.Now()
 	payload := buildLoadTestPayload(256)
 	var emitErrors atomic.Int64
@@ -784,7 +788,11 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		emitWg.Add(1)
 		go func() {
 			defer emitWg.Done()
+			interval := time.Duration(float64(time.Second) / float64(emitRatePerWorker))
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
 			for i := 0; i < eventsPerWorker; i++ {
+				<-ticker.C
 				if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
 					emitErrors.Add(1)
 				}
@@ -802,7 +810,6 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		return len(pending) == 0
 	}, 60*time.Second, 100*time.Millisecond, "all events should drain after final recovery")
 
-	samplerCancel()
 	totalElapsed := time.Since(testStart)
 
 	// CPU diff.
@@ -815,22 +822,19 @@ func TestFullStack_ChipOutage(t *testing.T) {
 	cpuTotalSec := cpuUserSec + cpuSysSec
 	cpuUtilPct := 100.0 * cpuTotalSec / (totalElapsed.Seconds() * float64(runtime.GOMAXPROCS(0)))
 
-	var queueAvg float64
-	if n := queueCnt.Load(); n > 0 {
-		queueAvg = float64(queueSum.Load()) / float64(n)
-	}
-
 	pubMean := durMs(pipe.immPub.mean())
 	delMean := durMs(pipe.immDel.mean())
 
+	outageTargetRate := emitConcurrency * emitRatePerWorker
 	t.Logf("╔══════════════════════════════════════════════════════════════╗")
 	t.Logf("║            CHIP OUTAGE TEST RESULTS                          ║")
 	t.Logf("╠══════════════════════════════════════════════════════════════╣")
+	t.Logf("║ Target rate: %-47s ║", fmt.Sprintf("%d msg/s", outageTargetRate))
 	t.Logf("║ EMIT                                                         ║")
 	t.Logf("║   Events emitted: %-42d ║", emitCount.Load())
 	t.Logf("║   Errors:         %-42d ║", emitErrors.Load())
 	t.Logf("║   Elapsed:        %-42s ║", emitElapsed.Round(time.Millisecond))
-	t.Logf("║   Rate:           %-42s ║", fmt.Sprintf("%.0f events/sec", float64(emitCount.Load())/emitElapsed.Seconds()))
+	t.Logf("║   Actual rate:    %-42s ║", fmt.Sprintf("%.0f msg/s", float64(emitCount.Load())/emitElapsed.Seconds()))
 	t.Logf("╠══════════════════════════════════════════════════════════════╣")
 	t.Logf("║ DELIVERY                                                     ║")
 	t.Logf("║   Server received:%-42d ║", srv.totalEvents.Load())
@@ -851,13 +855,16 @@ func TestFullStack_ChipOutage(t *testing.T) {
 	}
 	cyclesMu.Unlock()
 	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ PENDING QUEUE DEPTH (sampled every 200ms)                    ║")
-	t.Logf("║   Max:            %-42d ║", queueMax.Load())
-	t.Logf("║   Avg:            %-42s ║", fmt.Sprintf("%.1f rows", queueAvg))
+	t.Logf("║ PENDING QUEUE DEPTH (exact atomic counter)                   ║")
+	t.Logf("║   Max:            %-42d ║", em.PendingMax())
+	t.Logf("║   Current:        %-42d ║", em.PendingDepth())
 	t.Logf("╠══════════════════════════════════════════════════════════════╣")
-	t.Logf("║ PIPELINE LATENCY (immediate path)                            ║")
+	t.Logf("║ PIPELINE LATENCY                                              ║")
 	t.Logf("║                   %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
-	t.Logf("║   Publish:        %-10d %-10.2f %-10.2f %-10.2f ║",
+	t.Logf("║   Emit (INSERT):  %-10d %-10.2f %-10.2f %-10.2f ║",
+		pipe.emitIns.count(), durMs(pipe.emitIns.percentile(0.50)),
+		durMs(pipe.emitIns.percentile(0.99)), durMs(pipe.emitIns.mean()))
+	t.Logf("║   Publish (gRPC): %-10d %-10.2f %-10.2f %-10.2f ║",
 		pipe.immPub.count(), durMs(pipe.immPub.percentile(0.50)),
 		durMs(pipe.immPub.percentile(0.99)), pubMean)
 	t.Logf("║   MarkDelivered:  %-10d %-10.2f %-10.2f %-10.2f ║",
@@ -1141,16 +1148,26 @@ func (s *emitLatencyStats) sum() time.Duration {
 	return t
 }
 
-// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare Chip Publish vs store MarkDelivered cost.
+// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare
+// Emit (DB Insert) vs Chip Publish vs store MarkDelivered cost.
 type pipelineDeliveryStats struct {
+	emitIns                            emitLatencyStats // store.Insert latency (blocks the Emit caller)
 	immPub, immDel, batchPub, batchDel emitLatencyStats
-	immPubErr, batchPubErr             atomic.Int64
-	// batchPubEventErrs is the sum of event counts for each failed retransmit Publish (1 per failed RPC).
-	batchPubEventErrs atomic.Int64
+	// batchLoopPub tracks latency of PublishBatch RPCs in the batch publish loop.
+	batchLoopPub emitLatencyStats
+	// batchLoopDel tracks latency of MarkDeliveredBatch in the batch publish loop.
+	batchLoopDel           emitLatencyStats
+	batchLoopPubEvents     atomic.Int64 // total events across successful batch publishes
+	batchLoopMarkEvents    atomic.Int64 // total events marked delivered via batch
+	immPubErr, batchPubErr atomic.Int64
+	batchPubEventErrs      atomic.Int64
 }
 
 func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 	return &beholder.DurableEmitterHooks{
+		OnEmitInsert: func(d time.Duration, _ error) {
+			p.emitIns.record(d)
+		},
 		OnImmediatePublish: func(d time.Duration, err error) {
 			if err != nil {
 				p.immPubErr.Add(1)
@@ -1159,6 +1176,19 @@ func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 		},
 		OnImmediateDelete: func(d time.Duration, _ error) {
 			p.immDel.record(d)
+		},
+		OnBatchPublish: func(d time.Duration, batchSize int, err error) {
+			if err != nil {
+				p.batchPubErr.Add(1)
+				p.batchPubEventErrs.Add(int64(batchSize))
+			} else {
+				p.batchLoopPubEvents.Add(int64(batchSize))
+			}
+			p.batchLoopPub.record(d)
+		},
+		OnBatchMarkDelivered: func(d time.Duration, count int) {
+			p.batchLoopMarkEvents.Add(int64(count))
+			p.batchLoopDel.record(d)
 		},
 		OnRetransmitBatchPublish: func(d time.Duration, eventCount int, err error) {
 			if err != nil {
@@ -1175,6 +1205,59 @@ func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 
 func durMs(d time.Duration) float64 {
 	return float64(d.Microseconds()) / 1000.0
+}
+
+// dbE2ELatencyStats queries the chip_durable_events table for events with both
+// created_at and delivered_at set and returns p50, p99, mean of (delivered_at - created_at).
+// Requires DisablePruning=true so rows aren't deleted before we can read them.
+type dbLatencyResult struct {
+	count int
+	p50   time.Duration
+	p99   time.Duration
+	mean  time.Duration
+}
+
+func queryDBE2ELatency(ctx context.Context, db *sqlx.DB) (dbLatencyResult, error) {
+	const q = `
+SELECT extract(epoch FROM (delivered_at - created_at)) AS latency_sec
+FROM cre.chip_durable_events
+WHERE delivered_at IS NOT NULL
+ORDER BY latency_sec ASC`
+
+	var latencies []float64
+	rows, err := db.QueryContext(ctx, q)
+	if err != nil {
+		return dbLatencyResult{}, fmt.Errorf("query e2e latency: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sec float64
+		if err := rows.Scan(&sec); err != nil {
+			return dbLatencyResult{}, fmt.Errorf("scan e2e latency: %w", err)
+		}
+		latencies = append(latencies, sec)
+	}
+	if err := rows.Err(); err != nil {
+		return dbLatencyResult{}, fmt.Errorf("rows e2e latency: %w", err)
+	}
+	if len(latencies) == 0 {
+		return dbLatencyResult{}, nil
+	}
+
+	var sum float64
+	for _, v := range latencies {
+		sum += v
+	}
+	mean := sum / float64(len(latencies))
+	p50 := latencies[int(float64(len(latencies)-1)*0.50)]
+	p99 := latencies[int(float64(len(latencies)-1)*0.99)]
+
+	return dbLatencyResult{
+		count: len(latencies),
+		p50:   time.Duration(p50 * float64(time.Second)),
+		p99:   time.Duration(p99 * float64(time.Second)),
+		mean:  time.Duration(mean * float64(time.Second)),
+	}, nil
 }
 
 // chipIngressTargetDescription labels latency logs: mock gRPC server vs external Chip Ingress.

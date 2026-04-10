@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -14,280 +17,65 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
   "links": [],
   "liveNow": false,
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Current pending events in the durable queue (atomic counter)",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "thresholds" },
+          "color": {
+            "mode": "thresholds"
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] },
-          "unit": "ops"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              },
+              {
+                "color": "red",
+                "value": 50000
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
       "id": 1,
       "options": {
-        "colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "textMode": "none"
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
       },
       "pluginVersion": "10.1.0",
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_emit_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Emit Success Rate",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 0 },
-      "id": 4,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])))",
-          "legendFormat": "p50",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])))",
-          "legendFormat": "p95",
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])))",
-          "legendFormat": "p99",
-          "refId": "C"
-        },
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_emit_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]) / rate(beholder_durable_emitter_emit_duration_seconds_count{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])",
-          "legendFormat": "avg",
-          "refId": "D"
-        }
-      ],
-      "title": "Emit Duration (DB insert)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 0 },
-      "id": 7,
-      "options": {
-        "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_publish_retransmit_events_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "events success",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_publish_retransmit_events_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "events failure",
-          "refId": "B"
-        }
-      ],
-      "title": "Retransmit Events",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 4 },
-      "id": 5,
-      "options": {
-        "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_publish_immediate_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "success",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_publish_immediate_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "failure",
-          "refId": "B"
-        }
-      ],
-      "title": "Immediate Publish RPC",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 7 },
-      "id": 9,
-      "options": {
-        "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_store_operations_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "store ops",
-          "refId": "A"
-        }
-      ],
-      "title": "Store Operations",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 7 },
-      "id": 10,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])))",
-          "legendFormat": "p50",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])))",
-          "legendFormat": "p99",
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]) / rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])",
-          "legendFormat": "avg (all ops)",
-          "refId": "C"
-        }
-      ],
-      "title": "Store Operation Duration",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 10 },
-      "id": 8,
-      "options": {
-        "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "delivery completed",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(beholder_durable_emitter_expired_purged_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
-          "legendFormat": "expired purged",
-          "refId": "B"
-        }
-      ],
-      "title": "Completion / Expiry",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 12 },
-      "id": 11,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
       "targets": [
         {
           "editorMode": "code",
@@ -297,66 +85,681 @@
         }
       ],
       "title": "Queue Depth",
-      "type": "timeseries"
+      "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Queue depth over time (current + high-water mark)",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "s"
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 12 },
-      "id": 17,
+      "gridPos": {
+        "h": 5,
+        "w": 20,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "beholder_durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-loadtest\"}",
-          "legendFormat": "user cpu sec",
+          "expr": "beholder_durable_emitter_queue_depth{exported_job=\"durable-emitter-loadtest\"}",
+          "legendFormat": "queue depth",
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "beholder_durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-loadtest\"}",
-          "legendFormat": "system cpu sec",
+          "expr": "beholder_durable_emitter_queue_depth_max{exported_job=\"durable-emitter-loadtest\"}",
+          "legendFormat": "depth max (high-water)",
           "refId": "B"
         }
       ],
-      "title": "Process CPU Cumulative",
+      "title": "Queue Depth Over Time",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 100,
+      "title": "Operations",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Total events emitted (DB inserts) since test start",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "color": {
+            "mode": "thresholds"
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 0,
+        "y": 6
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.1.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(beholder_durable_emitter_emit_success_total{exported_job=\"durable-emitter-loadtest\"})",
+          "legendFormat": "total",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Insert Messages",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Cumulative emit (insert) count over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 20,
+        "x": 4,
+        "y": 6
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(beholder_durable_emitter_emit_success_total{exported_job=\"durable-emitter-loadtest\"})",
+          "legendFormat": "emit_success",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(beholder_durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-loadtest\"})",
+          "legendFormat": "delivery_completed",
+          "refId": "B"
+        }
+      ],
+      "title": "Insert Messages",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 101,
+      "title": "Latency",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Emit() latency \u2014 time to insert event into Postgres",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
           "unit": "s"
         },
         "overrides": []
       },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 17 },
-      "id": 13,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 5,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_emit_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_emit_duration_seconds_count{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "mean",
+          "refId": "C"
+        }
+      ],
+      "title": "Emit Latency (DB Insert)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "PublishBatch / individual Publish gRPC latency to Chip server",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "mean",
+          "refId": "C"
+        }
+      ],
+      "title": "Batch Process Latency (Chip Publish)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "MarkDelivered / MarkDeliveredBatch DB update latency",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "mean",
+          "refId": "C"
+        }
+      ],
+      "title": "Consumer Batch Latency (MarkDelivered)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Age of the oldest pending (undelivered) event in the queue",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "targets": [
         {
           "editorMode": "code",
           "expr": "beholder_durable_emitter_queue_oldest_pending_age_seconds{exported_job=\"durable-emitter-loadtest\"}",
-          "legendFormat": "oldest age",
+          "legendFormat": "oldest pending age",
           "refId": "A"
         }
       ],
@@ -364,57 +767,1237 @@
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 102,
+      "title": "Throughput",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Producer publishing rate vs consumer throughput \u2014 gap between the two lines is the current queue build-up rate",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "msg/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "producer publishing rate"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "consumer throughput"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_emit_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "producer publishing rate",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "consumer throughput",
+          "refId": "B"
+        }
+      ],
+      "title": "Ingestion Rate (msg/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Retransmit loop event rate (retry delivery attempts)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "retries/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_publish_retransmit_events_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "retransmit success",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_publish_retransmit_events_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "retransmit failure",
+          "refId": "B"
+        }
+      ],
+      "title": "Insert Retry Rate (retries/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Events expired/purged by TTL (DLQ equivalent)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "msg/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_expired_purged_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "expired purged",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "beholder_durable_emitter_queue_near_ttl{exported_job=\"durable-emitter-loadtest\"}",
+          "legendFormat": "near TTL count",
+          "refId": "B"
+        }
+      ],
+      "title": "DLQ Rate (expired/s)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "id": 103,
+      "title": "Resources",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Process CPU utilisation (0\u20131 = 0\u2013100%)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "%",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "opacity",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 46
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]) + rate(beholder_durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])",
+          "legendFormat": "total (user + system)",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_process_cpu_user_seconds{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])",
+          "legendFormat": "user",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_process_cpu_system_seconds{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval])",
+          "legendFormat": "system",
+          "refId": "C"
+        }
+      ],
+      "title": "CPU Utilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Heap Inuse = memory holding live Go objects. Heap Sys = total memory obtained from the OS (includes freed-but-unreturned pages).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
           "unit": "bytes"
         },
         "overrides": []
       },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 17 },
-      "id": 16,
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 46
+      },
+      "id": 13,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "targets": [
         {
           "editorMode": "code",
           "expr": "beholder_durable_emitter_process_memory_heap_inuse_bytes{exported_job=\"durable-emitter-loadtest\"}",
-          "legendFormat": "heap inuse",
+          "legendFormat": "in-use (live objects)",
           "refId": "A"
         },
         {
           "editorMode": "code",
           "expr": "beholder_durable_emitter_process_memory_heap_sys_bytes{exported_job=\"durable-emitter-loadtest\"}",
-          "legendFormat": "heap sys",
+          "legendFormat": "reserved from OS (includes free pages)",
           "refId": "B"
         }
       ],
-      "title": "Process Memory",
+      "title": "Heap Memory",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "DB operations per second (insert, mark_delivered, list_pending, etc.)",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "ops/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
           "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 46
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (operation) (rate(beholder_durable_emitter_store_operations_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "DB Write IOPs",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "id": 104,
+      "title": "Load Test",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Produce rate vs consumer rate (events/s)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "events/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_emit_success_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "produce rate",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_delivery_completed_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "consumer ingestion rate",
+          "refId": "B"
+        }
+      ],
+      "title": "Throughput (events/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Queue depth and payload bytes during load test",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "beholder_durable_emitter_queue_depth{exported_job=\"durable-emitter-loadtest\"}",
+          "legendFormat": "queue depth",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "beholder_durable_emitter_queue_depth_max{exported_job=\"durable-emitter-loadtest\"}",
+          "legendFormat": "depth max (high-water)",
+          "refId": "B"
+        }
+      ],
+      "title": "Queue Depth & Txn/Rollback",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Emit (DB insert) latency percentiles",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_emit_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))) > 0",
+          "legendFormat": "p99",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_emit_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_emit_duration_seconds_count{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "mean",
+          "refId": "C"
+        }
+      ],
+      "title": "Insert Latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Chip Publish gRPC batch latency + MarkDelivered DB latency",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", error=\"false\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "publish_batch mean",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=~\"mark_delivered.*\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "mark_delivered mean",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=\"insert\"}[$__rate_interval]) / clamp_min(rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=\"insert\"}[$__rate_interval]), 1e-15)",
+          "legendFormat": "insert mean",
+          "refId": "C"
+        }
+      ],
+      "title": "Consumer Batch Latency (ms)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Emit failures + publish failures per second",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "events/s",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 70
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_emit_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "emit failures",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_publish_immediate_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "publish failures",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(beholder_durable_emitter_publish_retransmit_events_failure_total{exported_job=\"durable-emitter-loadtest\"}[$__rate_interval]))",
+          "legendFormat": "retransmit failures",
+          "refId": "C"
+        }
+      ],
+      "title": "Failures (events/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "description": "Queue payload bytes and capacity metrics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
           "unit": "bytes"
         },
         "overrides": []
       },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 17 },
-      "id": 19,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "id": 20,
       "options": {
-        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       },
       "targets": [
         {
@@ -424,122 +2007,25 @@
           "refId": "A"
         }
       ],
-      "title": "Queue Payload Bytes",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
-      "id": 20,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", phase=\"immediate\", error=\"false\"}[$__rate_interval]) / rate(beholder_durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", phase=\"immediate\", error=\"false\"}[$__rate_interval])",
-          "legendFormat": "immediate avg",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", phase=\"immediate\", error=\"false\"}[$__rate_interval])))",
-          "legendFormat": "immediate p99",
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by (le) (rate(beholder_durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", phase=\"immediate\", error=\"false\"}[$__rate_interval])))",
-          "legendFormat": "immediate p50",
-          "refId": "C"
-        },
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_publish_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", phase=\"retransmit\", error=\"false\"}[$__rate_interval]) / rate(beholder_durable_emitter_publish_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", phase=\"retransmit\", error=\"false\"}[$__rate_interval])",
-          "legendFormat": "retransmit avg",
-          "refId": "D"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_publish_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", phase=\"immediate\", error=\"true\"}[$__rate_interval])))",
-          "legendFormat": "immediate p99 (errors)",
-          "refId": "E"
-        }
-      ],
-      "title": "Chip Publish Duration (gRPC RPC)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "fieldConfig": {
-        "defaults": {
-          "color": { "mode": "palette-classic" },
-          "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 0, "gradientMode": "none", "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "insertNulls": false, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": { "type": "linear" }, "showPoints": "auto", "spanNulls": false, "stacking": { "group": "A", "mode": "none" }, "thresholdsStyle": { "mode": "off" } },
-          "mappings": [],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
-      "id": 18,
-      "options": {
-        "legend": { "calcs": ["lastNotNull", "mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "none" }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=\"mark_delivered\"}[$__rate_interval]) / rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=\"mark_delivered\"}[$__rate_interval])",
-          "legendFormat": "mark_delivered avg",
-          "refId": "A"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", operation=\"mark_delivered\"}[$__rate_interval])))",
-          "legendFormat": "mark_delivered p99",
-          "refId": "B"
-        },
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=\"insert\"}[$__rate_interval]) / rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=\"insert\"}[$__rate_interval])",
-          "legendFormat": "insert avg",
-          "refId": "C"
-        },
-        {
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(beholder_durable_emitter_store_operation_duration_seconds_bucket{exported_job=\"durable-emitter-loadtest\", operation=\"insert\"}[$__rate_interval])))",
-          "legendFormat": "insert p99",
-          "refId": "D"
-        },
-        {
-          "editorMode": "code",
-          "expr": "rate(beholder_durable_emitter_store_operation_duration_seconds_sum{exported_job=\"durable-emitter-loadtest\", operation=\"list_pending\"}[$__rate_interval]) / rate(beholder_durable_emitter_store_operation_duration_seconds_count{exported_job=\"durable-emitter-loadtest\", operation=\"list_pending\"}[$__rate_interval])",
-          "legendFormat": "list_pending avg",
-          "refId": "E"
-        }
-      ],
-      "title": "Pipeline Step Latency (insert / mark_delivered / list_pending)",
+      "title": "Block/Eviction Received (payload bytes)",
       "type": "timeseries"
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["beholder", "durable-emitter", "load-test"],
-  "templating": { "list": [] },
-  "time": { "from": "now-15m", "to": "now" },
+  "tags": [
+    "beholder",
+    "durable-emitter",
+    "load-test"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "",
   "title": "Durable Emitter Load Test",

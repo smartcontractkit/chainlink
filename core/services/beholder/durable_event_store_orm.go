@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 )
@@ -48,6 +50,19 @@ func (s *PgDurableEventStore) MarkDelivered(ctx context.Context, id int64) error
 		return fmt.Errorf("failed to mark chip durable event delivered id=%d: %w", id, err)
 	}
 	return nil
+}
+
+func (s *PgDurableEventStore) MarkDeliveredBatch(ctx context.Context, ids []int64) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	const q = `UPDATE ` + chipDurableEventsTable + ` SET delivered_at = now() WHERE id = ANY($1) AND delivered_at IS NULL`
+	res, err := s.ds.ExecContext(ctx, q, pq.Array(ids))
+	if err != nil {
+		return 0, fmt.Errorf("failed to batch mark chip durable events delivered: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	return n, nil
 }
 
 func (s *PgDurableEventStore) PurgeDelivered(ctx context.Context, batchLimit int) (int64, error) {
