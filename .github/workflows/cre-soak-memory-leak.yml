@@ -130,7 +130,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: alloc.pprof
-          path: alloc.pprof
+          path: system-tests/tests/soak/cre/*.pprof
           retention-days: 7
 
       - name: Upload Docker logs
