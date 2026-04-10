@@ -544,7 +544,14 @@ func TestShell_BeforeNode(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			// Create full CLI app and run the Before hook first
-			app := cmd.NewApp(&shell)
+			var opts = chainlink.GeneralConfigOpts{
+				OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
+					s.Password.Keystore = models.NewSecret("dummy")
+					c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
+				},
+			}
+
+			app := cmd.NewAppWithOptsForTest(&shell, opts)
 			err := app.Before(c)
 			if err != nil && test.wantUnlocked {
 				t.Fatalf("CLI Before hook failed: %v", err)
@@ -641,8 +648,14 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
+			var opts = chainlink.GeneralConfigOpts{
+				OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
+					c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
+				},
+			}
+
 			// First initialize components (this includes authentication)
-			cliApp := cmd.NewApp(&shell)
+			cliApp := cmd.NewAppWithOptsForTest(&shell, opts)
 			err := cliApp.Before(c)
 			require.NoError(t, err)
 

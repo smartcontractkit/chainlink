@@ -33,11 +33,16 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 
 // NewApp returns the command-line parser/function-router for the given client
 func NewApp(s *Shell) *cli.App {
+	var opts chainlink.GeneralConfigOpts
+	return newAppWithOpts(s, opts)
+}
+
+// newAppWithOpts returns the command-line parser/function-router for the given client
+// with custom configuration options for testing purposes.
+func newAppWithOpts(s *Shell, opts chainlink.GeneralConfigOpts) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
 	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
-	// TOML
-	var opts chainlink.GeneralConfigOpts
 
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
