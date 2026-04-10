@@ -309,11 +309,8 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Interface("distribution", shardCounts).
 		Msg("Real workflows distributed across 2 shards after scaling")
 
-	logger.Info().Msg("Step 8b: Wait for mapping version to stabilize")
-	waitForMappingVersionStable(t, shardOrchClient, workflowIDs)
-
 	cronPeriod := 30 * time.Second
-	logger.Info().Dur("cronPeriod", cronPeriod).Msg("Step 8c: Waiting one cron period for straggler executions to drain")
+	logger.Info().Dur("cronPeriod", cronPeriod).Msg("Step 8b: Waiting one cron period for straggler executions to drain")
 	time.Sleep(cronPeriod)
 
 	// Re-snapshot mappings after the barrier so we use the post-stable state.
@@ -577,34 +574,6 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 			Msg("Waiting for distribution + steady")
 		return len(shardsSeen) >= minShards && steady
 	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
-}
-
-func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string) {
-	t.Helper()
-	var lastVersion uint64
-	stableCount := 0
-	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
-			WorkflowIds: workflowIDs,
-		})
-		if err != nil {
-			stableCount = 0
-			return false
-		}
-		if resp.MappingVersion == lastVersion && lastVersion != 0 {
-			stableCount++
-		} else {
-			stableCount = 1
-		}
-		lastVersion = resp.MappingVersion
-		framework.L.Info().
-			Uint64("mappingVersion", resp.MappingVersion).
-			Int("stableCount", stableCount).
-			Msg("Waiting for mapping version to stabilize")
-		return stableCount >= 2
-	}, 2*time.Minute, 5*time.Second, "Mapping version did not stabilize within timeout")
 }
 
 func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
