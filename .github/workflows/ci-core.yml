@@ -48,7 +48,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -62,7 +62,7 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
