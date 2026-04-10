@@ -411,7 +411,8 @@ jobs:
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
     uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr: "sdlc"
+      chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit

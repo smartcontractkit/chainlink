@@ -122,13 +122,21 @@ jobs:
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
-      - name: Login to Amazon ECR
+      - name: Login to private Amazon ECRs
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Login to public Amazon ECR
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
@@ -159,7 +167,7 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
-      
+
       - name: Connect to Tailscale
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
@@ -177,14 +185,14 @@ jobs:
           else
               echo "Failed to reach SOT data source: ${SERVICE_URL}"
           fi
-      
+
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
         env:
           CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
-          REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
+          REGISTRY: public.ecr.aws/chainlink/chainlink
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
           PRODUCT: ${{ env.PRODUCT }}
           NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}

@@ -350,7 +350,7 @@ jobs:
         if: always() && steps.gate.outputs.should_run == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: container-logs-${{ matrix.logs_archive_name }}
+          name: container-logs-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: devenv/tests/${{ matrix.tests_dir }}/logs
           retention-days: 3
       
@@ -358,6 +358,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: alloc.pprof-${{ job.check_run_id }}
+          name: alloc-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}.pprof
           path: devenv/tests/${{ matrix.tests_dir }}/alloc.pprof
           retention-days: 7
