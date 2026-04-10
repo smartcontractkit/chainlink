@@ -1249,11 +1249,15 @@ func Test_FindJob(t *testing.T) {
 		DB:             db,
 		KeyStore:       keyStore.Eth(),
 	})
+	// Both OCR1 jobs must share a contract address for "by address yet chain scoped";
+	// GenerateOCRSpec randomizes the default address per call to avoid txdb collisions.
+	sharedOCR1ContractAddr := testutils.NewAddress().Hex()
 	job, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			Name:               "orig ocr spec",
 			TransmitterAddress: address.Hex(),
+			ContractAddress:    sharedOCR1ContractAddr,
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
@@ -1265,6 +1269,7 @@ func Test_FindJob(t *testing.T) {
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
+			ContractAddress:    sharedOCR1ContractAddr,
 			EVMChainID:         sqlutil.NewI(chainID1).String(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
