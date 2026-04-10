@@ -125,10 +125,17 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
 
+	bs, count, err := orm.BridgeTypes(ctx, 0, 10)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Len(t, bs, 1)
+
 	require.NoError(t, orm.DeleteBridgeType(ctx, &foundbridge))
 
-	_, err = orm.FindBridge(ctx, bridgeName)
-	require.Error(t, err)
+	bs, count, err = orm.BridgeTypes(ctx, 0, 10)
+	require.NoError(t, err)
+	require.Equal(t, 0, count)
+	require.Empty(t, bs)
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {
