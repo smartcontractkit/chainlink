@@ -74,8 +74,11 @@ func (n *donNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, f
 
 	n.subscribers.Store(s, struct{}{})
 
-	if n.don.Load() != nil {
-		s <- *n.don.Load()
+	if d := n.don.Load(); d != nil {
+		select {
+		case s <- *d:
+		default:
+		}
 	}
 
 	return s, unsubscribe, nil
