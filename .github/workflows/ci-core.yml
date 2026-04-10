@@ -247,6 +247,14 @@ jobs:
       contents: read
       actions: read
     steps:
+      # DEBUG: Checking resources
+      - name: Monitor
+        uses: kalverra/octometrics-action@main
+        with:
+          job_name: Core Tests (${{ matrix.type.cmd }}) # Required input to match API job data with runner job data
+          skip_comment: "true" # Optional input that can skip posting comments to a PR, default false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Optional, but highly recommended to prevent rate limiting
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
         with:
