@@ -29,10 +29,9 @@ func TestNewReportingPluginRetriesUntilSuccess(t *testing.T) {
 	execConfig.lggr = logger.TestLogger(t)
 	execConfig.metricsCollector = ccip2.NoopMetricsCollector
 
-	// For this unit test, ensure that there is no delay between retries
 	execConfig.newReportingPluginRetryConfig = ccipdata.RetryConfig{
-		InitialDelay: 0 * time.Nanosecond,
-		MaxDelay:     0 * time.Nanosecond,
+		InitialDelay: 1 * time.Millisecond,
+		MaxDelay:     10 * time.Millisecond,
 	}
 
 	// Set up the OffRampReader mock
