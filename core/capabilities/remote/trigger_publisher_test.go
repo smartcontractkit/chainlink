@@ -490,10 +490,21 @@ func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 		sendCh <- struct{}{}
 	}).Return(nil)
 
-	t.Run("initial send to both peers with both triggerIDs", func(t *testing.T) {
+	drainSendCh := func() {
 		mu.Lock()
 		sendRecords = nil
 		mu.Unlock()
+		for {
+			select {
+			case <-sendCh:
+			default:
+				return
+			}
+		}
+	}
+
+	t.Run("initial send to both peers with both triggerIDs", func(t *testing.T) {
+		drainSendCh()
 
 		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
 			Event: commoncap.TriggerEvent{ID: "event1"},
@@ -518,9 +529,7 @@ func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 	t.Run("partial ACK trims only missing triggerIDs per peer", func(t *testing.T) {
 		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0]))
 
-		mu.Lock()
-		sendRecords = nil
-		mu.Unlock()
+		drainSendCh()
 
 		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
 			Event: commoncap.TriggerEvent{ID: "event1"},
@@ -553,9 +562,7 @@ func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[0]))
 		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[1]))
 
-		mu.Lock()
-		sendRecords = nil
-		mu.Unlock()
+		drainSendCh()
 
 		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
 			Event: commoncap.TriggerEvent{ID: "event1"},
