@@ -20,7 +20,7 @@ import (
 type nodeSecret struct {
 	EthKeys         nodeEthKeyWrapper   `toml:"EVM"`
 	SolKeys         nodeSolKeyWrapper   `toml:"Solana"`
-	AptosKeys       nodeAptosKeyWrapper `toml:"Aptos"`
+	AptosKeys       nodeAptosKeyWrapper `toml:"-"` // TODO set back to `toml:"Aptos"` before merging
 	P2PKey          nodeP2PKey          `toml:"P2PKey"`
 	DKGRecipientKey nodeDKGRecipientKey `toml:"DKGRecipientKey"`
 
