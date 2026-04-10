@@ -200,6 +200,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
+	t.Parallel()
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -269,6 +270,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
+	t.Parallel()
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -284,6 +286,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			// Use the non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
@@ -357,6 +360,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name          string
 		enableAddress bool
@@ -369,6 +373,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.DriverName = pgcommon.DriverPostgres
 
