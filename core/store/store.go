@@ -136,13 +136,14 @@ func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	// Second parameter kept for ResetDatabase API compatibility (preparetest --force).
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, pq.QuoteIdentifier(dbname)))
+	// PostgreSQL does not support bound parameters for database names; pq.QuoteIdentifier is the supported escape.
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS %s WITH (FORCE)`, pq.QuoteIdentifier(dbname))) //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s`, pq.QuoteIdentifier(dbname)))
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s`, pq.QuoteIdentifier(dbname))) //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -158,7 +159,7 @@ func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
 	}
 	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s WITH TEMPLATE %s`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template)))
+	_, err = db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE %s WITH TEMPLATE %s`, pq.QuoteIdentifier(testdb.PristineDBName), pq.QuoteIdentifier(template))) //nolint:gosec // G701 false positive: identifiers from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
