@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
@@ -149,6 +150,7 @@ func (m *ConfidentialModule) Execute(
 			ExecuteRequest: execReqBytes,
 			Owner:          m.workflowOwner,
 			ExecutionId:    helper.GetWorkflowExecutionID(),
+			OrgId:          contexts.CREValue(ctx).Org,
 		},
 	}
 
