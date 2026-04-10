@@ -1,16 +1,18 @@
 package proposalutils
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+
+	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
