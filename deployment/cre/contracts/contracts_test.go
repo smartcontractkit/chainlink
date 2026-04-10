@@ -95,6 +95,44 @@ func TestGetOwnableContractV2(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "found 0")
 	})
+
+	t.Run("succeeds with correct qualifier when duplicates exist", func(t *testing.T) {
+		t.Parallel()
+
+		ds := datastore.NewMemoryDataStore()
+		targetAddr := testutils.NewAddress()
+		targetAddrStr := targetAddr.String()
+
+		addrRefA := datastore.AddressRef{
+			ChainSelector: selector,
+			Address:       targetAddrStr,
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
+			Version:       v1,
+			Qualifier:     "zone-a",
+		}
+		addrRefB := addrRefA
+		addrRefB.Qualifier = "zone-b"
+
+		err := ds.AddressRefStore.Add(addrRefA)
+		require.NoError(t, err)
+		err = ds.AddressRefStore.Add(addrRefB)
+		require.NoError(t, err)
+
+		// Correct qualifier succeeds
+		c, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "zone-a")
+		require.NoError(t, err)
+		assert.NotNil(t, c)
+
+		// Non-matching qualifier errors
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "zone-c")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 0")
+
+		// No qualifier errors with duplicates
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 2")
+	})
 }
 
 func TestGetOwnerTypeAndVersionV2(t *testing.T) {
