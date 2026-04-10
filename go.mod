@@ -104,7 +104,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260409183041-99304ac39131
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260410115711-24885e0d13eb
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260409162403-8bca8f7c9de5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260408074447-0acfdcb19338
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
