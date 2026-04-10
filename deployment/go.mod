@@ -39,11 +39,11 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.98
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260324144720-484863604698
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260317185256-d5f7db87ae70
-	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260317185256-d5f7db87ae70
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260331203127-b8dc0a6b85c5
+	github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment v0.0.0-20260331203127-b8dc0a6b85c5
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260224214816-cb23ec38649f
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260310183131-8d0f0e383288
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260317175207-e9ff89561326
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260331203127-b8dc0a6b85c5
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260410155342-6eead6ce00bc
 	github.com/smartcontractkit/chainlink-common/keystore v1.0.2
 	github.com/smartcontractkit/chainlink-deployments-framework v0.86.3
@@ -56,12 +56,12 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260407162454-407b2a207dcc
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260408023220-974ac248027c
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260409162403-8bca8f7c9de5
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
-	github.com/smartcontractkit/chainlink-ton v0.0.0-20260403084332-41521300fa9b
-	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260326230916-bcfdbe85f221
+	github.com/smartcontractkit/chainlink-ton v0.0.0-20260408074447-0acfdcb19338
+	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260408074447-0acfdcb19338
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/smartcontractkit/mcms v0.38.2
@@ -81,7 +81,7 @@ require (
 	golang.org/x/mod v0.33.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.20.0
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -489,12 +489,12 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.12.2 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.18.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.38.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.42.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.41.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.42.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.13.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.36.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.36.0 // indirect
