@@ -6,51 +6,51 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-//// MCMSWithTimelockContracts holds the Go bindings
-//// for a MCMSWithTimelock contract deployment.
-//// It is public for use in product specific packages.
-//// Either all fields are nil or all fields are non-nil.
-//type MCMSWithTimelockContracts struct {
-//	CancellerMcm *owner_helpers.ManyChainMultiSig
-//	BypasserMcm  *owner_helpers.ManyChainMultiSig
-//	ProposerMcm  *owner_helpers.ManyChainMultiSig
-//	Timelock     *owner_helpers.RBACTimelock
-//	CallProxy    *owner_helpers.CallProxy
-//}
-//
-//// Validate checks that all fields are non-nil, ensuring it's ready
-//// for use generating views or interactions.
-//func (state MCMSWithTimelockContracts) Validate() error {
-//	if state.Timelock == nil {
-//		return errors.New("timelock not found")
-//	}
-//	if state.CancellerMcm == nil {
-//		return errors.New("canceller not found")
-//	}
-//	if state.ProposerMcm == nil {
-//		return errors.New("proposer not found")
-//	}
-//	if state.BypasserMcm == nil {
-//		return errors.New("bypasser not found")
-//	}
-//	if state.CallProxy == nil {
-//		return errors.New("call proxy not found")
-//	}
-//	return nil
-//}
+// MCMSWithTimelockContracts holds the Go bindings
+// for a MCMSWithTimelock contract deployment.
+// It is public for use in product specific packages.
+// Either all fields are nil or all fields are non-nil.
+type MCMSWithTimelockContracts struct {
+	CancellerMcm *owner_helpers.ManyChainMultiSig
+	BypasserMcm  *owner_helpers.ManyChainMultiSig
+	ProposerMcm  *owner_helpers.ManyChainMultiSig
+	Timelock     *owner_helpers.RBACTimelock
+	CallProxy    *owner_helpers.CallProxy
+}
+
+// Validate checks that all fields are non-nil, ensuring it's ready
+// for use generating views or interactions.
+func (state MCMSWithTimelockContracts) Validate() error {
+	if state.Timelock == nil {
+		return errors.New("timelock not found")
+	}
+	if state.CancellerMcm == nil {
+		return errors.New("canceller not found")
+	}
+	if state.ProposerMcm == nil {
+		return errors.New("proposer not found")
+	}
+	if state.BypasserMcm == nil {
+		return errors.New("bypasser not found")
+	}
+	if state.CallProxy == nil {
+		return errors.New("call proxy not found")
+	}
+	return nil
+}
 
 type mcmsInspectorOptions struct {
 	AptosRole mcmsaptossdk.TimelockRole
