@@ -172,6 +172,62 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	assert.Contains(t, respDigests, digest)
 }
 
+func makeUnsignedVaultRPCResponse(t *testing.T, payloadJSON string) jsonrpc.Response[json.RawMessage] {
+	t.Helper()
+	sor := vaulttypes.SignedOCRResponse{
+		Payload:    json.RawMessage(payloadJSON),
+		Context:    []byte{},
+		Signatures: [][]byte{},
+	}
+	raw, err := json.Marshal(sor)
+	require.NoError(t, err)
+	rm := json.RawMessage(raw)
+	return jsonrpc.Response[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "quorum-tie",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Result:  &rm,
+	}
+}
+
+func TestValidateUsingQuorum_tiedMajoritiesPickDigestDeterministically(t *testing.T) {
+	t.Parallel()
+
+	a := &baseAggregator{}
+	lggr := logger.Test(t)
+	don := capabilities.DON{
+		F:       1,
+		Members: make([]p2ptypes.PeerID, 6),
+	}
+
+	ra := makeUnsignedVaultRPCResponse(t, `{"v":"aaa"}`)
+	rb := makeUnsignedVaultRPCResponse(t, `{"v":"zzz"}`)
+	digestA, err := a.sha(&ra)
+	require.NoError(t, err)
+	digestB, err := a.sha(&rb)
+	require.NoError(t, err)
+	require.NotEqual(t, digestA, digestB)
+
+	wantWinner := digestA
+	if digestB < digestA {
+		wantWinner = digestB
+	}
+
+	for range 300 {
+		m := map[string]jsonrpc.Response[json.RawMessage]{
+			"n0": ra, "n1": ra, "n2": ra,
+			"n3": rb, "n4": rb, "n5": rb,
+		}
+		got, err := a.validateUsingQuorum(don, m, lggr)
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		gotDigest, derr := a.sha(got)
+		require.NoError(t, derr)
+		require.Equal(t, wantWinner, gotDigest,
+			"with two disjoint 2F+1 majorities the winning digest must not depend on map iteration order")
+	}
+}
+
 func TestAggregator_InsufficientResponses(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1}
 	agg := &baseAggregator{capabilitiesRegistry: mcr}
