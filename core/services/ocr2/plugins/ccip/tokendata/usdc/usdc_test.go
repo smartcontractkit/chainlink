@@ -105,7 +105,11 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 				responseBytes, _ := json.Marshal(response)
 
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(defaultAttestationTimeout + time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(defaultAttestationTimeout + time.Second):
+					}
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
@@ -123,7 +127,11 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 				responseBytes, _ := json.Marshal(response)
 
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(2*time.Second + time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(2*time.Second + time.Second):
+					}
 					_, err := w.Write(responseBytes)
 					require.NoError(t, err)
 				}))
@@ -179,7 +187,10 @@ func TestUSDCReader_callAttestationApiMockError(t *testing.T) {
 			name: "parent context timeout",
 			getTs: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(defaultAttestationTimeout + time.Second)
+					select {
+					case <-r.Context().Done():
+					case <-time.After(defaultAttestationTimeout + time.Second):
+					}
 				}))
 			},
 			parentTimeoutSeconds: 1,

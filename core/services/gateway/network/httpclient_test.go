@@ -86,7 +86,11 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "context canceled due to timeout passed in request",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(10 * time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(10 * time.Second):
+					}
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
 					assert.NoError(t, err2)
@@ -106,7 +110,11 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "context canceled due to default timeout",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(10 * time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(10 * time.Second):
+					}
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
 					assert.NoError(t, err2)
@@ -124,7 +132,11 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "success with long timeout passed in request",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(1 * time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(1 * time.Second):
+					}
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
 					assert.NoError(t, err2)
@@ -147,7 +159,11 @@ func TestHTTPClient_Send(t *testing.T) {
 			name: "fails with long timeout capped by default",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					time.Sleep(1 * time.Second)
+					select {
+					case <-r.Context().Done():
+						return
+					case <-time.After(1 * time.Second):
+					}
 					w.WriteHeader(http.StatusOK)
 					_, err2 := w.Write([]byte("success"))
 					assert.NoError(t, err2)
