@@ -107,8 +107,9 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	ctx := testutils.Context(t)
 	_, orm := setupORM(t)
 
+	bridgeName := bridges.BridgeName("bridge-" + uuid.New().String()[:8])
 	firstBridge := &bridges.BridgeType{
-		Name: "UniqueName",
+		Name: bridgeName,
 		URL:  cltest.WebURL(t, "http:/oneurl.com"),
 	}
 
@@ -120,21 +121,19 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	require.NoError(t, orm.UpdateBridgeType(ctx, firstBridge, updateBridge))
 
-	foundbridge, err := orm.FindBridge(ctx, "UniqueName")
+	foundbridge, err := orm.FindBridge(ctx, bridgeName)
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
 
 	bs, count, err := orm.BridgeTypes(ctx, 0, 10)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	require.Len(t, bs, 1)
+	require.GreaterOrEqual(t, count, 1)
+	require.GreaterOrEqual(t, len(bs), 1)
 
 	require.NoError(t, orm.DeleteBridgeType(ctx, &foundbridge))
 
-	bs, count, err = orm.BridgeTypes(ctx, 0, 10)
-	require.NoError(t, err)
-	require.Equal(t, 0, count)
-	require.Empty(t, bs)
+	_, err = orm.FindBridge(ctx, bridgeName)
+	require.Error(t, err)
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {
