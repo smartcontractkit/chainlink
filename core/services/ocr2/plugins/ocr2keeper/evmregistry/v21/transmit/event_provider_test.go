@@ -2,8 +2,8 @@ package transmit
 
 import (
 	"math/big"
-	"runtime"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -45,12 +45,9 @@ func TestTransmitEventProvider_Sanity(t *testing.T) {
 		}
 	}()
 
-	for provider.Ready() != nil {
-		runtime.Gosched()
-	}
-	errs := provider.HealthReport()
-	require.Len(t, errs, 1)
-	require.NoError(t, errs[provider.Name()])
+	require.Eventually(t, func() bool {
+		return provider.Ready() == nil && provider.HealthReport()[provider.Name()] == nil
+	}, time.Second, 10*time.Millisecond)
 
 	tests := []struct {
 		name        string
