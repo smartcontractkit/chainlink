@@ -71,7 +71,7 @@ runs:
     # If multiple jobs call actions/cache, then only one will get priority to create upon a cache miss.
     # We will only restore the cache by default (by calling actions/cache/restore) and let the
     # `go-mod-cache.yml` workflow handle the creation.
-    - uses: actions/cache/restore@v4
+    - uses: actions/cache/restore@v5
       if: ${{ inputs.restore-module-cache-only == 'true' }}
       name: Cache Go Modules (Restore)
       id: cache-modules-restore
@@ -86,7 +86,7 @@ runs:
 
     # If this is called, then it will create the cache entry upon a cache miss.
     # The cache is created after a cache miss, and after job completes successfully.
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       if: ${{ inputs.restore-module-cache-only != 'true' }}
       id: cache-modules
       name: Cache Go Modules
