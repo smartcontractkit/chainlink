@@ -336,7 +336,7 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
-          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0,testcache=0 ./tools/bin/${{ matrix.type.cmd }} ./... # DEBUG: drop ,testcache=0 to re-enable test cache
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
