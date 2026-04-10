@@ -18,8 +18,7 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
 	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
-		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
-		return nil
+		t.Fatalf("you must provide a CL_DATABASE_URL environment variable")
 	}
 	return sqltest.NewDB(t, dbURL)
 }
