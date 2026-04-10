@@ -97,7 +97,7 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      5 * time.Second,
 		MinResponsesToAggregate: 2,
-		MessageExpiry:           1 * time.Second,
+		MessageExpiry:           2 * time.Second,
 	}
 	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
 	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
@@ -121,12 +121,12 @@ func TestTriggerSubscriber_CorrectEventExpiryCheck(t *testing.T) {
 	// send the event from the first node early (this is a bad node
 	// that sends it too early)
 	triggerEvent := buildTriggerEvent(t, capDon.Members[0][:])
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	subscriber.Receive(t.Context(), triggerEvent)
 
 	// send events from nodes 2 & 3 (the good ones) after the expiry
-	// threshold so that event 1 is considered expired
-	time.Sleep(1300 * time.Millisecond)
+	// threshold (2s) so that event 1 is considered expired
+	time.Sleep(2500 * time.Millisecond)
 	triggerEvent.Sender = capDon.Members[1][:]
 	subscriber.Receive(t.Context(), triggerEvent)
 	// the aggregation shouldn't happen after events 1 and 2 as they
