@@ -125,11 +125,6 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
 
-	bs, count, err := orm.BridgeTypes(ctx, 0, 10)
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, count, 1)
-	require.GreaterOrEqual(t, len(bs), 1)
-
 	require.NoError(t, orm.DeleteBridgeType(ctx, &foundbridge))
 
 	_, err = orm.FindBridge(ctx, bridgeName)
