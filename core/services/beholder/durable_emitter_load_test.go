@@ -362,13 +362,15 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
-	cfg.QuietMode = false
-	cfg.RetransmitInterval = 500 * time.Millisecond
-	cfg.RetransmitAfter = 30 * time.Second
+	cfg.QuietMode = true
+	cfg.RetransmitInterval = 30 * time.Second
+	cfg.RetransmitAfter = 5 * time.Minute
 	cfg.RetransmitBatchSize = 200
 	cfg.PublishTimeout = 5 * time.Second
 	cfg.PublishBatchSize = 100
-	cfg.PublishBatchWorkers = 12
+	cfg.PublishBatchWorkers = 2
+	cfg.PublishBatchFlushInterval = 10 * time.Millisecond
+	cfg.PublishBatchChannelSize = 5000
 	cfg.DisablePruning = true
 	cfg.Hooks = newPipelineHooks(pipe)
 
@@ -417,7 +419,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	const concurrency = 10
 
 	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
-	targetRate := 1000
+	targetRate := 0
 
 	t.Logf("Full-stack sustained throughput: totalEvents=%d, concurrency=%d, targetRate=%d msg/s",
 		totalEvents, concurrency, targetRate)
