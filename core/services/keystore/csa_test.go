@@ -29,6 +29,13 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 	}
 
+	// Other tests in this package call t.Parallel() and share CL_DATABASE_URL; clear encrypted_key_rings
+	// before the first subtest so we do not inherit rows from concurrent tests.
+	_, err := db.Exec("DELETE FROM encrypted_key_rings")
+	require.NoError(t, err)
+	keyStore.ResetXXXTestOnly()
+	require.NoError(t, keyStore.Unlock(context.Background(), cltest.Password))
+
 	t.Run("initializes with an empty state", func(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
