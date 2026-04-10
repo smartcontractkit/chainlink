@@ -2,6 +2,7 @@ package pgtest
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,23 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
 		return nil
 	}
-	return sqltest.NewDB(t, dbURL)
+	db := sqltest.NewDB(t, dbURL)
+
+	// Prevent parallel txdb tests from blocking indefinitely on lock contention.
+	// sqltest.NewDB does not run any init SQL, so without this a session will wait
+	// forever for locks held by other txdb-wrapped tests (whose transactions stay
+	// open for the full test lifetime).
+	_, err := db.Exec("SET lock_timeout = '1min'; SET idle_in_transaction_session_timeout = '1h'")
+	require.NoError(t, err, "failed to set session timeouts on test DB")
+
+	opened := time.Now()
+	t.Cleanup(func() {
+		if elapsed := time.Since(opened); elapsed > 2*time.Minute {
+			t.Logf("pgtest: txdb connection held for %s (opened at %s)", elapsed.Round(time.Second), opened.Format(time.RFC3339))
+		}
+	})
+
+	return db
 }
 
 func MustExec(t *testing.T, ds sqlutil.DataSource, stmt string, args ...any) {
