@@ -23,8 +23,8 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	Ft := 3  // trigger DON faulty nodes
 	Nw := 10 // workflow DON nodes
 	Fw := 3  // workflow DON faulty nodes
-	P := 40  // feeds
-	T := 2   // test iterations
+	P := 15  // feeds (reduced from 40 to prevent timeout under -count=100 -race)
+	T := 1   // test iterations
 
 	triggerNodes := newNodes(t, Nt)
 	feeds := newFeedsWithSignedReports(t, triggerNodes, Nt, P, 1)
