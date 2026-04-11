@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		synctest.Test(t, func(t *testing.T) {
 			startTime := time.Now()
 
 			m, err := values.NewMap(map[string]any{
