@@ -32,7 +32,7 @@ var (
 	rToALatency = time.Millisecond * 300 // latency between Report() and ShouldAcceptFinalizedReport()
 	aToTLatency = time.Millisecond * 400 // latency between ShouldAcceptFinalizedReport() and ShouldTransmitAcceptedReport()
 
-	ceiling = time.Millisecond * 2000
+	ceiling = time.Millisecond * 700
 )
 
 // fakeReportingPlugin has varied intra-phase latencies.
