@@ -1241,8 +1241,10 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		}
 		lggr.Debug("Closed DB")
 
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
+		if s.CloseLogger != nil {
+			if err := s.CloseLogger(); err != nil {
+				log.Printf("Failed to close Logger: %v", err)
+			}
 		}
 	})
 }

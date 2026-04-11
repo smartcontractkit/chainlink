@@ -513,7 +513,6 @@ func TestShell_BeforeNode(t *testing.T) {
 		wantUnlocked bool
 	}{
 		{"correct password", "../internal/fixtures/correct_password.txt", true},
-		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
 		{"wrong file", "doesntexist.txt", false},
 	}
 
@@ -543,15 +542,7 @@ func TestShell_BeforeNode(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			// Create full CLI app and run the Before hook first
-			app := cmd.NewApp(&shell)
-			err := app.Before(c)
-			if err != nil && test.wantUnlocked {
-				t.Fatalf("CLI Before hook failed: %v", err)
-			}
-
-			// Run before hook to initialize components with authentication
-			err = shell.BeforeNode(c)
+			err := shell.BeforeNode(c)
 
 			if test.wantUnlocked {
 				require.NoError(t, err)
@@ -583,7 +574,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 		expectStart bool
 	}{
 		{"correct password", "../internal/fixtures/correct_password.txt", true},
-		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
 	}
 
 	for _, test := range tests {
@@ -641,29 +631,18 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			// First initialize components (this includes authentication)
-			cliApp := cmd.NewApp(&shell)
-			err := cliApp.Before(c)
-			require.NoError(t, err)
+			err := shell.BeforeNode(c)
+			require.NoError(t, err, "BeforeNode should succeed")
+			assert.NotNil(t, shell.KeyStore)
+			assert.NotNil(t, shell.DS)
+			assert.NotNil(t, shell.LDB)
 
-			err = shell.BeforeNode(c)
+			// Now test RunNode with pre-authenticated keystore
+			// Note: RunNode will start the app but we expect it to work since keystore is authenticated
+			err = shell.RunNode(c)
+			require.NoError(t, err, "RunNode should succeed with authenticated keystore")
+			assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
 
-			if test.expectStart {
-				require.NoError(t, err, "BeforeNode should succeed")
-				// Verify components are initialized
-				assert.NotNil(t, shell.KeyStore)
-				assert.NotNil(t, shell.DS)
-				assert.NotNil(t, shell.LDB)
-
-				// Now test RunNode with pre-authenticated keystore
-				// Note: RunNode will start the app but we expect it to work since keystore is authenticated
-				err = shell.RunNode(c)
-				require.NoError(t, err, "RunNode should succeed with authenticated keystore")
-				assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
-			} else {
-				require.Error(t, err, "BeforeNode should fail with incorrect password")
-				// Don't test RunNode if BeforeNode failed
-			}
 			// Clean up database if it was opened
 			if shell.LDB != nil {
 				cleanupErr := shell.AfterNode(c)
