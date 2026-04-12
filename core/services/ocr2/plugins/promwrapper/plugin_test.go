@@ -78,7 +78,7 @@ func TestPlugin_MustInstantiate(t *testing.T) {
 }
 
 func TestPlugin_GetLatencies(t *testing.T) {
-	synctest.Test(t, func(*testing.T) {
+	synctest.Test(t, func(t *testing.T) {
 		{
 			// Use arbitrary report timestamp and label values.
 			configDigest := common.BytesToHash(crypto.Keccak256([]byte("foobar")))
