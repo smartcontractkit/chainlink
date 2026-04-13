@@ -58,7 +58,7 @@ func validateCommonFields(f commonCapFields) error {
 	if f.ForwardersQualifier == "" {
 		return errors.New("cre forwarder qualifier is required")
 	}
-	if f.DeltaStage <= 0 {
+	if f.DeltaStage < 0 {
 		return fmt.Errorf("deltaStage (%s) must be greater than 0", f.DeltaStage)
 	}
 	return nil

@@ -18,10 +18,8 @@ const aptosNetwork = "aptos"
 
 type AptosOverrideDefaultCfg struct {
 	CREForwarderAddress           string        `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
-	DeltaStage                    time.Duration `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
 	Network                       string        `json:"network,omitempty" yaml:"network,omitempty"`
 	ChainID                       string        `json:"chainId,omitempty" yaml:"chainId,omitempty"`
-	TxSearchStartingBuffer        time.Duration `json:"txSearchStartingBuffer,omitempty" yaml:"txSearchStartingBuffer,omitempty"`
 	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
 	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
 	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
@@ -89,9 +87,6 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 
 	for _, aptosCapInput := range input.AptosCapabilityInputs {
 		ov := aptosCapInput.OverrideDefaultCfg
-		if aptosCapInput.NodeID == "" {
-			return errors.New("nodeID in aptos capability input is required")
-		}
 
 		if ov.ChainID != "" && ov.ChainID != chainIDStr {
 			return fmt.Errorf(
@@ -151,9 +146,6 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		cfg.ChainID = chainIDStr
 		cfg.Network = aptosNetwork
 		cfg.CREForwarderAddress = resolved.ForwarderAddress
-		cfg.DeltaStage = input.DeltaStage
-		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
-
 		enc, err := json.Marshal(cfg)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal aptos cap config: %w", err)
