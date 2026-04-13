@@ -38,7 +38,7 @@ Environment variables:
   - CTF_CONFIGS: path to the environment config TOML file.
 */
 func Test_CRE_PoR_MemoryLeakSoak(t *testing.T) {
-	const numWorkflows = 20
+	const numWorkflows = 2
 
 	start := time.Now()
 

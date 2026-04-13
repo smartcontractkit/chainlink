@@ -137,12 +137,14 @@ jobs:
             -count=1 \
             github.com/smartcontractkit/chainlink/system-tests/tests/soak/cre
 
-      - name: Upload alloc.pprof
+      - name: Upload performance reports
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: pprof
-          path: system-tests/tests/soak/cre/*.pprof
+          path: |
+            system-tests/tests/soak/cre/*.pprof
+            system-tests/tests/soak/cre/admin-profiles
           retention-days: 7
 
       - name: Upload Docker logs
