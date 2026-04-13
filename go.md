@@ -77,7 +77,7 @@ flowchart LR
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-evm/contracts/cre/gobindings --> chainlink-evm/gethwrappers/helpers
 	click chainlink-evm/contracts/cre/gobindings href "https://github.com/smartcontractkit/chainlink-evm"
-	chainlink-evm/gethwrappers
+	chainlink-evm/gethwrappers --> chainlink-evm/gethwrappers/helpers
 	click chainlink-evm/gethwrappers href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-evm/gethwrappers/helpers
 	click chainlink-evm/gethwrappers/helpers href "https://github.com/smartcontractkit/chainlink-evm"
