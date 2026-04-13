@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
@@ -56,13 +57,16 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 	return nil
 }
 
+const CTFChipRouterImageEnvVar = "CTF_CHIP_ROUTER_IMAGE"
+
 type Config struct {
-	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required"`
-	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required"`
+	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required,min=1"`
+	NodeSets          []*cre.NodeSet                  `toml:"nodesets" validate:"required,min=1"`
 	JD                *jd.Input                       `toml:"jd" validate:"required"`
 	Infra             *infra.Provider                 `toml:"infra" validate:"required"`
 	Fake              *fake.Input                     `toml:"fake"`
 	FakeHTTP          *fake.Input                     `toml:"fake_http"`
+	ChipRouter        *ctfchiprouter.Input            `toml:"chip_router" validate:"required"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
 	Addresses         []string                        `toml:"addresses"`
@@ -76,18 +80,6 @@ type Config struct {
 func (c *Config) Validate(envDependencies cre.CLIEnvironmentDependencies) error {
 	if c.JD.CSAEncryptionKey == "" {
 		return errors.New("jd.csa_encryption_key must be provided")
-	}
-
-	if len(c.Blockchains) == 0 {
-		return errors.New("at least one blockchain must be configured")
-	}
-
-	if len(c.NodeSets) == 0 {
-		return errors.New("at least one nodeset must be configured")
-	}
-
-	if c.Infra == nil {
-		return errors.New("infra configuration must be provided")
 	}
 
 	for _, nodeSet := range c.NodeSets {
@@ -299,6 +291,28 @@ func MustChipIngressStateFileAbsPath(relativePathToRepoRoot string) string {
 func ChipIngressStateFileExists(relativePathToRepoRoot string) bool {
 	_, statErr := os.Stat(MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 	return statErr == nil
+}
+
+type ChipIngressRouterState struct {
+	AdminURL      string `toml:"admin_url"`
+	GRPCURL       string `toml:"grpc_url"`
+	ContainerName string `toml:"container_name"`
+}
+
+func LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot string) (*ChipIngressRouterState, error) {
+	cfg := &Config{}
+	if err := cfg.Load(MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
+		return nil, errors.Wrap(err, "failed to load local CRE state")
+	}
+	if cfg.ChipRouter == nil || cfg.ChipRouter.Out == nil {
+		return nil, errors.New("chip router output not found in local CRE state")
+	}
+
+	return &ChipIngressRouterState{
+		AdminURL:      cfg.ChipRouter.Out.ExternalAdminURL,
+		GRPCURL:       cfg.ChipRouter.Out.ExternalGRPCURL,
+		ContainerName: cfg.ChipRouter.Out.ContainerName,
+	}, nil
 }
 
 func storeLocalArtifact(artifact any, absPath string) error {

@@ -76,28 +76,12 @@ jobs:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Install CTF binary
-        shell: bash
-        working-directory: core/scripts/cre/environment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "framework/v0.15.2"
-        run: |
-          echo "::startgroup::Install CTF binary"
-          mkdir -p bin
-          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
-          tar -xzf ctf.tar.gz
-          mv ctf bin/ctf
-          chmod +x bin/ctf
-          echo "::endgroup::"
-
       - name: Start observability stack
         shell: bash
         working-directory: core/scripts/cre/environment
         run: |
           echo "::startgroup::Starting observability stack (required by leak package)"
-          ./bin/ctf obs up -f
+          go run . obs up -f
           echo "::endgroup::"
 
       - name: Start local CRE
@@ -118,6 +102,7 @@ jobs:
         working-directory: system-tests/tests
         env:
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest.log \

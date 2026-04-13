@@ -2,6 +2,7 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"io"
@@ -109,9 +110,10 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
 
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+		// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 	// drain user logs channel in the background, we are not asserting anything on it
 	t_helpers.IgnoreUserLogs(t.Context(), userLogsCh)
