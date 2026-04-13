@@ -109,7 +109,7 @@ func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 }
 
 func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
-	mp := new(mocks.LogPoller)
+	mp := mocks.NewLogPoller(t)
 
 	tests := []struct {
 		name         string
@@ -241,19 +241,19 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 func TestLogEventProvider_ReadLogs(t *testing.T) {
 	ctx := testutils.Context(t)
 
-	mp := new(mocks.LogPoller)
+	mp := mocks.NewLogPoller(t)
 
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
-	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
+	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: int64(1)}, nil)
 	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
 		{
 			BlockNumber: 1,
 			TxHash:      common.HexToHash("0x1"),
 		},
-	}, nil)
+	}, nil).Maybe()
 
 	filterStore := NewUpkeepFilterStore()
 	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, filterStore, NewOptions(200, big.NewInt(1)))

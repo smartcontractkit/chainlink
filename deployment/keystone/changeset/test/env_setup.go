@@ -142,7 +142,7 @@ func loadOneContract[T contracts.Ownable](t *testing.T, env cldf.Environment, ch
 	t.Helper()
 	addrs := env.DataStore.Addresses().Filter(datastore.AddressRefByQualifier(qualifier))
 	require.Len(t, addrs, 1)
-	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address)
+	c, err := contracts.GetOwnedContractV2[T](env.DataStore.Addresses(), chain, addrs[0].Address, addrs[0].Qualifier)
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	return c
@@ -169,7 +169,7 @@ func (te EnvWrapper) OwnedForwarders() map[uint64][]*contracts.OwnedContract[*fo
 	require.NotEmpty(te.t, addrs)
 	out := make(map[uint64][]*contracts.OwnedContract[*forwarder.KeystoneForwarder])
 	for _, addr := range addrs {
-		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address)
+		c, err := contracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](te.Env.DataStore.Addresses(), te.Env.BlockChains.EVMChains()[addr.ChainSelector], addr.Address, addr.Qualifier)
 		require.NoError(te.t, err)
 		require.NotNil(te.t, c)
 		out[addr.ChainSelector] = append(out[addr.ChainSelector], c)

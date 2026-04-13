@@ -110,10 +110,16 @@ type workflowRegistry struct {
 	hooks Hooks
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardRoutingSteady      shardRoutingSteadyObserver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+}
+
+type shardRoutingSteadyObserver interface {
+	ObserveRoutingSteady(steady bool)
+	Invalidate()
 }
 
 type Hooks struct {
@@ -245,6 +251,12 @@ func WithShardEnabled(shardingEnabled bool) Option {
 func WithShardID(shardID uint32) Option {
 	return func(wr *workflowRegistry) {
 		wr.myShardID = shardID
+	}
+}
+
+func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardRoutingSteady = signal
 	}
 }
 
@@ -665,7 +677,13 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
 	if err != nil {
+		if w.shardRoutingSteady != nil {
+			w.shardRoutingSteady.Invalidate()
+		}
 		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
+	}
+	if w.shardRoutingSteady != nil {
+		w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {

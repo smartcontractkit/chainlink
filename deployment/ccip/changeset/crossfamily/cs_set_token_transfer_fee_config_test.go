@@ -2,6 +2,7 @@ package crossfamily_test
 
 import (
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -558,11 +559,13 @@ func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 	// EVM selectors
 	evm := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(evm), 2)
+	slices.Sort(evm)
 	evmSrc, evmDst := evm[0], evm[1]
 
 	// SOL selectors
 	sol := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))
 	require.GreaterOrEqual(t, len(sol), 1)
+	slices.Sort(sol)
 	solSrc := sol[0]
 
 	// EVM: transfer to timelock so we can MCMS-apply

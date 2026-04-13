@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -168,7 +169,7 @@ func NewHTTPMockServer(
 	response string,
 	callback ...func(http.Header, string),
 ) *httptest.Server {
-	called := false
+	var called atomic.Bool
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
@@ -176,7 +177,7 @@ func NewHTTPMockServer(
 		if len(callback) > 0 {
 			callback[0](r.Header, string(b))
 		}
-		called = true
+		called.Store(true)
 
 		w.WriteHeader(status)
 		_, _ = io.WriteString(w, response) // Assignment for errcheck. Only used in tests so we can ignore.
@@ -185,7 +186,7 @@ func NewHTTPMockServer(
 	server := httptest.NewServer(handler)
 	t.Cleanup(func() {
 		server.Close()
-		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
+		assert.True(t, called.Load(), "expected call Mock HTTP endpoint '%s'", server.URL)
 	})
 	return server
 }

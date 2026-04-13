@@ -32,6 +32,8 @@ const (
 	workflowID1          = "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID1 = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	stepRef1             = "stepRef1"
+
+	testDispatcherChanCap = 100
 )
 
 func Test_ClientRequest_MessageValidation(t *testing.T) {
@@ -82,7 +84,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		defer req.Cancel(errors.New("test end"))
@@ -133,7 +135,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
@@ -167,7 +169,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 2, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
@@ -198,15 +200,13 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -242,15 +242,13 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		serialized := caperrors.NewPublicUserError(errors.New("rpc error: EVM error invalid argument"), caperrors.FailedPrecondition).SerializeToRemoteString()
 		msgWithError := &types.MessageBody{
@@ -288,15 +286,13 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msgWithError := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -349,15 +345,13 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx := t.Context()
 		capabilityPeers, capDonInfo, capInfo := capabilityDon(t, 4, 1)
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capabilityPeers))
 
 		msg := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -397,9 +391,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		// that the schedule is still executed entirely.
 		cancelFn()
 
-		// Buffered channel so the goroutines block
-		// when executing the schedule
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(
 			ctxWithCancel,
 			lggr,
@@ -416,10 +408,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Despite the context being cancelled,
 		// we still send the full schedule.
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capPeers))
 
 		msg := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -516,9 +505,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		ctx, cancelFn := context.WithTimeout(ctx, 15*time.Second)
 		defer cancelFn()
 
-		// Buffered channel so the goroutines block
-		// when executing the schedule
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(
 			ctx,
 			lggr,
@@ -535,10 +522,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		// Despite the context being cancelled,
 		// we still send the full schedule.
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capPeers))
 
 		msg := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -619,7 +603,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		ctx := t.Context()
 
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(ctx, logger.Test(t), capabilityRequest, capInfo,
 			workflowDonInfo, dispatcher, 10*time.Minute, nil, "")
 		require.NoError(t, err)
@@ -672,7 +656,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		beholderTester := beholdertest.NewObserver(t)
 		lggr, obs := logger.TestObserved(t, zapcore.DebugLevel)
 		capPeers, capDonInfo, capInfo := capabilityDon(t, 3, 1)
-		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		dispatcher := newClientRequestTestDispatcher()
 		req, err := request.NewClientExecuteRequest(
 			t.Context(),
 			lggr,
@@ -690,11 +674,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer req.Cancel(errors.New("test end"))
 
-		// Expect all 3 capability nodes to receive the request.
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
+		drainInitialPeerSends(t, dispatcher, len(capPeers))
 
 		msg := &types.MessageBody{
 			CapabilityId:    capInfo.ID,
@@ -752,6 +732,22 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			assert.Equal(t, delays[i-1], delays[i], "v2 capabilities should be all at once")
 		}
 	})
+}
+
+func newClientRequestTestDispatcher() *clientRequestTestDispatcher {
+	return &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, testDispatcherChanCap)}
+}
+
+func drainInitialPeerSends(t *testing.T, d *clientRequestTestDispatcher, numCapabilityPeers int) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		return len(d.msgs) == numCapabilityPeers
+	}, 2*time.Second, time.Millisecond, "timed out waiting for %d buffered outbound messages", numCapabilityPeers)
+	require.Len(t, d.msgs, numCapabilityPeers, "dispatcher outbound buffer before draining initial peer sends")
+	for range numCapabilityPeers {
+		<-d.msgs
+	}
+	require.Empty(t, d.msgs)
 }
 
 func capabilityDon(t *testing.T, numCapabilityPeers int, f uint8) ([]p2ptypes.PeerID, commoncap.DON, commoncap.CapabilityInfo) {
