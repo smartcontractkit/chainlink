@@ -99,7 +99,7 @@ func setupClient(t *testing.T) *client {
 		threadCtl,
 		lggr,
 	)
-	require.NoError(t, c.StartOnce("v02_request", func() error { return nil }))
+	require.NoError(t, c.Start())
 	return c
 }
 
