@@ -197,6 +197,10 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Before: s.validateDB,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
+							Name:  "fast",
+							Usage: "skip rollback/schema parity validation during reset (faster local prep)",
+						},
+						cli.BoolFlag{
 							Name:  "user-only",
 							Usage: "only include test user fixture",
 						},
@@ -888,7 +892,10 @@ func (s *Shell) ctx() context.Context {
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
 // in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
-	ctx := s.ctx()
+	return s.resetDatabaseFromCtx(s.ctx(), c, false)
+}
+
+func (s *Shell) resetDatabaseFromCtx(ctx context.Context, c *cli.Context, quick bool) error {
 	cfg := s.Config.Database()
 	u := cfg.URL()
 	if u.String() == "" {
@@ -902,6 +909,12 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 
 	force := c.Bool("force")
 
+	if quick {
+		if err := store.ResetDatabaseQuick(ctx, s.Logger, cfg, force); err != nil {
+			return s.errorOut(err)
+		}
+		return nil
+	}
 	if err := store.ResetDatabase(ctx, s.Logger, cfg, force, false); err != nil {
 		return s.errorOut(err)
 	}
@@ -910,7 +923,7 @@ func (s *Shell) ResetDatabase(c *cli.Context) error {
 
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
 func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
-	if err := s.ResetDatabase(c); err != nil {
+	if err := s.resetDatabaseFromCtx(s.ctx(), c, c.Bool("fast")); err != nil {
 		return s.errorOut(err)
 	}
 	cfg := s.Config

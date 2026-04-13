@@ -101,8 +101,7 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
-	// Force import of pgtest to ensure that txdb is registered as a DB driver
-	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	testpg "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 const (
@@ -267,6 +266,7 @@ const (
 func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
 	t.Helper()
 	testutils.SkipShortDB(t)
+	testpg.EnsureAutoPostgres(t)
 
 	ctx := testutils.Context(t)
 
@@ -353,8 +353,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	url := cfg.Database().URL()
-	db, err := pg.NewConnection(ctx, url.String(), cfg.Database().DriverName(), cfg.Database())
+	dbu := cfg.Database().URL()
+	baseURL := dbu.String()
+	if baseURL == "" {
+		baseURL = os.Getenv("CL_DATABASE_URL")
+	}
+	require.NotEmpty(t, baseURL, "database URL required (set CL_DATABASE_URL or use pgtest autosetup with Docker)")
+	db, err := pg.NewConnection(ctx, baseURL, cfg.Database().DriverName(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 

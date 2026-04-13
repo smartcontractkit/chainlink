@@ -1,6 +1,8 @@
 package pgtest
 
 import (
+	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,13 +17,43 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
+// EnvLogDBConcurrency logs when many txdb-backed tests are open at once (set to "true").
+const EnvLogDBConcurrency = "CHAINLINK_PGTEST_LOG_DB_CONCURRENCY"
+
+var (
+	openTxdbSessions atomic.Int64
+	peakTxdbSessions atomic.Int64
+)
+
+// PeakConcurrentTxDBSessions returns the high-water count of concurrent txdb sessions
+// observed via [NewSqlxDB] in this process (for diagnosing Postgres contention).
+func PeakConcurrentTxDBSessions() int64 {
+	return peakTxdbSessions.Load()
+}
+
 func NewSqlxDB(t testing.TB) *sqlx.DB {
 	testutils.SkipShortDB(t)
+	EnsureAutoPostgres(t)
 	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
-		t.Errorf("you must provide a CL_DATABASE_URL environment variable")
+		t.Errorf("you must provide a CL_DATABASE_URL environment variable (or unset CHAINLINK_PGTEST_DISABLE_AUTOCONTAINERS to allow testcontainers autosetup)")
 		return nil
 	}
+
+	n := openTxdbSessions.Add(1)
+	for {
+		prev := peakTxdbSessions.Load()
+		if n <= prev {
+			break
+		}
+		if peakTxdbSessions.CompareAndSwap(prev, n) {
+			break
+		}
+	}
+	if os.Getenv(EnvLogDBConcurrency) == "true" && n > 50 {
+		t.Logf("pgtest: concurrent txdb sessions=%d (peak=%d)", n, peakTxdbSessions.Load())
+	}
+
 	db := sqltest.NewDB(t, dbURL)
 
 	// Prevent parallel txdb tests from blocking indefinitely on lock contention.
@@ -35,6 +67,7 @@ SET statement_timeout = '30s';`)
 
 	opened := time.Now()
 	t.Cleanup(func() {
+		openTxdbSessions.Add(-1)
 		if elapsed := time.Since(opened); elapsed > 2*time.Minute {
 			t.Logf("pgtest: txdb connection held for a long time: %s (opened at %s). If tests are failing or hanging, there might be issues with how you're accessing the DB that lock out others. You can also consider increasing the lock timeout.", elapsed.Round(time.Second), opened.Format(time.RFC3339))
 		}

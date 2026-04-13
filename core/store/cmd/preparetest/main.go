@@ -21,6 +21,7 @@ var (
 	force         = flag.Bool("force", false, "legacy flag (ignored for drop); reset always uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)")
 	userOnly      = flag.Bool("user-only", false, "only include test user fixture")
 	deterministic = flag.Bool("deterministic", true, "use deterministic output for schema dumps (disable with --deterministic=false for production-like behavior)")
+	fast          = flag.Bool("fast", false, "skip rollback/schema parity validation (faster local prep; CI should omit --fast)")
 )
 
 func main() {
@@ -52,7 +53,11 @@ func main() {
 
 	cfg := config{u: *dbURL}
 
-	if err = store.ResetDatabase(ctx, lggr, cfg, *force, *deterministic); err != nil {
+	if *fast {
+		if err = store.ResetDatabaseQuick(ctx, lggr, cfg, *force); err != nil {
+			lggr.Fatal("Failed to reset database:", err)
+		}
+	} else if err = store.ResetDatabase(ctx, lggr, cfg, *force, *deterministic); err != nil {
 		lggr.Fatal("Failed to reset database:", err)
 	}
 

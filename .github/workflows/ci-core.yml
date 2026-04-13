@@ -247,6 +247,15 @@ jobs:
       contents: read
       actions: read
     steps:
+      # DEBUG: Monitor resource usage
+      - name: Monitor
+        uses: kalverra/octometrics-action@main
+        with:
+          job_name: Core Tests (${{ matrix.type.cmd }}) # Required input to match API job data with runner job data
+          skip_comment: "true" # Optional input that can skip posting comments to a PR, default false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
         with:
@@ -310,6 +319,11 @@ jobs:
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
+      # DEBUG: Use this for new tuning check experiments
+      # - name: Tune Postgres for core tests
+      #   if: ${{ matrix.type.should-run == 'true' }}
+      #   run: PGPASSWORD=postgres psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f core/scripts/tune_test_postgres_ci.sql
+
       - name: Install LOOP Plugins
         if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
         run: make install-plugins
@@ -329,6 +343,7 @@ jobs:
         id: run-tests
         shell: bash
         env:
+          CACHE_VERSION: v1 # DEBUG: increase cache version to force rebuild for checking performance
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}

@@ -203,6 +203,10 @@ The tests require a postgres database. In turn, the environment variable
 `CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
 the given `_test` database.
 
+**Optional — `go test` without `make testdb`:** If `CL_DATABASE_URL` is unset and Docker is available, the first DB test
+in a package will start a **testcontainers** Postgres 16 instance (reused by container name across packages), run
+migrations, and set `CL_DATABASE_URL` automatically. Opt out with `CHAINLINK_PGTEST_DISABLE_AUTOCONTAINERS=true`.
+
 Note: Other environment variables should not be set for all tests to pass
 
 There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
@@ -222,6 +226,13 @@ source .dbenv
 make testdb
 ```
 
+For a faster local reset (skips migration rollback/schema parity checks — CI should still use full `make testdb`):
+
+```
+source .dbenv
+make testdb-fast
+```
+
 If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
 and you want force the database creation then use
 
@@ -239,7 +250,7 @@ go test ./...
 #### Notes
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
-- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interfering with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
 #### Race Detector

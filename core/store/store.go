@@ -87,6 +87,23 @@ func ResetDatabase(ctx context.Context, lggr logger.Logger, cfg Config, force, d
 	return checkSchema(u, schema, restrictKey)
 }
 
+// ResetDatabaseQuick drops and recreates the target database, runs migrations, and skips
+// the expensive rollback + schema parity checks performed by [ResetDatabase].
+// Use for local test DB bootstrap and ephemeral Postgres (e.g. testcontainers).
+func ResetDatabaseQuick(ctx context.Context, lggr logger.Logger, cfg Config, force bool) error {
+	u := cfg.URL()
+	lggr.Infof("Resetting database (quick, no rollback validation): %#v", u.String())
+	lggr.Debugf("Dropping and recreating database: %#v", u.String())
+	if err := dropAndCreateDB(u, force); err != nil {
+		return err
+	}
+	lggr.Debugf("Migrating database: %#v", u.String())
+	if err := migrateDB(ctx, cfg); err != nil {
+		return err
+	}
+	return nil
+}
+
 type Config interface {
 	DefaultIdleInTxSessionTimeout() time.Duration
 	DefaultLockTimeout() time.Duration

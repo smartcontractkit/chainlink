@@ -203,6 +203,10 @@ setup-testdb: ## Setup the test database.
 testdb: ## Prepares the test database.
 	go run ./core/store/cmd/preparetest
 
+.PHONY: testdb-fast
+testdb-fast: ## Prepares the test database (skips rollback/schema parity validation; faster locally).
+	go run ./core/store/cmd/preparetest --fast
+
 .PHONY: testdb-force
 testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
 	go run ./core/store/cmd/preparetest --force
