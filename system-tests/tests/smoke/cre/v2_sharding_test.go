@@ -309,9 +309,8 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Interface("distribution", shardCounts).
 		Msg("Real workflows distributed across 2 shards after scaling")
 
-	cronPeriod := 30 * time.Second
-	logger.Info().Dur("cronPeriod", cronPeriod).Msg("Step 8b: Waiting one cron period for straggler executions to drain")
-	time.Sleep(cronPeriod)
+	logger.Info().Msg("Step 8b: Waiting for mapping version to stabilize before verifying shard assignments")
+	waitForMappingVersionStable(t, shardOrchClient, workflowIDs, 15*time.Second, 90*time.Second)
 
 	// Re-snapshot mappings after the barrier so we use the post-stable state.
 	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
@@ -609,6 +608,42 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 		}
 		return true
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
+}
+
+func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, stableDuration, timeout time.Duration) {
+	t.Helper()
+	logger := framework.L
+
+	var lastVersion uint64
+	lastChangeAt := time.Now()
+
+	require.Eventually(t, func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
+			WorkflowIds: workflowIDs,
+		})
+		if err != nil {
+			logger.Warn().Err(err).Msg("Failed to get mapping version during stability check")
+			return false
+		}
+		if resp.MappingVersion != lastVersion {
+			logger.Info().
+				Uint64("previousVersion", lastVersion).
+				Uint64("currentVersion", resp.MappingVersion).
+				Msg("Mapping version changed, resetting stability timer")
+			lastVersion = resp.MappingVersion
+			lastChangeAt = time.Now()
+			return false
+		}
+		stableFor := time.Since(lastChangeAt)
+		logger.Info().
+			Uint64("version", lastVersion).
+			Dur("stableFor", stableFor).
+			Dur("target", stableDuration).
+			Msg("Mapping version stability check")
+		return stableFor >= stableDuration
+	}, timeout, 2*time.Second, "Mapping version did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
 }
 
 func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
