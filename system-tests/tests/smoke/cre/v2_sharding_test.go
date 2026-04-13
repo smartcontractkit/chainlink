@@ -610,10 +610,6 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
 }
 
-// waitForMappingVersionStable polls GetWorkflowShardMapping and returns once
-// the actual workflow-to-shard assignments have not changed for stableDuration.
-// MappingVersion itself increments every OCR round regardless of content changes,
-// so we compare the mapping content instead.
 func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, stableDuration, timeout time.Duration) {
 	t.Helper()
 	logger := framework.L
