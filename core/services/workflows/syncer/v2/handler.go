@@ -522,14 +522,14 @@ func (h *eventHandler) workflowRegisteredEvent(
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
 		// Check if the engine is draining (pending deletion) — if so, it needs replacement.
-		if drainable, isDrainable := prevEngine.Service.(DrainableService); isDrainable && drainable.IsDraining() {
-			h.lggr.Infow("Engine is draining, will replace with new engine",
-				"workflowID", payload.WorkflowID.Hex())
-			// Fall through to cleanup + recreate below
-		} else {
+		drainable, isDrainable := prevEngine.Service.(DrainableService)
+		if !isDrainable || !drainable.IsDraining() {
 			// This is the happy-path, we're done.
 			return nil
 		}
+		h.lggr.Infow("Engine is draining, will replace with new engine",
+			"workflowID", payload.WorkflowID.Hex())
+		// Fall through to cleanup + recreate below
 	}
 
 	// Any other case ->

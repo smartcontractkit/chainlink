@@ -227,7 +227,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 // registration handler to detect that this engine needs replacement.
 func (e *Engine) Drain() {
 	e.draining.Store(true)
-	e.srvcEng.SetHealthCond("draining", fmt.Errorf("engine is draining, pending deletion"))
+	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
 }
 
 // IsDraining returns true if Drain() has been called.

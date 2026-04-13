@@ -82,16 +82,6 @@ func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, cou
 	))
 }
 
-func (m *metrics) recordDrainingWorkflow(ctx context.Context, workflowID string, draining bool) {
-	val := int64(0)
-	if draining {
-		val = 1
-	}
-	m.drainingWorkflows.Record(ctx, val, metric.WithAttributes(
-		attribute.String("workflowID", workflowID),
-	))
-}
-
 func newMetrics() (*metrics, error) {
 	handleDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
 	if err != nil {
