@@ -359,11 +359,14 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			reg := ok && triggerMap[triggerID] != nil
 			s.mu.RUnlock()
 
-			if reg {
-				s.resendRegistration(workflowID, triggerID)
-			} else {
+			if !reg {
+				// Registration was removed locally — tell the publisher to clean up.
 				s.sendUnregister(workflowID, triggerID)
 			}
+			// For existing registrations we intentionally do NOT resend.
+			// The periodic registrationLoop already refreshes registrations,
+			// and the publisher ignores duplicate MethodRegisterTrigger for
+			// registrations it already has.
 		}
 	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))

@@ -407,34 +407,49 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		p.lggr.Debugw("cleaned expired unregister cache entries", "deleted", deletedUnreg)
 	}
 
+	// Group registration keys by callerDonID so we send one batched message
+	// per workflow DON peer instead of one per registration. With 2,500
+	// registrations × 7 peers, this reduces 17,500 messages to 7.
 	p.mu.RLock()
-	keys := make([]registrationKey, 0, len(p.registrations))
+	grouped := make(map[uint32][]registrationKey, len(cfg.workflowDONs))
 	for key := range p.registrations {
-		keys = append(keys, key)
+		grouped[key.callerDonID] = append(grouped[key.callerDonID], key)
 	}
 	p.mu.RUnlock()
 
-	for _, key := range keys {
+	for callerDonID, keys := range grouped {
+		workflowIDs := make([]string, len(keys))
+		triggerIDs := make([]string, len(keys))
+		for i, key := range keys {
+			workflowIDs[i] = key.workflowID
+			triggerIDs[i] = key.triggerID
+		}
+
 		msg := &types.MessageBody{
 			CapabilityId:     p.capabilityID,
 			CapabilityDonId:  cfg.capDonInfo.ID,
-			CallerDonId:      key.callerDonID,
+			CallerDonId:      callerDonID,
 			Method:           types.MethodTriggerRegistrationCheck,
 			CapabilityMethod: p.capMethodName,
 			Metadata: &types.MessageBody_TriggerEventMetadata{
 				TriggerEventMetadata: &types.TriggerEventMetadata{
-					WorkflowIds: []string{key.workflowID},
-					TriggerIds:  []string{key.triggerID},
+					WorkflowIds: workflowIDs,
+					TriggerIds:  triggerIDs,
 				},
 			},
 		}
 
-		for _, peerID := range cfg.workflowDONs[key.callerDonID].Members {
+		don, ok := cfg.workflowDONs[callerDonID]
+		if !ok {
+			continue
+		}
+		for _, peerID := range don.Members {
 			err := p.dispatcher.Send(peerID, msg)
 			if err != nil {
 				p.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
 			}
 		}
+		p.lggr.Debugw("sent batched registration check", "callerDonId", callerDonID, "nRegistrations", len(keys), "nPeers", len(don.Members))
 	}
 }
 

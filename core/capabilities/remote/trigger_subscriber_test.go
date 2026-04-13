@@ -411,7 +411,7 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		}
 	}
 
-	t.Run("re-registers when trigger exists with correct metadata", func(t *testing.T) {
+	t.Run("does not resend registration when trigger exists", func(t *testing.T) {
 		sub, dispatcher := newSubscriber(t)
 
 		_, err := sub.RegisterTrigger(t.Context(), commoncap.TriggerRegistrationRequest{
@@ -425,22 +425,19 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		dispatcher.Calls = nil
 		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
 
-		var found bool
+		// With the batching optimization, the subscriber no longer resends
+		// MethodRegisterTrigger in response to a check for an existing
+		// registration — the periodic registrationLoop handles that, and
+		// the publisher ignores duplicate re-registrations anyway. Only
+		// unregisters are sent for missing registrations.
 		for _, call := range dispatcher.Calls {
 			if call.Method != "Send" {
 				continue
 			}
 			msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
-			if msg.Method == remotetypes.MethodRegisterTrigger {
-				require.Equal(t, capInfo.ID, msg.CapabilityId)
-				require.Equal(t, capDon.ID, msg.CapabilityDonId)
-				require.Equal(t, workflowDon.ID, msg.CallerDonId)
-				require.NotEmpty(t, msg.Payload, "re-registration should include the raw request payload")
-				found = true
-				break
-			}
+			require.NotEqual(t, remotetypes.MethodRegisterTrigger, msg.Method,
+				"should not resend registration for existing trigger")
 		}
-		require.True(t, found, "expected a MethodRegisterTrigger Send call")
 	})
 
 	t.Run("sends unregister when trigger missing with correct metadata", func(t *testing.T) {
@@ -482,12 +479,17 @@ func TestTriggerSubscriber_RegistrationCheck(t *testing.T) {
 		_, err := sub.RegisterTrigger(t.Context(), req)
 		require.NoError(t, err)
 
-		// Verify check triggers re-register while registered
+		// While registered, a check should NOT send anything (no resend).
 		dispatcher.Calls = nil
 		sub.Receive(t.Context(), buildCheckMsg(workflowID1, "triggerA"))
-		dispatcher.AssertCalled(t, "Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
-			return m.Method == remotetypes.MethodRegisterTrigger
-		}))
+		for _, call := range dispatcher.Calls {
+			if call.Method != "Send" {
+				continue
+			}
+			msg := call.Arguments.Get(1).(*remotetypes.MessageBody)
+			require.NotEqual(t, remotetypes.MethodRegisterTrigger, msg.Method,
+				"should not resend registration for existing trigger")
+		}
 
 		// Unregister locally
 		require.NoError(t, sub.UnregisterTrigger(t.Context(), req))
