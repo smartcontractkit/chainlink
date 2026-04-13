@@ -16,7 +16,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-const (
+// var instead of const to make it overridable in tests
+var (
 	// defaultExpiration is the default expiration time for cache items.
 	defaultExpiration = 30 * time.Minute
 

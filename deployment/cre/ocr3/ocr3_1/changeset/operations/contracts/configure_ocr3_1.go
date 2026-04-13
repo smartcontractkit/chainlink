@@ -65,7 +65,7 @@ var ConfigureOCR3_1 = operations.NewOperation[ConfigureOCR3_1Input, ConfigureOCR
 			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex(), "")
 		if err != nil {
 			return ConfigureOCR3_1OpOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 		}
