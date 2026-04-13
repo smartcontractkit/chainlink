@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -531,7 +532,7 @@ func TestShell_BeforeNode(t *testing.T) {
 			if test.prePopulateKeys {
 				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
 				require.NoError(t, err)
-				ks := cltest.NewKeyStore(t, db)
+				ks := keystore.New(db, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
 				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
 				_, err = ks.CSA().Create(testutils.Context(t))
 				require.NoError(t, err)
