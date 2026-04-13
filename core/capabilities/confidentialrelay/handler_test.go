@@ -3,6 +3,7 @@ package confidentialrelay
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -21,6 +23,8 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+
+	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 func makeCapabilityPayload(t *testing.T, inputs map[string]any) string {
@@ -310,6 +314,86 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
 				assert.Equal(t, "execution failed", result.Error)
 				assert.Empty(t, result.Payload)
+			},
+		},
+		{
+			name: "secrets get sets WorkflowOwner and OrgId on vault request",
+			registry: func(t *testing.T) *mockCapRegistry {
+				// Build a valid GetSecretsResponse so the handler can
+				// process the full code path without errors.
+				enclaveKey := "enclave-pub-key-1"
+				vaultResp := &vault.GetSecretsResponse{
+					Responses: []*vault.SecretResponse{
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "API_KEY",
+								Namespace: vaulttypes.DefaultNamespace,
+								Owner:     "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+							},
+							Result: &vault.SecretResponse_Data{
+								Data: &vault.SecretData{
+									EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+									EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+										{
+											EncryptionKey: enclaveKey,
+											Shares:        []string{hex.EncodeToString([]byte("share-1"))},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+				payload, err := anypb.New(vaultResp)
+				require.NoError(t, err)
+
+				return withEnclaveConfig(&mockCapRegistry{
+					executables: map[string]*mockExecutable{
+						vault.CapabilityID: {
+							execResult: capabilities.CapabilityResponse{Payload: payload},
+						},
+					},
+					localNode: capabilities.Node{
+						WorkflowDON: capabilities.DON{ID: 42, ConfigVersion: 7},
+					},
+				})
+			},
+			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+				return makeRequest(t, confidentialrelaytypes.MethodSecretsGet, confidentialrelaytypes.SecretsRequestParams{
+					WorkflowID:       "wf-secrets-1",
+					Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
+					ExecutionID:      "aaaa",
+					OrgID:            "org-123",
+					EnclavePublicKey: "enclave-pub-key-1",
+					Secrets: []confidentialrelaytypes.SecretIdentifier{
+						{Key: "API_KEY"},
+					},
+					Attestation: testAttestationB64,
+				})
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+				var result confidentialrelaytypes.SecretsResponseResult
+				require.NoError(t, json.Unmarshal(*resp.Result, &result))
+				require.Len(t, result.Secrets, 1)
+				assert.Equal(t, "API_KEY", result.Secrets[0].ID.Key)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables[vault.CapabilityID]
+				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
+
+				// Extract the GetSecretsRequest from the capability payload.
+				var vaultReq vault.GetSecretsRequest
+				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
+
+				// The owner should be EIP-55 checksummed on the vault request.
+				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
+				assert.Equal(t, "org-123", vaultReq.OrgId)
+
+				// Metadata.WorkflowOwner should be the original (non-normalized) value.
+				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
+				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
+				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
 			},
 		},
 		{
