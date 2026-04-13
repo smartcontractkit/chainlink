@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -52,6 +53,10 @@ func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	// Call and expect an error from the bound limiter (limit exceeded)
 	_, err = exec.CallCapability(t.Context(), req)
 	require.Error(t, err, "expected CallCapability to fail when per-workflow confidential-http call limit is exceeded")
+	var capErr caperrors.Error
+	require.ErrorAs(t, err, &capErr, "expected per-workflow call limit exceedance to be classified as capability user error")
+	require.Equal(t, caperrors.OriginUser, capErr.Origin())
+	require.Equal(t, caperrors.InvalidArgument, capErr.Code())
 }
 
 func TestUserMetricTypeSuffix(t *testing.T) {
