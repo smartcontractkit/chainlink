@@ -508,23 +508,34 @@ func TestShell_RemoveBlocks(t *testing.T) {
 func TestShell_BeforeNode(t *testing.T) {
 	testutils.SkipShortDB(t)
 	tests := []struct {
-		name         string
-		pwdfile      string
-		wantUnlocked bool
+		name            string
+		pwdfile         string
+		wantUnlocked    bool
+		prePopulateKeys bool
 	}{
-		{"correct password", "../internal/fixtures/correct_password.txt", true},
-		{"wrong file", "doesntexist.txt", false},
+		{"correct password", "../internal/fixtures/correct_password.txt", true, false},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false, true},
+		{"wrong file", "doesntexist.txt", false, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+			cfg, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Database.DriverName = pgcommon.DriverPostgres
+				c.EVM = nil
 				c.Insecure.OCRDevelopmentMode = nil
 			})
+
+			// Seed key material so the wrong password actually fails decryption.
+			// An empty keystore accepts any password.
+			if test.prePopulateKeys {
+				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
+				require.NoError(t, err)
+				ks := cltest.NewKeyStore(t, db)
+				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
+				_, err = ks.CSA().Create(testutils.Context(t))
+				require.NoError(t, err)
+			}
 
 			shell := cmd.Shell{
 				Config: cfg,
@@ -543,8 +554,8 @@ func TestShell_BeforeNode(t *testing.T) {
 			c := cli.NewContext(nil, set, nil)
 
 			// Create full CLI app and run the Before hook first
-			cliApp := cmd.NewApp(&shell)
-			err := cliApp.Before(c)
+			app := cmd.NewApp(&shell)
+			err := app.Before(c)
 			if err != nil && test.wantUnlocked {
 				t.Fatalf("CLI Before hook failed: %v", err)
 			}
@@ -645,17 +656,23 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 			require.NoError(t, err)
 
 			err = shell.BeforeNode(c)
-			require.NoError(t, err, "BeforeNode should succeed")
-			assert.NotNil(t, shell.KeyStore)
-			assert.NotNil(t, shell.DS)
-			assert.NotNil(t, shell.LDB)
 
-			// Now test RunNode with pre-authenticated keystore
-			// Note: RunNode will start the app but we expect it to work since keystore is authenticated
-			err = shell.RunNode(c)
-			require.NoError(t, err, "RunNode should succeed with authenticated keystore")
-			assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
+			if test.expectStart {
+				require.NoError(t, err, "BeforeNode should succeed")
+				// Verify components are initialized
+				assert.NotNil(t, shell.KeyStore)
+				assert.NotNil(t, shell.DS)
+				assert.NotNil(t, shell.LDB)
 
+				// Now test RunNode with pre-authenticated keystore
+				// Note: RunNode will start the app but we expect it to work since keystore is authenticated
+				err = shell.RunNode(c)
+				require.NoError(t, err, "RunNode should succeed with authenticated keystore")
+				assert.Equal(t, 1, apiPrompt.Count, "API should be initialized")
+			} else {
+				require.Error(t, err, "BeforeNode should fail with incorrect password")
+				// Don't test RunNode if BeforeNode failed
+			}
 			// Clean up database if it was opened
 			if shell.LDB != nil {
 				cleanupErr := shell.AfterNode(c)
