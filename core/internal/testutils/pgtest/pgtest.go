@@ -28,7 +28,9 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	// sqltest.NewDB does not run any init SQL, so without this a session will wait
 	// forever for locks held by other txdb-wrapped tests (whose transactions stay
 	// open for the full test lifetime).
-	_, err := db.Exec("SET lock_timeout = '1min'; SET idle_in_transaction_session_timeout = '1h'")
+	_, err := db.Exec(`SET lock_timeout = '5s';
+SET idle_in_transaction_session_timeout = '10s';
+SET statement_timeout = '10s';`)
 	require.NoError(t, err, "failed to set session timeouts on test DB")
 
 	opened := time.Now()
