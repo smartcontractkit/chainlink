@@ -13,7 +13,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

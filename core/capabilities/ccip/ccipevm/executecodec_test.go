@@ -5,13 +5,16 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -176,7 +179,9 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, simulated.WithBlockGasLimit(30e6))
+	}, simulated.WithBlockGasLimit(30e6), func(_ *node.Config, ethCfg *ethconfig.Config) {
+		ethCfg.RPCEVMTimeout = 60 * time.Second
+	})
 	simulatedBackend := &backends.SimulatedBackend{Backend: b, Client: b.Client()}
 	address, _, _, err := report_codec.DeployReportCodec(transactor, simulatedBackend)
 	require.NoError(t, err)
