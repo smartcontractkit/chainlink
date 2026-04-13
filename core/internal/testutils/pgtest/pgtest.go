@@ -34,7 +34,7 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	opened := time.Now()
 	t.Cleanup(func() {
 		if elapsed := time.Since(opened); elapsed > 2*time.Minute {
-			t.Logf("pgtest: txdb connection held for %s (opened at %s)", elapsed.Round(time.Second), opened.Format(time.RFC3339))
+			t.Logf("pgtest: txdb connection held for a long time: %s (opened at %s). If tests are failing or hanging, there might be issues with how you're accessing the DB that lock out others. You can also consider increasing the lock timeout.", elapsed.Round(time.Second), opened.Format(time.RFC3339))
 		}
 	})
 
