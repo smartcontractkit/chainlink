@@ -201,7 +201,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
 			SuiChainSelector: destChain,
-			CCIPPackageId:    ccipPkgID,
+			PackageId:        ccipPkgID,
 			ModuleName:       "offramp",
 			Version:          1,
 		}),
@@ -212,7 +212,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
 			SuiChainSelector: destChain,
-			CCIPPackageId:    ccipPkgID,
+			PackageId:        ccipPkgID,
 			ModuleName:       "fee_quoter",
 			Version:          2,
 		}),
@@ -444,7 +444,7 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
 			SuiChainSelector: destChain,
-			CCIPPackageId:    ccipPkgID,
+			PackageId:        ccipPkgID,
 			ModuleName:       "fee_quoter",
 			Version:          2,
 		}),

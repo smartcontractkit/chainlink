@@ -492,6 +492,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 			input.CldEnv.DataStore.Addresses(),
 			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 			input.CapabilitiesRegistryAddress.Hex(),
+			"",
 		)
 		if cErr != nil {
 			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
@@ -516,6 +517,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 			input.CldEnv.DataStore.Addresses(),
 			input.CldEnv.BlockChains.EVMChains()[input.ChainSelector],
 			input.CapabilitiesRegistryAddress.Hex(),
+			"",
 		)
 		if cErr != nil {
 			return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
