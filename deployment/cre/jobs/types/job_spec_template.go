@@ -31,7 +31,6 @@ const (
 	ReadContract
 	CRESettings
 	Ring
-	Aptos
 )
 
 func (jt JobSpecTemplate) String() string {
