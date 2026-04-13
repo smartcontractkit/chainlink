@@ -247,14 +247,6 @@ jobs:
       contents: read
       actions: read
     steps:
-      # DEBUG: Checking resources
-      - name: Monitor
-        uses: kalverra/octometrics-action@main
-        with:
-          job_name: Core Tests (${{ matrix.type.cmd }}) # Required input to match API job data with runner job data
-          skip_comment: "true" # Optional input that can skip posting comments to a PR, default false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Optional, but highly recommended to prevent rate limiting
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
         with:
@@ -344,7 +336,7 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
-          GODEBUG=goindex=0,testcache=4 ./tools/bin/${{ matrix.type.cmd }} ./... # DEBUG: drop ,testcache=x before merge
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
