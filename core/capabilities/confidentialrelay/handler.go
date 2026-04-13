@@ -224,7 +224,9 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	normalizedOwner := common.HexToAddress(params.Owner).Hex()
 
 	vaultReq := &vault.GetSecretsRequest{
-		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
+		Requests:      make([]*vault.SecretRequest, 0, len(params.Secrets)),
+		WorkflowOwner: normalizedOwner,
+		OrgId:         params.OrgID,
 	}
 	for _, s := range params.Secrets {
 		namespace := s.Namespace
