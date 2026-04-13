@@ -542,7 +542,15 @@ func TestShell_BeforeNode(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			err := shell.BeforeNode(c)
+			// Create full CLI app and run the Before hook first
+			cliApp := cmd.NewApp(&shell)
+			err := cliApp.Before(c)
+			if err != nil && test.wantUnlocked {
+				t.Fatalf("CLI Before hook failed: %v", err)
+			}
+
+			// Run before hook to initialize components with authentication
+			err = shell.BeforeNode(c)
 
 			if test.wantUnlocked {
 				require.NoError(t, err)
@@ -631,7 +639,12 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 
 			c := cli.NewContext(nil, set, nil)
 
-			err := shell.BeforeNode(c)
+			// First initialize components (this includes authentication)
+			cliApp := cmd.NewApp(&shell)
+			err := cliApp.Before(c)
+			require.NoError(t, err)
+
+			err = shell.BeforeNode(c)
 			require.NoError(t, err, "BeforeNode should succeed")
 			assert.NotNil(t, shell.KeyStore)
 			assert.NotNil(t, shell.DS)
