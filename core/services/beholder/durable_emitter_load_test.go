@@ -368,7 +368,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	cfg.RetransmitBatchSize = 200
 	cfg.PublishTimeout = 5 * time.Second
 	cfg.PublishBatchSize = 100
-	cfg.PublishBatchWorkers = 2
+	cfg.PublishBatchWorkers = 1
 	cfg.PublishBatchFlushInterval = 10 * time.Millisecond
 	cfg.PublishBatchChannelSize = 5000
 	cfg.DisablePruning = true
@@ -419,7 +419,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	const concurrency = 10
 
 	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
-	targetRate := 0
+	targetRate := 1000 //0
 
 	t.Logf("Full-stack sustained throughput: totalEvents=%d, concurrency=%d, targetRate=%d msg/s",
 		totalEvents, concurrency, targetRate)
@@ -580,8 +580,13 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	t.Logf("║                        %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
 	t.Logf("║   Emit (INSERT):       %-10d %-10.2f %-10.2f %-10.2f ║", insN, insP50, insP99, insMean)
 	if batchMode {
+		avgBatchSize := float64(0)
+		if bpN > 0 {
+			avgBatchSize = float64(bpEvents) / float64(bpN)
+		}
 		t.Logf("║   PublishBatch (gRPC): %-10d %-10.2f %-10.2f %-10.2f ║", bpN, bpP50, bpP99, bpMean)
 		t.Logf("║     └ events published:%-49d ║", bpEvents)
+		t.Logf("║     └ avg batch size:  %-49s ║", fmt.Sprintf("%.1f events/batch (configured: %d)", avgBatchSize, cfg.PublishBatchSize))
 		t.Logf("║   MarkDeliveredBatch:  %-10d %-10.2f %-10.2f %-10.2f ║", bmN, bmP50, bmP99, bmMean)
 		t.Logf("║     └ events marked:   %-49d ║", bmEvents)
 	} else {
