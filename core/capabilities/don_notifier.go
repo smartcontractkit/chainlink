@@ -72,11 +72,15 @@ func (n *donNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, f
 		n.subscribers.Delete(s)
 	}
 
-	if d := n.don.Load(); d != nil {
-		s <- *d
-	}
-
 	n.subscribers.Store(s, struct{}{})
+
+	if d := n.don.Load(); d != nil {
+		select {
+		case s <- *d:
+		default:
+			// Channel already has a value from a concurrent NotifyDonSet.
+		}
+	}
 
 	return s, unsubscribe, nil
 }
