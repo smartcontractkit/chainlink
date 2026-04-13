@@ -890,6 +890,304 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		"server should have received all events (may include retransmit duplicates)")
 }
 
+// drainRunConfig defines the variable parameters for a single backlog drain run.
+type drainRunConfig struct {
+	retransmitBatchSize int
+	publishBatchSize    int
+}
+
+func (c drainRunConfig) label() string {
+	return fmt.Sprintf("rt%d_pb%d", c.retransmitBatchSize, c.publishBatchSize)
+}
+
+// drainRunResult holds the measured metrics from one backlog drain iteration.
+type drainRunResult struct {
+	cfg            drainRunConfig
+	p1Elapsed      time.Duration
+	p1InsertRate   float64
+	p2DrainElapsed time.Duration
+	p2DrainRate    float64
+	p2InsP99       float64
+	cpuUtilPct     float64
+	peakHeapMB     float64
+}
+
+// TestFullStack_BacklogDrain measures maximum drain rate across multiple
+// RetransmitBatchSize / PublishBatchSize configurations.
+//
+// Works with both the in-process mock AND a real Chip Ingress server.
+// Phase 1 inserts events directly into the DB (no Chip needed), then
+// Phases 2/3 drain via retransmit against whichever server is configured.
+//
+// Mock:
+//
+//	go test ./core/services/beholder/ -run TestFullStack_BacklogDrain -v -count=1 -timeout 30m
+//
+// Real Chip:
+//
+//	CHIP_INGRESS_TEST_ADDR=127.0.0.1:50051 go test ./core/services/beholder/ -run TestFullStack_BacklogDrain -v -count=1 -timeout 30m
+func TestFullStack_BacklogDrain(t *testing.T) {
+	db := directDB(t)
+
+	ctx := testutils.Context(t)
+
+	configs := []drainRunConfig{
+		{retransmitBatchSize: 1000, publishBatchSize: 100},
+		{retransmitBatchSize: 1000, publishBatchSize: 1000},
+		{retransmitBatchSize: 5000, publishBatchSize: 100},
+		{retransmitBatchSize: 5000, publishBatchSize: 1000},
+		{retransmitBatchSize: 10_000, publishBatchSize: 100},
+		{retransmitBatchSize: 10_000, publishBatchSize: 1000},
+		{retransmitBatchSize: 20_000, publishBatchSize: 100},
+		{retransmitBatchSize: 20_000, publishBatchSize: 1000},
+		{retransmitBatchSize: 50_000, publishBatchSize: 100},
+		{retransmitBatchSize: 50_000, publishBatchSize: 1000},
+	}
+	const backlogSize = 500_000
+	const liveRate = 1000
+	const producerConcurrency = 20
+
+	results := make([]drainRunResult, 0, len(configs))
+
+	// Pre-build the serialized proto payload once (used for all direct DB inserts).
+	// This mirrors what Emit() does: NewEvent → EventToProto → proto.Marshal.
+	payload := buildLoadTestPayload(256)
+	attrs := loadEmitAttrs()
+	sourceDomain, entityType, attrErr := beholder.ExtractSourceAndType(attrs...)
+	require.NoError(t, attrErr, "extract source/type from attrs")
+	attrMap := make(map[string]any)
+	for i := 0; i+1 < len(attrs); i += 2 {
+		if k, ok := attrs[i].(string); ok {
+			attrMap[k] = attrs[i+1]
+		}
+	}
+	sampleEvent, err := chipingress.NewEvent(sourceDomain, entityType, payload, attrMap)
+	require.NoError(t, err, "build sample CloudEvent")
+	samplePb, err := chipingress.EventToProto(sampleEvent)
+	require.NoError(t, err, "convert CloudEvent to proto")
+	protoPayload, err := proto.Marshal(samplePb)
+	require.NoError(t, err, "marshal proto payload")
+
+	usingRealChip := externalChipConfigured()
+	if usingRealChip {
+		t.Logf("Running against REAL Chip Ingress at %s", os.Getenv(envChipIngressTestAddr))
+	} else {
+		t.Logf("Running against in-process mock Chip (set %s for real Chip)", envChipIngressTestAddr)
+	}
+
+	for _, rc := range configs {
+		rc := rc
+		t.Run(rc.label(), func(t *testing.T) {
+			// Clean the table between runs.
+			_, truncErr := db.ExecContext(ctx, "DELETE FROM cre.chip_durable_events")
+			require.NoError(t, truncErr, "truncate table between runs")
+
+			srv, client := startChipIngressOrMock(t)
+			if srv != nil {
+				srv.setPublishDelay(2 * time.Millisecond)
+			}
+			store := beholdersvc.NewPgDurableEventStore(db)
+
+			// ── PHASE 1: Build Backlog (direct DB inserts, no Chip) ─
+			t.Logf("═══ PHASE 1: Inserting %d events directly into DB (retransmit=%d, publishBatch=%d) ═══",
+				backlogSize, rc.retransmitBatchSize, rc.publishBatchSize)
+
+			var cpuStart syscall.Rusage
+			_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuStart)
+
+			p1Start := time.Now()
+			var p1Errors atomic.Int64
+			var p1Wg sync.WaitGroup
+			eventsPerWorker := backlogSize / producerConcurrency
+			for w := 0; w < producerConcurrency; w++ {
+				p1Wg.Add(1)
+				go func() {
+					defer p1Wg.Done()
+					for i := 0; i < eventsPerWorker; i++ {
+						if _, e := store.Insert(ctx, protoPayload); e != nil {
+							p1Errors.Add(1)
+						}
+					}
+				}()
+			}
+			p1Wg.Wait()
+			p1Elapsed := time.Since(p1Start)
+			p1InsertRate := float64(backlogSize) / p1Elapsed.Seconds()
+
+			t.Logf("Phase 1 done: %d events in %s (%.0f ev/s, errors=%d)",
+				backlogSize, p1Elapsed.Round(time.Millisecond), p1InsertRate, p1Errors.Load())
+
+			// ── PHASE 2: Start emitter and drain + live load ────────
+			t.Logf("═══ PHASE 2: Chip UP — draining + %d msg/s live ═══", liveRate)
+
+			phase2Stats := &pipelineDeliveryStats{}
+
+			cfg := beholder.DefaultDurableEmitterConfig()
+			cfg.QuietMode = true
+			cfg.RetransmitInterval = 100 * time.Millisecond
+			cfg.RetransmitAfter = 0 // all pending rows are eligible immediately
+			cfg.RetransmitBatchSize = rc.retransmitBatchSize
+			cfg.PublishTimeout = 5 * time.Second
+			cfg.PublishBatchSize = rc.publishBatchSize
+			cfg.PublishBatchWorkers = 4
+			cfg.PublishBatchFlushInterval = 10 * time.Millisecond
+			cfg.PublishBatchChannelSize = 10000
+			cfg.DisablePruning = true
+			cfg.Hooks = newPipelineHooks(phase2Stats)
+
+			em, emErr := beholder.NewDurableEmitter(store, client, cfg, logger.Test(t))
+			require.NoError(t, emErr)
+
+			em.Start(ctx)
+
+			p2Start := time.Now()
+
+			// Query actual pending count from DB (atomic counter is 0 since
+			// we inserted directly, not through Emit).
+			countPending := func() int64 {
+				var n int64
+				row := db.QueryRowContext(ctx, "SELECT count(*) FROM cre.chip_durable_events WHERE delivered_at IS NULL")
+				if scanErr := row.Scan(&n); scanErr != nil {
+					t.Logf("count pending: %v", scanErr)
+				}
+				return n
+			}
+
+			p2Ctx, p2Cancel := context.WithCancel(ctx)
+			var p2LiveCount atomic.Int64
+			var p2Wg sync.WaitGroup
+			perWorkerRate := liveRate / producerConcurrency
+			if perWorkerRate < 1 {
+				perWorkerRate = 1
+			}
+			for w := 0; w < producerConcurrency; w++ {
+				p2Wg.Add(1)
+				go func() {
+					defer p2Wg.Done()
+					interval := time.Duration(float64(time.Second) / float64(perWorkerRate))
+					ticker := time.NewTicker(interval)
+					defer ticker.Stop()
+					for {
+						select {
+						case <-p2Ctx.Done():
+							return
+						case <-ticker.C:
+							_ = em.Emit(ctx, payload, loadEmitAttrs()...)
+							p2LiveCount.Add(1)
+						}
+					}
+				}()
+			}
+
+			steadyThreshold := int64(liveRate)
+			drainTick := time.NewTicker(2 * time.Second)
+
+			var p2DrainElapsed time.Duration
+			var peakHeapBytes uint64
+			for {
+				<-drainTick.C
+
+				var ms runtime.MemStats
+				runtime.ReadMemStats(&ms)
+				if ms.HeapInuse > peakHeapBytes {
+					peakHeapBytes = ms.HeapInuse
+				}
+
+				depth := countPending()
+				elapsed := time.Since(p2Start)
+				drained := int64(backlogSize) - depth + p2LiveCount.Load()
+				rate := float64(drained) / elapsed.Seconds()
+				t.Logf("  [%s] pending=%d  drain_rate=%.0f ev/s  heap=%.1f MiB",
+					elapsed.Round(100*time.Millisecond), depth, rate,
+					float64(ms.HeapInuse)/(1024*1024))
+				if depth <= steadyThreshold {
+					p2DrainElapsed = elapsed
+					break
+				}
+				if elapsed > 10*time.Minute {
+					p2DrainElapsed = elapsed
+					t.Logf("Phase 2 timed out with %d pending", depth)
+					break
+				}
+			}
+			drainTick.Stop()
+
+			p2DrainRate := float64(backlogSize) / p2DrainElapsed.Seconds()
+			p2InsP99 := durMs(phase2Stats.emitIns.percentile(0.99))
+
+			// Stop live producers and shut down emitter.
+			p2Cancel()
+			p2Wg.Wait()
+			em.Close()
+
+			var cpuEnd syscall.Rusage
+			_ = syscall.Getrusage(syscall.RUSAGE_SELF, &cpuEnd)
+			cpuUser := (float64(cpuEnd.Utime.Sec) + float64(cpuEnd.Utime.Usec)/1e6) -
+				(float64(cpuStart.Utime.Sec) + float64(cpuStart.Utime.Usec)/1e6)
+			cpuSys := (float64(cpuEnd.Stime.Sec) + float64(cpuEnd.Stime.Usec)/1e6) -
+				(float64(cpuStart.Stime.Sec) + float64(cpuStart.Stime.Usec)/1e6)
+			totalWall := time.Since(p1Start).Seconds()
+			cpuPct := 100.0 * (cpuUser + cpuSys) / (totalWall * float64(runtime.GOMAXPROCS(0)))
+
+			peakHeapMB := float64(peakHeapBytes) / (1024 * 1024)
+
+			t.Logf("Done: drain=%.0f ev/s, CPU=%.1f%%, peakHeap=%.1f MiB",
+				p2DrainRate, cpuPct, peakHeapMB)
+
+			results = append(results, drainRunResult{
+				cfg:            rc,
+				p1Elapsed:      p1Elapsed,
+				p1InsertRate:   p1InsertRate,
+				p2DrainElapsed: p2DrainElapsed,
+				p2DrainRate:    p2DrainRate,
+				p2InsP99:       p2InsP99,
+				cpuUtilPct:     cpuPct,
+				peakHeapMB:     peakHeapMB,
+			})
+		})
+	}
+
+	// ── Comparison Chart ───────────────────────────────────────────────
+	t.Logf("")
+	t.Logf("╔══════════════════════════════════════════════════════════════════════════════════════════════════════════╗")
+	t.Logf("║   BACKLOG DRAIN CONFIG MATRIX  (backlog=%d, live=%d msg/s, retransmitInterval=100ms)               ║",
+		backlogSize, liveRate)
+	t.Logf("╠══════════╦══════════╦══════════════╦══════════════╦══════════╦════════╦════════╦══════════╦═══════════╣")
+	t.Logf("║ Retrans  ║ Publish  ║ Drain+Live   ║ Drain Rate   ║ INS p99  ║ RPCs/  ║ CPU    ║ Peak     ║ Insert    ║")
+	t.Logf("║ Batch    ║ Batch    ║ Elapsed      ║ (events/s)   ║ (contend)║ tick   ║ Util   ║ Heap     ║ Rate      ║")
+	t.Logf("╠══════════╬══════════╬══════════════╬══════════════╬══════════╬════════╬════════╬══════════╬═══════════╣")
+	for _, r := range results {
+		rpcsPerTick := r.cfg.retransmitBatchSize / r.cfg.publishBatchSize
+		if rpcsPerTick < 1 {
+			rpcsPerTick = 1
+		}
+		t.Logf("║ %-8d ║ %-8d ║ %-12s ║ %-12s ║ %-8s ║ %-6d ║ %-6s ║ %-8s ║ %-9s ║",
+			r.cfg.retransmitBatchSize,
+			r.cfg.publishBatchSize,
+			r.p2DrainElapsed.Round(time.Millisecond).String(),
+			fmt.Sprintf("%.0f", r.p2DrainRate),
+			fmt.Sprintf("%.1fms", r.p2InsP99),
+			rpcsPerTick,
+			fmt.Sprintf("%.1f%%", r.cpuUtilPct),
+			fmt.Sprintf("%.1fMiB", r.peakHeapMB),
+			fmt.Sprintf("%.0f/s", r.p1InsertRate),
+		)
+	}
+	t.Logf("╚══════════╩══════════╩══════════════╩══════════════╩══════════╩════════╩════════╩══════════╩═══════════╝")
+
+	if len(results) > 1 {
+		best := results[0]
+		for _, r := range results[1:] {
+			if r.p2DrainRate > best.p2DrainRate {
+				best = r
+			}
+		}
+		t.Logf("")
+		t.Logf("Winner: RetransmitBatch=%d + PublishBatch=%d → %.0f ev/s, INS p99=%.1fms, heap=%.1f MiB",
+			best.cfg.retransmitBatchSize, best.cfg.publishBatchSize, best.p2DrainRate, best.p2InsP99, best.peakHeapMB)
+	}
+}
+
 // TestFullStack_SlowChip simulates a slow Chip server (high latency per
 // publish). This tests whether the async design keeps Emit() fast even
 // when gRPC is slow.
