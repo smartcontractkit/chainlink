@@ -1,9 +1,27 @@
 name: (Nightly) Legacy System Tests
 
 on:
-  schedule:
-    - cron: "0 6 * * *" # Run daily at 6 AM
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink image tag to use."
+      ecr:
+        type: string
+        required: true
+        default: "sdlc"
+        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        default: ""
 
 defaults:
   run:
@@ -14,53 +32,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  changes:
-    name: Detect devenv changes
-    runs-on: ubuntu-latest
-    outputs:
-      devenv-changes: ${{ steps.devenv-changes.outputs.changes }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
-        id: devenv-changes
-        with:
-          filters: |
-            changes:
-            - 'devenv/**/*.go'
-            - 'devenv/**/*.toml'
-            - 'devenv/**/go.mod'
-            - 'devenv/**/go.sum'
-            - 'devenv/**/*Dockerfile'
-            - '.github/workflows/devenv-nightly.yml'
-
   summary:
     name: "Build Information"
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    environment:
+      name: "integration"
+      deployment: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
-      - name: Print Summary
+          ref: ${{ inputs.chainlink_version || github.sha }}
+      # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
+      # github sets its value to an empty string to avoid leaking secrets.
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        working-directory: .github/scripts
+        shell: bash
+        env:
+          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
+          ECR_TYPE: ${{ inputs.ecr }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
-          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
-          FULL_IMAGE_HINT="<sdlc_registry>/chainlink:${IMAGE_VERSION}"
-          echo "**Image:** \`${FULL_IMAGE_HINT}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ -n "${CHAINLINK_IMAGE_TAG}" ]]; then
+            resolved_image="$(bash resolve-chainlink-image.sh)"
+          else
+            tag="nightly-$(date +%Y%m%d)"
+            resolved_image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
+          fi
+          [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
+          echo "$resolved_image"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
+      - name: Print Summary
+        working-directory: .
+        run: |
+          echo "**Image:** \`${{ steps.resolve-chainlink-image.outputs.resolved_image }}\`" >> $GITHUB_STEP_SUMMARY
+
   test-nightly:
     name: ${{ matrix.display_name }}
-    needs: [changes]
     permissions:
       id-token: write
       contents: read
       pull-requests: write
     runs-on: ${{ matrix.runner }}
-    # If there's a PR that's changing devenv, run the tests
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.devenv-changes == 'true' }}
+    environment:
+      name: integration
+      deployment: false
     strategy:
       fail-fast: false
       matrix:
@@ -271,43 +292,40 @@ jobs:
             tests_dir: "logpoller"
             logs_archive_name: "logpoller-finality-tag"
     steps:
-      - name: Check if job should run
-        id: gate
-        working-directory: .
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ matrix.run_on_pr }}" == "false" ]]; then
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping ${{ matrix.display_name }} on PR"
-          else
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Checkout code
-        if: steps.gate.outputs.should_run == 'true'
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ inputs.chainlink_version || github.sha }}
 
       - name: Install Just
-        if: steps.gate.outputs.should_run == 'true'
         uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
         with:
           just-version: "1.40.0"
 
       - name: Configure AWS credentials using OIDC
-        if: steps.gate.outputs.should_run == 'true'
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_SDLC_ECR_READONLY_ARN }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
           aws-region: us-west-2
 
-      - name: Authenticate to ECR
-        if: steps.gate.outputs.should_run == 'true'
+      - name: Login to Amazon ECRs (private)
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Login to Amazon ECR (public)
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
 
       - name: Set up Go
-        if: steps.gate.outputs.should_run == 'true'
         uses: actions/setup-go@v6 # v6
         with:
           cache: true
@@ -315,19 +333,34 @@ jobs:
           cache-dependency-path: devenv/go.sum
 
       - name: Download Go dependencies
-        if: steps.gate.outputs.should_run == 'true'
         run: |
           go mod download
 
-      - name: Set environment variables
-        if: steps.gate.outputs.should_run == 'true'
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        working-directory: .github/scripts
+        shell: bash
+        env:
+          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
+          ECR_TYPE: ${{ inputs.ecr }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
-          IMAGE_VERSION="nightly-$(date +%Y%m%d)"
-          FULL_IMAGE="${{ secrets.REGISTRY_SDLC }}/chainlink:${IMAGE_VERSION}"
-          echo "CHAINLINK_IMAGE=${FULL_IMAGE}" >> $GITHUB_ENV
+          if [[ -n "${CHAINLINK_IMAGE_TAG}" ]]; then
+            resolved_image="$(bash resolve-chainlink-image.sh)"
+          else
+            tag="nightly-$(date +%Y%m%d)"
+            resolved_image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
+          fi
+          [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
+          echo "$resolved_image"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
+      - name: Set environment variables
+        run: |
+          echo "CHAINLINK_IMAGE=${{ steps.resolve-chainlink-image.outputs.resolved_image }}" >> $GITHUB_ENV
       - name: Setup environment
-        if: steps.gate.outputs.should_run == 'true'
         env:
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
         run: |
@@ -337,7 +370,6 @@ jobs:
           eval $ENV_CMD
 
       - name: Run tests
-        if: steps.gate.outputs.should_run == 'true'
         working-directory: devenv/tests/${{ matrix.tests_dir }}
         env:
           CURRENT_TEST: ${{ matrix.testcmd }}
@@ -347,13 +379,13 @@ jobs:
           eval $TESTCMD
 
       - name: Upload Logs
-        if: always() && steps.gate.outputs.should_run == 'true'
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: container-logs-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: devenv/tests/${{ matrix.tests_dir }}/logs
           retention-days: 3
-      
+
       - name: Upload Go pprof
         if: always()
         uses: actions/upload-artifact@v7
