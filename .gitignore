@@ -1,6 +1,7 @@
 # dependencies
 node_modules/
 tmp/
+.ci-logs/
 .pnp
 .pnp.js
 tools/bin/abigen

@@ -53,6 +53,7 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	if os.Getenv(EnvLogDBConcurrency) == "true" && n > 50 {
 		t.Logf("pgtest: concurrent txdb sessions=%d (peak=%d)", n, peakTxdbSessions.Load())
 	}
+	maybeReportPeakCIMetrics()
 
 	db := sqltest.NewDB(t, dbURL)
 
@@ -60,9 +61,19 @@ func NewSqlxDB(t testing.TB) *sqlx.DB {
 	// sqltest.NewDB does not run any init SQL, so without this a session will wait
 	// forever for locks held by other txdb-wrapped tests (whose transactions stay
 	// open for the full test lifetime).
-	_, err := db.Exec(`SET lock_timeout = '15s';
+	const initSQL = `SET lock_timeout = '15s';
 SET idle_in_transaction_session_timeout = '30s';
-SET statement_timeout = '30s';`)
+SET statement_timeout = '30s';`
+	var err error
+	for attempt := 0; attempt < 4; attempt++ {
+		_, err = db.Exec(initSQL)
+		if err == nil {
+			break
+		}
+		if attempt < 3 {
+			time.Sleep(150 * time.Millisecond)
+		}
+	}
 	require.NoError(t, err, "failed to set session timeouts on test DB")
 
 	opened := time.Now()

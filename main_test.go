@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/internal/pgtestenv"
 	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
 )
@@ -140,6 +141,7 @@ func takeFreePort() (int, func(), error) {
 }
 
 func newDB(t testing.TB) string {
+	pgtestenv.EnsureAutoPostgres(t)
 	u, err := url.Parse(string(env.DatabaseURL.Get()))
 	if err != nil {
 		t.Fatalf("failed to parse url: %v", err)

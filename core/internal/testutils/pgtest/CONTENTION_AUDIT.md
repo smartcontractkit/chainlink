@@ -26,3 +26,14 @@ Prefer heavyweight when tests need:
 - `CHAINLINK_PGTEST_LOG_DB_CONCURRENCY=true` — logs when concurrent txdb sessions exceed 50 ([pgtest.go](./pgtest.go)).
 - [PeakConcurrentTxDBSessions](./pgtest.go) — high-water concurrent `NewSqlxDB` count in-process.
 - [LogPostgresActivitySummary](./activity_stats.go) — call from a test to print `pg_stat_activity` aggregates.
+
+## CI (core workflow)
+
+`ci-core.yml` sets `CHAINLINK_PGTEST_CI_METRICS=true` on the core test step. That enables [ci_metrics.go](./ci_metrics.go):
+
+- **`pgtest_ci_metrics sample …`** every 60s on stderr (per Go test **process**, i.e. per **package** binary).
+- **`pgtest_ci_metrics peak_concurrent_txdb=…`** when the peak rises by ≥25 (or first time from 10+).
+
+The workflow **tees** test output to `.ci-logs/go_test_stream.log` and appends a **Job Summary** section with the last 500 `pgtest_ci_metrics` lines so you do not have to hunt the raw log.
+
+**How to read it:** High `peak_concurrent_txdb` in packages that are also slow in gotestsum’s “slowest tests” suggests many overlapping txdb transactions on one DB (lock / connection pressure). If peaks stay low but wall time is high, look outside txdb concurrency first.

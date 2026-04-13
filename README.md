@@ -204,8 +204,9 @@ The tests require a postgres database. In turn, the environment variable
 the given `_test` database.
 
 **Optional — `go test` without `make testdb`:** If `CL_DATABASE_URL` is unset and Docker is available, the first DB test
-in a package will start a **testcontainers** Postgres 16 instance (reused by container name across packages), run
-migrations, and set `CL_DATABASE_URL` automatically. Opt out with `CHAINLINK_PGTEST_DISABLE_AUTOCONTAINERS=true`.
+in each `go test` process starts its own **testcontainers** Postgres 16 instance, runs migrations, and sets
+`CL_DATABASE_URL` automatically (parallel packages each get a separate container so `DROP DATABASE` does not fight).
+Opt out with `CHAINLINK_PGTEST_DISABLE_AUTOCONTAINERS=true`. If `CL_DATABASE_URL` points at a dead server (for example an old Docker port), tests clear it and start a new container automatically.
 
 Note: Other environment variables should not be set for all tests to pass
 
@@ -252,6 +253,7 @@ go test ./...
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
 - The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interfering with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
+- Core CI enables `CHAINLINK_PGTEST_CI_METRICS` (stderr lines tagged `pgtest_ci_metrics` plus a Job Summary excerpt). See [core/internal/testutils/pgtest/CONTENTION_AUDIT.md](core/internal/testutils/pgtest/CONTENTION_AUDIT.md) for how to interpret peaks vs Postgres bottlenecks.
 
 #### Race Detector
 

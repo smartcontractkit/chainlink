@@ -343,7 +343,8 @@ jobs:
         id: run-tests
         shell: bash
         env:
-          CACHE_VERSION: v1 # DEBUG: increase cache version to force rebuild for checking performance
+          CACHE_VERSION: v2 # DEBUG: increase cache version to force rebuild for checking performance
+          CHAINLINK_PGTEST_CI_METRICS: "true" # DEBUG: enable pgtest_ci_metrics for figuring out if postgres is our bottleneck
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
           PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
@@ -351,8 +352,21 @@ jobs:
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
         run: |
-          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+          set -o pipefail
+          mkdir -p .ci-logs
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./... 2>&1 | tee .ci-logs/go_test_stream.log
+          status=$?
+          if grep -q pgtest_ci_metrics .ci-logs/go_test_stream.log 2>/dev/null; then
+            echo "### pgtest_ci_metrics (txdb concurrency — one Go test process per line)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Search raw logs for \`pgtest_ci_metrics\`. Peaks are per test package process (not whole job)." >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep pgtest_ci_metrics .ci-logs/go_test_stream.log | tail -n 500 >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
           # See: https://github.com/golang/go/issues/69179
+          exit $status
 
       - name: Analyze and upload test results
         if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
