@@ -27,6 +27,9 @@ type metrics struct {
 	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
 	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
 	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
+
+	// Drain metrics
+	drainingWorkflows metric.Int64Gauge // 1=draining, 0=not draining per workflowID
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -76,6 +79,16 @@ func (m *metrics) recordReconcileBatch(ctx context.Context, source string, dispa
 func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, count int) {
 	m.reconcileEventsBackoff.Add(ctx, int64(count), metric.WithAttributes(
 		attribute.String("source", source),
+	))
+}
+
+func (m *metrics) recordDrainingWorkflow(ctx context.Context, workflowID string, draining bool) {
+	val := int64(0)
+	if draining {
+		val = 1
+	}
+	m.drainingWorkflows.Record(ctx, val, metric.WithAttributes(
+		attribute.String("workflowID", workflowID),
 	))
 }
 
@@ -136,6 +149,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	drainingWorkflows, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_draining_workflows")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
@@ -148,5 +166,6 @@ func newMetrics() (*metrics, error) {
 		reconcileEventsDispatched: reconcileEventsDispatched,
 		reconcileDuration:         reconcileDuration,
 		reconcileEventsBackoff:    reconcileEventsBackoff,
+		drainingWorkflows:         drainingWorkflows,
 	}, nil
 }

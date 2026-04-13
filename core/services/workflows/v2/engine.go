@@ -87,6 +87,13 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+
+	// draining is set to true when a delete/pause event is pending.
+	// When true, no new executions will be started by handleAllTriggerEvents.
+	draining atomic.Bool
+
+	// activeExecutions tracks the number of currently in-flight workflow executions.
+	activeExecutions atomic.Int32
 }
 
 type triggerCapability struct {
@@ -210,6 +217,27 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		Close: engine.close,
 	}.NewServiceEngine(beholderLogger)
 	return engine, nil
+}
+
+// Drain signals the engine to stop accepting new executions.
+// Non-blocking and idempotent. In-flight executions continue to completion.
+// Does NOT unregister triggers (that stays in close()) to avoid breaking
+// ackTriggerEvent for in-flight executions.
+// Sets a health condition so that Healthy() returns an error, allowing the
+// registration handler to detect that this engine needs replacement.
+func (e *Engine) Drain() {
+	e.draining.Store(true)
+	e.srvcEng.SetHealthCond("draining", fmt.Errorf("engine is draining, pending deletion"))
+}
+
+// IsDraining returns true if Drain() has been called.
+func (e *Engine) IsDraining() bool {
+	return e.draining.Load()
+}
+
+// ActiveExecutions returns the count of currently in-flight workflow executions.
+func (e *Engine) ActiveExecutions() int32 {
+	return e.activeExecutions.Load()
 }
 
 func (e *Engine) start(ctx context.Context) error {
@@ -589,6 +617,13 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
+
+		// Check if engine is draining — reject new executions
+		if e.draining.Load() {
+			e.logger().Infow("Engine is draining, skipping trigger event", "eventID", queueHead.event.Event.ID)
+			return // exit the loop entirely
+		}
+
 		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
@@ -606,9 +641,13 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+
+		e.activeExecutions.Add(1) // increment BEFORE GoCtx to prevent TOCTOU race
+
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			defer e.activeExecutions.Add(-1) // decrement when execution finishes
 			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",

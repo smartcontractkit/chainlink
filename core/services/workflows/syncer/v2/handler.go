@@ -53,6 +53,22 @@ type ORM interface {
 // creation since they don't support async initialization hooks.
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
+// DrainableService extends services.Service with non-blocking drain semantics.
+// An engine that implements this interface can be drained (stop accepting new work)
+// without blocking the caller, then closed once all in-flight work completes.
+type DrainableService interface {
+	services.Service
+	// Drain signals the service to stop accepting new work. Non-blocking and idempotent.
+	Drain()
+	// ActiveExecutions returns the count of in-flight executions.
+	ActiveExecutions() int32
+	// IsDraining returns true if Drain() has been called.
+	IsDraining() bool
+}
+
+// ErrDrainInProgress indicates the engine is draining and deletion will be retried.
+var ErrDrainInProgress = errors.New("drain in progress")
+
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
 	services.Service
@@ -363,8 +379,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if err := h.workflowPausedEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+		if err = h.workflowPausedEvent(ctx, payload); err != nil {
+			if errors.Is(err, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow pause deferred: %v", err), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			}
 			return err
 		}
 
@@ -417,8 +437,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr := h.workflowDeletedEvent(ctx, payload); herr != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+			if errors.Is(herr, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+			}
 			return herr
 		}
 
@@ -497,8 +521,15 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
-		// This is the happy-path, we're done.
-		return nil
+		// Check if the engine is draining (pending deletion) — if so, it needs replacement.
+		if drainable, isDrainable := prevEngine.Service.(DrainableService); isDrainable && drainable.IsDraining() {
+			h.lggr.Infow("Engine is draining, will replace with new engine",
+				"workflowID", payload.WorkflowID.Hex())
+			// Fall through to cleanup + recreate below
+		} else {
+			// This is the happy-path, we're done.
+			return nil
+		}
 	}
 
 	// Any other case ->
@@ -736,7 +767,31 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok {
-		if innerErr := e.Close(); innerErr != nil {
+		// Try drain-aware path if engine supports it
+		if drainable, isDrainable := e.Service.(DrainableService); isDrainable {
+			// Phase 1: Signal drain (non-blocking, idempotent)
+			if !drainable.IsDraining() {
+				drainable.Drain()
+				h.lggr.Infow("Initiated drain for workflow engine", "workflowID", payload.WorkflowID.Hex())
+			}
+
+			// Phase 2: Check if all executions have completed
+			active := drainable.ActiveExecutions()
+			if active > 0 {
+				h.lggr.Infow("Workflow deletion deferred: active executions still running",
+					"workflowID", payload.WorkflowID.Hex(),
+					"activeExecutions", active)
+				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+			}
+
+			// Phase 3: All executions done, Close() is now fast
+			h.lggr.Infow("Workflow engine drained, closing", "workflowID", payload.WorkflowID.Hex())
+		}
+
+		// Close the engine (fast if drained, or blocking for legacy engines).
+		// Ignore ErrAlreadyStopped — engine may have been closed on a previous
+		// attempt that succeeded at Close() but failed at artifact deletion.
+		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}
