@@ -64,6 +64,7 @@ gotestsum \
   --hide-summary=skipped \
   $RERUN_FLAGS \
   --jsonfile "$OUTPUT_FILE" \
+  --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
   -- --tags integration $GO_TEST_FLAGS $INTEGRATION_TEST_DIRS_SPACE_DELIMITED
 

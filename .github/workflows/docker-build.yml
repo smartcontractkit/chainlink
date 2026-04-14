@@ -253,36 +253,37 @@ jobs:
 
   call-cre-local-env-tests:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core-plugins]
+    needs: [init, docker-core]
     uses: ./.github/workflows/cre-local-env-tests.yaml
     with:
-      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
+      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
     secrets: inherit
 
-  call-cre-workflow-don-benchmark:
-    if: false
-    # temporarily disabled CRE-962
-    # if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core-plugins-testing]
+  call-legacy-system-tests:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [init, docker-core]
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/cre-workflow-don-benchmark.yaml
+      pull-requests: write
+    uses: ./.github/workflows/legacy-system-tests-nightly.yml
     with:
-      chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
+      ecr: "sdlc"
+      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
+      chainlink_image_repository_path: "chainlink"
+      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
     secrets: inherit
 
   soak-cre-memory-leak:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core-plugins]
+    needs: [docker-core]
     permissions:
       contents: read
       id-token: write
     uses: ./.github/workflows/cre-soak-memory-leak.yml
     with:
-      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
+      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
     secrets: inherit
 
   deploy-nightly-core:

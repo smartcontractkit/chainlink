@@ -64,7 +64,6 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		{amount: "0", expErr: "amount must be greater than zero"},
 		{amount: "asdf", expErr: "invalid amount:"},
 	} {
-
 		t.Run(tt.amount, func(t *testing.T) {
 			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
