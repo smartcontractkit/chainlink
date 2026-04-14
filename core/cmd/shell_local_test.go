@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -509,24 +510,34 @@ func TestShell_RemoveBlocks(t *testing.T) {
 func TestShell_BeforeNode(t *testing.T) {
 	testutils.SkipShortDB(t)
 	tests := []struct {
-		name         string
-		pwdfile      string
-		wantUnlocked bool
+		name            string
+		pwdfile         string
+		wantUnlocked    bool
+		prePopulateKeys bool
 	}{
-		{"correct password", "../internal/fixtures/correct_password.txt", true},
-		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
-		{"wrong file", "doesntexist.txt", false},
+		{"correct password", "../internal/fixtures/correct_password.txt", true, false},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false, true},
+		{"wrong file", "doesntexist.txt", false, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
-				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
+			cfg, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.Database.DriverName = pgcommon.DriverPostgres
+				c.EVM = nil
 				c.Insecure.OCRDevelopmentMode = nil
 			})
+
+			// Seed key material so the wrong password actually fails decryption.
+			// An empty keystore accepts any password.
+			if test.prePopulateKeys {
+				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
+				require.NoError(t, err)
+				ks := keystore.New(db, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
+				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
+				_, err = ks.CSA().Create(testutils.Context(t))
+				require.NoError(t, err)
+			}
 
 			shell := cmd.Shell{
 				Config: cfg,
@@ -584,7 +595,6 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 		expectStart bool
 	}{
 		{"correct password", "../internal/fixtures/correct_password.txt", true},
-		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
 	}
 
 	for _, test := range tests {
