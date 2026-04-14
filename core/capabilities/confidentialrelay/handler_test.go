@@ -425,8 +425,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				var vaultReq vault.GetSecretsRequest
 				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
 
-				// Gate disabled: WorkflowOwner and OrgId must be empty.
-				assert.Empty(t, vaultReq.WorkflowOwner)
+				// Gate disabled: WorkflowOwner is always set, OrgId must be empty.
+				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
 				assert.Empty(t, vaultReq.OrgId)
 				// Gate disabled: OrgID must be empty on metadata too.
 				assert.Empty(t, exec.lastRequest.Metadata.OrgID)

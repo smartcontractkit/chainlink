@@ -242,8 +242,8 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to check VaultOrgIdAsSecretOwnerEnabled gate: %w", err))
 	}
+	vaultReq.WorkflowOwner = normalizedOwner
 	if gateEnabled {
-		vaultReq.WorkflowOwner = normalizedOwner
 		vaultReq.OrgId = params.OrgID
 	}
 	for _, s := range params.Secrets {
