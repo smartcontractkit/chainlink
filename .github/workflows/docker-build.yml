@@ -255,6 +255,12 @@ jobs:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [init, docker-core]
     uses: ./.github/workflows/post-docker-build.yml
+    permissions:
+      actions: read
+      checks: write
+      id-token: write
+      pull-requests: write
+      contents: read
     with:
       chainlink_core_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
       chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
