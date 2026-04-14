@@ -346,7 +346,12 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
+		// Pass 0 as minTimestamp so ACKs never expire for quorum purposes.
+		// Under congestion, early ACKs would expire before late ACKs arrive,
+		// preventing quorum from ever being reached and causing infinite
+		// retransmissions. The ackCache is still cleaned up periodically by
+		// DeleteOlderThan in sendRegistrationChecks to bound memory.
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		if !ready {
 			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
