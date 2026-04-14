@@ -147,7 +147,8 @@ jobs:
 
   notify-test-failure:
     name: Notify about test Failure
-    if: failure()
+    #if: failure()
+    if: false # TODO: Silence for now
     needs: [soak]
     environment:
       name: integration

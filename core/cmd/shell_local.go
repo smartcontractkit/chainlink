@@ -185,7 +185,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -202,7 +202,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -1241,8 +1241,10 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		}
 		lggr.Debug("Closed DB")
 
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
+		if s.CloseLogger != nil {
+			if err := s.CloseLogger(); err != nil {
+				log.Printf("Failed to close Logger: %v", err)
+			}
 		}
 	})
 }
