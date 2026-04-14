@@ -678,10 +678,6 @@ func configureTokenPool(
 			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
 		}
 
-		if poolUpdate.Address != (common.Address{}) && remotePoolUpdate.Address == (common.Address{}) {
-			return errors.New("if identifying token pool by address, both the chain and its remote chain updates must identify the pool by address to avoid ambiguity")
-		}
-
 		var remoteTokenPool *token_pool.TokenPool
 		var remoteTokenAddress common.Address
 		var remoteTokenConfig token_admin_registry.TokenAdminRegistryTokenConfig
