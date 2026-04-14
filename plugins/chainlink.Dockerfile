@@ -17,10 +17,10 @@ ADD go.mod go.sum ./
 COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
 
 ARG CL_GOPRIVATE=""
+ENV GOPRIVATE="${CL_GOPRIVATE}"
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
     export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download && \
-    export GOPRIVATE="${CL_GOPRIVATE}" && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
     go mod download

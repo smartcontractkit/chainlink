@@ -18,10 +18,10 @@ COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
 # that depend on private Go modules (e.g. chainlink-internal-solana). When
 # empty (the default), go mod download uses the public module proxy as usual.
 ARG CL_GOPRIVATE=""
+ENV GOPRIVATE="${CL_GOPRIVATE}"
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
     export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download && \
-    export GOPRIVATE="${CL_GOPRIVATE}" && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
     go mod download
