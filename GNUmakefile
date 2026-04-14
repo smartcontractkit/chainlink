@@ -280,9 +280,9 @@ DEPENDABOT_SEVERITY := "critical,high"
 endif
 dependabot: gomods
 	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-      '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
-      jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-      xargs -L1 -t bash -c 'cd $$0 && go get $$1@v$$2 || go get $$1'
+          '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
+          jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+          go tool dependabot
 	gomods tidy
 
 help:

@@ -91,13 +91,13 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 
 	testEmail := "test@test.com"
 	apiToken := "example"
-	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration())
+	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration() - time.Second)
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', $3)", testEmail, apiToken, expiredTime)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to insert expired token")
 
 	// Token found but expired. expect error
 	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.Equal(t, sessions.ErrUserSessionExpired, err)
+	require.ErrorIs(t, err, sessions.ErrUserSessionExpired, "expected expired token to return ErrUserSessionExpired")
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {

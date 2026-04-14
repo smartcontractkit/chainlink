@@ -51,6 +51,7 @@ gotestsum \
   $RERUN_FLAGS \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
+  --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
   -- $GO_TEST_FLAGS
 
