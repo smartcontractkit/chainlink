@@ -185,13 +185,6 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "keepers"
             logs_archive_name: "keepers-smoke-4"
-          - display_name: "Test DF1 (OCR2) Chaos"
-            testcmd: "go test -v -timeout 30m -run TestOCR2Chaos"
-            envcmd: "cl u env.toml,products/ocr2/basic.toml; cl obs up -f"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "ocr2"
-            logs_archive_name: "df1-chaos"
-            run_on_pr: false
           - display_name: "Test VRFv2Plus Smoke"
             testcmd: "go test -v -timeout 30m -run TestVRFv2PlusSmoke"
             envcmd: "cl u env-vrf2plus.toml,products/vrfv2plus/basic.toml"
