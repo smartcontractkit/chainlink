@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
 
 var _ cldf.ChangeSetV2[AddCapabilitiesInput] = AddCapabilities{}
@@ -79,9 +80,6 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 	}
 
-	// returning 1 as adding new capabaility
-	firstConfigCount := func(_, _ string) (uint64, error) { return 1, nil }
-
 	for donName, donCapConfigs := range config.DonCapabilityConfigs {
 		_, nodes, donErr := sequences.GetDonNodes(donName, capReg)
 		if donErr != nil {
@@ -93,7 +91,15 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 			ocr3CapConfigs[i] = ocr3CapConfig{CapabilityID: cc.Capability.CapabilityID, Config: cc.Config}
 		}
 
-		if expandErr := expandOCR3Configs(e, config.RegistryChainSel, nodes, ocr3CapConfigs, firstConfigCount); expandErr != nil {
+		configCountFn := func(capID, ocrConfigKey string) (uint64, error) {
+			currentCount, err := ocr3.GetCurrentOCR3ConfigCount(capReg, donName, capID, ocrConfigKey)
+			if err != nil {
+				currentCount = 0
+			}
+			return currentCount + 1, nil
+		}
+
+		if expandErr := expandOCR3Configs(e, config.RegistryChainSel, nodes, ocr3CapConfigs, configCountFn); expandErr != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("DON %q: failed to expand OCR3 configs: %w", donName, expandErr)
 		}
 	}
