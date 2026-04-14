@@ -125,11 +125,12 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	}
 
 	jobFired := make(chan struct{})
-
-	jobDef := gocron.CronJob(config.Schedule, allowSeconds)
-	job, err := f.scheduler.NewJob(jobDef, gocron.NewTask(func() {
-		jobFired <- struct{}{}
-	}))
+	job, err := f.scheduler.NewJob(
+		gocron.CronJob(config.Schedule, allowSeconds),
+		gocron.NewTask(func() {
+			jobFired <- struct{}{}
+		}),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create cron job: %w", err)
 	}
@@ -162,6 +163,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 
 	go func() {
 		defer close(jobFired)
+		defer f.scheduler.RemoveJob(job.ID())
 
 		// Either wait for cron trigger or context cancellation
 		select {
