@@ -21,7 +21,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/freeport"
-	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -479,7 +478,6 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
-	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)

@@ -144,7 +144,7 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "%s"
 relay = "evm"
-contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+contractID = "%s"
 p2pv2Bootstrappers = []
 transmitterID = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 pluginType         = "median"
@@ -284,7 +284,7 @@ func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
 }
 
 func GetOCR2EVMSpecMinimal() string {
-	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.FixtureChainID.String())
+	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.NewAddress().Hex(), testutils.FixtureChainID.String())
 }
 
 func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string {
@@ -587,7 +587,7 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.TransmitterAddress != "" {
 		transmitterAddress = params.TransmitterAddress
 	}
-	contractAddress := "0x613a38AC1659769640aaE063C651F48E0250454C"
+	contractAddress := testutils.NewAddress().Hex()
 	if params.ContractAddress != "" {
 		contractAddress = params.ContractAddress
 	}
