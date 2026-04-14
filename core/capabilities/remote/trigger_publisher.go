@@ -358,13 +358,21 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		if !ready {
-			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
+			ackCount := len(p.ackCache.Peers(key))
+			p.lggr.Debugw("not ready to ACK trigger event yet",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"acksReceived", ackCount,
+				"minRequired", minRequired)
 			return
 		}
 
 		ctx, cancel := p.stopCh.NewCtx()
 		defer cancel()
-		p.lggr.Debugw("ACKing trigger event", "triggerEventId", triggerEventID)
+		p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
+			"triggerEventId", triggerEventID,
+			"triggerID", triggerID,
+			"minRequired", minRequired)
 		err = cfg.underlying.AckEvent(ctx, triggerID, triggerEventID, p.capMethodName)
 		if err != nil {
 			p.lggr.Errorw("failed to AckEvent on underlying trigger capability",
@@ -417,15 +425,17 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		p.lggr.Debugw("cleaned expired unregister cache entries", "deleted", deletedUnreg)
 	}
 
-	// Group registration keys by callerDonID so we send one batched message
-	// per workflow DON peer instead of one per registration. With 2,500
-	// registrations × 7 peers, this reduces 17,500 messages to 7.
 	p.mu.RLock()
+	totalRegistrations := len(p.registrations)
 	grouped := make(map[uint32][]registrationKey, len(cfg.workflowDONs))
 	for key := range p.registrations {
 		grouped[key.callerDonID] = append(grouped[key.callerDonID], key)
 	}
 	p.mu.RUnlock()
+
+	p.lggr.Infow("sendRegistrationChecks: tick",
+		"totalRegistrations", totalRegistrations,
+		"nWorkflowDONs", len(grouped))
 
 	for callerDonID, keys := range grouped {
 		workflowIDs := make([]string, len(keys))
@@ -557,11 +567,12 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 		}
 		p.mu.RUnlock()
 
+		peersSent := 0
+		peersSkipped := 0
 		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
 			var missingTriggerIDs []string
 			var missingWorkflowIDs []string
 
-			// determine which triggerIDs / workflowIDs have not yet ACKd this trigger event
 			for i, triggerID := range triggerBatch {
 				peers := ackSnapshot[triggerID]
 				if peers == nil || !peers[peerID] {
@@ -571,6 +582,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			}
 
 			if len(missingTriggerIDs) == 0 {
+				peersSkipped++
 				p.lggr.Debugw("skipping trigger event send; all triggerIDs already ACKed by peer",
 					"peerID", peerID,
 					"callerDonID", resp.callerDonID,
@@ -579,6 +591,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 				)
 				continue
 			}
+			peersSent++
 
 			p.lggr.Debugw("sending trigger event to peer",
 				"peerID", peerID,
@@ -609,6 +622,12 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 				p.lggr.Errorw("failed to send trigger event", "peerID", peerID, "err", err)
 			}
 		}
+		p.lggr.Infow("sendBatch: event dispatched",
+			"triggerEventID", resp.triggerEventID,
+			"callerDonID", resp.callerDonID,
+			"batchSize", len(triggerBatch),
+			"peersSent", peersSent,
+			"peersSkipped", peersSkipped)
 	}
 }
 

@@ -223,7 +223,16 @@ func (s *triggerSubscriber) registrationLoop() {
 			}
 
 			s.mu.RLock()
-			s.lggr.Infow("register trigger for remote capability", "donId", cfg.capDonInfo.ID, "nMembers", len(cfg.capDonInfo.Members), "nWorkflows", len(s.registeredWorkflows))
+			var totalRegistrations, totalP2PSends, totalSendErrors int
+			for _, regMap := range s.registeredWorkflows {
+				totalRegistrations += len(regMap)
+			}
+			s.lggr.Infow("registrationLoop tick: sending registrations",
+				"donId", cfg.capDonInfo.ID,
+				"nCapDonMembers", len(cfg.capDonInfo.Members),
+				"nWorkflows", len(s.registeredWorkflows),
+				"nRegistrations", totalRegistrations,
+				"expectedP2PSends", totalRegistrations*len(cfg.capDonInfo.Members))
 			for _, regMap := range s.registeredWorkflows {
 				for _, registration := range regMap {
 					for _, peerID := range cfg.capDonInfo.Members {
@@ -237,12 +246,19 @@ func (s *triggerSubscriber) registrationLoop() {
 						}
 						err := s.dispatcher.Send(peerID, m)
 						if err != nil {
+							totalSendErrors++
 							s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+						} else {
+							totalP2PSends++
 						}
 					}
 				}
 			}
 			s.mu.RUnlock()
+			s.lggr.Infow("registrationLoop tick: completed",
+				"donId", cfg.capDonInfo.ID,
+				"p2pSendsSent", totalP2PSends,
+				"p2pSendErrors", totalSendErrors)
 		}
 	}
 }
