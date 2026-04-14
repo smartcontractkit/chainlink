@@ -24,6 +24,56 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
+// Observation cache and loop tuning (all durations scale with observationTimeout T from the plugin Observe deadline).
+//
+// Invariants:
+//   - cacheEntryTTL(T) = cacheTTLMultiplier·T — how long successful values remain valid after cache write.
+//   - staleRefreshSkipThreshold(T) = (staleRefreshRemainingNumerator/Denominator)·T — skip refresh while remaining TTL is greater than this
+//     (streams become eligible for refresh sooner when this ratio is higher, at the cost of more pipeline runs).
+//   - Keep staleRefreshSkipThreshold(T)+max(observationLoopPacing(T)) < cacheEntryTTL(T); with (6/5)·T and pacing ≤T/2,
+//     (6/5+1/2)·T = 1.7·T < 2·T.
+//
+// Example timings for observationTimeout T = 250ms (given cacheTTLMultiplier=2, pacing divisor=10, 6/5 skip ratio):
+//   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful cache writes (end of each observation loop iteration).
+//   - staleRefreshSkipThreshold = (6/5)·T = 300ms — getStreamsToRefresh skips re-observing while time.Until(expiresAt) > 300ms.
+//   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first.
+//   - per-iteration pipeline context uses WithTimeout(..., T) = 250ms — ceiling on wall time for parallel Observe calls in one iteration.
+const (
+	cacheTTLMultiplier                     = 2
+	staleRefreshRemainingNumerator   int64 = 6
+	staleRefreshRemainingDenominator int64 = 5
+
+	observationLoopPacingMin     = 10 * time.Millisecond
+	observationLoopPacingDivisor = 10 // pacing default = T/10, capped below
+)
+
+func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
+	return time.Duration(cacheTTLMultiplier) * observationTimeout
+}
+
+// staleRefreshSkipThreshold returns (staleRefreshRemainingNumerator/staleRefreshRemainingDenominator)·T.
+// getStreamsToRefresh skips re-observation while time.Until(expiresAt) is strictly greater than this value.
+func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
+	return (time.Duration(staleRefreshRemainingNumerator) * observationTimeout) / time.Duration(staleRefreshRemainingDenominator)
+}
+
+// observationLoopPacing returns the minimum time between observation loop iterations to cap CPU while
+// staying responsive relative to T. Scales with T, clamped to [observationLoopPacingMin, T/2].
+func observationLoopPacing(observationTimeout time.Duration) time.Duration {
+	if observationTimeout <= 0 {
+		return observationLoopPacingMin
+	}
+	p := observationTimeout / observationLoopPacingDivisor
+	maxP := observationTimeout / 2
+	if p < observationLoopPacingMin {
+		p = observationLoopPacingMin
+	}
+	if p > maxP {
+		p = maxP
+	}
+	return p
+}
+
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "llo",
@@ -45,7 +95,7 @@ var (
 		Namespace: "llo",
 		Subsystem: "datasource",
 		Name:      "observation_loop_duration_ms",
-		Help:      "Duration of the observation loop",
+		Help:      "Wall time for one observation loop iteration (pacing excluded)",
 		Buckets: []float64{
 			10, 25, 50, 100, 250, 500, 750, 1000,
 		},
@@ -114,8 +164,8 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues, opts llo.DSOpts) error {
 	// Observation loop logic
 	{
-		// Update the list of streams to observe for this config digest and set the timeout
-		// StreamValues  needs a copy to avoid concurrent access
+		// Update the list of streams to observe for this config digest and set the timeout.
+		// setObservableStreams copies stream IDs into internal state so the plugin's streamValues map is not retained.
 		d.setObservableStreams(ctx, streamValues, opts)
 
 		if !d.observationLoopStarted.Load() {
@@ -134,8 +184,9 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // startObservationLoop continuously makes observations for the streams in this data source
 // caching them in memory making the Observe call duration and performance independent
 // of the underlying resources providing the observations.
-// Based on the expected maxObservationDuration determine the pace of the observation loop
-// and for how long to cache the observations.
+// Loop pacing (observationLoopPacing), per-round observe deadline (observationTimeout), cache TTL
+// and stale-refresh threshold (see package constants) are chosen so refresh tends to run before
+// entries expire without busy-spinning the loop.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	// atomically set the observation loop started flag to true
 	// or return if it's already started
@@ -158,10 +209,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 		}()
 
 		for {
-			if stopChanCtx.Err() != nil {
-				return
-			}
-
 			osv := d.getObservableStreams()
 			if osv == nil || len(osv.streamValues) == 0 {
 				// There is nothing to observe, exit and let the next Observe() call reinitialize the loop.
@@ -169,7 +216,24 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				return
 			}
 
-			time.Sleep(osv.observationTimeout)
+			if !loopStarting {
+				// Pace the loop to bound CPU; freshness is driven by cache TTL and stale-refresh threshold.
+				pacing := observationLoopPacing(osv.observationTimeout)
+				t := time.NewTimer(pacing)
+				select {
+				case <-stopChanCtx.Done():
+					if !t.Stop() {
+						<-t.C
+					}
+					return
+				case <-t.C:
+				}
+			}
+
+			if stopChanCtx.Err() != nil {
+				return
+			}
+
 			startTS := time.Now()
 			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
 			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
@@ -202,13 +266,11 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			var mu sync.Mutex
+			var wg sync.WaitGroup
+			var errs []ErrObservationFailed
 			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
 			observedValues := make(map[streams.StreamID]llo.StreamValue, len(osv.streamValues))
-			var errs []ErrObservationFailed
-
-			var wg sync.WaitGroup
 			oc := NewObservationContext(lggr, d.registry, d.t)
-
 			streamsToRefresh := d.getStreamsToRefresh(osv.streamValues, osv.observationTimeout)
 
 			for streamID := range streamsToRefresh {
@@ -240,10 +302,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			wg.Wait()
 			elapsed = time.Since(startTS)
-
 			droppedStreamIDs := d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
-
-			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
+			d.cache.AddMany(observedValues, cacheEntryTTL(osv.observationTimeout))
 
 			// notify the caller that we've completed our first round of observations.
 			if loopStarting {
@@ -299,7 +359,7 @@ func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observat
 		}
 		// refresh stream and associated streams from pipeline if this streamID is stale
 		if val, expiresAt := d.cache.Get(streamID); val != nil {
-			if time.Until(expiresAt) > 2*observationTimeout {
+			if time.Until(expiresAt) > staleRefreshSkipThreshold(observationTimeout) {
 				continue
 			}
 		}
@@ -437,9 +497,8 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 	d.observableStreams = osv
 }
 
-// getObservableStreams returns the active plugin data source options, the streams to observe and the observation interval
-// the observation interval is the maximum time we can spend observing streams. We ensure that we don't exceed this time and
-// we wait for the remaining time in the observation loop.
+// getObservableStreams returns the active plugin data source options, the streams to observe, and observationTimeout (T).
+// T is the Observe deadline budget; the loop paces iterations separately and uses T as the per-round context deadline.
 func (d *dataSource) getObservableStreams() *observableStreamValues {
 	d.observableStreamsMu.Lock()
 	defer d.observableStreamsMu.Unlock()
