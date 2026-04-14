@@ -1410,8 +1410,8 @@ github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260326122810-b65
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260326122810-b657beadfb57/go.mod h1:kGprqyjsz6qFNVszOQoHc24wfvCjyipNZFste/3zcbs=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260410144512-ca02ad6ed16a h1:QbP7JIzDNvgmGL9TLM5VdzvCA90Ncg7E0ommuodKzEc=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260410144512-ca02ad6ed16a/go.mod h1:HG/aei0MgBOpsyRLexdKGtOUO8yjSJO3iUu0Uu8KBm4=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260413054020-4fff1fdc9b18 h1:AbI4WmSoaPEYwj7mutthtRpBOnoO7T7lgI0SM4Ns4C4=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260413054020-4fff1fdc9b18/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260414055658-2c72bb858e8d h1:wNpG1cxDbcauE+Qax846Z9mJ/bW7C8G3I884NOKrPwo=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260414055658-2c72bb858e8d/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4 h1:GCzrxDWn3b7jFfEA+WiYRi8CKoegsayiDoJBCjYkneE=
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4/go.mod h1:HHGeDUpAsPa0pmOx7wrByCitjQ0mbUxf0R9v+g67uCA=
 github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d h1:VYoBBNnQpZ5p+enPTl8SkKBRaubqyGpO0ul3B1np++I=

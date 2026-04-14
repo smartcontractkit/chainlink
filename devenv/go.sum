@@ -993,8 +993,8 @@ github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260326122810-b65
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260326122810-b657beadfb57/go.mod h1:kGprqyjsz6qFNVszOQoHc24wfvCjyipNZFste/3zcbs=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260401162955-be2bc6b5264b h1:L1So1EDBDRET3j/TdV1Gjv3qWARoa/NPRaU7k4r30yA=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260401162955-be2bc6b5264b/go.mod h1:HG/aei0MgBOpsyRLexdKGtOUO8yjSJO3iUu0Uu8KBm4=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260413054020-4fff1fdc9b18 h1:AbI4WmSoaPEYwj7mutthtRpBOnoO7T7lgI0SM4Ns4C4=
-github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260413054020-4fff1fdc9b18/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260414055658-2c72bb858e8d h1:wNpG1cxDbcauE+Qax846Z9mJ/bW7C8G3I884NOKrPwo=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260414055658-2c72bb858e8d/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260326111235-8c09d1a4491f h1:8p3vE987AHM3Of1JvnNJXNE/AtWtfNvJhk3TeeAG3Qw=
 github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260326111235-8c09d1a4491f/go.mod h1:Jqt53s27Tr0jDl8mdBXg1xhu6F8Fci8JOuq43tgHOM8=
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0 h1:/bhoALRzNXZkdzxBkNM505pMofNy0K0eW1nCzXw+AUI=
