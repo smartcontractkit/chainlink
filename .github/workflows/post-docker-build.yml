@@ -21,7 +21,6 @@ permissions:
 
 jobs:
     call-cre-local-env-tests:
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         uses: ./.github/workflows/cre-local-env-tests.yaml
         with:
             chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
@@ -29,7 +28,6 @@ jobs:
         secrets: inherit
 
     call-legacy-system-tests:
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         permissions:
             contents: read
             id-token: write
@@ -43,7 +41,6 @@ jobs:
         secrets: inherit
 
     call-legacy-non-functional-tests:
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         permissions:
             contents: read
             id-token: write
@@ -57,7 +54,6 @@ jobs:
         secrets: inherit
 
     call-cre-resource-regression-tests:
-        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         permissions:
             contents: read
             id-token: write

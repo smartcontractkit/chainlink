@@ -345,7 +345,7 @@ jobs:
           cd cmd/cl && go install . && cd -
           ENV_CMD="${{ matrix.envcmd }}"
           echo "Setting up environment with: $ENV_CMD"
-          eval $ENV_CMD
+          eval "$ENV_CMD"
 
       - name: Run tests
         working-directory: devenv/tests/${{ matrix.tests_dir }}
@@ -354,7 +354,7 @@ jobs:
         run: |
           TESTCMD="${{ matrix.testcmd }}"
           echo "Running tests for: $CHAINLINK_IMAGE, test: $TESTCMD"
-          eval $TESTCMD
+          eval "$TESTCMD"
 
       - name: Upload Logs
         if: always()
