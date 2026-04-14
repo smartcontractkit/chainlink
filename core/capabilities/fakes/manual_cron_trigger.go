@@ -126,7 +126,9 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	job, err := f.scheduler.NewJob(
 		gocron.CronJob(config.Schedule, allowSeconds),
 		gocron.NewTask(func() {
-			jobFired <- struct{}{}
+			select {
+			case jobFired <- struct{}{}:
+			}
 		}),
 	)
 	if err != nil {
