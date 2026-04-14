@@ -855,6 +855,20 @@ func Test_getStreamsToRefresh(t *testing.T) {
 	promCacheMissCount.Reset()
 }
 
+func Test_observationTuningHelpers(t *testing.T) {
+	t.Parallel()
+
+	assert.Equal(t, 300*time.Millisecond, cacheEntryTTL(100*time.Millisecond))
+	assert.Equal(t, 150*time.Millisecond, staleRefreshSkipThreshold(100*time.Millisecond))
+	assert.Less(t, staleRefreshSkipThreshold(100*time.Millisecond), cacheEntryTTL(100*time.Millisecond))
+
+	assert.Equal(t, 25*time.Millisecond, observationLoopPacing(100*time.Millisecond))
+	assert.Equal(t, 125*time.Millisecond, observationLoopPacing(500*time.Millisecond))
+	assert.Equal(t, observationLoopPacingMin, observationLoopPacing(0))
+	// T/4 below floor clamps to min, then caps to T/2
+	assert.Equal(t, 15*time.Millisecond, observationLoopPacing(30*time.Millisecond))
+}
+
 func BenchmarkObserve(b *testing.B) {
 	lggr := logger.TestLogger(b)
 	ctx := testutils.Context(b)

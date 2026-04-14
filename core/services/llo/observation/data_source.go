@@ -24,6 +24,49 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
+// Observation cache and loop tuning (all durations scale with observationTimeout T from the plugin Observe deadline).
+//
+// Invariants:
+//   - cacheTTL = cacheTTLMultiplier·T  — how long successful values remain valid.
+//   - staleRefreshRemaining = staleRefreshRemainingNumerator/staleRefreshDenominator·T — while more than
+//     this much time remains before expiry, we skip refresh (good cache utilization).
+//   - Require staleRefreshRemaining < cacheTTL so there is always a refresh window before expiry; here 1.5·T < 3·T.
+const (
+	cacheTTLMultiplier                  = 3
+	staleRefreshRemainingNumerator   int64 = 3
+	staleRefreshRemainingDenominator int64 = 2 // 3/2 · T = 1.5 · T remaining life to still treat as fresh enough to skip
+
+	observationLoopPacingMin   = 20 * time.Millisecond
+	observationLoopPacingDivisor = 4 // pacing default = T/4, capped below
+)
+
+func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
+	return time.Duration(cacheTTLMultiplier) * observationTimeout
+}
+
+// staleRefreshSkipThreshold is the minimum remaining TTL on a cache entry for which we skip observing again.
+func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
+	// (3/2)*T
+	return (time.Duration(staleRefreshRemainingNumerator) * observationTimeout) / time.Duration(staleRefreshRemainingDenominator)
+}
+
+// observationLoopPacing returns the minimum time between observation loop iterations to cap CPU while
+// staying responsive relative to T. Scales with T, clamped to [observationLoopPacingMin, T/2].
+func observationLoopPacing(observationTimeout time.Duration) time.Duration {
+	if observationTimeout <= 0 {
+		return observationLoopPacingMin
+	}
+	p := observationTimeout / observationLoopPacingDivisor
+	maxP := observationTimeout / 2
+	if p < observationLoopPacingMin {
+		p = observationLoopPacingMin
+	}
+	if p > maxP {
+		p = maxP
+	}
+	return p
+}
+
 var (
 	promMissingStreamCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "llo",
@@ -134,8 +177,9 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // startObservationLoop continuously makes observations for the streams in this data source
 // caching them in memory making the Observe call duration and performance independent
 // of the underlying resources providing the observations.
-// Based on the expected maxObservationDuration determine the pace of the observation loop
-// and for how long to cache the observations.
+// Loop pacing (observationLoopPacing), per-round observe deadline (observationTimeout), cache TTL
+// and stale-refresh threshold (see package constants) are chosen so refresh tends to run before
+// entries expire without busy-spinning the loop.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	// atomically set the observation loop started flag to true
 	// or return if it's already started
@@ -169,7 +213,6 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				return
 			}
 
-			time.Sleep(osv.observationTimeout)
 			startTS := time.Now()
 			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
 			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
@@ -202,13 +245,11 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			var mu sync.Mutex
+			var wg sync.WaitGroup
+			var errs []ErrObservationFailed
 			successfulStreamIDs := make([]streams.StreamID, 0, len(osv.streamValues))
 			observedValues := make(map[streams.StreamID]llo.StreamValue, len(osv.streamValues))
-			var errs []ErrObservationFailed
-
-			var wg sync.WaitGroup
 			oc := NewObservationContext(lggr, d.registry, d.t)
-
 			streamsToRefresh := d.getStreamsToRefresh(osv.streamValues, osv.observationTimeout)
 
 			for streamID := range streamsToRefresh {
@@ -240,10 +281,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			wg.Wait()
 			elapsed = time.Since(startTS)
-
 			droppedStreamIDs := d.removeIncompleteGroups(lggr, observedValues, osv.streamValues)
-
-			d.cache.AddMany(observedValues, 4*osv.observationTimeout)
+			d.cache.AddMany(observedValues, cacheEntryTTL(osv.observationTimeout))
 
 			// notify the caller that we've completed our first round of observations.
 			if loopStarting {
@@ -284,6 +323,18 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			// context cancellation
 			cancel()
+
+			// Pace the loop to bound CPU; freshness is driven by cache TTL and stale-refresh threshold.
+			pacing := observationLoopPacing(osv.observationTimeout)
+			t := time.NewTimer(pacing)
+			select {
+			case <-stopChanCtx.Done():
+				if !t.Stop() {
+					<-t.C
+				}
+				return
+			case <-t.C:
+			}
 		}
 	})
 }
@@ -299,7 +350,7 @@ func (d *dataSource) getStreamsToRefresh(streamValues llo.StreamValues, observat
 		}
 		// refresh stream and associated streams from pipeline if this streamID is stale
 		if val, expiresAt := d.cache.Get(streamID); val != nil {
-			if time.Until(expiresAt) > 2*observationTimeout {
+			if time.Until(expiresAt) > staleRefreshSkipThreshold(observationTimeout) {
 				continue
 			}
 		}
@@ -437,9 +488,8 @@ func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llo.
 	d.observableStreams = osv
 }
 
-// getObservableStreams returns the active plugin data source options, the streams to observe and the observation interval
-// the observation interval is the maximum time we can spend observing streams. We ensure that we don't exceed this time and
-// we wait for the remaining time in the observation loop.
+// getObservableStreams returns the active plugin data source options, the streams to observe, and observationTimeout (T).
+// T is the Observe deadline budget; the loop paces iterations separately and uses T as the per-round context deadline.
 func (d *dataSource) getObservableStreams() *observableStreamValues {
 	d.observableStreamsMu.Lock()
 	defer d.observableStreamsMu.Unlock()
