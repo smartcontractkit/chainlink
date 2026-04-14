@@ -53,9 +53,6 @@ var (
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
-	// Address targets specific pool on-chain without looking it up based on the provided token.
-	Address common.Address
-
 	// Inbound is the rate limiter config for inbound transfers from a remote chain.
 	Inbound token_pool.RateLimiterConfig `json:"inbound"`
 
@@ -298,7 +295,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 
 	if c.Address != (common.Address{}) && c.OverrideTokenSymbol != "" {
 		return errors.New("cannot use both address and override token symbol to identify the token pool")
-	} else {
+	} else if c.OverrideTokenSymbol != "" {
 		tokenSymbol = c.OverrideTokenSymbol
 	}
 
