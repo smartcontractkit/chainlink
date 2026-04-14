@@ -24,6 +24,8 @@ type AptosOverrideDefaultCfg struct {
 	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
 	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
 	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
+	DeltaStage                    time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	TxSearchStartingBuffer        time.Duration `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
 }
 
 type AptosCapabilityInput struct {
@@ -73,6 +75,14 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		DeltaStage:           input.DeltaStage,
 	}); err != nil {
 		return err
+	}
+
+	family, err := chainselectors.GetSelectorFamily(input.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to get family for chain selector %d: %w", input.ChainSelector, err)
+	}
+	if family != chainselectors.FamilyAptos {
+		return fmt.Errorf("chain selector %d belongs to family %q, expected %q", input.ChainSelector, family, chainselectors.FamilyAptos)
 	}
 
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
@@ -146,6 +156,8 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		cfg.ChainID = chainIDStr
 		cfg.Network = aptosNetwork
 		cfg.CREForwarderAddress = resolved.ForwarderAddress
+		cfg.DeltaStage = input.DeltaStage
+		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
 		enc, err := json.Marshal(cfg)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to marshal aptos cap config: %w", err)
