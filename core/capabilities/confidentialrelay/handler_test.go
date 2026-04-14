@@ -19,6 +19,7 @@ import (
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -123,7 +124,7 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, lggr)
+	h, err := NewHandler(registry, gwConn, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	h.validateAttestation = noopValidator
 	return h
@@ -163,11 +164,70 @@ func makeRequest(t *testing.T, method string, params any) *jsonrpc.Request[json.
 	}
 }
 
+// secretsGetTestRegistry builds a mock registry with a vault executable that
+// returns a valid GetSecretsResponse for the "API_KEY" secret.
+func secretsGetTestRegistry(t *testing.T) *mockCapRegistry {
+	t.Helper()
+	enclaveKey := "enclave-pub-key-1"
+	vaultResp := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "API_KEY",
+					Namespace: vaulttypes.DefaultNamespace,
+					Owner:     "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{
+						EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
+						EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
+							{
+								EncryptionKey: enclaveKey,
+								Shares:        []string{hex.EncodeToString([]byte("share-1"))},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	payload, err := anypb.New(vaultResp)
+	require.NoError(t, err)
+
+	return withEnclaveConfig(&mockCapRegistry{
+		executables: map[string]*mockExecutable{
+			vault.CapabilityID: {
+				execResult: capabilities.CapabilityResponse{Payload: payload},
+			},
+		},
+		localNode: capabilities.Node{
+			WorkflowDON: capabilities.DON{ID: 42, ConfigVersion: 7},
+		},
+	})
+}
+
+// secretsGetTestRequest builds a secrets-get request with a known owner and org ID.
+func secretsGetTestRequest(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+	return makeRequest(t, confidentialrelaytypes.MethodSecretsGet, confidentialrelaytypes.SecretsRequestParams{
+		WorkflowID:       "wf-secrets-1",
+		Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
+		ExecutionID:      "aaaa",
+		OrgID:            "org-123",
+		EnclavePublicKey: "enclave-pub-key-1",
+		Secrets: []confidentialrelaytypes.SecretIdentifier{
+			{Key: "API_KEY"},
+		},
+		Attestation: testAttestationB64,
+	})
+}
+
 func TestHandler_HandleGatewayMessage(t *testing.T) {
 	tests := []struct {
 		name            string
 		registry        func(t *testing.T) *mockCapRegistry
 		req             func(t *testing.T) *jsonrpc.Request[json.RawMessage]
+		modifyHandler   func(t *testing.T, h *Handler)
 		checkResp       func(t *testing.T, resp *jsonrpc.Response[json.RawMessage])
 		checkExecutable func(t *testing.T, reg *mockCapRegistry)
 	}{
@@ -317,59 +377,15 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "secrets get sets WorkflowOwner and OrgId on vault request",
+			name: "secrets get sets WorkflowOwner and OrgId when gate enabled",
 			registry: func(t *testing.T) *mockCapRegistry {
-				// Build a valid GetSecretsResponse so the handler can
-				// process the full code path without errors.
-				enclaveKey := "enclave-pub-key-1"
-				vaultResp := &vault.GetSecretsResponse{
-					Responses: []*vault.SecretResponse{
-						{
-							Id: &vault.SecretIdentifier{
-								Key:       "API_KEY",
-								Namespace: vaulttypes.DefaultNamespace,
-								Owner:     "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
-							},
-							Result: &vault.SecretResponse_Data{
-								Data: &vault.SecretData{
-									EncryptedValue: hex.EncodeToString([]byte("encrypted-value")),
-									EncryptedDecryptionKeyShares: []*vault.EncryptedShares{
-										{
-											EncryptionKey: enclaveKey,
-											Shares:        []string{hex.EncodeToString([]byte("share-1"))},
-										},
-									},
-								},
-							},
-						},
-					},
-				}
-				payload, err := anypb.New(vaultResp)
-				require.NoError(t, err)
-
-				return withEnclaveConfig(&mockCapRegistry{
-					executables: map[string]*mockExecutable{
-						vault.CapabilityID: {
-							execResult: capabilities.CapabilityResponse{Payload: payload},
-						},
-					},
-					localNode: capabilities.Node{
-						WorkflowDON: capabilities.DON{ID: 42, ConfigVersion: 7},
-					},
-				})
+				return secretsGetTestRegistry(t)
 			},
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
-				return makeRequest(t, confidentialrelaytypes.MethodSecretsGet, confidentialrelaytypes.SecretsRequestParams{
-					WorkflowID:       "wf-secrets-1",
-					Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b", // lowercase, should be normalized
-					ExecutionID:      "aaaa",
-					OrgID:            "org-123",
-					EnclavePublicKey: "enclave-pub-key-1",
-					Secrets: []confidentialrelaytypes.SecretIdentifier{
-						{Key: "API_KEY"},
-					},
-					Attestation: testAttestationB64,
-				})
+				return secretsGetTestRequest(t)
+			},
+			modifyHandler: func(_ *testing.T, h *Handler) {
+				h.vaultIdentityGate = limits.NewGateLimiter(true)
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
@@ -382,11 +398,10 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				exec := reg.executables[vault.CapabilityID]
 				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
 
-				// Extract the GetSecretsRequest from the capability payload.
 				var vaultReq vault.GetSecretsRequest
 				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
 
-				// The owner should be EIP-55 checksummed on the vault request.
+				// Gate enabled: owner should be EIP-55 checksummed on the vault request.
 				assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", vaultReq.WorkflowOwner)
 				assert.Equal(t, "org-123", vaultReq.OrgId)
 
@@ -394,6 +409,32 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
+			},
+		},
+		{
+			name: "secrets get omits WorkflowOwner and OrgId when gate disabled",
+			registry: func(t *testing.T) *mockCapRegistry {
+				return secretsGetTestRegistry(t)
+			},
+			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
+				return secretsGetTestRequest(t)
+			},
+			modifyHandler: func(_ *testing.T, h *Handler) {
+				h.vaultIdentityGate = limits.NewGateLimiter(false)
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.Nil(t, resp.Error)
+			},
+			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
+				exec := reg.executables[vault.CapabilityID]
+				require.NotNil(t, exec.lastRequest, "vault Execute should have been called")
+
+				var vaultReq vault.GetSecretsRequest
+				require.NoError(t, exec.lastRequest.Payload.UnmarshalTo(&vaultReq))
+
+				// Gate disabled: WorkflowOwner and OrgId must be empty.
+				assert.Empty(t, vaultReq.WorkflowOwner)
+				assert.Empty(t, vaultReq.OrgId)
 			},
 		},
 		{
@@ -434,6 +475,9 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			gwConn := &mockGatewayConnector{}
 			reg := tt.registry(t)
 			h := newTestHandler(t, reg, gwConn)
+			if tt.modifyHandler != nil {
+				tt.modifyHandler(t, h)
+			}
 			err := h.HandleGatewayMessage(t.Context(), "gw-1", tt.req(t))
 			require.NoError(t, err)
 			require.NotNil(t, gwConn.lastResp)
