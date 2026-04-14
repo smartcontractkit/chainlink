@@ -1585,6 +1585,7 @@ ContractVersion identifies semantic version of the CapabilitiesRegistry contract
 [Capabilities.Dispatcher]
 SupportedVersion = 1 # Default
 ReceiverBufferSize = 10000 # Default
+ReceiverConsumerCount = 1 # Default
 SendToSharedPeer = false # Default
 ```
 
@@ -1600,6 +1601,12 @@ SupportedVersion is the version of the version of message schema.
 ReceiverBufferSize = 10000 # Default
 ```
 ReceiverBufferSize is the size of the buffer for incoming messages.
+
+### ReceiverConsumerCount
+```toml
+ReceiverConsumerCount = 1 # Default
+```
+ReceiverConsumerCount is the number of goroutines consuming from each receiver's incoming message buffer. Higher values increase throughput when Receive handlers are slow (e.g. batched trigger events with many workflow IDs). Default 1 preserves serial processing; set to 4-8 on nodes with high DON2DON traffic.
 
 ### SendToSharedPeer
 ```toml

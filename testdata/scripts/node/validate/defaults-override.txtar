@@ -377,6 +377,7 @@ BytesRateLimiterCapacity = 10000000
 [Capabilities.Dispatcher]
 SupportedVersion = 1
 ReceiverBufferSize = 10000
+ReceiverConsumerCount = 1
 SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]

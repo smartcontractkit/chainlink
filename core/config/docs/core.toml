@@ -561,6 +561,11 @@ ContractVersion = '1.0.0' # Default
 SupportedVersion = 1 # Default
 # ReceiverBufferSize is the size of the buffer for incoming messages.
 ReceiverBufferSize = 10000 # Default
+# ReceiverConsumerCount is the number of goroutines consuming from each receiver's
+# incoming message buffer. Higher values increase throughput when Receive handlers
+# are slow (e.g. batched trigger events with many workflow IDs). Default 1 preserves
+# serial processing; set to 4-8 on nodes with high DON2DON traffic.
+ReceiverConsumerCount = 1 # Default
 # SendToSharedPeer sends all messages ONLY to the SharedPeer and not to legacy ExternalPeer.
 SendToSharedPeer = false # Default
 

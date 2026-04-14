@@ -546,8 +546,9 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Dispatcher: toml.Dispatcher{
-			SupportedVersion:   ptr(1),
-			ReceiverBufferSize: ptr(10000),
+			SupportedVersion:      ptr(1),
+			ReceiverBufferSize:    ptr(10000),
+			ReceiverConsumerCount: ptr(1),
 			RateLimit: toml.DispatcherRateLimit{
 				GlobalRPS:      ptr(1000.0),
 				GlobalBurst:    ptr(1500),

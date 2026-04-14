@@ -186,19 +186,24 @@ func (d *dispatcher) setReceiver(k key, rec types.Receiver) error {
 	receiverCh := make(chan *types.MessageBody, d.cfg.ReceiverBufferSize())
 
 	ctx, cancelCtx := d.stopCh.NewCtx()
-	d.wg.Add(1)
-	go func() {
-		defer cancelCtx()
-		defer d.wg.Done()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg := <-receiverCh:
-				rec.Receive(ctx, msg)
+	consumerCount := d.cfg.ReceiverConsumerCount()
+	if consumerCount < 1 {
+		consumerCount = 1
+	}
+	d.wg.Add(consumerCount)
+	for range consumerCount {
+		go func() {
+			defer d.wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case msg := <-receiverCh:
+					rec.Receive(ctx, msg)
+				}
 			}
-		}
-	}()
+		}()
+	}
 
 	d.receivers[k] = &receiver{
 		cancel: cancelCtx,

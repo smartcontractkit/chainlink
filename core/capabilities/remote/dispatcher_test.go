@@ -57,10 +57,11 @@ func (c testRateLimitConfig) PerSenderBurst() int {
 }
 
 type testConfig struct {
-	supportedVersion   int
-	receiverBufferSize int
-	rateLimit          testRateLimitConfig
-	sendToSharedPeer   bool
+	supportedVersion      int
+	receiverBufferSize    int
+	receiverConsumerCount int
+	rateLimit             testRateLimitConfig
+	sendToSharedPeer      bool
 }
 
 func (c testConfig) SupportedVersion() int {
@@ -69,6 +70,13 @@ func (c testConfig) SupportedVersion() int {
 
 func (c testConfig) ReceiverBufferSize() int {
 	return c.receiverBufferSize
+}
+
+func (c testConfig) ReceiverConsumerCount() int {
+	if c.receiverConsumerCount == 0 {
+		return 1
+	}
+	return c.receiverConsumerCount
 }
 
 func (c testConfig) RateLimit() config.DispatcherRateLimit {

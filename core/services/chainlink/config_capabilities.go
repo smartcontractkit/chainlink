@@ -80,6 +80,13 @@ func (d *dispatcher) ReceiverBufferSize() int {
 	return *d.d.ReceiverBufferSize
 }
 
+func (d *dispatcher) ReceiverConsumerCount() int {
+	if d.d.ReceiverConsumerCount == nil {
+		return 1
+	}
+	return *d.d.ReceiverConsumerCount
+}
+
 func (d *dispatcher) RateLimit() config.DispatcherRateLimit {
 	return &dispatcherRateLimit{r: d.d.RateLimit}
 }

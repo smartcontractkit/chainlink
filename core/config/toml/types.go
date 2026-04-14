@@ -2503,10 +2503,11 @@ func (r WorkflowRegistry) AdditionalSources() []config.AdditionalWorkflowSource 
 }
 
 type Dispatcher struct {
-	SupportedVersion   *int
-	ReceiverBufferSize *int
-	RateLimit          DispatcherRateLimit
-	SendToSharedPeer   *bool
+	SupportedVersion      *int
+	ReceiverBufferSize    *int
+	ReceiverConsumerCount *int
+	RateLimit             DispatcherRateLimit
+	SendToSharedPeer      *bool
 }
 
 func (d *Dispatcher) setFrom(f *Dispatcher) {
@@ -2514,6 +2515,10 @@ func (d *Dispatcher) setFrom(f *Dispatcher) {
 
 	if f.ReceiverBufferSize != nil {
 		d.ReceiverBufferSize = f.ReceiverBufferSize
+	}
+
+	if f.ReceiverConsumerCount != nil {
+		d.ReceiverConsumerCount = f.ReceiverConsumerCount
 	}
 
 	if f.SupportedVersion != nil {

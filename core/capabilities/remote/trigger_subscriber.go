@@ -286,90 +286,132 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 
 	switch msg.Method {
 	case types.MethodTriggerEvent:
-		meta := msg.GetTriggerEventMetadata()
-		if meta == nil {
-			s.lggr.Errorw("received message with invalid trigger metadata", "sender", sender)
-			return
+		s.handleTriggerEvent(msg, sender, cfg)
+	case types.MethodTriggerRegistrationCheck:
+		s.handleRegistrationCheck(msg, sender)
+	default:
+		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
+	}
+}
+
+type resolvedEvent struct {
+	registration *subRegState
+	workflowID   string
+	triggerID    string
+	key          triggerEventKey
+}
+
+type readyEvent struct {
+	resolvedEvent
+	payloads [][]byte
+}
+
+func (s *triggerSubscriber) handleTriggerEvent(msg *types.MessageBody, sender p2ptypes.PeerID, cfg *dynamicConfig) {
+	meta := msg.GetTriggerEventMetadata()
+	if meta == nil {
+		s.lggr.Errorw("received message with invalid trigger metadata", "sender", sender)
+		return
+	}
+	if len(meta.WorkflowIds) > maxBatchedWorkflowIDs {
+		s.lggr.Errorw("received message with too many workflow IDs - truncating", "nWorkflows", len(meta.WorkflowIds), "sender", sender)
+		meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
+	}
+
+	// Phase 1: resolve all registrations under a single RLock
+	resolved := make([]resolvedEvent, 0, len(meta.WorkflowIds))
+	s.mu.RLock()
+	for idx, workflowID := range meta.WorkflowIds {
+		var triggerID string
+		if idx < len(meta.TriggerIds) {
+			triggerID = meta.TriggerIds[idx]
 		}
-		if len(meta.WorkflowIds) > maxBatchedWorkflowIDs {
-			s.lggr.Errorw("received message with too many workflow IDs - truncating", "nWorkflows", len(meta.WorkflowIds), "sender", sender)
-			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
-		}
-		for idx, workflowID := range meta.WorkflowIds {
-			var triggerID string
-			if idx < len(meta.TriggerIds) {
-				triggerID = meta.TriggerIds[idx]
-			}
-			s.mu.RLock()
-			triggerMap, found := s.registeredWorkflows[workflowID]
-			var registration *subRegState
-			if found {
-				if triggerID != "" {
-					// received a message from updated publisher, which provided a triggerID
-					registration = triggerMap[triggerID]
-				} else {
-					// legacy flow, expect there to be only a single trigger of each type per workflow
-					for _, reg := range triggerMap {
-						registration = reg
-						break
-					}
-					if len(triggerMap) > 1 {
-						s.lggr.Errorw("received message without triggerID but workflow has multiple trigger - picking a random one", "workflowID", SanitizeLogString(workflowID), "sender", sender)
-					}
+		triggerMap, found := s.registeredWorkflows[workflowID]
+		var registration *subRegState
+		if found {
+			if triggerID != "" {
+				registration = triggerMap[triggerID]
+			} else {
+				for _, reg := range triggerMap {
+					registration = reg
+					break
+				}
+				if len(triggerMap) > 1 {
+					s.lggr.Errorw("received message without triggerID but workflow has multiple trigger - picking a random one", "workflowID", SanitizeLogString(workflowID), "sender", sender)
 				}
 			}
-			s.mu.RUnlock()
-			if registration == nil {
-				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
-				continue
-			}
-			key := triggerEventKey{
+		}
+		if registration == nil {
+			s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
+			continue
+		}
+		resolved = append(resolved, resolvedEvent{
+			registration: registration,
+			workflowID:   workflowID,
+			triggerID:    triggerID,
+			key: triggerEventKey{
 				triggerEventID: meta.TriggerEventId,
 				workflowID:     workflowID,
 				triggerID:      triggerID,
-			}
-			nowMs := time.Now().UnixMilli()
-			s.mu.Lock()
-			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
-			s.mu.Unlock()
-			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-			if ready {
-				aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
-				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
-					continue
-				}
-				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-				registration.callback <- aggregatedResponse
-			}
-		}
-	case types.MethodTriggerRegistrationCheck:
-		meta := msg.GetTriggerEventMetadata()
-		if meta == nil {
-			s.lggr.Errorw("received registration check with nil metadata", "sender", sender)
-			return
-		}
+			},
+		})
+	}
+	s.mu.RUnlock()
 
-		for i, workflowID := range meta.WorkflowIds {
-			triggerID := meta.TriggerIds[i]
+	if len(resolved) == 0 {
+		return
+	}
 
-			s.mu.RLock()
-			triggerMap, ok := s.registeredWorkflows[workflowID]
-			reg := ok && triggerMap[triggerID] != nil
-			s.mu.RUnlock()
-
-			if !reg {
-				// Registration was removed locally — tell the publisher to clean up.
-				s.sendUnregister(workflowID, triggerID)
-			}
-			// For existing registrations we intentionally do NOT resend.
-			// The periodic registrationLoop already refreshes registrations,
-			// and the publisher ignores duplicate MethodRegisterTrigger for
-			// registrations it already has.
+	// Phase 2: batch all cache inserts under a single Lock
+	nowMs := time.Now().UnixMilli()
+	var readyResults []readyEvent
+	s.mu.Lock()
+	for _, entry := range resolved {
+		s.messageCache.Insert(entry.key, sender, nowMs, msg.Payload)
+		ready, payloads := s.messageCache.Ready(entry.key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+		if ready {
+			readyResults = append(readyResults, readyEvent{resolvedEvent: entry, payloads: payloads})
 		}
-	default:
-		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
+	}
+	s.mu.Unlock()
+
+	s.lggr.Debugw("trigger event batch processed", "triggerEventId", meta.TriggerEventId, "sender", sender,
+		"nResolved", len(resolved), "nReady", len(readyResults), "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+
+	// Phase 3: aggregate and forward without holding locks
+	for _, rr := range readyResults {
+		aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, rr.payloads)
+		if err != nil {
+			s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", rr.workflowID, "triggerID", rr.triggerID, "err", err)
+			continue
+		}
+		s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", rr.workflowID, "triggerID", rr.triggerID)
+		rr.registration.callback <- aggregatedResponse
+	}
+}
+
+func (s *triggerSubscriber) handleRegistrationCheck(msg *types.MessageBody, sender p2ptypes.PeerID) {
+	meta := msg.GetTriggerEventMetadata()
+	if meta == nil {
+		s.lggr.Errorw("received registration check with nil metadata", "sender", sender)
+		return
+	}
+
+	// Collect all missing registrations under a single RLock
+	type missingReg struct{ workflowID, triggerID string }
+	var missing []missingReg
+
+	s.mu.RLock()
+	for i, workflowID := range meta.WorkflowIds {
+		triggerID := meta.TriggerIds[i]
+		triggerMap, ok := s.registeredWorkflows[workflowID]
+		if !ok || triggerMap[triggerID] == nil {
+			missing = append(missing, missingReg{workflowID, triggerID})
+		}
+	}
+	s.mu.RUnlock()
+
+	for _, m := range missing {
+		s.sendUnregister(m.workflowID, m.triggerID)
 	}
 }
 
