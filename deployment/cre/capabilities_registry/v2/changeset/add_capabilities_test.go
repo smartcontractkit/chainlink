@@ -403,6 +403,9 @@ func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
 			}},
 		},
 		Force: true,
+		FirstOCR3ConfigCapabilities: map[string][]string{
+			test.DONName: {capID},
+		},
 	}
 
 	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))

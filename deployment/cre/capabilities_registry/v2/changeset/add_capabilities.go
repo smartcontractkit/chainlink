@@ -33,6 +33,12 @@ type AddCapabilitiesInput struct {
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
 	Force bool `json:"force" yaml:"force"`
+
+	// FirstOCR3ConfigCapabilities maps DON name to capability IDs for which this
+	// is the first OCR3 config (no existing config on-chain). Without listing a
+	// capability here, the changeset will fail if it cannot read the current config
+	// count from the registry, preventing accidental config count collisions.
+	FirstOCR3ConfigCapabilities map[string][]string `json:"firstOCR3ConfigCapabilities" yaml:"firstOCR3ConfigCapabilities"`
 }
 
 type AddCapabilities struct{}
@@ -92,10 +98,26 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 			ocr3CapConfigs[i] = ocr3CapConfig{CapabilityID: cc.Capability.CapabilityID, Config: cc.Config}
 		}
 
+		firstCaps := config.FirstOCR3ConfigCapabilities[donName]
+
 		configCountFn := func(capID, ocrConfigKey string) (uint64, error) {
-			currentCount, err := ocr3.GetCurrentOCR3ConfigCount(capReg, donName, capID, ocrConfigKey)
-			if err != nil {
+			isFirst := isFirstOCR3Config(firstCaps, capID)
+
+			currentCount, countErr := ocr3.GetCurrentOCR3ConfigCount(capReg, donName, capID, ocrConfigKey)
+			if countErr != nil {
+				if !isFirst {
+					return 0, fmt.Errorf(
+						"failed to read current OCR3 config count for capability %q[%q] in DON %q: %w. "+
+							"Add %q to firstOCR3ConfigCapabilities[%q] if this is the initial OCR3 config",
+						capID, ocrConfigKey, donName, countErr, capID, donName)
+				}
 				currentCount = 0
+			}
+			if currentCount == 0 && !isFirst {
+				return 0, fmt.Errorf(
+					"OCR3 config count is 0 for capability %q[%q] in DON %q, which suggests no prior config exists. "+
+						"Add %q to firstOCR3ConfigCapabilities[%q] to confirm this is the initial OCR3 config",
+					capID, ocrConfigKey, donName, capID, donName)
 			}
 			return currentCount + 1, nil
 		}
