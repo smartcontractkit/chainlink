@@ -69,7 +69,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.15
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.2-0.20260414073254-eb5f31ce9c1a
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.2
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.7
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
