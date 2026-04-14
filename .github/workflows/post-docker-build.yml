@@ -15,12 +15,15 @@ on:
 
 permissions:
     actions: read
-    checks: write
     id-token: write
     contents: read
 
 jobs:
     call-cre-local-env-tests:
+        permissions:
+            contents: read
+            id-token: write
+            actions: read
         uses: ./.github/workflows/cre-local-env-tests.yaml
         with:
             chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
@@ -31,7 +34,6 @@ jobs:
         permissions:
             contents: read
             id-token: write
-            pull-requests: write
         uses: ./.github/workflows/legacy-system-tests.yml
         with:
             ecr: "sdlc"
@@ -44,7 +46,6 @@ jobs:
         permissions:
             contents: read
             id-token: write
-            pull-requests: write
         uses: ./.github/workflows/legacy-non-functional-tests.yml
         with:
             ecr: "sdlc"
