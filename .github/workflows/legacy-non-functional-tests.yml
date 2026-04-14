@@ -2,6 +2,28 @@ name: Legacy Non Functional Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink image tag to use."
+      ecr:
+        type: choice
+        options:
+          - "sdlc"
+          - "public"
+        required: true
+        default: "sdlc"
+        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        default: ""
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -42,7 +64,7 @@ jobs:
       deployment: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
       # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
@@ -58,12 +80,7 @@ jobs:
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
-          if [[ -n "${CHAINLINK_IMAGE_TAG}" ]]; then
-            resolved_image="$(bash resolve-chainlink-image.sh)"
-          else
-            tag="nightly-$(date +%Y%m%d)"
-            resolved_image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
-          fi
+          resolved_image="$(bash resolve-chainlink-image.sh)"
           [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
           echo "$resolved_image"
           echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
@@ -106,7 +123,7 @@ jobs:
             logs_archive_name: "df1-chaos"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
           ref: ${{ inputs.chainlink_version || github.sha }}
@@ -139,7 +156,7 @@ jobs:
           AWS_REGION: us-east-1
 
       - name: Set up Go
-        uses: actions/setup-go@v6 # v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           cache: true
           go-version-file: devenv/go.mod
@@ -160,12 +177,7 @@ jobs:
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
-          if [[ -n "${CHAINLINK_IMAGE_TAG}" ]]; then
-            resolved_image="$(bash resolve-chainlink-image.sh)"
-          else
-            tag="nightly-$(date +%Y%m%d)"
-            resolved_image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
-          fi
+          resolved_image="$(bash resolve-chainlink-image.sh)"
           [[ -n "$resolved_image" ]] || { echo "resolved_image is empty"; exit 1; }
           echo "$resolved_image"
           echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
@@ -193,15 +205,15 @@ jobs:
 
       - name: Upload Logs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: container-logs-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: non-functional-tests-container-logs-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: devenv/tests/${{ matrix.tests_dir }}/logs
           retention-days: 3
 
       - name: Upload Go pprof
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: alloc-${{ matrix.logs_archive_name }}-${{ github.run_id }}-${{ github.run_attempt }}.pprof
           path: devenv/tests/${{ matrix.tests_dir }}/alloc.pprof
