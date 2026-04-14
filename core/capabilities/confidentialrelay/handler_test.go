@@ -409,6 +409,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				assert.Equal(t, "0xab5801a7d398351b8be11c439e05c5b3259aec9b", exec.lastRequest.Metadata.WorkflowOwner)
 				assert.Equal(t, "wf-secrets-1", exec.lastRequest.Metadata.WorkflowID)
 				assert.Equal(t, uint32(42), exec.lastRequest.Metadata.WorkflowDonID)
+				// Gate enabled: OrgID should be set on metadata.
+				assert.Equal(t, "org-123", exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{
@@ -435,6 +437,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				// Gate disabled: WorkflowOwner and OrgId must be empty.
 				assert.Empty(t, vaultReq.WorkflowOwner)
 				assert.Empty(t, vaultReq.OrgId)
+				// Gate disabled: OrgID must be empty on metadata too.
+				assert.Empty(t, exec.lastRequest.Metadata.OrgID)
 			},
 		},
 		{

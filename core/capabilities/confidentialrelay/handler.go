@@ -271,19 +271,24 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:               params.WorkflowID,
+		WorkflowOwner:            params.Owner,
+		WorkflowExecutionID:      params.ExecutionID,
+		WorkflowDonID:            localNode.WorkflowDON.ID,
+		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
+		ReferenceID:              req.ID,
+	}
+	if gateEnabled {
+		metadata.OrgID = params.OrgID
+	}
+
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
 		Config:       values.EmptyMap(),
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               params.WorkflowID,
-			WorkflowOwner:            params.Owner,
-			WorkflowExecutionID:      params.ExecutionID,
-			WorkflowDonID:            localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
-			ReferenceID:              req.ID,
-		},
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))
