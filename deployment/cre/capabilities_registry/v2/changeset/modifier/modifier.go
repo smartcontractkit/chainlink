@@ -132,7 +132,6 @@ func buildP2PToTransmitterMap(
 			return nil, fmt.Errorf("node %s (%s) has no OCR2 config for chain selector %d",
 				node.Name, node.PeerID.String(), chainSelector)
 		}
-		fmt.Println("ocrCfg", ocrCfg)
 		transmitter := strings.TrimSpace(string(ocrCfg.TransmitAccount))
 		if transmitter == "" {
 			return nil, fmt.Errorf("empty transmit account for node %s (%s)", node.Name, node.PeerID.String())

@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
@@ -59,6 +61,41 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 	}
 
 	registryRef := pkg.GetCapRegV2AddressRefKey(config.RegistryChainSel, config.RegistryQualifier)
+
+	chain, ok := e.BlockChains.EVMChains()[config.RegistryChainSel]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain not found for selector %d", config.RegistryChainSel)
+	}
+
+	registryAddressRef, err := e.DataStore.Addresses().Get(registryRef)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get registry address: %w", err)
+	}
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(registryAddressRef.Address), chain.Client,
+	)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
+	}
+
+	firstConfigCount := func(_, _ string) (uint64, error) { return 1, nil }
+
+	for donName, donCapConfigs := range config.DonCapabilityConfigs {
+		_, nodes, donErr := sequences.GetDonNodes(donName, capReg)
+		if donErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("DON %q: failed to get nodes: %w", donName, donErr)
+		}
+
+		ocr3CapConfigs := make([]ocr3CapConfig, len(donCapConfigs))
+		for i, cc := range donCapConfigs {
+			ocr3CapConfigs[i] = ocr3CapConfig{CapabilityID: cc.Capability.CapabilityID, Config: cc.Config}
+		}
+
+		if expandErr := expandOCR3Configs(e, config.RegistryChainSel, nodes, ocr3CapConfigs, firstConfigCount); expandErr != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("DON %q: failed to expand OCR3 configs: %w", donName, expandErr)
+		}
+	}
 
 	seqReport, err := operations.ExecuteSequence(
 		e.OperationsBundle,
