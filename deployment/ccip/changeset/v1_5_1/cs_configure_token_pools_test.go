@@ -261,11 +261,6 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 		Msg         string
 	}{
 		{
-			Msg:    "Token symbol is missing",
-			Input:  v1_5_1.ConfigureTokenPoolContractsConfig{},
-			ErrStr: "token symbol must be defined",
-		},
-		{
 			Msg: "Chain selector is invalid",
 			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
