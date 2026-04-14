@@ -79,6 +79,7 @@ func (u AddCapabilities) Apply(e cldf.Environment, config AddCapabilitiesInput) 
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create CapabilitiesRegistry: %w", err)
 	}
 
+	// returning 1 as adding new capabaility
 	firstConfigCount := func(_, _ string) (uint64, error) { return 1, nil }
 
 	for donName, donCapConfigs := range config.DonCapabilityConfigs {
