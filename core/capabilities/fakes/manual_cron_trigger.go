@@ -122,13 +122,12 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		return nil, fmt.Errorf(`trigger config "%s" not found`, triggerID)
 	}
 
-	jobFired := make(chan struct{})
+	jobFired := make(chan struct{}, 1)
 	job, err := f.scheduler.NewJob(
 		gocron.CronJob(config.Schedule, allowSeconds),
 		gocron.NewTask(func() {
-			select {
-			case jobFired <- struct{}{}:
-			}
+			defer close(jobFired)
+			jobFired <- struct{}{}
 		}),
 	)
 	if err != nil {
@@ -164,7 +163,6 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	done := make(chan struct{}, 1)
 
 	go func() {
-		defer close(jobFired)
 		defer close(done)
 		defer f.scheduler.RemoveJob(job.ID())
 
