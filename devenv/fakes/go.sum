@@ -217,6 +217,8 @@ github.com/sirupsen/logrus v1.9.3 h1:dueUQJ1C2q9oE3F7wvmSGAaVtTmUizReu6fjN8uqzbQ
 github.com/sirupsen/logrus v1.9.3/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16-0.20260414162524-a3fac51a4a4e h1:mx6PFecl0jYHJltgyXmNZhy0/jDm2gF5x13YrcaZk1A=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16-0.20260414162524-a3fac51a4a4e/go.mod h1:BALK9cj8sk12e15UF6uDhifHgIApa+6N11TcQfInEro=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16-0.20260414172320-14664092839c h1:dfw/w9iER3+wtEYrNDMDFmyqvqIXa+sNL0Pjm/tNssA=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16-0.20260414172320-14664092839c/go.mod h1:BALK9cj8sk12e15UF6uDhifHgIApa+6N11TcQfInEro=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.1-0.20250711120409-5078050f9db4 h1:6iIj+U1SA19xftdEJwubATHBoGm4yc8q+MwWz6rlBDc=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.1-0.20250711120409-5078050f9db4/go.mod h1:YEQbZRHFojvlQKeuckG/70t0WkAqOBmArSbkacgHSbc=
 github.com/spf13/pflag v1.0.6 h1:jFzHGLGAlb3ruxLB8MhbI6A8+AQX/2eW4qeyNZXNp2o=
