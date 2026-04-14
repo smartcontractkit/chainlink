@@ -378,12 +378,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "secrets get sets WorkflowOwner and OrgId when gate enabled",
-			registry: func(t *testing.T) *mockCapRegistry {
-				return secretsGetTestRegistry(t)
-			},
-			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
-				return secretsGetTestRequest(t)
-			},
+			registry: secretsGetTestRegistry,
+			req:      secretsGetTestRequest,
 			modifyHandler: func(_ *testing.T, h *Handler) {
 				h.vaultIdentityGate = limits.NewGateLimiter(true)
 			},
@@ -415,12 +411,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 		},
 		{
 			name: "secrets get omits WorkflowOwner and OrgId when gate disabled",
-			registry: func(t *testing.T) *mockCapRegistry {
-				return secretsGetTestRegistry(t)
-			},
-			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
-				return secretsGetTestRequest(t)
-			},
+			registry: secretsGetTestRegistry,
+			req:      secretsGetTestRequest,
 			modifyHandler: func(_ *testing.T, h *Handler) {
 				h.vaultIdentityGate = limits.NewGateLimiter(false)
 			},
