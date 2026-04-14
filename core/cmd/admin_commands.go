@@ -375,10 +375,10 @@ func (s *Shell) Profile(c *cli.Context) error {
 		errs[0] = s.profile(ctx, genDir, "", vitals, seconds)
 	}()
 	for i, name := range names {
-		go func() {
+		go func(i int, name string) {
 			defer wg.Done()
-			errs[i] = s.profile(ctx, genDir, name, vitals, seconds)
-		}()
+			errs[i+1] = s.profile(ctx, genDir, name, vitals, seconds)
+		}(i, name)
 	}
 	wg.Wait()
 
