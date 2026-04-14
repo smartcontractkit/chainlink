@@ -34,7 +34,6 @@ type OverrideDefaultCfg struct {
 	ForwarderLookbackBlocks int64  `json:"forwarderLookbackBlocks" yaml:"forwarderLookbackBlocks,omitempty"`
 	CREForwarderAddress     string `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
 	// DeltaStage is the time delay between sequential transmissions in staggered transmission scheduling.
-	// If set to 0 or omitted, transmission scheduling is treated as disabled and the capability will expect the transmission to be controlled in the wf engine.
 	DeltaStage time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	// ReceiverGasMinimum is the minimum amount of gas that the receiver contract must get to process the forwarder report.
 	// This is the default value used when the user doesn't specify a gas limit when invoking WriteReport.

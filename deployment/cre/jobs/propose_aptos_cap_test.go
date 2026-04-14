@@ -134,7 +134,7 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T)
 		{"missing OCR qualifier", func(in *jobs.ProposeAptosCapJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
 		{"missing forwarder qualifier", func(in *jobs.ProposeAptosCapJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
 		{"missing node id", func(in *jobs.ProposeAptosCapJobSpecInput) { in.AptosCapabilityInputs[0].NodeID = "" }, "nodeID is required for aptos capability input"},
-		{"negative delta stage", func(in *jobs.ProposeAptosCapJobSpecInput) { in.DeltaStage = -1 * time.Second }, "deltaStage"},
+		{"missing delta stage", func(in *jobs.ProposeAptosCapJobSpecInput) { in.DeltaStage = 0 }, "deltaStage"},
 	}
 
 	for _, tc := range cases {

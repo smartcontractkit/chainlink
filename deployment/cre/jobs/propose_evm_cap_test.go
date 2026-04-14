@@ -209,6 +209,7 @@ func TestProposeEVMCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 		{"missing OCR qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.OCRContractQualifier = "" }, "ocr contract qualifier is required"},
 		{"missing forwarder qualifier", func(in *jobs.ProposeEVMCapJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
 		{"missing node id", func(in *jobs.ProposeEVMCapJobSpecInput) { in.EVMCapabilityInputs[0].NodeID = "" }, "nodeID is required for evm capability input"},
+		{"missing delta stage", func(in *jobs.ProposeEVMCapJobSpecInput) { in.DeltaStage = 0 }, "deltaStage"},
 	}
 
 	for _, tc := range cases {
