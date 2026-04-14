@@ -49,8 +49,13 @@ type ManualCronTriggerService struct {
 	scheduler        gocron.Scheduler
 }
 
-func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerService {
+func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerService, error) {
 	lggr := logger.Named(parentLggr, "CronTriggerService") // ManualCronTriggerService
+
+	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cron scheduler: %w", err)
+	}
 
 	return &ManualCronTriggerService{
 		CapabilityInfo:   manualCronTriggerInfo,
@@ -60,7 +65,8 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 		workflowIDs:      make(map[string]string),
 		triggerConfigs:   make(map[string]*crontypedapi.Config),
-	}
+		scheduler:        scheduler,
+	}, nil
 }
 
 func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
@@ -79,14 +85,6 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies 
 	}
 
 	f.config = cronConfig
-
-	scheduler, err := gocron.NewScheduler()
-	if err != nil {
-		return fmt.Errorf("failed to initialise cron scheduler: %w", err)
-	}
-	scheduler.Start()
-
-	f.scheduler = scheduler
 
 	if err := f.Start(ctx); err != nil {
 		return fmt.Errorf("error when starting trigger service: %w", err)
@@ -200,15 +198,14 @@ func (f *ManualCronTriggerService) createManualTriggerEvent(scheduledExecutionTi
 
 func (f *ManualCronTriggerService) Start(ctx context.Context) error {
 	f.lggr.Debugw("Starting ManualCronTriggerService")
+	f.scheduler.Start()
 	return nil
 }
 
 func (f *ManualCronTriggerService) Close() error {
 	f.lggr.Debug("Closing ManualCronTriggerService")
-	if f.scheduler != nil {
-		if err := f.scheduler.Shutdown(); err != nil {
-			f.lggr.Errorw("failed to close scheduler", "err", err)
-		}
+	if err := f.scheduler.Shutdown(); err != nil {
+		f.lggr.Errorw("failed to close scheduler", "err", err)
 	}
 	return nil
 }
