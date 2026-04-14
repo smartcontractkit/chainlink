@@ -402,19 +402,19 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("PoR v2 workflow config file created.")
 
 		case *AptosReadWorkflowConfig:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create aptos read workflow config file")
 			testLogger.Info().Msg("Aptos read workflow config file created.")
 
 		case *aptoswrite_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create aptos write workflow config file")
 			testLogger.Info().Msg("Aptos write workflow config file created.")
 
 		case *aptoswriteroundtrip_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create aptos write roundtrip workflow config file")
 			testLogger.Info().Msg("Aptos write roundtrip workflow config file created.")
@@ -491,7 +491,7 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("Solana write workflow config file created.")
 
 		case *vaultsecret_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create vaultsecret workflow config file")
 			testLogger.Info().Msg("Vault secret workflow config file created.")
