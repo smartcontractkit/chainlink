@@ -377,7 +377,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "secrets get sets WorkflowOwner and OrgId when gate enabled",
+			name:     "secrets get sets WorkflowOwner and OrgId when gate enabled",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
 			modifyHandler: func(_ *testing.T, h *Handler) {
@@ -410,7 +410,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
-			name: "secrets get omits WorkflowOwner and OrgId when gate disabled",
+			name:     "secrets get omits WorkflowOwner and OrgId when gate disabled",
 			registry: secretsGetTestRegistry,
 			req:      secretsGetTestRequest,
 			modifyHandler: func(_ *testing.T, h *Handler) {
