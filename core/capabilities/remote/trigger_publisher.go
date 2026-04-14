@@ -345,8 +345,8 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 		key := ackKey{msg.CallerDonId, triggerEventID, triggerID}
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
-		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
+		minRequired := uint32(callerDon.F + 1) // TODO: Try F+1 for sanity
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		if !ready {
 			p.lggr.Debugw("not ready to ACK trigger event yet", "triggerEventId", triggerEventID, "minRequired", minRequired)
 			return
@@ -526,11 +526,13 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 		workflowBatch := resp.workflowIDs
 		triggerBatch := resp.triggerIDs
 		if cfg.batchingEnabled && int64(len(workflowBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
+			p.lggr.Infow("Batching enabled")
 			workflowBatch = workflowBatch[:cfg.remoteConfig.MaxBatchSize]
 			triggerBatch = triggerBatch[:cfg.remoteConfig.MaxBatchSize]
 			resp.workflowIDs = resp.workflowIDs[cfg.remoteConfig.MaxBatchSize:]
 			resp.triggerIDs = resp.triggerIDs[cfg.remoteConfig.MaxBatchSize:]
 		} else {
+			p.lggr.Infow("Batching disabled")
 			resp.workflowIDs = nil
 			resp.triggerIDs = nil
 		}
