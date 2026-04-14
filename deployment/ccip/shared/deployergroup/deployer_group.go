@@ -22,6 +22,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -32,8 +33,8 @@ type DeployerGroup struct {
 	state             stateview.CCIPOnChainState
 	mcmConfig         *proposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
-	txDecoder         *proposalutils.TxCallDecoder
-	describeContext   *proposalutils.ArgumentContext
+	txDecoder         *shared.TxCallDecoder
+	describeContext   *shared.ArgumentContext
 }
 
 type DescribedTransaction interface {
@@ -121,8 +122,8 @@ type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
 	mcmConfig       *proposalutils.TimelockConfig
-	txDecoder       *proposalutils.TxCallDecoder
-	describeContext *proposalutils.ArgumentContext
+	txDecoder       *shared.TxCallDecoder
+	describeContext *shared.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -154,8 +155,8 @@ func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmC
 		e:               e,
 		mcmConfig:       mcmConfig,
 		state:           state,
-		txDecoder:       proposalutils.NewTxCallDecoder(nil),
-		describeContext: proposalutils.NewArgumentContext(addresses),
+		txDecoder:       shared.NewTxCallDecoder(nil),
+		describeContext: shared.NewArgumentContext(addresses),
 	}
 	// update state if timelock needs to be loaded from datastore with qualifier
 	if d.mcmConfig != nil && d.mcmConfig.TimelockQualifierPerChain != nil {
@@ -424,7 +425,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
-		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
+		describedProposal := shared.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
