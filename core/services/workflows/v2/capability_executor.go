@@ -92,7 +92,10 @@ func (c *ExecutionHelper) CallCapability(ctx context.Context, request *sdkpb.Cap
 		cnt := c.callCounts[limiter] + 1
 		if err := limiter.Check(ctx, cnt); err != nil {
 			c.mu.Unlock()
-			return nil, err
+			return nil, caperrors.NewPublicUserError(
+				fmt.Errorf("capability call limit exceeded for %s.%s: %w", capName, request.Method, err),
+				caperrors.InvalidArgument,
+			)
 		}
 		c.callCounts[limiter] = cnt
 		c.mu.Unlock()

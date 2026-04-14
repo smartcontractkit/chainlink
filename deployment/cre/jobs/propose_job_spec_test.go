@@ -1939,7 +1939,7 @@ changesets:
 		environment, _ := rootMap["environment"].(string)
 		domain, _ := rootMap["domain"].(string)
 
-		changesetData, err := cldpipelineinput.FindChangesetInData(rootMap["changesets"], "job_propose_arbitrary", "test")
+		changesetData, err := cldpipelineinput.FindChangesetInData(rootMap["changesets"], "job_propose_arbitrary")
 		require.NoError(t, err)
 
 		changesetMap, ok := changesetData.(map[string]any)

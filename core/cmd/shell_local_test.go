@@ -60,8 +60,9 @@ func resetShellForTest(shell *cmd.Shell) {
 func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ethKeystore keystore.Eth, csaKeystore core.Keystore) *chainlink.CoreRelayerChainInteroperators {
 	lggr := logger.TestLogger(t)
 	f := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
+		Logger: lggr,
+		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
+			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
