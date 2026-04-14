@@ -185,21 +185,6 @@ jobs:
             runner: "ubuntu24.04-16cores-64GB"
             tests_dir: "keepers"
             logs_archive_name: "keepers-smoke-4"
-          # long-running
-          - display_name: "Automation Soak Test"
-            testcmd: "go test -v -timeout 4h -run TestLoad/registry_2_1"
-            envcmd: "cl u env.toml,env-geth.toml,products/automation/soak.toml; cl obs up -f"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "automation"
-            logs_archive_name: "automation-soak"
-            run_on_pr: false
-          - display_name: "Test DF1 (OCR2) Soak"
-            testcmd: "go test -v -timeout 4h -run TestOCR2Soak/clean"
-            envcmd: "cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f"
-            runner: "ubuntu24.04-16cores-64GB"
-            tests_dir: "ocr2"
-            logs_archive_name: "df1-soak"
-            run_on_pr: false
           - display_name: "Test DF1 (OCR2) Chaos"
             testcmd: "go test -v -timeout 30m -run TestOCR2Chaos"
             envcmd: "cl u env.toml,products/ocr2/basic.toml; cl obs up -f"

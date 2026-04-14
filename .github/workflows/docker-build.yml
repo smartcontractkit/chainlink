@@ -267,7 +267,22 @@ jobs:
       contents: read
       id-token: write
       pull-requests: write
-    uses: ./.github/workflows/legacy-system-tests-nightly.yml
+    uses: ./.github/workflows/legacy-system-tests.yml
+    with:
+      ecr: "sdlc"
+      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
+      chainlink_image_repository_path: "chainlink"
+      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+    secrets: inherit
+
+  call-legacy-non-functional-tests:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [init, docker-core]
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    uses: ./.github/workflows/legacy-non-functional-tests.yml
     with:
       ecr: "sdlc"
       chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
