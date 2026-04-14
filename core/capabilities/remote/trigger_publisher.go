@@ -133,6 +133,16 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 		membersCache[id] = cache
 	}
 
+	batchingEnabled := config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod
+	p.lggr.Infow("SetConfig applied",
+		"maxBatchSize", config.MaxBatchSize,
+		"batchCollectionPeriod", config.BatchCollectionPeriod,
+		"batchingEnabled", batchingEnabled,
+		"messageExpiry", config.MessageExpiry,
+		"registrationRefresh", config.RegistrationRefresh,
+		"numWorkflowDONs", len(workflowDONs),
+	)
+
 	// always replace the whole dynamicPublisherConfig object to avoid inconsistent state
 	p.cfg.Store(&dynamicPublisherConfig{
 		remoteConfig:    config,
@@ -140,7 +150,7 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 		capDonInfo:      capDonInfo,
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
-		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
+		batchingEnabled: batchingEnabled,
 	})
 
 	return nil
@@ -526,13 +536,11 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 		workflowBatch := resp.workflowIDs
 		triggerBatch := resp.triggerIDs
 		if cfg.batchingEnabled && int64(len(workflowBatch)) > int64(cfg.remoteConfig.MaxBatchSize) {
-			p.lggr.Infow("Batching enabled")
 			workflowBatch = workflowBatch[:cfg.remoteConfig.MaxBatchSize]
 			triggerBatch = triggerBatch[:cfg.remoteConfig.MaxBatchSize]
 			resp.workflowIDs = resp.workflowIDs[cfg.remoteConfig.MaxBatchSize:]
 			resp.triggerIDs = resp.triggerIDs[cfg.remoteConfig.MaxBatchSize:]
 		} else {
-			p.lggr.Infow("Batching disabled")
 			resp.workflowIDs = nil
 			resp.triggerIDs = nil
 		}
