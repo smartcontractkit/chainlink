@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"strconv"
@@ -61,8 +62,37 @@ func TestLoad(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		err := framework.StreamCTFContainerLogsFanout(
+			framework.LogStreamConsumer{
+				Name: "scan-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					return products.ScanLogsFromStreams(framework.L, products.DefaultSettings(), logStreams)
+				},
+			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return nil
+				},
+			},
+		)
+		require.NoError(t, err, "failed to scan Docker container logs")
+
+		if t.Failed() {
+			err := framework.StreamCTFContainerLogsFanout(
+				framework.LogStreamConsumer{
+					Name: "save-container-logs",
+					Consume: func(logStreams map[string]io.ReadCloser) error {
+						_, saveErr := framework.SaveContainerLogsFromStreams(fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano()), logStreams)
+						return saveErr
+					},
+				},
+			)
+			if err != nil {
+				framework.L.Error().Err(err).Msg("failed to save Docker container logs")
+			}
+		}
 	})
 
 	for _, tc := range testCases {
@@ -77,15 +107,6 @@ func TestLoad(t *testing.T) {
 			fmt.Println("------ TEST CONFIGURATION ------")
 			fmt.Print(string(tcStr))
 			fmt.Println("--------------------------------")
-
-			// dangerous: takes a lot of time, if test runs for a long time
-			// t.Cleanup(func() {
-			// 	err := products.ScanLogs(l, products.DefaultSettings())
-			// 	require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-			// 	_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-			// 	require.NoError(t, cErr)
-			// })
 
 			outputFile := "../../env-out.toml"
 			in, err := de.LoadOutput[de.Cfg](outputFile)

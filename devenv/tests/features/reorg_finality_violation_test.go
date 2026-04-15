@@ -1,7 +1,6 @@
 package features
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	de "github.com/smartcontractkit/chainlink/devenv"
+	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
 func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
@@ -23,8 +23,8 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 	l := framework.L
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	rpcClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)

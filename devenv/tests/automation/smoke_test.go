@@ -2,8 +2,6 @@ package automation
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"math/big"
 	"os"
 	"strconv"
@@ -96,30 +94,8 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 	l.Info().Msg("Running test " + testcase.Name + " with registry version " + testcase.RegistryVersion.String())
 
 	t.Cleanup(func() {
-		logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-		err := framework.StreamCTFContainerLogsFanout(
-			framework.LogStreamConsumer{
-				Name: "scan-logs",
-				Consume: func(logStreams map[string]io.ReadCloser) error {
-					return products.ScanLogsFromStreams(l, products.DefaultSettings(), logStreams)
-				},
-			},
-			framework.LogStreamConsumer{
-				Name: "save-container-logs",
-				Consume: func(logStreams map[string]io.ReadCloser) error {
-					_, saveErr := framework.SaveContainerLogsFromStreams(logDir, logStreams)
-					return saveErr
-				},
-			},
-			framework.LogStreamConsumer{
-				Name: "print-panic-logs",
-				Consume: func(logStreams map[string]io.ReadCloser) error {
-					_, saveErr := framework.CheckContainersForPanicsFromStreams(logStreams, 100)
-					return saveErr
-				},
-			},
-		)
-		require.NoError(t, err, "failed to process cleanup container logs")
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	outputFile := "../../env-out.toml"

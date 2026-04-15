@@ -2,6 +2,7 @@ package ocr2
 
 import (
 	"fmt"
+	"io"
 	"math/big"
 	"testing"
 	"time"
@@ -28,8 +29,37 @@ func TestOCR2Soak(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		err := framework.StreamCTFContainerLogsFanout(
+			framework.LogStreamConsumer{
+				Name: "scan-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					return products.ScanLogsFromStreams(framework.L, products.DefaultSettings(), logStreams)
+				},
+			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return nil
+				},
+			},
+		)
+		require.NoError(t, err, "failed to scan Docker container logs")
+
+		if t.Failed() {
+			err := framework.StreamCTFContainerLogsFanout(
+				framework.LogStreamConsumer{
+					Name: "save-container-logs",
+					Consume: func(logStreams map[string]io.ReadCloser) error {
+						_, saveErr := framework.SaveContainerLogsFromStreams(fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano()), logStreams)
+						return saveErr
+					},
+				},
+			)
+			if err != nil {
+				framework.L.Error().Err(err).Msg("failed to save Docker container logs")
+			}
+		}
 	})
 	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
