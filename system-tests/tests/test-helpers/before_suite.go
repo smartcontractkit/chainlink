@@ -96,7 +96,9 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 	}
 
 	t.Cleanup(func() {
-		if t.Failed() {
+		// we only want to check for panics in Docker containers if the test is not a subtest
+		// because all subtests share the same Docker containers, so we don't need to run that check for each subtest
+		if t.Failed() && strings.Contains(t.Name(), "/") {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
 			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
