@@ -908,7 +908,7 @@ func TestConfig_Marshal(t *testing.T) {
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
 				LogPollerCPIEventsEnabled: ptr(true),
-				LogPollerSlotsBatchSize:   ptr[int64](1000),
+				LogPollerSlotsBatchSize:   ptr[int64](100),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
