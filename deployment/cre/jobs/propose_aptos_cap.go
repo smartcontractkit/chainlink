@@ -90,10 +90,10 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
-	if err != nil {
-		return err
-	}
+	// resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
+	// if err != nil {
+	// 	return err
+	// }
 
 	for _, aptosCapInput := range input.AptosCapabilityInputs {
 		ov := aptosCapInput.OverrideDefaultCfg
@@ -109,9 +109,9 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		if err := validateOverrideNetwork(ov.Network, aptosNetwork, aptosCapInput.NodeID); err != nil {
 			return err
 		}
-		if err := validateOverrideForwarder(ov.CREForwarderAddress, resolved.ForwarderAddress, aptosCapInput.NodeID); err != nil {
-			return err
-		}
+		// if err := validateOverrideForwarder(ov.CREForwarderAddress, resolved.ForwarderAddress, aptosCapInput.NodeID); err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil
@@ -141,10 +141,10 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
-	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
-	}
+	// resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
+	// if err != nil {
+	// 	return cldf.ChangesetOutput{}, err
+	// }
 
 	nodeIDToConfig := make(map[string]string, len(input.AptosCapabilityInputs))
 	for _, aptosCapInput := range input.AptosCapabilityInputs {
@@ -155,7 +155,7 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		cfg := aptosCapInput.OverrideDefaultCfg
 		cfg.ChainID = chainIDStr
 		cfg.Network = aptosNetwork
-		cfg.CREForwarderAddress = resolved.ForwarderAddress
+		// cfg.CREForwarderAddress = resolved.ForwarderAddress
 		cfg.DeltaStage = input.DeltaStage
 		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
 		enc, err := json.Marshal(cfg)
