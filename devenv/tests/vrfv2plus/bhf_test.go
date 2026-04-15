@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
@@ -23,7 +24,13 @@ import (
 
 func TestVRFV2PlusWithBHF(t *testing.T) {
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		bhfMessage := products.NewAllowedLogMessage(
+			"Pipeline error",
+			"this test causes pipeline error so this message is expected",
+			zapcore.DPanicLevel,
+			products.WarnAboutAllowedMsgs_No,
+		)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(bhfMessage))
 		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
