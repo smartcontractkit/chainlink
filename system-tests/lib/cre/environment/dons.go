@@ -185,8 +185,8 @@ func StartDONs(
 
 	if err := errGroup.Wait(); err != nil {
 		if !infraInput.IsKubernetes() {
-			if err := framework.PrintFailedContainerLogs(30); err != nil {
-				lggr.Error().Err(err).Msg("failed to print failed Docker container logs")
+			if logsErr := framework.PrintFailedContainerLogs(30); err != nil {
+				lggr.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
 			}
 		}
 		return nil, err

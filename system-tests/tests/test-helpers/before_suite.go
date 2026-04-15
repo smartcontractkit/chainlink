@@ -103,7 +103,7 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
 				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
-				framework.PrintFailedContainerLogs(30)
+				_ = framework.PrintFailedContainerLogs(30)
 			}
 		}
 	})
