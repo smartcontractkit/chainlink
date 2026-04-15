@@ -326,7 +326,6 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
 	const n = 10
-	const maxFetchDelay = 100 * time.Millisecond
 
 	synctest.Test(t, func(t *testing.T) {
 		var wg sync.WaitGroup
@@ -337,8 +336,8 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
-				// Non-uniform delays to simulate realistic conditions.
-				delay := time.Duration(idx+1) * 10 * time.Millisecond
+				// Non-uniform delays — synctest only cares about relative order.
+				delay := time.Duration(idx+1) * time.Second
 				fetchFn := func() gateway_common.OutboundHTTPResponse {
 					time.Sleep(delay)
 					return createTestResponse(200, fmt.Sprintf("response-%d", idx))
@@ -351,8 +350,8 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 		elapsed := time.Since(start)
 
 		// If requests run in parallel, total time should be the longest delay.
-		assert.Equal(t, maxFetchDelay, elapsed,
-			"concurrent fetches to different keys should run in parallel, took %v (expected %v)", elapsed, maxFetchDelay)
+		assert.Equal(t, time.Duration(n)*time.Second, elapsed,
+			"concurrent fetches to different keys should run in parallel, took %v (expected %v)", elapsed, time.Duration(n)*time.Second)
 	})
 }
 
