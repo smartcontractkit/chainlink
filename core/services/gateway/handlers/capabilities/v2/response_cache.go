@@ -55,17 +55,19 @@ func (rc *responseCache) isExpiredOrNotCached(req gateway.OutboundHTTPRequest) b
 
 // Fetch fetches a response from the cache if it exists and
 // the age of cached response is less than the max age of the request.
-// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
+// If the cached response is expired or not cached, it fetches a new response from the fetchFn
 // and caches the response if it is cacheable and storeOnFetch is true.
 //
 // The mutex is only held during cache map access (microseconds), not during fetchFn execution.
 // Singleflight deduplicates concurrent requests to the same cache key so only one fetchFn
 // runs per key, while requests to different keys execute in parallel.
+// Cache read and write happen inside the singleflight callback to ensure the key remains
+// in-flight until the result is stored, preventing duplicate fetches.
 func (rc *responseCache) Fetch(ctx context.Context, req gateway.OutboundHTTPRequest, fetchFn func() gateway.OutboundHTTPResponse, storeOnFetch bool) gateway.OutboundHTTPResponse {
 	cacheKey := req.Hash()
 	cacheMaxAge := time.Duration(req.CacheSettings.MaxAgeMs) * time.Millisecond
 
-	// Short read lock: check cache
+	// Fast path: check cache without singleflight overhead.
 	rc.cacheMu.RLock()
 	cachedResp, exists := rc.cache[cacheKey]
 	rc.cacheMu.RUnlock()
@@ -74,27 +76,35 @@ func (rc *responseCache) Fetch(ctx context.Context, req gateway.OutboundHTTPRequ
 		return cachedResp.response
 	}
 
-	// Fetch without holding mutex. Singleflight deduplicates concurrent
-	// requests to the same cache key — only one fetchFn runs, others
-	// wait for its result. Requests to different keys run in parallel.
+	// Slow path: singleflight deduplicates concurrent fetches per key.
+	// Cache check + store happen inside the flight so the key isn't released
+	// until the result is cached, closing the race window between singleflight
+	// completion and cache write.
 	result, _, _ := rc.flight.Do(cacheKey, func() (interface{}, error) {
-		return fetchFn(), nil
-	})
-	response := result.(gateway.OutboundHTTPResponse)
+		// Re-check cache: a previous flight may have just stored the result.
+		rc.cacheMu.RLock()
+		cachedResp, exists := rc.cache[cacheKey]
+		rc.cacheMu.RUnlock()
+		if exists && cachedResp.storedAt.Add(cacheMaxAge).After(time.Now()) {
+			rc.metrics.IncrementCacheHitCount(ctx, rc.lggr)
+			return cachedResp.response, nil
+		}
 
-	// Short lock: store result
-	if storeOnFetch && isCacheableStatusCode(response.StatusCode) {
-		rc.cacheMu.Lock()
-		if rc.isExpiredOrNotCached(req) {
+		response := fetchFn()
+
+		if storeOnFetch && isCacheableStatusCode(response.StatusCode) {
+			rc.cacheMu.Lock()
 			rc.cache[cacheKey] = &cachedResponse{
 				response: response,
 				storedAt: time.Now(),
 			}
+			rc.cacheMu.Unlock()
 		}
-		rc.cacheMu.Unlock()
-	}
 
-	return response
+		return response, nil
+	})
+
+	return result.(gateway.OutboundHTTPResponse)
 }
 
 // Set caches a response if it is cacheable (2xx or 4xx and cache is empty or expired for the given request)

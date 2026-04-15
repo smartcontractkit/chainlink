@@ -326,7 +326,7 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
 
 	const n = 10
-	const fetchDelay = 100 * time.Millisecond
+	const maxFetchDelay = 100 * time.Millisecond
 
 	synctest.Test(t, func(t *testing.T) {
 		var wg sync.WaitGroup
@@ -337,8 +337,10 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
+				// Non-uniform delays to simulate realistic conditions.
+				delay := time.Duration(idx+1) * 10 * time.Millisecond
 				fetchFn := func() gateway_common.OutboundHTTPResponse {
-					time.Sleep(fetchDelay)
+					time.Sleep(delay)
 					return createTestResponse(200, fmt.Sprintf("response-%d", idx))
 				}
 				resp := cache.Fetch(t.Context(), req, fetchFn, true)
@@ -348,9 +350,9 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 		wg.Wait()
 		elapsed := time.Since(start)
 
-		// If requests run in parallel, total time should be exactly fetchDelay.
-		assert.Equal(t, fetchDelay, elapsed,
-			"concurrent fetches to different keys should run in parallel, took %v (expected %v)", elapsed, fetchDelay)
+		// If requests run in parallel, total time should be the longest delay.
+		assert.Equal(t, maxFetchDelay, elapsed,
+			"concurrent fetches to different keys should run in parallel, took %v (expected %v)", elapsed, maxFetchDelay)
 	})
 }
 
@@ -385,6 +387,60 @@ func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 		// Singleflight should deduplicate: only 1 fetchFn call for the same key
 		assert.Equal(t, int32(1), fetchCount.Load(), "singleflight should deduplicate concurrent requests to the same key")
 	})
+}
+
+// TestFetch_StoreOnFetch_FlightLeaderDecides documents that only the singleflight
+// leader's storeOnFetch value is used. Waiters' storeOnFetch is silently ignored
+// because only the leader's closure executes inside flight.Do.
+// This is not a production bug (callers with storeOnFetch=false bypass Fetch entirely),
+// but it makes the contract explicit.
+func TestFetch_StoreOnFetch_FlightLeaderDecides(t *testing.T) {
+	testMetrics := createCacheTestMetrics(t)
+	cache := newResponseCache(logger.Test(t), 10000, testMetrics)
+
+	req := createTestRequest("GET", "https://example.com/leader-store")
+	expectedResp := createTestResponse(200, "response")
+	var fetchCount atomic.Int32
+	leaderRunning := make(chan struct{})
+
+	synctest.Test(t, func(t *testing.T) {
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		// Goroutine A: flight leader with storeOnFetch=false.
+		go func() {
+			defer wg.Done()
+			fetchFn := func() gateway_common.OutboundHTTPResponse {
+				fetchCount.Add(1)
+				close(leaderRunning)
+				time.Sleep(100 * time.Millisecond)
+				return expectedResp
+			}
+			resp := cache.Fetch(t.Context(), req, fetchFn, false)
+			assert.Equal(t, expectedResp, resp)
+		}()
+
+		// Goroutine B: waiter with storeOnFetch=true.
+		go func() {
+			defer wg.Done()
+			<-leaderRunning // ensure A is the flight leader
+			fetchFn := func() gateway_common.OutboundHTTPResponse {
+				fetchCount.Add(1)
+				return expectedResp
+			}
+			resp := cache.Fetch(t.Context(), req, fetchFn, true)
+			assert.Equal(t, expectedResp, resp)
+		}()
+
+		wg.Wait()
+	})
+
+	assert.Equal(t, int32(1), fetchCount.Load(),
+		"singleflight should deduplicate: only leader's fetchFn runs")
+
+	_, exists := cache.cache[req.Hash()]
+	assert.False(t, exists,
+		"result should NOT be cached: leader had storeOnFetch=false, waiter's storeOnFetch=true was ignored")
 }
 
 func TestFetch_PanicInFetchFn_PropagatedToCaller(t *testing.T) {
