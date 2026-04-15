@@ -71,6 +71,15 @@ func ScanLogs(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings) error 
 		return lErr
 	}
 
+	return ScanLogsFromStreams(l, settings, logStream)
+}
+
+func ScanLogsFromStreams(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings, logStream map[string]io.ReadCloser) error {
+	if len(logStream) == 0 {
+		l.Info().Msg("No container logs found to scan")
+		return nil
+	}
+
 	verifyLogsGroup := &errgroup.Group{}
 	for _, stream := range logStream {
 		verifyLogsGroup.Go(func() error {

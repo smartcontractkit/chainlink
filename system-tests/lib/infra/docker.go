@@ -3,13 +3,9 @@ package infra
 import (
 	"bufio"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
-	"maps"
 	"regexp"
-	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -22,50 +18,8 @@ import (
 )
 
 func PrintFailedContainerLogs(logger zerolog.Logger, logLinesCount uint64) {
-	logStream, lErr := framework.StreamContainerLogs(framework.ExitedCtfContainersListOpts, container.LogsOptions{
-		ShowStderr: true,
-		Tail:       strconv.FormatUint(logLinesCount, 10),
-	})
-
-	if lErr != nil {
-		logger.Error().Err(lErr).Msg("failed to stream Docker container logs")
-		return
-	}
-
-	logger.Error().Msgf("Containers that exited with non-zero codes: %s", strings.Join(slices.Collect(maps.Keys(logStream)), ", "))
-	for cName, ioReader := range logStream {
-		content := ""
-		header := make([]byte, 8) // Docker stream header is 8 bytes
-		for {
-			_, err := io.ReadFull(ioReader, header)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log stream header")
-				break
-			}
-
-			// Extract log message size
-			msgSize := binary.BigEndian.Uint32(header[4:8])
-
-			// Read the log message
-			msg := make([]byte, msgSize)
-			_, err = io.ReadFull(ioReader, msg)
-			if err != nil {
-				logger.Error().Err(err).Str("Container", cName).Msg("failed to read log message")
-				break
-			}
-
-			content += string(msg)
-		}
-
-		content = strings.TrimSpace(content)
-		if len(content) > 0 {
-			logger.Info().Str("Container", cName).Msgf("Last %d lines of logs", logLinesCount)
-			fmt.Println(text.RedText("%s\n", content))
-		}
-		_ = ioReader.Close() // can't do much about the error here
+	if err := framework.PrintFailedContainerLogs(logLinesCount); err != nil {
+		logger.Error().Err(err).Msg("failed to print failed Docker container logs")
 	}
 }
 
