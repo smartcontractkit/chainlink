@@ -39,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -99,10 +98,10 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 	t.Cleanup(func() {
 		if t.Failed() {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
-			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
+			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
 				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
-				infra.PrintFailedContainerLogs(framework.L, 30)
+				framework.PrintFailedContainerLogs(30)
 			}
 		}
 	})
