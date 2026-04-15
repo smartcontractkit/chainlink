@@ -15,6 +15,62 @@ Core tests need Postgres and usually CL_DATABASE_URL. CI uses tools/bin (gotests
 Read README.md Running tests, .github/workflows/ci-core.yml, tools/bin for parity.
 </scope>
 
+<trunk>
+## Trunk.io — gather context before touching code
+
+Trunk.io tracks flaky test history, failure rates, and AI-generated root cause analysis.
+Always check Trunk first — it may already have a fix recommendation.
+
+### Finding the Trunk test link
+
+Jira tickets for flaky tests almost always contain a Trunk link. Look for:
+- A URL matching `https://app.trunk.io/chainlink/flaky-tests/test/<uuid>/`
+- The UUID in that URL is the **test case ID** (not a fix/investigation ID)
+
+To extract it from a Jira ticket:
+```
+mcp__atlassian__getJiraIssue  issue: "CCIP-XXXX"
+```
+Then look for `app.trunk.io` URLs in the description or comments.
+
+### Reading test history and failure data
+
+Open the test case page directly — it shows failure rate, timeline, and recent CI runs:
+```
+https://app.trunk.io/chainlink/flaky-tests/test/<test-case-uuid>/
+```
+
+Use the Scrapling MCP to fetch it (JS-rendered page):
+```
+mcp__ScraplingServer__fetch  url: "https://app.trunk.io/chainlink/flaky-tests/test/<uuid>/"
+```
+
+### Getting an AI fix recommendation (Trunk MCP)
+
+The Trunk MCP tool `fix-flaky-test` requires a **fix/investigation ID**, which is different
+from the test case ID in the URL. Investigations must be triggered from the Trunk UI first.
+
+If an investigation exists, call:
+```
+mcp__plugin_trunk_trunk__fix-flaky-test
+  repoName: "smartcontractkit/chainlink"
+  orgSlug:  "chainlink"
+  fixId:    "<fix-or-investigation-uuid>"
+```
+
+If the tool returns "Investigation not found", the investigation has not been triggered yet.
+Ask the reporter to open the test case page and click "Investigate" — or proceed with
+code-level analysis using the workflow below.
+
+### What to read from Trunk
+
+- **Failure rate** — how often it fails (e.g. 12% over last 30 days)
+- **Failure pattern** — does it cluster around certain times, branches, or PR authors?
+- **First seen / last seen** — did it regress recently after a change?
+- **CI job name** — which workflow step fails (unit, race, integration, ccip-deployment)
+- **Trunk root cause label** — if already classified (race, timing, docker, network, etc.)
+</trunk>
+
 <setup>
 Run README prep: pnpm, make mockery, make generate, Postgres, make setup-testdb, source .dbenv, make testdb after pulls. Use make testdb-force if DB stuck.
 Unset env vars except CL_DATABASE_URL when tests act wrong.
@@ -81,6 +137,8 @@ Re-run the same repro command. Record shuffle seed in commit or comment if order
 General: package init and globals, t.Parallel plus shared fixtures, wall clock without fakes, port or path collisions, map order assumptions, leaked env or cwd, goroutines after test end.
 
 Chainlink: shared Postgres or stale schema; missing pgtest.NewSqlxDB(t); cltest.TestApplication teardown or leaked HTTP; ports without :0 or CL_RESERVE_PORTS; stress without --tags integration on integration files; wrong module root.
+
+Docker/Solana: WithSolanaContainerN port conflicts or slow startup; sync.Once download helpers that mark a failed download as done (causing cascading file-not-found failures in parallel runs); LoadCCIPPrograms network timeouts. If a test spins up Docker/Solana but the code under test early-exits before any chain interaction, remove the unnecessary infra.
 </root_causes>
 
 <fix_patterns>
