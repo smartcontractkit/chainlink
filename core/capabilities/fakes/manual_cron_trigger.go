@@ -164,7 +164,9 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 
 	go func() {
 		defer close(done)
-		defer f.scheduler.RemoveJob(job.ID())
+		defer func() {
+			_ = f.scheduler.RemoveJob(job.ID())
+		}()
 
 		// Either wait for cron trigger or context cancellation
 		select {
