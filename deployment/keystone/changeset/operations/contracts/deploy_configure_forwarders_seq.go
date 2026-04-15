@@ -260,7 +260,7 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to resolve DONs for chain %d: %w", target, err)
 	}
-	forwarderContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String())
+	forwarderContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String(), "")
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}

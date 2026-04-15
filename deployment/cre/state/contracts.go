@@ -75,7 +75,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 		switch contractAddress.Type {
 		case datastore.ContractType(crecontracts.CapabilitiesRegistry):
 			ownedContract, err := crecontracts.GetOwnedContractV2[*capabilities_registry_v2.CapabilitiesRegistry](
-				e.DataStore.Addresses(), chain, contractAddress.Address,
+				e.DataStore.Addresses(), chain, contractAddress.Address, contractAddress.Qualifier,
 			)
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to retrieve capabilities registry contract at %s: %w",
@@ -86,7 +86,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 
 		case datastore.ContractType(crecontracts.OCR3Capability):
 			ownedContract, err := crecontracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](
-				e.DataStore.Addresses(), chain, contractAddress.Address,
+				e.DataStore.Addresses(), chain, contractAddress.Address, contractAddress.Qualifier,
 			)
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to retrieve OCR3 capability contract at %s: %w",
@@ -97,7 +97,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 
 		case datastore.ContractType(crecontracts.KeystoneForwarder):
 			ownedContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](
-				e.DataStore.Addresses(), chain, contractAddress.Address,
+				e.DataStore.Addresses(), chain, contractAddress.Address, contractAddress.Qualifier,
 			)
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to retrieve forwarder contract at %s: %w",
@@ -108,7 +108,7 @@ func getContractsPerChain(e deployment.Environment) (contractsPerChain, error) {
 
 		case datastore.ContractType(crecontracts.WorkflowRegistry):
 			ownedContract, err := crecontracts.GetOwnedContractV2[*workflow_registry_v2.WorkflowRegistry](
-				e.DataStore.Addresses(), chain, contractAddress.Address,
+				e.DataStore.Addresses(), chain, contractAddress.Address, contractAddress.Qualifier,
 			)
 			if err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to retrieve workflow registry contract at %s: %w",

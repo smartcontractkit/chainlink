@@ -8,20 +8,20 @@ inputs:
 runs:
   using: composite
   steps:
-      - uses: actions/cache@v4
-        id: cache
-        name: Cache solana CLI
-        with:
-          path: |
-            ~/.local/share/solana/install/active_release/bin
-          key: ${{ runner.os }}-solana-cli-${{ hashFiles('${{ inputs.base-path }}tools/ci/install_solana') }}
-        
-      - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-        name: Install solana cli
-        shell: bash
-        working-directory: ${{ inputs.base-path }}
-        run: ./tools/ci/install_solana
-      
-      - name: Export solana path to env
-        shell: bash 
-        run: echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV
+    - uses: actions/cache@v5
+      id: cache
+      name: Cache solana CLI
+      with:
+        path: |
+          ~/.local/share/solana/install/active_release/bin
+        key: ${{ runner.os }}-solana-cli-${{ hashFiles('${{ inputs.base-path }}tools/ci/install_solana') }}
+
+    - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      name: Install solana cli
+      shell: bash
+      working-directory: ${{ inputs.base-path }}
+      run: ./tools/ci/install_solana
+
+    - name: Export solana path to env
+      shell: bash
+      run: echo "PATH=$HOME/.local/share/solana/install/active_release/bin:$PATH" >> $GITHUB_ENV

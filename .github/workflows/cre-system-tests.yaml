@@ -361,6 +361,8 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
+          artifact-name: ${{ matrix.tests.test_id }}_test_logs
 
       - name: Show Docker containers status
         if: failure()

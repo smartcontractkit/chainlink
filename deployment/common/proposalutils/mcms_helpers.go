@@ -7,18 +7,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+
+	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmsaptossdk "github.com/smartcontractkit/mcms/sdk/aptos"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	cldfmcmsadapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 // MCMSWithTimelockContracts holds the Go bindings
@@ -52,22 +52,6 @@ func (state MCMSWithTimelockContracts) Validate() error {
 		return errors.New("call proxy not found")
 	}
 	return nil
-}
-
-func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, error) {
-	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
-	}
-
-	switch chainFamily {
-	case chain_selectors.FamilyEVM:
-		return &mcmsevmsdk.TimelockConverter{}, nil
-	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.TimelockConverter{}, nil
-	default:
-		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
-	}
 }
 
 type mcmsInspectorOptions struct {

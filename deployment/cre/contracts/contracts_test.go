@@ -61,7 +61,7 @@ func TestGetOwnableContractV2(t *testing.T) {
 		err := ds.AddressRefStore.Add(addrRef)
 		require.NoError(t, err)
 
-		c, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		c, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 		assert.NotNil(t, c)
 		contract := *c
@@ -90,10 +90,48 @@ func TestGetOwnableContractV2(t *testing.T) {
 		err := ds.AddressRefStore.Add(addrRef)
 		require.NoError(t, err)
 
-		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddrStr)
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, nonExistentAddrStr, "")
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "found 0")
+	})
+
+	t.Run("succeeds with correct qualifier when duplicates exist", func(t *testing.T) {
+		t.Parallel()
+
+		ds := datastore.NewMemoryDataStore()
+		targetAddr := testutils.NewAddress()
+		targetAddrStr := targetAddr.String()
+
+		addrRefA := datastore.AddressRef{
+			ChainSelector: selector,
+			Address:       targetAddrStr,
+			Type:          datastore.ContractType(contracts.CapabilitiesRegistry),
+			Version:       v1,
+			Qualifier:     "zone-a",
+		}
+		addrRefB := addrRefA
+		addrRefB.Qualifier = "zone-b"
+
+		err := ds.AddressRefStore.Add(addrRefA)
+		require.NoError(t, err)
+		err = ds.AddressRefStore.Add(addrRefB)
+		require.NoError(t, err)
+
+		// Correct qualifier succeeds
+		c, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "zone-a")
+		require.NoError(t, err)
+		assert.NotNil(t, c)
+
+		// Non-matching qualifier errors
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "zone-c")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 0")
+
+		// No qualifier errors with duplicates
+		_, err = contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 2")
 	})
 }
 
@@ -137,7 +175,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 
 		owner, err := (*contract).Owner(nil)
@@ -176,7 +214,7 @@ func TestGetOwnerTypeAndVersionV2(t *testing.T) {
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 
 		ownerTV, err := contracts.GetOwnerTypeAndVersionV2(*contract, ds.Addresses(), chain)
@@ -231,7 +269,7 @@ func TestNewOwnableV2(t *testing.T) {
 		err = ds.AddressRefStore.Add(registryAddrRef)
 		require.NoError(t, err)
 
-		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](ds.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 
 		owner, err := (*contract).Owner(nil)
@@ -257,7 +295,7 @@ func TestNewOwnableV2(t *testing.T) {
 	})
 
 	t.Run("no error when owner type lookup fails due to missing address in datastore (it is non-MCMS owned)", func(t *testing.T) {
-		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](rt.Environment().DataStore.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](rt.Environment().DataStore.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 
 		// Don't add owner to datastore, so lookup will return nil TV and no error
@@ -283,7 +321,7 @@ func TestNewOwnableV2(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](rt.State().DataStore.Addresses(), chain, targetAddrStr)
+		contract, err := contracts.GetOwnableContractV2[*capabilities_registry.CapabilitiesRegistry](rt.State().DataStore.Addresses(), chain, targetAddrStr, "")
 		require.NoError(t, err)
 
 		ownedContract, err := contracts.NewOwnableV2(*contract, rt.State().DataStore.Addresses(), chain)
@@ -323,7 +361,7 @@ func TestGetOwnedContractV2(t *testing.T) {
 	t.Run("successfully creates owned contract", func(t *testing.T) {
 		t.Parallel()
 
-		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, targetAddrStr)
+		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, targetAddrStr, "")
 		require.NoError(t, err)
 		assert.NotNil(t, ownedContract)
 		assert.NotNil(t, ownedContract.Contract)
@@ -335,8 +373,86 @@ func TestGetOwnedContractV2(t *testing.T) {
 		t.Parallel()
 
 		nonExistentAddr := testutils.NewAddress().String()
-		_, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, nonExistentAddr)
+		_, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](addrStore, chain, nonExistentAddr, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not found in address ref store")
+	})
+
+	t.Run("errors when multiple entries for same address without qualifier", func(t *testing.T) {
+		t.Parallel()
+
+		rt2, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+			environment.WithLogger(logger.Test(t)),
+		))
+		require.NoError(t, err)
+
+		err = rt2.Exec(
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
+				ChainSel: selector,
+			}),
+		)
+		require.NoError(t, err)
+
+		chain2 := rt2.Environment().BlockChains.EVMChains()[selector]
+		addrStore2 := rt2.State().DataStore.Addresses()
+		addrs2, err := addrStore2.Fetch()
+		require.NoError(t, err)
+		require.Len(t, addrs2, 1)
+		addr := addrs2[0].Address
+
+		// Build a new MemoryDataStore with duplicate entries (different qualifiers)
+		ds2 := datastore.NewMemoryDataStore()
+		err = ds2.AddressRefStore.Add(addrs2[0])
+		require.NoError(t, err)
+		duplicate := addrs2[0]
+		duplicate.Qualifier = "zone-b"
+		err = ds2.AddressRefStore.Add(duplicate)
+		require.NoError(t, err)
+
+		// Without qualifier: should fail with multiple addresses
+		_, err = contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds2.Addresses(), chain2, addr, "")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "multiple addresses found")
+	})
+
+	t.Run("succeeds with qualifier when multiple entries exist for same address", func(t *testing.T) {
+		t.Parallel()
+
+		rt2, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+			environment.WithLogger(logger.Test(t)),
+		))
+		require.NoError(t, err)
+
+		err = rt2.Exec(
+			runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployCapabilityRegistryV2), &changeset.DeployRequestV2{
+				ChainSel:  selector,
+				Qualifier: "zone-a",
+			}),
+		)
+		require.NoError(t, err)
+
+		chain2 := rt2.Environment().BlockChains.EVMChains()[selector]
+		addrStore2 := rt2.State().DataStore.Addresses()
+		addrs2, err := addrStore2.Fetch()
+		require.NoError(t, err)
+		require.Len(t, addrs2, 1)
+		addr := addrs2[0].Address
+
+		// Build a new MemoryDataStore with duplicate entries (different qualifiers)
+		ds2 := datastore.NewMemoryDataStore()
+		err = ds2.AddressRefStore.Add(addrs2[0])
+		require.NoError(t, err)
+		duplicate := addrs2[0]
+		duplicate.Qualifier = "zone-b"
+		err = ds2.AddressRefStore.Add(duplicate)
+		require.NoError(t, err)
+
+		// With qualifier: should succeed
+		ownedContract, err := contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](ds2.Addresses(), chain2, addr, "zone-a")
+		require.NoError(t, err)
+		assert.NotNil(t, ownedContract)
+		assert.NotNil(t, ownedContract.Contract)
 	})
 }

@@ -1,5 +1,19 @@
 # Changelog Chainlink Core
 
+## 2.43.0
+
+### Minor Changes
+
+- [#21861](https://github.com/smartcontractkit/chainlink/pull/21861) [`e35dcc4`](https://github.com/smartcontractkit/chainlink/commit/e35dcc44803a3369b6c9b32f94e3a640f0f90572) - Add Pyroscope profiling support for LOOP Plugins #nops
+
+- [#21899](https://github.com/smartcontractkit/chainlink/pull/21899) [`92db8e0`](https://github.com/smartcontractkit/chainlink/commit/92db8e0991e3b1da7ce9933403a7d9828fec5a00) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22007](https://github.com/smartcontractkit/chainlink/pull/22007) [`51b37cf`](https://github.com/smartcontractkit/chainlink/commit/51b37cfd3017ae2eb883d0e7e2623cfaf9be89e1) - #bugfix bumps http-action capability version to classify timeouts as UserError
+
+- [#21868](https://github.com/smartcontractkit/chainlink/pull/21868) [`7dffc86`](https://github.com/smartcontractkit/chainlink/commit/7dffc86ad98ed8e338b914d8477a4ecd629d2294) - #bugfix Wire user metric limiters to WASM ModuleConfig
+
 ## 2.42.0
 
 ### Minor Changes

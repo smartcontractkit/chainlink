@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -108,7 +109,7 @@ func TestScheduledExecutionStrategy_LocalDON(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+		synctestrun(t, tc.name, func(t *testing.T) {
 			startTime := time.Now()
 
 			m, err := values.NewMap(map[string]any{
@@ -190,4 +191,12 @@ func (m *mockCapability) RegisterToWorkflow(ctx context.Context, request capabil
 
 func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
 	return nil
+}
+
+func synctestrun(t *testing.T, name string, f func(*testing.T)) {
+	t.Helper()
+	t.Run(name, func(t *testing.T) {
+		t.Helper()
+		synctest.Test(t, f)
+	})
 }
