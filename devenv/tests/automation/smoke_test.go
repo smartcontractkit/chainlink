@@ -111,6 +111,13 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 					return saveErr
 				},
 			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_, saveErr := framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return saveErr
+				},
+			},
 		)
 		require.NoError(t, err, "failed to process cleanup container logs")
 	})
