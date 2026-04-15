@@ -359,3 +359,91 @@ func TestAddCapabilities_Apply_Modifier(t *testing.T) {
 	addCapabilityWithModifier(t, fixture)
 	requireCapabilityWithModifier(t, fixture)
 }
+
+func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
+	fixture := test.SetupEnvV2(t, false)
+	require.NotNil(t, fixture.Env.Offchain)
+
+	capID := "ocr3-test-cap@1.0.0"
+	ocr3Config := map[string]any{
+		"ocr3Configs": map[string]any{
+			"__default__": map[string]any{
+				"offchainConfig": map[string]any{
+					"uniqueReports":                     true,
+					"deltaProgressMillis":               5000,
+					"deltaResendMillis":                 5000,
+					"deltaInitialMillis":                5000,
+					"deltaRoundMillis":                  2000,
+					"deltaGraceMillis":                  500,
+					"deltaCertifiedCommitRequestMillis": 1000,
+					"deltaStageMillis":                  30000,
+					"maxRoundsPerEpoch":                 10,
+					"transmissionSchedule":              []any{test.TotalNodes + 1}, // +1 for bootstrap
+					"maxDurationQueryMillis":            1000,
+					"maxDurationObservationMillis":      1000,
+					"maxDurationShouldAcceptMillis":     1000,
+					"maxDurationShouldTransmitMillis":   1000,
+					"maxFaultyOracles":                  1,
+				},
+			},
+		},
+	}
+
+	input := changeset.AddCapabilitiesInput{
+		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: {{
+				Capability: contracts.Capability{
+					CapabilityID:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              newCapMetadata,
+				},
+				Config: ocr3Config,
+			}},
+		},
+		Force: true,
+		FirstOCR3ConfigCapabilities: map[string][]string{
+			test.DONName: {capID},
+		},
+	}
+
+	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
+	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
+	require.NoError(t, err)
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		fixture.RegistryAddress,
+		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
+	)
+	require.NoError(t, err)
+
+	don, err := capReg.GetDONByName(nil, test.DONName)
+	require.NoError(t, err)
+
+	var cfgFound bool
+	for _, cfg := range don.CapabilityConfigurations {
+		if cfg.CapabilityId == capID {
+			got := new(pkg.CapabilityConfig)
+			require.NoError(t, got.UnmarshalProto(cfg.Config))
+
+			ocr3Cfgs, ok := (*got)["ocr3Configs"].(map[string]any)
+			require.True(t, ok, "ocr3Configs should be present")
+			defaultCfg, ok := ocr3Cfgs["__default__"].(map[string]any)
+			require.True(t, ok, "__default__ should be present")
+
+			_, hasSigners := defaultCfg["signers"]
+			assert.True(t, hasSigners, "expanded config should have signers")
+			_, hasTransmitters := defaultCfg["transmitters"]
+			assert.True(t, hasTransmitters, "expanded config should have transmitters")
+
+			offchainCfg, ok := defaultCfg["offchainConfig"].(string)
+			require.True(t, ok, "offchainConfig should be a base64 string after expansion")
+			assert.NotEmpty(t, offchainCfg)
+
+			cfgFound = true
+			break
+		}
+	}
+	require.True(t, cfgFound, "expected don to have %s capability configuration with expanded OCR3 config", capID)
+}

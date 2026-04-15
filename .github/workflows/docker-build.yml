@@ -251,39 +251,17 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  call-cre-local-env-tests:
+  call-post-docker-build:
     if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
     needs: [init, docker-core]
-    uses: ./.github/workflows/cre-local-env-tests.yaml
-    with:
-      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
-    secrets: inherit
-
-  call-legacy-system-tests:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [init, docker-core]
+    uses: ./.github/workflows/post-docker-build.yml
     permissions:
-      contents: read
+      actions: read
       id-token: write
-      pull-requests: write
-    uses: ./.github/workflows/legacy-system-tests-nightly.yml
+      contents: read
     with:
-      ecr: "sdlc"
+      chainlink_core_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
       chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
-      chainlink_image_repository_path: "chainlink"
-      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-    secrets: inherit
-
-  soak-cre-memory-leak:
-    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
-    needs: [docker-core]
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/cre-soak-memory-leak.yml
-    with:
-      chainlink_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
     secrets: inherit
 
   deploy-nightly-core:
