@@ -28,6 +28,11 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.Equal(t, destGasAmount, decoded)
 	})
 
+	t.Run("rejects dest exec data with invalid length", func(t *testing.T) {
+		_, err := extraDataDecoder.DecodeDestExecDataToMap([]byte{1, 2, 3})
+		require.EqualError(t, err, "dest exec data invalid length: 3, should be 4 bytes")
+	})
+
 	t.Run("decode extra args into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)
 		bitmap := uint64(0)
