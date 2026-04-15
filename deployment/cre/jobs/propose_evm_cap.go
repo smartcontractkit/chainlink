@@ -96,6 +96,10 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		return err
 	}
 
+	if input.ForwardersQualifier == "" {
+		return errors.New("cre forwarder qualifier is required")
+	}
+
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
