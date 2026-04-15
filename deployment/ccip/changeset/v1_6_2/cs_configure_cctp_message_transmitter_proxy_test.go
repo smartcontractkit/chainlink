@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
@@ -187,8 +186,6 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 	t.Skip("broken")
-	
-	quarantine.Flaky(t, "DX-2064")
 
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	evmChainsBySel := rt.Environment().BlockChains.EVMChains()
