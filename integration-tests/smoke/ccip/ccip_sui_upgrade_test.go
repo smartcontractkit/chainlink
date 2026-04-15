@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"math/big"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	operations "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
@@ -196,6 +198,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+
+	seedSuiFeeQuoterForRemote(ctx, t, e, destChain, sourceChain)
 
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -439,6 +443,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+
+	seedSuiFeeQuoterForRemote(ctx, t, e, destChain, sourceChain)
 
 	// Block ccip v2 FQ (the pre-upgrade version)
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -798,4 +804,58 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	t.Log("Upgraded SUI CCIP")
 
 	return newCCIPPkgID
+}
+
+// seedSuiFeeQuoterForRemote writes the remote dest-chain gas price and Sui-side
+// LINK token price into the Sui fee_quoter state. The CCIP commit plugin on Sui
+// polls these values every observation round; without them reads abort with
+// EUnknownDestChainSelector / EUnknownToken and the plugin's dest-config batch
+// fail-fast cache zeroes the offramp config digest, causing the plugin to
+// self-reject its own reports.
+//
+// Called after upgradeCCIP so the write targets the latest (unblocked) fee_quoter.
+func seedSuiFeeQuoterForRemote(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, suiChainSel, remoteChainSel uint64) {
+	t.Helper()
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	ccipPkg := state.SuiChains[suiChainSel].CCIPMockV2PackageId
+	if ccipPkg == "" {
+		ccipPkg = state.SuiChains[suiChainSel].CCIPAddress
+	}
+
+	// Values mirror SendSuiCCIPRequest (test_sui_helpers.go): 1e27-scale token price
+	// and optimism-sepolia-like gas price. Only magnitudes matter for the plugin's
+	// presence-check; staleness threshold defaults to generous test bounds.
+	tokenPrice, ok := new(big.Int).SetString("15377040000000000000000000000", 10)
+	require.True(t, ok)
+	gasPrice, ok := new(big.Int).SetString("41946474500", 10)
+	require.True(t, ok)
+
+	suiChain := e.Env.BlockChains.SuiChains()[suiChainSel]
+	deps := sui_ops.OpTxDeps{
+		Client: suiChain.Client,
+		Signer: suiChain.Signer,
+		GetCallOpts: func() *suiBind.CallOpts {
+			b := uint64(400_000_000)
+			return &suiBind.CallOpts{
+				Signer:           suiChain.Signer,
+				WaitForExecution: true,
+				GasBudget:        &b,
+			}
+		},
+	}
+
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:         ccipPkg,
+			CCIPObjectRef:         state.SuiChains[suiChainSel].CCIPObjectRef,
+			OwnerCapObjectId:      state.SuiChains[suiChainSel].CCIPOwnerCapObjectId,
+			SourceTokens:          []string{state.SuiChains[suiChainSel].LinkTokenCoinMetadataId},
+			SourceUsdPerToken:     []*big.Int{tokenPrice},
+			GasDestChainSelectors: []uint64{remoteChainSel},
+			GasUsdPerUnitGas:      []*big.Int{gasPrice},
+		})
+	require.NoError(t, err, "seed Sui fee_quoter prices for remote chain %d", remoteChainSel)
+	_ = ctx
 }
