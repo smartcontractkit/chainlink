@@ -21,16 +21,19 @@ import (
 
 	fqv2ops "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/operations/fee_quoter"
 	fqv2seq "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v2_0_0/sequences"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -343,8 +346,8 @@ func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 				}
 				e, err = commonchangeset.Apply(t, e,
 					commonchangeset.Configure(
-						cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-						commoncs.TransferToMCMSWithTimelockConfig{
+						cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+						commonchangeset.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
 							MCMSConfig: proposalutils.TimelockConfig{
 								MinDelay:   0 * time.Second,
@@ -872,8 +875,8 @@ func TestUpdateBidirectionalLanesChangesetWithV2FeeQuoterWithMCMS(t *testing.T) 
 
 	e, err = commonchangeset.Apply(t, e,
 		commonchangeset.Configure(
-			cldf.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
-			commoncs.TransferToMCMSWithTimelockConfig{
+			cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsToTransfer,
 				MCMSConfig: proposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
@@ -1046,4 +1049,175 @@ func TestConvertV16FeeQuoterPriceUpdatesToV2(t *testing.T) {
 	require.Len(t, out.GasPriceUpdates, 1)
 	assert.Equal(t, uint64(100), out.GasPriceUpdates[0].DestChainSelector)
 	assert.Equal(t, big.NewInt(1e17), out.GasPriceUpdates[0].UsdPerUnitGas)
+}
+
+func TestUpdateBidirectionalLanesChangeset_NonceManagerAutoDetect(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no_v15_contracts_no_nonce_update", func(t *testing.T) {
+		// Standard environment with no v1.5 contracts - NonceManager should NOT be updated
+		tenv, _ := testhelpers.NewMemoryEnvironment(t)
+
+		allChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		require.Len(t, allChains, 2)
+		chainA, chainB := allChains[0], allChains[1]
+
+		// Apply UpdateBidirectionalLanesChangeset
+		chains := []v1_6.ChainDefinition{
+			{Selector: chainA, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+			{Selector: chainB, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+		}
+		cfg := v1_6.UpdateBidirectionalLanesConfig{
+			Lanes: getAllPossibleLanes(chains, false),
+		}
+		_, err := commonchangeset.Apply(t, tenv.Env,
+			commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg))
+		require.NoError(t, err)
+
+		// Verify NonceManager does NOT have previous ramps set
+		state, err := stateview.LoadOnchainState(tenv.Env)
+		require.NoError(t, err)
+
+		prevRamps, err := state.Chains[chainA].NonceManager.GetPreviousRamps(nil, chainB)
+		require.NoError(t, err)
+		require.Equal(t, common.Address{}, prevRamps.PrevOnRamp, "should NOT set PrevOnRamp when no v1.5 exists")
+		require.Equal(t, common.Address{}, prevRamps.PrevOffRamp, "should NOT set PrevOffRamp when no v1.5 exists")
+	})
+
+	t.Run("skip_nonce_manager_updates_flag", func(t *testing.T) {
+		// Even with setup that could trigger updates, the skip flag should prevent NonceManager changes
+		tenv, _ := testhelpers.NewMemoryEnvironment(t)
+
+		allChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		chainA, chainB := allChains[0], allChains[1]
+
+		chains := []v1_6.ChainDefinition{
+			{Selector: chainA, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+			{Selector: chainB, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+		}
+		cfg := v1_6.UpdateBidirectionalLanesConfig{
+			Lanes:                   getAllPossibleLanes(chains, false),
+			SkipNonceManagerUpdates: true, // OPT-OUT
+		}
+		_, err := commonchangeset.Apply(t, tenv.Env,
+			commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg))
+		require.NoError(t, err)
+
+		// Verify NonceManager is NOT updated
+		state, err := stateview.LoadOnchainState(tenv.Env)
+		require.NoError(t, err)
+
+		prevRamps, err := state.Chains[chainA].NonceManager.GetPreviousRamps(nil, chainB)
+		require.NoError(t, err)
+		require.Equal(t, common.Address{}, prevRamps.PrevOnRamp, "should NOT set when SkipNonceManagerUpdates=true")
+		require.Equal(t, common.Address{}, prevRamps.PrevOffRamp, "should NOT set when SkipNonceManagerUpdates=true")
+	})
+
+	t.Run("idempotent_run_twice_no_error", func(t *testing.T) {
+		// Running the changeset twice should succeed without error (idempotent)
+		tenv, _ := testhelpers.NewMemoryEnvironment(t)
+
+		allChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		chainA, chainB := allChains[0], allChains[1]
+
+		chains := []v1_6.ChainDefinition{
+			{Selector: chainA, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+			{Selector: chainB, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+		}
+		cfg := v1_6.UpdateBidirectionalLanesConfig{
+			Lanes: getAllPossibleLanes(chains, false),
+		}
+
+		// First run
+		var err error
+		tenv.Env, err = commonchangeset.Apply(t, tenv.Env,
+			commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg))
+		require.NoError(t, err, "first run should succeed")
+
+		// Second run - should also succeed (idempotent)
+		_, err = commonchangeset.Apply(t, tenv.Env,
+			commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg))
+		require.NoError(t, err, "second run should succeed (idempotent)")
+	})
+
+	t.Run("v15_contracts_auto_detected_and_registered", func(t *testing.T) {
+		// Environment with v1.5 contracts deployed - NonceManager SHOULD be updated with correct addresses
+		e, tenv := testhelpers.NewMemoryEnvironment(
+			t,
+			testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
+				PriceRegStalenessThreshold: 60 * 60 * 24 * 14,
+				RMNConfig: &rmn_contract.RMNConfig{
+					BlessWeightThreshold: 2,
+					CurseWeightThreshold: 2,
+					Voters: []rmn_contract.RMNVoter{
+						{
+							BlessWeight:   2,
+							CurseWeight:   2,
+							BlessVoteAddr: utils.RandomAddress(),
+							CurseVoteAddr: utils.RandomAddress(),
+						},
+					},
+				},
+			}),
+			testhelpers.WithEVMChainsBySelectors([]uint64{
+				chain_selectors.GETH_TESTNET.Selector,
+				chain_selectors.TEST_90000001.Selector,
+			}),
+		)
+
+		allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
+		require.Len(t, allChains, 2)
+		chainA, chainB := allChains[0], allChains[1]
+
+		// Add CCIP v1.6 contracts
+		e = testhelpers.AddCCIPContractsToEnvironment(t, allChains, tenv, false)
+
+		// Load state to get v1.5 contracts
+		state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
+		require.NoError(t, err)
+
+		// Add v1.5 lanes
+		pairs := []testhelpers.SourceDestPair{
+			{SourceChainSelector: chainA, DestChainSelector: chainB},
+			{SourceChainSelector: chainB, DestChainSelector: chainA},
+		}
+		e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
+		state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
+		require.NoError(t, err)
+
+		// Verify v1.5 contracts exist before running the changeset
+		require.NotNil(t, state.Chains[chainA].EVM2EVMOnRamp, "v1.5 OnRamps should exist")
+		require.NotNil(t, state.Chains[chainA].EVM2EVMOnRamp[chainB], "v1.5 OnRamp A->B should exist")
+		v15OnRampAtoB := state.Chains[chainA].EVM2EVMOnRamp[chainB].Address()
+		require.NotEqual(t, common.Address{}, v15OnRampAtoB, "v1.5 OnRamp address should be non-zero")
+
+		// Apply UpdateBidirectionalLanesChangeset
+		chains := []v1_6.ChainDefinition{
+			{Selector: chainA, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+			{Selector: chainB, GasPrice: big.NewInt(1e9), FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true)},
+		}
+		cfg := v1_6.UpdateBidirectionalLanesConfig{
+			Lanes:                   getAllPossibleLanes(chains, false),
+			SkipNonceManagerUpdates: false, // Explicitly enable
+		}
+		_, err = commonchangeset.Apply(t, e.Env,
+			commonchangeset.Configure(v1_6.UpdateBidirectionalLanesChangeset, cfg))
+		require.NoError(t, err)
+
+		// Verify NonceManager was updated with the correct v1.5 addresses
+		state, err = stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
+		require.NoError(t, err)
+
+		// Check NonceManager on chainA has previous ramps for chainB
+		prevRampsA, err := state.Chains[chainA].NonceManager.GetPreviousRamps(nil, chainB)
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[chainA].EVM2EVMOnRamp[chainB].Address(), prevRampsA.PrevOnRamp,
+			"NonceManager on chainA should have correct v1.5 OnRamp for chainB")
+
+		// Check NonceManager on chainB has previous ramps for chainA
+		prevRampsB, err := state.Chains[chainB].NonceManager.GetPreviousRamps(nil, chainA)
+		require.NoError(t, err)
+		require.Equal(t, state.Chains[chainB].EVM2EVMOnRamp[chainA].Address(), prevRampsB.PrevOnRamp,
+			"NonceManager on chainB should have correct v1.5 OnRamp for chainA")
+	})
 }

@@ -3,21 +3,22 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
-      chainlink_image_repo:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
-        required: false
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
         type: string
-        default: ""
       chainlink_image_tag:
-        required: false
+        required: true
         type: string
-        default: ""
-        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
-      chainlink_full_image:
-        required: false
-        type: string
-        default: ""
-        description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
+        description: "Chainlink image tag to use."
+      ecr:
+        required: true
+        type: choice
+        options:
+          - "sdlc"
+          - "public"
+        default: "sdlc"
+        description: "Whether to use the SDLC or public ECR registry for the Chainlink image."
       chainlink_version:
         required: false
         type: string
@@ -25,21 +26,19 @@ on:
         default: ""
   workflow_call:
     inputs:
-      chainlink_image_repo:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink)."
-        required: false
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
         type: string
-        default: ""
       chainlink_image_tag:
-        required: false
+        required: true
         type: string
-        default: ""
-        description: "Tag used with chainlink_image_repo. If empty, chainlink_version is used."
-      chainlink_full_image:
-        required: false
+        description: "Chainlink image tag to use."
+      ecr:
         type: string
-        default: ""
-        description: "Full Chainlink image reference including tag or digest (for example: public.ecr.aws/chainlink/chainlink:2.0.0 or ...@sha256:<digest>). Mutually exclusive with chainlink_image_repo/chainlink_image_tag."
+        required: true
+        default: "sdlc"
+        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
       chainlink_version:
         required: false
         type: string
@@ -57,7 +56,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.chainlink_version && inputs.chainlink_version || github.sha }}
+          ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -233,10 +232,9 @@ jobs:
         working-directory: .github/scripts
         shell: bash
         env:
-          CHAINLINK_IMAGE_REPO: ${{ inputs.chainlink_image_repo }}
+          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
           CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          CHAINLINK_FULL_IMAGE: ${{ inputs.chainlink_full_image }}
-          CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
+          ECR_TYPE: ${{ inputs.ecr }}
           AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |

@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
@@ -144,6 +145,21 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 	)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
+	// apply modifiers to capability configs
+	// currently we add p2pToTransmitterMap to the specConfig for Aptos capabilities
+	// more modifiers can be added here as needed
+	modifierParams := modifier.CapabilityConfigModifierParams{
+		Env:     &e,
+		DonName: config.DONName,
+		P2PIDs:  p2pIDs,
+		Configs: config.CapabilityConfigs,
+	}
+	for _, mod := range modifier.DefaultCapabilityConfigModifiers() {
+		if err := mod.Modify(modifierParams); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("modify capability configs for DON %s: %w", config.DONName, err)
+		}
 	}
 
 	updateDonReport, err := operations.ExecuteOperation(

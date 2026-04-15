@@ -2,6 +2,8 @@ package changeset_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -263,4 +265,97 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	// Verify the changeset output
 	require.NotNil(t, csOut.Reports, "reports should be present")
 	require.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
+}
+
+func aptosTestCapabilityID(aptosChainSelector uint64) string {
+	return fmt.Sprintf("aptos:ChainSelector:%d@1.0.0", aptosChainSelector)
+}
+
+func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
+	t.Helper()
+	require.NotNil(t, fixture.Env.Offchain, "Aptos add-capabilities needs JD Offchain client")
+
+	capID := aptosTestCapabilityID(fixture.AptosSelector)
+	input := changeset.AddCapabilitiesInput{
+		RegistryChainSel:  fixture.RegistrySelector,
+		RegistryQualifier: test.RegistryQualifier,
+		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
+			test.DONName: {{
+				Capability: contracts.Capability{
+					CapabilityID:          capID,
+					ConfigurationContract: common.Address{},
+					Metadata:              newCapMetadata,
+				},
+				Config: maps.Clone(newCapConfig),
+			}},
+		},
+		Force: true,
+	}
+
+	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
+	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
+	require.NoError(t, err)
+}
+
+func requireCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
+	t.Helper()
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		fixture.RegistryAddress,
+		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
+	)
+	require.NoError(t, err)
+
+	capID := aptosTestCapabilityID(fixture.AptosSelector)
+	caps, err := pkg.GetCapabilities(nil, capReg)
+	require.NoError(t, err)
+	var foundCap bool
+	for _, c := range caps {
+		if c.CapabilityId == capID {
+			foundCap = true
+			break
+		}
+	}
+	require.True(t, foundCap, "aptos capability %s should be registered", capID)
+
+	don, err := capReg.GetDONByName(nil, test.DONName)
+	require.NoError(t, err)
+
+	var cfgFound bool
+	for _, cfg := range don.CapabilityConfigurations {
+		if cfg.CapabilityId == capID {
+			got := new(pkg.CapabilityConfig)
+			require.NoError(t, got.UnmarshalProto(cfg.Config))
+			requireAptosSpecP2PTransmitterMap(t, got)
+			cfgFound = true
+			break
+		}
+	}
+	require.True(t, cfgFound, "expected don to have %s capability configuration", capID)
+}
+
+// requireAptosSpecP2PTransmitterMap checks UnmarshalProto output: specConfig (values.v1.Map)
+// contains p2pToTransmitterMap with a non-empty nested map of entries.
+func requireAptosSpecP2PTransmitterMap(t *testing.T, cfg *pkg.CapabilityConfig) {
+	t.Helper()
+	spec, ok := (*cfg)["specConfig"].(map[string]any)
+	require.True(t, ok, "specConfig should be present as object")
+	fields, ok := spec["fields"].(map[string]any)
+	require.True(t, ok, "specConfig should have values.v1.Map fields")
+	const p2pKey = "p2pToTransmitterMap"
+	raw, ok := fields[p2pKey]
+	require.True(t, ok, "specConfig.fields should contain %q", p2pKey)
+	p2pVal, ok := raw.(map[string]any)
+	require.True(t, ok, "%q should be an object", p2pKey)
+	mv, ok := p2pVal["mapValue"].(map[string]any)
+	require.True(t, ok, "%q should be a values map (mapValue)", p2pKey)
+	inner, ok := mv["fields"].(map[string]any)
+	require.True(t, ok, "%q.mapValue should have fields", p2pKey)
+	require.NotEmpty(t, inner, "%q should have at least one peer→transmitter entry", p2pKey)
+}
+
+func TestAddCapabilities_Apply_Modifier(t *testing.T) {
+	fixture := test.SetupEnvV2(t, false)
+	addCapabilityWithModifier(t, fixture)
+	requireCapabilityWithModifier(t, fixture)
 }

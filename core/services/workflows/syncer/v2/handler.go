@@ -597,12 +597,17 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	labeler := h.emitter
 	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                       lggr,
-		Labeler:                      labeler,
-		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		Logger:                               lggr,
+		Labeler:                              labeler,
+		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
+		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
+		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
+		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
+		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
 		SdkLabeler: func(name string) {
 			sdkName = name
 			h.emitterMu.Lock()
@@ -895,6 +900,11 @@ func (h *eventHandler) newV2EngineConfig(
 		SecretsFetcher:                h.secretsFetcher,
 		DebugMode:                     h.debugMode,
 		SdkName:                       sdkName,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
 	}
 }
 
@@ -935,15 +945,15 @@ func (h *eventHandler) confidentialEngineFactory(
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
 
+	// nil resolver: raw binaryURL is passed to the enclave as-is.
+	// TODO: wire to storage service retriever so the enclave receives a presigned URL.
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		spec.BinaryURL,
 		binaryHash,
-		spec.WorkflowID,
-		spec.WorkflowOwner,
-		workflowName.String(),
-		spec.WorkflowTag,
+		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
 		attrs.VaultDonSecrets,
+		nil,
 		lggr,
 	)
 

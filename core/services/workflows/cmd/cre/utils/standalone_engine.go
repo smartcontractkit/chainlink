@@ -92,6 +92,13 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	moduleConfig.EnableUserMetricsLimiter = limiters.UserMetricEnabled
+	moduleConfig.MaxUserMetricPayloadLimiter = limiters.UserMetricPayload
+	moduleConfig.MaxUserMetricNameLengthLimiter = limiters.UserMetricNameLength
+	moduleConfig.MaxUserMetricLabelsPerMetricLimiter = limiters.UserMetricLabelsPerMetric
+	moduleConfig.MaxUserMetricLabelValueLengthLimiter = limiters.UserMetricLabelValueLength
+
 	featureFlags, err := v2.NewFeatureFlags(lf, workflowSettingsCfgFn)
 	if err != nil {
 		return nil, nil, err
