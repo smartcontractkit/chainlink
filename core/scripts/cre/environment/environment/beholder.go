@@ -289,8 +289,8 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			if routerErr := hydrateChipRouterForBeholder(cmd.Context()); routerErr != nil {
-				return errors.Wrap(routerErr, "failed to hydrate chip ingress router. Please make sure that local CRE environment is started and that the chip ingress router is running")
+			if routerErr := chiprouter.EnsureStarted(cmd.Context()); routerErr != nil {
+				return errors.Wrap(routerErr, "failed to ensure chip ingress router is running. Please make sure that local CRE environment is started and that the chip ingress router is running")
 			}
 
 			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
@@ -323,10 +323,6 @@ func mustStringToInt(in string) int {
 	}
 
 	return out
-}
-
-func hydrateChipRouterForBeholder(ctx context.Context) error {
-	return chiprouter.EnsureStarted(ctx, relativePathToRepoRoot, "")
 }
 
 func loadPersistedBeholderState(relativePathToRepoRoot string) (*envconfig.ChipIngressConfig, error) {
@@ -386,7 +382,7 @@ func stopBeholder() error {
 		framework.L.Warn().Err(loadSubscriberErr).Msg("failed to load Beholder router subscriber id")
 	}
 	if subscriberID != "" {
-		unregisterErr := chiprouter.UnregisterSubscriber(context.Background(), relativePathToRepoRoot, subscriberID)
+		unregisterErr := chiprouter.UnregisterSubscriber(context.Background(), subscriberID)
 		if unregisterErr != nil && !os.IsNotExist(unregisterErr) && !strings.Contains(unregisterErr.Error(), "local CRE state file not found") && !strings.Contains(unregisterErr.Error(), "no such file or directory") {
 			framework.L.Warn().Err(unregisterErr).Msg("failed to unregister Beholder from chip ingress router")
 		}
@@ -813,10 +809,10 @@ func registerBeholderWithRouter(ctx context.Context, port int) error {
 func registerBeholderEndpointWithRouter(ctx context.Context, endpoint string) error {
 	previousID, err := loadBeholderSubscriberID(relativePathToRepoRoot)
 	if err == nil && previousID != "" {
-		_ = chiprouter.UnregisterSubscriber(ctx, relativePathToRepoRoot, previousID)
+		_ = chiprouter.UnregisterSubscriber(ctx, previousID)
 	}
 
-	id, err := chiprouter.RegisterSubscriber(ctx, relativePathToRepoRoot, "beholder", endpoint)
+	id, err := chiprouter.RegisterSubscriber(ctx, "beholder", endpoint)
 	if err != nil {
 		return err
 	}

@@ -126,7 +126,7 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 
 	entry.once.Do(func() {
 		createEnvironment(t, tconf, flags...)
-		require.NoError(t, chiprouter.EnsureStarted(t.Context(), tconf.RelativePathToRepoRoot, tconf.EnvironmentDirPath), "failed to ensure chip ingress router is running")
+		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 		if err != nil {

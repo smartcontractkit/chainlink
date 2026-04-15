@@ -2,6 +2,7 @@ package chiprouter
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"os"
@@ -21,21 +22,33 @@ var (
 	errClient  error
 )
 
-func getClient(ctx context.Context, relativePathToRepoRoot string) (*ctfchiprouterclient.Client, error) {
+func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 	clientOnce.Do(func() {
-		st, err := envconfig.LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot)
+		in := &envconfig.Config{}
+		err := in.Load(os.Getenv("CTF_CONFIGS"))
 		if err != nil {
 			errClient = err
 			return
 		}
-		clientInst, errClient = ctfchiprouterclient.New(ctx, st.AdminURL, st.GRPCURL)
+
+		if in.ChipRouter == nil || in.ChipRouter.Out == nil {
+			errClient = errors.New("chip router output not found in local CRE state")
+			return
+		}
+
+		// st, err := envconfig.LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot)
+		// if err != nil {
+		// 	errClient = err
+		// 	return
+		// }
+		clientInst, errClient = ctfchiprouterclient.New(ctx, in.ChipRouter.Out.ExternalAdminURL, in.ChipRouter.Out.ExternalGRPCURL)
 	})
 
 	return clientInst, errClient
 }
 
-func EnsureStarted(ctx context.Context, relativePathToRepoRoot, _ string) error {
-	_, err := getClient(ctx, relativePathToRepoRoot)
+func EnsureStarted(ctx context.Context) error {
+	_, err := getClient(ctx)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return pkgerrors.New("local CRE state file not found; start the environment first")
@@ -46,8 +59,8 @@ func EnsureStarted(ctx context.Context, relativePathToRepoRoot, _ string) error 
 	return nil
 }
 
-func RegisterSubscriber(ctx context.Context, relativePathToRepoRoot, name, endpoint string) (string, error) {
-	c, err := getClient(ctx, relativePathToRepoRoot)
+func RegisterSubscriber(ctx context.Context, name, endpoint string) (string, error) {
+	c, err := getClient(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -55,12 +68,12 @@ func RegisterSubscriber(ctx context.Context, relativePathToRepoRoot, name, endpo
 	return c.RegisterSubscriber(ctx, name, normalizeEndpointForRouter(endpoint))
 }
 
-func UnregisterSubscriber(ctx context.Context, relativePathToRepoRoot, id string) error {
+func UnregisterSubscriber(ctx context.Context, id string) error {
 	if strings.TrimSpace(id) == "" {
 		return nil
 	}
 
-	c, err := getClient(ctx, relativePathToRepoRoot)
+	c, err := getClient(ctx)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil

@@ -46,7 +46,7 @@ func (s *registeredChipSink) Shutdown(ctx context.Context) {
 	if s == nil {
 		return
 	}
-	if err := chiprouter.UnregisterSubscriber(ctx, s.relativePath, s.subscriberID); err != nil && !os.IsNotExist(err) {
+	if err := chiprouter.UnregisterSubscriber(ctx, s.subscriberID); err != nil && !os.IsNotExist(err) {
 		framework.L.Warn().Msgf("failed to unregister chip sink subscriber: %s", err)
 	}
 	if s.server != nil {
@@ -632,9 +632,9 @@ func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink 
 		require.FailNow(t, "timeout waiting for test sink listen address")
 	}
 
-	require.NoError(t, chiprouter.EnsureStarted(t.Context(), relativePathToRepoRoot, filepath.Join(relativePathToRepoRoot, "core/scripts/cre/environment")), "failed to ensure chip ingress router is running")
+	require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 
-	subscriberID, err := chiprouter.RegisterSubscriber(t.Context(), relativePathToRepoRoot, t.Name(), actualAddr)
+	subscriberID, err := chiprouter.RegisterSubscriber(t.Context(), t.Name(), actualAddr)
 	require.NoError(t, err, "failed to register test sink with chip ingress router")
 
 	return &registeredChipSink{

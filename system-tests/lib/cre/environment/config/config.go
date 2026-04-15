@@ -293,28 +293,6 @@ func ChipIngressStateFileExists(relativePathToRepoRoot string) bool {
 	return statErr == nil
 }
 
-type ChipIngressRouterState struct {
-	AdminURL      string `toml:"admin_url"`
-	GRPCURL       string `toml:"grpc_url"`
-	ContainerName string `toml:"container_name"`
-}
-
-func LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot string) (*ChipIngressRouterState, error) {
-	cfg := &Config{}
-	if err := cfg.Load(MustLocalCREStateFileAbsPath(relativePathToRepoRoot)); err != nil {
-		return nil, errors.Wrap(err, "failed to load local CRE state")
-	}
-	if cfg.ChipRouter == nil || cfg.ChipRouter.Out == nil {
-		return nil, errors.New("chip router output not found in local CRE state")
-	}
-
-	return &ChipIngressRouterState{
-		AdminURL:      cfg.ChipRouter.Out.ExternalAdminURL,
-		GRPCURL:       cfg.ChipRouter.Out.ExternalGRPCURL,
-		ContainerName: cfg.ChipRouter.Out.ContainerName,
-	}, nil
-}
-
 func storeLocalArtifact(artifact any, absPath string) error {
 	dErr := os.MkdirAll(filepath.Dir(absPath), 0o755)
 	if dErr != nil {
