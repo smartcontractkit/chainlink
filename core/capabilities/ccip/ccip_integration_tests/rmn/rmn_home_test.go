@@ -139,6 +139,26 @@ func TestRMNRemote_ChainRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, r3.CursedSubjects, 1)
 	require.Equal(t, subj, r3.CursedSubjects[0])
+
+	// Works as expected because the CursedSubjects field is ignored.
+	type respAdditionalSubjectsField struct {
+		CursedSubjects [][16]byte // original field, should mark as deprecated in og source code.
+		Subjects       [][16]byte // new field with expected name
+	}
+	var r4 respAdditionalSubjectsField
+	err = contractReader.GetLatestValue(ctx,
+		types.BoundContract{
+			Address: rmnRemoteAddr.String(),
+			Name:    consts.ContractNameRMNRemote,
+		}.ReadIdentifier(consts.MethodNameGetCursedSubjects),
+		primitives.Unconfirmed,
+		map[string]any{}, // args
+		&r4,
+	)
+	require.NoError(t, err)
+	require.Empty(t, r4.CursedSubjects)
+	require.Len(t, r4.Subjects, 1)
+	require.Equal(t, subj, r4.Subjects[0])
 }
 
 func TestRMNHomeReader_GetRMNNodesInfo(t *testing.T) {
