@@ -173,12 +173,12 @@ func (s *Services) newSubservices(
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
 
-			relayService := confidentialrelay.NewService(
-				gatewayConnectorWrapper,
-				opts.CapabilitiesRegistry,
-				lggr,
-				opts.LimitsFactory,
-			)
+		relayService := confidentialrelay.NewService(
+			gatewayConnectorWrapper,
+			opts.CapabilitiesRegistry,
+			lggr,
+			opts.LimitsFactory,
+		)
 		srvs = append(srvs, relayService)
 	}
 
