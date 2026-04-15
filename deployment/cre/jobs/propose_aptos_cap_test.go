@@ -23,10 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
-const (
-	testAptosForwarderQualifier = "aptos-forwarder-qualifier"
-	testAptosOCRQualifier       = "aptos-ocr-qualifier"
-)
+const testAptosOCRQualifier = "aptos-ocr-qualifier"
 
 func minimalAptosCapInput(nodeID string) jobs.AptosCapabilityInput {
 	return jobs.AptosCapabilityInput{
@@ -35,7 +32,7 @@ func minimalAptosCapInput(nodeID string) jobs.AptosCapabilityInput {
 	}
 }
 
-func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel, aptosSel uint64, ocrAddr, fwdAddr string) {
+func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64, ocrAddr string) {
 	t.Helper()
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: ocrSel,
@@ -43,13 +40,6 @@ func seedAptosAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel, apt
 		Version:       semver.MustParse("1.0.0"),
 		Address:       ocrAddr,
 		Qualifier:     testAptosOCRQualifier,
-	}))
-	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
-		ChainSelector: aptosSel,
-		Type:          testForwarderContractType,
-		Version:       semver.MustParse("1.0.0"),
-		Address:       fwdAddr,
-		Qualifier:     testAptosForwarderQualifier,
 	}))
 }
 
@@ -63,7 +53,6 @@ func freshAptosBase(ocrSel, aptosSel uint64) jobs.ProposeAptosCapJobSpecInput {
 		OCRChainSelector:     ocrSel,
 		BootstrapperOCR3Urls: []string{"12D3KooWxyz@127.0.0.1:5001"},
 		OCRContractQualifier: testAptosOCRQualifier,
-		ForwardersQualifier:  testAptosForwarderQualifier,
 		CREForwarderAddress:  "0x2222222222222222222222222222222222222222222222222222222222222222",
 		DeltaStage:           10 * time.Second,
 		AptosCapabilityInputs: []jobs.AptosCapabilityInput{
@@ -87,10 +76,7 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	aptosSel := chainsel.APTOS_TESTNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedAptosAddresses(t, ds, ocrSel, aptosSel,
-		"0x1111111111111111111111111111111111111111",
-		"0x2222222222222222222222222222222222222222222222222222222222222222",
-	)
+	seedAptosAddresses(t, ds, ocrSel, "0x1111111111111111111111111111111111111111")
 	env.DataStore = ds.Seal()
 
 	in := freshAptosBase(ocrSel, aptosSel)
@@ -110,10 +96,7 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_requiredFields(t *testing.T)
 	aptosSel := chainsel.APTOS_TESTNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedAptosAddresses(t, ds, ocrSel, aptosSel,
-		"0x1111111111111111111111111111111111111111",
-		"0x2222222222222222222222222222222222222222222222222222222222222222",
-	)
+	seedAptosAddresses(t, ds, ocrSel, "0x1111111111111111111111111111111111111111")
 	env.DataStore = ds.Seal()
 
 	base := freshAptosBase(ocrSel, aptosSel)
@@ -157,13 +140,6 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_missingAddresses(t *testing.
 
 	t.Run("missing OCR address", func(t *testing.T) {
 		ds := datastore.NewMemoryDataStore()
-		require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
-			ChainSelector: aptosSel,
-			Type:          testForwarderContractType,
-			Version:       semver.MustParse("1.0.0"),
-			Address:       "0x2222222222222222222222222222222222222222222222222222222222222222",
-			Qualifier:     testAptosForwarderQualifier,
-		}))
 		env.DataStore = ds.Seal()
 
 		in := freshAptosBase(ocrSel, aptosSel)
@@ -183,10 +159,7 @@ func TestProposeAptosCapJobSpec_VerifyPreconditions_overrideMismatches(t *testin
 	aptosSel := chainsel.APTOS_TESTNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedAptosAddresses(t, ds, ocrSel, aptosSel,
-		"0x1111111111111111111111111111111111111111",
-		"0x2222222222222222222222222222222222222222222222222222222222222222",
-	)
+	seedAptosAddresses(t, ds, ocrSel, "0x1111111111111111111111111111111111111111")
 	env.DataStore = ds.Seal()
 
 	base := freshAptosBase(ocrSel, aptosSel)
@@ -240,10 +213,7 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 	aptosSel := testEnv.AptosSelector
 
 	ds := datastore.NewMemoryDataStore()
-	seedAptosAddresses(t, ds, ocrSel, aptosSel,
-		"0x1111111111111111111111111111111111111111",
-		"0x2222222222222222222222222222222222222222222222222222222222222222",
-	)
+	seedAptosAddresses(t, ds, ocrSel, "0x1111111111111111111111111111111111111111")
 	env := testEnv.Env
 	env.DataStore = ds.Seal()
 
@@ -284,7 +254,6 @@ func setupAptosCapTest(t *testing.T) aptosCapTestSetup {
 		OCRChainSelector:       ocrSel,
 		BootstrapperOCR3Urls:   []string{"12D3KooWabc@127.0.0.1:5001"},
 		OCRContractQualifier:   testAptosOCRQualifier,
-		ForwardersQualifier:    testAptosForwarderQualifier,
 		CREForwarderAddress:    "0x2222222222222222222222222222222222222222222222222222222222222222",
 		DeltaStage:             time.Second,
 		TxSearchStartingBuffer: 30 * time.Second,

@@ -21,7 +21,6 @@ type commonCapFields struct {
 	OCRChainSelector     uint64
 	BootstrapperOCR3Urls []string
 	OCRContractQualifier string
-	ForwardersQualifier  string
 	DeltaStage           time.Duration
 }
 

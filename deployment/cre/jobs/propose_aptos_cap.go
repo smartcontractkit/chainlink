@@ -43,7 +43,6 @@ type ProposeAptosCapJobSpecInput struct {
 	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
 	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
 	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 
 	DeltaStage             time.Duration          `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	TxSearchStartingBuffer time.Duration          `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
@@ -72,7 +71,6 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		OCRChainSelector:     input.OCRChainSelector,
 		BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
 		OCRContractQualifier: input.OCRContractQualifier,
-		ForwardersQualifier:  input.ForwardersQualifier,
 		DeltaStage:           input.DeltaStage,
 	}); err != nil {
 		return err
