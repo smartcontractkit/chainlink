@@ -185,8 +185,6 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 }
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
-	t.Skip("broken")
-
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	evmChainsBySel := rt.Environment().BlockChains.EVMChains()
 	chainSelectors := slices.Sorted(maps.Keys(evmChainsBySel))
@@ -201,17 +199,6 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 			chain,
 			addrBook,
 		)
-
-		err := rt.Exec(
-			runtime.ChangesetTask(v1_6_2.DeployCCTPMessageTransmitterProxyNew, v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
-					chain.Selector: {
-						TokenMessenger: tokenMessenger.Address,
-					},
-				},
-			}),
-		)
-		require.NoError(t, err)
 
 		newUSDCMsgProxies[chain.Selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
