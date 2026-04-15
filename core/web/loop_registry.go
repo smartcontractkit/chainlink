@@ -127,7 +127,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	gc.Data(http.StatusOK, "text/plain", b)
 }
 
-const PPROFOverheadSeconds = 30
+const PPROFOverheadSeconds = 360
 
 func pprofURLVals(gc *gin.Context) (urlVals url.Values, timeout time.Duration) {
 	urlVals = make(url.Values)
