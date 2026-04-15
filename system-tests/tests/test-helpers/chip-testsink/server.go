@@ -112,7 +112,7 @@ func (s *Server) Run() error {
 func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 	go func() {
 		if s.cfg.UpstreamEndpoint != "" {
-			forwardCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
+			forwardCtx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 			defer cancelFn()
 			_, err := s.upstream.Publish(forwardCtx, event)
 			if err != nil {
@@ -134,7 +134,7 @@ func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch
 			return
 		}
 
-		forwardCtx, cancelFn := context.WithTimeout(ctx, 10*time.Second)
+		forwardCtx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancelFn()
 		_, err := s.upstream.PublishBatch(forwardCtx, batch)
 		if err != nil {
