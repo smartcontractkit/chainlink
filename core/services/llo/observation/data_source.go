@@ -32,11 +32,11 @@ import (
 //     this much time remains before expiry, we skip refresh (good cache utilization).
 //   - Require staleRefreshRemaining < cacheTTL so there is always a refresh window before expiry; here 1.5·T < 3·T.
 const (
-	cacheTTLMultiplier                  = 3
+	cacheTTLMultiplier                     = 3
 	staleRefreshRemainingNumerator   int64 = 3
 	staleRefreshRemainingDenominator int64 = 2 // 3/2 · T = 1.5 · T remaining life to still treat as fresh enough to skip
 
-	observationLoopPacingMin   = 20 * time.Millisecond
+	observationLoopPacingMin     = 20 * time.Millisecond
 	observationLoopPacingDivisor = 4 // pacing default = T/4, capped below
 )
 
