@@ -25,8 +25,10 @@ import (
 
 func TestVRFv2Basic(t *testing.T) {
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr, "failed to save container logs")
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	outputFile := "../../env-vrfv2-out.toml"

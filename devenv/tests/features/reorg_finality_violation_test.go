@@ -23,8 +23,10 @@ func TestReorgHeadTrackerFinalityViolation(t *testing.T) {
 	l := framework.L
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	rpcClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)

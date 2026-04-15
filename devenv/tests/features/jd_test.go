@@ -18,8 +18,10 @@ func TestMultipleJobDistributors(t *testing.T) {
 	node := in.NodeSets[0].Out.CLNodes[0].Node
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	c, err := client.NewWithContext(t.Context(), node.ExternalURL, client.Credentials{

@@ -115,8 +115,10 @@ func TestKeeperBasic(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -258,8 +260,10 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -461,8 +465,10 @@ func TestKeeperSimulation(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -608,8 +614,10 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -823,8 +831,10 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -978,8 +988,10 @@ func TestKeeperAddFunds(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1112,8 +1124,10 @@ func TestKeeperRemove(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1259,8 +1273,10 @@ func TestKeeperPauseRegistry(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1384,8 +1400,10 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1600,8 +1618,10 @@ func TestKeeperJobReplacement(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1761,8 +1781,10 @@ func TestKeeperNodeDown(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1946,8 +1968,10 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"
@@ -2095,8 +2119,10 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 				err := products.ScanLogs(l, products.DefaultSettings())
 				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				if t.Failed() {
+					_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+					require.NoError(t, cErr)
+				}
 			})
 
 			outputFile := "../../env-out.toml"

@@ -28,8 +28,10 @@ func TestVRFBasic(t *testing.T) {
 	productCfg, err := products.LoadOutput[vrf.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	c, auth, _, err := products.ETHClient(
@@ -74,8 +76,10 @@ func TestVRFJobReplacement(t *testing.T) {
 	productCfg, err := products.LoadOutput[vrf.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	c, auth, _, err := products.ETHClient(

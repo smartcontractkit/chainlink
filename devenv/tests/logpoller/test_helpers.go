@@ -812,7 +812,7 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contract
 		address := task.emitter.Address().String()
 
 		for _, event := range cfg.General.EventsToEmit {
-			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msg("Emitting log from emitter")
+			l.Debug().Str("Emitter address", address).Str("Event type", event.Name).Str("index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount*cfg.General.Contracts)).Msg("Emitting log from emitter")
 			var err error
 			switch event.Name {
 			case "Log1":
@@ -834,7 +834,7 @@ func runLoopedGenerator(cfg *Config, client *seth.Client, logEmitters []contract
 			randomWait(cfg.LoopedConfig.MinEmitWaitTimeMs, cfg.LoopedConfig.MaxEmitWaitTimeMs)
 
 			if (current)%10 == 0 {
-				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
+				l.Info().Str("Emitter address", address).Str("Index", fmt.Sprintf("%d/%d", current, cfg.LoopedConfig.ExecutionCount*cfg.General.Contracts)).Msgf("Emitted all %d events", len(cfg.General.EventsToEmit))
 			}
 		}
 

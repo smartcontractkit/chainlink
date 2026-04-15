@@ -99,8 +99,10 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 		err := products.ScanLogs(l, products.DefaultSettings())
 		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
 
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	outputFile := "../../env-out.toml"

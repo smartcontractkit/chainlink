@@ -22,8 +22,10 @@ func TestSmoke(t *testing.T) {
 	pdConfig, err := products.LoadOutput[cron.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	cls, err := clclient.New(in.NodeSets[0].Out.CLNodes)

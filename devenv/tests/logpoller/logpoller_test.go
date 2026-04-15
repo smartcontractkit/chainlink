@@ -162,6 +162,11 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	t.Cleanup(func() {
 		err := products.ScanLogs(l, products.DefaultSettings(allowedLogMessages...))
 		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	outputFile := "../../env-out.toml"
@@ -328,6 +333,11 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	t.Cleanup(func() {
 		err := products.ScanLogs(l, products.DefaultSettings())
 		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+
+		if t.Failed() {
+			_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+			require.NoError(t, cErr)
+		}
 	})
 
 	eventsToEmit := []abi.Event{}

@@ -378,6 +378,11 @@ jobs:
           echo "Running tests for: $CHAINLINK_IMAGE, test: $TESTCMD"
           eval $TESTCMD
 
+      - name: Show Docker containers status
+        if: failure()
+        shell: bash
+        run: docker ps -a
+
       - name: Upload Logs
         if: always()
         uses: actions/upload-artifact@v7
