@@ -208,18 +208,16 @@ jobs:
             ccip-prereleases-prod-testnet
 
   post-build:
-    needs: [docker-core, docker-ccip]
-    name: Post-Build Actions
-    uses: ./.github/workflows/post-build.yml
+    needs: [docker-core]
+    name: Post Build Checks
+    uses: ./.github/workflows/post-build-publish.yml
     secrets: inherit
     permissions:
       actions: read
-      checks: write
       id-token: write
       contents: read
     with:
-      chainlink_core_full_image: ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
-      chainlink_ccip_full_image: ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
+      chainlink_core_image_tag: ${{ format('{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) }}
       chainlink_version: ${{ github.ref_name }}
 
   # Notify Slack channel for new git tags associated with pre-releases.

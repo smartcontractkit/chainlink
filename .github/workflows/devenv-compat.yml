@@ -73,6 +73,7 @@ on:
 
 jobs:
   compatibility:
+    name: Upgrade Compatibility Test for ${{ inputs.product }}
     permissions:
       id-token: write
       contents: read

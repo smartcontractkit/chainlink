@@ -1,17 +1,13 @@
-name: "Post-Build Chainlink"
+name: "Post Build, Sign and Publish Chainlink"
 
 on:
     # to be used with post-release tests
     workflow_call:
         inputs:
-            chainlink_core_full_image:
+            chainlink_core_image_tag:
                 required: false
                 type: string
-                description: "The Chainlink (core) image to use for the tests."
-            chainlink_ccip_full_image:
-                required: false
-                type: string
-                description: "The Chainlink (CCIP) image to use for the tests."
+                description: "The Chainlink (core) image tagto use for the tests."
             chainlink_version:
                 required: false
                 type: string
@@ -19,7 +15,6 @@ on:
 
 permissions:
     actions: read
-    checks: write
     id-token: write
     contents: read
 
@@ -29,6 +24,7 @@ jobs:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
         with:
+            product: "Data Feeds v1"
             buildcmd: "just cli"
             envcmd: "cl u env.toml,products/ocr2/basic.toml"
             testcmd: "cl test ocr2 TestSmoke/rounds"
@@ -49,6 +45,7 @@ jobs:
         uses: ./.github/workflows/devenv-compat.yml
         name: CRE Upgrade Test
         with:
+            product: "CRE"
             buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
             envcmd: "go run -C ../../core/scripts/cre/environment . env start"
             testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
@@ -63,4 +60,45 @@ jobs:
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+        secrets: inherit
+
+    legacy-system-tests:
+        name: Legacy Smoke Tests
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/legacy-system-tests.yml
+        with:
+            ecr: "public"
+            chainlink_version: ${{ inputs.chainlink_version }}
+            chainlink_image_repository_path: "chainlink/chainlink"
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit
+
+    cre-smoke-tests:
+        name: CRE Smoke Tests
+        permissions:
+            actions: read
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/cre-system-tests.yaml
+        with:
+            ecr: "public"
+            chainlink_image_repository_path: "chainlink/chainlink"
+            chainlink_version: ${{ inputs.chainlink_version }}
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit
+
+    cre-regression-tests:
+        name: CRE Regression Tests
+        permissions:
+            actions: read
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/cre-regression-system-tests.yaml
+        with:
+            ecr: "public"
+            chainlink_image_repository_path: "chainlink/chainlink"
+            chainlink_version: ${{ inputs.chainlink_version }}
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
         secrets: inherit
