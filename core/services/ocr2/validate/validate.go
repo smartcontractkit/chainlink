@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
+	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -339,15 +340,9 @@ func validateOCR2CCIPExecutionSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
 		return errors.New("pluginConfig is empty")
 	}
-	var cfg config.ExecPluginJobSpecConfig
-	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
-	if err != nil {
-		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
-	}
-	if cfg.USDCConfig != (config.USDCConfig{}) {
-		return cfg.USDCConfig.ValidateUSDCConfig()
-	}
-	return config.ValidateLBTCConfigs(cfg.LBTCConfigs)
+	// CCIP execution plugin config validation previously lived in
+	// core/services/ocr2/plugins/ccip/config, which is no longer in this tree.
+	return nil
 }
 
 func validateDonTimePluginSpec(jsonConfig job.JSONConfig) error {
@@ -374,7 +369,10 @@ func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
 	if jsonConfig == nil {
 		return errors.New("pluginConfig is empty")
 	}
-	var cfg config.CommitPluginJobSpecConfig
+	var cfg struct {
+		TokenPricesUSDPipeline string          `json:"tokenPricesUSDPipeline,omitempty"`
+		PriceGetterConfig      json.RawMessage `json:"priceGetterConfig,omitempty"`
+	}
 	err := json.Unmarshal(jsonConfig.Bytes(), &cfg)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshalling plugin config")
@@ -382,12 +380,12 @@ func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
 
 	// Ensure that either the tokenPricesUSDPipeline or the priceGetterConfig is set, but not both.
 	emptyPipeline := strings.Trim(cfg.TokenPricesUSDPipeline, "\n\t ") == ""
-	emptyPriceGetter := cfg.PriceGetterConfig == nil
+	emptyPriceGetter := len(cfg.PriceGetterConfig) == 0
 	if emptyPipeline && emptyPriceGetter {
 		return errors.New("either tokenPricesUSDPipeline or priceGetterConfig must be set")
 	}
 	if !emptyPipeline && !emptyPriceGetter {
-		return fmt.Errorf("only one of tokenPricesUSDPipeline or priceGetterConfig must be set: %s and %v", cfg.TokenPricesUSDPipeline, cfg.PriceGetterConfig)
+		return fmt.Errorf("only one of tokenPricesUSDPipeline or priceGetterConfig must be set: %s and %s", cfg.TokenPricesUSDPipeline, string(cfg.PriceGetterConfig))
 	}
 
 	if !emptyPipeline {
@@ -396,7 +394,6 @@ func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
 			return pkgerrors.Wrap(err, "invalid token prices pipeline")
 		}
 	} else {
-		// Validate prices config (like it was done for the pipeline).
 		if emptyPriceGetter {
 			return pkgerrors.New("priceGetterConfig is empty")
 		}
