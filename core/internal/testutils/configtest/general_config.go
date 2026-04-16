@@ -46,24 +46,24 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	s.Password.Keystore = models.NewSecret("dummy-to-pass-validation")
 
-	c.Insecure.OCRDevelopmentMode = ptr(true)
-	c.InsecurePPROFHeap = ptr(true)
-	c.InsecureFastScrypt = ptr(true)
+	c.Insecure.OCRDevelopmentMode = new(true)
+	c.InsecurePPROFHeap = new(true)
+	c.InsecureFastScrypt = new(true)
 	c.ShutdownGracePeriod = commonconfig.MustNewDuration(testutils.DefaultWaitTimeout)
 
 	c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
-	c.Database.Lock.Enabled = ptr(false)
-	c.Database.MaxIdleConns = ptr[int64](20)
-	c.Database.MaxOpenConns = ptr[int64](20)
-	c.Database.MigrateOnStartup = ptr(false)
+	c.Database.Lock.Enabled = new(false)
+	c.Database.MaxIdleConns = new(int64(20))
+	c.Database.MaxOpenConns = new(int64(20))
+	c.Database.MigrateOnStartup = new(false)
 	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
 
 	c.JobPipeline.ReaperInterval = commonconfig.MustNewDuration(0)
-	c.JobPipeline.VerboseLogging = ptr(true)
+	c.JobPipeline.VerboseLogging = new(true)
 
-	c.Mercury.VerboseLogging = ptr(true)
+	c.Mercury.VerboseLogging = new(true)
 
-	c.P2P.V2.Enabled = ptr(false)
+	c.P2P.V2.Enabled = new(false)
 
 	c.WebServer.SessionTimeout = commonconfig.MustNewDuration(2 * time.Minute)
 	c.WebServer.BridgeResponseURL = commonconfig.MustParseURL("http://localhost:6688")
@@ -81,12 +81,12 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 		Chain:   chainCfg,
 		Nodes: toml.EVMNodes{
 			&toml.Node{
-				Name:              ptr("test"),
+				Name:              new("test"),
 				WSURL:             &commonconfig.URL{},
 				HTTPURL:           &commonconfig.URL{},
 				SendOnly:          new(bool),
-				Order:             ptr[int32](100),
-				IsLoadBalancedRPC: ptr[bool](false),
+				Order:             new(int32(100)),
+				IsLoadBalancedRPC: new(false),
 			},
 		},
 	})
@@ -123,12 +123,10 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 }
 
 var validTestNode = toml.Node{
-	Name:              ptr("simulated-node"),
+	Name:              new("simulated-node"),
 	WSURL:             commonconfig.MustParseURL("WSS://simulated-wss.com/ws"),
 	HTTPURL:           commonconfig.MustParseURL("http://simulated.com"),
 	SendOnly:          nil,
-	Order:             ptr(int32(1)),
-	IsLoadBalancedRPC: ptr(false),
+	Order:             new(int32(1)),
+	IsLoadBalancedRPC: new(false),
 }
-
-func ptr[T any](v T) *T { return &v }

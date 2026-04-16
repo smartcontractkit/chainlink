@@ -67,7 +67,7 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 
 	for _, tc := range testCases {
 		t.Run("Read "+tc.String(), func(t *testing.T) {
-			if parallelEnabled && fanoutEnabled {
+			if parallelEnabled {
 				t.Parallel()
 			}
 
@@ -82,9 +82,10 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
 			server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, evmReadLogFilePath(t, perCaseEnv)))
 			t.Cleanup(func() {
-				server.Shutdown(t.Context())
-				close(userLogsCh)
-				close(baseMessageCh)
+				// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 			})
 
 			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
@@ -391,9 +392,10 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+		// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
 	for _, bcOutput := range testEnv.CreEnvironment.Blockchains {

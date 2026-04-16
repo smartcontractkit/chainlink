@@ -83,12 +83,12 @@ func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, c
 	wsPort := freeport.GetOne(t)
 	host := "localhost"
 	nodeConfig := toml.Node{
-		Name:              ptr("simulated-node"),
-		WSURL:             ptr(commonconfig.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", host, wsPort)}),
-		HTTPURL:           ptr(commonconfig.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, httpPort)}),
+		Name:              new("simulated-node"),
+		WSURL:             new(commonconfig.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%d", host, wsPort)}),
+		HTTPURL:           new(commonconfig.URL{Scheme: "http", Host: fmt.Sprintf("%s:%d", host, httpPort)}),
 		SendOnly:          nil,
-		Order:             ptr(int32(1)),
-		IsLoadBalancedRPC: ptr(false),
+		Order:             new(int32(1)),
+		IsLoadBalancedRPC: new(false),
 	}
 
 	b := simulated.NewBackend(genesisData, simulated.WithBlockGasLimit(gasLimit), withRPCServer(host, httpPort, wsPort, []string{"eth", "net", "web3"}))
@@ -137,15 +137,15 @@ func SetupNodeOCR2(
 	ctx := testutils.Context(t)
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
+		c.Insecure.OCRDevelopmentMode = new(true) // Disables ocr spec validation so we can have fast polling for the test.
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 
-		c.OCR.Enabled = ptr(false)
-		c.OCR2.Enabled = ptr(true)
+		c.OCR.Enabled = new(false)
+		c.OCR2.Enabled = new(true)
 
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.PeerID = new(p2pKey.PeerID())
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(5 * time.Second)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", port)}
@@ -725,8 +725,6 @@ func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
 	require.NoError(t, err)
 	return
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nodeConf *node.Config, ethConf *ethconfig.Config) {
 	return func(nodeConf *node.Config, ethConf *ethconfig.Config) {

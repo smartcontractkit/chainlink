@@ -1,6 +1,7 @@
 package cre
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"math/big"
@@ -79,7 +80,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	gwURL := gatewayURL.String()
 
 	t.Run("basic_crud", func(t *testing.T) {
-		if parallelEnabled && fanoutEnabled {
+		if parallelEnabled {
 			t.Parallel()
 		}
 		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
@@ -95,7 +96,12 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		ulCh := make(chan *workflowevents.UserLogs, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
 		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-		t.Cleanup(func() { sink.Shutdown(t.Context()); close(ulCh); close(bmCh) })
+		t.Cleanup(func() {
+			// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+		})
 		namespaces := []string{"main", "alt"}
 
 		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, namespaces, sc, wfReg)

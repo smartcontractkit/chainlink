@@ -35,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260407162454-407b2a207dcc"
+      gitRef: "v1.1.2-0.20260415133314-f9b1fef9e55f"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -50,7 +50,7 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260410201811-4e2e3b68a59e"
+      gitRef: "v0.0.0-20260415120434-cecc380f8d87"
       installPath: "./cmd/chainlink-ton"
 
   tron:

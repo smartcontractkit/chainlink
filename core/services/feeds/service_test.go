@@ -794,7 +794,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 				}
 
 				svc = setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.JobDistributor.DisplayName = testutils.Ptr("nop-friendly-name-test")
+					c.JobDistributor.DisplayName = new("nop-friendly-name-test")
 				})
 			)
 
@@ -1320,8 +1320,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
-				c.OCR.Enabled = testutils.Ptr(true)
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR.Enabled = new(true)
+				c.OCR2.Enabled = new(true)
 			})
 			if tc.before != nil {
 				tc.before(svc)
@@ -1864,7 +1864,7 @@ answer1      [type=median index=0];
 			t.Parallel()
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = new(true)
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
 			})
 			if tc.before != nil {
@@ -3243,7 +3243,7 @@ answer1 [type=median index=0];
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -3834,7 +3834,7 @@ updateInterval = "20m"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -4352,7 +4352,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -4897,7 +4897,7 @@ chainID = 0
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = new(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}

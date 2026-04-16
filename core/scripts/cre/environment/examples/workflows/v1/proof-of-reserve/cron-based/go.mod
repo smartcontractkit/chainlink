@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
 
-go 1.25.8
+go 1.26.2
 
 require (
 	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260401185621-720567ef9343

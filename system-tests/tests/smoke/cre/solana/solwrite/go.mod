@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite
 
-go 1.25.8
+go 1.26.2
 
 require (
 	github.com/gagliardetto/binary v0.8.0

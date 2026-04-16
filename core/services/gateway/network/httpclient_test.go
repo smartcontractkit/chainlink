@@ -393,17 +393,17 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 		{
 			name:          "explicitly blocked IP - loopback - ipv6",
 			url:           `https://[::1]`,
-			expectedError: "ipv6 blocked",
+			expectedError: expErrIPV6Blocked,
 		},
 		{
 			name:          "explicitly blocked IP - loopback ipv6 mapped ipv4",
 			url:           `https://[::FFF:7F00:0001]`,
-			expectedError: "ipv6 blocked",
+			expectedError: expErrIPV6Blocked,
 		},
 		{
 			name:          "explicitly blocked IP - loopback long-form",
 			url:           `https://[0000:0000:0000:0000:0000:0000:0000:0001]`,
-			expectedError: "ipv6 blocked",
+			expectedError: expErrIPV6Blocked,
 		},
 		{
 			name:          "explicitly blocked IP - current network",
@@ -445,21 +445,21 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 			url:           "http://42949672961",
 			expectedError: "no such host",
 		},
-		/*{ // TODO: failing with go 1.25
+		{
 			name:          "explicitly blocked IP - ipv6 mapped",
 			url:           "http://[::FFFF:0000:0001]",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: expErrNotAllowed,
 		},
 		{
 			name:          "explicitly blocked IP - ipv6 mapped",
 			url:           "http://[::FFFF:0.0.0.1]",
-			expectedError: "ip: 0.0.0.1 not found in allowlist",
+			expectedError: expErrNotAllowed,
 		},
 		{
 			name:          "explicitly blocked IP - loopback ipv6 mapped ipv4",
 			url:           `https://[::FFFF:127.0.0.1]`,
-			expectedError: "ip: 127.0.0.1 not found in allowlist",
-		},*/
+			expectedError: expErrNotAllowed,
+		},
 	}
 
 	// Execute test cases
@@ -503,7 +503,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 				URL:     testURL.String(),
 				Headers: map[string]string{},
 				Body:    nil,
-				Timeout: 1 * time.Second,
+				Timeout: 10 * time.Second,
 			})
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.expectedError)

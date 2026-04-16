@@ -131,7 +131,7 @@ func (it *EVMChainComponentsInterfaceTester[T]) getChainReaderConfig(t T) config
 							GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 								"msgTransmitterEvent": {
 									Name:  "msgTransmitterEvent",
-									Index: ptr(2),
+									Index: new(2),
 									Type:  "bytes32",
 								},
 							},
@@ -396,8 +396,4 @@ func (it *EVMChainComponentsInterfaceTester[T]) SetChainReaderConfigSupplier(cha
 
 func (it *EVMChainComponentsInterfaceTester[T]) SetChainWriterConfigSupplier(chainWriterConfigSupplier func(t T) config.ChainWriterConfig) {
 	it.chainWriterConfigSupplier = chainWriterConfigSupplier
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
