@@ -16,6 +16,10 @@ on:
                 required: false
                 type: string
                 description: "The version of Chainlink repository to use for the tests. If empty github.sha will be used."
+            slack_thread_ts:
+                required: false
+                type: string
+                description: "The Slack thread timestamp. If set test results will be posted to the Slack thread."
 
 permissions:
     actions: read
@@ -64,3 +68,35 @@ jobs:
             ctf-log-level: "debug"
             strip-image-suffix: "v"
         secrets: inherit
+
+    df1-compat-notify:
+        runs-on: ubuntu-latest
+        needs: [df1-compat]
+        if: always() && inputs.slack_thread_ts != ''
+        steps:
+            - name: Notify Slack Jobs Result
+              uses: ./.github/actions/notify-slack-jobs-result
+              env:
+                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
+                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+              with:
+                  status: ${{ needs.df1-compat.result }}
+                  job_name: "Data Feeds v1 Upgrade Test"
+                  run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+                  slack_thread_ts: ${{ inputs.slack_thread_ts }}
+
+    cre-compat-notify:
+        runs-on: ubuntu-latest
+        needs: [cre-compat]
+        if: always() && inputs.slack_thread_ts != ''
+        steps:
+            - name: Notify Slack Jobs Result
+              uses: ./.github/actions/notify-slack-jobs-result
+              env:
+                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
+                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+              with:
+                  status: ${{ needs.cre-compat.result }}
+                  job_name: "CRE Upgrade Test"
+                  run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+                  slack_thread_ts: ${{ inputs.slack_thread_ts }}
