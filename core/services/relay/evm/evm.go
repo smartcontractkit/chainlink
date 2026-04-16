@@ -1,9 +1,7 @@
 package evm
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/exp/maps"
@@ -516,18 +513,6 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 	}
 
 	return NewMercuryProvider(ctx, rargs.JobID, relayConfig, mercuryConfig, r.mercuryCfg.Transmitter(), cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), lggr, r.csaKeystore, r.mercuryPool, r.mercuryORM, r.triggerCapability)
-}
-
-func chainToUUID(chainID *big.Int) uuid.UUID {
-	// See https://www.rfc-editor.org/rfc/rfc4122.html#section-4.1.3 for the list of supported versions.
-	const VersionSHA1 = 5
-	var buf bytes.Buffer
-	buf.WriteString("CCIP:")
-	buf.Write(chainID.Bytes())
-	// We use SHA-256 instead of SHA-1 because the former has better collision resistance.
-	// The UUID will contain only the first 16 bytes of the hash.
-	// You can't say which algorithms was used just by looking at the UUID bytes.
-	return uuid.NewHash(sha256.New(), uuid.NameSpaceOID, buf.Bytes(), VersionSHA1)
 }
 
 func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.LLOProvider, error) {
