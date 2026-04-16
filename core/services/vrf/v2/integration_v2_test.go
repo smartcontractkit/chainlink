@@ -2129,6 +2129,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ec.On("Dial", mock.Anything).Maybe().Return(nil)
 	ec.On("Close").Maybe().Return(nil)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
+	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
 	txm := makeTestTxm(t, txStore, ks.Eth(), ec)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{

@@ -125,6 +125,7 @@ func TestEvmWrite(t *testing.T) {
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{Number: 99}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
+	evmClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	chain.On("Client").Return(evmClient)
 
 	evmCfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {

@@ -297,6 +297,7 @@ func TestETHCallTask(t *testing.T) {
 			}
 
 			ethClient := clienttest.NewClient(t)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 			config := pipelinemocks.NewConfig(t)
 			test.setupClientMocks(ethClient, config)
 
