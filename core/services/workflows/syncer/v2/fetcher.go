@@ -211,6 +211,11 @@ func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 		if err != nil {
 			return nil, fmt.Errorf("invalid URL: %w", err)
 		}
+		// Confidential workflows register with HTTP URLs (for the enclave).
+		// Extract the filename so the file fetcher can find the local copy.
+		if u.Scheme == "http" || u.Scheme == "https" {
+			u.Path = filepath.Base(u.Path)
+		}
 		fullPath := filepath.Clean(u.Path)
 
 		// ensure that the incoming request URL is either relative or absolute but within the basePath
