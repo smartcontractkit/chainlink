@@ -179,6 +179,7 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
 			err := test.Input.Validate(t.Context(), chain, state.Chains[chain.Selector])
+			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
@@ -227,14 +228,14 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 
 	newUSDCProxyCnfgs := make(map[uint64]v1_6_2.ConfigureCCTPMessageTransmitterProxyInput, len(evmChainsBySel))
 	for _, sel := range chainSelectors {
-		chain := evmChainsBySel[sel]
-		pools := startState.Chains[chain.Selector].USDCTokenPoolsV1_6
-		input := make([]v1_6_2.AllowedCallerUpdate, len(pools))
-
+		pools := startState.Chains[sel].USDCTokenPoolsV1_6
 		poolsSlice := slices.AppendSeq([]*usdc_token_pool.USDCTokenPool{}, maps.Values(pools))
 		slices.SortFunc(poolsSlice, func(a, b *usdc_token_pool.USDCTokenPool) int {
 			return cmp.Compare(a.Address().Hex(), b.Address().Hex())
 		})
+		require.NotEmpty(t, poolsSlice, "expected a 1.6 USDC token pool on chain %d before Configure", sel)
+
+		input := make([]v1_6_2.AllowedCallerUpdate, len(poolsSlice))
 		for i, pool := range poolsSlice {
 			input[i] = v1_6_2.AllowedCallerUpdate{
 				AllowedCaller: pool.Address(),
@@ -242,7 +243,7 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 			}
 		}
 
-		newUSDCProxyCnfgs[chain.Selector] = v1_6_2.ConfigureCCTPMessageTransmitterProxyInput{
+		newUSDCProxyCnfgs[sel] = v1_6_2.ConfigureCCTPMessageTransmitterProxyInput{
 			AllowedCallerUpdates: input,
 		}
 	}
@@ -257,9 +258,8 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 	finalState, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
 	for _, sel := range chainSelectors {
-		chain := evmChainsBySel[sel]
-		proxies := finalState.Chains[chain.Selector].CCTPMessageTransmitterProxies
-		updates := newUSDCProxyCnfgs[chain.Selector].AllowedCallerUpdates
+		proxies := finalState.Chains[sel].CCTPMessageTransmitterProxies
+		updates := newUSDCProxyCnfgs[sel].AllowedCallerUpdates
 		require.Len(t, proxies, 1)
 
 		expectedCallers := make([]common.Address, len(updates))
