@@ -58,10 +58,9 @@ func IsConfidential(data []byte) (bool, error) {
 	return attrs.Confidential, nil
 }
 
-// BinaryURLResolver resolves a raw binary URL into an ephemeral/presigned
-// URL that the enclave can fetch without authentication. In production this
-// calls the CRE storage service; nil means the raw URL is used as-is.
-// PR 5/5 (#21642) wires this to the storage service retriever.
+// BinaryURLResolver resolves a raw binary URL into a fetchable URL.
+// nil means the raw binaryURL is passed to the enclave as-is; the enclave
+// authenticates to the storage service via a credentials sidecar (PRIV-389).
 type BinaryURLResolver func(ctx context.Context, workflowID string) (string, error)
 
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
