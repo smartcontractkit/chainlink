@@ -1,5 +1,8 @@
 # NOTE: Identical to workflow-gatewway-capabilities.toml but with a vault capability config override
 # to disable the new pending queue feature.
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"

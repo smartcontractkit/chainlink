@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
@@ -55,6 +55,7 @@ type SetupOutput struct {
 type SetupInput struct {
 	NodeSets               []*cre.NodeSet
 	BlockchainsInput       []*blockchain.Input
+	ChipRouterInput        *ctfchiprouter.Input
 	JdInput                *jd.Input
 	Provider               infra.Provider
 	ContractVersions       map[cre.ContractType]*semver.Version
@@ -108,15 +109,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.New("input is nil")
 	}
 
-	//TODO: remove these checks in December 2025, when everyone has migrated
-	if val := os.Getenv("E2E_JD_IMAGE"); val != "" {
-		return nil, errors.New("E2E_JD_IMAGE and E2E_JD_VERSION are deprecated, please use CTF_JD_IMAGE instead to specify the Job Distributor image with tag")
-	}
-
-	if val := os.Getenv("E2E_TEST_CHAINLINK_IMAGE"); val != "" {
-		return nil, errors.New("E2E_TEST_CHAINLINK_IMAGE and E2E_TEST_CHAINLINK_VERSION are deprecated, please use CTF_CHAINLINK_IMAGE instead to specify the Chainlink Node image with tag")
-	}
-
 	if err := input.Validate(); err != nil {
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
@@ -126,6 +118,13 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
 	}
 
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Chip Router")))
+	_, err := ctfchiprouter.NewWithContext(ctx, input.ChipRouterInput)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to start chip router")
+	}
+
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chip Router started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
 
 	deployedBlockchains, startErr := blockchains.Start(

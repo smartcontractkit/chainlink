@@ -35,6 +35,8 @@ type LoopRegistry struct {
 	featureLogPoller       bool
 	cfgDatabase            config.Database
 	cfgMercury             config.Mercury
+	cfgPyroscope           config.Pyroscope
+	autoPPROF              config.AutoPprof
 	cfgTracing             config.Tracing
 	cfgTelemetry           config.Telemetry
 	telemetryAuthHeaders   map[string]string
@@ -43,8 +45,8 @@ type LoopRegistry struct {
 }
 
 func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, dbConfig config.Database,
-	mercury config.Mercury, tracing config.Tracing, telemetry config.Telemetry, telemetryAuthHeaders map[string]string,
-	telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
+	mercury config.Mercury, pyroscope config.Pyroscope, autoPPROF config.AutoPprof, tracing config.Tracing, telemetry config.Telemetry,
+	telemetryAuthHeaders map[string]string, telemetryAuthPubKeyHex string, looppCfg config.LOOPP) *LoopRegistry {
 	return &LoopRegistry{
 		registry:               map[string]*RegisteredLoop{},
 		lggr:                   logger.Named(lggr, "LoopRegistry"),
@@ -52,6 +54,8 @@ func NewLoopRegistry(lggr logger.Logger, appID string, featureLogPoller bool, db
 		featureLogPoller:       featureLogPoller,
 		cfgDatabase:            dbConfig,
 		cfgMercury:             mercury,
+		cfgPyroscope:           pyroscope,
+		autoPPROF:              autoPPROF,
 		cfgTracing:             tracing,
 		cfgTelemetry:           telemetry,
 		telemetryAuthHeaders:   telemetryAuthHeaders,
@@ -116,6 +120,17 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.MercuryTransmitterReaperFrequency = m.cfgMercury.Transmitter().ReaperFrequency()
 		envCfg.MercuryTransmitterReaperMaxAge = m.cfgMercury.Transmitter().ReaperMaxAge()
 		envCfg.MercuryVerboseLogging = m.cfgMercury.VerboseLogging()
+	}
+
+	if m.cfgPyroscope != nil {
+		envCfg.PyroscopeAuthToken = m.cfgPyroscope.AuthToken()
+		envCfg.PyroscopeServerAddress = m.cfgPyroscope.ServerAddress()
+		envCfg.PyroscopeEnvironment = m.cfgPyroscope.Environment()
+		envCfg.PyroscopeLinkTracesToProfiles = m.cfgPyroscope.LinkTracesToProfiles()
+		if m.autoPPROF != nil {
+			envCfg.PyroscopePPROFBlockProfileRate = m.autoPPROF.BlockProfileRate()
+			envCfg.PyroscopePPROFMutexProfileFraction = m.autoPPROF.MutexProfileFraction()
+		}
 	}
 
 	if m.cfgTracing != nil {
