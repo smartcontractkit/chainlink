@@ -47,9 +47,9 @@ plugins:
       installPath: "."
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "dc9f9dd2cad3a80fc0207f4c999f2cdad2daba74"
+      gitRef: "dc9f9dd09527246a0133a302a923aef42e97d631"
       installPath: "./cmd/confidential-http"
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "dc9f9dd2cad3a80fc0207f4c999f2cdad2daba74"
+      gitRef: "dc9f9dd09527246a0133a302a923aef42e97d631"
       installPath: "./cmd/confidential-workflows"
