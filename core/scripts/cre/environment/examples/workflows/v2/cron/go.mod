@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 
-go 1.25.8
+go 1.26.2
 
 require (
 	github.com/smartcontractkit/cre-sdk-go v1.5.0

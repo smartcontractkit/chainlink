@@ -8,7 +8,6 @@ import (
 	json "encoding/json"
 
 	jsonrpc2 "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
