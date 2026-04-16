@@ -56,7 +56,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260415133314-f9b1fef9e55f
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260217175957-8f1af02c5075
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260409184948-5b16fae57fe0
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260304150206-c64e48eb0cb0
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260409184948-5b16fae57fe0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-ton v0.0.0-20260415120434-cecc380f8d87
