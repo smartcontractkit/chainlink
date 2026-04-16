@@ -24,7 +24,6 @@ jobs:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
         with:
-            product: "Data Feeds v1"
             buildcmd: "just cli"
             envcmd: "cl u env.toml,products/ocr2/basic.toml"
             testcmd: "cl test ocr2 TestSmoke/rounds"
@@ -45,7 +44,6 @@ jobs:
         uses: ./.github/workflows/devenv-compat.yml
         name: CRE Upgrade Test
         with:
-            product: "CRE"
             buildcmd: "echo nothing-to-build" # added to prevent `just cli` from being used (default buildcmd if not provided)
             envcmd: "go run -C ../../core/scripts/cre/environment . env start"
             testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
