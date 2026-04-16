@@ -217,7 +217,7 @@ jobs:
       id-token: write
       contents: read
     with:
-      chainlink_core_image_tag: ${{ format('{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) }}
+      chainlink_core_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
       chainlink_version: ${{ github.ref_name }}
 
   # Notify Slack channel for new git tags associated with pre-releases.
