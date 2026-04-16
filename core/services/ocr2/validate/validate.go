@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
-	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -23,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"
