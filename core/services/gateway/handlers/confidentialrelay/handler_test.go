@@ -42,7 +42,7 @@ func newBarrierDON(total int) *barrierDON {
 	}
 }
 
-func (d *barrierDON) SendToNode(_ context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
+func (d *barrierDON) SendToNode(ctx context.Context, _ string, _ *jsonrpc.Request[json.RawMessage]) error {
 	d.mu.Lock()
 	d.started++
 	if d.started == d.total {
@@ -51,12 +51,12 @@ func (d *barrierDON) SendToNode(_ context.Context, _ string, _ *jsonrpc.Request[
 	ch := d.allStarted
 	d.mu.Unlock()
 
-	<-ch
-	return nil
-}
-
-func (d *barrierDON) forceRelease() {
-	d.releaseOnce.Do(func() { close(d.allStarted) })
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 var nodeOne = config.NodeConfig{
@@ -521,6 +521,77 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	wg.Wait()
 }
 
+func TestConfidentialRelayHandler_FanOutWaitsWhileQuorumStillPossible(t *testing.T) {
+	h, cb, don, _ := setupHandler(t, 4)
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
+			switch nodeAddress {
+			case "0x0000", "0x0001":
+				return errors.New("connection refused")
+			default:
+				return nil
+			}
+		},
+	)
+
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-still-possible",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.NoError(t, err)
+
+	require.NotNil(t, h.getActiveRequest(req.ID), "request should remain active while quorum is still possible")
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
+	defer cancel()
+	_, err = cb.Wait(ctx)
+	require.Error(t, err)
+}
+
+func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *testing.T) {
+	h, cb, don, _ := setupHandler(t, 4)
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(
+		func(_ context.Context, nodeAddress string, _ *jsonrpc.Request[json.RawMessage]) error {
+			switch nodeAddress {
+			case "0x0000", "0x0001", "0x0002":
+				return errors.New("connection refused")
+			default:
+				return nil
+			}
+		},
+	)
+
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-quorum-impossible",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.FatalError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		err = json.Unmarshal(resp.RawResponse, &jsonResp)
+		assert.NoError(t, err)
+		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
+	}()
+
+	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+	require.NoError(t, err)
+	wg.Wait()
+
+	require.Nil(t, h.getActiveRequest(req.ID), "request should be cleaned up once quorum is impossible")
+}
+
 func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	lggr := logger.Test(t)
 	don := newBarrierDON(2)
@@ -550,16 +621,20 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 		Params: &params,
 	}
 
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
 	done := make(chan error, 1)
 	go func() {
-		done <- h.HandleJSONRPCUserMessage(t.Context(), req, cb)
+		done <- h.HandleJSONRPCUserMessage(ctx, req, cb)
 	}()
 
 	select {
 	case err := <-done:
 		require.NoError(t, err)
 	case <-time.After(100 * time.Millisecond):
-		don.forceRelease()
+		cancel()
+		<-done
 		t.Fatal("HandleJSONRPCUserMessage did not fan out to nodes concurrently")
 	}
 

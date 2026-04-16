@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -353,19 +354,15 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
 	var (
-		group        errgroup.Group
-		nodeErrors   int
-		nodeErrorsMu sync.Mutex
+		group      errgroup.Group
+		nodeErrors atomic.Uint32
 	)
 
 	for _, node := range h.donConfig.Members {
-		node := node
 		group.Go(func() error {
 			err := h.don.SendToNode(ctx, node.Address, &ar.req)
 			if err != nil {
-				nodeErrorsMu.Lock()
-				nodeErrors++
-				nodeErrorsMu.Unlock()
+				nodeErrors.Add(1)
 				l.Errorw("error sending request to node", "node", node.Address, "error", err)
 			}
 			return nil
@@ -374,7 +371,9 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 
 	_ = group.Wait()
 
-	if nodeErrors == len(h.donConfig.Members) && nodeErrors > 0 {
+	numNodeErrors := nodeErrors.Load()
+	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
+	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
@@ -404,19 +403,13 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest,
 }
 
 func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
+	//nolint:exhaustive // do not record other errors
 	switch errorCode {
-	case api.StaleNodeResponseError:
-	case api.FatalError:
-	case api.NodeReponseEncodingError:
-	case api.RequestTimeoutError:
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 			attribute.String("error", errorCode.String()),
 		))
-	case api.InvalidParamsError:
-	case api.UnsupportedMethodError:
-	case api.UserMessageParseError:
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
@@ -425,12 +418,11 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 		))
-	case api.ConflictError:
-	case api.LimitExceededError:
 	}
 }
 
 func (h *handler) constructErrorResponse(req jsonrpc.Request[json.RawMessage], errorCode api.ErrorCode, err error) gwhandlers.UserCallbackPayload {
+	//nolint:exhaustive // do not modify other error codes
 	switch errorCode {
 	case api.NodeReponseEncodingError:
 		err = errors.New(errorCode.String())
@@ -440,14 +432,6 @@ func (h *handler) constructErrorResponse(req jsonrpc.Request[json.RawMessage], e
 		err = fmt.Errorf("unsupported method(%s): %w", req.Method, err)
 	case api.UserMessageParseError:
 		err = fmt.Errorf("user message parse error: %w", err)
-	case api.NoError:
-	case api.UnsupportedDONIdError:
-	case api.HandlerError:
-	case api.FatalError:
-	case api.RequestTimeoutError:
-	case api.StaleNodeResponseError:
-	case api.ConflictError:
-	case api.LimitExceededError:
 	}
 	return gwhandlers.UserCallbackPayload{
 		RawResponse: h.codec.EncodeNewErrorResponse(
