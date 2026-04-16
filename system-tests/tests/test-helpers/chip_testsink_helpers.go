@@ -3,9 +3,9 @@ package helpers
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -19,19 +19,179 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
 )
 
 const testSinkStartupTimeout = 10 * time.Second
+const relativePathToRepoRoot = "../../../../"
 
 type ChipSink interface {
 	Shutdown(ctx context.Context)
+}
+
+type registeredChipSink struct {
+	server       *chiptestsink.Server
+	subscriberID string
+	relativePath string
+}
+
+func (s *registeredChipSink) Shutdown(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	if err := chiprouter.UnregisterSubscriber(ctx, s.subscriberID); err != nil && !os.IsNotExist(err) {
+		framework.L.Warn().Msgf("failed to unregister chip sink subscriber: %s", err)
+	}
+	if s.server != nil {
+		s.server.Shutdown(ctx)
+	}
+}
+
+// StartChannelDrainers starts one goroutine per channel and drains messages until stop is called
+// or the channel is closed. This is useful during teardown to avoid producer goroutines blocking
+// on full channels while infrastructure is shutting down.
+func StartChannelDrainers[T any](channels ...<-chan T) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
+	for _, ch := range channels {
+		if ch == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(ch <-chan T) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, ok := <-ch:
+					if !ok {
+						return
+					}
+				}
+			}
+		}(ch)
+	}
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
+
+// CloseChannels closes all non-nil channels in order.
+func CloseChannels[T any](channels ...chan T) {
+	for _, ch := range channels {
+		if ch != nil {
+			close(ch)
+		}
+	}
+}
+
+// collectChannels flattens channel arguments and slices/arrays of channels into a single list.
+func collectChannels(args ...any) []reflect.Value {
+	channels := make([]reflect.Value, 0, len(args))
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		if !v.IsValid() {
+			continue
+		}
+
+		switch v.Kind() {
+		case reflect.Chan:
+			channels = append(channels, v)
+		case reflect.Slice, reflect.Array:
+			for i := 0; i < v.Len(); i++ {
+				elem := v.Index(i)
+				if elem.IsValid() && elem.Kind() == reflect.Chan {
+					channels = append(channels, elem)
+				}
+			}
+		default:
+			framework.L.Warn().Msgf("unsupported arg to ShutdownChipSinkWithDrain: %T", arg)
+		}
+	}
+	return channels
+}
+
+// startReflectChannelDrainers drains channels until they are closed or stop() is called.
+func startReflectChannelDrainers(channels []reflect.Value) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	doneCh := reflect.ValueOf(ctx.Done())
+
+	for _, ch := range channels {
+		if !ch.IsValid() || ch.Kind() != reflect.Chan || ch.IsNil() {
+			continue
+		}
+
+		wg.Add(1)
+		go func(ch reflect.Value) {
+			defer wg.Done()
+			cases := []reflect.SelectCase{
+				{Dir: reflect.SelectRecv, Chan: ch},
+				{Dir: reflect.SelectRecv, Chan: doneCh},
+			}
+			for {
+				chosen, _, ok := reflect.Select(cases)
+				if chosen == 1 {
+					return
+				}
+				if !ok {
+					return
+				}
+			}
+		}(ch)
+	}
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
+
+func closeReflectChannels(channels []reflect.Value) {
+	for _, ch := range channels {
+		if !ch.IsValid() || ch.Kind() != reflect.Chan || ch.IsNil() {
+			continue
+		}
+		// Only close channels that have send capability.
+		if ch.Type().ChanDir()&reflect.SendDir == 0 {
+			continue
+		}
+		func(ch reflect.Value) {
+			defer func() { _ = recover() }()
+			ch.Close()
+		}(ch)
+	}
+}
+
+// ShutdownChipSinkWithDrain performs a safer sink teardown for tests.
+// It starts background drainers for provided channels, shuts down the sink,
+// stops drainers, and then closes channels.
+func ShutdownChipSinkWithDrain(
+	shutdownCtx context.Context,
+	sink ChipSink,
+	channels ...any,
+) {
+	flattenedChannels := collectChannels(channels...)
+	stopDrainers := startReflectChannelDrainers(flattenedChannels)
+
+	if sink != nil {
+		sink.Shutdown(shutdownCtx)
+	}
+
+	stopDrainers()
+	closeReflectChannels(flattenedChannels)
 }
 
 type baseMessageWatchCfg struct {
@@ -111,25 +271,6 @@ func WithUserLogWorkflowID(workflowID string) UserLogWatchOpt {
 	}
 }
 
-type fanoutSubscription struct {
-	id string
-}
-
-func (s *fanoutSubscription) Shutdown(_ context.Context) {
-	fanoutSubMu.Lock()
-	defer fanoutSubMu.Unlock()
-	delete(fanoutSubs, s.id)
-}
-
-var (
-	fanoutOnce   sync.Once
-	fanoutServer *chiptestsink.Server
-	errFanout    error
-
-	fanoutSubMu sync.Mutex
-	fanoutSubs  = make(map[string]chiptestsink.PublishFn)
-)
-
 func safeSendUserLogs(ch chan *workflowevents.UserLogs, msg *workflowevents.UserLogs) {
 	// In fanout mode, tests may close their log channels immediately after
 	// unsubscribing during cleanup. An in-flight publish can race with that close,
@@ -157,58 +298,6 @@ func safeSendProtoMessage(ch chan proto.Message, msg proto.Message) {
 		return
 	}
 	ch <- msg
-}
-
-func ChipSinkFanoutEnabled() bool {
-	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_CHIP_SINK_FANOUT_ENABLED")))
-	return v == "1" || v == "true" || v == "yes"
-}
-
-func ensureFanoutServer(t *testing.T) {
-	t.Helper()
-
-	fanoutOnce.Do(func() {
-		grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
-		startCh := make(chan struct{}, 1)
-		fanoutServer, errFanout = chiptestsink.NewServer(chiptestsink.Config{
-			GRPCListen: grpcListenAddr,
-			Started:    startCh,
-			PublishFunc: func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
-				fanoutSubMu.Lock()
-				snapshot := make([]chiptestsink.PublishFn, 0, len(fanoutSubs))
-				for _, fn := range fanoutSubs {
-					snapshot = append(snapshot, fn)
-				}
-				fanoutSubMu.Unlock()
-
-				for _, fn := range snapshot {
-					if _, err := fn(ctx, event); err != nil {
-						// Best-effort delivery: one subscriber must not fail all.
-						continue
-					}
-				}
-				return &chippb.PublishResponse{}, nil
-			},
-		})
-		if errFanout != nil {
-			return
-		}
-
-		errCh := make(chan error, 1)
-		go func() {
-			errCh <- fanoutServer.Run()
-		}()
-
-		select {
-		case <-startCh:
-		case err := <-errCh:
-			errFanout = err
-		case <-time.After(testSinkStartupTimeout):
-			errFanout = errors.New("timeout waiting for fanout sink server to start")
-		}
-	})
-
-	require.NoError(t, errFanout, "failed to start fanout sink server")
 }
 
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
@@ -509,34 +598,18 @@ func GetLoggingPublishFn(
 	}
 }
 
-// StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
-// In fanout mode (CRE_TEST_CHIP_SINK_FANOUT_ENABLED=1), a singleton sink is started and each test
-// registers its own publish function as a fanout subscriber.
+// StartChipTestSink boots a per-test CHiP sink on an ephemeral port and registers it with the
+// shared chip ingress router, which owns the default ingress port.
 func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink {
-	if ChipSinkFanoutEnabled() {
-		ensureFanoutServer(t)
-		subID := t.Name() + "-" + time.Now().Format("150405.000000000")
-		fanoutSubMu.Lock()
-		fanoutSubs[subID] = publishFn
-		fanoutSubMu.Unlock()
-		return &fanoutSubscription{id: subID}
-	}
-
-	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
-	if !isPortAvailable(grpcListenAddr) {
-		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.
-If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
-and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
-	}
-
 	startCh := make(chan struct{}, 1)
-	server, err := chiptestsink.NewServer(chiptestsink.Config{
+	addrCh := make(chan string, 1)
+	server, sErr := chiptestsink.NewServer(chiptestsink.Config{
 		PublishFunc: publishFn,
-		GRPCListen:  grpcListenAddr,
-		Started:     startCh, // signals that server is indeed listening on the GRPC port
-		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
+		GRPCListen:  "0.0.0.0:0",
+		Started:     startCh,
+		ActualAddr:  addrCh,
 	})
-	require.NoError(t, err, "failed to create new test sink server")
+	require.NoError(t, sErr, "failed to create new test sink server")
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -551,17 +624,24 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 		require.FailNow(t, "timeout waiting for test sink server to start")
 	}
 
-	return server
-}
-
-func isPortAvailable(addr string) bool {
-	lc := net.ListenConfig{}
-	l, err := lc.Listen(context.Background(), "tcp", addr)
-	if err != nil {
-		return false // already in use or permission denied
+	var actualAddr string
+	select {
+	case actualAddr = <-addrCh:
+	case <-time.After(testSinkStartupTimeout):
+		server.Shutdown(t.Context())
+		require.FailNow(t, "timeout waiting for test sink listen address")
 	}
-	_ = l.Close()
-	return true
+
+	require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
+
+	subscriberID, err := chiprouter.RegisterSubscriber(t.Context(), t.Name(), actualAddr)
+	require.NoError(t, err, "failed to register test sink with chip ingress router")
+
+	return &registeredChipSink{
+		server:       server,
+		subscriberID: subscriberID,
+		relativePath: relativePathToRepoRoot,
+	}
 }
 
 // WatchWorkflowLogs enforces that the expected log appears before timeout and that poison logs abort the test.

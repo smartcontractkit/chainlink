@@ -618,6 +618,264 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	}
 }
 
+func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
+	t.Run("confidential workflow bypasses engine factory and routes to confidential path", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			lf      = limits.Factory{Logger: lggr}
+			db      = pgtest.NewSqlxDB(t)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		)
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		require.NoError(t, err)
+		wfIDString := hex.EncodeToString(giveWFID[:])
+
+		binaryURL := "http://example.com/" + wfIDString + "/binary"
+		configURL := "http://example.com/" + wfIDString + "/config"
+		signedURLParameter := "?auth=abc123"
+		signedBinaryURL := binaryURL + signedURLParameter
+		signedConfigURL := configURL + signedURLParameter
+
+		fetcher := newMockFetcher(map[string]mockFetchResp{
+			wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+			wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+			signedConfigURL:                      {Body: config, Err: nil},
+		})
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		er := NewEngineRegistry()
+
+		// Track whether the engine factory is called. The confidential path
+		// should bypass it entirely.
+		factoryCalled := false
+		trackingFactory := func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+			factoryCalled = true
+			if initDone != nil {
+				initDone <- nil
+			}
+			return &mockEngine{}, nil
+		}
+
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(trackingFactory),
+		)
+		require.NoError(t, err)
+		servicetest.Run(t, h)
+
+		event := WorkflowRegisteredEvent{
+			Status:        WorkflowStatusActive,
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			WorkflowTag:   "workflow-tag",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Attributes:    []byte(`{"confidential":true,"vault_don_secrets":[{"key":"API_KEY"}]}`),
+		}
+
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
+		err = h.workflowRegisteredEvent(ctx, event)
+
+		// The confidential path creates a real v2.Engine. With test data
+		// (non-hex owner), engine creation fails. The error comes from the
+		// confidential path, proving routing worked correctly.
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create workflow engine")
+
+		// The engine factory must NOT have been called; the confidential path
+		// bypasses it.
+		assert.False(t, factoryCalled, "engine factory should not be called for confidential workflows")
+
+		// The engine should NOT be in the registry since init failed.
+		_, ok := er.Get(giveWFID)
+		assert.False(t, ok, "engine should not be registered after failed init")
+	})
+
+	t.Run("non-confidential workflow uses engine factory", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			lf      = limits.Factory{Logger: lggr}
+			db      = pgtest.NewSqlxDB(t)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		)
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		require.NoError(t, err)
+		wfIDString := hex.EncodeToString(giveWFID[:])
+
+		binaryURL := "http://example.com/" + wfIDString + "/binary"
+		configURL := "http://example.com/" + wfIDString + "/config"
+		signedURLParameter := "?auth=abc123"
+		signedBinaryURL := binaryURL + signedURLParameter
+		signedConfigURL := configURL + signedURLParameter
+
+		fetcher := newMockFetcher(map[string]mockFetchResp{
+			wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+			wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+			signedConfigURL:                      {Body: config, Err: nil},
+		})
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		er := NewEngineRegistry()
+
+		factoryCalled := false
+		trackingFactory := func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+			factoryCalled = true
+			if initDone != nil {
+				initDone <- nil
+			}
+			return &mockEngine{}, nil
+		}
+
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(trackingFactory),
+		)
+		require.NoError(t, err)
+		servicetest.Run(t, h)
+
+		event := WorkflowRegisteredEvent{
+			Status:        WorkflowStatusActive,
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			WorkflowTag:   "workflow-tag",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			// No Attributes, or non-confidential attributes.
+		}
+
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
+		err = h.workflowRegisteredEvent(ctx, event)
+		require.NoError(t, err)
+
+		assert.True(t, factoryCalled, "engine factory should be called for non-confidential workflows")
+
+		engine, ok := er.Get(giveWFID)
+		require.True(t, ok, "engine should be registered")
+		require.NoError(t, engine.Ready())
+	})
+
+	t.Run("malformed attributes returns error", func(t *testing.T) {
+		var (
+			ctx     = testutils.Context(t)
+			lggr    = logger.TestLogger(t)
+			lf      = limits.Factory{Logger: lggr}
+			db      = pgtest.NewSqlxDB(t)
+			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
+			emitter = custmsg.NewLabeler()
+
+			binary                = wasmtest.CreateTestBinary(binaryCmd, true, t)
+			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
+			config                = []byte("")
+			wfOwner               = []byte("0xOwner")
+			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+		)
+
+		giveWFID, err := pkgworkflows.GenerateWorkflowID(wfOwner, "workflow-name", binary, config, "")
+		require.NoError(t, err)
+		wfIDString := hex.EncodeToString(giveWFID[:])
+
+		binaryURL := "http://example.com/" + wfIDString + "/binary"
+		configURL := "http://example.com/" + wfIDString + "/config"
+		signedURLParameter := "?auth=abc123"
+		signedBinaryURL := binaryURL + signedURLParameter
+		signedConfigURL := configURL + signedURLParameter
+
+		fetcher := newMockFetcher(map[string]mockFetchResp{
+			wfIDString + "-ARTIFACT_TYPE_BINARY": {Body: []byte(signedBinaryURL), Err: nil},
+			wfIDString + "-ARTIFACT_TYPE_CONFIG": {Body: []byte(signedConfigURL), Err: nil},
+			signedBinaryURL:                      {Body: encodedBinary, Err: nil},
+			signedConfigURL:                      {Body: config, Err: nil},
+		})
+		artifactStore, err := artifacts.NewStore(lggr, orm, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
+			ArtifactStorageHost: "example.com",
+		}))
+		require.NoError(t, err)
+
+		er := NewEngineRegistry()
+		wfStore := store.NewInMemoryStore(lggr, clockwork.NewFakeClock())
+		registry := capabilities.NewRegistry(lggr)
+		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		limiters, err := v2.NewLimiters(lf, nil)
+		require.NoError(t, err)
+		rl, err := ratelimiter.NewRateLimiter(rlConfig)
+		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+		require.NoError(t, err)
+
+		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, er, emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
+			WithEngineRegistry(er),
+			WithEngineFactoryFn(mockEngineFactory),
+		)
+		require.NoError(t, err)
+		servicetest.Run(t, h)
+
+		event := WorkflowRegisteredEvent{
+			Status:        WorkflowStatusActive,
+			WorkflowID:    giveWFID,
+			WorkflowOwner: wfOwner,
+			WorkflowName:  "workflow-name",
+			WorkflowTag:   "workflow-tag",
+			BinaryURL:     binaryURL,
+			ConfigURL:     configURL,
+			Attributes:    []byte(`{not valid json`),
+		}
+
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
+		err = h.workflowRegisteredEvent(ctx, event)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
+	})
+}
+
 type testCase struct {
 	Name             string
 	BinaryURLFactory func(string) string

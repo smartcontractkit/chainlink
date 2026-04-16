@@ -3,19 +3,14 @@
 package mocks
 
 import (
-	config "github.com/smartcontractkit/chainlink/v2/core/config"
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	mock "github.com/stretchr/testify/mock"
-
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	time "time"
 
-	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
 	uuid "github.com/google/uuid"
-
+	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	mock "github.com/stretchr/testify/mock"
 	zapcore "go.uber.org/zap/zapcore"
 )
 

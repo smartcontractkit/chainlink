@@ -267,8 +267,10 @@ func startWorkflowEventSink(t *testing.T) (context.Context, <-chan proto.Message
 	messageChan := make(chan proto.Message, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetWorkflowV2LifecyclePublishFn(framework.L, messageChan))
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(messageChan)
+		// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, messageChan)
 	})
 
 	timeout := 5 * time.Minute

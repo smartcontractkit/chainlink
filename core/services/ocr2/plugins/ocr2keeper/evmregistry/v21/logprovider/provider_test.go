@@ -401,13 +401,13 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			buffer.Enqueue(big.NewInt(1), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x%d", i+1)), LogIndex: 0})
 		}
 
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["1"].logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("1").logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Len(t, payloads, 100)
 
-		assert.Equal(t, 0, countRemainingLogs(buffer.queues["1"].logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.getQueue("1").logs))
 	})
 
 	t.Run("100 logs are dequeued for two upkeeps, 25 logs each as min commitment (50 logs total best effort), followed by best effort", func(t *testing.T) {
@@ -430,15 +430,15 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			buffer.Enqueue(big.NewInt(2), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x2%d", i+1)), LogIndex: 0})
 		}
 
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("2").logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Len(t, payloads, 100)
 
-		assert.Equal(t, 50, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 50, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.getQueue("2").logs))
 
 		windowCount := remainingBlockWindowCounts(buffer.queues, 4)
 
@@ -451,8 +451,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, payloads, 100)
 
-		assert.Equal(t, 0, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 0, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.getQueue("2").logs))
 
 		windowCount = remainingBlockWindowCounts(buffer.queues, 4)
 
@@ -481,8 +481,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			buffer.Enqueue(big.NewInt(2), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x2%d", i+1)), LogIndex: 0})
 		}
 
-		assert.Equal(t, 102, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 102, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 102, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 102, countRemainingLogs(buffer.getQueue("2").logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -497,17 +497,17 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.Len(t, payloads, 100)
 
 		// upkeep 1 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 1, buffer.queues["1"].dequeued[100])
+		assert.Equal(t, 1, buffer.getQueue("1").getDequeued(100))
 		// upkeep 2 has had the minimum number of logs dequeued on the latest (incomplete) window
-		assert.Equal(t, 1, buffer.queues["2"].dequeued[100])
+		assert.Equal(t, 1, buffer.getQueue("2").getDequeued(100))
 
 		// the third dequeue call will retrieve the remaining 100 logs and exhaust the queues
 		payloads, err = provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
 		assert.Len(t, payloads, 4)
 
-		assert.Equal(t, 0, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 0, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 0, countRemainingLogs(buffer.getQueue("2").logs))
 
 		windowCount = remainingBlockWindowCounts(buffer.queues, 4)
 
@@ -540,8 +540,8 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			buffer.Enqueue(big.NewInt(2), logpoller.Log{BlockNumber: int64(i + 1), TxHash: common.HexToHash(fmt.Sprintf("0x2%d", i+1)), LogIndex: 0})
 		}
 
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["2"].logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("2").logs))
 
 		payloads, err := provider.GetLatestPayloads(ctx)
 		assert.NoError(t, err)
@@ -609,11 +609,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 			}
 		}
 
-		assert.Equal(t, 80, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 50, countRemainingLogs(buffer.queues["2"].logs))
-		assert.Equal(t, 90, countRemainingLogs(buffer.queues["3"].logs))
-		assert.Equal(t, 95, countRemainingLogs(buffer.queues["4"].logs))
-		assert.Equal(t, 100, countRemainingLogs(buffer.queues["5"].logs))
+		assert.Equal(t, 80, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.getQueue("2").logs))
+		assert.Equal(t, 90, countRemainingLogs(buffer.getQueue("3").logs))
+		assert.Equal(t, 95, countRemainingLogs(buffer.getQueue("4").logs))
+		assert.Equal(t, 100, countRemainingLogs(buffer.getQueue("5").logs))
 
 		// perform two dequeues
 		payloads, err := provider.GetLatestPayloads(ctx)
@@ -624,11 +624,11 @@ func TestLogEventProvider_GetLatestPayloads(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, payloads, 100)
 
-		assert.Equal(t, 40, countRemainingLogs(buffer.queues["1"].logs))
-		assert.Equal(t, 10, countRemainingLogs(buffer.queues["2"].logs))
-		assert.Equal(t, 50, countRemainingLogs(buffer.queues["3"].logs))
-		assert.Equal(t, 55, countRemainingLogs(buffer.queues["4"].logs))
-		assert.Equal(t, 60, countRemainingLogs(buffer.queues["5"].logs))
+		assert.Equal(t, 40, countRemainingLogs(buffer.getQueue("1").logs))
+		assert.Equal(t, 10, countRemainingLogs(buffer.getQueue("2").logs))
+		assert.Equal(t, 50, countRemainingLogs(buffer.getQueue("3").logs))
+		assert.Equal(t, 55, countRemainingLogs(buffer.getQueue("4").logs))
+		assert.Equal(t, 60, countRemainingLogs(buffer.getQueue("5").logs))
 	})
 }
 
@@ -637,4 +637,10 @@ type mockedPacker struct {
 
 func (p *mockedPacker) PackLogData(log logpoller.Log) ([]byte, error) {
 	return log.Data, nil
+}
+
+func (l *logBuffer) getQueue(k string) *upkeepLogQueue {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	return l.queues[k]
 }

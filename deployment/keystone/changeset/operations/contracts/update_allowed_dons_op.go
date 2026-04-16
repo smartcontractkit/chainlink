@@ -50,7 +50,7 @@ var UpdateAllowedDonsOp = operations.NewOperation[UpdateAllowedDonsOpInput, Upda
 			return UpdateAllowedDonsOpOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", input.RegistryChainSel)
 		}
 
-		registry, err := contracts.GetOwnedContractV2[*workflow_registry.WorkflowRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress)
+		registry, err := contracts.GetOwnedContractV2[*workflow_registry.WorkflowRegistry](deps.Env.DataStore.Addresses(), chain, input.ContractAddress, "")
 		if err != nil {
 			return UpdateAllowedDonsOpOutput{}, fmt.Errorf("failed to get workflow registry contract: %w", err)
 		}

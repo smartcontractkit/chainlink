@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
@@ -18,9 +19,10 @@ type Service struct {
 	services.Service
 	eng *services.Engine
 
-	wrapper     *gatewayconnector.ServiceWrapper
-	capRegistry core.CapabilitiesRegistry
-	lggr        logger.Logger
+	wrapper       *gatewayconnector.ServiceWrapper
+	capRegistry   core.CapabilitiesRegistry
+	lggr          logger.Logger
+	limitsFactory limits.Factory
 
 	handler *Handler
 }
@@ -29,11 +31,13 @@ func NewService(
 	wrapper *gatewayconnector.ServiceWrapper,
 	capRegistry core.CapabilitiesRegistry,
 	lggr logger.Logger,
+	limitsFactory limits.Factory,
 ) *Service {
 	s := &Service{
-		wrapper:     wrapper,
-		capRegistry: capRegistry,
-		lggr:        lggr,
+		wrapper:       wrapper,
+		capRegistry:   capRegistry,
+		lggr:          lggr,
+		limitsFactory: limitsFactory,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "ConfidentialRelayService",
@@ -48,7 +52,7 @@ func (s *Service) start(ctx context.Context) error {
 	if conn == nil {
 		return errors.New("gateway connector not available")
 	}
-	h, err := NewHandler(s.capRegistry, conn, s.lggr)
+	h, err := NewHandler(s.capRegistry, conn, s.lggr, s.limitsFactory)
 	if err != nil {
 		return err
 	}

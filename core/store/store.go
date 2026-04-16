@@ -96,7 +96,7 @@ type Config interface {
 	DriverName() string
 }
 
-var errDBURLMissing = errors.New("You must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set. HINT: If you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+var errDBURLMissing = errors.New("you must set CL_DATABASE_URL env variable or provide a secrets TOML with Database.URL set; if you are running this to set up your local test database, try CL_DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 
 func NewConnection(ctx context.Context, cfg Config) (*sqlx.DB, error) {
 	parsed := cfg.URL()
@@ -118,7 +118,7 @@ func migrateDB(ctx context.Context, config Config) error {
 	return db.Close()
 }
 
-func dropAndCreateDB(parsed url.URL, force bool) (err error) {
+func dropAndCreateDB(parsed url.URL, _ bool) (err error) {
 	// Cannot drop the database if we are connected to it, so we must connect
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
@@ -132,18 +132,18 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 			err = errors.Join(err, cerr)
 		}
 	}()
-	if force {
-		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
-		_, err = db.Exec(fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s';", dbname))
-		if err != nil {
-			return fmt.Errorf("unable to terminate connections to postgres database: %w", err)
-		}
-	}
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
+	// DROP ... WITH (FORCE) requires PostgreSQL 13+; replaces pg_terminate_backend + DROP for older versions.
+	// Second parameter kept for ResetDatabase API compatibility (preparetest --force).
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	// PostgreSQL does not support bound parameters for database names; pq.QuoteIdentifier is the supported escape.
+	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)") //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(dbname)) //nolint:gosec // G701 false positive: identifier from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -151,11 +151,15 @@ func dropAndCreateDB(parsed url.URL, force bool) (err error) {
 }
 
 func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(testdb.PristineDBName)+" WITH (FORCE)")
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %w", err)
 	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, testdb.PristineDBName, template))
+	ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, "CREATE DATABASE "+pq.QuoteIdentifier(testdb.PristineDBName)+" WITH TEMPLATE "+pq.QuoteIdentifier(template)) //nolint:gosec // G701 false positive: identifiers from pq.QuoteIdentifier only
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %w", err)
 	}
@@ -187,14 +191,18 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 	// previous and new schemas.
 	if restrictKey != "" {
 		// Test if pg_dump supports --restrict-key
-		testCmd := exec.Command("pg_dump", "--help")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		testCmd := exec.CommandContext(ctx, "pg_dump", "--help")
 		helpOutput, err := testCmd.Output()
 		if err == nil && strings.Contains(string(helpOutput), "--restrict-key") {
 			args = append(args, "--restrict-key="+restrictKey)
 		}
 	}
 
-	cmd := exec.Command(
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx,
 		"pg_dump", args...,
 	)
 
@@ -241,7 +249,9 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec(string(fixturesSQL))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = db.ExecContext(ctx, string(fixturesSQL))
 	return err
 }
 
@@ -263,8 +273,11 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 			defer wg.Done()
 			for dbname := range ch {
 				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				gerr := cutils.JustError(db.Exec(`DROP DATABASE IF EXISTS ` + dbname))
-				errCh <- gerr
+				errCh <- func() error {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					return cutils.JustError(db.ExecContext(ctx, "DROP DATABASE IF EXISTS "+pq.QuoteIdentifier(dbname)+" WITH (FORCE)"))
+				}()
 			}
 		}()
 	}
@@ -293,7 +306,9 @@ func (m *failedToRandomizeTestDBSequencesError) Error() string {
 func randomizeTestDBSequences(db *sqlx.DB) error {
 	// not ideal to hard code this, but also not safe to do it programmatically :(
 	schemas := pq.Array([]string{"public", "evm"})
-	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name, minimum_value FROM information_schema.sequences WHERE sequence_schema IN ($1)`, schemas)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	seqRows, err := db.QueryContext(ctx, `SELECT sequence_schema, sequence_name, minimum_value FROM information_schema.sequences WHERE sequence_schema IN ($1)`, schemas)
 	if err != nil {
 		return fmt.Errorf("%s: error fetching sequences: %w", failedToRandomizeTestDBSequencesError{}, err)
 	}
@@ -317,7 +332,11 @@ func randomizeTestDBSequences(db *sqlx.DB) error {
 		}
 		randNum.Add(randNum, big.NewInt(minimumSequenceValue))
 
-		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
+		if err = func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			return cutils.JustError(db.ExecContext(ctx, fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)))
+		}(); err != nil {
 			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
 		}
 	}

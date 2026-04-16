@@ -157,7 +157,7 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
-			if parallelEnabled && fanoutEnabled {
+			if parallelEnabled {
 				t.Parallel()
 			}
 
@@ -168,9 +168,10 @@ func executeAptosScenarios(t *testing.T, tenv *configuration.TestEnvironment, sc
 			baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 			server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 			t.Cleanup(func() {
-				server.Shutdown(t.Context())
-				close(userLogsCh)
-				close(baseMessageCh)
+				// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 			})
 
 			scenario.run(t, scenarioEnv, scenarioAptosChain, userLogsCh, baseMessageCh)
