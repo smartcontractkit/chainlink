@@ -3,8 +3,8 @@ package web_test
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
