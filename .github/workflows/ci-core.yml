@@ -360,9 +360,9 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find race.* | xargs cat > race.txt
-          if [[ -s race.txt ]]; then
-            cat race.txt
+          find race.* | xargs cat >> races.txt
+          if [[ -s races.txt ]]; then
+            cat races.txt
             echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
           else
             echo "post_to_slack=false" | tee -a "$GITHUB_OUTPUT"

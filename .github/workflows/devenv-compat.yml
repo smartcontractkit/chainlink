@@ -99,6 +99,8 @@ jobs:
       CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
       # JD is required by the local CRE-based tests
       CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+      # ChIP Router is required by the local CRE-based tests
+      CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

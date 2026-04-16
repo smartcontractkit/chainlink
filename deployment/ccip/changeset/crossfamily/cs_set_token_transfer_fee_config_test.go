@@ -284,10 +284,11 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
+	// No Solana chains needed: empty InputsByChain early-exits before any chain interaction.
+	// Including WithSolChains would spin up a Docker container + download .so artifacts,
+	// introducing network and Docker flakiness for a path that never touches those chains.
 	env, _ := testhelpers.NewMemoryEnvironment(t,
-		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
 		testhelpers.WithNumOfChains(2),
-		testhelpers.WithSolChains(1),
 	)
 
 	_, err := commonchangeset.Apply(t, env.Env,
