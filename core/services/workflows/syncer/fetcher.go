@@ -179,6 +179,9 @@ func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 		}
 		if u.Scheme == "http" || u.Scheme == "https" {
 			u.Path = filepath.Base(u.Path)
+			if u.Path == "." || u.Path == "/" {
+				return nil, errors.New("HTTP URL has no filename in path")
+			}
 		}
 		fullPath := filepath.Clean(u.Path)
 
@@ -187,7 +190,7 @@ func newFileFetcher(basePath string, lggr logger.Logger) types.FetcherFunc {
 			// If it's not absolute, we assume it's relative to the basePath
 			fullPath = filepath.Join(basePath, fullPath)
 		}
-		if !strings.HasPrefix(fullPath, basePath) {
+		if !strings.HasPrefix(fullPath, basePath+string(filepath.Separator)) && fullPath != basePath {
 			return nil, fmt.Errorf("request URL %s is not within the basePath %s", fullPath, basePath)
 		}
 

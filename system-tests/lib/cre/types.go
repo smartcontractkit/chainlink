@@ -1525,7 +1525,6 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
 		Int("solana_chains", len(input.SolanaChainIDs)).
-		Bool("imported", input.ImportedSecrets != "").
 		Float64("duration_s", roundSeconds(time.Since(start))).
 		Msg("Node key generation completed")
 	return out, nil
@@ -1701,5 +1700,5 @@ type PreEnvStartupOutput struct {
 }
 
 func roundSeconds(d time.Duration) float64 {
-	return float64(d.Milliseconds()) / 1000.0
+	return d.Seconds()
 }
