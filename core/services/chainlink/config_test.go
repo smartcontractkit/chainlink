@@ -538,7 +538,7 @@ func TestConfig_Marshal(t *testing.T) {
 				TLSEnabled:          ptr(true),
 			},
 			ModuleCache: toml.ModuleCache{
-				Enabled:      ptr(true),
+				Enabled:      ptr(false),
 				IdleEviction: ptr(true),
 				IdleTimeout:  commoncfg.MustNewDuration(10 * time.Minute),
 				MaxLoaded:    ptr(200),

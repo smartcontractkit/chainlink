@@ -274,7 +274,7 @@ type moduleCacheConfig struct {
 
 func (m *moduleCacheConfig) Enabled() bool {
 	if m.c.Enabled == nil {
-		return true
+		return false
 	}
 	return *m.c.Enabled
 }

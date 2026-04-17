@@ -392,7 +392,7 @@ URL = ''
 TLSEnabled = true
 
 [Capabilities.WorkflowRegistry.ModuleCache]
-Enabled = true
+Enabled = false
 IdleEviction = true
 IdleTimeout = '10m0s'
 MaxLoaded = 200

@@ -1523,7 +1523,7 @@ Name is a required unique identifier for this workflow source. Each additional s
 ## Capabilities.WorkflowRegistry.ModuleCache
 ```toml
 [Capabilities.WorkflowRegistry.ModuleCache]
-Enabled = true # Default
+Enabled = false # Default
 IdleEviction = true # Default
 IdleTimeout = '10m' # Default
 MaxLoaded = 200 # Default
@@ -1533,7 +1533,7 @@ CacheDir = '' # Default
 
 ### Enabled
 ```toml
-Enabled = true # Default
+Enabled = false # Default
 ```
 Enabled activates the two-level module cache (LRU + disk). When true, compiled WASM modules
 are kept in memory and persisted to disk, avoiding recompilation on subsequent activations.
