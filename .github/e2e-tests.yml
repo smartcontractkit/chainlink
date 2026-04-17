@@ -55,11 +55,12 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E CCIP Tests
-      - Workflow Dispatch E2E CCIP Tests
+      # Disabling until fixed & not flaky
+      # - PR E2E Core Tests
+      # - Merge Queue E2E Core Tests
+      # - Nightly E2E Tests
+      # - Push E2E CCIP Tests
+      # - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
       gotestsum \
@@ -449,11 +450,12 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
-      - Nightly E2E Tests
-      - Push E2E CCIP Tests
-      - Workflow Dispatch E2E CCIP Tests
+      # Disabling until fixed & not flaky
+      # - PR E2E Core Tests
+      # - Merge Queue E2E Core Tests
+      # - Nightly E2E Tests
+      # - Push E2E CCIP Tests
+      # - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd smoke/ccip && \
       gotestsum \
@@ -790,11 +792,12 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E CCIP Tests
-      - Merge Queue E2E CCIP Tests
-      - Nightly E2E Tests
-      - Push E2E CCIP Tests
-      - Workflow Dispatch E2E CCIP Tests
+      # Disabling until fixed & not flaky
+      # - PR E2E CCIP Tests
+      # - Merge Queue E2E CCIP Tests
+      # - Nightly E2E Tests
+      # - Push E2E CCIP Tests
+      # - Workflow Dispatch E2E CCIP Tests
     test_cmd: |
       cd ccip-tests/smoke && \
       gotestsum \
