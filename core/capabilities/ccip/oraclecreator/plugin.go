@@ -306,12 +306,15 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, err
 	}
 
-	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters)+1)
+	closers := make([]io.Closer, 0, len(contractReaders)+len(chainWriters)+len(ccipProviders)+1)
 	for _, cr := range contractReaders {
 		closers = append(closers, cr)
 	}
 	for _, cw := range chainWriters {
 		closers = append(closers, cw)
+	}
+	for _, p := range ccipProviders {
+		closers = append(closers, p)
 	}
 	// Add metrics collector to closers so it's properly shut down
 	closers = append(closers, metricsCollector)
