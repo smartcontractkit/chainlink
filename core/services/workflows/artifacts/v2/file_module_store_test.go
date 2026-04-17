@@ -137,7 +137,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			wfID := "wf-" + string(rune('A'+idx))
+			wfID := "wf-" + string('A'+rune(idx))
 			assert.NoError(t, s.StoreModule(wfID, []byte("data"), "v1"))
 		}(i)
 	}
@@ -145,7 +145,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			wfID := "wf-" + string(rune('A'+idx))
+			wfID := "wf-" + string('A'+rune(idx))
 			_, _, _, err := s.GetModule(wfID)
 			assert.NoError(t, err)
 		}(i)
