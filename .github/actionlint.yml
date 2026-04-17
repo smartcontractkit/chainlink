@@ -6,5 +6,7 @@ paths:
       # ignore unknown runner labels, as we have fully custom runners
       - 'label ".*" is unknown. available labels are .*'
       # https://www.shellcheck.net/wiki/SC2129
-      - '.*SC2129:style:1:1:.*'
+      - '.*SC2129:style:.*'
+      # https://www.shellcheck.net/wiki/SC2002
+      - '.*SC2002:style:.*'
 

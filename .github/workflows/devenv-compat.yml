@@ -156,7 +156,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
-          echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
+          echo "CTF_TAG=framework/$CTF_VERSION" >> "${GITHUB_ENV}"
 
       - name: Install CTF binary
         working-directory: ${{ env.WORKING_DIR }}
@@ -218,26 +218,26 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
-            ${REFS_ARGS} \
-            ${EXCLUDE_REFS_ARGS} \
+            "${REFS_ARGS}" \
+            "${EXCLUDE_REFS_ARGS}" \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}" \
-            ${{ env.NO_GIT_ROLLBACK }}
+            "${{ env.NO_GIT_ROLLBACK }}"
 
       - name: Attach CI Summary
         working-directory: ${{ env.WORKING_DIR }}
         if: always()
         run: |
           if [ -f "ci_summary.txt" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+            echo "" >> "${GITHUB_STEP_SUMMARY}"
+            echo "**CI Summary:**" >> "${GITHUB_STEP_SUMMARY}"
+            echo '```' >> "${GITHUB_STEP_SUMMARY}"
+            cat ci_summary.txt >> "${GITHUB_STEP_SUMMARY}"
           else
-            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+            echo "ci_summary.txt not found" >> "${GITHUB_STEP_SUMMARY}"
           fi
 
       - name: Collect Docker container logs
@@ -246,8 +246,8 @@ jobs:
         run: |
           mkdir -p logs
           for container in $(docker ps -q); do
-            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
-            docker logs $container > "logs/${container_name}.log" 2>&1
+            container_name=$(docker inspect --format='{{.Name}}' "${container}" | sed 's/^\///')
+            docker logs "${container}" > "logs/${container_name}.log" 2>&1
           done
 
       - name: Upload logs

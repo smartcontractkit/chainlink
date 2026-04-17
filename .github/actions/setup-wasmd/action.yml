@@ -25,4 +25,4 @@ runs:
 
     - name: Export wasmd path to env
       shell: bash
-      run: echo "PATH=$HOME/wasmd-build/bin:$PATH" >> $GITHUB_ENV
+      run: echo "PATH=$HOME/wasmd-build/bin:$PATH" >> "${GITHUB_ENV}"

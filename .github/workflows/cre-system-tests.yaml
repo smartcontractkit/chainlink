@@ -12,7 +12,7 @@ on:
         type: string
         description: "Chainlink image tag to use."
       ecr:
-        required: true
+        required: false # defaulted
         type: choice
         options:
           - "sdlc"
@@ -36,7 +36,7 @@ on:
         description: "Chainlink image tag to use."
       ecr:
         type: string
-        required: true
+        required: false # defaulted
         default: "sdlc"
         description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
       chainlink_version:
@@ -269,7 +269,7 @@ jobs:
             # Wait for Loki to be available
             echo "Waiting for Loki to be available at http://localhost:3030..."
             loki_ready=false
-            for i in {1..30}; do
+            for _ in {1..30}; do
               if curl -s http://localhost:3030/ready >/dev/null 2>&1; then
                 echo "✅ Loki is ready at http://localhost:3030"
                 loki_ready=true
@@ -305,10 +305,10 @@ jobs:
             go run . env start --cleanup-on-error=false
           fi
 
-          exit_code=$?
-          if [ $exit_code -ne 0 ]; then
+          exit_code="$?"
+          if [ "$exit_code" -ne 0 ]; then
             echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
-            exit $exit_code
+            exit "$exit_code"
           fi
 
       - name: Setup GitHub token using GATI
@@ -344,9 +344,9 @@ jobs:
             -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
-          exit_code=$?
-          if [ $exit_code -eq 0 ]; then
-            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          exit_code="$?"
+          if [ "$exit_code" -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})

@@ -33,4 +33,4 @@ runs:
     - name: Export Sui CLI to PATH
       shell: bash
       run: |
-        echo "PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH" >> $GITHUB_ENV
+        echo "PATH=$HOME/.local/bin:$HOME/.cargo/bin:$PATH" >> "${GITHUB_ENV}"

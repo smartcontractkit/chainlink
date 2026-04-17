@@ -43,22 +43,22 @@ runs:
           go install github.com/smartcontractkit/chainlink-testing-framework/tools/workflowresultparser@v1.0.0
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-        
+
           workflowresultparser -workflowRunID ${{ inputs.workflow_run_id }} -githubToken ${{ inputs.github_token }} -githubRepo "${{ inputs.github_repository }}" -jobNameRegex "${{ inputs.github_job_name_regex }}" -outputFile=output.json
-        
+
           if [ ! -f output.json ]; then
             PARSED_RESULTS='""'
-          else 
+          else
             PARSED_RESULTS=$(cat output.json | jq -c "select(has(\"results\")) | .results[]")
           fi
-        
+
         fi
-        
+
         echo "Parsed Results:"
         echo $PARSED_RESULTS
-        
+
         ALL_SUCCESS=true
-        
+
         if [ "$PARSED_RESULTS" != '""' ]; then
           echo "Checking for failures"
           echo "$PARSED_RESULTS" | jq -s | jq -r '.[] | select(.conclusion != ":white_check_mark:")'
@@ -67,9 +67,9 @@ runs:
               break
           done
           echo "Success: $ALL_SUCCESS"
-  
-          echo all_success=$ALL_SUCCESS >> $GITHUB_OUTPUT
-  
+
+          echo all_success=$ALL_SUCCESS >> "${GITHUB_OUTPUT}"
+
           FORMATTED_RESULTS=$(echo $PARSED_RESULTS | jq -s '[.[]
           | {
             conclusion: .conclusion,
@@ -83,7 +83,7 @@ runs:
           echo "Nothing to post, no results found"
           exit 0
         fi
-      
+
         echo "Formatted Results:"
         echo $FORMATTED_RESULTS
 
@@ -93,7 +93,7 @@ runs:
         echo "Clean Results"
         echo $CLEAN_RESULTS
 
-        echo results=$CLEAN_RESULTS >> $GITHUB_OUTPUT
+        echo results=$CLEAN_RESULTS >> "${GITHUB_OUTPUT}"
     - name: Post Results
       uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
       if: steps.test-results.outputs.results != ''
