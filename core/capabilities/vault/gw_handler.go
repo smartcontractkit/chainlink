@@ -60,6 +60,7 @@ type gatewayConnector interface {
 
 type gatewayHandlerConfig struct {
 	authorizer Authorizer
+	auth0      *Auth0Config
 }
 
 // GatewayHandlerOption customizes GatewayHandler construction for tests and future auth extensions.
@@ -69,6 +70,13 @@ type GatewayHandlerOption func(*gatewayHandlerConfig)
 func WithAuthorizer(authorizer Authorizer) GatewayHandlerOption {
 	return func(cfg *gatewayHandlerConfig) {
 		cfg.authorizer = authorizer
+	}
+}
+
+// WithJWTAuth0Config enables JWT-based request validation for the node-side Vault handler.
+func WithJWTAuth0Config(auth0 *Auth0Config) GatewayHandlerOption {
+	return func(cfg *gatewayHandlerConfig) {
+		cfg.auth0 = auth0
 	}
 }
 
@@ -93,12 +101,21 @@ func NewGatewayHandler(secretsService vaulttypes.SecretsService, connector gatew
 	}
 	if cfg.authorizer == nil {
 		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
-		jwtBasedAuth, err := NewJWTBasedAuth(JWTBasedAuthConfig{}, limitsFactory, lggr, WithDisabledJWTBasedAuth())
-		if err != nil {
-			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		var jwtBasedAuth Authorizer
+		var jwtAuthService services.Service
+		if cfg.auth0 != nil {
+			var err error
+			jwtAuthService, err = NewJWTBasedAuth(JWTBasedAuthConfig{
+				IssuerURL: cfg.auth0.IssuerURL,
+				Audience:  cfg.auth0.Audience,
+			}, limitsFactory, lggr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+			}
+			jwtBasedAuth = jwtAuthService.(Authorizer)
 		}
 		cfg.authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
-		return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, jwtBasedAuth, lggr)
+		return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, jwtAuthService, lggr)
 	}
 	return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, nil, lggr)
 }
@@ -225,6 +242,11 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 	authReq.ID = originalRequestID
 	if err := stripPrefixedRequestIDFromParams(&authReq, originalRequestID); err != nil {
 		h.lggr.Errorw("failed to normalize gateway request for authorization", "method", req.Method, "requestID", originalRequestID, "error", err)
+		return nil, err
+	}
+	authReq, err := StripRequestIdentity(authReq)
+	if err != nil {
+		h.lggr.Errorw("failed to strip authorized identity fields before authorization", "method", req.Method, "requestID", originalRequestID, "error", err)
 		return nil, err
 	}
 

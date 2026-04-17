@@ -57,6 +57,10 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 }
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
+	return sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, nil)
+}
+
+func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, requestBody []byte, headers map[string]string) (statusCode int, body []byte) {
 	const maxRetries = 7
 	const retryInterval = 2 * time.Second
 
@@ -68,6 +72,9 @@ func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []by
 
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
 
 		client := &http.Client{}
 		resp, err := client.Do(req)

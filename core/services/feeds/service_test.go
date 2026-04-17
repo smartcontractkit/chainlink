@@ -1148,6 +1148,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(errors.New("error creating job"))
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 			},
 			args:    argsWF,
 			wantID:  0,
@@ -2916,6 +2917,7 @@ answer1 [type=median index=0];
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -2959,6 +2961,7 @@ answer1 [type=median index=0];
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3164,6 +3167,36 @@ answer1 [type=median index=0];
 			wantErr: "could not approve job proposal: could not save",
 		},
 		{
+			name:        "create job error after partial creation cleans up job",
+			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
+			before: func(svc *TestService) {
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(spec, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.jobORM.On("AssertBridgesExist", mock.Anything, mock.IsType(pipeline.Pipeline{})).Return(nil)
+
+				svc.jobORM.On("FindJobByExternalJobID", mock.Anything, externalJobID).Return(job.Job{}, sql.ErrNoRows)
+				svc.jobORM.On("FindJobIDByAddress", mock.Anything, address, evmChainID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+
+				svc.spawner.
+					On("CreateJob",
+						mock.Anything,
+						mock.Anything,
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
+						}),
+					).
+					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Return(errors.New("could not save"))
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
+				svc.orm.On("WithDataSource", mock.Anything).Return(feeds.ORM(svc.orm))
+				svc.jobORM.On("WithDataSource", mock.Anything).Return(job.ORM(svc.jobORM))
+			},
+			id:      spec.ID,
+			force:   false,
+			wantErr: "could not approve job proposal: could not save",
+		},
+		{
 			name:        "approve spec orm error",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
@@ -3185,6 +3218,7 @@ answer1 [type=median index=0];
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3219,6 +3253,7 @@ answer1 [type=median index=0];
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3593,6 +3628,7 @@ updateInterval = "20m"
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3636,6 +3672,7 @@ updateInterval = "20m"
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3776,6 +3813,7 @@ updateInterval = "20m"
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -3810,6 +3848,7 @@ updateInterval = "20m"
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -4063,6 +4102,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -4294,6 +4334,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -4328,6 +4369,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -4839,6 +4881,7 @@ chainID = 0
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,
@@ -4873,6 +4916,7 @@ chainID = 0
 					).
 					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
 					Return(nil)
+				svc.spawner.On("DeleteJob", mock.Anything, mock.Anything, int32(1)).Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
 					spec.ID,

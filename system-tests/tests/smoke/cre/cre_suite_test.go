@@ -144,8 +144,13 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled {
 				t.Parallel()
 			}
-			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
-			ExecuteVaultTest(t, testEnv)
+			fixture := setupVaultSharedScenarioFixture(t, getVaultFlagsEnabledTestConfig(t))
+			t.Run("allowlist_auth", func(t *testing.T) {
+				ExecuteVaultTest(t, fixture.TestEnv, fixture.LinkingService)
+			})
+			t.Run("jwt_auth", func(t *testing.T) {
+				ExecuteVaultJWTTest(t, fixture.TestEnv, fixture.Issuer, fixture.LinkingService)
+			})
 		})
 	case v2suite_config.SuiteScenarioCronBeholder:
 		// NOTE: this test is not easily parallelisable, because it uses "real" ChIP Ingress stack
