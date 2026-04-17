@@ -861,6 +861,7 @@ func TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas(t *te
 // Test expects to generate below finality reorg in both source and destination and
 // expect CCIP transactions to go through successful.
 func TestSmokeCCIPReorgBelowFinality(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11031")
 	t.Parallel()
 	log := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, log, testconfig.Smoke)
