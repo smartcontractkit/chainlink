@@ -312,57 +312,76 @@ func (c CCIPChainState) validateAllDestChainConfigs(
 	v16FeeTokens []common.Address,
 	fqV2 *fqv2ops.FeeQuoterContract,
 ) error {
+	var mu sync.Mutex
 	var errs []error
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 20) // limit concurrent dest chain validations
 
 	for _, destChainSel := range connectedChains {
-		var v16Cfg *fee_quoter.FeeQuoterDestChainConfig
-		var v20Cfg *fqv2ops.DestChainConfig
-		var legacyCfg *evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig
+		dest := destChainSel
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
 
-		if c.FeeQuoter != nil && v16FeeTokens != nil {
-			cfg, err := c.FeeQuoter.GetDestChainConfig(callOpts, destChainSel)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to get FeeQuoter v1.6 dest chain config for chain %d: %w", destChainSel, err))
-			} else {
-				v16Cfg = &cfg
-			}
-		}
-		if fqV2 != nil {
-			cfg, err := fqV2.GetDestChainConfig(callOpts, destChainSel)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to get FeeQuoter v2.0 dest chain config for chain %d: %w", destChainSel, err))
-			} else {
-				v20Cfg = &cfg
-			}
-		}
-		if legacyOnRamp := c.EVM2EVMOnRamp[destChainSel]; legacyOnRamp != nil {
-			cfg, err := legacyOnRamp.GetDynamicConfig(callOpts)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to get v1.5 OnRamp dynamic config for dest chain %d: %w", destChainSel, err))
-			} else {
-				legacyCfg = &cfg
-			}
-		}
+			var destErrs []error
+			var v16Cfg *fee_quoter.FeeQuoterDestChainConfig
+			var v20Cfg *fqv2ops.DestChainConfig
+			var legacyCfg *evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig
 
-		v16Enabled := v16Cfg != nil && v16Cfg.IsEnabled
-		v20Enabled := v20Cfg != nil && v20Cfg.IsEnabled
+			if c.FeeQuoter != nil && v16FeeTokens != nil {
+				cfg, err := c.FeeQuoter.GetDestChainConfig(callOpts, dest)
+				if err != nil {
+					destErrs = append(destErrs, fmt.Errorf("failed to get FeeQuoter v1.6 dest chain config for chain %d: %w", dest, err))
+				} else {
+					v16Cfg = &cfg
+				}
+			}
+			if fqV2 != nil {
+				cfg, err := fqV2.GetDestChainConfig(callOpts, dest)
+				if err != nil {
+					destErrs = append(destErrs, fmt.Errorf("failed to get FeeQuoter v2.0 dest chain config for chain %d: %w", dest, err))
+				} else {
+					v20Cfg = &cfg
+				}
+			}
+			if legacyOnRamp := c.EVM2EVMOnRamp[dest]; legacyOnRamp != nil {
+				cfg, err := legacyOnRamp.GetDynamicConfig(callOpts)
+				if err != nil {
+					destErrs = append(destErrs, fmt.Errorf("failed to get v1.5 OnRamp dynamic config for dest chain %d: %w", dest, err))
+				} else {
+					legacyCfg = &cfg
+				}
+			}
 
-		// Skip v1.6 checks when lane is enabled only in v2.0.
-		if v16Cfg != nil && (v16Enabled || !v20Enabled) {
-			if err := c.validateV16DestChainConfig(callOpts, sourceChainSel, destChainSel, *v16Cfg, legacyCfg); err != nil {
-				errs = append(errs, err)
+			v16Enabled := v16Cfg != nil && v16Cfg.IsEnabled
+			v20Enabled := v20Cfg != nil && v20Cfg.IsEnabled
+
+			// Skip v1.6 checks when lane is enabled only in v2.0.
+			if v16Cfg != nil && (v16Enabled || !v20Enabled) {
+				if err := c.validateV16DestChainConfig(callOpts, sourceChainSel, dest, *v16Cfg, legacyCfg); err != nil {
+					destErrs = append(destErrs, err)
+				}
 			}
-		}
-		if v20Cfg != nil {
-			v16ForV20 := v16Cfg
-			if !v16Enabled && v20Enabled {
-				v16ForV20 = nil
+			if v20Cfg != nil {
+				v16ForV20 := v16Cfg
+				if !v16Enabled && v20Enabled {
+					v16ForV20 = nil
+				}
+				if err := c.validateV20DestChainConfig(callOpts, sourceChainSel, dest, *v20Cfg, v16ForV20, legacyCfg, fqV2); err != nil {
+					destErrs = append(destErrs, err)
+				}
 			}
-			if err := c.validateV20DestChainConfig(callOpts, sourceChainSel, destChainSel, *v20Cfg, v16ForV20, legacyCfg, fqV2); err != nil {
-				errs = append(errs, err)
+
+			if len(destErrs) > 0 {
+				mu.Lock()
+				errs = append(errs, destErrs...)
+				mu.Unlock()
 			}
-		}
+		}()
 	}
+	wg.Wait()
 
 	return errors.Join(errs...)
 }
@@ -546,12 +565,22 @@ func (c CCIPChainState) validateAllTokenTransferFeeConfigs(
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
+			var innerMu sync.Mutex
 			var tokenErrs []error
+			var innerWg sync.WaitGroup
 			for _, destChainSel := range connectedChains {
-				if err := c.validateTokenTransferFee(callOpts, destChainSel, token, tokenLabel, fqV2); err != nil {
-					tokenErrs = append(tokenErrs, err)
-				}
+				dest := destChainSel
+				innerWg.Add(1)
+				go func() {
+					defer innerWg.Done()
+					if err := c.validateTokenTransferFee(callOpts, dest, token, tokenLabel, fqV2); err != nil {
+						innerMu.Lock()
+						tokenErrs = append(tokenErrs, err)
+						innerMu.Unlock()
+					}
+				}()
 			}
+			innerWg.Wait()
 			if len(tokenErrs) > 0 {
 				mu.Lock()
 				errs = append(errs, tokenErrs...)
