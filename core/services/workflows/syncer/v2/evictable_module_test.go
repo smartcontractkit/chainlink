@@ -41,6 +41,48 @@ func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFac
 	return em, store
 }
 
+func TestEvictable_Execute_ContextCanceled(t *testing.T) {
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Start()
+
+	em, _ := newTestEvictableModule(t, inner, nil)
+	em.Start()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := em.Execute(ctx, &sdkpb.ExecuteRequest{}, nil)
+	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
+	prevAttempts := executePinMaxAttempts
+	executePinMaxAttempts = 3
+	t.Cleanup(func() { executePinMaxAttempts = prevAttempts })
+
+	prevHook := evictAfterEnsureLoadedHook
+	evictAfterEnsureLoadedHook = func(em *EvictableModule) { em.Evict() }
+	t.Cleanup(func() { evictAfterEnsureLoadedHook = prevHook })
+
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		m := modulemocks.NewModuleV2(t)
+		m.EXPECT().Start()
+		m.EXPECT().Close()
+		return m, nil
+	}
+
+	em, _ := newTestEvictableModule(t, inner, factory)
+	em.started.Store(true)
+
+	_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.ErrorIs(t, err, ErrExecutePinExhausted)
+
+	em.Close()
+}
+
 func TestEvictable_DelegatesToInner(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Start()

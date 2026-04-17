@@ -18,6 +18,20 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
+const defaultExecutePinMaxAttempts = 1024
+
+// executePinMaxAttempts bounds how many times Execute retries after ensureLoaded races with Evict.
+// It is mutable only so tests can lower it; production code leaves it at defaultExecutePinMaxAttempts.
+var executePinMaxAttempts = defaultExecutePinMaxAttempts
+
+// evictAfterEnsureLoadedHook is set by tests to force eviction after a successful ensureLoaded,
+// exercising the pin retry loop and exhaustion path. It must be nil in production.
+var evictAfterEnsureLoadedHook func(*EvictableModule)
+
+// ErrExecutePinExhausted is returned when Execute could not observe a non-nil inner module after
+// ensureLoaded, even after bounded retries (eviction repeatedly won the race before RLock).
+var ErrExecutePinExhausted = errors.New("evictable module: failed to pin inner module after repeated eviction races")
+
 // ModuleFactoryFn creates a host.ModuleV2 from config and binary.
 // Defaults to host.NewModule in production; tests inject mocks via this.
 type ModuleFactoryFn func(ctx context.Context, modCfg *host.ModuleConfig, binary []byte, opts ...func(*host.ModuleConfig)) (host.ModuleV2, error)
@@ -107,22 +121,34 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	// ensureLoaded may need the write lock internally to reload. This opens a
 	// narrow window where Evict (called by the reaper under the write lock)
 	// can nil-out m.inner between ensureLoaded returning and us grabbing the
-	// RLock. The loop re-checks m.inner under the RLock and retries if it was
-	// evicted in that gap, guaranteeing m.inner is non-nil for the duration
-	// of Execute.
-	for {
+	// RLock. The loop re-checks m.inner under the RLock and retries (bounded by
+	// executePinMaxAttempts) if it was evicted in that gap; each iteration also
+	// checks ctx so cancellation is not starved. Once pinned, RLock is held for
+	// the duration of inner.Execute.
+	var pinned host.ModuleV2
+	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if err := m.ensureLoaded(ctx); err != nil {
 			return nil, err
+		}
+		if h := evictAfterEnsureLoadedHook; h != nil {
+			h(m)
 		}
 		m.lastUsed.Store(time.Now().UnixNano())
 		m.mu.RLock()
 		if m.inner != nil {
+			pinned = m.inner
 			break
 		}
 		m.mu.RUnlock()
 	}
+	if pinned == nil {
+		return nil, fmt.Errorf("%w (workflow_id=%s attempts=%d)", ErrExecutePinExhausted, m.workflowID, executePinMaxAttempts)
+	}
 	defer m.mu.RUnlock()
-	return m.inner.Execute(ctx, request, handler)
+	return pinned.Execute(ctx, request, handler)
 }
 
 func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
