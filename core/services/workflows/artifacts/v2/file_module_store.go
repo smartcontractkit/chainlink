@@ -16,9 +16,18 @@ type FileModuleStore struct {
 	cacheDir string
 }
 
-func NewFileModuleStore(cacheDir string) (*FileModuleStore, error) {
+// NewFileModuleStore opens the on-disk module cache rooted at cacheDir when non-empty,
+// or at os.TempDir()/workflow-module-cache when cacheDir is empty.
+// If cleanOnStartup is true, the resolved directory is removed first so the process starts
+// with an empty cache (workflow registry sync repopulates it).
+func NewFileModuleStore(cacheDir string, cleanOnStartup bool) (*FileModuleStore, error) {
 	if cacheDir == "" {
 		cacheDir = filepath.Join(os.TempDir(), defaultCacheSubdir)
+	}
+	if cleanOnStartup {
+		if err := os.RemoveAll(cacheDir); err != nil {
+			return nil, fmt.Errorf("failed to clear module cache directory: %w", err)
+		}
 	}
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create module cache directory: %w", err)

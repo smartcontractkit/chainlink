@@ -34,7 +34,7 @@ func (s *countingStore) GetModulePath(wfID string) (string, bool, error) {
 
 func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFactoryFn) (*EvictableModule, artifacts.SerialisedModuleStore) {
 	t.Helper()
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("fake-binary")))
 	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil, int64(len("fake-binary")))
@@ -327,7 +327,7 @@ func TestLRU_EvictsIdleModule(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	em := newLRUModule(t, store, "wf-idle")
@@ -352,7 +352,7 @@ func TestLRU_ActiveModuleNotEvicted(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	em := newLRUModule(t, store, "wf-active")
@@ -379,7 +379,7 @@ func TestLRU_MaxLoadedCap(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	m1 := newLRUModule(t, store, "wf-1")
@@ -416,7 +416,7 @@ func TestLRU_DeregisterStopsTracking(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	em := newLRUModule(t, store, "wf-dereg")
@@ -439,7 +439,7 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	lru := NewModuleLRU(clock)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	type entry struct {
@@ -469,7 +469,7 @@ func TestLRU_StartStop(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	em := newLRUModule(t, store, "wf-1")
@@ -502,7 +502,7 @@ func TestLRU_EvictionOrder(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	modules := make([]*EvictableModule, 5)
@@ -553,7 +553,7 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 		return reloaded, nil
 	}
 
-	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
 	cs := &countingStore{SerialisedModuleStore: realStore}
@@ -593,7 +593,7 @@ func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 		return reloaded, nil
 	}
 
-	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
 	cs := &countingStore{SerialisedModuleStore: realStore}
@@ -629,7 +629,7 @@ func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
 		return m, nil
 	}
 
-	realStore, err := artifacts.NewFileModuleStore(t.TempDir())
+	realStore, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
 	cs := &countingStore{SerialisedModuleStore: realStore}
@@ -676,7 +676,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 		return reloaded, nil
 	}
 
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("binary")))
 
@@ -697,7 +697,7 @@ func TestLRU_EvictionMetric(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, storeErr := artifacts.NewFileModuleStore(t.TempDir())
+	store, storeErr := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, storeErr)
 
 	em := newLRUModule(t, store, "wf-metric")
@@ -735,7 +735,7 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 	}
 
 	binaryData := make([]byte, 4096)
-	store, err := artifacts.NewFileModuleStore(t.TempDir())
+	store, err := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", binaryData))
 
@@ -760,7 +760,7 @@ func TestLRU_MemorySavedMetric(t *testing.T) {
 	reapTicker := make(chan time.Time, 1)
 	onReaped := make(chan struct{}, 1)
 
-	store, storeErr := artifacts.NewFileModuleStore(t.TempDir())
+	store, storeErr := artifacts.NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, storeErr)
 
 	m1 := newLRUModule(t, store, "wf-a")

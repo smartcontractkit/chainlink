@@ -11,7 +11,7 @@ import (
 )
 
 func TestStore_RoundTrip(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	binary := []byte("fake-wasm-binary-content")
@@ -27,7 +27,7 @@ func TestStore_RoundTrip(t *testing.T) {
 }
 
 func TestStore_GetBinaryID(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	require.NoError(t, s.StoreModule("wf-1", "abc123", []byte("bin")))
@@ -39,7 +39,7 @@ func TestStore_GetBinaryID(t *testing.T) {
 }
 
 func TestStore_Overwrite(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	require.NoError(t, s.StoreModule("wf-1", "old-id", []byte("old")))
@@ -59,7 +59,7 @@ func TestStore_Overwrite(t *testing.T) {
 }
 
 func TestStore_MissingModule(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	p, ok, err := s.GetModulePath("nonexistent")
@@ -74,7 +74,7 @@ func TestStore_MissingModule(t *testing.T) {
 }
 
 func TestStore_DeleteModule(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	require.NoError(t, s.StoreModule("wf-1", "bin-1", []byte("data")))
@@ -86,7 +86,7 @@ func TestStore_DeleteModule(t *testing.T) {
 }
 
 func TestStore_DeleteNonExistent(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	assert.NoError(t, s.DeleteModule("never-stored"))
@@ -94,7 +94,7 @@ func TestStore_DeleteNonExistent(t *testing.T) {
 
 func TestStore_AtomicWrite(t *testing.T) {
 	dir := t.TempDir()
-	s, err := NewFileModuleStore(dir)
+	s, err := NewFileModuleStore(dir, false)
 	require.NoError(t, err)
 
 	require.NoError(t, s.StoreModule("wf-1", "bin-1", []byte("good")))
@@ -112,8 +112,29 @@ func TestStore_AtomicWrite(t *testing.T) {
 	assert.Equal(t, []byte("good"), got)
 }
 
+func TestStore_CleanOnStartup(t *testing.T) {
+	dir := t.TempDir()
+	stale := filepath.Join(dir, "stale-wf", binaryFileName)
+	require.NoError(t, os.MkdirAll(filepath.Dir(stale), 0o755))
+	require.NoError(t, os.WriteFile(stale, []byte("leftover"), 0o600))
+
+	s, err := NewFileModuleStore(dir, true)
+	require.NoError(t, err)
+
+	_, err = os.Stat(stale)
+	require.ErrorIs(t, err, os.ErrNotExist)
+
+	require.NoError(t, s.StoreModule("wf-1", "bin-1", []byte("fresh")))
+	p, ok, err := s.GetModulePath("wf-1")
+	require.NoError(t, err)
+	require.True(t, ok)
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("fresh"), got)
+}
+
 func TestStore_ConcurrentAccess(t *testing.T) {
-	s, err := NewFileModuleStore(t.TempDir())
+	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

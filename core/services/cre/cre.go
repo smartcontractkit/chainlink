@@ -939,7 +939,7 @@ func newWorkflowRegistrySyncerV2(
 			return nil, nil, fmt.Errorf("unable to create module cache metrics: %w", cmErr)
 		}
 
-		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir())
+		fileStore, fsErr := artifactsV2.NewFileModuleStore(mc.CacheDir(), true)
 		if fsErr != nil {
 			return nil, nil, fmt.Errorf("unable to create file module store: %w", fsErr)
 		}
