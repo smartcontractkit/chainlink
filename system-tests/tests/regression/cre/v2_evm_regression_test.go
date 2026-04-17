@@ -174,8 +174,8 @@ var evmNegativeTestsGetTransactionReceiptInvalidHash = []evmNegativeTest{
 	{"31 bytes (short) non-0x-prefixed", "12345678901234567890123456789012345678901234567890123456789012", getTransactionReceiptInvalidHash, "got 31 bytes, expected 32"},
 	{"33 bytes (long) non-0x-prefixed", "12345678901234567890123456789012345678901234567890123456789012345", getTransactionReceiptInvalidHash, "got 33 bytes, expected 32"},
 	{"malformed (non-hex) correct length", "0x123gggggggggggggggggggggggggggggggggggggggggggggggggggggggggg", getTransactionReceiptInvalidHash, "got 2 bytes, expected 32"}, // produces x01#
-	{"short hash", "0x647b7f17f9edba01d1f75ce071d0bc10173bc66b5d072f28b644275bf13bb99", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
-	{"non-existent hash", "0x1234567890123456789012345678901234567890123456789012345678901234", getTransactionReceiptInvalidHash, "RPC call failed: not found"},
+	{"short hash", "0x647b7f17f9edba01d1f75ce071d0bc10173bc66b5d072f28b644275bf13bb99", getTransactionReceiptInvalidHash, "got expected error for GetTransactionReceipt with invalid hash"},
+	{"non-existent hash", "0x1234567890123456789012345678901234567890123456789012345678901234", getTransactionReceiptInvalidHash, "got expected error for GetTransactionReceipt with invalid hash"},
 }
 
 var evmNegativeTestsHeaderByNumberInvalidBlock = []evmNegativeTest{

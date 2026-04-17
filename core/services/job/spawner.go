@@ -146,6 +146,7 @@ func (js *spawner) startAllServices(ctx context.Context) {
 			defer wg.Done()
 			if err = js.StartService(ctx, jb); err != nil {
 				js.lggr.Errorw("Couldn't start job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
+				js.stopService(jb.ID)
 			}
 		}(jb)
 	}
@@ -211,6 +212,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	// OnJobDeleted before deleting. However, the activeJob will only have services
 	// that it was able to start without an error.
 	aj := activeJob{delegate: delegate, spec: jb}
+	js.activeJobs[jb.ID] = aj
 
 	jb.PipelineSpec.JobName = jb.Name.ValueOrZero()
 	jb.PipelineSpec.JobID = jb.ID
@@ -225,13 +227,16 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		cctx, cancel := js.chStop.NewCtx()
 		defer cancel()
 		js.orm.TryRecordError(cctx, jb.ID, err.Error())
-		js.activeJobs[jb.ID] = aj
 		return fmt.Errorf("failed to create services for job: %d: %w", jb.ID, err)
 	}
 
-	var ms services.MultiStart
 	for _, srv := range srvs {
-		err = ms.Start(ctx, srv)
+		// Track the service before Start so rollback can close it even if Start
+		// returns after partially initializing internal state.
+		aj.services = append(aj.services, srv)
+		js.activeJobs[jb.ID] = aj
+
+		err = srv.Start(ctx)
 		if err != nil {
 			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
@@ -239,10 +244,10 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		if c, ok := srv.(services.HealthReporter); ok {
 			err = js.checker.Register(c)
 			if err != nil {
+				js.activeJobs[jb.ID] = aj
 				return fmt.Errorf("failed to register service with health checker for job %d: %w", jb.ID, err)
 			}
 		}
-		aj.services = append(aj.services, srv)
 	}
 	js.activeJobs[jb.ID] = aj
 	return nil
@@ -272,6 +277,8 @@ func (js *spawner) CreateJob(ctx context.Context, ds sqlutil.DataSource, jb *Job
 	err = js.StartService(ctx, *jb)
 	if err != nil {
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
+		// Tear down any services that did start so retries do not inherit stale in-memory state.
+		js.stopService(jb.ID)
 	} else {
 		js.lggr.Infow("Started job services", "type", jb.Type, "jobID", jb.ID)
 	}

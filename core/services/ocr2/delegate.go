@@ -732,7 +732,12 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory)
+	gatewayHandlerOpts := make([]vaultcap.GatewayHandlerOption, 0, 1)
+	if cfg.Auth0 != nil {
+		gatewayHandlerOpts = append(gatewayHandlerOpts, vaultcap.WithJWTAuth0Config(cfg.Auth0))
+	}
+
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory, gatewayHandlerOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}

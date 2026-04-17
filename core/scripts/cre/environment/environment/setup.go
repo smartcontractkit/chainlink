@@ -18,7 +18,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -289,21 +288,26 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
-	if c.RequireGithubToken {
-		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
-	}
+	args := c.dockerBuildArgs()
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	log.Info("Running command:", "cmd", cmd.String(), "dir", workingDir)
+	logger.Info().Str("cmd", cmd.String()).Str("dir", workingDir).Msg("Running docker build command")
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to build Docker image: %w", err)
 	}
 
 	logger.Info().Msgf("  ✓ %s image built successfully", name)
 	return c.LocalImage, nil
+}
+
+func (c BuildConfig) dockerBuildArgs() []string {
+	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile}
+	if c.RequireGithubToken {
+		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
+	}
+	return append(args, c.DockerCtx)
 }
 
 type PullConfig struct {
