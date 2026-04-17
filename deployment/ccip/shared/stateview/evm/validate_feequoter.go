@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/sync/errgroup"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -314,17 +315,12 @@ func (c CCIPChainState) validateAllDestChainConfigs(
 ) error {
 	var mu sync.Mutex
 	var errs []error
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 20) // limit concurrent dest chain validations
+	grp := errgroup.Group{}
+	grp.SetLimit(20)
 
 	for _, destChainSel := range connectedChains {
 		dest := destChainSel
-		wg.Add(1)
-		sem <- struct{}{}
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-
+		grp.Go(func() error {
 			var destErrs []error
 			var v16Cfg *fee_quoter.FeeQuoterDestChainConfig
 			var v20Cfg *fqv2ops.DestChainConfig
@@ -379,9 +375,10 @@ func (c CCIPChainState) validateAllDestChainConfigs(
 				errs = append(errs, destErrs...)
 				mu.Unlock()
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	_ = grp.Wait()
 
 	return errors.Join(errs...)
 }
@@ -552,43 +549,40 @@ func (c CCIPChainState) validateAllTokenTransferFeeConfigs(
 	e.Logger.Debugw("Validating TokenTransferFeeConfigs", "tokens", len(allTokens), "connectedChains", len(connectedChains))
 	var mu sync.Mutex
 	var errs []error
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 20)
+	outerGrp := errgroup.Group{}
+	outerGrp.SetLimit(20)
 	for _, tokenAddr := range allTokens {
 		token := tokenAddr
 		tokenLabel := token.Hex()
 		if sym, ok := addrToSymbol[token]; ok {
 			tokenLabel = fmt.Sprintf("%s (%s)", sym, token.Hex())
 		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func() {
-			defer wg.Done()
-			defer func() { <-sem }()
-			var innerMu sync.Mutex
+		outerGrp.Go(func() error {
 			var tokenErrs []error
-			var innerWg sync.WaitGroup
+			var tokenMu sync.Mutex
+			innerGrp := errgroup.Group{}
+			innerGrp.SetLimit(10)
 			for _, destChainSel := range connectedChains {
 				dest := destChainSel
-				innerWg.Add(1)
-				go func() {
-					defer innerWg.Done()
+				innerGrp.Go(func() error {
 					if err := c.validateTokenTransferFee(callOpts, dest, token, tokenLabel, fqV2); err != nil {
-						innerMu.Lock()
+						tokenMu.Lock()
 						tokenErrs = append(tokenErrs, err)
-						innerMu.Unlock()
+						tokenMu.Unlock()
 					}
-				}()
+					return nil
+				})
 			}
-			innerWg.Wait()
+			_ = innerGrp.Wait()
 			if len(tokenErrs) > 0 {
 				mu.Lock()
 				errs = append(errs, tokenErrs...)
 				mu.Unlock()
 			}
-		}()
+			return nil
+		})
 	}
-	wg.Wait()
+	_ = outerGrp.Wait()
 
 	return errors.Join(errs...)
 }

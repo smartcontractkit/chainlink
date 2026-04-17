@@ -1048,7 +1048,7 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		TonChains:   tonChains,
 		evmMu:       &sync.RWMutex{},
 	}
-	grp := errgroup.Group{}
+	grp, ctx := errgroup.WithContext(e.GetContext())
 	grp.SetLimit(10) // parallel EVM chain loading with bounded concurrency
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
 		sel := chainSelector
@@ -1062,7 +1062,7 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 			if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
 				return fmt.Errorf("failed to get addresses for chain %d: %w", sel, err)
 			}
-			chainState, err := LoadChainState(e.GetContext(), ch, addresses, opts...)
+			chainState, err := LoadChainState(ctx, ch, addresses, opts...)
 			if err != nil {
 				return err
 			}
