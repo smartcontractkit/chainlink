@@ -92,9 +92,8 @@ func WithConfig(cfg StoreConfig) func(*Store) {
 }
 
 type SerialisedModuleStore interface {
-	StoreModule(workflowID string, binaryID string, module []byte) error
+	StoreModule(workflowID string, module []byte) error
 	GetModulePath(workflowID string) (string, bool, error)
-	GetBinaryID(workflowID string) (string, bool, error)
 	DeleteModule(workflowID string) error
 }
 

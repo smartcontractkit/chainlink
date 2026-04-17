@@ -696,7 +696,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	// V2 aka "NoDAG"
 	var engineModule host.ModuleV2 = module
 	if h.moduleLRU != nil && h.moduleStore != nil {
-		if storeErr := h.moduleStore.StoreModule(workflowID, workflowID, binary); storeErr != nil {
+		if storeErr := h.moduleStore.StoreModule(workflowID, binary); storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
 			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())

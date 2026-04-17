@@ -9,7 +9,6 @@ import (
 const (
 	defaultCacheSubdir = "workflow-module-cache"
 	binaryFileName     = "binary.wasm"
-	binaryIDFileName   = "binary_id"
 )
 
 type FileModuleStore struct {
@@ -39,7 +38,7 @@ func (s *FileModuleStore) workflowDir(workflowID string) string {
 	return filepath.Join(s.cacheDir, workflowID)
 }
 
-func (s *FileModuleStore) StoreModule(workflowID string, binaryID string, module []byte) error {
+func (s *FileModuleStore) StoreModule(workflowID string, module []byte) error {
 	dir := s.workflowDir(workflowID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create workflow cache directory: %w", err)
@@ -55,16 +54,6 @@ func (s *FileModuleStore) StoreModule(workflowID string, binaryID string, module
 		return fmt.Errorf("failed to finalize module binary: %w", err)
 	}
 
-	idPath := filepath.Join(dir, binaryIDFileName)
-	tmpID := idPath + ".tmp"
-	if err := os.WriteFile(tmpID, []byte(binaryID), 0o600); err != nil {
-		return fmt.Errorf("failed to write binary ID: %w", err)
-	}
-	if err := os.Rename(tmpID, idPath); err != nil {
-		os.Remove(tmpID)
-		return fmt.Errorf("failed to finalize binary ID: %w", err)
-	}
-
 	return nil
 }
 
@@ -77,18 +66,6 @@ func (s *FileModuleStore) GetModulePath(workflowID string) (string, bool, error)
 		return "", false, fmt.Errorf("failed to stat module binary: %w", err)
 	}
 	return p, true, nil
-}
-
-func (s *FileModuleStore) GetBinaryID(workflowID string) (string, bool, error) {
-	p := filepath.Join(s.workflowDir(workflowID), binaryIDFileName)
-	data, err := os.ReadFile(p)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", false, nil
-		}
-		return "", false, fmt.Errorf("failed to read binary ID: %w", err)
-	}
-	return string(data), true, nil
 }
 
 func (s *FileModuleStore) DeleteModule(workflowID string) error {
