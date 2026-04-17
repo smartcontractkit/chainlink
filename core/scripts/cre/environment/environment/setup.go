@@ -645,7 +645,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
 	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
-	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
 	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 
