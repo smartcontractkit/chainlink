@@ -233,6 +233,7 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 		got, err := cc.Unmarshal()
 		require.NoError(t, err)
 
+		require.Contains(t, got.Ocr3Configs, "aptos")
 		cfg := got.Ocr3Configs["aptos"]
 		assert.Equal(t,
 			[]ocrtypes.Account{
