@@ -174,6 +174,8 @@ func (c *Config) Load(absPath string) error {
 		return errors.Wrap(loadErr, "failed to load environment configuration")
 	}
 
+	transformHostDockerInternalReferences(in)
+
 	for _, nodeSet := range in.NodeSets {
 		if err := nodeSet.ValidateChainCapabilities(in.Blockchains); err != nil {
 			return errors.Wrap(err, "failed to validate chain capabilities")
@@ -184,6 +186,78 @@ func (c *Config) Load(absPath string) error {
 	c.loaded = true
 
 	return nil
+}
+
+func transformHostDockerInternalReferences(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet == nil {
+			continue
+		}
+
+		for _, nodeSpec := range nodeSet.NodeSpecs {
+			if nodeSpec == nil || nodeSpec.Node == nil || nodeSpec.Node.UserConfigOverrides == "" {
+				continue
+			}
+			nodeSpec.Node.UserConfigOverrides = replaceHostDockerInternal(nodeSpec.Node.UserConfigOverrides)
+		}
+
+		transformCapabilityConfigs(nodeSet.CapabilityConfigs)
+	}
+
+	transformCapabilityConfigs(cfg.CapabilityConfigs)
+}
+
+func transformCapabilityConfigs(capabilityConfigs map[string]cre.CapabilityConfig) {
+	if len(capabilityConfigs) == 0 {
+		return
+	}
+
+	for key, cfg := range capabilityConfigs {
+		cfg.Values = transformCapabilityConfigValues(cfg.Values)
+		capabilityConfigs[key] = cfg
+	}
+}
+
+func transformCapabilityConfigValues(values map[string]any) map[string]any {
+	if len(values) == 0 {
+		return values
+	}
+
+	transformed := make(map[string]any, len(values))
+	for key, value := range values {
+		transformed[key] = transformCapabilityConfigValue(value)
+	}
+
+	return transformed
+}
+
+func transformCapabilityConfigValue(value any) any {
+	switch typed := value.(type) {
+	case string:
+		return replaceHostDockerInternal(typed)
+	case map[string]any:
+		return transformCapabilityConfigValues(typed)
+	case []any:
+		transformed := make([]any, len(typed))
+		for i, element := range typed {
+			transformed[i] = transformCapabilityConfigValue(element)
+		}
+		return transformed
+	default:
+		return value
+	}
+}
+
+func replaceHostDockerInternal(value string) string {
+	if value == "" {
+		return value
+	}
+
+	return strings.ReplaceAll(value, "host.docker.internal", strings.TrimPrefix(framework.HostDockerInternal(), "http://"))
 }
 
 const (

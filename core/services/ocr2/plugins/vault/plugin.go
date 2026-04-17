@@ -390,6 +390,18 @@ func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
 	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
 }
 
+func (r *ReportingPlugin) canonicalResponseID(ctx context.Context, id *vaultcommon.SecretIdentifier, orgID string) *vaultcommon.SecretIdentifier {
+	if id == nil || orgID == "" || !r.orgIDAsSecretOwnerEnabled(ctx) {
+		return id
+	}
+
+	return &vaultcommon.SecretIdentifier{
+		Key:       id.Key,
+		Namespace: id.Namespace,
+		Owner:     orgID,
+	}
+}
+
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -1911,7 +1923,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp)
+		resp, err := r.stateTransitionCreateSecretsRequest(ctx, store, req, resp, first.GetCreateSecretsRequest().OrgId)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle create secret request", err, "id", req.Id, "requestID", reqID)
 			errorMsg := userFacingError(err, "failed to handle create secret request")
@@ -1933,7 +1945,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse) (*vaultcommon.CreateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse, orgID string) (*vaultcommon.CreateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -1974,7 +1986,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.CreateSecretResponse{
-		Id:      req.Id,
+		Id:      r.canonicalResponseID(ctx, req.Id, orgID),
 		Success: true,
 		Error:   "",
 	}, nil
@@ -2029,7 +2041,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
+		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp, first.GetUpdateSecretsRequest().OrgId)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle update secret request", err, "id", req.Id, "requestID", reqID)
 			errorMsg := userFacingError(err, "failed to handle update secret request")
@@ -2051,7 +2063,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse, orgID string) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -2078,7 +2090,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.UpdateSecretResponse{
-		Id:      req.Id,
+		Id:      r.canonicalResponseID(ctx, req.Id, orgID),
 		Success: true,
 		Error:   "",
 	}, nil
@@ -2133,7 +2145,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
+		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp, first.GetDeleteSecretsRequest().OrgId)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle delete secret request", err, "id", id, "requestId", reqID)
 			errorMsg := userFacingError(err, "failed to handle delete secret request")
@@ -2155,7 +2167,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse, orgID string) (*vaultcommon.DeleteSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -2166,7 +2178,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 	}
 
 	return &vaultcommon.DeleteSecretResponse{
-		Id:      id,
+		Id:      r.canonicalResponseID(ctx, id, orgID),
 		Success: true,
 		Error:   "",
 	}, nil
