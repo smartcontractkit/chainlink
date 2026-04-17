@@ -32,6 +32,10 @@ var evictAfterEnsureLoadedHook func(*EvictableModule)
 // ensureLoaded, even after bounded retries (eviction repeatedly won the race before RLock).
 var ErrExecutePinExhausted = errors.New("evictable module: failed to pin inner module after repeated eviction races")
 
+// ErrEngineVersionMismatch is returned by ensureLoaded when the cached binary was persisted by
+// a different engine version than the current one. The stale entry is deleted before returning.
+var ErrEngineVersionMismatch = errors.New("evictable module: cached binary engine version mismatch")
+
 // ModuleFactoryFn creates a host.ModuleV2 from config and binary.
 // Defaults to host.NewModule in production; tests inject mocks via this.
 type ModuleFactoryFn func(ctx context.Context, modCfg *host.ModuleConfig, binary []byte, opts ...func(*host.ModuleConfig)) (host.ModuleV2, error)
@@ -44,13 +48,14 @@ func defaultModuleFactory(ctx context.Context, modCfg *host.ModuleConfig, binary
 // Trigger registrations and event channels are owned by the engine, not by this module,
 // so evicting the inner module only frees WASM memory without losing trigger connectivity.
 type EvictableModule struct {
-	inner      host.ModuleV2
-	mu         sync.RWMutex
-	lastUsed   atomic.Int64
-	binarySize atomic.Int64
-	closed     atomic.Bool
-	started    atomic.Bool
-	workflowID string
+	inner         host.ModuleV2
+	mu            sync.RWMutex
+	lastUsed      atomic.Int64
+	binarySize    atomic.Int64
+	closed        atomic.Bool
+	started       atomic.Bool
+	workflowID    string
+	engineVersion string
 
 	moduleConfig *host.ModuleConfig
 	moduleOpts   []func(*host.ModuleConfig)
@@ -66,6 +71,7 @@ func NewEvictableModule(
 	moduleConfig *host.ModuleConfig,
 	store artifacts.SerialisedModuleStore,
 	workflowID string,
+	engineVersion string,
 	factory ModuleFactoryFn,
 	cm *CacheMetrics,
 	initialBinaryLen int64,
@@ -75,13 +81,14 @@ func NewEvictableModule(
 		factory = defaultModuleFactory
 	}
 	m := &EvictableModule{
-		inner:        inner,
-		workflowID:   workflowID,
-		moduleConfig: moduleConfig,
-		moduleOpts:   opts,
-		store:        store,
-		factory:      factory,
-		metrics:      cm,
+		inner:         inner,
+		workflowID:    workflowID,
+		engineVersion: engineVersion,
+		moduleConfig:  moduleConfig,
+		moduleOpts:    opts,
+		store:         store,
+		factory:       factory,
+		metrics:       cm,
 	}
 	m.lastUsed.Store(time.Now().UnixNano())
 	// Set from the bytes used to build inner (and written by StoreModule) so eviction
@@ -175,12 +182,26 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 		binary = *bp
 		reloadSource = "weak_ref"
 	} else {
-		p, ok, err := m.store.GetModulePath(m.workflowID)
+		p, cachedVersion, ok, err := m.store.GetModule(m.workflowID)
 		if err != nil {
 			return fmt.Errorf("failed to get module path: %w", err)
 		}
 		if !ok {
 			return fmt.Errorf("no cached binary for workflow %s", m.workflowID)
+		}
+		if cachedVersion != m.engineVersion {
+			m.metrics.recordVersionMismatch(ctx)
+			lg := m.moduleConfig.Logger
+			if lg != nil {
+				lg.Warnw("rejecting cached module binary: engine version mismatch",
+					"workflowID", m.workflowID,
+					"cachedEngineVersion", cachedVersion,
+					"currentEngineVersion", m.engineVersion)
+			}
+			if delErr := m.store.DeleteModule(m.workflowID); delErr != nil && lg != nil {
+				lg.Warnw("failed to delete stale cached module", "workflowID", m.workflowID, "err", delErr)
+			}
+			return fmt.Errorf("%w (workflow_id=%s cached=%q current=%q)", ErrEngineVersionMismatch, m.workflowID, cachedVersion, m.engineVersion)
 		}
 
 		binary, err = os.ReadFile(p)

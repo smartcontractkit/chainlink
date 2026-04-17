@@ -1,14 +1,16 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 )
 
 const (
-	defaultCacheSubdir = "workflow-module-cache"
-	binaryFileName     = "binary.wasm"
+	defaultCacheSubdir    = "workflow-module-cache"
+	binaryFileName        = "binary.wasm"
+	engineVersionFileName = "engine_version.txt"
 )
 
 type FileModuleStore struct {
@@ -38,40 +40,56 @@ func (s *FileModuleStore) workflowDir(workflowID string) string {
 	return filepath.Join(s.cacheDir, workflowID)
 }
 
-func (s *FileModuleStore) StoreModule(workflowID string, module []byte) error {
+func (s *FileModuleStore) StoreModule(workflowID string, module []byte, engineVersion string) error {
 	dir := s.workflowDir(workflowID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("failed to create workflow cache directory: %w", err)
 	}
 
-	binaryPath := filepath.Join(dir, binaryFileName)
-	tmpBinary := binaryPath + ".tmp"
-	if err := os.WriteFile(tmpBinary, module, 0o600); err != nil {
+	if err := atomicWrite(filepath.Join(dir, binaryFileName), module); err != nil {
 		return fmt.Errorf("failed to write module binary: %w", err)
 	}
-	if err := os.Rename(tmpBinary, binaryPath); err != nil {
-		os.Remove(tmpBinary)
-		return fmt.Errorf("failed to finalize module binary: %w", err)
+	if err := atomicWrite(filepath.Join(dir, engineVersionFileName), []byte(engineVersion)); err != nil {
+		return fmt.Errorf("failed to write engine version: %w", err)
 	}
-
 	return nil
 }
 
-func (s *FileModuleStore) GetModulePath(workflowID string) (string, bool, error) {
-	p := filepath.Join(s.workflowDir(workflowID), binaryFileName)
-	if _, err := os.Stat(p); err != nil {
-		if os.IsNotExist(err) {
-			return "", false, nil
+// GetModule returns the on-disk path of the cached binary together with the engine version
+// recorded at write time. ok is false only when no binary is cached for workflowID.
+// A missing engine version file is treated as empty string (legacy cache entries).
+func (s *FileModuleStore) GetModule(workflowID string) (string, string, bool, error) {
+	dir := s.workflowDir(workflowID)
+	binPath := filepath.Join(dir, binaryFileName)
+	if _, err := os.Stat(binPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", "", false, nil
 		}
-		return "", false, fmt.Errorf("failed to stat module binary: %w", err)
+		return "", "", false, fmt.Errorf("failed to stat module binary: %w", err)
 	}
-	return p, true, nil
+	verBytes, err := os.ReadFile(filepath.Join(dir, engineVersionFileName))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", "", false, fmt.Errorf("failed to read engine version: %w", err)
+	}
+	return binPath, string(verBytes), true, nil
 }
 
 func (s *FileModuleStore) DeleteModule(workflowID string) error {
 	dir := s.workflowDir(workflowID)
-	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(dir); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to delete module cache: %w", err)
+	}
+	return nil
+}
+
+func atomicWrite(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
 	}
 	return nil
 }

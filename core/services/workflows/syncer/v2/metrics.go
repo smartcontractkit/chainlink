@@ -80,10 +80,11 @@ func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, cou
 }
 
 type CacheMetrics struct {
-	reloadSource  metric.Int64Counter // attribute "source": "weak_ref" | "disk"
-	evictionTotal metric.Int64Counter
-	loadedGauge   metric.Int64Gauge
-	memorySaved   metric.Int64Gauge // bytes saved by evicting idle modules
+	reloadSource    metric.Int64Counter // attribute "source": "weak_ref" | "disk"
+	evictionTotal   metric.Int64Counter
+	loadedGauge     metric.Int64Gauge
+	memorySaved     metric.Int64Gauge   // bytes saved by evicting idle modules
+	versionMismatch metric.Int64Counter // cached binary rejected due to engine version mismatch
 }
 
 func (cm *CacheMetrics) recordReload(ctx context.Context, source string) {
@@ -114,6 +115,13 @@ func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
 	cm.memorySaved.Record(ctx, bytes)
 }
 
+func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
+	if cm == nil {
+		return
+	}
+	cm.versionMismatch.Add(ctx, 1)
+}
+
 func NewCacheMetrics() (*CacheMetrics, error) {
 	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
 	if err != nil {
@@ -131,11 +139,16 @@ func NewCacheMetrics() (*CacheMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	versionMismatch, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_version_mismatch_total")
+	if err != nil {
+		return nil, err
+	}
 	return &CacheMetrics{
-		reloadSource:  reloadSource,
-		evictionTotal: evictionTotal,
-		loadedGauge:   loadedGauge,
-		memorySaved:   memorySaved,
+		reloadSource:    reloadSource,
+		evictionTotal:   evictionTotal,
+		loadedGauge:     loadedGauge,
+		memorySaved:     memorySaved,
+		versionMismatch: versionMismatch,
 	}, nil
 }
 

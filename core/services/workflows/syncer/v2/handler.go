@@ -79,9 +79,10 @@ type eventHandler struct {
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
 
-	moduleLRU    *ModuleLRU
-	moduleStore  artifacts.SerialisedModuleStore
-	cacheMetrics *CacheMetrics
+	moduleLRU           *ModuleLRU
+	moduleStore         artifacts.SerialisedModuleStore
+	cacheMetrics        *CacheMetrics
+	moduleEngineVersion string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -211,6 +212,15 @@ func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) 
 func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.cacheMetrics = cm
+	}
+}
+
+// WithModuleEngineVersion sets the engine version tag persisted alongside cached module
+// binaries and compared on reload. Reloads from an older version are rejected with a log
+// and a metric, ensuring process upgrades never reuse ABI-incompatible binaries.
+func WithModuleEngineVersion(v string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleEngineVersion = v
 	}
 }
 
@@ -696,10 +706,10 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	// V2 aka "NoDAG"
 	var engineModule host.ModuleV2 = module
 	if h.moduleLRU != nil && h.moduleStore != nil {
-		if storeErr := h.moduleStore.StoreModule(workflowID, binary); storeErr != nil {
+		if storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion); storeErr != nil {
 			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
 		} else {
-			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
 			h.moduleLRU.Register(workflowID, evictable)
 			engineModule = evictable
 		}
