@@ -30,18 +30,18 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src == 'true'
         uses: ./.github/actions/setup-go
         with:
           go-version-file: "go.mod"
           only-modules: "true"
 
       - name: Write Go Modules list
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src == 'true'
         run: go list -json -m all > go.list
 
       - name: Check vulnerabilities
-        if: needs.changes.outputs.changes == 'true'
+        if: needs.changes.outputs.src == 'true'
         uses: sonatype-nexus-community/nancy-github-action@726e338312e68ecdd4b4195765f174d3b3ce1533 # v1.0.3
         with:
-          nancyVersion: "v1.2.0"
+          nancyVersion: "v1.0.39"
