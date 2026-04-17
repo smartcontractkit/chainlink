@@ -54,6 +54,7 @@ func NewEvictableModule(
 	workflowID string,
 	factory ModuleFactoryFn,
 	cm *CacheMetrics,
+	initialBinaryLen int64,
 	opts ...func(*host.ModuleConfig),
 ) *EvictableModule {
 	if factory == nil {
@@ -69,6 +70,11 @@ func NewEvictableModule(
 		metrics:      cm,
 	}
 	m.lastUsed.Store(time.Now().UnixNano())
+	// Set from the bytes used to build inner (and written by StoreModule) so eviction
+	// before any Execute/reload still contributes to memorySaved; ensureLoaded refreshes.
+	if initialBinaryLen > 0 {
+		m.binarySize.Store(initialBinaryLen)
+	}
 	return m
 }
 
@@ -201,7 +207,8 @@ func (m *EvictableModule) LastUsed() int64 {
 	return m.lastUsed.Load()
 }
 
-// BinarySize returns the size of the WASM binary in bytes (set after first load).
+// BinarySize returns the size of the WASM binary in bytes. It is populated from the
+// disk cache when available at construction time and updated whenever the binary is loaded in ensureLoaded.
 func (m *EvictableModule) BinarySize() int64 {
 	return m.binarySize.Load()
 }

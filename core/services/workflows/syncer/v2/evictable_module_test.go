@@ -37,7 +37,7 @@ func newTestEvictableModule(t *testing.T, inner host.ModuleV2, factory ModuleFac
 	store, err := artifacts.NewFileModuleStore(t.TempDir())
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("fake-binary")))
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil, int64(len("fake-binary")))
 	return em, store
 }
 
@@ -275,7 +275,7 @@ func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID stri
 		m.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Maybe()
 		return m, nil
 	}
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, wfID, factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, wfID, factory, nil, int64(len("binary")))
 	em.started.Store(true)
 	return em
 }
@@ -516,7 +516,7 @@ func TestEvictable_WeakRefHitAfterEvict(t *testing.T) {
 	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
 	cs := &countingStore{SerialisedModuleStore: realStore}
 
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
 
 	// Seed the weak reference with a known binary. Hold a strong reference
@@ -557,7 +557,7 @@ func TestEvictable_WeakRefMissFallsToDisk(t *testing.T) {
 	cs := &countingStore{SerialisedModuleStore: realStore}
 
 	// weakBinary is zero-valued (never populated), so L2 is a guaranteed miss.
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
 	em.Evict()
 
@@ -592,7 +592,7 @@ func TestEvictable_WeakRefUpdatedOnReload(t *testing.T) {
 	require.NoError(t, realStore.StoreModule("wf-test", "bin-1", []byte("disk-binary")))
 	cs := &countingStore{SerialisedModuleStore: realStore}
 
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, cs, "wf-test", factory, nil, int64(len("disk-binary")))
 	em.started.Store(true)
 
 	// First cycle: evict + reload from disk (populates weakBinary)
@@ -638,7 +638,7 @@ func TestEvictable_ReloadSourceMetric(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", []byte("binary")))
 
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, cm)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, cm, int64(len("binary")))
 	em.started.Store(true)
 	em.Evict()
 
@@ -697,11 +697,13 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, store.StoreModule("wf-test", "bin-1", binaryData))
 
-	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil)
+	em := NewEvictableModule(inner, &host.ModuleConfig{}, store, "wf-test", factory, nil, int64(len(binaryData)))
 	em.started.Store(true)
-	assert.Equal(t, int64(0), em.BinarySize(), "binary size should be 0 before any reload")
+	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should match on-disk cache before first reload")
 
 	em.Evict()
+	assert.Equal(t, int64(4096), em.BinarySize(), "binary size should remain after eviction before any reload (memorySaved metric)")
+
 	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.NoError(t, err)
 
