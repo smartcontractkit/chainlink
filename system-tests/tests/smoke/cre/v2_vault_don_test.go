@@ -492,6 +492,7 @@ func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *vault.TestJWTIssuer,
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
 		name        string
@@ -536,7 +537,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					}
 					if tc.wantLinking {
 						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "host.docker.internal:18124")
+						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
 						continue
 					}
 					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
@@ -560,7 +561,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 
 			require.True(t, hasAuth0)
 			require.Equal(t, map[string]any{
-				"issuerURL": "http://host.docker.internal:18123/",
+				"issuerURL": framework.HostDockerInternal() + ":18123/",
 				"audience":  vault.DefaultJWTAudience,
 			}, auth0Value)
 		})
