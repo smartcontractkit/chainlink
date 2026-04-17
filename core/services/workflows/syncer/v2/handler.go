@@ -558,6 +558,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
+		Attributes:    payload.Attributes,
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -658,60 +659,9 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	}
 
 	// V2 aka "NoDAG"
-	cfg := &v2.EngineConfig{
-		Lggr:                  h.lggr,
-		Module:                module,
-		WorkflowConfig:        config,
-		CapRegistry:           h.capRegistry,
-		DonSubscriber:         h.workflowDonSubscriber,
-		UseLocalTimeProvider:  h.useLocalTimeProvider,
-		DonTimeStore:          h.donTimeStore,
-		ExecutionsStore:       h.workflowStore,
-		WorkflowID:            workflowID,
-		WorkflowOwner:         owner,
-		WorkflowName:          name,
-		WorkflowTag:           tag,
-		WorkflowEncryptionKey: h.workflowEncryptionKey,
+	cfg := h.newV2EngineConfig(module, workflowID, owner, tag, sdkName, name, config)
 
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
-
-		BeholderEmitter: func() custmsg.MessageEmitter {
-			h.emitterMu.RLock()
-			defer h.emitterMu.RUnlock()
-			return h.emitter
-		}(),
-		BillingClient: h.billingClient,
-
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		DebugMode:                     h.debugMode,
-		SecretsFetcher:                h.secretsFetcher,
-		SdkName:                       sdkName,
-
-		ShardOrchestratorClient: h.shardOrchestratorClient,
-		ShardingEnabled:         h.shardingEnabled,
-		MyShardID:               h.myShardID,
-		ShardRoutingSteady:      h.shardRoutingSteady,
-	}
-
-	// Wire the initDone channel to the OnInitialized lifecycle hook.
-	// This will be called when the engine completes initialization (including trigger subscriptions).
-	// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
-	if initDone != nil {
-		existingHook := cfg.Hooks.OnInitialized
-		cfg.Hooks.OnInitialized = func(err error) {
-			// Signal completion to the handler first
-			initDone <- err
-			// Then call any existing hook (e.g., from tests)
-			if existingHook != nil {
-				existingHook(err)
-			}
-		}
-	}
+	h.wireInitDoneHook(cfg, initDone)
 
 	return v2.NewEngine(cfg)
 }
@@ -824,24 +774,23 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
 
+	confidential, err := v2.IsConfidential(spec.Attributes)
+	if err != nil {
+		return fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+
 	// Create a channel to receive the initialization result.
 	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
+	var engine services.Service
 
-	// Scope the engineFactory call so that decodedBinary goes out of scope immediately after the factory returns
-	engine, err := func() (services.Service, error) {
-		return h.engineFactory(
-			ctx,
-			spec.WorkflowID,
-			spec.WorkflowOwner,
-			workflowName,
-			spec.WorkflowTag,
-			configBytes,
-			decodedBinary,
-			initDone,
-		)
-	}()
+	if confidential {
+		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
+		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
+	} else {
+		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -896,6 +845,111 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invariant violation: %w", err)
 	}
 	return nil
+}
+
+// newV2EngineConfig builds the common EngineConfig shared by both the normal
+// WASM engine and the confidential engine paths. Caller supplies the module.
+func (h *eventHandler) newV2EngineConfig(
+	module host.ModuleV2,
+	workflowID, owner, tag, sdkName string,
+	name types.WorkflowName,
+	config []byte,
+) *v2.EngineConfig {
+	return &v2.EngineConfig{
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        config,
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowTag:           tag,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
+
+		LocalLimits:                       v2.EngineLimits{}, // all defaults
+		LocalLimiters:                     h.engineLimiters,
+		FeatureFlags:                      h.featureFlags,
+		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
+
+		BeholderEmitter: func() custmsg.MessageEmitter {
+			h.emitterMu.RLock()
+			defer h.emitterMu.RUnlock()
+			return h.emitter
+		}(),
+		BillingClient: h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
+		DebugMode:                     h.debugMode,
+		SdkName:                       sdkName,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
+	}
+}
+
+// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
+// This will be called when the engine completes initialization (including trigger subscriptions).
+// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
+func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
+	if initDone == nil {
+		return
+	}
+	existingHook := cfg.Hooks.OnInitialized
+	cfg.Hooks.OnInitialized = func(err error) {
+		// Signal completion to the handler first
+		initDone <- err
+		// Then call any existing hook (e.g., from tests)
+		if existingHook != nil {
+			existingHook(err)
+		}
+	}
+}
+
+// confidentialEngineFactory creates a V2 engine backed by a ConfidentialModule
+// instead of a local WASM module. The ConfidentialModule delegates execution to
+// the confidential-workflows capability which runs the WASM inside a TEE.
+func (h *eventHandler) confidentialEngineFactory(
+	spec *job.WorkflowSpec,
+	workflowName types.WorkflowName,
+	decodedBinary []byte,
+	initDone chan<- error,
+) (services.Service, error) {
+	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse workflow attributes: %w", err)
+	}
+
+	binaryHash := v2.ComputeBinaryHash(decodedBinary)
+
+	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
+
+	// nil resolver: raw binaryURL is passed to the enclave as-is.
+	// PR 5/5 (#21642) wires this to the storage service retriever
+	// so the enclave receives a presigned URL.
+	module := v2.NewConfidentialModule(
+		h.capRegistry,
+		spec.BinaryURL,
+		binaryHash,
+		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
+		attrs.VaultDonSecrets,
+		nil,
+		lggr,
+	)
+
+	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, spec.WorkflowTag, "", workflowName, []byte(spec.Config))
+	h.wireInitDoneHook(cfg, initDone)
+
+	return v2.NewEngine(cfg)
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.

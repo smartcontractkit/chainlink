@@ -90,10 +90,13 @@ func (u ProposeEVMCapJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		OCRChainSelector:     input.OCRChainSelector,
 		BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
 		OCRContractQualifier: input.OCRContractQualifier,
-		ForwardersQualifier:  input.ForwardersQualifier,
 		DeltaStage:           input.DeltaStage,
 	}); err != nil {
 		return err
+	}
+
+	if input.ForwardersQualifier == "" {
+		return errors.New("cre forwarder qualifier is required")
 	}
 
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
