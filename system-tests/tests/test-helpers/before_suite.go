@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -26,13 +27,14 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
@@ -57,8 +59,7 @@ type sharedEnvironmentEntry struct {
 var (
 	sharedEnvMu         sync.Mutex
 	sharedEnvironments  = make(map[string]*sharedEnvironmentEntry)
-	workflowSignerAuthM sync.Mutex
-	fundingNonceLock    sync.Mutex
+	rootSignerNonceLock sync.Mutex
 )
 
 // SetupTestEnvironmentWithConfig creates a test environment backed by the shared
@@ -125,6 +126,7 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 
 	entry.once.Do(func() {
 		createEnvironment(t, tconf, flags...)
+		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 		if err != nil {
@@ -210,7 +212,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 			Build()
 		require.NoErrorf(t, clientErr, "failed to create per-test seth client for selector %d", evmChain.ChainSelector())
 
-		fundingNonceLock.Lock()
+		rootSignerNonceLock.Lock()
 		require.NoError(
 			t,
 			rootChain.Fund(t.Context(), ownerAddress.Hex(), perTestEVMFundingAmountWei),
@@ -218,7 +220,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 			ownerAddress.Hex(),
 			evmChain.ChainSelector(),
 		)
-		fundingNonceLock.Unlock()
+		rootSignerNonceLock.Unlock()
 
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
@@ -274,8 +276,8 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 		return
 	}
 
-	workflowSignerAuthM.Lock()
-	defer workflowSignerAuthM.Unlock()
+	rootSignerNonceLock.Lock()
+	defer rootSignerNonceLock.Unlock()
 
 	_, err = rootRegistryChain.SethClient.Decode(registry.UpdateAllowedSigners(rootRegistryChain.SethClient.NewTXOpts(), []common.Address{signer}, true))
 	require.NoError(t, err, "failed to authorize per-test signer")
@@ -296,7 +298,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 		EnvironmentDirPath:     environmentDirPath,
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
-		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
+		ChipIngressGRPCPort:    strconv.Itoa(ctfchiprouter.DefaultBeholderGRPCPort),
 	}
 }
 

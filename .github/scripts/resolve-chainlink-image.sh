@@ -36,9 +36,8 @@ ecr_type="$(trim "${ecr_type}")"
 aws_account="$(trim "${aws_account}")"
 aws_region="$(trim "${aws_region}")"
 
-# Normalize all input fields to lowercase for case-insensitive handling.
+# Normalize all input fields to lowercase for case-insensitive handling (apart from image tag, which is case-sensitive).
 repository_path="$(printf '%s' "${repository_path}" | tr '[:upper:]' '[:lower:]')"
-image_tag="$(printf '%s' "${image_tag}" | tr '[:upper:]' '[:lower:]')"
 ecr_type="$(printf '%s' "${ecr_type}" | tr '[:upper:]' '[:lower:]')"
 aws_account="$(printf '%s' "${aws_account}" | tr '[:upper:]' '[:lower:]')"
 aws_region="$(printf '%s' "${aws_region}" | tr '[:upper:]' '[:lower:]')"

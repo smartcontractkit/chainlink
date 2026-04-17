@@ -589,7 +589,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)

@@ -933,6 +933,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.NoError(t, err)
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
+	jb2.OCR2OracleSpec.ContractID = jb.OCR2OracleSpec.ContractID
 	jb2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
@@ -942,6 +943,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	jb3, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
+	jb3.OCR2OracleSpec.ContractID = jb.OCR2OracleSpec.ContractID
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jb3.OCR2OracleSpec.RelayConfig["chainID"] = customChainID.ToInt().Int64()
 	jb3.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
@@ -1247,11 +1249,15 @@ func Test_FindJob(t *testing.T) {
 		DB:             db,
 		KeyStore:       keyStore.Eth(),
 	})
+	// Both OCR1 jobs must share a contract address for "by address yet chain scoped";
+	// GenerateOCRSpec randomizes the default address per call to avoid txdb collisions.
+	sharedOCR1ContractAddr := testutils.NewAddress().Hex()
 	job, err := ocr.ValidatedOracleSpecToml(config, legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			Name:               "orig ocr spec",
 			TransmitterAddress: address.Hex(),
+			ContractAddress:    sharedOCR1ContractAddr,
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
@@ -1263,6 +1269,7 @@ func Test_FindJob(t *testing.T) {
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
 			Name:               "ocr spec dup addr",
+			ContractAddress:    sharedOCR1ContractAddr,
 			EVMChainID:         sqlutil.NewI(chainID1).String(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -1282,15 +1289,18 @@ func Test_FindJob(t *testing.T) {
 
 	jobOCR2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2.OCR2OracleSpec.RelayConfig["chainID"] = chainID1
+	sharedOCR2ContractID := jobOCR2.OCR2OracleSpec.ContractID
 
 	jobOCR2SameContractIDChainID2_1, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.ContractID = sharedOCR2ContractID
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2SameContractIDChainID2_1.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
 
 	jobOCR2SameContractIDChainID2_2, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), testspecs.GetOCR2EVMSpecMinimal(), nil)
 	require.NoError(t, err)
+	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.ContractID = sharedOCR2ContractID
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 	jobOCR2SameContractIDChainID2_2.OCR2OracleSpec.RelayConfig["chainID"] = chainID2
@@ -1399,10 +1409,9 @@ func Test_FindJob(t *testing.T) {
 
 	t.Run("by contract id without feed id (with duplicate contract ids on different chain ids)", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
 		// Find job ID for ocr2 job without feedID.
-		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, contractID, nil)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID1, sharedOCR2ContractID, nil)
 		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
@@ -1434,8 +1443,7 @@ func Test_FindJob(t *testing.T) {
 
 	t.Run("with duplicate contract id and the same chain id", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
-		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, contractID, nil)
+		_, err2 := orm.FindOCR2JobIDByAddress(ctx, evmRelay, chainID2, sharedOCR2ContractID, nil)
 		assert.ErrorContains(t, err2, "find returned > 1 job results")
 	})
 }

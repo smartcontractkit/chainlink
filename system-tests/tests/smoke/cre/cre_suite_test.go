@@ -22,7 +22,6 @@ var v1RegistriesFlags = []string{"--with-contracts-version", "v1"}
 
 var (
 	parallelEnabled = t_helpers.ParallelEnabled()
-	fanoutEnabled   = t_helpers.ChipSinkFanoutEnabled()
 	// topology is used in test names
 	topology = os.Getenv("TOPOLOGY_NAME")
 )
@@ -152,6 +151,9 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		// NOTE: this test is not easily parallelisable, because it uses "real" ChIP Ingress stack
 		// we don't want to plug it into ChIP fanout, at least not yet
 		t.Run("[v2] Cron Beholder - "+topology, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteCronBeholderTest(t, testEnv)
 		})
@@ -165,7 +167,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		})
 	case v2suite_config.SuiteScenarioHTTPActionCRUD:
 		t.Run("[v2] HTTP Action CRUD - "+topology, func(t *testing.T) {
-			if parallelEnabled && fanoutEnabled {
+			if parallelEnabled {
 				t.Parallel()
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
@@ -173,7 +175,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		})
 	case v2suite_config.SuiteScenarioDONTime:
 		t.Run("[v2] DON Time - "+topology, func(t *testing.T) {
-			if parallelEnabled && fanoutEnabled {
+			if parallelEnabled {
 				t.Parallel()
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
@@ -181,7 +183,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 		})
 	case v2suite_config.SuiteScenarioConsensus:
 		t.Run("[v2] Consensus - "+topology, func(t *testing.T) {
-			if parallelEnabled && fanoutEnabled {
+			if parallelEnabled {
 				t.Parallel()
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
@@ -194,7 +196,7 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 
 func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	t.Run("[v2] EVM Write - "+topology, func(t *testing.T) {
-		if parallelEnabled && fanoutEnabled {
+		if parallelEnabled {
 			t.Parallel()
 		}
 		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
@@ -203,7 +205,7 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	})
 
 	t.Run("[v2] EVM LogTrigger - "+topology, func(t *testing.T) {
-		if parallelEnabled && fanoutEnabled {
+		if parallelEnabled {
 			t.Parallel()
 		}
 		testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))

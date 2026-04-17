@@ -52,7 +52,7 @@ assert_contains() {
   fi
 }
 
-test_full_image_tag() {
+test_public_ecr() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=public" \
@@ -63,7 +63,7 @@ test_full_image_tag() {
   assert_eq "${RUN_STDERR}" "" "public ecr success does not write stderr"
 }
 
-test_repo_and_tag() {
+test_private_ecr() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=sdlc" \
@@ -76,26 +76,24 @@ test_repo_and_tag() {
   assert_eq "${RUN_STDERR}" "" "repo/tag success does not write stderr"
 }
 
-test_default_repo_and_version() {
+test_inputs_are_case_insensitive() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
-    "ECR_TYPE=sdlc" \
-    "CHAINLINK_IMAGE_REPO_PATH=chainlink" \
-    "CHAINLINK_IMAGE_TAG=abc123" \
-    "AWS_ACCOUNT_NUMBER=123456789012" \
-    "AWS_REGION=us-west-2"
-  assert_eq "${RUN_STATUS}" "0" "explicit repo and tag exit 0"
-  assert_eq "${RUN_STDOUT}" "123456789012.dkr.ecr.us-west-2.amazonaws.com/chainlink:abc123" "sdlc image resolves correctly"
+    "ECR_TYPE=PuBLic" \
+    "CHAINLINK_IMAGE_REPO_PATH=ChAinLink" \
+    "CHAINLINK_IMAGE_TAG=v2.1.0"
+  assert_eq "${RUN_STATUS}" "0" "case-insensitive inputs exit 0"
+  assert_eq "${RUN_STDOUT}" "public.ecr.aws/chainlink:v2.1.0" "inputs are lowercased"
 }
 
-test_tag_wins_over_version() {
+test_inputs_are_case_insensitive_but_not_tag() {
   TESTS_RUN=$((TESTS_RUN + 1))
   run_script \
     "ECR_TYPE=PuBLic" \
     "CHAINLINK_IMAGE_REPO_PATH=ChAinLink" \
     "CHAINLINK_IMAGE_TAG=V2.1.0"
   assert_eq "${RUN_STATUS}" "0" "case-insensitive inputs exit 0"
-  assert_eq "${RUN_STDOUT}" "public.ecr.aws/chainlink:v2.1.0" "inputs are lowercased"
+  assert_eq "${RUN_STDOUT}" "public.ecr.aws/chainlink:V2.1.0" "tag is not lowercased"
 }
 
 test_whitespace_trimming() {
@@ -103,7 +101,7 @@ test_whitespace_trimming() {
   run_script \
     "ECR_TYPE=  SDLC  " \
     "CHAINLINK_IMAGE_REPO_PATH=  chainlink-integration-tests  " \
-    "CHAINLINK_IMAGE_TAG=  V2.1.0  " \
+    "CHAINLINK_IMAGE_TAG=  v2.1.0  " \
     "AWS_ACCOUNT_NUMBER=  123456789012  " \
     "AWS_REGION=  US-WEST-2  "
   assert_eq "${RUN_STATUS}" "0" "whitespace-padded inputs exit 0"
@@ -158,10 +156,10 @@ test_missing_aws_envs() {
 }
 
 main() {
-  test_full_image_tag
-  test_repo_and_tag
-  test_default_repo_and_version
-  test_tag_wins_over_version
+  test_public_ecr
+  test_private_ecr
+  test_inputs_are_case_insensitive
+  test_inputs_are_case_insensitive_but_not_tag
   test_whitespace_trimming
   test_missing_ecr_type
   test_invalid_ecr_type

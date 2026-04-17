@@ -8408,6 +8408,122 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
+<details><summary>Pharos Mainnet (1672)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = false
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = true
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[OCR]
+ContractConfirmations = 4
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
 <details><summary>Soneium Mainnet (1868)</summary><p>
 
 ```toml
@@ -18586,7 +18702,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
-LogPollerSlotsBatchSize = 1000 # Default
+LogPollerSlotsBatchSize = 100 # Default
 ```
 
 
@@ -18761,7 +18877,7 @@ LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program
 
 ### LogPollerSlotsBatchSize
 ```toml
-LogPollerSlotsBatchSize = 1000 # Default
+LogPollerSlotsBatchSize = 100 # Default
 ```
 LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
 

@@ -50,6 +50,8 @@ func GetCapabilityIDFromCommand(command string, config string) string {
 		return "http-trigger@1.0.0-alpha"
 	case "http_action":
 		return "http-actions@1.0.0-alpha" // plural "actions"
+	case "mock":
+		return "mock@1.0.0"
 	default:
 		return ""
 	}
@@ -71,6 +73,8 @@ func GetCommandFromCapabilityID(capabilityID string) string {
 		return "http_trigger"
 	case strings.HasPrefix(capabilityID, "http-actions"):
 		return "http_action"
+	case strings.HasPrefix(capabilityID, "mock"):
+		return "mock"
 	default:
 		return ""
 	}

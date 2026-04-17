@@ -1,0 +1,64 @@
+name: "Post Docker Build"
+
+on:
+    # to be used with Docker Build tests
+    workflow_call:
+        inputs:
+            chainlink_core_image_tag:
+                required: true
+                type: string
+                description: "The Chainlink (core) image tag to use for the tests."
+            chainlink_version:
+                required: true
+                type: string
+                description: "The version of Chainlink repository to use for the tests."
+
+permissions:
+    actions: read
+    id-token: write
+    contents: read
+
+jobs:
+    call-cre-local-env-tests:
+        permissions:
+            contents: read
+            id-token: write
+            actions: read
+        uses: ./.github/workflows/cre-local-env-tests.yaml
+        with:
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+            chainlink_version: ${{ inputs.chainlink_version }}
+        secrets: inherit
+
+    call-legacy-system-tests:
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/legacy-system-tests.yml
+        with:
+            ecr: "sdlc"
+            chainlink_version: ${{ inputs.chainlink_version }}
+            chainlink_image_repository_path: "chainlink"
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit
+
+    call-legacy-non-functional-tests:
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/legacy-non-functional-tests.yml
+        with:
+            ecr: "sdlc"
+            chainlink_version: ${{ inputs.chainlink_version }}
+            chainlink_image_repository_path: "chainlink"
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit
+
+    call-cre-resource-regression-tests:
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/cre-soak-memory-leak.yml
+        with:
+            chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+        secrets: inherit

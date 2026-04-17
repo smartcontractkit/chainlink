@@ -1,4 +1,4 @@
-package proposalutils
+package shared
 
 import (
 	"fmt"

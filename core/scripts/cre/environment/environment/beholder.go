@@ -23,7 +23,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
@@ -287,6 +289,10 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
+			if routerErr := chiprouter.EnsureStarted(cmd.Context()); routerErr != nil {
+				return errors.Wrap(routerErr, "failed to ensure chip ingress router is running. Please make sure that local CRE environment is started and that the chip ingress router is running")
+			}
+
 			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
@@ -305,7 +311,7 @@ func startBeholderCmd() *cobra.Command {
 	}
 
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
-	cmd.Flags().IntVarP(&port, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
+	cmd.Flags().IntVarP(&port, "grpc-port", "g", ctfchiprouter.DefaultBeholderGRPCPort, "GRPC port for downstream Chip Ingress")
 
 	return cmd
 }
@@ -319,6 +325,47 @@ func mustStringToInt(in string) int {
 	return out
 }
 
+func loadPersistedBeholderState(relativePathToRepoRoot string) (*envconfig.ChipIngressConfig, error) {
+	absPath := envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)
+	if _, err := os.Stat(absPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "failed to stat persisted Beholder state")
+	}
+
+	cfg := &envconfig.ChipIngressConfig{}
+	if err := cfg.Load(absPath); err != nil {
+		return nil, errors.Wrap(err, "failed to load persisted Beholder state")
+	}
+
+	return cfg, nil
+}
+
+func persistedBeholderGRPCEndpoint(cfg *envconfig.ChipIngressConfig) string {
+	if cfg == nil || cfg.ChipIngress == nil || cfg.ChipIngress.Output == nil || cfg.ChipIngress.Output.ChipIngress == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(cfg.ChipIngress.Output.ChipIngress.GRPCExternalURL)
+}
+
+func restorePersistedBeholderState(relativePathToRepoRoot string, cfg *envconfig.ChipIngressConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	return cfg.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
+}
+
+func reconcilePersistedBeholderWithRouter(ctx context.Context, cfg *envconfig.ChipIngressConfig) error {
+	endpoint := persistedBeholderGRPCEndpoint(cfg)
+	if endpoint == "" {
+		return errors.New("persisted Beholder state is missing chip ingress grpc endpoint")
+	}
+
+	return registerBeholderEndpointWithRouter(ctx, endpoint)
+}
+
 var stopBeholderCmd = &cobra.Command{
 	Use:              "stop",
 	Short:            "Stop the Beholder",
@@ -330,6 +377,17 @@ var stopBeholderCmd = &cobra.Command{
 }
 
 func stopBeholder() error {
+	subscriberID, loadSubscriberErr := loadBeholderSubscriberID(relativePathToRepoRoot)
+	if loadSubscriberErr != nil && !os.IsNotExist(loadSubscriberErr) {
+		framework.L.Warn().Err(loadSubscriberErr).Msg("failed to load Beholder router subscriber id")
+	}
+	if subscriberID != "" {
+		unregisterErr := chiprouter.UnregisterSubscriber(context.Background(), subscriberID)
+		if unregisterErr != nil && !os.IsNotExist(unregisterErr) && !strings.Contains(unregisterErr.Error(), "local CRE state file not found") && !strings.Contains(unregisterErr.Error(), "no such file or directory") {
+			framework.L.Warn().Err(unregisterErr).Msg("failed to unregister Beholder from chip ingress router")
+		}
+	}
+
 	setErr := os.Setenv("CTF_CONFIGS", DefaultBeholderConfigFile)
 	if setErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", setErr)
@@ -350,7 +408,13 @@ func removeBeholderStateFiles(relativePathToRepoRoot string) error {
 		return errors.Wrap(absErr, "error getting absolute path for chip ingress state file")
 	}
 
-	return os.Remove(absPath)
+	if err := os.Remove(absPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Remove(beholderSubscriberIDPath(relativePathToRepoRoot)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
 }
 
 func isPortAvailable(addr string) bool {
@@ -368,10 +432,18 @@ var protoRegistrationErrMsg = "proto registration failed"
 // MissingImage represents an image that needs to be built or pulled
 type MissingImage struct {
 	Name        string
-	Tag         string
 	FullImage   string
 	BuildConfig BuildConfig
 	PullConfig  PullConfig
+}
+
+func newMissingImage(name string, cfg ImageConfig) MissingImage {
+	return MissingImage{
+		Name:        name,
+		FullImage:   cfg.BuildConfig.LocalImage,
+		BuildConfig: cfg.BuildConfig,
+		PullConfig:  cfg.PullConfig,
+	}
 }
 
 // ensureChipImagesExist checks if required chip images exist and auto-builds them if missing.
@@ -383,42 +455,35 @@ func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
 		return nil
 	}
 
+	var requiredImages []MissingImage
+	if cfg.ChipIngress != nil {
+		requiredImages = append(requiredImages, newMissingImage("chip-ingress", ImageConfig{
+			BuildConfig: cfg.ChipIngress.BuildConfig,
+			PullConfig:  cfg.ChipIngress.PullConfig,
+		}))
+	}
+	if cfg.ChipConfig != nil {
+		requiredImages = append(requiredImages, newMissingImage("chip-config", ImageConfig{
+			BuildConfig: cfg.ChipConfig.BuildConfig,
+			PullConfig:  cfg.ChipConfig.PullConfig,
+		}))
+	}
+
+	return ensureManagedImagesExist(ctx, cfg.General.AWSProfile, requiredImages)
+}
+
+func ensureManagedImagesExist(ctx context.Context, awsProfile string, requiredImages []MissingImage) error {
 	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
 	if err != nil {
 		return errors.Wrap(err, "failed to create Docker client")
 	}
 	defer dockerClient.Close()
 
-	// Check if Docker is running
 	_, err = dockerClient.Ping(ctx)
 	if err != nil {
 		return errors.Wrap(err, "Docker is not running")
 	}
 
-	// Collect required images
-	var requiredImages []MissingImage
-
-	if cfg.ChipIngress != nil {
-		requiredImages = append(requiredImages, MissingImage{
-			Name:        "chip-ingress",
-			Tag:         cfg.ChipIngress.BuildConfig.Commit,
-			FullImage:   cfg.ChipIngress.BuildConfig.LocalImage,
-			BuildConfig: cfg.ChipIngress.BuildConfig,
-			PullConfig:  cfg.ChipIngress.PullConfig,
-		})
-	}
-
-	if cfg.ChipConfig != nil {
-		requiredImages = append(requiredImages, MissingImage{
-			Name:        "chip-config",
-			Tag:         cfg.ChipConfig.BuildConfig.Commit,
-			FullImage:   cfg.ChipConfig.BuildConfig.LocalImage,
-			BuildConfig: cfg.ChipConfig.BuildConfig,
-			PullConfig:  cfg.ChipConfig.PullConfig,
-		})
-	}
-
-	// Find missing images
 	var missing []MissingImage
 	for _, img := range requiredImages {
 		_, err := dockerClient.ImageInspect(ctx, img.FullImage)
@@ -434,23 +499,21 @@ func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
 		return nil
 	}
 
-	ecrURL := os.Getenv("AWS_ECR")
+	missingRegistryVars := missingRegistryEnvVars(missing)
 	interactive := isInteractiveTerminal()
 
 	// Non-interactive mode handling
 	if !interactive {
-		if ecrURL != "" {
-			// Non-interactive with AWS_ECR - pull images
-			framework.L.Info().Msgf("Non-interactive mode with AWS_ECR set. Pulling %d missing image(s) from ECR...", len(missing))
-			return pullAllImages(ctx, cfg, missing)
+		if len(missingRegistryVars) == 0 {
+			framework.L.Info().Msgf("Non-interactive mode with required ECR env vars set. Pulling %d missing image(s) from ECR...", len(missing))
+			return pullAllImages(ctx, awsProfile, missing)
 		}
-		// Non-interactive without AWS_ECR - fail with instructions
-		framework.L.Error().Msgf("Missing %d required image(s) and AWS_ECR is not set:", len(missing))
+		framework.L.Error().Msgf("Missing %d required image(s) and required ECR env vars are not set:", len(missing))
 		for _, img := range missing {
 			framework.L.Error().Msgf("  - %s", img.FullImage)
 		}
-		printChipImagePullInstructions()
-		return errors.Errorf("missing %d required image(s). Set AWS_ECR to enable auto-pull or run 'go run . env setup' manually", len(missing))
+		printChipImagePullInstructions(missingRegistryVars)
+		return errors.Errorf("missing %d required image(s). Set %s to enable auto-pull or run 'go run . env setup' manually", len(missing), strings.Join(missingRegistryVars, ", "))
 	}
 
 	// Interactive mode - try building first
@@ -478,14 +541,14 @@ func ensureChipImagesExist(ctx context.Context, cfg *SetupConfigFile) error {
 	}
 
 	// Some builds failed - offer to pull all failed images
-	return handleChipImageBuildFailures(ctx, cfg, failedBuilds, buildErrors)
+	return handleChipImageBuildFailures(ctx, awsProfile, failedBuilds, buildErrors)
 }
 
 // pullAllImages pulls all specified images from ECR
-func pullAllImages(ctx context.Context, cfg *SetupConfigFile, images []MissingImage) error {
+func pullAllImages(ctx context.Context, awsProfile string, images []MissingImage) error {
 	for _, img := range images {
 		framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
-		_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+		_, pullErr := img.PullConfig.Pull(ctx, awsProfile)
 		if pullErr != nil {
 			return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
 		}
@@ -505,7 +568,7 @@ func isInteractiveTerminal() bool {
 }
 
 // handleChipImageBuildFailures handles build failures by offering to pull all failed images
-func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, failedImages []MissingImage, buildErrors []error) error {
+func handleChipImageBuildFailures(ctx context.Context, awsProfile string, failedImages []MissingImage, buildErrors []error) error {
 	// List all failed images
 	fmt.Println()
 	framework.L.Error().Msgf("Failed to build %d image(s):", len(failedImages))
@@ -513,14 +576,14 @@ func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, fai
 		framework.L.Error().Msgf("  - %s: %v", img.FullImage, buildErrors[i])
 	}
 
-	ecrURL := os.Getenv("AWS_ECR")
-	if ecrURL != "" {
+	missingRegistryVars := missingRegistryEnvVars(failedImages)
+	if len(missingRegistryVars) == 0 {
 		shouldPull := false
 
 		if isInteractiveTerminal() {
 			// Interactive mode - ask user
 			fmt.Println()
-			fmt.Printf("AWS_ECR is set. Would you like to pull all %d failed image(s) from ECR instead? [Y/n] ", len(failedImages))
+			fmt.Printf("Required ECR env vars are set. Would you like to pull all %d failed image(s) from ECR instead? [Y/n] ", len(failedImages))
 
 			reader := bufio.NewReader(os.Stdin)
 			input, _ := reader.ReadString('\n')
@@ -537,7 +600,7 @@ func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, fai
 			// Pull all failed images
 			for _, img := range failedImages {
 				framework.L.Info().Msgf("Pulling %s from ECR...", img.Name)
-				_, pullErr := img.PullConfig.Pull(ctx, cfg.General.AWSProfile)
+				_, pullErr := img.PullConfig.Pull(ctx, awsProfile)
 				if pullErr != nil {
 					return errors.Wrapf(pullErr, "failed to pull %s", img.Name)
 				}
@@ -548,19 +611,41 @@ func handleChipImageBuildFailures(ctx context.Context, cfg *SetupConfigFile, fai
 	}
 
 	// Show manual instructions
-	printChipImagePullInstructions()
+	printChipImagePullInstructions(missingRegistryVars)
 	return errors.Errorf("failed to build %d image(s)", len(failedImages))
 }
 
-// printChipImagePullInstructions prints helpful instructions for pulling images manually
-func printChipImagePullInstructions() {
+func missingRegistryEnvVars(images []MissingImage) []string {
+	seen := make(map[string]struct{})
+	var missing []string
+	for _, img := range images {
+		for _, envVar := range img.PullConfig.MissingRegistryEnvVars() {
+			if _, ok := seen[envVar]; ok {
+				continue
+			}
+			seen[envVar] = struct{}{}
+			missing = append(missing, envVar)
+		}
+	}
+	return missing
+}
+
+// printChipImagePullInstructions prints helpful instructions for pulling images manually.
+func printChipImagePullInstructions(requiredEnvVars []string) {
 	fmt.Println()
 	fmt.Println("────────────────────────────────────────────────────────────────")
 	fmt.Println("To pull pre-built images instead, run:")
 	fmt.Println()
-	fmt.Println("  AWS_ECR=<account-id>.dkr.ecr.us-west-2.amazonaws.com go run . env setup")
+	if len(requiredEnvVars) == 0 {
+		requiredEnvVars = []string{mainECREnvVarName, sdlcECREnvVarName}
+	}
+	assignments := make([]string, 0, len(requiredEnvVars))
+	for _, envVar := range requiredEnvVars {
+		assignments = append(assignments, envVar+"=<registry-url>")
+	}
+	fmt.Printf("  %s go run . env setup\n", strings.Join(assignments, " "))
 	fmt.Println()
-	fmt.Println("Replace <account-id> with prod AWS account number.")
+	fmt.Printf("Set the required registry env vars: %s.\n", strings.Join(requiredEnvVars, ", "))
 	fmt.Println("See: https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923")
 	fmt.Println("────────────────────────────────────────────────────────────────")
 	fmt.Println()
@@ -603,9 +688,8 @@ func startBeholder(cmdContext context.Context, cleanupWait time.Duration, port i
 	fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting Chip Ingress stack")))
 
 	if !isPortAvailable(":" + strconv.Itoa(port)) {
-		return fmt.Errorf(`port %d is already in use. Most probably an instance of ChIP Test Sink is already running.
-If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
-and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, port)
+		return fmt.Errorf(`port %d is already in use. Either an instance of CHiP Router or ChIP Test Sink is already running.
+If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag`, port)
 	}
 
 	// Load setup config to check for required images
@@ -696,6 +780,10 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 	fmt.Println()
 	framework.L.Info().Msgf("Red Panda Console URL: %s", out.RedPanda.ConsoleExternalURL)
 
+	if err := registerBeholderWithRouter(cmdContext, port); err != nil {
+		return errors.Wrap(err, "failed to register Beholder with chip ingress router")
+	}
+
 	topicsErr := chipingressset.CreateTopics(cmdContext, out.RedPanda.KafkaExternalURL, in.Kafka.Topics)
 	if topicsErr != nil {
 		return errors.Wrap(topicsErr, "failed to create topics")
@@ -712,6 +800,45 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 	fmt.Print("To terminate Beholder stack execute: `go run . env beholder stop`\n\n")
 
 	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
+}
+
+func registerBeholderWithRouter(ctx context.Context, port int) error {
+	return registerBeholderEndpointWithRouter(ctx, fmt.Sprintf("127.0.0.1:%d", port))
+}
+
+func registerBeholderEndpointWithRouter(ctx context.Context, endpoint string) error {
+	previousID, err := loadBeholderSubscriberID(relativePathToRepoRoot)
+	if err == nil && previousID != "" {
+		_ = chiprouter.UnregisterSubscriber(ctx, previousID)
+	}
+
+	id, err := chiprouter.RegisterSubscriber(ctx, "beholder", endpoint)
+	if err != nil {
+		return err
+	}
+
+	// Persist the fixed alias so stopBeholder can remove it without reading transient test output.
+	if id == "" {
+		return errors.New("empty subscriber id returned when registering Beholder")
+	}
+
+	statePath := beholderSubscriberIDPath(relativePathToRepoRoot)
+	if writeErr := os.WriteFile(statePath, []byte(id), 0o600); writeErr != nil {
+		return errors.Wrap(writeErr, "failed to persist Beholder router subscriber id")
+	}
+	return nil
+}
+
+func loadBeholderSubscriberID(relativePathToRepoRoot string) (string, error) {
+	raw, err := os.ReadFile(beholderSubscriberIDPath(relativePathToRepoRoot))
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(raw)), nil
+}
+
+func beholderSubscriberIDPath(relativePathToRepoRoot string) string {
+	return filepath.Join(relativePathToRepoRoot, envconfig.StateDirname, "chip_ingress_router_beholder_subscriber")
 }
 
 func parseConfigsAndRegisterProtos(ctx context.Context, schemaSets []chipingressset.SchemaSet, chipIngressOutput *chipingressset.ChipIngressOutput) error {

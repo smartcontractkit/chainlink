@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/url"
 	"slices"
 	"strconv"
@@ -288,15 +287,9 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					chainConfigStart := time.Now()
 					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
-					framework.L.Info().
-						Str("don", d.Name).
-						Str("node", node.Name).
-						Float64("duration_s", roundSeconds(time.Since(chainConfigStart))).
-						Msg("JD chain-config setup completed")
 				case RoleGateway:
 					// no chains configuration needed for gateway nodes
 				default:
@@ -846,7 +839,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 		return errors.New("input is nil")
 	}
 
-	start := time.Now()
 	dons := input.Dons.List()
 	donMetadata := input.Topology.DonsMetadata.List()
 	nodeIDsByDON := make([][]string, len(dons))
@@ -854,7 +846,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	errGroup, groupCtx := errgroup.WithContext(ctx)
 	for idx, don := range dons {
 		errGroup.Go(func() error {
-			donStart := time.Now()
 			supportedChains, schErr := findDonSupportedChains(donMetadata[idx], input.Blockchains)
 			if schErr != nil {
 				return errors.Wrap(schErr, "failed to find supported chains for DON")
@@ -865,10 +856,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 			}
 
 			nodeIDsByDON[idx] = don.JDNodeIDs()
-			framework.L.Info().
-				Str("don", don.Name).
-				Float64("duration_s", roundSeconds(time.Since(donStart))).
-				Msg("JD registration completed for DON")
 			return nil
 		})
 	}
@@ -884,7 +871,6 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 
 	input.CldfEnvironment.NodeIDs = nodeIDs
 	framework.L.Info().
-		Float64("duration_s", roundSeconds(time.Since(start))).
 		Msg("Post-start JD linking completed")
 
 	return nil
@@ -931,10 +917,6 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	}
 
 	return chains, nil
-}
-
-func roundSeconds(d time.Duration) float64 {
-	return math.Round(d.Seconds()*10) / 10
 }
 
 // Make DonMetadata also implement it, just in case?
