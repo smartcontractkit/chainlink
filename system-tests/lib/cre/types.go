@@ -595,7 +595,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	framework.L.Info().
 		Str("don", c.Name).
 		Int("nodes", len(cfgs)).
-		Float64("duration_s", roundSeconds(time.Since(newNodesStart))).
+		Float64("duration_s", time.Since(newNodesStart).Seconds()).
 		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
@@ -1525,7 +1525,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
 		Int("solana_chains", len(input.SolanaChainIDs)).
-		Float64("duration_s", roundSeconds(time.Since(start))).
+		Float64("duration_s", time.Since(start).Seconds()).
 		Msg("Node key generation completed")
 	return out, nil
 }
@@ -1697,8 +1697,4 @@ type PreEnvStartupOutput struct {
 	// included in OCR3 config signers for that capability (e.g. ["solana"]).
 	// EVM is always included.
 	CapabilityToExtraSignerFamilies map[string][]string
-}
-
-func roundSeconds(d time.Duration) float64 {
-	return d.Seconds()
 }
