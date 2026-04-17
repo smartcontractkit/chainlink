@@ -17,15 +17,16 @@ var _ cldf.ChangeSetV2[ProposeAptosCapJobSpecInput] = ProposeAptosCapJobSpec{}
 const aptosNetwork = "aptos"
 
 type AptosOverrideDefaultCfg struct {
-	CREForwarderAddress           string        `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
-	Network                       string        `json:"network,omitempty" yaml:"network,omitempty"`
-	ChainID                       string        `json:"chainId,omitempty" yaml:"chainId,omitempty"`
-	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
-	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
-	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
-	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
-	DeltaStage                    time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
-	TxSearchStartingBuffer        time.Duration `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	CREForwarderAddress           string            `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	Network                       string            `json:"network,omitempty" yaml:"network,omitempty"`
+	ChainID                       string            `json:"chainId,omitempty" yaml:"chainId,omitempty"`
+	ObservationPollerWorkersCount uint              `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
+	ObservationPollPeriod         time.Duration     `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
+	ChainHeightPollPeriod         time.Duration     `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
+	UnknownRequestsTTL            time.Duration     `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
+	DeltaStage                    time.Duration     `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	TxSearchStartingBuffer        time.Duration     `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	P2PToTransmitterMap           map[string]string `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 }
 
 type AptosCapabilityInput struct {
@@ -47,6 +48,7 @@ type ProposeAptosCapJobSpecInput struct {
 	DeltaStage             time.Duration          `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	TxSearchStartingBuffer time.Duration          `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
 	CREForwarderAddress    string                 `json:"creForwarderAddress" yaml:"creForwarderAddress,omitempty"`
+	P2PToTransmitterMap    map[string]string      `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 	AptosCapabilityInputs  []AptosCapabilityInput `json:"aptosCapabilityInputs" yaml:"aptosCapabilityInputs"`
 }
 
@@ -153,6 +155,7 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		cfg.ChainID = chainIDStr
 		cfg.Network = aptosNetwork
 		cfg.CREForwarderAddress = input.CREForwarderAddress // PLEX-2797
+		cfg.P2PToTransmitterMap = input.P2PToTransmitterMap
 		cfg.DeltaStage = input.DeltaStage
 		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
 		enc, err := json.Marshal(cfg)
