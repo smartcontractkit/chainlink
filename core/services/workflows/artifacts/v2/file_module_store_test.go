@@ -132,12 +132,13 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	s, err := NewFileModuleStore(t.TempDir(), false)
 	require.NoError(t, err)
 
+	const wfSuffix = "ABCDEFGHIJ"
 	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			wfID := "wf-" + string('A'+rune(idx))
+			wfID := "wf-" + string(wfSuffix[idx])
 			assert.NoError(t, s.StoreModule(wfID, []byte("data"), "v1"))
 		}(i)
 	}
@@ -145,7 +146,7 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			wfID := "wf-" + string('A'+rune(idx))
+			wfID := "wf-" + string(wfSuffix[idx])
 			_, _, _, err := s.GetModule(wfID)
 			assert.NoError(t, err)
 		}(i)
