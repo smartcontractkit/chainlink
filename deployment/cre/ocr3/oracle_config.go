@@ -15,27 +15,27 @@ import (
 )
 
 type OracleConfig struct {
-	UniqueReports                     bool
-	DeltaProgressMillis               uint32
-	DeltaResendMillis                 uint32
-	DeltaInitialMillis                uint32
-	DeltaRoundMillis                  uint32
-	DeltaGraceMillis                  uint32
-	DeltaCertifiedCommitRequestMillis uint32
-	DeltaStageMillis                  uint32
-	MaxRoundsPerEpoch                 uint64
-	TransmissionSchedule              []int
+	UniqueReports                     bool   `yaml:"uniqueReports"`
+	DeltaProgressMillis               uint32 `yaml:"deltaProgressMillis"`
+	DeltaResendMillis                 uint32 `yaml:"deltaResendMillis"`
+	DeltaInitialMillis                uint32 `yaml:"deltaInitialMillis"`
+	DeltaRoundMillis                  uint32 `yaml:"deltaRoundMillis"`
+	DeltaGraceMillis                  uint32 `yaml:"deltaGraceMillis"`
+	DeltaCertifiedCommitRequestMillis uint32 `yaml:"deltaCertifiedCommitRequestMillis"`
+	DeltaStageMillis                  uint32 `yaml:"deltaStageMillis"`
+	MaxRoundsPerEpoch                 uint64 `yaml:"maxRoundsPerEpoch"`
+	TransmissionSchedule              []int  `yaml:"transmissionSchedule"`
 
-	MaxDurationQueryMillis          uint32
-	MaxDurationObservationMillis    uint32
-	MaxDurationShouldAcceptMillis   uint32
-	MaxDurationShouldTransmitMillis uint32
+	MaxDurationQueryMillis          uint32 `yaml:"maxDurationQueryMillis"`
+	MaxDurationObservationMillis    uint32 `yaml:"maxDurationObservationMillis"`
+	MaxDurationShouldAcceptMillis   uint32 `yaml:"maxDurationShouldAcceptMillis"`
+	MaxDurationShouldTransmitMillis uint32 `yaml:"maxDurationShouldTransmitMillis"`
 
-	MaxFaultyOracles int
+	MaxFaultyOracles int `yaml:"maxFaultyOracles"`
 
-	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig
-	ChainCapOffchainConfig     *ChainCapOffchainConfig
-	DontimeOffchainConfig      *DontimeOffchainConfig
+	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig `yaml:"consensusCapOffchainConfig,omitempty"`
+	ChainCapOffchainConfig     *ChainCapOffchainConfig     `yaml:"chainCapOffchainConfig,omitempty"`
+	DontimeOffchainConfig      *DontimeOffchainConfig      `yaml:"dontimeOffchainConfig,omitempty"`
 }
 
 func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
@@ -93,9 +93,9 @@ type ConsensusCapOffchainConfig struct {
 	MaxReportLengthBytes      uint32
 	MaxOutcomeLengthBytes     uint32
 	MaxReportCount            uint32
-	MaxBatchSize              uint32
-	OutcomePruningThreshold   uint64
-	RequestTimeout            time.Duration
+	// MaxBatchSize is not used by the consensus plugin any more
+	OutcomePruningThreshold uint64
+	RequestTimeout          time.Duration
 }
 
 func (oc *ConsensusCapOffchainConfig) UnmarshalJSON(data []byte) error {
@@ -134,6 +134,26 @@ func (oc *ConsensusCapOffchainConfig) MarshalJSON() ([]byte, error) {
 	})
 }
 
+func (oc ConsensusCapOffchainConfig) MarshalYAML() (any, error) {
+	return struct {
+		MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+		MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+		MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+		MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+		MaxReportCount            uint32 `yaml:"maxReportCount"`
+		OutcomePruningThreshold   uint64 `yaml:"outcomePruningThreshold"`
+		RequestTimeout            string `yaml:"requestTimeout"`
+	}{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		OutcomePruningThreshold:   oc.OutcomePruningThreshold,
+		RequestTimeout:            oc.RequestTimeout.String(),
+	}, nil
+}
+
 func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
 	// See: https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/factory.go#L73
@@ -147,19 +167,18 @@ func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
-		MaxBatchSize:              oc.MaxBatchSize,
 		OutcomePruningThreshold:   oc.OutcomePruningThreshold,
 		RequestTimeout:            reqTimeout,
 	}, nil
 }
 
 type ChainCapOffchainConfig struct {
-	MaxQueryLengthBytes       uint32
-	MaxObservationLengthBytes uint32
-	MaxReportLengthBytes      uint32
-	MaxOutcomeLengthBytes     uint32
-	MaxReportCount            uint32
-	MaxBatchSize              uint32
+	MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+	MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+	MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+	MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+	MaxReportCount            uint32 `yaml:"maxReportCount"`
+	MaxBatchSize              uint32 `yaml:"maxBatchSize"`
 }
 
 func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
@@ -218,6 +237,28 @@ func (oc *DontimeOffchainConfig) MarshalJSON() ([]byte, error) {
 		ExecutionRemovalTime: oc.ExecutionRemovalTime.String(),
 		aliasT:               (*aliasT)(oc),
 	})
+}
+
+func (oc DontimeOffchainConfig) MarshalYAML() (any, error) {
+	return struct {
+		MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+		MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+		MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+		MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+		MaxReportCount            uint32 `yaml:"maxReportCount"`
+		MaxBatchSize              uint32 `yaml:"maxBatchSize"`
+		MinTimeIncrease           int64  `yaml:"minTimeIncrease"`
+		ExecutionRemovalTime      string `yaml:"executionRemovalTime"`
+	}{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
+		MinTimeIncrease:           oc.MinTimeIncrease,
+		ExecutionRemovalTime:      oc.ExecutionRemovalTime.String(),
+	}, nil
 }
 
 func (oc *DontimeOffchainConfig) ToProto() (proto.Message, error) {
