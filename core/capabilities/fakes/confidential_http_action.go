@@ -22,6 +22,7 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp/signer"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -55,11 +56,13 @@ type DirectConfidentialHTTPAction struct {
 
 	secretsConfig SecretsConfig
 	lggr          logger.Logger
+	signerBuilder *signer.Builder
 }
 
 func NewDirectConfidentialHTTPAction(lggr logger.Logger, secretsPath string) *DirectConfidentialHTTPAction {
 	fc := &DirectConfidentialHTTPAction{
-		lggr: lggr,
+		lggr:          lggr,
+		signerBuilder: signer.NewBuilder(http.DefaultClient),
 	}
 
 	// Load secrets
@@ -178,6 +181,31 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 
 				httpReq.Header.Add(name, processedHeader.String())
 			}
+		}
+	}
+
+	// Apply request signing if an AuthConfig is set. The fake uses the same
+	// signer package as the enclave so signed requests are byte-identical
+	// in both environments.
+	if input.GetAuth() != nil {
+		s, sErr := fh.signerBuilder.Build(input.GetAuth())
+		if sErr != nil {
+			return nil, caperrors.NewPublicUserError(fmt.Errorf("build signer: %w", sErr), caperrors.InvalidArgument)
+		}
+		if s != nil {
+			stringSecrets := make(map[string]string, len(fh.secretsConfig.SecretsNames))
+			for k, vals := range fh.secretsConfig.SecretsNames {
+				if len(vals) > 0 {
+					stringSecrets[k] = vals[0]
+				}
+			}
+			if sErr := s.Sign(ctx, httpReq, stringSecrets); sErr != nil {
+				return nil, caperrors.NewPublicUserError(fmt.Errorf("sign request: %w", sErr), caperrors.InvalidArgument)
+			}
+		}
+		// Signed requests must not follow redirects.
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
 		}
 	}
 
