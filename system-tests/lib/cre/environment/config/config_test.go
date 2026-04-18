@@ -39,7 +39,7 @@ func TestTransformHostDockerInternalReferences(t *testing.T) {
 			},
 		},
 		CapabilityConfigs: map[string]cre.CapabilityConfig{
-			string(cre.VaultCapability): {
+			cre.VaultCapability: {
 				Values: map[string]any{
 					"endpoint": "host.docker.internal:9999",
 				},
@@ -56,5 +56,5 @@ func TestTransformHostDockerInternalReferences(t *testing.T) {
 	require.Equal(t, framework.HostDockerInternal()+":18123/", auth0["issuerURL"])
 	require.Equal(t, []any{dockerHost + ":18124"}, auth0["urls"])
 
-	require.Equal(t, dockerHost+":9999", cfg.CapabilityConfigs[string(cre.VaultCapability)].Values["endpoint"])
+	require.Equal(t, dockerHost+":9999", cfg.CapabilityConfigs[cre.VaultCapability].Values["endpoint"])
 }
