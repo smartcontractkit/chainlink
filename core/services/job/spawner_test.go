@@ -2,7 +2,6 @@ package job_test
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -284,66 +283,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		clearDB(t, db)
 	})
 
-	t.Run("closes partially started services after create job error", func(t *testing.T) {
-		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
-
-		serviceA1 := &healthService{name: "svc-a1"}
-		checker := failingChecker{err: errors.New("register boom")}
-
-		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
-		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
-		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config.Database(), checker, map[job.Type]job.Delegate{
-			jobA.Type: delegateA,
-		}, lggr, nil)
-
-		ctx := testutils.Context(t)
-		require.NoError(t, spawner.Start(ctx))
-		defer func() { assert.NoError(t, spawner.Close()) }()
-
-		err := spawner.CreateJob(ctx, nil, jobA)
-		require.ErrorContains(t, err, "register boom")
-		assert.Empty(t, spawner.ActiveJobs())
-
-		err = spawner.DeleteJob(ctx, nil, jobA.ID)
-		require.NoError(t, err)
-		assert.Equal(t, 1, serviceA1.closeCalls)
-
-		clearDB(t, db)
-	})
-
-	t.Run("closes failing service after partial start error", func(t *testing.T) {
-		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
-
-		serviceA1 := &partialStartService{startErr: errors.New("start boom")}
-
-		lggr := logger.TestLogger(t)
-		orm := NewTestORM(t, db, pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db), keyStore)
-		mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
-		d := ocr.NewDelegate(nil, orm, nil, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config, mailMon)
-		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
-			jobA.Type: delegateA,
-		}, lggr, nil)
-
-		ctx := testutils.Context(t)
-		require.NoError(t, spawner.Start(ctx))
-		defer func() { assert.NoError(t, spawner.Close()) }()
-
-		err := spawner.CreateJob(ctx, nil, jobA)
-		require.ErrorContains(t, err, "start boom")
-		assert.Empty(t, spawner.ActiveJobs())
-		assert.Equal(t, 1, serviceA1.closeCalls)
-
-		err = spawner.DeleteJob(ctx, nil, jobA.ID)
-		require.NoError(t, err)
-		assert.Equal(t, 1, serviceA1.closeCalls)
-
-		clearDB(t, db)
-	})
-
 	t.Run("Unregisters filters on 'DeleteJob()'", func(t *testing.T) {
 		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
@@ -426,49 +365,3 @@ func (n noopChecker) IsHealthy() (healthy bool, errors map[string]error) { retur
 func (n noopChecker) Start() error { return nil }
 
 func (n noopChecker) Close() error { return nil }
-
-type failingChecker struct {
-	err error
-}
-
-func (f failingChecker) Register(service services.HealthReporter) error { return f.err }
-
-func (f failingChecker) Unregister(name string) error { return nil }
-
-func (f failingChecker) IsReady() (ready bool, errors map[string]error) { return true, nil }
-
-func (f failingChecker) IsHealthy() (healthy bool, errors map[string]error) { return true, nil }
-
-func (f failingChecker) Start() error { return nil }
-
-func (f failingChecker) Close() error { return nil }
-
-type healthService struct {
-	name       string
-	closeCalls int
-}
-
-func (s *healthService) Start(context.Context) error { return nil }
-
-func (s *healthService) Close() error {
-	s.closeCalls++
-	return nil
-}
-
-func (s *healthService) Name() string { return s.name }
-
-func (s *healthService) Ready() error { return nil }
-
-func (s *healthService) HealthReport() map[string]error { return map[string]error{s.name: nil} }
-
-type partialStartService struct {
-	startErr   error
-	closeCalls int
-}
-
-func (s *partialStartService) Start(context.Context) error { return s.startErr }
-
-func (s *partialStartService) Close() error {
-	s.closeCalls++
-	return nil
-}

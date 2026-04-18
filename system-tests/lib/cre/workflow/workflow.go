@@ -149,14 +149,7 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 		signature[64] += 27
 
 		_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
-		if err != nil {
-			if strings.Contains(err.Error(), "OwnershipLinkAlreadyExists") {
-				return nil
-			}
-			return err
-		}
-
-		return nil
+		return err
 	default:
 		return errors.New("invalid version for linking owner")
 	}

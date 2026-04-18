@@ -1117,33 +1117,18 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			}
 		}
 
-		cleanupCreatedJob := func(cause error) error {
-			if j.ID == 0 {
-				return cause
-			}
-
-			cleanupErr := s.jobSpawner.DeleteJob(ctx, tx.ds, j.ID)
-			if cleanupErr != nil {
-				logger.Errorw("Failed to clean up job after failed approval", "jobID", j.ID, "cleanupErr", cleanupErr, "err", cause)
-				return errors.Wrapf(cause, "failed to clean up job after failed approval: %s", cleanupErr)
-			}
-
-			logger.Warnw("Cleaned up created job after failed approval", "jobID", j.ID, "err", cause)
-			return cause
-		}
-
 		// Create the job
 		if txerr = s.jobSpawner.CreateJob(ctx, tx.ds, j); txerr != nil {
 			logger.Errorw("Failed to create job", "err", txerr)
 
-			return cleanupCreatedJob(txerr)
+			return txerr
 		}
 
 		// Approve the job proposal spec
 		if txerr = tx.orm.ApproveSpec(ctx, id, j.ExternalJobID); txerr != nil {
 			logger.Errorw("Failed to approve spec", "err", txerr)
 
-			return cleanupCreatedJob(txerr)
+			return txerr
 		}
 
 		// Send to FMS Client
@@ -1153,7 +1138,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 		}); txerr != nil {
 			logger.Errorw("Failed to approve job to FMS", "err", txerr)
 
-			return cleanupCreatedJob(txerr)
+			return txerr
 		}
 
 		return nil

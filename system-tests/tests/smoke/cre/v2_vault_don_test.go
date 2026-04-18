@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang-jwt/jwt/v5"
@@ -84,7 +85,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment, linkingServ
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
-		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		secretID := strconv.Itoa(rand.Intn(10000))
 		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
@@ -183,7 +184,7 @@ func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *
 		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		"",
 	)
-	require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 
 	ulCh := make(chan *workflowevents.UserLogs, 1000)
 	bmCh := make(chan *commonevents.BaseMessage, 1000)
@@ -242,6 +243,15 @@ func ensureVaultDKGResultPackages(t *testing.T, testEnv *ttypes.TestEnvironment)
 		}
 		return false
 	}, time.Second*300, time.Second*5)
+}
+
+func requireVaultLinkOwner(t *testing.T, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) {
+	t.Helper()
+
+	err := creworkflow.LinkOwner(sc, workflowRegistryAddr, version)
+	if err != nil && !strings.Contains(err.Error(), "OwnershipLinkAlreadyExists") {
+		require.NoError(t, err)
+	}
 }
 
 func mustVaultGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) *url.URL {
