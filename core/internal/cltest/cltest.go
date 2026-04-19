@@ -631,6 +631,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) *clienttest.Client {
 	c.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return([]byte{}, nil)
 	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	c.On("PendingNonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	c.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	c.On("Close").Maybe().Return()
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil)
 

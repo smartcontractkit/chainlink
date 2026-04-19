@@ -198,13 +198,6 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
 	listener := vl[0].(*v1.Listener)
-	// Start the listenerV1
-	go func() {
-		listener.RunLogListener([]func(){}, 6)
-	}()
-	go func() {
-		listener.RunHeadListener(func() {})
-	}()
 	servicetest.Run(t, listener)
 	return vuni, listener, jb
 }
