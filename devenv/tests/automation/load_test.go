@@ -62,7 +62,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		err := framework.StreamCTFContainerLogsFanout(
+		scanErr := framework.StreamCTFContainerLogsFanout(
 			framework.LogStreamConsumer{
 				Name: "scan-logs",
 				Consume: func(logStreams map[string]io.ReadCloser) error {
@@ -77,10 +77,10 @@ func TestLoad(t *testing.T) {
 				},
 			},
 		)
-		require.NoError(t, err, "failed to scan Docker container logs")
+		t.Error("failed to scan Docker container logs:", scanErr)
 
 		if t.Failed() {
-			err := framework.StreamCTFContainerLogsFanout(
+			saveErr := framework.StreamCTFContainerLogsFanout(
 				framework.LogStreamConsumer{
 					Name: "save-container-logs",
 					Consume: func(logStreams map[string]io.ReadCloser) error {
@@ -89,10 +89,12 @@ func TestLoad(t *testing.T) {
 					},
 				},
 			)
-			if err != nil {
-				framework.L.Error().Err(err).Msg("failed to save Docker container logs")
+			if saveErr != nil {
+				framework.L.Error().Err(saveErr).Msg("failed to save Docker container logs")
 			}
 		}
+		// check scanErr only after saving logs to ensure we don't miss any errors
+		require.NoError(t, scanErr, "failed to save Docker container logs")
 	})
 
 	for _, tc := range testCases {
