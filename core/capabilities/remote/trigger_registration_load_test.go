@@ -158,8 +158,8 @@ func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) 
 
 func TestRegistrationTrafficVolume(t *testing.T) {
 	cases := []struct {
-		nRegistrations int
-		capDonSize     int
+		nRegistrations  int
+		capDonSize      int
 		workflowDonSize int
 	}{
 		{100, 4, 7},
@@ -276,8 +276,12 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 			underlying := &noopTrigger{info: capInfo}
 
+			// Use the same refresh interval before and after registration so
+			// registrationCheckLoop's ticker matches the measurement window (a
+			// long initial interval would not pick up a later shorter interval
+			// until the next tick of the old ticker).
 			cfg := &commoncap.RemoteTriggerConfig{
-				RegistrationRefresh:     time.Hour,
+				RegistrationRefresh:     50 * time.Millisecond,
 				RegistrationExpiry:      2 * time.Hour,
 				MinResponsesToAggregate: 1,
 				MessageExpiry:           time.Hour,
@@ -288,6 +292,8 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 			workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
 			publisher := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", dispatcher, lggr)
 			require.NoError(t, publisher.SetConfig(cfg, underlying, capDon, workflowDONs))
+			require.NoError(t, publisher.Start(ctx))
+			t.Cleanup(func() { require.NoError(t, publisher.Close()) })
 
 			// Register N triggers by feeding MethodRegisterTrigger messages.
 			// With F=0 on the workflow DON side used in newServices patterns,
@@ -317,14 +323,8 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 
 			dispatcher.Reset()
 
-			// Trigger one sendRegistrationChecks by using a short refresh and
-			// starting the publisher (which starts cacheCleanupLoop).
-			shortCfg := *cfg
-			shortCfg.RegistrationRefresh = 50 * time.Millisecond
-			require.NoError(t, publisher.SetConfig(&shortCfg, underlying, capDon, workflowDONs))
-			require.NoError(t, publisher.Start(ctx))
-			t.Cleanup(func() { publisher.Close() })
-
+			// Count registration checks after registrations are in place (ignore
+			// any check traffic during the registration burst above).
 			time.Sleep(200 * time.Millisecond)
 
 			snap := dispatcher.Snapshot()
@@ -392,6 +392,10 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 	if err := publisher.SetConfig(cfg, underlying, capDon, workflowDONs); err != nil {
 		b.Fatal(err)
 	}
+	if err := publisher.Start(ctx); err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() { _ = publisher.Close() })
 
 	// Pre-register one trigger so subsequent Receive calls hit the fast
 	// "already exists" path.
@@ -511,10 +515,10 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	lggr := logger.Test(t)
 
 	const (
-		nRegistrations   = 120 // subscriber registrationLoop load (keep moderate for CI log volume)
-		nPublisherRegs   = 80  // publisher-side registrations (quorum cost only)
-		capDonPeerCount  = 4
-		wfDonPeerCount   = 7
+		nRegistrations      = 120 // subscriber registrationLoop load (keep moderate for CI log volume)
+		nPublisherRegs      = 80  // publisher-side registrations (quorum cost only)
+		capDonPeerCount     = 4
+		wfDonPeerCount      = 7
 		wfDonFaultTolerance = 2 // minRequired = 2*F+1 = 5 for reg aggregation and ACK quorum
 	)
 
@@ -534,9 +538,9 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	subRegDisp := newCountingDispatcher()
 	subCfg := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     500 * time.Millisecond,
-		RegistrationExpiry:        2 * time.Hour,
-		MinResponsesToAggregate:   1,
-		MessageExpiry:             time.Hour,
+		RegistrationExpiry:      2 * time.Hour,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           time.Hour,
 	}
 	sub := remote.NewTriggerSubscriber(capInfo.ID, "LogTrigger", subRegDisp, lggr)
 	agg := aggregation.NewDefaultModeAggregator(subCfg.MinResponsesToAggregate)
@@ -595,7 +599,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	pubDisp := newCountingDispatcher()
 	underlyingNoop := &noopTrigger{info: capInfo}
 	pubCfg := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     time.Hour,
+		RegistrationRefresh:     50 * time.Millisecond,
 		RegistrationExpiry:      2 * time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
@@ -605,6 +609,8 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	wfDONs := map[uint32]commoncap.DON{wfDon.ID: wfDon}
 	pub := remote.NewTriggerPublisher(capInfo.ID, "LogTrigger", pubDisp, lggr)
 	require.NoError(t, pub.SetConfig(pubCfg, underlyingNoop, capDon, wfDONs))
+	require.NoError(t, pub.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, pub.Close()) })
 
 	minRegSenders := 2*int(wfDon.F) + 1
 	for i := range nPublisherRegs {
@@ -627,11 +633,6 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	}
 
 	pubDisp.Reset()
-	shortCfg := *pubCfg
-	shortCfg.RegistrationRefresh = 50 * time.Millisecond
-	require.NoError(t, pub.SetConfig(&shortCfg, underlyingNoop, capDon, wfDONs))
-	require.NoError(t, pub.Start(ctx))
-	t.Cleanup(func() { require.NoError(t, pub.Close()) })
 
 	time.Sleep(200 * time.Millisecond)
 	phase3Checks := pubDisp.Count(remotetypes.MethodTriggerRegistrationCheck)
@@ -652,6 +653,8 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		BatchCollectionPeriod:   time.Second,
 	}
 	require.NoError(t, pub2.SetConfig(evCfg, underEv, capDon, wfDONs))
+	require.NoError(t, pub2.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, pub2.Close()) })
 
 	const evTrig = "event-path-trigger"
 	evWid := workflowID1
@@ -670,8 +673,6 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		})
 	}
 	<-underEv.registrationsCh // wait for publisher to register underlying trigger
-	require.NoError(t, pub2.Start(ctx))
-	t.Cleanup(func() { require.NoError(t, pub2.Close()) })
 
 	pubEvDisp.Reset()
 	underEv.SendEvent(evTrig, commoncap.TriggerResponse{

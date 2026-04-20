@@ -538,20 +538,20 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 
-	// Register a trigger before starting so the loop has something to check
-	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
-	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
-
 	checkReceived := make(chan *remotetypes.MessageBody, 10)
 	dispatcher.On("Send", mock.Anything, mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
 		return m.Method == remotetypes.MethodTriggerRegistrationCheck
 	})).Run(func(args mock.Arguments) {
 		msg := args.Get(1).(*remotetypes.MessageBody)
 		checkReceived <- msg
-	}).Return(nil)
+	}).Return(nil).Maybe()
 
+	// Start before Receive so initMetrics() has run (RegisterTrigger success path records metrics).
 	require.NoError(t, publisher.Start(ctx))
+
+	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
+	publisher.Receive(ctx, regEvent)
+	<-underlying.registrationsCh
 
 	select {
 	case msg := <-checkReceived:
@@ -849,18 +849,18 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 
-	// Register trigger
+	// Start before Receive so initMetrics() has run on registration and ACK paths.
+	require.NoError(t, publisher.Start(ctx))
+
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
 	publisher.Receive(ctx, regEvent)
 	<-underlying.registrationsCh
 
-	// Insert an ACK from peers[0]; with F=0 minRequired=1, so it goes through.
 	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
 	publisher.Receive(ctx, ackMsg)
 
-	// Start the publisher — cacheCleanupLoop ticks on MessageExpiry (200ms) and
-	// removes expired ack cache entries so a later trigger event is not suppressed.
-	require.NoError(t, publisher.Start(ctx))
+	// cacheCleanupLoop ticks on MessageExpiry (200ms) and removes expired ack cache
+	// entries so a later trigger event is not suppressed.
 
 	// Wait long enough for the ack cache entry to expire and be cleaned up
 	time.Sleep(500 * time.Millisecond)

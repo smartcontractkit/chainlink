@@ -194,10 +194,6 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
 
-	// Capability DONs receive MethodRegisterTrigger from registrationLoop
-	// (RegistrationRefresh) only — same as develop. Reverse registration checks
-	// do not require an immediate fan-out here.
-
 	return regState.callback, nil
 }
 
