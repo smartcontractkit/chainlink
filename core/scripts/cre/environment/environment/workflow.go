@@ -694,9 +694,8 @@ func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []by
 		if err != nil {
 			return 0, nil, errors.Wrap(err, "vault gateway HTTP request failed")
 		}
-		defer resp.Body.Close()
 
-		respBody, err := io.ReadAll(resp.Body)
+		respBody, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return resp.StatusCode, nil, errors.Wrap(err, "failed to read vault gateway response body")
 		}
