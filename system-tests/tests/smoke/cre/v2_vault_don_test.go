@@ -36,13 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
-const (
-	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
-	vaultLinkingServiceAddr       = "0.0.0.0:18124"
-)
-
 func ExecuteVaultAllowListBasedTests(t *testing.T, testEnv *ttypes.TestEnvironment, linkingService *vault.TestLinkingService) {
 	var testLogger = framework.L
 

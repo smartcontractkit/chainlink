@@ -49,6 +49,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
+const (
+	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
+	vaultLinkingServiceAddr       = "0.0.0.0:18124"
+)
+
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	framework.L.Info().Msg("Fetching Vault Public Key...")
 
