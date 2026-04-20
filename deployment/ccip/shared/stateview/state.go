@@ -1048,20 +1048,30 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		TonChains:   tonChains,
 		evmMu:       &sync.RWMutex{},
 	}
+	grp, ctx := errgroup.WithContext(e.GetContext())
+	grp.SetLimit(10) // parallel EVM chain loading with bounded concurrency
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		// get all addresses for chain from addressbook
-		// here we do not load addresses from datastore as there can be multiple
-		// contracts of the same type and version in datastore which can lead to
-		// ambiguity while loading the state
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
-			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
-		}
-		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)
-		if err != nil {
-			return state, err
-		}
-		state.WriteEVMChainState(chainSelector, chainState)
+		sel := chainSelector
+		ch := chain
+		grp.Go(func() error {
+			// get all addresses for chain from addressbook
+			// here we do not load addresses from datastore as there can be multiple
+			// contracts of the same type and version in datastore which can lead to
+			// ambiguity while loading the state
+			addresses, err := e.ExistingAddresses.AddressesForChain(sel)
+			if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+				return fmt.Errorf("failed to get addresses for chain %d: %w", sel, err)
+			}
+			chainState, err := LoadChainState(ctx, ch, addresses, opts...)
+			if err != nil {
+				return err
+			}
+			state.WriteEVMChainState(sel, chainState)
+			return nil
+		})
+	}
+	if err := grp.Wait(); err != nil {
+		return state, err
 	}
 	return state, state.Validate()
 }
