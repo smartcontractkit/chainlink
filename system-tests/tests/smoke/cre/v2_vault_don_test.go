@@ -53,10 +53,10 @@ import (
 )
 
 const (
-	vaultFlagsEnabledConfigPath  = "/configs/workflow-gateway-capabilities-don-vault-flags-enabled.toml"
-	vaultFlagsDisabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-flags-disabled.toml"
-	vaultJWTIssuerListenAddr     = "0.0.0.0:18123"
-	vaultLinkingServiceAddr      = "0.0.0.0:18124"
+	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
+	vaultLinkingServiceAddr       = "0.0.0.0:18124"
 )
 
 func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment, linkingService *vault.TestLinkingService) {
@@ -78,7 +78,7 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment, linkingServ
 		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		expectedResponseOwner := owner
-		orgIDAsSecretOwnerEnabled := !isVaultFlagsDisabledTopology(subEnv.TestConfig.EnvironmentConfigPath)
+		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(subEnv.TestConfig.EnvironmentConfigPath)
 		if linkingService != nil {
 			orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			linkingService.SetOwnerOrg(owner, orgID)
@@ -126,20 +126,20 @@ type vaultScenarioFixture struct {
 	LinkingService *vault.TestLinkingService
 }
 
-func getVaultFlagsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+func getVaultJWTAuthEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return t_helpers.GetTestConfig(t, vaultFlagsEnabledConfigPath)
+	return t_helpers.GetTestConfig(t, vaultJWTAuthEnabledConfigPath)
 }
 
-func getVaultFlagsDisabledTestConfig(t *testing.T) *ttypes.TestConfig {
+func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return t_helpers.GetTestConfig(t, vaultFlagsDisabledConfigPath)
+	return t_helpers.GetTestConfig(t, vaultDefaultConfigPath)
 }
 
-func isVaultFlagsDisabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-flags-disabled")
+func isVaultJWTAuthEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
@@ -543,15 +543,15 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	}{
 		{
 			name:        "enabled",
-			configPath:  vaultFlagsEnabledConfigPath,
+			configPath:  vaultJWTAuthEnabledConfigPath,
 			wantJWTGate: "true",
 			wantOrgGate: "true",
 			wantAuth0:   true,
 			wantLinking: true,
 		},
 		{
-			name:        "disabled",
-			configPath:  vaultFlagsDisabledConfigPath,
+			name:        "default",
+			configPath:  vaultDefaultConfigPath,
 			wantJWTGate: "false",
 			wantOrgGate: "false",
 			wantAuth0:   true,
@@ -565,15 +565,21 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
 
 			for _, nodeSet := range cfg.NodeSets {
-				var settings map[string]string
-				require.NoError(t, json.Unmarshal([]byte(nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]), &settings))
-				require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
-				require.Equal(t, tc.wantOrgGate, settings["VaultOrgIdAsSecretOwnerEnabled"])
+				if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
+					continue
+				}
+				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+				if settingsRaw == "" {
+					require.Equal(t, "false", tc.wantJWTGate)
+					require.Equal(t, "false", tc.wantOrgGate)
+				} else {
+					var settings map[string]string
+					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
+					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
+					require.Equal(t, tc.wantOrgGate, settings["VaultOrgIdAsSecretOwnerEnabled"])
+				}
 
 				for _, nodeSpec := range nodeSet.NodeSpecs {
-					if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
-						continue
-					}
 					if tc.wantLinking {
 						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
 						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
