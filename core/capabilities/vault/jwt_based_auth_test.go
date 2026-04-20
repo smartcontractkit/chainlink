@@ -166,7 +166,7 @@ func TestJWTBasedAuth_ValidToken(t *testing.T) {
 	assert.False(t, result.ExpiresAt.IsZero())
 }
 
-func TestJWTBasedAuth_ValidToken_NoWorkflowOwner(t *testing.T) {
+func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -190,10 +190,8 @@ func TestJWTBasedAuth_ValidToken_NoWorkflowOwner(t *testing.T) {
 	tokenString := createTestJWT(t, rsaKey, claims)
 
 	result, err := v.validateToken(context.Background(), tokenString)
-	require.NoError(t, err)
-	assert.Equal(t, "org_no_wfowner", result.OrgID)
-	assert.Empty(t, result.WorkflowOwner)
-	assert.Equal(t, "digest456", result.RequestDigest)
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrMissingWorkflowOwner)
 }
 
 func TestJWTBasedAuth_ExpiredToken(t *testing.T) {

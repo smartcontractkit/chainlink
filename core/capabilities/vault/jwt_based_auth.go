@@ -27,6 +27,7 @@ var (
 	ErrMissingToken         = errors.New("missing JWT token")
 	ErrInvalidToken         = errors.New("invalid JWT token")
 	ErrMissingOrgID         = errors.New("missing org_id claim")
+	ErrMissingWorkflowOwner = errors.New("missing workflow_owner in authorization_details")
 	ErrMissingRequestDigest = errors.New("missing request_digest in authorization_details")
 	ErrJWKSFetchFailed      = errors.New("failed to fetch JWKS")
 	ErrJWKSKeyNotFound      = errors.New("signing key not found in JWKS")
@@ -55,7 +56,7 @@ type JWTBasedAuthConfig struct {
 // relevant to Vault request authorization.
 type JWTClaims struct {
 	OrgID         string
-	WorkflowOwner string // from authorization_details; may be empty for new JWT-only clients
+	WorkflowOwner string // from authorization_details
 	RequestDigest string // from authorization_details
 	ExpiresAt     time.Time
 }
@@ -323,6 +324,9 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 
 	if requestDigest == "" {
 		return "", "", ErrMissingRequestDigest
+	}
+	if workflowOwner == "" {
+		return "", "", ErrMissingWorkflowOwner
 	}
 
 	return workflowOwner, requestDigest, nil

@@ -78,10 +78,13 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment, linkingServ
 		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		expectedResponseOwner := owner
+		orgIDAsSecretOwnerEnabled := !isVaultFlagsDisabledTopology(subEnv.TestConfig.EnvironmentConfigPath)
 		if linkingService != nil {
 			orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			linkingService.SetOwnerOrg(owner, orgID)
-			expectedResponseOwner = orgID
+			if orgIDAsSecretOwnerEnabled {
+				expectedResponseOwner = orgID
+			}
 		}
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
@@ -139,7 +142,7 @@ func isVaultFlagsDisabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-flags-disabled")
 }
 
-func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool, withLinkingService bool) *vaultScenarioFixture {
+func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
 	t.Helper()
 
 	issuer, err := vault.NewTestJWTIssuerOnAddr(vaultJWTIssuerListenAddr)
@@ -148,14 +151,11 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 		require.NoError(t, issuer.Close())
 	})
 
-	var linkingService *vault.TestLinkingService
-	if withLinkingService {
-		linkingService, err = vault.NewTestLinkingServiceOnAddr(nil, vaultLinkingServiceAddr)
-		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, linkingService.Close())
-		})
-	}
+	linkingService, err := vault.NewTestLinkingServiceOnAddr(nil, vaultLinkingServiceAddr)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, linkingService.Close())
+	})
 
 	var testEnv *ttypes.TestEnvironment
 	if usePerTestKeys {
@@ -171,10 +171,10 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 	}
 }
 
-func setupVaultSharedScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, withLinkingService bool) *vaultScenarioFixture {
+func setupVaultSharedScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig) *vaultScenarioFixture {
 	t.Helper()
 
-	return setupVaultScenarioFixture(t, baseConfig, false, withLinkingService)
+	return setupVaultScenarioFixture(t, baseConfig, false)
 }
 
 func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *vault.TestJWTIssuer, linkingService *vault.TestLinkingService) {
@@ -226,14 +226,8 @@ func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *
 		executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "jwtdelalt1", secretID, "alt", ulCh, bmCh)
 	})
 
-	t.Run("jwt_without_workflow_owner", func(t *testing.T) {
-		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-org-only", mustVaultPublicKey(t, vaultPublicKey), orgID)
-		require.NoError(t, err)
-
-		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, "", gwURL, []string{"main"})
-		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, "", gwURL, "main")
-		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, "", gwURL, []string{"main"})
+	t.Run("jwt_without_workflow_owner_rejected", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "missing workflow_owner in authorization_details")
 	})
 }
 
@@ -250,11 +244,11 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, testEnv *ttypes.TestEnvironment, 
 	gwURL := gatewayURL.String()
 
 	t.Run("jwt_with_workflow_owner_rejected", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "0x1234567890abcdef1234567890abcdef12345678", gwURL)
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "0x1234567890abcdef1234567890abcdef12345678", gwURL, "JWTBasedAuth is disabled")
 	})
 
 	t.Run("jwt_without_workflow_owner_rejected", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL)
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "JWTBasedAuth is disabled")
 	})
 }
 
@@ -560,8 +554,8 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			configPath:  vaultFlagsDisabledConfigPath,
 			wantJWTGate: "false",
 			wantOrgGate: "false",
-			wantAuth0:   false,
-			wantLinking: false,
+			wantAuth0:   true,
+			wantLinking: true,
 		},
 	}
 
@@ -599,11 +593,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			require.NotNil(t, capabilitiesNodeSet)
 
 			auth0Value, hasAuth0 := capabilitiesNodeSet.CapabilityConfigs[cre.VaultCapability].Values["auth0"]
-			if !tc.wantAuth0 {
-				require.False(t, hasAuth0)
-				return
-			}
-
 			require.True(t, hasAuth0)
 			require.Equal(t, map[string]any{
 				"issuerURL": framework.HostDockerInternal() + ":18123/",
@@ -753,6 +742,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 	t *testing.T,
 	issuer *vault.TestJWTIssuer,
 	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
+	expectedAuthError string,
 ) {
 	t.Helper()
 
@@ -788,7 +778,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 	require.Empty(t, jsonResponse.Method)
 	require.NotNil(t, jsonResponse.Error)
 	require.Contains(t, jsonResponse.Error.Error(), "request not authorized")
-	require.Contains(t, jsonResponse.Error.Error(), "JWTBasedAuth is nil")
+	require.Contains(t, jsonResponse.Error.Error(), expectedAuthError)
 }
 
 func executeVaultSecretsGetViaWorkflowTest(
