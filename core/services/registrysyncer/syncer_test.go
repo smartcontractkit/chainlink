@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -375,7 +374,6 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_DBIntegration(t *testing.T) {
-	quarantine.Flaky(t, "DX-1925")
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
