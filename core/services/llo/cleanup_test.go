@@ -32,7 +32,7 @@ func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error
 func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
 	transmissions := make([]*mercurytransmitter.Transmission, n)
 	for i := range n {
-		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo") //nolint:gosec // G115 don't care in test code
+		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo")
 	}
 	return transmissions
 }

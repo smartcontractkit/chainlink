@@ -21,7 +21,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 	for idx, s := range signers {
 		b, err := hex.DecodeString(s)
 		require.NoError(t, err)
-		nodes = append(nodes, capabilities.Node{PeerID: &p2ptypes.PeerID{0: uint8(idx)}, Signer: [32]byte(b)}) //nolint:gosec // G115
+		nodes = append(nodes, capabilities.Node{PeerID: &p2ptypes.PeerID{0: uint8(idx)}, Signer: [32]byte(b)})
 	}
 	return nodes
 }

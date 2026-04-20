@@ -54,7 +54,7 @@ func TestFingerprint(t *testing.T) {
 			msg: &llo.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()), //nolint:gosec // G115
+				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
 			},
 			typ:         synchronization.LLOOutcome,
 			fingerprint: fmt.Sprintf("%d-%x", donID, configDigest),
@@ -67,7 +67,7 @@ func TestFingerprint(t *testing.T) {
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()), //nolint:gosec // G115
+				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
 			},
 			typ:         synchronization.LLOReport,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, channelID, configDigest),
@@ -124,12 +124,12 @@ func TestSample(t *testing.T) {
 	msg0 := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
-		ObservationTimestampNanoseconds: uint64(t0.UnixNano()), //nolint:gosec // G115
+		ObservationTimestampNanoseconds: uint64(t0.UnixNano()),
 	}
 	msg1 := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
-		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()), //nolint:gosec // G115
+		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()),
 	}
 
 	// Evaluate two messages from the same source with timestamp difference under our desired fidelity of 1s.
@@ -157,7 +157,7 @@ func TestPruningLoop(t *testing.T) {
 	msg := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
-		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()), //nolint:gosec // G115
+		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()),
 	}
 	fp, ots, err := fingerprint(synchronization.LLOOutcome, msg)
 	require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestPruningLoop(t *testing.T) {
 	msg2 := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
-		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()), //nolint:gosec // G115
+		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()),
 	}
 	samplr.Sample(synchronization.LLOOutcome, msg2)
 	fp2, ots2, _ := fingerprint(synchronization.LLOOutcome, msg2)

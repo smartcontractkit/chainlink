@@ -1023,7 +1023,7 @@ func (m DonsMetadata) validate() error {
 
 		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
 		for i, shardIdx := range shardIndexes {
-			expectedIdx := uint(i) //nolint:gosec // disable G115 overflow is unrealistic
+			expectedIdx := uint(i)
 
 			if shardIdx != expectedIdx {
 				if i > 0 && shardIdx == shardIndexes[i-1] {
