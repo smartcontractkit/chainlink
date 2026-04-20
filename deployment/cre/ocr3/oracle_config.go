@@ -93,9 +93,9 @@ type ConsensusCapOffchainConfig struct {
 	MaxReportLengthBytes      uint32
 	MaxOutcomeLengthBytes     uint32
 	MaxReportCount            uint32
-	// MaxBatchSize is not used by the consensus plugin any more
-	OutcomePruningThreshold uint64
-	RequestTimeout          time.Duration
+	MaxBatchSize              uint32
+	OutcomePruningThreshold   uint64
+	RequestTimeout            time.Duration
 }
 
 func (oc *ConsensusCapOffchainConfig) UnmarshalJSON(data []byte) error {
@@ -128,6 +128,7 @@ func (oc *ConsensusCapOffchainConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		RequestTimeout string `json:"RequestTimeout"`
 		*aliasT
+		// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
 	}{
 		RequestTimeout: oc.RequestTimeout.String(),
 		aliasT:         (*aliasT)(oc),
@@ -141,14 +142,17 @@ func (oc ConsensusCapOffchainConfig) MarshalYAML() (any, error) {
 		MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
 		MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
 		MaxReportCount            uint32 `yaml:"maxReportCount"`
-		OutcomePruningThreshold   uint64 `yaml:"outcomePruningThreshold"`
-		RequestTimeout            string `yaml:"requestTimeout"`
+		// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
+		MaxBatchSize            uint32 `yaml:"maxBatchSize"`
+		OutcomePruningThreshold uint64 `yaml:"outcomePruningThreshold"`
+		RequestTimeout          string `yaml:"requestTimeout"`
 	}{
 		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
 		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
 		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
 		OutcomePruningThreshold:   oc.OutcomePruningThreshold,
 		RequestTimeout:            oc.RequestTimeout.String(),
 	}, nil
@@ -167,6 +171,7 @@ func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
 		OutcomePruningThreshold:   oc.OutcomePruningThreshold,
 		RequestTimeout:            reqTimeout,
 	}, nil

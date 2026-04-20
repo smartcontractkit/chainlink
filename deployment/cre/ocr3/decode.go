@@ -143,7 +143,8 @@ func decodeCapRegReportingPluginConfig(data []byte) (capRegPluginResult, error) 
 			MaxReportLengthBytes:      cCfg.MaxReportLengthBytes,
 			MaxOutcomeLengthBytes:     cCfg.MaxOutcomeLengthBytes,
 			MaxReportCount:            cCfg.MaxReportCount,
-			// MaxBatchSize is not used by the consensus plugin any more
+			// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
+			MaxBatchSize:            cCfg.MaxBatchSize,
 			OutcomePruningThreshold: cCfg.OutcomePruningThreshold,
 			RequestTimeout:          reqTimeout,
 		}}, nil

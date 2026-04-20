@@ -32,6 +32,7 @@ func TestOracleConfig_JSON(t *testing.T) {
 		require.Equal(t, 3, cfg.MaxFaultyOracles)
 		consensusCapCfg := cfg.ConsensusCapOffchainConfig
 		require.Equal(t, 30*time.Second, consensusCapCfg.RequestTimeout)
+		require.Equal(t, uint32(20), consensusCapCfg.MaxBatchSize)
 		// ensure that marshalling back to JSON works
 		asJSON, err := json.Marshal(cfg)
 		require.NoError(t, err)

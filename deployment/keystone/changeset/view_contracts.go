@@ -426,6 +426,7 @@ func (v KeystoneChainViewLegacy) Migrate() (KeystoneChainView, error) {
 					MaxReportLengthBytes:      legacyOCRView.OffchainConfig.MaxReportLengthBytes,
 					MaxOutcomeLengthBytes:     legacyOCRView.OffchainConfig.MaxOutcomeLengthBytes,
 					MaxReportCount:            legacyOCRView.OffchainConfig.MaxReportCount,
+					MaxBatchSize:              legacyOCRView.OffchainConfig.MaxBatchSize,
 					OutcomePruningThreshold:   legacyOCRView.OffchainConfig.OutcomePruningThreshold,
 					RequestTimeout:            legacyOCRView.OffchainConfig.RequestTimeout,
 				},

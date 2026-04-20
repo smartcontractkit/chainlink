@@ -45,6 +45,7 @@ var oracleConfig = changeset.OracleConfig{
 		MaxReportLengthBytes:      1000000,
 		MaxOutcomeLengthBytes:     1000000,
 		MaxReportCount:            20,
+		MaxBatchSize:              20,
 		OutcomePruningThreshold:   3600,
 		RequestTimeout:            30 * time.Second,
 	},
