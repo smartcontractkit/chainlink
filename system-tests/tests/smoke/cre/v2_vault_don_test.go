@@ -38,6 +38,7 @@ import (
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
@@ -212,7 +213,7 @@ func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *
 
 	t.Run("jwt_with_workflow_owner", func(t *testing.T) {
 		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := vault.EncryptSecretWithOrgID("secret-jwt-workflow-owner", vaultPublicKey, orgID)
+		enc, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-workflow-owner", mustVaultPublicKey(t, vaultPublicKey), orgID)
 		require.NoError(t, err)
 
 		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
@@ -227,7 +228,7 @@ func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *
 
 	t.Run("jwt_without_workflow_owner", func(t *testing.T) {
 		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := vault.EncryptSecretWithOrgID("secret-jwt-org-only", vaultPublicKey, orgID)
+		enc, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-org-only", mustVaultPublicKey(t, vaultPublicKey), orgID)
 		require.NoError(t, err)
 
 		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, "", gwURL, []string{"main"})
@@ -756,7 +757,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 	t.Helper()
 
 	secretID := strconv.Itoa(rand.Intn(10000))
-	encryptedSecret, err := vault.EncryptSecretWithOrgID("secret-jwt-disabled", vaultPublicKey, orgID)
+	encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-disabled", mustVaultPublicKey(t, vaultPublicKey), orgID)
 	require.NoError(t, err)
 
 	uniqueRequestID := uuid.New().String()

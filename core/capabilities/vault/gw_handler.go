@@ -58,28 +58,6 @@ type gatewayConnector interface {
 	RemoveHandler(ctx context.Context, methods []string) error
 }
 
-type gatewayHandlerConfig struct {
-	authorizer Authorizer
-	auth0      *Auth0Config
-}
-
-// GatewayHandlerOption customizes GatewayHandler construction for tests and future auth extensions.
-type GatewayHandlerOption func(*gatewayHandlerConfig)
-
-// WithAuthorizer overrides the default Vault request authorizer.
-func WithAuthorizer(authorizer Authorizer) GatewayHandlerOption {
-	return func(cfg *gatewayHandlerConfig) {
-		cfg.authorizer = authorizer
-	}
-}
-
-// WithJWTAuth0Config enables JWT-based request validation for the node-side Vault handler.
-func WithJWTAuth0Config(auth0 *Auth0Config) GatewayHandlerOption {
-	return func(cfg *gatewayHandlerConfig) {
-		cfg.auth0 = auth0
-	}
-}
-
 // GatewayHandler serves Vault requests received from the gateway on the node side.
 type GatewayHandler struct {
 	services.Service
@@ -94,33 +72,36 @@ type GatewayHandler struct {
 }
 
 // NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.
-func NewGatewayHandler(secretsService vaulttypes.SecretsService, connector gatewayConnector, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, limitsFactory limits.Factory, opts ...GatewayHandlerOption) (*GatewayHandler, error) {
-	cfg := gatewayHandlerConfig{}
-	for _, opt := range opts {
-		opt(&cfg)
-	}
-	if cfg.authorizer == nil {
-		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
-		var jwtBasedAuth Authorizer
-		var jwtAuthService services.Service
-		if cfg.auth0 != nil {
-			var err error
-			jwtAuthService, err = NewJWTBasedAuth(JWTBasedAuthConfig{
-				IssuerURL: cfg.auth0.IssuerURL,
-				Audience:  cfg.auth0.Audience,
-			}, limitsFactory, lggr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
-			}
-			jwtBasedAuth = jwtAuthService.(Authorizer)
+// Pass a non-nil authorizer only in tests or other cases that need to override the default
+// allowlist/JWT authorization chain.
+func NewGatewayHandler(
+	secretsService vaulttypes.SecretsService,
+	connector gatewayConnector,
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer,
+	lggr logger.Logger,
+	limitsFactory limits.Factory,
+	authorizer Authorizer,
+	auth0 *Auth0Config,
+) (*GatewayHandler, error) {
+	var jwtAuthService services.Service
+	var jwtBasedAuth Authorizer
+	if auth0 != nil {
+		var err error
+		jwtAuthService, err = NewJWTBasedAuth(JWTBasedAuthConfig{
+			IssuerURL: auth0.IssuerURL,
+			Audience:  auth0.Audience,
+		}, limitsFactory, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
 		}
-		cfg.authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
-		return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, jwtAuthService, lggr)
+		jwtBasedAuth = jwtAuthService.(Authorizer)
 	}
-	return newGatewayHandlerWithAuthorizer(secretsService, connector, cfg.authorizer, nil, lggr)
-}
 
-func newGatewayHandlerWithAuthorizer(secretsService vaulttypes.SecretsService, connector gatewayConnector, authorizer Authorizer, jwtAuthService services.Service, lggr logger.Logger) (*GatewayHandler, error) {
+	if authorizer == nil {
+		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+		authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
+	}
+
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)

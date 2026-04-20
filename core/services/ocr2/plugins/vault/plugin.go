@@ -390,6 +390,13 @@ func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
 	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
 }
 
+// canonicalResponseID rewrites successful CRUD responses to the canonical owner identity.
+//
+// When VaultOrgIdAsSecretOwnerEnabled is on, requests may still arrive keyed by
+// workflow owner for backwards compatibility with existing clients and allowlist-based
+// flows. The server persists and reasons about the canonical owner as org_id though,
+// so responses should expose that canonical org owner instead of echoing the
+// workflow-owner request key back to the client.
 func (r *ReportingPlugin) canonicalResponseID(ctx context.Context, id *vaultcommon.SecretIdentifier, orgID string) *vaultcommon.SecretIdentifier {
 	if id == nil || orgID == "" || !r.orgIDAsSecretOwnerEnabled(ctx) {
 		return id

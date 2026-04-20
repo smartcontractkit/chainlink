@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -24,10 +23,6 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-
-	vaultutils "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 const (
@@ -372,20 +367,6 @@ func ComputeRawRequestDigest(requestBody []byte) (string, error) {
 		return "", fmt.Errorf("failed to decode JSON-RPC request: %w", err)
 	}
 	return ComputeRequestDigest(req)
-}
-
-// EncryptSecretWithOrgID encrypts a secret using Vault's org_id label scheme.
-func EncryptSecretWithOrgID(secret, masterPublicKeyStr, orgID string) (string, error) {
-	masterPublicKey := tdh2easy.PublicKey{}
-	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode master public key: %w", err)
-	}
-	if err = masterPublicKey.Unmarshal(masterPublicKeyBytes); err != nil {
-		return "", fmt.Errorf("failed to unmarshal master public key: %w", err)
-	}
-
-	return vaultutils.EncryptSecretWithOrgID(secret, &masterPublicKey, orgID)
 }
 
 func rsaPublicKeyToJWK(keyID string, publicKey *rsa.PublicKey) jwtWebKey {

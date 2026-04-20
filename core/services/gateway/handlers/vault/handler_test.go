@@ -62,7 +62,7 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
 	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, lggr, clock, limitsFactory)
+	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -253,6 +253,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			don,
 			nil,
 			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
+			nil,
 			lggr,
 			clock,
 			limitsFactory,

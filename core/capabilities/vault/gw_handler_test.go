@@ -515,7 +515,8 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 				nil,
 				lggr,
 				limits.Factory{Settings: cresettings.DefaultGetter},
-				vaultcap.WithAuthorizer(vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr)),
+				vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+				nil,
 			)
 			require.NoError(t, err)
 
@@ -544,7 +545,8 @@ func TestGatewayHandler_Lifecycle(t *testing.T) {
 		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
-		vaultcap.WithAuthorizer(vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr)),
+		vaultcap.NewAuthorizer(allowListBasedAuth, nil, lggr),
+		nil,
 	)
 	require.NoError(t, err)
 
@@ -580,6 +582,8 @@ func TestGatewayHandler_Lifecycle_DefaultAuthorizer_NoJWTConfig(t *testing.T) {
 		nil,
 		lggr,
 		limits.Factory{Settings: cresettings.DefaultGetter},
+		nil,
+		nil,
 	)
 	require.NoError(t, err)
 

@@ -2,6 +2,7 @@ package cre
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -54,6 +56,19 @@ func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	publicKeyResponse := jsonResponse.Result
 	framework.L.Info().Msgf("Public Key: %s", publicKeyResponse.PublicKey)
 	return publicKeyResponse.PublicKey
+}
+
+func mustVaultPublicKey(t *testing.T, publicKey string) *tdh2easy.PublicKey {
+	t.Helper()
+
+	publicKeyBytes, err := hex.DecodeString(publicKey)
+	require.NoError(t, err, "failed to decode vault public key")
+
+	parsed := &tdh2easy.PublicKey{}
+	err = parsed.Unmarshal(publicKeyBytes)
+	require.NoError(t, err, "failed to unmarshal vault public key")
+
+	return parsed
 }
 
 func sendVaultRequestToGateway(t *testing.T, gatewayURL string, requestBody []byte) (statusCode int, body []byte) {
