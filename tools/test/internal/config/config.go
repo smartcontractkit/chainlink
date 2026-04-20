@@ -38,6 +38,8 @@ func Load(cmd *cobra.Command) (*App, error) {
 	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd())) // If TTY (in an AI terminal), use ai-output
 	v.SetDefault("iterations", 1)
 	v.SetDefault("slow_threshold", 30*time.Second)
+	v.SetDefault("fail_fast", false)
+	v.SetDefault("timeout", 10*time.Minute)
 	repoRoot, err := repo.RootFromWd()
 	if err != nil {
 		return nil, err

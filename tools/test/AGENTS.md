@@ -7,6 +7,7 @@ A test runner harness for the /chainlink repo.
 
 <rules>
 - From /chainlink root, only document `go -C ./tools/test run . …` (never `go run ./tools/test` from the parent module).
+- Each output should account for a pretty, human-readable terminal experience, and a minimal version meant for AI ingestion.
 </rules>
 
 <modes>

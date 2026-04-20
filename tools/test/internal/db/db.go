@@ -12,6 +12,8 @@ import (
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
+
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 )
 
@@ -34,16 +36,16 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	}
 
 	if conf.DatabaseURL != "" {
-		fmt.Printf("Skipping database setup, using provided database URL: %s\n", conf.DatabaseURL)
+		if !conf.AIOutput {
+			fmt.Fprintln(os.Stdout,
+				termstyle.Muted.Render("Skipping database setup, using provided database URL: ")+
+					termstyle.Label.Render(conf.DatabaseURL))
+		}
 		return &Handle{conf: conf}, nil
 	}
 	// We'll do our own cleanup, so disable Ryuk
 	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
-	}
-
-	if !conf.AIOutput {
-		fmt.Print("Setting up postgres...")
 	}
 
 	c, err := postgres.Run(ctx,
@@ -87,7 +89,10 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	}
 
 	if !conf.AIOutput {
-		fmt.Printf(" ✅ (%s)\n", time.Since(start).Round(time.Millisecond))
+		fmt.Fprintln(os.Stdout,
+			termstyle.Label.Render("Setup Postgres")+" "+
+				termstyle.OK.Render("✅")+" "+
+				termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
 	}
 
 	return h, nil
@@ -99,18 +104,8 @@ func (h *Handle) Reset(ctx context.Context) error {
 	if h == nil || h.container == nil {
 		return nil
 	}
-	start := time.Now()
-	if !h.conf.AIOutput {
-		fmt.Print("Resetting database...")
-	}
 	if err := h.container.Restore(ctx); err != nil {
-		if !h.conf.AIOutput {
-			fmt.Println(" ❌")
-		}
 		return fmt.Errorf("restore snapshot: %w", err)
-	}
-	if !h.conf.AIOutput {
-		fmt.Printf(" ✅ (%s)\n", time.Since(start).Round(time.Millisecond))
 	}
 	return nil
 }
@@ -122,18 +117,18 @@ func (h *Handle) Cleanup() error {
 		return nil
 	}
 	if !h.conf.AIOutput {
-		fmt.Print("Tearing down postgres...")
+		fmt.Fprint(os.Stdout, termstyle.Label.Render("Tearing down postgres..."))
 	}
 	termCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := h.container.Terminate(termCtx); err != nil {
 		if !h.conf.AIOutput {
-			fmt.Println(" ❌")
+			fmt.Fprintln(os.Stdout, " "+termstyle.Bad.Render("❌"))
 		}
 		return fmt.Errorf("error terminating postgres container, you need to terminate it manually: %w", err)
 	}
 	if !h.conf.AIOutput {
-		fmt.Println(" ✅")
+		fmt.Fprintln(os.Stdout, " "+termstyle.OK.Render("✅"))
 	}
 	return nil
 }

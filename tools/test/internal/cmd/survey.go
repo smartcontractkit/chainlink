@@ -19,7 +19,9 @@ var surveyCmd = &cobra.Command{
 test-survey-results-<timestamp>/iteration-<n>.log.jsonl under the repo root. After
 all iterations (or on interrupt, for completed iterations), parses those streams,
 writes report.json (flakes, failures, timeouts, slow tests), and prints a short
-summary to stderr unless --ai-output.
+summary to stderr. With --ai-output, progress messages are omitted; errors are
+still printed to stderr, and on success the absolute path to report.json is
+printed once to stdout.
 
 Accepts exactly one positional argument: the same package pattern you would pass
 to go test (e.g. ./core/...).`,

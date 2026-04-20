@@ -1,14 +1,20 @@
 package runner
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"time"
 
+	"github.com/charmbracelet/x/term"
+
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
 // GoTest runs `go test` with the given args (repo root as working directory).
@@ -41,8 +47,9 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 // Survey runs go test -json once per iteration, writing each stream to
 // iteration-<n>.log.jsonl, then analyzes and writes report.json.
 // Test iteration failures do not stop later runs (unless --fail-fast); they are
-// reflected in report.json. Survey returns a non-nil error only for setup
-// failures (e.g. mkdir, database reset), not for failing tests.
+// reflected in report.json. Survey returns a non-nil error for setup failures
+// (e.g. mkdir, database reset), analyze/write report failures, or ctx errors
+// bubbling from dependencies — not for failing tests alone.
 // resetDB (optional) runs before each iteration after the first to restore the
 // database to its freshly-prepared state.
 func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error) error {
@@ -72,7 +79,9 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 		}
 		if err := surveyIteration(ctx, conf, resultsDir, targetDir, i); err != nil {
 			if conf.FailFast {
-				fmt.Fprintln(os.Stderr, "--fail-fast: true, stopping")
+				if !conf.AIOutput {
+					fmt.Fprintln(os.Stderr, termstyle.Accent.Render("--fail-fast: true, stopping"))
+				}
 				failedFast = true
 				break
 			}
@@ -82,27 +91,39 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 
 	interrupted := ctx.Err() != nil
 	if interrupted && !conf.AIOutput {
-		fmt.Fprintf(os.Stderr, "interrupted after %d/%d iterations — analyzing partial results...\n", completed, conf.Iterations)
+		fmt.Fprintln(os.Stderr,
+			termstyle.Accent.Render(fmt.Sprintf("interrupted after %d/%d iterations", completed, conf.Iterations))+
+				termstyle.Muted.Render(" — analyzing partial results…"))
 	}
 
-	if failedFast {
-		fmt.Fprintln(os.Stderr, "--fail-fast set, stopping early")
+	if failedFast && !conf.AIOutput {
+		fmt.Fprintln(os.Stderr, termstyle.Accent.Render("--fail-fast set, stopping early"))
 	}
 
 	report, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
 	if analyzeErr != nil {
 		fmt.Fprintf(os.Stderr, "analyze results: %v\n", analyzeErr)
-	} else if err := WriteReport(resultsDir, report); err != nil {
+		return analyzeErr
+	}
+	if err := WriteReport(resultsDir, report); err != nil {
 		fmt.Fprintf(os.Stderr, "write report: %v\n", err)
+		return err
 	}
 
-	if !conf.AIOutput {
-		fmt.Fprintf(os.Stderr, "survey complete (%s)\n", time.Since(start).Round(time.Millisecond))
-		if report != nil {
-			PrintSummary(os.Stderr, report)
-		}
-		fmt.Fprintf(os.Stderr, "results in %s\n", resultsDir)
+	reportPath := filepath.Join(resultsDir, "report.json")
+	if conf.AIOutput {
+		fmt.Fprintln(os.Stdout, reportPath)
+		return nil
 	}
+
+	fmt.Fprintln(os.Stderr,
+		termstyle.Label.Render("survey complete")+
+			termstyle.Muted.Render(fmt.Sprintf(" (%s)", time.Since(start).Round(time.Millisecond))))
+	if report != nil {
+		PrintSummary(os.Stderr, report)
+	}
+	fmt.Fprintln(os.Stderr,
+		termstyle.Muted.Render("results in ")+termstyle.Label.Render(resultsDir))
 	return nil
 }
 
@@ -116,12 +137,8 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	defer resultsFile.Close()
 
 	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String(), targetDir}
-	if !conf.AIOutput {
-		fmt.Fprintf(os.Stderr, "iteration %d/%d...", iteration+1, conf.Iterations)
-	}
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
-	cmd.Stdout = resultsFile
 	cmd.Stderr = resultsFile
 	cmd.Stdin = os.Stdin
 	cmd.Env = os.Environ()
@@ -131,40 +148,94 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	cmd.WaitDelay = 5 * time.Second
 
 	if conf.AIOutput {
-		err = cmd.Run()
-	} else {
-		// Show progress in real time.
-		done := make(chan struct{})
+		cmd.Stdout = resultsFile
+		return cmd.Run()
+	}
+
+	totalPkgs := -1
+	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, targetDir); listErr == nil {
+		totalPkgs = n
+	}
+	prog := newSurveyProgress(totalPkgs)
+
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+
+	isTTY := term.IsTerminal(os.Stderr.Fd())
+	if !isTTY {
+		fmt.Fprintln(os.Stderr,
+			termstyle.Muted.Render(fmt.Sprintf("iteration %d/%d started (stderr is not a TTY; sparse package progress)",
+				iteration+1, conf.Iterations)))
+	}
+
+	var readWG sync.WaitGroup
+	readWG.Add(1)
+	go func() {
+		defer readWG.Done()
+		scanner := bufio.NewScanner(pr)
+		scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+		for scanner.Scan() {
+			line := scanner.Bytes()
+			if _, werr := resultsFile.Write(line); werr != nil {
+				break
+			}
+			if _, werr := resultsFile.WriteString("\n"); werr != nil {
+				break
+			}
+			if prog.onTestJSONLine(line) && !isTTY {
+				renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, false)
+			}
+		}
+		_ = scanner.Err()
+	}()
+
+	tickDone := make(chan struct{})
+	var tickWG sync.WaitGroup
+	if isTTY {
+		tickWG.Add(1)
 		go func() {
-			ticker := time.NewTicker(time.Second)
+			defer tickWG.Done()
+			ticker := time.NewTicker(250 * time.Millisecond)
 			defer ticker.Stop()
 			for {
 				select {
-				case <-done:
+				case <-tickDone:
 					return
 				case <-ticker.C:
-					elapsed := time.Since(start).Round(time.Second)
-					fmt.Fprintf(os.Stderr, "\r\033[Kiteration %d/%d... (%s)",
-						iteration+1, conf.Iterations, elapsed.String())
+					renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, true)
 				}
 			}
 		}()
-
-		if err = cmd.Start(); err != nil {
-			close(done)
-			return err
-		}
-		err = cmd.Wait()
-		close(done)
+		renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, true)
 	}
 
-	if !conf.AIOutput {
-		status := "✅"
-		if err != nil {
-			status = "❌"
+	if err = cmd.Start(); err != nil {
+		_ = pw.CloseWithError(err)
+		readWG.Wait()
+		close(tickDone)
+		tickWG.Wait()
+		if isTTY {
+			fmt.Fprint(os.Stderr, "\r\033[K")
 		}
-		fmt.Fprintf(os.Stderr, "\r\033[Kiteration %d/%d %s (%s)\n",
-			iteration+1, conf.Iterations, status, time.Since(start).Round(time.Millisecond))
+		return err
 	}
+
+	err = cmd.Wait()
+	_ = pw.Close()
+	readWG.Wait()
+	close(tickDone)
+	tickWG.Wait()
+
+	status := termstyle.OK.Render("✅")
+	if err != nil {
+		status = termstyle.Bad.Render("❌")
+	}
+	if isTTY {
+		fmt.Fprintf(os.Stderr, "\r\033[K")
+	}
+	fmt.Fprintln(os.Stderr,
+		termstyle.Label.Render(fmt.Sprintf("iteration %d/%d ", iteration+1, conf.Iterations))+
+			status+" "+
+			termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
 	return err
 }

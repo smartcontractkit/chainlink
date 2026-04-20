@@ -12,14 +12,16 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
 // timeoutPanic appears in go test -json output when the test binary's
 // -timeout fires. It may be attached to a running test or to the package.
 const timeoutPanic = "panic: test timed out"
 
-// testEvent mirrors cmd/internal/test2json's TestEvent; only fields we need.
-type testEvent struct {
+// TestEvent mirrors cmd/internal/test2json's TestEvent; only fields we need.
+type TestEvent struct {
 	Action  string  `json:"Action"`
 	Package string  `json:"Package"`
 	Test    string  `json:"Test"`
@@ -94,7 +96,7 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, erro
 			if len(line) == 0 || line[0] != '{' {
 				continue
 			}
-			var ev testEvent
+			var ev TestEvent
 			if err := json.Unmarshal(line, &ev); err != nil {
 				continue
 			}
@@ -220,10 +222,20 @@ func WriteReport(resultsDir string, rep *Report) error {
 
 // PrintSummary writes a short human summary.
 func PrintSummary(w io.Writer, rep *Report) {
-	fmt.Fprintf(w, "flakes (%d)%s\n", len(rep.Flakes), renderEntries(rep.Flakes, renderCounts))
-	fmt.Fprintf(w, "failures (%d)%s\n", len(rep.Failures), renderEntries(rep.Failures, renderCounts))
-	fmt.Fprintf(w, "timeouts (%d)%s\n", len(rep.Timeouts), renderEntries(rep.Timeouts, renderIterations))
-	fmt.Fprintf(w, "slow >%s (%d)%s\n", rep.SlowThreshold, len(rep.Slow), renderEntries(rep.Slow, renderElapsed))
+	fmt.Fprintln(w, summaryLine("flakes", len(rep.Flakes), renderEntries(rep.Flakes, renderCounts)))
+	fmt.Fprintln(w, summaryLine("failures", len(rep.Failures), renderEntries(rep.Failures, renderCounts)))
+	fmt.Fprintln(w, summaryLine("timeouts", len(rep.Timeouts), renderEntries(rep.Timeouts, renderIterations)))
+	slowHead := termstyle.Accent.Render(fmt.Sprintf("slow >%s", rep.SlowThreshold)) +
+		termstyle.Muted.Render(fmt.Sprintf(" (%d)", len(rep.Slow)))
+	fmt.Fprintln(w, slowHead+termstyle.Muted.Render(renderEntries(rep.Slow, renderElapsed)))
+}
+
+func summaryLine(title string, n int, tail string) string {
+	out := termstyle.Accent.Render(title) + termstyle.Muted.Render(fmt.Sprintf(" (%d)", n))
+	if tail != "" {
+		out += termstyle.Muted.Render(tail)
+	}
+	return out
 }
 
 type renderMode int
