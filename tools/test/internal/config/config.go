@@ -23,6 +23,7 @@ type App struct {
 	AIOutput        bool          `mapstructure:"ai_output"`
 	Iterations      int           `mapstructure:"iterations"`
 	SlowThreshold   time.Duration `mapstructure:"slow_threshold"`
+	Timeout         time.Duration `mapstructure:"timeout"`
 }
 
 // Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.

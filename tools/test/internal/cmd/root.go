@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"charm.land/fang/v2"
 	"github.com/charmbracelet/x/term"
@@ -57,10 +59,15 @@ func init() {
 	rootCmd.AddCommand(surveyCmd)
 }
 
-// Execute runs the root command.
+// Execute runs the root command. A SIGINT or SIGTERM cancels the context so
+// long-running subcommands (notably `survey`) can stop cleanly and still write
+// their post-run analysis. A second signal hits the default handler and
+// force-exits.
 func Execute() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	opts := []fang.Option{fang.WithoutCompletions()}
-	if err := fang.Execute(context.Background(), rootCmd, opts...); err != nil {
+	if err := fang.Execute(ctx, rootCmd, opts...); err != nil {
 		os.Exit(1)
 	}
 }

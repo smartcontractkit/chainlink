@@ -57,10 +57,19 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 		return err
 	}
 
-	var results []surveyResult
+	var (
+		results   []surveyResult
+		completed int
+	)
 	for i := range conf.Iterations {
+		if ctx.Err() != nil {
+			break
+		}
 		if i > 0 && resetDB != nil {
 			if err := resetDB(ctx); err != nil {
+				if ctx.Err() != nil {
+					break
+				}
 				return fmt.Errorf("reset database before iteration %d: %w", i, err)
 			}
 		}
@@ -71,6 +80,12 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 				Error:     err,
 			})
 		}
+		completed = i + 1
+	}
+
+	interrupted := ctx.Err() != nil
+	if interrupted && !conf.AIOutput {
+		fmt.Fprintf(os.Stderr, "interrupted after %d/%d iterations — analyzing partial results...\n", completed, conf.Iterations)
 	}
 
 	report, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
@@ -99,7 +114,7 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	}
 	defer resultsFile.Close()
 
-	args := []string{"test", "-json", "-count=1", targetDir}
+	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String(), targetDir}
 	if !conf.AIOutput {
 		fmt.Fprintf(os.Stderr, "iteration %d/%d...", iteration+1, conf.Iterations)
 	}
@@ -109,6 +124,10 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	cmd.Stderr = resultsFile
 	cmd.Stdin = os.Stdin
 	cmd.Env = os.Environ()
+	// Soft-cancel on ctx cancellation so `go test -json` gets a chance to flush
+	// its final events before we escalate to SIGKILL after WaitDelay.
+	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
+	cmd.WaitDelay = 5 * time.Second
 	err = cmd.Run()
 
 	if !conf.AIOutput {

@@ -51,4 +51,5 @@ go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 func init() {
 	surveyCmd.Flags().Int("iterations", 1, "number of full test runs")
 	surveyCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
+	surveyCmd.Flags().Duration("timeout", 10*time.Minute, "go test -timeout for each iteration")
 }

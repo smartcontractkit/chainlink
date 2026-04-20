@@ -68,7 +68,11 @@ func TestAnalyze(t *testing.T) {
 			},
 			slowThreshold: 30 * time.Second,
 			wantTimeouts: []TestEntry{
-				{Package: "pkg/qux", Test: "TestHang", Fails: 1, MaxElapsed: 600 * time.Second, Iterations: []int{0}},
+				{
+					Package: "pkg/qux", Test: "TestHang", Fails: 1,
+					MaxElapsed: 600 * time.Second, Iterations: []int{0},
+					Logs: []IterationLog{{Iteration: 0, Output: "panic: test timed out after 10m0s\n"}},
+				},
 			},
 			// timeout also exceeds slow threshold; timeouts are excluded from slow list to avoid duplication
 			wantFailures: nil,
@@ -83,7 +87,11 @@ func TestAnalyze(t *testing.T) {
 			},
 			slowThreshold: 30 * time.Second,
 			wantTimeouts: []TestEntry{
-				{Package: "pkg/hang", Fails: 1, MaxElapsed: 120 * time.Second, Iterations: []int{0}},
+				{
+					Package: "pkg/hang", Fails: 1,
+					MaxElapsed: 120 * time.Second, Iterations: []int{0},
+					Logs: []IterationLog{{Iteration: 0, Output: "panic: test timed out after 2m0s\n"}},
+				},
 			},
 		},
 		{
@@ -139,13 +147,179 @@ func TestAnalyze(t *testing.T) {
 	}
 }
 
+func TestAnalyzeCapturesLogsForFailures(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		iterations []string
+		category   string // "flakes","failures","timeouts"
+		wantLogs   []IterationLog
+	}{
+		{
+			name: "failure captures output from failing iteration",
+			iterations: []string{
+				`{"Action":"run","Package":"p","Test":"T"}
+{"Action":"output","Package":"p","Test":"T","Output":"    t.go:12: boom\n"}
+{"Action":"output","Package":"p","Test":"T","Output":"--- FAIL: T (0.00s)\n"}
+{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}
+`,
+			},
+			category: "failures",
+			wantLogs: []IterationLog{
+				{Iteration: 0, Output: "    t.go:12: boom\n--- FAIL: T (0.00s)\n"},
+			},
+		},
+		{
+			name: "flake captures logs only from failing iterations",
+			iterations: []string{
+				`{"Action":"output","Package":"p","Test":"T","Output":"fail-log\n"}
+{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}
+`,
+				`{"Action":"output","Package":"p","Test":"T","Output":"ok-log\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}
+`,
+			},
+			category: "flakes",
+			wantLogs: []IterationLog{
+				{Iteration: 0, Output: "fail-log\n"},
+			},
+		},
+		{
+			name: "timeout captures the panic output",
+			iterations: []string{
+				`{"Action":"output","Package":"p","Test":"T","Output":"panic: test timed out after 10m0s\n"}
+{"Action":"output","Package":"p","Test":"T","Output":"\tstack trace line\n"}
+{"Action":"fail","Package":"p","Test":"T","Elapsed":600.0}
+`,
+			},
+			category: "timeouts",
+			wantLogs: []IterationLog{
+				{Iteration: 0, Output: "panic: test timed out after 10m0s\n\tstack trace line\n"},
+			},
+		},
+		{
+			name: "panic in failing test is captured",
+			iterations: []string{
+				`{"Action":"output","Package":"p","Test":"T","Output":"panic: runtime error: nil pointer\n"}
+{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}
+`,
+			},
+			category: "failures",
+			wantLogs: []IterationLog{
+				{Iteration: 0, Output: "panic: runtime error: nil pointer\n"},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rep, err := Analyze(readers(tc.iterations...), 30*time.Second)
+			require.NoError(t, err)
+			var entries []TestEntry
+			switch tc.category {
+			case "flakes":
+				entries = rep.Flakes
+			case "failures":
+				entries = rep.Failures
+			case "timeouts":
+				entries = rep.Timeouts
+			}
+			require.Len(t, entries, 1, "expected exactly one %s entry", tc.category)
+			assert.Equal(t, tc.wantLogs, entries[0].Logs)
+		})
+	}
+}
+
+func TestAnalyzeReattributesTimeoutToRunningTests(t *testing.T) {
+	t.Parallel()
+	// go test attaches the timeout panic to whatever test emitted last —
+	// here TestFast has already passed but gets the panic output. The real
+	// culprit is listed in the "running tests:" block.
+	iter := `{"Action":"run","Package":"p","Test":"TestFast"}
+{"Action":"pass","Package":"p","Test":"TestFast","Elapsed":0.01}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"panic: test timed out after 5s\n"}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"\trunning tests:\n"}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"\t\tTestSlow/sub_case (5s)\n"}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"\t\tTestOther (4s)\n"}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"\n"}
+{"Action":"output","Package":"p","Test":"TestFast","Output":"goroutine 1 [chan receive]:\n"}
+{"Action":"fail","Package":"p","Elapsed":5.01}
+`
+	rep, err := Analyze(readers(iter), 30*time.Second)
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(rep.Timeouts))
+	for _, e := range rep.Timeouts {
+		names = append(names, e.Test)
+	}
+	assert.ElementsMatch(t, []string{"TestSlow/sub_case", "TestOther"}, names,
+		"timeout should be attributed to the tests listed in `running tests:`")
+
+	// The misattributed test (TestFast) must not show up as a timeout.
+	for _, e := range rep.Timeouts {
+		assert.NotEqual(t, "TestFast", e.Test)
+	}
+
+	// The stack trace should travel with the re-attributed entries.
+	for _, e := range rep.Timeouts {
+		require.Len(t, e.Logs, 1)
+		assert.Contains(t, e.Logs[0].Output, "panic: test timed out after 5s")
+	}
+}
+
+func TestAnalyzeKeepsTimeoutOnCulpritWhenItWasTheReportedTest(t *testing.T) {
+	t.Parallel()
+	// If the test whose output carried the panic IS in the running-tests list,
+	// the timeout stays attributed to it (no bogus re-attribution).
+	iter := `{"Action":"output","Package":"p","Test":"TestSlow","Output":"panic: test timed out after 5s\n"}
+{"Action":"output","Package":"p","Test":"TestSlow","Output":"\trunning tests:\n"}
+{"Action":"output","Package":"p","Test":"TestSlow","Output":"\t\tTestSlow (5s)\n"}
+{"Action":"fail","Package":"p","Elapsed":5.01}
+`
+	rep, err := Analyze(readers(iter), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.Timeouts, 1)
+	assert.Equal(t, "TestSlow", rep.Timeouts[0].Test)
+}
+
+func TestAnalyzePassingTestsHaveNoLogs(t *testing.T) {
+	t.Parallel()
+	input := `{"Action":"output","Package":"p","Test":"T","Output":"hello\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":45.0}
+`
+	rep, err := Analyze(readers(input), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.Slow, 1)
+	assert.Nil(t, rep.Slow[0].Logs)
+}
+
+func TestPrintSummaryTimeoutShowsIterationsNotPassCounts(t *testing.T) {
+	t.Parallel()
+	rep := &Report{
+		Iterations:    3,
+		SlowThreshold: 30 * time.Second,
+		Timeouts: []TestEntry{
+			{Package: "p", Test: "TestStuck", Passes: 2, Iterations: []int{0, 2}},
+		},
+	}
+	var buf strings.Builder
+	PrintSummary(&buf, rep)
+	out := buf.String()
+	assert.Contains(t, out, "p.TestStuck")
+	assert.Contains(t, out, "iter 0,2")
+	// The misleading "(2p/0f)" format must not appear for timeouts.
+	assert.NotContains(t, out, "(2p/0f)")
+}
+
 func TestAnalyzeResultsRoundtrip(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	// two iterations: same test flakes (fail, pass)
-	must(t, os.WriteFile(filepath.Join(dir, "test-0.log.jsonl"),
+	must(t, os.WriteFile(filepath.Join(dir, "iteration-0.log.jsonl"),
 		[]byte(`{"Action":"fail","Package":"pkg/z","Test":"TestFlaky","Elapsed":0.2}`+"\n"), 0600))
-	must(t, os.WriteFile(filepath.Join(dir, "test-1.log.jsonl"),
+	must(t, os.WriteFile(filepath.Join(dir, "iteration-1.log.jsonl"),
 		[]byte(`{"Action":"pass","Package":"pkg/z","Test":"TestFlaky","Elapsed":0.1}`+"\n"), 0600))
 
 	rep, err := AnalyzeResults(dir, 30*time.Second)
