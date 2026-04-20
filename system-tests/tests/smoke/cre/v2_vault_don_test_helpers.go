@@ -380,7 +380,7 @@ func executeVaultSecretsCreateWithAuth(t *testing.T, auth vaultRequestAuth, encr
 		RequestId:        uniqueRequestID,
 		EncryptedSecrets: buildEncryptedSecrets(secretID, auth.requestOwner, encryptedSecret, namespaces),
 	}
-	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, secretsCreateRequest)
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	auth.apply(t, &jsonRequest)
 
 	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
@@ -426,7 +426,7 @@ func executeVaultSecretsUpdateWithAuth(t *testing.T, auth vaultRequestAuth, encr
 		RequestId:        uniqueRequestID,
 		EncryptedSecrets: encryptedSecrets,
 	}
-	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, secretsUpdateRequest)
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
 	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
@@ -469,7 +469,7 @@ func executeVaultSecretsListWithAuth(t *testing.T, auth vaultRequestAuth, expect
 		Owner:     auth.requestOwner,
 		Namespace: namespace,
 	}
-	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, secretsListRequest)
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
 	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
@@ -511,7 +511,7 @@ func executeVaultSecretsDeleteWithAuth(t *testing.T, auth vaultRequestAuth, secr
 		RequestId: uniqueRequestID,
 		Ids:       deleteIDs,
 	}
-	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, secretsDeleteRequest)
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
 	auth.apply(t, &jsonRequest)
 
 	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
@@ -643,7 +643,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 			EncryptedValue: encryptedSecret,
 		}},
 	}
-	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, secretsCreateRequest)
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	jsonRequest.Auth = mustMintVaultJWTForRequest(t, issuer, jsonRequest, orgID, workflowOwner)
 
 	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
