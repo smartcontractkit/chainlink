@@ -637,6 +637,11 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 				}
 			}
 
+			if existingCfg.DefaultConfig != nil {
+				fmt.Println("Vault capability config already has default config set, skipping update")
+				return nil
+			}
+
 			valueMap, wrapErr := chainlinkvalues.WrapMap(map[string]interface{}{
 				"VaultPublicKey": vaultPublicKey,
 				"Threshold":      1,
@@ -671,27 +676,62 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 }
 
 // sendToVaultGateway sends an HTTP POST request to the vault gateway and returns the status code and body.
-func sendToVaultGateway(ctx context.Context, gatewayURL string, body []byte) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(body))
-	if err != nil {
-		return 0, nil, errors.Wrap(err, "failed to build vault gateway request")
+func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []byte) (statusCode int, respBody []byte, err error) {
+	const maxRetries = 7
+	const retryInterval = 2 * time.Second
+
+	for attempt := range maxRetries + 1 {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(requestBody))
+		if err != nil {
+			return 0, nil, errors.Wrap(err, "failed to build vault gateway request")
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0, nil, errors.Wrap(err, "vault gateway HTTP request failed")
+		}
+		defer resp.Body.Close()
+
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return resp.StatusCode, nil, errors.Wrap(err, "failed to read vault gateway response body")
+		}
+		resp.Body.Close()
+		statusCode = resp.StatusCode
+
+		if !isGatewayNotAllowlistedError(respBody) {
+			return statusCode, respBody, nil
+		}
+
+		if attempt < maxRetries {
+			fmt.Printf("Request not yet allowlisted, retrying in %s (attempt %d/%d)...\n", retryInterval, attempt+1, maxRetries)
+			time.Sleep(retryInterval)
+		}
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	return statusCode, respBody, errors.New("vault gateway request failed after maximum retries")
+}
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, nil, errors.Wrap(err, "vault gateway HTTP request failed")
+// isGatewayNotAllowlistedError checks whether the response is a gateway-level
+// "request not allowlisted" rejection (method is empty, error code -32600).
+// Node-level rejections (method is set, code -32603) have a different format
+// and must not be retried because the gateway has already consumed the request.
+func isGatewayNotAllowlistedError(body []byte) bool {
+	var resp struct {
+		Method string `json:"method"`
+		Error  *struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return resp.StatusCode, nil, errors.Wrap(err, "failed to read vault gateway response body")
+	if json.Unmarshal(body, &resp) != nil {
+		return false
 	}
-
-	return resp.StatusCode, respBody, nil
+	return resp.Method == "" && resp.Error != nil &&
+		strings.Contains(resp.Error.Message, "request not allowlisted")
 }
 
 // fetchVaultPublicKey polls the vault gateway until it returns a public key.
