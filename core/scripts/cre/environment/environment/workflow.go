@@ -60,7 +60,7 @@ type vaultSecretEntry struct {
 
 // secretsNamesConfig is the secrets YAML format used by CRE:
 //
-//	secretNames:
+//	secretsNames:
 //	  SECRET_KEY:
 //	    - ENV_VAR_NAME
 type secretsNamesConfig struct {
@@ -229,12 +229,12 @@ func deployWorkflowCmd() *cobra.Command {
 				return errors.Wrap(resolveErr, "❌ failed to resolve workflow registry")
 			}
 
-			capabilitiesRegistryAddress, _, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, contractsVersionFlag, "capabilities-registry-address")
+			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, contractsVersionFlag, "capabilities-registry-address")
 			if resolveErr != nil {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, donID, deleteWorkflowFileFlag)
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, deleteWorkflowFileFlag)
 
 			return regErr
 		},
@@ -431,7 +431,7 @@ func compileWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag
 func deployWorkflow(
 	ctx context.Context,
 	wasmWorkflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string,
-	workflowRegistryVersion *semver.Version,
+	workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version,
 	donIDFlag uint32,
 	deleteWorkflowFile bool,
 ) error {
@@ -477,6 +477,13 @@ func deployWorkflow(
 
 	var encryptedSecretsJSONPath string
 	if secretsFilePathFlag != "" {
+		if workflowRegistryVersion == nil || workflowRegistryVersion.Major() != 2 {
+			return fmt.Errorf("❌ vault secrets flow requires v2 workflow registry contract, got %v", workflowRegistryVersion)
+		}
+		if capabilitiesRegistryVersion == nil || capabilitiesRegistryVersion.Major() != 2 {
+			return fmt.Errorf("❌ vault secrets flow requires v2 capabilities registry contract, got %v", capabilitiesRegistryVersion)
+		}
+
 		if gatewayURL == "" {
 			return errors.New("❌ --gateway-url (or a local CRE state file with gateway configuration) is required when --secrets-file-path is provided")
 		}
@@ -570,16 +577,14 @@ func deployWorkflow(
 	return nil
 }
 
-func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion *semver.Version, donIDFlag uint32) error {
+func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL string, workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version, donIDFlag uint32) error {
 	compressedWorkflowWasmPath, compileErr := compileWorkflow(ctx, workflowFilePathFlag, workflowNameFlag)
 	if compileErr != nil {
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, donIDFlag, true)
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true)
 }
-
-const vaultCapabilityID = "vault@1.0.0"
 
 // updateVaultCapabilityConfig finds the DON that has the vault capability registered and injects
 // the vault public key and a threshold of 1 into its DefaultConfig in the capabilities registry.
@@ -592,31 +597,39 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 		return errors.Wrap(err, "failed to create capabilities registry wrapper")
 	}
 
-	allDONs, err := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(0), big.NewInt(100))
-	if err != nil {
-		return errors.Wrap(err, "failed to get DONs from capabilities registry")
-	}
+	const pageSize int64 = 100
 
 	var targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	for i := range allDONs {
-		for _, cc := range allDONs[i].CapabilityConfigurations {
-			if cc.CapabilityId == vaultCapabilityID {
-				don := allDONs[i]
-				targetDON = &don
+	for start := int64(0); targetDON == nil; start += pageSize {
+		donsPage, getErr := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(start), big.NewInt(pageSize))
+		if getErr != nil {
+			return errors.Wrap(getErr, "failed to get DONs from capabilities registry")
+		}
+
+		for i := range donsPage {
+			for _, cc := range donsPage[i].CapabilityConfigurations {
+				if cc.CapabilityId == vault_helpers.CapabilityID {
+					don := donsPage[i]
+					targetDON = &don
+					break
+				}
+			}
+			if targetDON != nil {
 				break
 			}
 		}
-		if targetDON != nil {
+
+		if len(donsPage) < int(pageSize) {
 			break
 		}
 	}
 	if targetDON == nil {
-		return fmt.Errorf("no DON with %s capability found in capabilities registry", vaultCapabilityID)
+		return fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
 	}
 
 	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(targetDON.CapabilityConfigurations))
 	for _, cc := range targetDON.CapabilityConfigurations {
-		if cc.CapabilityId == vaultCapabilityID {
+		if cc.CapabilityId == vault_helpers.CapabilityID {
 			existingCfg := &capabilitiespb.CapabilityConfig{}
 			if len(cc.Config) > 0 {
 				if unmarshalErr := proto.Unmarshal(cc.Config, existingCfg); unmarshalErr != nil {
@@ -658,27 +671,27 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 }
 
 // sendToVaultGateway sends an HTTP POST request to the vault gateway and returns the status code and body.
-func sendToVaultGateway(ctx context.Context, gatewayURL string, body []byte) (int, []byte) {
+func sendToVaultGateway(ctx context.Context, gatewayURL string, body []byte) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(body))
 	if err != nil {
-		return 0, nil
+		return 0, nil, errors.Wrap(err, "failed to build vault gateway request")
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, nil
+		return 0, nil, errors.Wrap(err, "vault gateway HTTP request failed")
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return resp.StatusCode, nil
+		return resp.StatusCode, nil, errors.Wrap(err, "failed to read vault gateway response body")
 	}
 
-	return resp.StatusCode, respBody
+	return resp.StatusCode, respBody, nil
 }
 
 // fetchVaultPublicKey polls the vault gateway until it returns a public key.
@@ -706,8 +719,8 @@ func fetchVaultPublicKey(ctx context.Context, gatewayURL string) (string, error)
 		case <-timeout:
 			return "", errors.New("timed out waiting for vault public key from gateway")
 		case <-ticker.C:
-			statusCode, respBody := sendToVaultGateway(ctx, gatewayURL, reqBody)
-			if statusCode != http.StatusOK || respBody == nil {
+			statusCode, respBody, sendErr := sendToVaultGateway(ctx, gatewayURL, reqBody)
+			if sendErr != nil || statusCode != http.StatusOK || respBody == nil {
 				continue
 			}
 
@@ -881,7 +894,10 @@ func executeVaultSecrets(ctx context.Context, encryptedSecretsJSONPath, gatewayU
 		return errors.Wrap(err, "failed to marshal JSON-RPC request")
 	}
 
-	statusCode, respBody := sendToVaultGateway(ctx, gatewayURL, reqBody)
+	statusCode, respBody, sendErr := sendToVaultGateway(ctx, gatewayURL, reqBody)
+	if sendErr != nil {
+		return errors.Wrap(sendErr, "failed to send request to vault gateway")
+	}
 	if statusCode != http.StatusOK {
 		return fmt.Errorf("vault gateway responded with status %d: %s", statusCode, string(respBody))
 	}
