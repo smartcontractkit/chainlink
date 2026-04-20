@@ -365,14 +365,26 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	cfg.QuietMode = true
 	cfg.RetransmitInterval = 30 * time.Second
 	cfg.RetransmitAfter = 5 * time.Minute
-	cfg.RetransmitBatchSize = 200
+	cfg.RetransmitBatchSize = 50000 // Shouldn't matter since all go thorugh first time
 	cfg.PublishTimeout = 5 * time.Second
-	cfg.PublishBatchSize = 100
-	cfg.PublishBatchWorkers = 1
-	cfg.PublishBatchFlushInterval = 10 * time.Millisecond
-	cfg.PublishBatchChannelSize = 5000
+	cfg.PublishBatchSize = 25_000
+	cfg.PublishBatchWorkers = 3
+	cfg.PublishBatchFlushInterval = 2 * time.Millisecond
+	cfg.PublishBatchChannelSize = 2_000_000
+	cfg.InsertBatchSize = 2000
+	cfg.InsertBatchFlushInterval = 250 * time.Microsecond
+	cfg.InsertBatchWorkers = 20
 	cfg.DisablePruning = true
 	cfg.Hooks = newPipelineHooks(pipe)
+
+	totalEvents := 5_000_000
+	//if testing.Short() {
+	//totalEvents = 10_000
+	//}
+	const concurrency = 200
+
+	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
+	targetRate := 0 //5000 //0
 
 	// Wire OTel metrics to the local obs stack when OTEL_EXPORTER_OTLP_ENDPOINT is set.
 	// Start the obs stack first: ./bin/ctf obs up
@@ -412,15 +424,6 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	em.Start(ctx)
 	defer em.Close()
 
-	totalEvents := 100_000
-	//if testing.Short() {
-	//totalEvents = 10_000
-	//}
-	const concurrency = 10
-
-	// Target produce rate in msg/s. 0 = unlimited (fire-hose / max throughput).
-	targetRate := 1000 //0
-
 	t.Logf("Full-stack sustained throughput: totalEvents=%d, concurrency=%d, targetRate=%d msg/s",
 		totalEvents, concurrency, targetRate)
 
@@ -434,6 +437,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	var wg sync.WaitGroup
 	var emitErrors atomic.Int64
+	var producerWallNs atomic.Int64 // cumulative wall time inside Emit() calls
 
 	// Per-worker rate: divide target evenly across goroutines.
 	perWorkerRate := targetRate / concurrency
@@ -449,9 +453,11 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 			if targetRate <= 0 {
 				for i := 0; i < eventsPerWorker; i++ {
+					t0 := time.Now()
 					if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
 						emitErrors.Add(1)
 					}
+					producerWallNs.Add(int64(time.Since(t0)))
 				}
 				return
 			}
@@ -461,9 +467,11 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 			defer ticker.Stop()
 			for i := 0; i < eventsPerWorker; i++ {
 				<-ticker.C
+				t0 := time.Now()
 				if err := em.Emit(ctx, payload, loadEmitAttrs()...); err != nil {
 					emitErrors.Add(1)
 				}
+				producerWallNs.Add(int64(time.Since(t0)))
 			}
 		}()
 	}
@@ -615,6 +623,26 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	t.Logf("║   System:         %-49s ║", fmt.Sprintf("%.2f s", cpuSysSec))
 	t.Logf("║   Total:          %-49s ║", fmt.Sprintf("%.2f s", cpuTotalSec))
 	t.Logf("║   Utilization:    %-49s ║", fmt.Sprintf("%.1f%% of %d cores × %.1fs wall", cpuUtilPct, runtime.GOMAXPROCS(0), totalElapsed.Seconds()))
+	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
+	availCPUSec := totalElapsed.Seconds() * float64(runtime.GOMAXPROCS(0))
+	producerWallSec := float64(producerWallNs.Load()) / 1e9
+	consumerPubWallSec := pipe.batchLoopPub.sum().Seconds()
+	consumerMarkWallSec := pipe.batchLoopDel.sum().Seconds()
+	consumerWallSec := consumerPubWallSec + consumerMarkWallSec
+	producerPct := 100.0 * producerWallSec / availCPUSec
+	consumerPct := 100.0 * consumerWallSec / availCPUSec
+	overheadPct := cpuUtilPct - producerPct - consumerPct
+	if overheadPct < 0 {
+		overheadPct = 0
+	}
+	t.Logf("║ CPU BREAKDOWN (wall-time attribution)                              ║")
+	t.Logf("║   Producer (Emit):     %-44s ║", fmt.Sprintf("%.2f s  (%.1f%%)", producerWallSec, producerPct))
+	t.Logf("║     └ DB Insert:       %-44s ║", fmt.Sprintf("%.2f s", pipe.emitIns.sum().Seconds()))
+	t.Logf("║     └ Event build:     %-44s ║", fmt.Sprintf("%.2f s", producerWallSec-pipe.emitIns.sum().Seconds()))
+	t.Logf("║   Consumer (Emitter):  %-44s ║", fmt.Sprintf("%.2f s  (%.1f%%)", consumerWallSec, consumerPct))
+	t.Logf("║     └ PublishBatch:    %-44s ║", fmt.Sprintf("%.2f s", consumerPubWallSec))
+	t.Logf("║     └ MarkDelivered:   %-44s ║", fmt.Sprintf("%.2f s", consumerMarkWallSec))
+	t.Logf("║   Overhead (GC/sched): %-44s ║", fmt.Sprintf("%.1f%%", overheadPct))
 	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
 	t.Logf("║   Publish errors (need retransmit): %-31d ║", pubErrs+pipe.batchPubEventErrs.Load())
 	t.Logf("╚══════════════════════════════════════════════════════════════════════╝")
@@ -939,14 +967,10 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 	configs := []drainRunConfig{
 		{retransmitBatchSize: 1000, publishBatchSize: 100},
 		{retransmitBatchSize: 1000, publishBatchSize: 1000},
-		{retransmitBatchSize: 5000, publishBatchSize: 100},
-		{retransmitBatchSize: 5000, publishBatchSize: 1000},
-		{retransmitBatchSize: 10_000, publishBatchSize: 100},
-		{retransmitBatchSize: 10_000, publishBatchSize: 1000},
-		{retransmitBatchSize: 20_000, publishBatchSize: 100},
-		{retransmitBatchSize: 20_000, publishBatchSize: 1000},
-		{retransmitBatchSize: 50_000, publishBatchSize: 100},
-		{retransmitBatchSize: 50_000, publishBatchSize: 1000},
+		//{retransmitBatchSize: 5000, publishBatchSize: 100},
+		//{retransmitBatchSize: 5000, publishBatchSize: 1000},
+		//{retransmitBatchSize: 10_000, publishBatchSize: 100},
+		//{retransmitBatchSize: 10_000, publishBatchSize: 1000},
 	}
 	const backlogSize = 500_000
 	const liveRate = 1000
@@ -1035,7 +1059,7 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 			cfg.PublishTimeout = 5 * time.Second
 			cfg.PublishBatchSize = rc.publishBatchSize
 			cfg.PublishBatchWorkers = 4
-			cfg.PublishBatchFlushInterval = 10 * time.Millisecond
+			cfg.PublishBatchFlushInterval = 1000 * time.Millisecond
 			cfg.PublishBatchChannelSize = 10000
 			cfg.DisablePruning = true
 			cfg.Hooks = newPipelineHooks(phase2Stats)
@@ -1383,16 +1407,30 @@ func directDB(t testing.TB) *sqlx.DB {
 	if dbURL == "" {
 		t.Fatal("CL_DATABASE_URL is required for TPS tests")
 	}
+	// Append synchronous_commit=off to the DSN so every pooled connection
+	// skips WAL fsync. Events are durable via Chip ACK; retransmit recovers
+	// on crash. This typically 2-3x insert throughput.
+	sep := "&"
+	if !strings.Contains(dbURL, "?") {
+		sep = "?"
+	}
+	dbURL += sep + "options=-c%20synchronous_commit%3Doff"
+
 	db, err := sqlx.Open("postgres", dbURL)
 	require.NoError(t, err)
 	require.NoError(t, db.Ping())
-	db.SetMaxOpenConns(20)
-	db.SetMaxIdleConns(10)
+	db.SetMaxOpenConns(60)
+	db.SetMaxIdleConns(30)
+	db.SetConnMaxIdleTime(30 * time.Second)
 
-	// Clean the table before and after the test.
-	_, _ = db.Exec("DELETE FROM cre.chip_durable_events")
+	// Kill stale connections from previous Ctrl+C'd runs, then TRUNCATE
+	// for a clean table with no dead-tuple bloat.
+	_, _ = db.Exec(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity
+		WHERE datname = current_database() AND pid <> pg_backend_pid()
+		AND state = 'idle' AND state_change < now() - interval '10 seconds'`)
+	_, _ = db.Exec("TRUNCATE cre.chip_durable_events RESTART IDENTITY")
 	t.Cleanup(func() {
-		_, _ = db.Exec("DELETE FROM cre.chip_durable_events")
+		_, _ = db.Exec("TRUNCATE cre.chip_durable_events RESTART IDENTITY")
 		_ = db.Close()
 	})
 	return db
