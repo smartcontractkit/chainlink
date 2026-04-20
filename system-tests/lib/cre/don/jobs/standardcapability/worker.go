@@ -8,8 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
 const (
@@ -37,11 +35,12 @@ func WorkerJobSpec(nodeID, name, command, config, oracleFactoryConfig string) *j
 	}
 }
 
-func GetCommand(binaryPathOnHost string, provider infra.Provider) (string, error) {
-	containerPath, pathErr := crecapabilities.DefaultContainerDirectory(provider.Type)
-	if pathErr != nil {
-		return "", errors.Wrapf(pathErr, "failed to get default container directory for infra type %s", provider.Type)
-	}
+// DefaultCapabilitiesDir is where capability binaries live in the container (set during image build).
+const DefaultCapabilitiesDir = "/usr/local/bin"
 
-	return filepath.Join(containerPath, filepath.Base(binaryPathOnHost)), nil
+func GetCommand(binaryName string) (string, error) {
+	if binaryName == "" {
+		return "", errors.New("binary_name is required for capability config; set it in capability_defaults.toml or nodesets.capability_configs for plugin-based capabilities")
+	}
+	return filepath.Join(DefaultCapabilitiesDir, binaryName), nil
 }

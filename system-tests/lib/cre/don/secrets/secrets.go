@@ -3,6 +3,7 @@ package secrets
 import (
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
@@ -18,6 +20,7 @@ import (
 type nodeSecret struct {
 	EthKeys         nodeEthKeyWrapper   `toml:"EVM"`
 	SolKeys         nodeSolKeyWrapper   `toml:"Solana"`
+	AptosKeys       nodeAptosKeyWrapper `toml:"Aptos"`
 	P2PKey          nodeP2PKey          `toml:"P2PKey"`
 	DKGRecipientKey nodeDKGRecipientKey `toml:"DKGRecipientKey"`
 
@@ -42,6 +45,12 @@ type nodeP2PKey struct {
 	Password string `toml:"Password"`
 }
 
+type nodeAptosKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  uint64 `toml:"ID"`
+}
+
 type nodeDKGRecipientKey struct {
 	JSON     string `toml:"JSON"`
 	Password string `toml:"Password"`
@@ -55,12 +64,18 @@ type nodeSolKeyWrapper struct {
 	SolKeys []nodeSolKey `toml:"Keys"`
 }
 
+type nodeAptosKeyWrapper struct {
+	AptosKeys []nodeAptosKey `toml:"Keys"`
+}
+
 type ChainFamily = string
 
 type NodeKeys struct {
 	CSAKey        *crypto.CSAKey
 	EVM           map[uint64]*crypto.EVMKey
 	Solana        map[string]*crypto.SolKey
+	Aptos         *crypto.AptosKey
+	AptosChainIDs []uint64
 	P2PKey        *crypto.P2PKey
 	DKGKey        *crypto.DKGRecipientKey
 	OCR2BundleIDs map[ChainFamily]string
@@ -80,6 +95,20 @@ func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
 		ns.P2PKey = nodeP2PKey{
 			JSON:     string(n.P2PKey.EncryptedJSON),
 			Password: n.P2PKey.Password,
+		}
+	}
+
+	if n.Aptos != nil {
+		if len(n.AptosChainIDs) == 0 {
+			return "", errors.New("aptos key is present but AptosChainIDs is empty")
+		}
+		ns.AptosKeys = nodeAptosKeyWrapper{}
+		for _, chainID := range n.AptosChainIDs {
+			ns.AptosKeys.AptosKeys = append(ns.AptosKeys.AptosKeys, nodeAptosKey{
+				JSON:     string(n.Aptos.EncryptedJSON),
+				Password: n.Aptos.Password,
+				ChainID:  chainID,
+			})
 		}
 	}
 
@@ -125,6 +154,7 @@ type secrets struct {
 	EVM             ethKeys         `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey          p2PKey          `toml:",omitempty"`
 	Solana          solKeys         `toml:",omitempty"`
+	Aptos           aptosKeys       `toml:",omitempty"`
 	DKGRecipientKey dkgRecipientKey `toml:",omitempty"`
 }
 
@@ -135,6 +165,16 @@ type p2PKey struct {
 
 type dkgRecipientKey struct {
 	JSON     *string
+	Password *string
+}
+
+type aptosKeys struct {
+	Keys []*aptosKey
+}
+
+type aptosKey struct {
+	JSON     *string
+	ID       *uint64
 	Password *string
 }
 
@@ -258,6 +298,55 @@ func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 		EncryptedJSON: []byte(*sSecrets.P2PKey.JSON),
 		Password:      *sSecrets.P2PKey.Password,
 		PeerID:        *p,
+	}
+
+	for i := range sSecrets.Aptos.Keys {
+		if sSecrets.Aptos.Keys[i].JSON != nil {
+			aptosJSON := strings.TrimSpace(*sSecrets.Aptos.Keys[i].JSON)
+			if aptosJSON == "" {
+				sSecrets.Aptos.Keys[i].JSON = nil
+				sSecrets.Aptos.Keys[i].Password = nil
+				sSecrets.Aptos.Keys[i].ID = nil
+			}
+		}
+	}
+
+	var importedAptosAccount string
+	for _, importedKey := range sSecrets.Aptos.Keys {
+		if importedKey.JSON == nil {
+			continue
+		}
+		if importedKey.Password == nil {
+			return nil, errors.New("aptos key password is nil")
+		}
+		if importedKey.ID == nil {
+			return nil, errors.New("aptos key chain id is nil")
+		}
+		aptosPassword := strings.TrimSpace(*importedKey.Password)
+		if aptosPassword == "" {
+			return nil, errors.New("aptos key password is empty")
+		}
+
+		aptosKeyValue, err := aptoskey.FromEncryptedJSON([]byte(*importedKey.JSON), aptosPassword)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decrypt aptos key from encrypted JSON")
+		}
+
+		account, err := crypto.NormalizeAptosAccount(aptosKeyValue.Account())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to normalize aptos account")
+		}
+		if importedAptosAccount != "" && importedAptosAccount != account {
+			return nil, errors.New("multiple distinct imported Aptos keys are not supported in CRE node metadata")
+		}
+		importedAptosAccount = account
+		keys.AptosChainIDs = append(keys.AptosChainIDs, *importedKey.ID)
+		keys.Aptos = &crypto.AptosKey{
+			EncryptedJSON: []byte(*importedKey.JSON),
+			PublicKey:     aptosKeyValue.PublicKeyStr(),
+			Account:       account,
+			Password:      aptosPassword,
+		}
 	}
 
 	if sSecrets.DKGRecipientKey.JSON != nil {

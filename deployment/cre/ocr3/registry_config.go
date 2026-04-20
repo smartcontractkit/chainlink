@@ -33,6 +33,7 @@ func ComputeOCR3Config(
 	registryNodes []capabilities_registry_v2.INodeInfoProviderNodeInfo,
 	oracleOffchainConfig OracleConfig,
 	reportingPluginConfig []byte,
+	extraSignerFamilies []string,
 ) (*OCR2OracleConfig, error) {
 	p2pIDStrings := RegistryNodesToP2PIDs(registryNodes)
 
@@ -47,6 +48,7 @@ func ComputeOCR3Config(
 		registryChainSel,
 		env.OCRSecrets,
 		reportingPluginConfig,
+		extraSignerFamilies,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR3 config: %w", err)

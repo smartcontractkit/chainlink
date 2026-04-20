@@ -38,6 +38,13 @@ func (c *creConfig) RestURL() string {
 	return *c.c.Streams.RestURL
 }
 
+func (c *creConfig) DebugMode() bool {
+	if c.c.DebugMode == nil {
+		return false // disabled by default
+	}
+	return *c.c.DebugMode
+}
+
 type workflowFetcherConfig struct {
 	url string
 }
@@ -96,6 +103,23 @@ func (c *creConfig) Linking() config.CRELinking {
 	}
 
 	return &linkingConfig{url: url, tlsEnabled: tlsEnabled}
+}
+
+type confidentialRelayConfig struct {
+	enabled bool
+}
+
+func (cr *confidentialRelayConfig) Enabled() bool { return cr.enabled }
+
+func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
+	if c.c.ConfidentialRelay == nil {
+		return &confidentialRelayConfig{}
+	}
+	enabled := false
+	if c.c.ConfidentialRelay.Enabled != nil {
+		enabled = *c.c.ConfidentialRelay.Enabled
+	}
+	return &confidentialRelayConfig{enabled: enabled}
 }
 
 func (c *creConfig) LocalSecrets() map[string]string {

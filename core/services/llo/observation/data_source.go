@@ -137,7 +137,6 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // Based on the expected maxObservationDuration determine the pace of the observation loop
 // and for how long to cache the observations.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
-
 	// atomically set the observation loop started flag to true
 	// or return if it's already started
 	if !d.observationLoopStarted.CompareAndSwap(false, true) {

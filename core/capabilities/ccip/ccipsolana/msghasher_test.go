@@ -102,6 +102,117 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestParseExtraDataMap_NativeTypes(t *testing.T) {
+	// Test with native Go types (in-process codec, no LOOP)
+	account1 := [32]byte{0x01}
+	account2 := [32]byte{0x02}
+	receiver := [32]byte{0x03}
+
+	input := map[string]any{
+		"ComputeUnits":             uint32(2000000),
+		"AccountIsWritableBitmap":  uint64(6),
+		"AllowOutOfOrderExecution": true,
+		"TokenReceiver":            receiver,
+		"Accounts":                 [][32]byte{account1, account2},
+	}
+
+	ed, err := parseExtraDataMap(input)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(2000000), ed.extraArgs.ComputeUnits)
+	assert.Equal(t, uint64(6), ed.extraArgs.IsWritableBitmap)
+	assert.Equal(t, solana.PublicKeyFromBytes(receiver[:]), ed.tokenReceiver)
+	require.Len(t, ed.accounts, 2)
+	assert.Equal(t, solana.PublicKeyFromBytes(account1[:]), ed.accounts[0])
+	assert.Equal(t, solana.PublicKeyFromBytes(account2[:]), ed.accounts[1])
+}
+
+func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
+	// Test with types as they arrive after LOOP gRPC roundtrip:
+	// uint32 -> int64, [32]byte -> []byte, [][32]byte -> []interface{}
+	account1 := make([]byte, 32)
+	account1[0] = 0x01
+	account2 := make([]byte, 32)
+	account2[0] = 0x02
+	receiver := make([]byte, 32)
+	receiver[0] = 0x03
+
+	input := map[string]any{
+		"ComputeUnits":             int64(2000000), // LOOP: uint32 -> int64
+		"AccountIsWritableBitmap":  int64(6),       // LOOP: uint64 -> int64
+		"AllowOutOfOrderExecution": true,
+		"TokenReceiver":            receiver, // LOOP: [32]byte -> []byte
+		"Accounts": []interface{}{ // LOOP: [][32]byte -> []interface{}
+			account1,
+			account2,
+		},
+	}
+
+	ed, err := parseExtraDataMap(input)
+	require.NoError(t, err)
+	assert.Equal(t, uint32(2000000), ed.extraArgs.ComputeUnits)
+	assert.Equal(t, uint64(6), ed.extraArgs.IsWritableBitmap)
+	assert.Equal(t, solana.PublicKeyFromBytes(receiver), ed.tokenReceiver)
+	require.Len(t, ed.accounts, 2)
+	assert.Equal(t, solana.PublicKeyFromBytes(account1), ed.accounts[0])
+	assert.Equal(t, solana.PublicKeyFromBytes(account2), ed.accounts[1])
+}
+
+func TestParseExtraDataMap_LOOPAccountsAsByteSlice(t *testing.T) {
+	// Test [][]byte variant (alternative LOOP representation)
+	account1 := make([]byte, 32)
+	account1[0] = 0x01
+
+	input := map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"AccountIsWritableBitmap": uint64(0),
+		"TokenReceiver":           [32]byte{},
+		"Accounts":                [][]byte{account1},
+	}
+
+	ed, err := parseExtraDataMap(input)
+	require.NoError(t, err)
+	require.Len(t, ed.accounts, 1)
+	assert.Equal(t, solana.PublicKeyFromBytes(account1), ed.accounts[0])
+}
+
+func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
+	t.Run("ComputeUnits out of range", func(t *testing.T) {
+		input := map[string]any{
+			"ComputeUnits": int64(5000000000), // exceeds uint32 max
+		}
+		_, err := parseExtraDataMap(input)
+		require.ErrorContains(t, err, "ComputeUnits out of uint32 range")
+	})
+
+	t.Run("TokenReceiver wrong length", func(t *testing.T) {
+		input := map[string]any{
+			"TokenReceiver": []byte{0x01, 0x02}, // not 32 bytes
+		}
+		_, err := parseExtraDataMap(input)
+		require.ErrorContains(t, err, "invalid length for TokenReceiver")
+	})
+
+	t.Run("Accounts element wrong length", func(t *testing.T) {
+		input := map[string]any{
+			"Accounts": []interface{}{
+				[]byte{0x01, 0x02}, // not 32 bytes
+			},
+		}
+		_, err := parseExtraDataMap(input)
+		require.ErrorContains(t, err, "invalid length for Accounts[0]")
+	})
+
+	t.Run("Accounts element wrong type", func(t *testing.T) {
+		input := map[string]any{
+			"Accounts": []interface{}{
+				"not bytes",
+			},
+		}
+		_, err := parseExtraDataMap(input)
+		require.ErrorContains(t, err, "invalid type for Accounts[0]")
+	})
+}
+
 func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
 	messageID := utils.RandomBytes32()
 	sourceChain := uint64(5009297550715157269) // evm mainnet

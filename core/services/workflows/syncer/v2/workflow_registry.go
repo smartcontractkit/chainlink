@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -109,10 +110,16 @@ type workflowRegistry struct {
 	hooks Hooks
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardRoutingSteady      shardRoutingSteadyObserver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+}
+
+type shardRoutingSteadyObserver interface {
+	ObserveRoutingSteady(steady bool)
+	Invalidate()
 }
 
 type Hooks struct {
@@ -244,6 +251,12 @@ func WithShardEnabled(shardingEnabled bool) Option {
 func WithShardID(shardID uint32) Option {
 	return func(wr *workflowRegistry) {
 		wr.myShardID = shardID
+	}
+}
+
+func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardRoutingSteady = signal
 	}
 }
 
@@ -445,14 +458,14 @@ func (w *workflowRegistry) generateReconciliationEvents(
 ) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
-	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	// workflowMetadataIDs is a set of workflow IDs present in this tick's metadata
+	workflowMetadataIDs := make(map[string]struct{}, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
-		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+		workflowMetadataIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
 	}
 
-	// Keep track of which of the engines in the engineRegistry have been touched
-	workflowsSeen := map[string]bool{}
+	// Keep track of which of the engines in the engineRegistry have been touched.
+	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
 		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
@@ -596,7 +609,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	// the workflow no longer exists in this source's metadata
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
-			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+			if _, ok := workflowMetadataIDs[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
@@ -664,7 +677,13 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
 	if err != nil {
+		if w.shardRoutingSteady != nil {
+			w.shardRoutingSteady.Invalidate()
+		}
 		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
+	}
+	if w.shardRoutingSteady != nil {
+		w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
@@ -817,6 +836,12 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 					}(event)
 				}
 				wg.Wait()
+
+				// prompt the GC to reclaim transient allocations from event handling
+				// that would otherwise be delayed because the dominant CGo/wasmtime memory is invisible to the Go GC
+				if dispatched > 0 {
+					runtime.GC()
+				}
 
 				batchDuration := time.Since(batchStart)
 				w.metrics.recordReconcileBatch(ctx, sourceName, dispatched, batchDuration)

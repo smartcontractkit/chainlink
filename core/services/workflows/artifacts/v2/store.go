@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -122,14 +123,14 @@ type Store struct {
 func NewStore(lggr logger.Logger, orm WorkflowRegistryDS, fetchFn types.FetcherFunc, retrieveFunc types.LocationRetrieverFunc, clock clockwork.Clock, encryptionKey workflowkey.Key,
 	emitter custmsg.MessageEmitter, limitsFactory limits.Factory, opts ...func(*Store)) (*Store, error) {
 	artifactsStore := &Store{
-		lggr:                     lggr,
-		orm:                      orm,
-		retrieveFunc:             retrieveFunc,
-		fetchFn:                  fetchFn,
-		clock:  clock,
-		config: &StoreConfig{},
-		encryptionKey:            encryptionKey,
-		emitter:                  emitter,
+		lggr:          lggr,
+		orm:           orm,
+		retrieveFunc:  retrieveFunc,
+		fetchFn:       fetchFn,
+		clock:         clock,
+		config:        &StoreConfig{},
+		encryptionKey: encryptionKey,
+		emitter:       emitter,
 	}
 
 	for _, o := range opts {
@@ -202,7 +203,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", binaryURL, err)
+		return nil, nil, &types.ArtifactFetchError{ArtifactType: "binary", URL: binaryURL, Err: err}
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
@@ -246,7 +247,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 
 		config, err2 = h.fetchFn(ctx, messageID(configURL, workflowID), req)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err2)
+			return nil, nil, &types.ArtifactFetchError{ArtifactType: "config", URL: configURL, Err: err2}
 		}
 	}
 	return decodedBinary, config, nil

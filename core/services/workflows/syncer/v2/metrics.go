@@ -137,12 +137,12 @@ func newMetrics() (*metrics, error) {
 	}
 
 	return &metrics{
-		handleDuration:      handleDuration,
-		fetchedWorkflows:    fetchedWorkflows,
-		runningWorkflows:    runningWorkflows,
-		completedSyncs:      completedSyncs,
-		sourceHealth:        sourceHealth,
-		workflowsPerSource:  workflowsPerSource,
+		handleDuration:            handleDuration,
+		fetchedWorkflows:          fetchedWorkflows,
+		runningWorkflows:          runningWorkflows,
+		completedSyncs:            completedSyncs,
+		sourceHealth:              sourceHealth,
+		workflowsPerSource:        workflowsPerSource,
 		sourceFetchDuration:       sourceFetchDuration,
 		sourceFetchErrors:         sourceFetchErrors,
 		reconcileEventsDispatched: reconcileEventsDispatched,

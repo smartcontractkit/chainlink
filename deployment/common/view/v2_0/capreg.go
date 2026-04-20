@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
@@ -420,6 +421,48 @@ func (dv DonView) Validate() error {
 type CapabilitiesConfiguration struct {
 	ID     string         `json:"id"` // hex 32 bytes
 	Config map[string]any `json:"config"`
+
+	// decodedOCR3 holds decoded offchain configs keyed by the same key as ocr3Configs entries.
+	// It is rendered inside config.ocr3Configs.<key>.decodedOffchainConfig via MarshalJSON.
+	decodedOCR3 map[string]*creocr3.OracleConfig
+}
+
+// MarshalJSON renders CapabilitiesConfiguration with decodedOffchainConfig nested inside
+// each config.ocr3Configs entry, at the same level as offchainConfig/signers/transmitters.
+func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
+	// Deep-copy config so we don't mutate the original map.
+	configCopy := make(map[string]any, len(cc.Config))
+	for k, v := range cc.Config {
+		configCopy[k] = v
+	}
+	if len(cc.decodedOCR3) > 0 {
+		if ocr3CfgsRaw, ok := configCopy["ocr3Configs"]; ok {
+			if ocr3Cfgs, ok := ocr3CfgsRaw.(map[string]any); ok {
+				ocr3CfgsCopy := make(map[string]any, len(ocr3Cfgs))
+				for k, v := range ocr3Cfgs {
+					ocr3CfgsCopy[k] = v
+				}
+				for key, oracleConfig := range cc.decodedOCR3 {
+					if entry, ok := ocr3CfgsCopy[key]; ok {
+						if entryMap, ok := entry.(map[string]any); ok {
+							merged := make(map[string]any, len(entryMap)+1)
+							for k, v := range entryMap {
+								merged[k] = v
+							}
+							merged["decodedOffchainConfig"] = oracleConfig
+							ocr3CfgsCopy[key] = merged
+						}
+					}
+				}
+				configCopy["ocr3Configs"] = ocr3CfgsCopy
+			}
+		}
+	}
+	type alias struct {
+		ID     string         `json:"id"`
+		Config map[string]any `json:"config"`
+	}
+	return json.Marshal(alias{ID: cc.ID, Config: configCopy})
 }
 
 // NewCapabilityConfigurations creates a list of CapabilitiesConfiguration from a list of CapabilitiesRegistryCapabilityConfiguration.
@@ -431,9 +474,14 @@ func NewCapabilityConfigurations(cfgs []capabilities_registry.CapabilitiesRegist
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal capability configuration for capability %s: %w", cfg.CapabilityId, err)
 		}
+		decodedOCR3, err := creocr3.DecodeCapRegOCR3Configs(cfg.Config)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode OCR3 configs for capability %s: %w", cfg.CapabilityId, err)
+		}
 		out = append(out, CapabilitiesConfiguration{
-			ID:     cfg.CapabilityId,
-			Config: capCfg,
+			ID:          cfg.CapabilityId,
+			Config:      capCfg,
+			decodedOCR3: decodedOCR3,
 		})
 	}
 	return out, nil

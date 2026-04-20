@@ -1,3 +1,6 @@
+[chip_router]
+    image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
     chain_id = "1337"
     container_name = "anvil-1337"
@@ -28,7 +31,7 @@ port = 8666
     override_mode = "all"
     http_port_range_start = 10100
 
-    env_vars = { CL_EVM_CMD = "" }
+    env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
     capabilities = ["ocr3", "custom-compute", "web-api-trigger", "don-time", "write-evm-1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
@@ -56,7 +59,7 @@ port = 8666
     override_mode = "all"
     http_port_range_start = 10200
 
-    env_vars = { CL_EVM_CMD = "" }
+    env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
     capabilities = ["mock"]
 
     [nodesets.db]
@@ -76,7 +79,7 @@ port = 8666
     override_mode = "each"
     http_port_range_start = 10300
 
-    env_vars = { CL_EVM_CMD = "" }
+    env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
 
     [nodesets.db]
         image = "postgres:12.0"

@@ -53,7 +53,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// Find user
@@ -91,13 +91,13 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 
 	testEmail := "test@test.com"
 	apiToken := "example"
-	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration())
+	expiredTime := time.Now().Add(-cfg.UserAPITokenDuration().Duration() - time.Second)
 	_, err := db.Exec("INSERT INTO oidc_user_api_tokens values ($1, 'edit', $2, '', '', $3)", testEmail, apiToken, expiredTime)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to insert expired token")
 
 	// Token found but expired. expect error
 	_, err = oidcAuthProvider.FindUserByAPIToken(ctx, apiToken)
-	require.Equal(t, sessions.ErrUserSessionExpired, err)
+	require.ErrorIs(t, err, sessions.ErrUserSessionExpired, "expected expired token to return ErrUserSessionExpired")
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
@@ -140,7 +140,7 @@ func TestORM_ListUsers(t *testing.T) {
 	for _, u := range users {
 		// create user
 		sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-		_, err := db.ExecContext(ctx, sql, strings.ToLower(u.Email), u.HashedPassword, u.Role)
+		_, err := db.ExecContext(ctx, sql, strings.ToLower(u.Email), string(u.HashedPassword), u.Role)
 		require.NoError(t, err)
 	}
 
@@ -170,7 +170,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -190,7 +190,7 @@ func TestORM_DeleteSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -213,7 +213,7 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -236,7 +236,7 @@ func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -264,7 +264,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, user1.Role)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), user1.Role)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -294,7 +294,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, sessions.UserRoleView)
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), sessions.UserRoleView)
 	require.NoError(t, err)
 
 	// create session for the user
@@ -320,7 +320,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 	// create user
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), user1.HashedPassword, "admin")
+	_, err := db.ExecContext(ctx, sql, strings.ToLower(user1.Email), string(user1.HashedPassword), "admin")
 	require.NoError(t, err)
 
 	// create session with correct password, expect ok

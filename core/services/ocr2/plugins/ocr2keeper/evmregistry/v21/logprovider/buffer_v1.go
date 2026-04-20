@@ -185,7 +185,7 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 	for _, qid := range b.queueIDs {
 		q := b.queues[qid]
 
-		if minimumDequeue && q.dequeued[start] >= logLimit {
+		if minimumDequeue && q.getDequeued(start) >= logLimit {
 			// if we have already dequeued the minimum commitment for this window, skip it
 			minimumDequeueMet++
 			continue
@@ -206,7 +206,7 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 		remaining := 0
 
 		if minimumDequeue {
-			logs, remaining = q.dequeue(start, end, min(capacity, logLimit-q.dequeued[start]))
+			logs, remaining = q.dequeue(start, end, min(capacity, logLimit-q.getDequeued(start)))
 		} else {
 			logs, remaining = q.dequeue(start, end, capacity)
 		}
@@ -218,7 +218,7 @@ func (b *logBuffer) dequeue(start int64, capacity int, minimumDequeue bool) ([]B
 		remainingLogs += remaining
 
 		// update the buffer with how many logs we have dequeued for this window
-		q.dequeued[start] += len(logs)
+		q.addDequeued(start, len(logs))
 	}
 	b.lggr.Debugw("minimum commitment logs dequeued", "start", start, "end", end, "numUpkeeps", len(b.queues), "minimumDequeueMet", minimumDequeueMet)
 	return result, remainingLogs
@@ -337,6 +337,18 @@ func (q *upkeepLogQueue) sizeOfRange(start, end int64) int {
 		}
 	}
 	return size
+}
+
+func (q *upkeepLogQueue) getDequeued(k int64) int {
+	q.lock.RLock()
+	defer q.lock.RUnlock()
+	return q.dequeued[k]
+}
+
+func (q *upkeepLogQueue) addDequeued(k int64, add int) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.dequeued[k] += add
 }
 
 // dequeue pulls logs from the buffer that are within the given block range,

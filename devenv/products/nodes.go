@@ -17,6 +17,16 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 )
 
+// NodeConfigTemplate is a template for CL node configuration.
+type NodeConfigTemplate struct {
+	LinkContractAddress string
+	ChainID             string
+	FinalityDepth       int
+	WSURL               string
+	HTTPURL             string
+	ForwardersEnabled   bool
+}
+
 func RestartNodes(ctx context.Context, nodeSet *ns.Input, bc *blockchain.Input, forceStop bool, waitTime time.Duration) error {
 	// set TESTCONTAINERS_RYUK_DISABLED to true to disable Ryuk, so that Ryuk doesn't destroy the containers, when the command ends
 	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {

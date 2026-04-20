@@ -6,11 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/v1_2_0"
 )
@@ -22,16 +21,16 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 	report := cciptypes.ExecReport{
 		Messages:          []cciptypes.EVM2EVMMessage{},
 		OffchainTokenData: [][][]byte{{}},
-		Proofs:            [][32]byte{testutils.Random32Byte()},
+		Proofs:            [][32]byte{utils.RandomBytes32()},
 		ProofFlagBits:     big.NewInt(133),
 	}
 
 	feeEstimatorConfig := mocks.NewFeeEstimatorConfigReader(t)
 
-	offRamp, err := v1_2_0.NewOffRamp(logger.TestLogger(t), utils.RandomAddress(), nil, lpmocks.NewLogPoller(t), nil, nil, feeEstimatorConfig)
+	offRamp, err := v1_2_0.NewOffRamp(logger.Test(t), utils.RandomAddress(), nil, lpmocks.NewLogPoller(t), nil, nil, feeEstimatorConfig)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	encodeExecutionReport, err := offRamp.EncodeExecutionReport(ctx, report)
 	require.NoError(t, err)
 	decodeCommitReport, err := offRamp.DecodeExecutionReport(ctx, encodeExecutionReport)

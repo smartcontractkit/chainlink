@@ -7,11 +7,15 @@ import (
 	"time"
 
 	solanasdk "github.com/gagliardetto/solana-go"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/quarantine"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -75,8 +79,6 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	solState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addrs)
 	require.NoError(t, err)
 
-	solpk := solanasdk.NewWallet().PublicKey()
-
 	timelockAddressPerChain := map[uint64]string{
 		evmSelector: mcmsState.Timelock.Address().Hex(),
 		solSelector: solana.ContractAddress(solState.TimelockProgram, solana.PDASeed(solState.TimelockSeed)),
@@ -90,10 +92,25 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 
 	description := "Test Proposal"
 	minDelay := 24 * time.Hour
+	solpk := solanasdk.NewWallet().PublicKey()
 
+	evmTx := types.Transaction{To: "0xRecipient1", Data: []byte("data1"), AdditionalFields: json.RawMessage(`{"value": 0}`)}
 	solTx, err := solana.NewTransaction(solpk.String(), []byte("data1"), big.NewInt(0), []*solanasdk.AccountMeta{}, "", []string{})
 	require.NoError(t, err)
+	batches := []types.BatchOperation{
+		{
+			ChainSelector: types.ChainSelector(evmSelector),
+			Transactions:  []types.Transaction{evmTx},
+		}, {
+			ChainSelector: types.ChainSelector(solSelector),
+			Transactions:  []types.Transaction{solTx},
+		},
+	}
 
+	evmMetadata := types.ChainMetadata{
+		StartingOpCount: 0,
+		MCMAddress:      mcmsState.ProposerMcm.Address().Hex(),
+	}
 	solMetadata, err := solana.NewChainMetadata(
 		0,
 		solState.McmProgram,
@@ -103,31 +120,80 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 		solState.BypasserAccessControllerAccount)
 	require.NoError(t, err)
 
+	wantProposal := &mcms.TimelockProposal{
+		BaseProposal: mcms.BaseProposal{
+			Version:    "v1",
+			Kind:       "TimelockProposal",
+			ValidUntil: 1234,
+			ChainMetadata: map[types.ChainSelector]types.ChainMetadata{
+				types.ChainSelector(evmSelector): evmMetadata,
+				types.ChainSelector(solSelector): solMetadata,
+			},
+			Description: description,
+		},
+		Action: "schedule",
+		Delay:  types.NewDuration(minDelay),
+		TimelockAddresses: func(addrs map[uint64]string) map[types.ChainSelector]string {
+			copiedAddrs := make(map[types.ChainSelector]string, len(addrs))
+			for k, v := range addrs {
+				copiedAddrs[types.ChainSelector(k)] = v
+			}
+			return copiedAddrs
+		}(timelockAddressPerChain),
+		Operations: []types.BatchOperation{
+			{ChainSelector: types.ChainSelector(evmSelector), Transactions: []types.Transaction{evmTx}},
+			{ChainSelector: types.ChainSelector(solSelector), Transactions: []types.Transaction{solTx}},
+		},
+	}
+
 	tests := []struct {
-		name    string
-		batches []types.BatchOperation
-		wantErr bool
-		errMsg  string
+		name       string
+		batches    []types.BatchOperation
+		inspectors map[uint64]mcmssdk.Inspector
+		options    []proposalutils.BuildProposalOption
+		want       *mcms.TimelockProposal
+		wantErr    string
 	}{
 		{
-			name: "success",
-			batches: []types.BatchOperation{
-				{
-					ChainSelector: types.ChainSelector(evmSelector),
-					Transactions: []types.Transaction{
-						{
-							To:               "0xRecipient1",
-							Data:             []byte("data1"),
-							AdditionalFields: json.RawMessage(`{"value": 0}`),
-						},
+			name:       "success: explicit inspectors",
+			batches:    batches,
+			inspectors: inspectorPerChain,
+			options:    []proposalutils.BuildProposalOption{},
+			want:       wantProposal,
+		},
+		{
+			name:       "success: implicit inspectors",
+			batches:    batches,
+			inspectors: nil,
+			options:    []proposalutils.BuildProposalOption{},
+			want:       wantProposal,
+		},
+		{
+			name:       "success: extra chain metadata",
+			batches:    batches,
+			inspectors: nil,
+			options: []proposalutils.BuildProposalOption{
+				proposalutils.WithChainMetadata(proposalutils.ChainMetadata{
+					evmSelector: map[string]any{
+						"gasLimit": 100,
+						"gasPrice": 50,
 					},
-				},
-				{
-					ChainSelector: types.ChainSelector(solSelector),
-					Transactions:  []types.Transaction{solTx},
-				},
+				}),
 			},
-			wantErr: false,
+			want: func() *mcms.TimelockProposal {
+				proposal := *wantProposal
+				proposal.ChainMetadata = map[types.ChainSelector]types.ChainMetadata{
+					types.ChainSelector(evmSelector): {
+						StartingOpCount:  0,
+						MCMAddress:       mcmsState.ProposerMcm.Address().Hex(),
+						AdditionalFields: json.RawMessage(`{"gasLimit":100,"gasPrice":50}`),
+					},
+					types.ChainSelector(solSelector): solMetadata,
+				}
+				t.Logf("PROPOSAL1.ChainMetadata:     %#v", proposal.ChainMetadata)
+				t.Logf("WANTPROPOSAL1.ChainMetadata: %#v", wantProposal.ChainMetadata)
+				return &proposal
+			}(),
 		},
 		{
 			name: "invalid fields: missing required AdditionalFields",
@@ -137,50 +203,30 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 					Transactions:  []types.Transaction{{To: "0xRecipient1", Data: []byte("data1")}},
 				},
 			},
-			wantErr: true,
-			errMsg:  "Key: 'TimelockProposal.Operations[0].Transactions[0].AdditionalFields' Error:Field validation for 'AdditionalFields' failed on the 'required' tag",
+			options: []proposalutils.BuildProposalOption{},
+			wantErr: "Key: 'TimelockProposal.Operations[0].Transactions[0].AdditionalFields' Error:Field validation for 'AdditionalFields' failed on the 'required' tag",
 		},
 		{
 			name:    "empty batches",
 			batches: []types.BatchOperation{},
-			wantErr: true,
-			errMsg:  "no operations in batch",
+			options: []proposalutils.BuildProposalOption{},
+			wantErr: "no operations in batch",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(rt.Environment(), timelockAddressPerChain,
-				proposerAddressPerChain, inspectorPerChain, tt.batches, description, proposalutils.TimelockConfig{MinDelay: minDelay})
-			if tt.wantErr {
-				require.Error(t, err)
-				assert.Nil(t, proposal)
-				assert.Equal(t, tt.errMsg, err.Error())
-			} else {
+			proposal, err := proposalutils.BuildProposalFromBatchesV2(rt.Environment(),
+				timelockAddressPerChain, proposerAddressPerChain, tt.inspectors, tt.batches, description,
+				proposalutils.TimelockConfig{MinDelay: minDelay}, tt.options...)
+
+			if tt.wantErr == "" {
 				require.NoError(t, err)
-				require.NotNil(t, proposal)
-				assert.Equal(t, "v1", proposal.Version)
-				assert.Equal(t, string(types.TimelockActionSchedule), string(proposal.Action))
-				//nolint:gosec // G115
-				assert.InEpsilon(t, uint32(time.Now().Unix()+int64(proposalutils.DefaultValidUntil.Seconds())), proposal.ValidUntil, 1)
-				assert.Equal(t, description, proposal.Description)
-				assert.InEpsilon(t, minDelay.Seconds(), proposal.Delay.Seconds(), 0)
-				assert.Equal(t, map[types.ChainSelector]types.ChainMetadata{
-					types.ChainSelector(evmSelector): {
-						StartingOpCount: 0x0,
-						MCMAddress:      proposerAddressPerChain[evmSelector],
-					},
-					types.ChainSelector(solSelector): {
-						StartingOpCount:  0x0,
-						MCMAddress:       proposerAddressPerChain[solSelector],
-						AdditionalFields: solMetadata.AdditionalFields,
-					},
-				}, proposal.ChainMetadata)
-				assert.Equal(t, map[types.ChainSelector]string{
-					types.ChainSelector(evmSelector): timelockAddressPerChain[evmSelector],
-					types.ChainSelector(solSelector): timelockAddressPerChain[solSelector],
-				}, proposal.TimelockAddresses)
-				assert.Equal(t, tt.batches, proposal.Operations)
+				require.Empty(t, cmp.Diff(tt.want, proposal,
+					cmpopts.IgnoreFields(mcms.BaseProposal{}, "useSimulatedBackend", "ValidUntil")))
+			} else {
+				require.Nil(t, proposal)
+				require.ErrorContains(t, err, tt.wantErr)
 			}
 		})
 	}

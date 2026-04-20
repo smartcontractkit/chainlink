@@ -13,7 +13,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -43,7 +43,7 @@ type onchainKeyring struct {
 
 func NewOnchainKeyring(lggr logger.Logger, keys map[llotypes.ReportFormat]Key, donID uint32) LLOOnchainKeyring {
 	return &onchainKeyring{
-		lggr.Named("OnchainKeyring"), keys, donID,
+		logger.Sugared(lggr).Named("OnchainKeyring"), keys, donID,
 	}
 }
 

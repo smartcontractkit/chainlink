@@ -32,3 +32,12 @@ func GetCapRegAddressRefKey(chainSel uint64, qualifier string, version string) d
 		qualifier,
 	)
 }
+
+func GetShardConfigAddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
+	return datastore.NewAddressRefKey(
+		chainSel,
+		"ShardConfig",
+		semver.MustParse("1.0.0"),
+		qualifier,
+	)
+}

@@ -34,7 +34,7 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/cctp_token_pool"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/fee_quoter"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/rmn_remote"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_1/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -316,7 +316,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
 	}
-	solFeeQuoter.SetProgramID(feeQuoterAddress)
+	runSafely(func() {
+		solFeeQuoter.SetProgramID(feeQuoterAddress)
+	})
 
 	// ROUTER DEPLOY
 	var ccipRouterProgram solana.PublicKey
@@ -345,7 +347,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
 	}
-	solRouter.SetProgramID(ccipRouterProgram)
+	runSafely(func() {
+		solRouter.SetProgramID(ccipRouterProgram)
+	})
 
 	// OFFRAMP DEPLOY
 	var offRampAddress solana.PublicKey
@@ -414,7 +418,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
 	}
-	solOffRamp.SetProgramID(offRampAddress)
+	runSafely(func() {
+		solOffRamp.SetProgramID(offRampAddress)
+	})
 
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
@@ -440,7 +446,9 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
 	}
-	solRmnRemote.SetProgramID(rmnRemoteAddress)
+	runSafely(func() {
+		solRmnRemote.SetProgramID(rmnRemoteAddress)
+	})
 
 	// FEE QUOTER INITIALIZE
 	var fqConfig solFeeQuoter.Config
@@ -501,7 +509,7 @@ func deployChainContractsSolana(
 	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), rmnRemoteConfigPDA, &rmnRemoteConfigAccount)
 	if err != nil {
-		if err2 := initializeRMNRemote(e, chain, rmnRemoteAddress); err2 != nil {
+		if err2 := initializeRMNRemote(e, chain, rmnRemoteAddress, ccipRouterProgram); err2 != nil {
 			return batches, err2
 		}
 	} else {
@@ -909,6 +917,7 @@ func initializeRMNRemote(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
 	rmnRemoteProgram solana.PublicKey,
+	routerProgram solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
 	programData, err := getSolProgramData(e, chain, rmnRemoteProgram)
@@ -930,6 +939,17 @@ func initializeRMNRemote(
 	}
 	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+	}
+	routerSignerPDA, _, err := solState.FindFeeBillingSignerPDA(routerProgram)
+	if err != nil {
+		return fmt.Errorf("failed to find Router Signer PDA: %w", err)
+	}
+	signersIx, err := solRmnRemote.NewSetEventAuthoritiesInstruction([]solana.PublicKey{routerSignerPDA}, rmnRemoteConfigPDA, chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to generate instruction for set event authorities: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{signersIx}); err != nil {
+		return fmt.Errorf("failed to confirm setEventAuthorities: %w", err)
 	}
 	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
 	return nil

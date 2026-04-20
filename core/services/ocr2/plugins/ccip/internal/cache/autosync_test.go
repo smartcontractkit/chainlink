@@ -12,12 +12,11 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 )
 
 func TestLogpollerEventsBased(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lp := lpmocks.NewLogPoller(t)
 	observedEvents := []common.Hash{
 		utils.Bytes32FromString("event a"),

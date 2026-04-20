@@ -41,8 +41,8 @@ type V3_1OracleConfig struct {
 	PrevHistoryDigest string
 }
 
-func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte) (ocr3.OCR2OracleConfig, error) {
-	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel)
+func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
+	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel, extraSignerFamilies)
 	return GenerateOCR3_1Config(cfg, nca, secrets, reportingPluginConfigOverride)
 }
 

@@ -231,6 +231,7 @@ GoroutineThreshold = 999
 [Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
+LinkTracesToProfiles = true
 
 [Sentry]
 Debug = true
@@ -388,6 +389,7 @@ PerOwner = 200
 [CRE]
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
+DebugMode = false
 
 [CRE.Streams]
 WsURL = 'streams.url'
@@ -399,6 +401,9 @@ URL = 'https://workflow.fetcher.url'
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+
+[CRE.ConfidentialRelay]
+Enabled = false
 
 [Billing]
 URL = 'localhost:4319'
@@ -616,6 +621,7 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
+LogPollerSlotsBatchSize = 100
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'

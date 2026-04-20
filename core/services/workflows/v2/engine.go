@@ -5,17 +5,24 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -31,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
@@ -74,6 +82,11 @@ type Engine struct {
 	meterReports *metering.Reports
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// tracer is the OTel tracer for this engine. It's a noop tracer when DebugMode is false.
+	tracer trace.Tracer
+
+	orgID string
 }
 
 type triggerCapability struct {
@@ -180,6 +193,9 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 	if cfg.DebugMode {
 		beholderLogger.Errorw("WARNING: Debug mode is enabled, this is not suitable for production")
+		engine.tracer = otel.Tracer("workflow_engine_v2")
+	} else {
+		engine.tracer = noop.NewTracerProvider().Tracer("")
 	}
 
 	// Store logger and other fields
@@ -200,21 +216,23 @@ func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
-	// Fetch organization ID for this owner
-	organizationID := ""
+	// Resolve the workflow owner's org once at engine startup and treat it as stable
+	// for the lifetime of this engine instance. If org membership/linking changes, the
+	// workflow must be restarted to pick up the new org mapping.
+	e.orgID = ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
 		} else {
-			organizationID = orgID
+			e.orgID = orgID
 		}
 	}
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
+	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: organizationID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
 	e.srvcEng.GoCtx(ctx, e.init)
 	e.srvcEng.GoCtx(ctx, e.handleAllTriggerEvents)
@@ -222,6 +240,14 @@ func (e *Engine) start(ctx context.Context) error {
 }
 
 func (e *Engine) init(ctx context.Context) {
+	// Tracer is no-op if DebugMode is false
+	ctx, span := e.tracer.Start(ctx, "workflow_engine_init",
+		trace.WithAttributes(
+			attribute.String("version", "v2"),
+			attribute.String("component", "workflow_engine"),
+		))
+	defer span.End()
+
 	// apply global engine instance limits
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalExecutionConcurrencyLimiter.Use(ctx, 1)
@@ -230,11 +256,11 @@ func (e *Engine) init(ctx context.Context) {
 		if errors.As(err, &errLimited) {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
-				e.logger().Info("Per owner workflow count limit reached", "err", err)
+				e.logger().Infow("Per owner workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitPerOwnerCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrPerOwnerWorkflowCountLimitReached)
 			case settings.ScopeGlobal:
-				e.logger().Info("Global workflow count limit reached", "err", err)
+				e.logger().Infow("Global workflow count limit reached", "err", err)
 				e.metrics.IncrementWorkflowLimitGlobalCounter(ctx)
 				e.cfg.Hooks.OnInitialized(types.ErrGlobalWorkflowCountLimitReached)
 			default:
@@ -428,27 +454,39 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			metadata := capabilities.RequestMetadata{
+				WorkflowID:          e.cfg.WorkflowID,
+				WorkflowOwner:       e.cfg.WorkflowOwner,
+				WorkflowName:        e.cfg.WorkflowName.Hex(),
+				WorkflowTag:         e.cfg.WorkflowTag,
+				DecodedWorkflowName: e.cfg.WorkflowName.String(),
+				WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
+				// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
+				// that I can't reproduce locally. This values is unused in trigger subscription phase
+				// so it's not a problem. Still, let's do it right when CI is fixed.
+				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
+				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
+				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
+				EngineVersion:                 platform.ValueWorkflowVersionV2,
+				// no WorkflowExecutionID needed (or available at this stage)
+			}
+			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+			if gate == nil {
+				return errors.New("vault org id gate is nil")
+			}
+			enabled, gateErr := gate.Limit(gCtx)
+			if gateErr != nil {
+				return gateErr
+			}
+			if enabled {
+				metadata.OrgID = e.orgID
+			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
-				Metadata: capabilities.RequestMetadata{
-					WorkflowID:          e.cfg.WorkflowID,
-					WorkflowOwner:       e.cfg.WorkflowOwner,
-					WorkflowName:        e.cfg.WorkflowName.Hex(),
-					WorkflowTag:         e.cfg.WorkflowTag,
-					DecodedWorkflowName: e.cfg.WorkflowName.String(),
-					WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
-					// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
-					// that I can't reproduce locally. This values is unused in trigger subscription phase
-					// so it's not a problem. Still, let's do it right when CI is fixed.
-					WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
-					ReferenceID:                   fmt.Sprintf("trigger_%d", i),
-					WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
-					WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
-					EngineVersion:                 platform.ValueWorkflowVersionV2,
-					// no WorkflowExecutionID needed (or available at this stage)
-				},
-				Payload: sub.Payload,
-				Method:  sub.Method,
+				Metadata:  metadata,
+				Payload:   sub.Payload,
+				Method:    sub.Method,
 				// no Config needed - NoDAG uses Payload
 			})
 			if regErr != nil {
@@ -551,7 +589,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		eventAge := queueHead.timestamp.Sub(e.cfg.Clock.Now())
+		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
@@ -571,6 +609,17 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			creCtx := contexts.CREValue(ctx)
+			// Tracer is no-op if DebugMode is false
+			ctx, span := e.tracer.Start(ctx, "workflow_execution",
+				trace.WithAttributes(
+					attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+					attribute.String("version", "v2"),
+					attribute.String("org_id", creCtx.Org),
+					attribute.String("owner_id", creCtx.Owner),
+					attribute.String("workflow_id", creCtx.Workflow),
+				))
+			defer span.End()
 			e.startExecution(ctx, queueHead)
 		})
 	}
@@ -584,45 +633,42 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Fetch organization ID for this execution
-	organizationID := contexts.CREValue(ctx).Org
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			organizationID = orgID
-
-			creCtx := contexts.CREValue(ctx)
-			creCtx.Org = organizationID
-			ctx = contexts.WithCRE(ctx, creCtx)
-		}
-	}
+	// Use the org resolved at engine startup for all executions in this engine instance.
+	executionOrgID := contexts.CREValue(ctx).Org
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
-	loggerLabels[platform.KeyOrganizationID] = organizationID
-	e.loggerLabels.Store(&loggerLabels)
-	lggr := e.logger().With(platform.KeyOrganizationID, organizationID)
+	loggerLabels[platform.KeyOrganizationID] = executionOrgID
+	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
 
-	var executionTimestamp int64
+	var executionTimestamp time.Time
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
 		executionTimeProvider := NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, lggr)
 		donTime, dtErr := executionTimeProvider.GetDONTime()
 		if dtErr != nil {
-			executionTimestamp = e.cfg.Clock.Now().UnixMilli()
-			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr)
+			executionTimestamp = e.cfg.Clock.Now()
+			lggr.Warnw("Failed to get DON time for execution timestamp, falling back to local time", "err", dtErr, "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampFallbackCounter(ctx)
 		} else {
-			executionTimestamp = donTime.UnixMilli()
+			executionTimestamp = donTime
 			lggr.Debugw("Execution timestamp assigned", "executionTimestamp", executionTimestamp)
+			e.metrics.IncrementExecutionTimestampAssignedCounter(ctx)
 		}
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
 
-	executionID, err := events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-	if err != nil {
-		lggr.Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-		return
+	var executionID string
+	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil {
+		executionID = fullExecutionID
+		e.metrics.IncrementExecutionIDFullCounter(ctx)
+	} else {
+		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
+		if err != nil {
+			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
+			return
+		}
+		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
 	}
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
@@ -630,6 +676,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
 			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
 			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)
+			if err != nil {
+				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", err)
+			}
 			return
 		}
 		lggr.Errorw("Failed to register execution in store, proceeding anyway", "executionID", executionID, "err", addErr)
@@ -644,6 +695,41 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			lggr.Errorw("Failed to finish execution in store", "executionID", executionID, "status", executionStatus, "err", finishErr)
 		}
 	}()
+
+	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
+	if e.cfg.ShardingEnabled && e.cfg.ShardOrchestratorClient != nil && needShardOwnerCheck {
+		verdict, mapResp, ownErr := shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+		switch verdict {
+		case shardownership.Allow:
+		case shardownership.DenyOrchestratorError:
+			lggr.Warnw("Shard ownership check failed (orchestrator error); skipping execution", "err", ownErr)
+			e.metrics.IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx)
+			executionStatus = store.StatusErrored
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
+			}
+			return
+		case shardownership.DenyNotOwner:
+			logFields := []interface{}{
+				"executionID", executionID,
+				"myShardID", e.cfg.MyShardID,
+				"routingStateId", mapResp.GetRoutingStateId(),
+				"routingSteady", mapResp.GetRoutingSteady(),
+			}
+			if m, ok := mapResp.GetMappings()[e.cfg.WorkflowID]; ok {
+				logFields = append(logFields, "mappedShard", m)
+			}
+			lggr.Infow("Skipping execution: workflow not owned by this shard per orchestrator", logFields...)
+			e.metrics.IncrementShardExecutionDeniedNotOwnerCounter(ctx)
+			executionStatus = store.StatusErrored
+			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
+			if ackErr := e.ackTriggerEvent(ctx, registrationID, &triggerEvent); ackErr != nil {
+				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
+			}
+			return
+		}
+	}
 
 	e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(1))
 	defer e.metrics.UpdateTotalWorkflowsGauge(ctx, executingWorkflows.Add(-1))
@@ -825,6 +911,8 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.logger(),
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
+		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
+		e.orgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
@@ -849,6 +937,19 @@ func (e *Engine) close() error {
 	}
 
 	e.cfg.Module.Close()
+
+	if e.cfg.LocalLimiters != nil {
+		if err := e.cfg.LocalLimiters.EvictWorkflow(e.cfg.WorkflowID); err != nil {
+			e.logger().Errorw("Failed to evict workflow from scoped limiters", "err", err)
+		}
+	}
+
+	// Encourage the Go runtime to release memory back to the OS after tearing
+	// down the WASM module and execution state.  Without this, freed heap pages
+	// stay resident (MADV_FREE) and CGo/wasmtime freed pages remain in the C
+	// allocator's free-list, so RSS never drops even though the memory is unused.
+	runtime.GC()
+	debug.FreeOSMemory()
 
 	// reset metering mode metric so that a positive value does not persist
 	e.metrics.UpdateWorkflowMeteringModeGauge(ctx, false)

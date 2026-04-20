@@ -186,7 +186,7 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 
 	t.Run("Ocr3Configs", func(t *testing.T) {
 		signer := []byte{0x01, 0x02, 0x03}
-		transmitter := []byte("0xabc")
+		transmitter := []byte{0xde, 0xad, 0xbe, 0xef}
 
 		raw := mustMarshalProto(t, &capabilitiespb.CapabilityConfig{
 			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
@@ -209,12 +209,39 @@ func TestCapabilityConfiguration_Unmarshal(t *testing.T) {
 		require.Contains(t, got.Ocr3Configs, "__default__")
 		cfg := got.Ocr3Configs["__default__"]
 		assert.Equal(t, []ocrtypes.OnchainPublicKey{signer}, cfg.Signers)
-		assert.Equal(t, []ocrtypes.Account{ocrtypes.Account(transmitter)}, cfg.Transmitters)
+		assert.Equal(t, []ocrtypes.Account{ocrtypes.Account("deadbeef")}, cfg.Transmitters)
 		assert.Equal(t, uint8(2), cfg.F)
 		assert.Equal(t, []byte("onchain"), cfg.OnchainConfig)
 		assert.Equal(t, uint64(5), cfg.OffchainConfigVersion)
 		assert.Equal(t, []byte("offchain"), cfg.OffchainConfig)
 		assert.Equal(t, uint64(3), cfg.ConfigCount)
+	})
+
+	t.Run("Ocr3Configs normalizes transmitters to hex text", func(t *testing.T) {
+		raw := mustMarshalProto(t, &capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				"aptos": {
+					Transmitters: [][]byte{
+						{0x00, 0xff},
+						[]byte("ascii-bytes"),
+					},
+				},
+			},
+		})
+		cc := CapabilityConfiguration{Config: raw}
+
+		got, err := cc.Unmarshal()
+		require.NoError(t, err)
+
+		require.Contains(t, got.Ocr3Configs, "aptos")
+		cfg := got.Ocr3Configs["aptos"]
+		assert.Equal(t,
+			[]ocrtypes.Account{
+				ocrtypes.Account("00ff"),
+				ocrtypes.Account("61736369692d6279746573"),
+			},
+			cfg.Transmitters,
+		)
 	})
 
 	t.Run("OracleFactoryConfigs", func(t *testing.T) {

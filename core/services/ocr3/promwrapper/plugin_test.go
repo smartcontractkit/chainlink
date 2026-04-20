@@ -18,6 +18,14 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	pluginObservationSize := 5
 	pluginOutcomeSize := 3
 
+	// Capture initial metric values to compute deltas (global metrics accumulate across -count=N iterations)
+	initG1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("evm", "1", "empty", "reports"))
+	initG2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "reports"))
+	initG3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "shouldAccept"))
+	initG4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues("aptos", "1", "empty", "reports"))
+	initOutcomesLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "outcome"))
+	initObservationLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues("solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "observation"))
+
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2)},
 		"evm",
@@ -71,22 +79,22 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	g1 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
 		"evm", "1", "empty", "reports"),
 	)
-	require.Equal(t, 2, int(g1))
+	require.Equal(t, 2, int(g1-initG1))
 
 	g2 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
 		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "reports"),
 	)
-	require.Equal(t, 100, int(g2))
+	require.Equal(t, 100, int(g2-initG2))
 
 	g3 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
 		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "shouldAccept"),
 	)
-	require.Equal(t, 1, int(g3))
+	require.Equal(t, 1, int(g3-initG3))
 
 	g4 := testutil.ToFloat64(promOCR3ReportsGenerated.WithLabelValues(
 		"aptos", "1", "empty", "reports"),
 	)
-	require.Equal(t, 0, int(g4))
+	require.Equal(t, 0, int(g4-initG4))
 
 	pluginHealth := testutil.ToFloat64(promOCR3PluginStatus.WithLabelValues(
 		"aptos", "1", "empty", "abc"),
@@ -110,14 +118,22 @@ func Test_ReportsGeneratedGauge(t *testing.T) {
 	outcomesLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues(
 		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "outcome"),
 	)
-	require.Equal(t, pluginOutcomeSize*iterations, int(outcomesLen))
+	require.Equal(t, pluginOutcomeSize*iterations, int(outcomesLen-initOutcomesLen))
 	observationLen := testutil.ToFloat64(promOCR3Sizes.WithLabelValues(
 		"solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "different_plugin", "observation"),
 	)
-	require.Equal(t, pluginObservationSize, int(observationLen))
+	require.Equal(t, pluginObservationSize, int(observationLen-initObservationLen))
 }
 
 func Test_DurationHistograms(t *testing.T) {
+	// Capture initial histogram sample counts (accumulate across -count=N)
+	initEvmQueryTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "true")
+	initEvmQueryFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "false")
+	initSolQuery := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "query", "true")
+	initEvmObsTrue := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "true")
+	initEvmObsFalse := counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "false")
+	initSolObs := counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "observation", "true")
+
 	plugin1 := newReportingPlugin(
 		fakePlugin[uint]{},
 		"evm", "1", "empty", "abc", promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
@@ -143,13 +159,13 @@ func Test_DurationHistograms(t *testing.T) {
 		_, _ = p.ShouldTransmitAcceptedReport(t.Context(), 0, ocr3types.ReportWithInfo[uint]{})
 	}
 
-	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "true"))
-	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "false"))
-	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "query", "true"))
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "true")-initEvmQueryTrue)
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "query", "false")-initEvmQueryFalse)
+	require.Equal(t, 1, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "query", "true")-initSolQuery)
 
-	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "true"))
-	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "false"))
-	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "observation", "true"))
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "true")-initEvmObsTrue)
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "evm", "1", "empty", "observation", "false")-initEvmObsFalse)
+	require.Equal(t, 2, counterFromHistogramByLabels(t, promOCR3Durations, "solana", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d", "commit", "observation", "true")-initSolObs)
 }
 
 type fakePlugin[RI any] struct {

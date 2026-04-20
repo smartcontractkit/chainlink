@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	dfilter "github.com/docker/docker/api/types/filters"
@@ -69,6 +70,15 @@ func ScanLogs(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings) error 
 
 	if lErr != nil {
 		return lErr
+	}
+
+	return ScanLogsFromStreams(l, settings, logStream)
+}
+
+func ScanLogsFromStreams(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings, logStream map[string]io.ReadCloser) error {
+	if len(logStream) == 0 {
+		l.Info().Msg("No container logs found to scan")
+		return nil
 	}
 
 	verifyLogsGroup := &errgroup.Group{}
@@ -239,4 +249,31 @@ func DefaultSettings(extraAllowedMessages ...AllowedLogMessage) ChainlinkNodeLog
 		Threshold:       defaultSettings.Threshold,
 		AllowedMessages: allowedMessages,
 	}
+}
+
+func CleanupContainerLogs(settings ChainlinkNodeLogScannerSettings) error {
+	logDir := fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano())
+
+	return framework.StreamCTFContainerLogsFanout(
+		framework.LogStreamConsumer{
+			Name: "scan-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				return ScanLogsFromStreams(framework.L, settings, logStreams)
+			},
+		},
+		framework.LogStreamConsumer{
+			Name: "save-container-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				_, saveErr := framework.SaveContainerLogsFromStreams(logDir, logStreams)
+				return saveErr
+			},
+		},
+		framework.LogStreamConsumer{
+			Name: "print-panic-logs",
+			Consume: func(logStreams map[string]io.ReadCloser) error {
+				_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+				return nil
+			},
+		},
+	)
 }

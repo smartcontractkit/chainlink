@@ -1,7 +1,6 @@
 package ocr2
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -20,7 +18,6 @@ import (
 )
 
 func TestOCR2Chaos(t *testing.T) {
-	ctx := t.Context()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -28,10 +25,10 @@ func TestOCR2Chaos(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
-	c, _, _, err := products.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
+	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 
 	anvilClient := rpc.New(in.Blockchains[0].Out.Nodes[0].ExternalHTTPUrl, nil)
@@ -44,6 +41,7 @@ func TestOCR2Chaos(t *testing.T) {
 	chaosActionDuration := 30 * time.Second
 	eaChaosDuration := 30 * time.Second
 	defaultTwoRounds := []*roundSettings{{value: 1}, {value: 1e3}}
+	anvilContainerName := "anvil-1337"
 
 	testCases := []testcase{
 		{
@@ -53,7 +51,7 @@ func TestOCR2Chaos(t *testing.T) {
 			roundSettings:      defaultTwoRounds,
 			repeat:             1,
 			chaos: func() {
-				err := dtc.Chaos("anvil", chaos.CmdPause, "")
+				err := dtc.Chaos(anvilContainerName, chaos.CmdPause, "")
 				require.NoError(t, err)
 				time.Sleep(chaosActionDuration)
 				err = dtc.RemoveAll()
@@ -67,7 +65,7 @@ func TestOCR2Chaos(t *testing.T) {
 			roundSettings:      defaultTwoRounds,
 			repeat:             1,
 			chaos: func() {
-				err := dtc.Chaos("anvil", chaos.CmdDelay, "3s")
+				err := dtc.Chaos(anvilContainerName, chaos.CmdDelay, "3s")
 				require.NoError(t, err)
 				time.Sleep(chaosActionDuration)
 				err = dtc.RemoveAll()

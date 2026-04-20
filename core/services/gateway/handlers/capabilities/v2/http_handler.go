@@ -12,7 +12,6 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -44,36 +43,34 @@ const (
 
 type gatewayHandler struct {
 	services.StateMachine
-	config          ServiceConfig
-	don             handlers.DON
-	lggr            logger.Logger
-	httpClient      network.HTTPClient
-	nodeRateLimiter *ratelimit.RateLimiter // Rate limiter for node requests (e.g. outgoing HTTP requests, HTTP trigger response, auth metadata exchange)
-	wg              sync.WaitGroup
-	stopCh          services.StopChan
-	responseCache   ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
-	triggerHandler  HTTPTriggerHandler
-	metadataHandler *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
-	metrics         *metrics.Metrics
+	config                ServiceConfig
+	don                   handlers.DON
+	lggr                  logger.Logger
+	httpClient            network.HTTPClient
+	globalNodeRateLimiter limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
+	perNodeRateLimiters   map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
+	wg                    sync.WaitGroup
+	stopCh                services.StopChan
+	responseCache         ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
+	triggerHandler        HTTPTriggerHandler
+	metadataHandler       *WorkflowMetadataHandler // Handles authorization for HTTP trigger requests
+	metrics               *metrics.Metrics
 }
 
 type ResponseCache interface {
 	// Set caches a response if it is cacheable (2xx or 4xx status codes) and the cache is empty or expired for the given request.
-	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
+	Set(req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
 
 	// Fetch retrieves a response from the cache if it exists and the age of cached response is less than the max age of the request.
 	// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 	// The response is cached if it is cacheable and storeOnFetch is true.
-	Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
+	Fetch(ctx context.Context, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
 
 	// DeleteExpired removes all cached responses that have exceeded their TTL (Time To Live).
 	DeleteExpired(ctx context.Context) int
 }
 
 type ServiceConfig struct {
-	// NodeRateLimiter configures rate limiting for traffic coming from workflow DON nodes
-	NodeRateLimiter ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
-
 	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
 	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
 
@@ -117,10 +114,21 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, err
 	}
 	cfg = WithDefaults(cfg)
-	nodeRateLimiter, err := ratelimit.NewRateLimiter(cfg.NodeRateLimiter)
+
+	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create node rate limiter: %w", err)
+		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
+	for _, member := range donConfig.Members {
+		var rl limits.RateLimiter
+		rl, err = lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create per-node rate limiter for %s: %w", member.Address, err)
+		}
+		perNodeRateLimiters[member.Address] = rl
+	}
+
 	userRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.PerWorkflow.HTTPTrigger.RateLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
@@ -134,16 +142,17 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
 	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
-		config:          cfg,
-		don:             don,
-		lggr:            logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
-		httpClient:      httpClient,
-		nodeRateLimiter: nodeRateLimiter,
-		stopCh:          make(services.StopChan),
-		responseCache:   newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
-		triggerHandler:  triggerHandler,
-		metadataHandler: metadataHandler,
-		metrics:         metrics,
+		config:                cfg,
+		don:                   don,
+		lggr:                  logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		httpClient:            httpClient,
+		globalNodeRateLimiter: globalNodeRateLimiter,
+		perNodeRateLimiters:   perNodeRateLimiters,
+		stopCh:                make(services.StopChan),
+		responseCache:         newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
+		triggerHandler:        triggerHandler,
+		metadataHandler:       metadataHandler,
+		metrics:               metrics,
 	}, nil
 }
 
@@ -195,12 +204,15 @@ func (h *gatewayHandler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Re
 		return fmt.Errorf("received response with empty request ID from node %s", nodeAddr)
 	}
 	h.lggr.Debugw("handling incoming node message", "requestID", resp.ID, "nodeAddr", nodeAddr)
-	nodeAllow, globalAllow := h.nodeRateLimiter.AllowVerbose(nodeAddr)
-	if !nodeAllow {
+	nodeRateLimiter, ok := h.perNodeRateLimiters[nodeAddr]
+	if !ok {
+		return fmt.Errorf("received message from unexpected node %s", nodeAddr)
+	}
+	if !nodeRateLimiter.Allow(ctx) {
 		h.metrics.IncrementCapabilityNodeThrottled(ctx, nodeAddr, h.lggr)
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
-	if !globalAllow {
+	if !h.globalNodeRateLimiter.Allow(ctx) {
 		h.metrics.IncrementGlobalThrottled(ctx, h.lggr)
 		return errors.New("global rate limit exceeded")
 	}
@@ -294,16 +306,6 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 	}
 }
 
-// extractWorkflowIDFromRequestPath extracts the workflowID from an outgoing request path string.
-// The workflowID is expected to be the first element after splitting the string by "/".
-func extractWorkflowIDFromRequestPath(path string) string {
-	parts := strings.Split(path, "/")
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
-}
-
 func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, handlers.Callback) error {
 	return errors.New("HTTP capability gateway handler does not support legacy messages")
 }
@@ -328,7 +330,6 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal HTTP request from node %s: %w", nodeAddr, err)
 	}
-	workflowID := extractWorkflowIDFromRequestPath(requestID)
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
@@ -355,11 +356,11 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.Fetch(httpCtx, workflowID, req, callback, req.CacheSettings.Store)
+			outboundResp = h.responseCache.Fetch(httpCtx, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
 			if req.CacheSettings.Store {
-				h.responseCache.Set(workflowID, req, outboundResp)
+				h.responseCache.Set(req, outboundResp)
 			}
 		}
 		h.metrics.IncrementActionCapabilityRequestCount(ctx, nodeAddr, h.lggr)
@@ -423,6 +424,14 @@ func (h *gatewayHandler) Close() error {
 		err = h.metadataHandler.Close()
 		if err != nil {
 			h.lggr.Errorw("failed to close HTTP auth handler", "err", err)
+		}
+		if err = h.globalNodeRateLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close global node rate limiter", "err", err)
+		}
+		for nodeAddr, rl := range h.perNodeRateLimiters {
+			if err = rl.Close(); err != nil {
+				h.lggr.Errorw("failed to close per-node rate limiter", "nodeAddr", nodeAddr, "err", err)
+			}
 		}
 		close(h.stopCh)
 		h.wg.Wait()

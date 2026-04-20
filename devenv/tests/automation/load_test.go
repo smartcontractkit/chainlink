@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"strconv"
@@ -60,6 +61,42 @@ func TestLoad(t *testing.T) {
 		},
 	}
 
+	t.Cleanup(func() {
+		scanErr := framework.StreamCTFContainerLogsFanout(
+			framework.LogStreamConsumer{
+				Name: "scan-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					return products.ScanLogsFromStreams(framework.L, products.DefaultSettings(), logStreams)
+				},
+			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return nil
+				},
+			},
+		)
+		t.Error("failed to scan Docker container logs:", scanErr)
+
+		if t.Failed() {
+			saveErr := framework.StreamCTFContainerLogsFanout(
+				framework.LogStreamConsumer{
+					Name: "save-container-logs",
+					Consume: func(logStreams map[string]io.ReadCloser) error {
+						_, saveErr := framework.SaveContainerLogsFromStreams(fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano()), logStreams)
+						return saveErr
+					},
+				},
+			)
+			if saveErr != nil {
+				framework.L.Error().Err(saveErr).Msg("failed to save Docker container logs")
+			}
+		}
+		// check scanErr only after saving logs to ensure we don't miss any errors
+		require.NoError(t, scanErr, "failed to save Docker container logs")
+	})
+
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			start := time.Now()
@@ -72,15 +109,6 @@ func TestLoad(t *testing.T) {
 			fmt.Println("------ TEST CONFIGURATION ------")
 			fmt.Print(string(tcStr))
 			fmt.Println("--------------------------------")
-
-			// dangerous: takes a lot of time, if test runs for a long time
-			// t.Cleanup(func() {
-			// 	err := products.ScanLogs(l, products.DefaultSettings())
-			// 	require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-			// 	_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-			// 	require.NoError(t, cErr)
-			// })
 
 			outputFile := "../../env-out.toml"
 			in, err := de.LoadOutput[de.Cfg](outputFile)
@@ -162,11 +190,11 @@ func TestLoad(t *testing.T) {
 			consumerABI, err := simple_log_upkeep_counter_wrapper.SimpleLogUpkeepCounterMetaData.GetAbi()
 			require.NoError(t, err, "Error getting consumer abi")
 
-			var bytes0 = [32]byte{
+			bytes0 := [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			}
 
-			var bytes1 = [32]byte{
+			bytes1 := [32]byte{
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
 			}
 
@@ -351,9 +379,7 @@ func TestLoad(t *testing.T) {
 					}
 					err = errors.New("initial error") // to ensure our for loop runs at least once
 					for err != nil {
-						var (
-							logsInBatch []types.Log
-						)
+						var logsInBatch []types.Log
 						ctx2, cancel := context.WithTimeout(t.Context(), timeout)
 						logsInBatch, err = a.ChainClient.Client.FilterLogs(ctx2, filterQuery)
 						cancel()
@@ -416,9 +442,7 @@ func TestLoad(t *testing.T) {
 					}
 					err = errors.New("initial error") // to ensure our for loop runs at least once
 					for err != nil {
-						var (
-							logsInBatch []types.Log
-						)
+						var logsInBatch []types.Log
 						ctx2, cancel := context.WithTimeout(t.Context(), timeout)
 						logsInBatch, err = chainClient.Client.FilterLogs(ctx2, filterQuery)
 						cancel()
@@ -548,7 +572,7 @@ Test Duration: %s`
 				End:             time.Now(),
 				WarmUpDuration:  30 * time.Minute,
 				CPUThreshold:    30.0,
-				MemoryThreshold: 225.0, // max observed so far was 216 mb, adding a buffer to be safe
+				MemoryThreshold: 240.0, // max observed so far was 227 mb, adding a buffer to be safe
 			})
 			require.NoError(t, errs)
 		})

@@ -3,19 +3,14 @@
 package mocks
 
 import (
-	config "github.com/smartcontractkit/chainlink/v2/core/config"
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	mock "github.com/stretchr/testify/mock"
-
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	time "time"
 
-	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
 	uuid "github.com/google/uuid"
-
+	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	config "github.com/smartcontractkit/chainlink/v2/core/config"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	mock "github.com/stretchr/testify/mock"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -876,6 +871,53 @@ func (_c *GeneralConfig_FluxMonitor_Call) Return(_a0 config.FluxMonitor) *Genera
 }
 
 func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMonitor) *GeneralConfig_FluxMonitor_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ImportedAptosKeys provides a mock function with no fields
+func (_m *GeneralConfig) ImportedAptosKeys() config.ImportableChainKeyLister {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedAptosKeys")
+	}
+
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedAptosKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedAptosKeys'
+type GeneralConfig_ImportedAptosKeys_Call struct {
+	*mock.Call
+}
+
+// ImportedAptosKeys is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedAptosKeys() *GeneralConfig_ImportedAptosKeys_Call {
+	return &GeneralConfig_ImportedAptosKeys_Call{Call: _e.mock.On("ImportedAptosKeys")}
+}
+
+func (_c *GeneralConfig_ImportedAptosKeys_Call) Run(run func()) *GeneralConfig_ImportedAptosKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedAptosKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedAptosKeys_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedAptosKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedAptosKeys_Call {
 	_c.Call.Return(run)
 	return _c
 }

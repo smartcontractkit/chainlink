@@ -2,16 +2,15 @@ package ocr2
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
@@ -20,7 +19,6 @@ import (
 )
 
 func TestSmoke(t *testing.T) {
-	ctx := context.Background()
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -28,10 +26,16 @@ func TestSmoke(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		forwarderMessage := products.NewAllowedLogMessage(
+			"Forwarder is not set as a transmitter",
+			"that's how it worked in the past",
+			zapcore.DPanicLevel,
+			products.WarnAboutAllowedMsgs_No,
+		)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(forwarderMessage))
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
-	c, _, _, err := products.ETHClient(ctx, in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
+	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
 	clNodes, err := clclient.New(in.NodeSets[0].Out.CLNodes)
 	require.NoError(t, err)

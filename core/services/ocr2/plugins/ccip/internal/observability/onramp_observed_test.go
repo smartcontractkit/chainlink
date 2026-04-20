@@ -15,7 +15,6 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
@@ -43,32 +42,32 @@ func TestOnRampObservedMethods(t *testing.T) {
 	methodCalls := make(map[string]MethodCall)
 	methodCalls["GetDynamicConfig"] = MethodCall{
 		MethodName: "GetDynamicConfig",
-		Arguments:  []any{testutils.Context(t)},
+		Arguments:  []any{t.Context()},
 		Returns:    []any{cciptypes.OnRampDynamicConfig{}, nil},
 	}
 	methodCalls["GetSendRequestsBetweenSeqNums"] = MethodCall{
 		MethodName: "GetSendRequestsBetweenSeqNums",
-		Arguments:  []any{testutils.Context(t), uint64(0), uint64(100), true},
+		Arguments:  []any{t.Context(), uint64(0), uint64(100), true},
 		Returns:    []any{nil, nil},
 	}
 	methodCalls["IsSourceChainHealthy"] = MethodCall{
 		MethodName: "IsSourceChainHealthy",
-		Arguments:  []any{testutils.Context(t)},
+		Arguments:  []any{t.Context()},
 		Returns:    []any{false, nil},
 	}
 	methodCalls["IsSourceCursed"] = MethodCall{
 		MethodName: "IsSourceCursed",
-		Arguments:  []any{testutils.Context(t)},
+		Arguments:  []any{t.Context()},
 		Returns:    []any{false, nil},
 	}
 	methodCalls["RouterAddress"] = MethodCall{
 		MethodName: "RouterAddress",
-		Arguments:  []any{testutils.Context(t)},
+		Arguments:  []any{t.Context()},
 		Returns:    []any{cciptypes.Address("0x0"), nil},
 	}
 	methodCalls["SourcePriceRegistryAddress"] = MethodCall{
 		MethodName: "SourcePriceRegistryAddress",
-		Arguments:  []any{testutils.Context(t)},
+		Arguments:  []any{t.Context()},
 		Returns:    []any{cciptypes.Address("0x0"), nil},
 	}
 

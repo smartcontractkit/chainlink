@@ -20,7 +20,7 @@ jobs:
       prerelease-phase: ${{ steps.detect-prerelease-phase.outputs.prerelease-phase }}
       is-hotfix: ${{ steps.detect-hotfix.outputs.is-hotfix }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -96,7 +96,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-east-1
@@ -107,6 +107,7 @@ jobs:
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
         VERSION_TAG=${{ github.ref_name }}
+        CL_GOPRIVATE=${{ github.repository != 'smartcontractkit/chainlink' && 'github.com/smartcontractkit/*' || '' }}
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
@@ -131,7 +132,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@a89ebdd9d9cabda77c5f7ea7523af5707afb7786 # 2025-08-25
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-east-1
@@ -145,6 +146,7 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
+        CL_GOPRIVATE=${{ github.repository != 'smartcontractkit/chainlink' && 'github.com/smartcontractkit/*' || '' }}
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
@@ -204,6 +206,21 @@ jobs:
           pr-labels: preview-stage,force-preview
           products: |
             ccip-prereleases-prod-testnet
+
+  post-build:
+    needs: [docker-core, docker-ccip]
+    name: Post-Build Actions
+    uses: ./.github/workflows/post-build.yml
+    secrets: inherit
+    permissions:
+      actions: read
+      checks: write
+      id-token: write
+      contents: read
+    with:
+      chainlink_core_full_image: ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
+      chainlink_ccip_full_image: ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
+      chainlink_version: ${{ github.ref_name }}
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.

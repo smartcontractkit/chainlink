@@ -617,8 +617,9 @@ func TestConfig_Marshal(t *testing.T) {
 		GoroutineThreshold:   ptr[int64](999),
 	}
 	full.Pyroscope = toml.Pyroscope{
-		ServerAddress: ptr("http://localhost:4040"),
-		Environment:   ptr("tests"),
+		ServerAddress:        ptr("http://localhost:4040"),
+		Environment:          ptr("tests"),
+		LinkTracesToProfiles: ptr(true),
 	}
 	full.Sentry = toml.Sentry{
 		Debug:       ptr(true),
@@ -650,6 +651,7 @@ func TestConfig_Marshal(t *testing.T) {
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),
 		EnableDKGRecipient:   ptr(false),
+		DebugMode:            ptr(false),
 		Streams: &toml.StreamsConfig{
 			WsURL:   ptr("streams.url"),
 			RestURL: ptr("streams.url"),
@@ -660,6 +662,9 @@ func TestConfig_Marshal(t *testing.T) {
 		Linking: &toml.LinkingConfig{
 			URL:        ptr(""),
 			TLSEnabled: ptr(true),
+		},
+		ConfidentialRelay: &toml.ConfidentialRelayConfig{
+			Enabled: ptr(false),
 		},
 	}
 	full.Billing = toml.Billing{
@@ -785,8 +790,9 @@ func TestConfig_Marshal(t *testing.T) {
 						Enabled: ptr(false),
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
-						Enabled: ptr(false),
-						Bundles: ptr(false),
+						Enabled:                     ptr(false),
+						ReadRequestsToMultipleNodes: ptr(false),
+						Bundles:                     ptr(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
@@ -902,6 +908,7 @@ func TestConfig_Marshal(t *testing.T) {
 				EstimateComputeUnitLimit:  ptr(false),
 				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
 				LogPollerCPIEventsEnabled: ptr(true),
+				LogPollerSlotsBatchSize:   ptr[int64](100),
 			},
 			MultiNode: mnCfg.MultiNodeConfig{
 				MultiNode: mnCfg.MultiNode{
@@ -1219,6 +1226,7 @@ GoroutineThreshold = 999
 		{"Pyroscope", Config{Core: toml.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
+LinkTracesToProfiles = true
 `},
 		{"Sentry", Config{Core: toml.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
@@ -1270,6 +1278,7 @@ Enabled = false
 
 [EVM.Transactions.TransactionManagerV2]
 Enabled = false
+ReadRequestsToMultipleNodes = false
 Bundles = false
 
 [EVM.BalanceMonitor]
@@ -1422,6 +1431,7 @@ ComputeUnitLimitDefault = 100000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
+LogPollerSlotsBatchSize = 100
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
@@ -1550,8 +1560,14 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
 		}
+		if got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes = ptr(false)
+		}
 		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)
+		}
+		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))

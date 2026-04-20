@@ -131,6 +131,10 @@ func (g *countingGauge) Record(ctx context.Context, value int64, options ...metr
 	}
 }
 
+func (g *countingGauge) Enabled(ctx context.Context) bool {
+	return true
+}
+
 // byteCollector collects all bytes written to it in a thread-safe manner
 type byteCollector struct {
 	mu     sync.Mutex
