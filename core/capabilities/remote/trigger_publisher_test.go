@@ -858,8 +858,8 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
 	publisher.Receive(ctx, ackMsg)
 
-	// Start the publisher — the cacheCleanupLoop will run sendRegistrationChecks()
-	// every 200ms, which cleans ack entries older than MessageExpiry (200ms).
+	// Start the publisher — cacheCleanupLoop ticks on MessageExpiry (200ms) and
+	// removes expired ack cache entries so a later trigger event is not suppressed.
 	require.NoError(t, publisher.Start(ctx))
 
 	// Wait long enough for the ack cache entry to expire and be cleaned up
