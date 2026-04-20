@@ -27,4 +27,6 @@ Run these commands to validate any changes you make
 golangci-lint run ./... --fix
 go test ./...
 ```
+
+DO NOT use other commands like `goimports`, `gofmt`, or `go vet` for formatting and lint checks.
 </commands>

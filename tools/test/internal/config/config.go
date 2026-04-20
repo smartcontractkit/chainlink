@@ -4,47 +4,48 @@ import (
 	"errors"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/x/term"
-	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/repo"
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/repo"
 )
 
 const DefaultPostgresVersion = "16"
 
 type App struct {
-	DatabaseURL     string `mapstructure:"database_url"`
-	PostgresVersion string `mapstructure:"postgres_version"`
-	RepoRoot        string `mapstructure:"repo_root"`
-	AIOutput        bool   `mapstructure:"ai_output"`
-
-	// Function to cleanup the database
-	CleanupDB func() error
+	DatabaseURL     string        `mapstructure:"database_url"`
+	PostgresVersion string        `mapstructure:"postgres_version"`
+	RepoRoot        string        `mapstructure:"repo_root"`
+	AIOutput        bool          `mapstructure:"ai_output"`
+	Iterations      int           `mapstructure:"iterations"`
+	SlowThreshold   time.Duration `mapstructure:"slow_threshold"`
 }
 
-func Load(flags *pflag.FlagSet) (*App, error) {
-	if flags == nil {
-		return nil, errors.New("flags are required")
+// Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.
+func Load(cmd *cobra.Command) (*App, error) {
+	if cmd == nil {
+		return nil, errors.New("command is required")
 	}
 	v := viper.New()
 
 	v.SetDefault("postgres_version", DefaultPostgresVersion)
-	v.SetDefault("ai_output", !term.IsTerminal(uintptr(os.Stdout.Fd()))) // If TTY (in an AI terminal), use ai-output
+	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd())) // If TTY (in an AI terminal), use ai-output
+	v.SetDefault("iterations", 1)
+	v.SetDefault("slow_threshold", 30*time.Second)
 	repoRoot, err := repo.RootFromWd()
 	if err != nil {
 		return nil, err
 	}
 	v.SetDefault("repo_root", repoRoot)
 
-	flags.VisitAll(func(f *pflag.Flag) {
-		configName := strings.ReplaceAll(f.Name, "-", "_")
-		if bindErr := v.BindPFlag(configName, f); bindErr != nil {
-			err = bindErr
-			return
-		}
-	})
-	if err != nil {
+	if err := bindPFlags(v, cmd.PersistentFlags()); err != nil {
+		return nil, err
+	}
+	if err := bindPFlags(v, cmd.Flags()); err != nil {
 		return nil, err
 	}
 
@@ -53,4 +54,15 @@ func Load(flags *pflag.FlagSet) (*App, error) {
 		return nil, err
 	}
 	return &conf, nil
+}
+
+func bindPFlags(v *viper.Viper, flags *pflag.FlagSet) error {
+	var err error
+	flags.VisitAll(func(f *pflag.Flag) {
+		configName := strings.ReplaceAll(f.Name, "-", "_")
+		if bindErr := v.BindPFlag(configName, f); bindErr != nil {
+			err = bindErr
+		}
+	})
+	return err
 }

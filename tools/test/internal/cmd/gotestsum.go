@@ -2,10 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"github.com/spf13/cobra"
 
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/runner"
 )
 
@@ -19,12 +21,16 @@ var gotestsumCmd = &cobra.Command{
 		if _, err := exec.LookPath("gotestsum"); err != nil {
 			return fmt.Errorf("gotestsum not on PATH: install with go install gotest.tools/gotestsum@latest: %w", err)
 		}
-		cleanup, ok := cmd.Context().Value("cleanup").(func() error)
-		if ok {
-			defer cleanup()
-		} else {
-			fmt.Println("WARNING: No cleanup function found in context")
+		conf, err := config.Load(cmd)
+		if err != nil {
+			return err
 		}
-		return runner.Gotestsum(cmd.Context(), args)
+		defer func() {
+			if err := dbHandle.Cleanup(); err != nil {
+				fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
+			}
+		}()
+
+		return runner.Gotestsum(cmd.Context(), conf, args)
 	},
 }

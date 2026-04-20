@@ -5,11 +5,14 @@ import (
 	"os"
 
 	"charm.land/fang/v2"
+	"github.com/charmbracelet/x/term"
+	"github.com/spf13/cobra"
+
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/db"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
+
+var dbHandle *db.Handle
 
 var rootCmd = &cobra.Command{
 	Use:   "test",
@@ -29,18 +32,17 @@ go -C ./tools/test run . test -v -count=1 -p 4 ./core/...
 # Use gotestsum as the runner
 go -C ./tools/test run . gotestsum --format=dots -- -count=1 ./core/...
 # Run the full core test suite 10 times and collect statistics, debug logs, and more
-go -C ./tools/test run . survey --iterations 10 -- --shuffle=1 -timeout=15m ./core/...`,
+go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		conf, err := config.Load(cmd.PersistentFlags())
+		conf, err := config.Load(cmd)
 		if err != nil {
 			return err
 		}
 
-		cleanup, err := db.Ensure(cmd.Context(), conf)
+		dbHandle, err = db.Ensure(cmd.Context(), conf)
 		if err != nil {
 			return err
 		}
-		conf.CleanupDB = cleanup
 		return nil
 	},
 }
@@ -48,7 +50,7 @@ go -C ./tools/test run . survey --iterations 10 -- --shuffle=1 -timeout=15m ./co
 func init() {
 	rootCmd.PersistentFlags().String("database-url", "", "Provide a PostgreSQL connection string to use an existing database instead of an ephemeral one")
 	rootCmd.PersistentFlags().String("postgres-version", config.DefaultPostgresVersion, "PostgreSQL version to run tests against")
-	rootCmd.PersistentFlags().Bool("ai-output", !term.IsTerminal(int(os.Stdout.Fd())), "Use sparse output for agent tooling (and robotic humans)")
+	rootCmd.PersistentFlags().Bool("ai-output", !term.IsTerminal(os.Stdout.Fd()), "Use sparse output for agent tooling (and robotic humans)")
 
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(gotestsumCmd)
