@@ -24,14 +24,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+// donFaultTolerance is the DON F value (uint8) used in load tests; v must be in [0, 255].
+func donFaultTolerance(t *testing.T, v int) uint8 {
+	t.Helper()
+	require.GreaterOrEqual(t, v, 0)
+	require.LessOrEqual(t, v, 255, "F value out of uint8 range for test DON")
+	return uint8(v) //nolint:gosec // G115: range-checked above
+}
+
 // countingDispatcher is a types.Dispatcher implementation that atomically
-// counts Send calls by method type. It can optionally forward messages to a
-// receiver for end-to-end processing tests.
+// counts Send calls by method type.
 type countingDispatcher struct {
 	services.StateMachine
-	mu       sync.RWMutex
-	counts   map[string]*atomic.Int64
-	receiver remotetypes.Receiver
+	mu     sync.RWMutex
+	counts map[string]*atomic.Int64
 }
 
 func newCountingDispatcher() *countingDispatcher {
@@ -175,10 +181,10 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 			dispatcher := newCountingDispatcher()
 
 			capDonMembers := generatePeers(t, tc.capDonSize)
-			capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: uint8(tc.capDonSize / 3)}
+			capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: donFaultTolerance(t, tc.capDonSize/3)}
 
 			workflowDonMembers := generatePeers(t, tc.workflowDonSize)
-			workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: uint8((tc.workflowDonSize - 1) / 3)}
+			workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: donFaultTolerance(t, (tc.workflowDonSize-1)/3)}
 
 			capInfo := commoncap.CapabilityInfo{
 				ID:             "cap_id@1",
@@ -263,10 +269,10 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 			dispatcher := newCountingDispatcher()
 
 			capDonMembers := generatePeers(t, tc.capDonSize)
-			capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: uint8(tc.capDonSize / 3)}
+			capDon := commoncap.DON{ID: 1, Members: capDonMembers, F: donFaultTolerance(t, tc.capDonSize/3)}
 
 			workflowDonMembers := generatePeers(t, tc.workflowDonSize)
-			workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: uint8((tc.workflowDonSize - 1) / 3)}
+			workflowDon := commoncap.DON{ID: 2, Members: workflowDonMembers, F: donFaultTolerance(t, (tc.workflowDonSize-1)/3)}
 
 			capInfo := commoncap.CapabilityInfo{
 				ID:             "cap_id@1",
@@ -526,7 +532,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	capDon := commoncap.DON{ID: 1, Members: capPeers, F: 1}
 
 	wfPeers := generatePeers(t, wfDonPeerCount)
-	wfDon := commoncap.DON{ID: 2, Members: wfPeers, F: uint8(wfDonFaultTolerance)}
+	wfDon := commoncap.DON{ID: 2, Members: wfPeers, F: donFaultTolerance(t, wfDonFaultTolerance)}
 
 	capInfo := commoncap.CapabilityInfo{
 		ID:             "cap_id@1",
