@@ -128,7 +128,17 @@ func getVaultFlagsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultFlagsEnabledConfigPath)
 }
 
-func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
+func getVaultFlagsDisabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultFlagsDisabledConfigPath)
+}
+
+func isVaultFlagsDisabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-flags-disabled")
+}
+
+func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool, withLinkingService bool) *vaultScenarioFixture {
 	t.Helper()
 
 	issuer, err := vault.NewTestJWTIssuerOnAddr(vaultJWTIssuerListenAddr)
@@ -137,11 +147,14 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 		require.NoError(t, issuer.Close())
 	})
 
-	linkingService, err := vault.NewTestLinkingServiceOnAddr(nil, vaultLinkingServiceAddr)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, linkingService.Close())
-	})
+	var linkingService *vault.TestLinkingService
+	if withLinkingService {
+		linkingService, err = vault.NewTestLinkingServiceOnAddr(nil, vaultLinkingServiceAddr)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, linkingService.Close())
+		})
+	}
 
 	var testEnv *ttypes.TestEnvironment
 	if usePerTestKeys {
@@ -157,10 +170,10 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 	}
 }
 
-func setupVaultSharedScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig) *vaultScenarioFixture {
+func setupVaultSharedScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, withLinkingService bool) *vaultScenarioFixture {
 	t.Helper()
 
-	return setupVaultScenarioFixture(t, baseConfig, false)
+	return setupVaultScenarioFixture(t, baseConfig, false, withLinkingService)
 }
 
 func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *vault.TestJWTIssuer, linkingService *vault.TestLinkingService) {
@@ -220,6 +233,27 @@ func ExecuteVaultJWTTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *
 		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, "", gwURL, []string{"main"})
 		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, "", gwURL, "main")
 		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, "", gwURL, []string{"main"})
+	})
+}
+
+func ExecuteVaultJWTDisabledTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *vault.TestJWTIssuer) {
+	t.Helper()
+
+	ensureVaultDKGResultPackages(t, testEnv)
+	gatewayURL := mustVaultGatewayURL(t, testEnv)
+
+	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
+	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
+
+	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	gwURL := gatewayURL.String()
+
+	t.Run("jwt_with_workflow_owner_rejected", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "0x1234567890abcdef1234567890abcdef12345678", gwURL)
+	})
+
+	t.Run("jwt_without_workflow_owner_rejected", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL)
 	})
 }
 
@@ -684,9 +718,76 @@ func sendVaultJWTRequestToGateway(t *testing.T, gatewayURL string, jsonRequest j
 	return jsonResponse
 }
 
+func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], wantStatus int) jsonrpc.Response[json.RawMessage] {
+	t.Helper()
+
+	authToken := jsonRequest.Auth
+	jsonRequest = outboundRequestWithoutAuth(jsonRequest)
+
+	requestBody, err := json.Marshal(jsonRequest)
+	require.NoError(t, err, "failed to marshal JWT-authenticated request")
+
+	headers := map[string]string{}
+	if authToken != "" {
+		headers["Authorization"] = "Bearer " + authToken
+	}
+
+	statusCode, httpResponseBody := sendVaultRequestToGatewayWithHeaders(t, gatewayURL, requestBody, headers)
+	require.Equal(t, wantStatus, statusCode, "Gateway endpoint should respond with the expected error status")
+
+	var jsonResponse jsonrpc.Response[json.RawMessage]
+	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	require.NoError(t, err, "failed to unmarshal gateway error response")
+	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
+
+	return jsonResponse
+}
+
 func outboundRequestWithoutAuth(req jsonrpc.Request[json.RawMessage]) jsonrpc.Request[json.RawMessage] {
 	req.Auth = ""
 	return req
+}
+
+func executeVaultJWTSecretsCreateUnauthorizedTest(
+	t *testing.T,
+	issuer *vault.TestJWTIssuer,
+	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
+) {
+	t.Helper()
+
+	secretID := strconv.Itoa(rand.Intn(10000))
+	encryptedSecret, err := vault.EncryptSecretWithOrgID("secret-jwt-disabled", vaultPublicKey, orgID)
+	require.NoError(t, err)
+
+	uniqueRequestID := uuid.New().String()
+	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+		RequestId: uniqueRequestID,
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{{
+			Id: &vault_helpers.SecretIdentifier{
+				Key:       secretID,
+				Owner:     orgID,
+				Namespace: "main",
+			},
+			EncryptedValue: encryptedSecret,
+		}},
+	}
+	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest) //nolint:govet // The lock field is not set on this proto
+	require.NoError(t, err, "failed to marshal secrets request")
+	secretsCreateRequestBodyJSON := json.RawMessage(secretsCreateRequestBody)
+	jsonRequest := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      uniqueRequestID,
+		Method:  vaulttypes.MethodSecretsCreate,
+		Params:  &secretsCreateRequestBodyJSON,
+	}
+	jsonRequest.Auth = mustMintVaultJWTForRequest(t, issuer, jsonRequest, orgID, workflowOwner)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.Empty(t, jsonResponse.Method)
+	require.NotNil(t, jsonResponse.Error)
+	require.Contains(t, jsonResponse.Error.Error(), "request not authorized")
+	require.Contains(t, jsonResponse.Error.Error(), "JWTBasedAuth is nil")
 }
 
 func executeVaultSecretsGetViaWorkflowTest(

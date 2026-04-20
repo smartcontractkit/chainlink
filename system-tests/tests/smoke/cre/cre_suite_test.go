@@ -144,7 +144,18 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 			if parallelEnabled {
 				t.Parallel()
 			}
-			fixture := setupVaultSharedScenarioFixture(t, getVaultFlagsEnabledTestConfig(t))
+			if isVaultFlagsDisabledTopology(topology) {
+				fixture := setupVaultSharedScenarioFixture(t, getVaultFlagsDisabledTestConfig(t), false)
+				t.Run("allowlist_auth", func(t *testing.T) {
+					ExecuteVaultTest(t, fixture.TestEnv, nil)
+				})
+				t.Run("jwt_auth_disabled", func(t *testing.T) {
+					ExecuteVaultJWTDisabledTest(t, fixture.TestEnv, fixture.Issuer)
+				})
+				return
+			}
+
+			fixture := setupVaultSharedScenarioFixture(t, getVaultFlagsEnabledTestConfig(t), true)
 			t.Run("allowlist_auth", func(t *testing.T) {
 				ExecuteVaultTest(t, fixture.TestEnv, fixture.LinkingService)
 			})
