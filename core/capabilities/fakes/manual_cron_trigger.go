@@ -116,7 +116,7 @@ func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID strin
 	return nil
 }
 
-func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string) (chan struct{}, error) {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string) (<-chan struct{}, error) {
 	config, exists := f.triggerConfigs[triggerID]
 	if !exists {
 		return nil, fmt.Errorf(`trigger config "%s" not found`, triggerID)
