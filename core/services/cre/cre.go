@@ -173,15 +173,13 @@ func (s *Services) newSubservices(
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
 
-		if cfg.CRE().ConfidentialRelay().Enabled() {
-			relayService := confidentialrelay.NewService(
-				gatewayConnectorWrapper,
-				opts.CapabilitiesRegistry,
-				lggr,
-				opts.LimitsFactory,
-			)
-			srvs = append(srvs, relayService)
-		}
+		relayService := confidentialrelay.NewService(
+			gatewayConnectorWrapper,
+			opts.CapabilitiesRegistry,
+			lggr,
+			opts.LimitsFactory,
+		)
+		srvs = append(srvs, relayService)
 	}
 
 	if cfg.CRE().Linking().URL() != "" {
