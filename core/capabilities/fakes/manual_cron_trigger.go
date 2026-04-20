@@ -116,7 +116,7 @@ func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID strin
 	return nil
 }
 
-func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string) (<-chan struct{}, error) {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, skipWait <-chan struct{}) (<-chan struct{}, error) {
 	config, exists := f.triggerConfigs[triggerID]
 	if !exists {
 		return nil, fmt.Errorf(`trigger config "%s" not found`, triggerID)
@@ -168,12 +168,14 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 			_ = f.scheduler.RemoveJob(job.ID())
 		}()
 
-		// Either wait for cron trigger or context cancellation
+		// Either wait for cron scheduler or skip wait signal
 		select {
+		case <-skipWait:
+			break
 		case <-jobFired:
 			break
 		case <-ctx.Done():
-			break
+			return
 		}
 
 		// Sent trigger response
