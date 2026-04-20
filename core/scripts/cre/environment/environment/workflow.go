@@ -841,7 +841,7 @@ func executeVaultSecrets(ctx context.Context, encryptedSecretsJSONPath, gatewayU
 	}
 
 	var encryptedSecrets []*vault_helpers.EncryptedSecret
-	if err := json.Unmarshal(data, &encryptedSecrets); err != nil {
+	if err = json.Unmarshal(data, &encryptedSecrets); err != nil {
 		return errors.Wrap(err, "failed to unmarshal encrypted secrets")
 	}
 
