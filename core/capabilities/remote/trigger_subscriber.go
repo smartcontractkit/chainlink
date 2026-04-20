@@ -174,9 +174,8 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		return nil, errors.New("config not set - call SetConfig() first")
 	}
 
-	var callbackCh chan commoncap.TriggerResponse
-
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.lggr.Infow("RegisterTrigger called", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	triggerMap, ok := s.registeredWorkflows[request.Metadata.WorkflowID]
 	if !ok {
@@ -194,15 +193,12 @@ func (s *triggerSubscriber) RegisterTrigger(ctx context.Context, request commonc
 		regState.rawRequest = rawRequest
 		s.lggr.Warnw("RegisterTrigger re-registering trigger", "donId", cfg.capDonInfo.ID, "workflowID", request.Metadata.WorkflowID, "triggerID", request.TriggerID)
 	}
-	callbackCh = regState.callback
-	s.mu.Unlock()
 
-	// Send the initial registration immediately. Re-registrations happen via both:
-	// 1. registrationLoop (periodic, for backwards compat with old publishers)
-	// 2. MethodTriggerRegistrationCheck (reactive, from new publishers)
-	s.resendRegistration(request.Metadata.WorkflowID, request.TriggerID)
+	// Capability DONs receive MethodRegisterTrigger from registrationLoop
+	// (RegistrationRefresh) only — same as develop. Reverse registration checks
+	// do not require an immediate fan-out here.
 
-	return callbackCh, nil
+	return regState.callback, nil
 }
 
 func (s *triggerSubscriber) registrationLoop() {
@@ -386,37 +382,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 		}
 	default:
 		s.lggr.Errorw("received trigger event with unknown method", "method", SanitizeLogString(msg.Method), "sender", sender, "err", SanitizeLogString(msg.ErrorMsg))
-	}
-}
-
-func (s *triggerSubscriber) resendRegistration(workflowID, triggerID string) {
-	if s.dispatcher == nil {
-		return
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	reg := s.registeredWorkflows[workflowID][triggerID]
-	if reg == nil {
-		return
-	}
-
-	cfg := s.cfg.Load()
-
-	for _, peerID := range cfg.capDonInfo.Members {
-		m := &types.MessageBody{
-			CapabilityId:     cfg.capInfo.ID,
-			CapabilityDonId:  cfg.capDonInfo.ID,
-			CallerDonId:      cfg.localDonID,
-			Method:           types.MethodRegisterTrigger,
-			Payload:          reg.rawRequest, // triggerID is in the raw request
-			CapabilityMethod: s.capMethodName,
-		}
-		err := s.dispatcher.Send(peerID, m)
-		if err != nil {
-			s.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
-		}
 	}
 }
 
