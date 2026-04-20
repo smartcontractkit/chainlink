@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -99,12 +98,16 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 	}
 
 	t.Cleanup(func() {
-		if t.Failed() {
+		// we only want to check for panics in Docker containers if the test is not a subtest
+		// because all subtests share the same Docker containers, so we don't need to run that check for each subtest
+		if t.Failed() && !strings.Contains(t.Name(), "/") {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
-			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
+			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
 				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
-				infra.PrintFailedContainerLogs(framework.L, 30)
+				if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
+					framework.L.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
+				}
 			}
 		}
 	})

@@ -1,7 +1,6 @@
 package vrfv2plus
 
 import (
-	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
@@ -23,8 +22,8 @@ import (
 
 func TestVRFv2PlusMultipleSendingKeys(t *testing.T) {
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	outputFile := "../../env-vrf2plus-out.toml"

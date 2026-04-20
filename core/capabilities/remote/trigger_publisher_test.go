@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -574,6 +576,141 @@ func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
 		defer mu.Unlock()
 		require.Empty(t, sendRecords)
 	})
+}
+
+func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
+	t.Run("user error suppresses retries", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		lggr := logger.Test(t)
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+		peers := make([]p2ptypes.PeerID, 2)
+		require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+		require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+		capDonInfo := commoncap.DON{
+			ID:      capabilityDONID,
+			Members: []p2ptypes.PeerID{peers[0]},
+			F:       0,
+		}
+		workflowDonInfo := commoncap.DON{
+			ID:      workflowDONID,
+			Members: []p2ptypes.PeerID{peers[1]},
+			F:       0,
+		}
+		workflowDONs := map[uint32]commoncap.DON{
+			workflowDonInfo.ID: workflowDonInfo,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             capID,
+			CapabilityType: commoncap.CapabilityTypeTrigger,
+		}
+		userErr := caperrors.NewPublicUserError(errors.New("bad workflow config"), caperrors.InvalidArgument)
+		underlying := &errTrigger{info: capInfo, err: userErr}
+
+		dispatcher := mocks.NewDispatcher(t)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   time.Second,
+		}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		require.NoError(t, publisher.Start(ctx))
+
+		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+
+		publisher.Receive(ctx, regMsg)
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger must not be retried after a user error")
+
+		require.NoError(t, publisher.Close())
+	})
+
+	t.Run("system error allows retries", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		lggr := logger.Test(t)
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+		peers := make([]p2ptypes.PeerID, 2)
+		require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+		require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+		capDonInfo := commoncap.DON{
+			ID:      capabilityDONID,
+			Members: []p2ptypes.PeerID{peers[0]},
+			F:       0,
+		}
+		workflowDonInfo := commoncap.DON{
+			ID:      workflowDONID,
+			Members: []p2ptypes.PeerID{peers[1]},
+			F:       0,
+		}
+		workflowDONs := map[uint32]commoncap.DON{
+			workflowDonInfo.ID: workflowDonInfo,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             capID,
+			CapabilityType: commoncap.CapabilityTypeTrigger,
+		}
+		underlying := &errTrigger{info: capInfo, err: errors.New("transient system failure")}
+
+		dispatcher := mocks.NewDispatcher(t)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   time.Second,
+		}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		require.NoError(t, publisher.Start(ctx))
+
+		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 2, underlying.callCount, "RegisterTrigger should be retried after a system error")
+
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 3, underlying.callCount, "RegisterTrigger should keep retrying on system errors")
+
+		require.NoError(t, publisher.Close())
+	})
+}
+
+// errTrigger is a TriggerCapability that always returns an error from RegisterTrigger.
+type errTrigger struct {
+	info      commoncap.CapabilityInfo
+	err       error
+	callCount int
+}
+
+func (tr *errTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
+	return tr.info, nil
+}
+
+func (tr *errTrigger) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	tr.callCount++
+	return nil, tr.err
+}
+
+func (tr *errTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (tr *errTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+	return nil
 }
 
 func newRegisterTriggerMessageWithTriggerID(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID, triggerID string) *remotetypes.MessageBody {

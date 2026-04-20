@@ -2,6 +2,7 @@ package ocr2
 
 import (
 	"fmt"
+	"io"
 	"math/big"
 	"testing"
 	"time"
@@ -28,8 +29,39 @@ func TestOCR2Soak(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		scanErr := framework.StreamCTFContainerLogsFanout(
+			framework.LogStreamConsumer{
+				Name: "scan-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					return products.ScanLogsFromStreams(framework.L, products.DefaultSettings(), logStreams)
+				},
+			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return nil
+				},
+			},
+		)
+		t.Error("failed to scan Docker container logs:", scanErr)
+
+		if t.Failed() {
+			saveErr := framework.StreamCTFContainerLogsFanout(
+				framework.LogStreamConsumer{
+					Name: "save-container-logs",
+					Consume: func(logStreams map[string]io.ReadCloser) error {
+						_, saveErr := framework.SaveContainerLogsFromStreams(fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano()), logStreams)
+						return saveErr
+					},
+				},
+			)
+			if saveErr != nil {
+				framework.L.Error().Err(saveErr).Msg("failed to save Docker container logs")
+			}
+		}
+		// check scanErr only after saving logs to ensure we don't miss any errors
+		require.NoError(t, scanErr, "failed to save Docker container logs")
 	})
 	c, _, _, err := products.ETHClient(t.Context(), in.Blockchains[0].Out.Nodes[0].ExternalWSUrl, pdConfig.Config[0].GasSettings.FeeCapMultiplier, pdConfig.Config[0].GasSettings.TipCapMultiplier)
 	require.NoError(t, err)
