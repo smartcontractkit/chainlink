@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -266,7 +267,7 @@ func renderEntries(entries []TestEntry, mode renderMode) string {
 func joinInts(ints []int) string {
 	parts := make([]string, len(ints))
 	for i, n := range ints {
-		parts[i] = fmt.Sprintf("%d", n)
+		parts[i] = strconv.Itoa(n)
 	}
 	return strings.Join(parts, ",")
 }

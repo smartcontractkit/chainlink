@@ -65,9 +65,10 @@ func init() {
 // force-exits.
 func Execute() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	opts := []fang.Option{fang.WithoutCompletions()}
 	if err := fang.Execute(ctx, rootCmd, opts...); err != nil {
+		stop()
 		os.Exit(1)
 	}
+	stop()
 }

@@ -38,14 +38,11 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 	return cmd.Run()
 }
 
-type surveyResult struct {
-	Iteration int
-	Time      time.Duration
-	Error     error
-}
-
-// Survey runs gotestsum repeatedly with a JSON file per iteration.
-// Failures do not stop later iterations; the process exits non-zero if any iteration failed.
+// Survey runs go test -json once per iteration, writing each stream to
+// iteration-<n>.log.jsonl, then analyzes and writes report.json.
+// Test iteration failures do not stop later runs (unless --fail-fast); they are
+// reflected in report.json. Survey returns a non-nil error only for setup
+// failures (e.g. mkdir, database reset), not for failing tests.
 // resetDB (optional) runs before each iteration after the first to restore the
 // database to its freshly-prepared state.
 func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error) error {
@@ -58,8 +55,8 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	}
 
 	var (
-		results   []surveyResult
-		completed int
+		completed  int
+		failedFast bool
 	)
 	for i := range conf.Iterations {
 		if ctx.Err() != nil {
@@ -74,11 +71,11 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 			}
 		}
 		if err := surveyIteration(ctx, conf, resultsDir, targetDir, i); err != nil {
-			results = append(results, surveyResult{
-				Iteration: i,
-				Time:      time.Since(start),
-				Error:     err,
-			})
+			if conf.FailFast {
+				fmt.Fprintln(os.Stderr, "--fail-fast: true, stopping")
+				failedFast = true
+				break
+			}
 		}
 		completed = i + 1
 	}
@@ -86,6 +83,10 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	interrupted := ctx.Err() != nil
 	if interrupted && !conf.AIOutput {
 		fmt.Fprintf(os.Stderr, "interrupted after %d/%d iterations — analyzing partial results...\n", completed, conf.Iterations)
+	}
+
+	if failedFast {
+		fmt.Fprintln(os.Stderr, "--fail-fast set, stopping early")
 	}
 
 	report, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
@@ -128,14 +129,42 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	// its final events before we escalate to SIGKILL after WaitDelay.
 	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }
 	cmd.WaitDelay = 5 * time.Second
-	err = cmd.Run()
+
+	if conf.AIOutput {
+		err = cmd.Run()
+	} else {
+		// Show progress in real time.
+		done := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-done:
+					return
+				case <-ticker.C:
+					elapsed := time.Since(start).Round(time.Second)
+					fmt.Fprintf(os.Stderr, "\r\033[Kiteration %d/%d... (%s)",
+						iteration+1, conf.Iterations, elapsed.String())
+				}
+			}
+		}()
+
+		if err = cmd.Start(); err != nil {
+			close(done)
+			return err
+		}
+		err = cmd.Wait()
+		close(done)
+	}
 
 	if !conf.AIOutput {
 		status := "✅"
 		if err != nil {
 			status = "❌"
 		}
-		fmt.Fprintf(os.Stderr, " %s (%s)\n", status, time.Since(start).Round(time.Millisecond))
+		fmt.Fprintf(os.Stderr, "\r\033[Kiteration %d/%d %s (%s)\n",
+			iteration+1, conf.Iterations, status, time.Since(start).Round(time.Millisecond))
 	}
 	return err
 }

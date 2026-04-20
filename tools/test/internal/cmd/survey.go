@@ -13,10 +13,16 @@ import (
 )
 
 var surveyCmd = &cobra.Command{
-	Use:   "survey [gotestsum flags] [-- go test flags and packages]",
-	Short: "Re-run tests multiple times (flake hunting, timing); uses gotestsum",
-	Long: `Runs gotestsum in a loop with --jsonfile per iteration, then prints a short summary.
-Pass packages and go test flags after --, same as gotestsum.`,
+	Use:   "survey [flags] <go test package pattern>",
+	Short: "Re-run go test -json in a loop to hunt flakes and slow tests",
+	Long: `Runs go test -json -count=1 once per iteration, writing test2json output to
+test-survey-results-<timestamp>/iteration-<n>.log.jsonl under the repo root. After
+all iterations (or on interrupt, for completed iterations), parses those streams,
+writes report.json (flakes, failures, timeouts, slow tests), and prints a short
+summary to stderr unless --ai-output.
+
+Accepts exactly one positional argument: the same package pattern you would pass
+to go test (e.g. ./core/...).`,
 	Example: `# Run the full core test suite 10 times, with each iteration timing out after 15 minutes. Collect statistics, debug logs, and more
 go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -26,11 +32,11 @@ go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 		}
 
 		if len(args) == 0 {
-			//nolint // ... is a valid error message
+			//nolint:revive,staticcheck // ... is a valid error message
 			return errors.New("specify a go test target, e.g. ./core/...")
 		}
 		if len(args) > 1 {
-			//nolint // ... is a valid error message
+			//nolint:revive,staticcheck // ... is a valid error message
 			return errors.New("only one go test target can be specified, e.g. ./core/...")
 		}
 		targetDir := args[0]
@@ -52,4 +58,5 @@ func init() {
 	surveyCmd.Flags().Int("iterations", 1, "number of full test runs")
 	surveyCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
 	surveyCmd.Flags().Duration("timeout", 10*time.Minute, "go test -timeout for each iteration")
+	surveyCmd.Flags().Bool("fail-fast", false, "fail the survey immediately if any iteration fails")
 }
