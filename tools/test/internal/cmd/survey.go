@@ -14,18 +14,12 @@ import (
 
 var surveyCmd = &cobra.Command{
 	Use:   "survey [flags] <go test package pattern>",
-	Short: "Re-run go test -json in a loop to hunt flakes and slow tests",
-	Long: `Runs go test -json -count=1 once per iteration, writing test2json output to
-test-survey-results-<timestamp>/iteration-<n>.log.jsonl under the repo root. After
-all iterations (or on interrupt, for completed iterations), parses those streams,
-writes report.json (flakes, failures, timeouts, slow tests), and prints a short
-summary to stderr. With --ai-output, progress messages are omitted; errors are
-still printed to stderr, and on success the absolute path to report.json is
-printed once to stdout.
+	Short: "Run /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more",
+	Long: `Runs /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more.
 
 Accepts exactly one positional argument: the same package pattern you would pass
 to go test (e.g. ./core/...).`,
-	Example: `# Run the full core test suite 10 times, with each iteration timing out after 15 minutes. Collect statistics, debug logs, and more
+	Example: `# Run the full core test suite 10 times, with each iteration timing out after 15 minutes.
 go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
@@ -52,7 +46,7 @@ go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
 			}
 		}()
 
-		return runner.Survey(cmd.Context(), conf, targetDir, dbHandle.Reset)
+		return runner.Survey(cmd.Context(), conf, targetDir, dbHandle.Reset, dbHandle.DumpState)
 	},
 }
 
@@ -61,4 +55,9 @@ func init() {
 	surveyCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
 	surveyCmd.Flags().Duration("timeout", 10*time.Minute, "go test -timeout for each iteration")
 	surveyCmd.Flags().Bool("fail-fast", false, "fail the survey immediately if any iteration fails")
+	surveyCmd.Flags().Bool("race", false, "run tests with -race")
+	surveyCmd.Flags().String("run", "", "passed through as `go test -run=<regex>`; narrow the survey to specific tests (e.g. `^TestFoo$` or `TestFoo/bar`)")
+	surveyCmd.Flags().String("cpu", "", "passed as `go test -cpu=<list>`; comma-separated GOMAXPROCS values (e.g. `1,2,4`)")
+	surveyCmd.Flags().Int("parallel", 0, "passed as `go test -parallel=<n>`; 0 omits the flag")
+	surveyCmd.Flags().Bool("shuffle-seed", false, "randomize test order each iteration; a unique seed is generated per iteration and recorded in report.json for reproduction")
 }

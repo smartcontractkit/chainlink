@@ -17,6 +17,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
+// chainlinkModulePrefix is trimmed from import paths in the survey progress line
+// so the bar shows repo-relative paths (e.g. core/foo).
+const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
+
+func shortenChainlinkImportPath(importPath string) string {
+	if importPath == "" {
+		return ""
+	}
+	if importPath == chainlinkModulePrefix {
+		return "."
+	}
+	p := chainlinkModulePrefix + "/"
+	return strings.TrimPrefix(importPath, p)
+}
+
 // listTestPackageCount runs `go list -test -e` for the same pattern as `go test`
 // and returns how many import paths would be listed. Used as the progress bar
 // denominator; on error or zero lines callers should treat the total as unknown.
@@ -42,16 +57,18 @@ func listTestPackageCount(ctx context.Context, repoRoot, pattern string) (int, e
 
 // surveyProgress tracks completed packages from a go test -json stream.
 type surveyProgress struct {
-	mu      sync.Mutex
-	done    map[string]struct{}
-	lastPkg string
-	total   int // -1 when denominator is unknown (go list failed or empty)
+	mu         sync.Mutex
+	done       map[string]struct{}
+	lastPkg    string
+	pkgOutcome map[string]string // package import path → pass|fail|skip (package-level events only)
+	total      int               // -1 when denominator is unknown (go list failed or empty)
 }
 
 func newSurveyProgress(totalPackages int) *surveyProgress {
 	return &surveyProgress{
-		done:  make(map[string]struct{}),
-		total: totalPackages,
+		done:       make(map[string]struct{}),
+		pkgOutcome: make(map[string]string),
+		total:      totalPackages,
 	}
 }
 
@@ -75,6 +92,7 @@ func (p *surveyProgress) onTestJSONLine(line []byte) (completedIncreased bool) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.pkgOutcome[ev.Package] = ev.Action
 	before := len(p.done)
 	p.done[ev.Package] = struct{}{}
 	return len(p.done) > before
@@ -92,10 +110,29 @@ func isPackageTerminalEvent(ev *TestEvent) bool {
 	}
 }
 
-func (p *surveyProgress) snapshot() (completed int, total int, lastPkg string) {
+func (p *surveyProgress) snapshot() (completed int, total int, lastPkg string, outcome string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return len(p.done), p.total, p.lastPkg
+	return len(p.done), p.total, p.lastPkg, p.pkgOutcome[p.lastPkg]
+}
+
+// packageOutcomeMark returns a short suffix after the displayed package path:
+// pass/fail/skip from package-level JSON events, or an hourglass while that path
+// is active but no terminal result is recorded yet, or empty when there is no path.
+func packageOutcomeMark(action, displayPkg string) string {
+	if displayPkg != "" && action == "" {
+		return " ⌛"
+	}
+	switch action {
+	case "pass":
+		return " ✅"
+	case "fail":
+		return " ❌"
+	case "skip":
+		return " ⏭"
+	default:
+		return ""
+	}
 }
 
 func stderrTermWidth() int {
@@ -125,7 +162,7 @@ func surveyProgressBarWidth(termW, reserved int) int {
 // renderSurveyProgressLine writes one status line to w. When isTTY is true,
 // caller should prefix with "\r\033[K" to overwrite the previous line.
 func renderSurveyProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *surveyProgress, isTTY bool) {
-	completed, total, lastPkg := prog.snapshot()
+	completed, total, lastPkg, outcome := prog.snapshot()
 
 	termW := stderrTermWidth()
 	meta := fmt.Sprintf("iter %d/%d", iteration, iterations)
@@ -135,7 +172,13 @@ func renderSurveyProgressLine(w io.Writer, iteration, iterations int, elapsed ti
 	}
 
 	const pkgMaxChars = 42
-	shortPkg := ellipsizeRight(lastPkg, pkgMaxChars)
+	displayPkg := shortenChainlinkImportPath(lastPkg)
+	mark := packageOutcomeMark(outcome, displayPkg)
+	markReserve := 0
+	if displayPkg != "" {
+		markReserve = 8 // room for terminal marks or hourglass (display width approx)
+	}
+	shortPkg := ellipsizeRight(displayPkg, pkgMaxChars-markReserve) + mark
 
 	barReserved := len(meta) + len(countStr) + 12 + len(shortPkg) + 8 // rough fixed + elapsed
 	barW := surveyProgressBarWidth(termW, barReserved)
@@ -173,7 +216,7 @@ func renderSurveyProgressLine(w io.Writer, iteration, iterations int, elapsed ti
 
 	line := termstyle.Label.Render(meta) + "  " + barStyled + "  " + termstyle.Accent.Render(countStr)
 	if shortPkg != "" {
-		line += "  " + termstyle.Muted.Render(shortPkg)
+		line += "  " + termstyle.Muted.Render(shortPkg) // path + ⌛ while running, or ✅/❌/⏭ when done
 	}
 	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
 	if isTTY {

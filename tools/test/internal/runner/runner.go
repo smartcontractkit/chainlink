@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,19 +53,25 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 // bubbling from dependencies — not for failing tests alone.
 // resetDB (optional) runs before each iteration after the first to restore the
 // database to its freshly-prepared state.
-func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error) error {
+// dumpDB (optional) runs after each iteration to capture database state for
+// per-iteration diagnosis; errors are logged but do not fail the survey.
+func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error, dumpDB func(context.Context, string, int) error) error {
 	start := time.Now()
 
-	resultsDir := filepath.Join(conf.RepoRoot, "test-survey-results-"+time.Now().Format("20060102150405"))
+	resultsDir := filepath.Join(conf.RepoRoot, surveyResultsDirName(conf, targetDir, start))
 	err := os.MkdirAll(resultsDir, 0700)
 	if err != nil {
 		return err
 	}
 
 	var (
-		completed  int
-		failedFast bool
+		completed    int
+		failedFast   bool
+		shuffleSeeds map[int]int64
 	)
+	if conf.Shuffle {
+		shuffleSeeds = make(map[int]int64)
+	}
 	for i := range conf.Iterations {
 		if ctx.Err() != nil {
 			break
@@ -77,14 +84,20 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 				return fmt.Errorf("reset database before iteration %d: %w", i, err)
 			}
 		}
-		if err := surveyIteration(ctx, conf, resultsDir, targetDir, i); err != nil {
-			if conf.FailFast {
-				if !conf.AIOutput {
-					fmt.Fprintln(os.Stderr, termstyle.Accent.Render("--fail-fast: true, stopping"))
-				}
-				failedFast = true
-				break
+		var seed int64
+		if conf.Shuffle {
+			seed = rand.Int64N(1<<62) + 1 // always nonzero
+			shuffleSeeds[i] = seed
+		}
+		iterErr := surveyIteration(ctx, conf, resultsDir, targetDir, i, seed)
+		if dumpDB != nil {
+			if dumpErr := dumpDB(ctx, resultsDir, i); dumpErr != nil && !conf.AIOutput {
+				fmt.Fprintf(os.Stderr, "postgres state dump iteration %d: %v\n", i, dumpErr)
 			}
+		}
+		if iterErr != nil && conf.FailFast {
+			failedFast = true
+			break
 		}
 		completed = i + 1
 	}
@@ -100,13 +113,24 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 		fmt.Fprintln(os.Stderr, termstyle.Accent.Render("--fail-fast set, stopping early"))
 	}
 
-	report, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
+	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
 	if analyzeErr != nil {
 		fmt.Fprintf(os.Stderr, "analyze results: %v\n", analyzeErr)
 		return analyzeErr
 	}
+	if report != nil && len(shuffleSeeds) > 0 {
+		report.ShuffleSeeds = shuffleSeeds
+	}
+	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
+		fmt.Fprintf(os.Stderr, "write log files: %v\n", err)
+		return err
+	}
 	if err := WriteReport(resultsDir, report); err != nil {
 		fmt.Fprintf(os.Stderr, "write report: %v\n", err)
+		return err
+	}
+	if err := WriteCSV(resultsDir, report); err != nil {
+		fmt.Fprintf(os.Stderr, "write csv: %v\n", err)
 		return err
 	}
 
@@ -127,7 +151,29 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	return nil
 }
 
-func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, targetDir string, iteration int) error {
+// buildSurveyArgs constructs the `go test` argv for a single survey iteration.
+func buildSurveyArgs(conf *config.App, targetDir string, shuffleSeed int64) []string {
+	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String()}
+	if conf.Race {
+		args = append(args, "-race")
+	}
+	if conf.Run != "" {
+		args = append(args, "-run="+conf.Run)
+	}
+	if conf.CPU != "" {
+		args = append(args, "-cpu="+conf.CPU)
+	}
+	if conf.Parallel > 0 {
+		args = append(args, fmt.Sprintf("-parallel=%d", conf.Parallel))
+	}
+	if shuffleSeed != 0 {
+		args = append(args, fmt.Sprintf("-shuffle=%d", shuffleSeed))
+	}
+	args = append(args, targetDir)
+	return args
+}
+
+func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, targetDir string, iteration int, shuffleSeed int64) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -136,7 +182,7 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	}
 	defer resultsFile.Close()
 
-	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String(), targetDir}
+	args := buildSurveyArgs(conf, targetDir, shuffleSeed)
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
 	cmd.Stderr = resultsFile
@@ -162,20 +208,22 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	cmd.Stdout = pw
 
 	isTTY := term.IsTerminal(os.Stderr.Fd())
+	iter, iters := iteration+1, conf.Iterations
 	if !isTTY {
 		fmt.Fprintln(os.Stderr,
-			termstyle.Muted.Render(fmt.Sprintf("iteration %d/%d started (stderr is not a TTY; sparse package progress)",
-				iteration+1, conf.Iterations)))
+			termstyle.Muted.Render(fmt.Sprintf("iteration %d/%d started", iter, iters)))
+	}
+
+	redraw := func(isTTYLine bool) {
+		renderSurveyProgressLine(os.Stderr, iter, iters, time.Since(start), prog, isTTYLine)
 	}
 
 	var readWG sync.WaitGroup
-	readWG.Add(1)
-	go func() {
-		defer readWG.Done()
-		scanner := bufio.NewScanner(pr)
-		scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-		for scanner.Scan() {
-			line := scanner.Bytes()
+	readWG.Go(func() {
+		sc := bufio.NewScanner(pr)
+		sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+		for sc.Scan() {
+			line := sc.Bytes()
 			if _, werr := resultsFile.Write(line); werr != nil {
 				break
 			}
@@ -183,59 +231,54 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 				break
 			}
 			if prog.onTestJSONLine(line) && !isTTY {
-				renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, false)
+				redraw(false)
 			}
 		}
-		_ = scanner.Err()
-	}()
+		_ = sc.Err()
+	})
 
 	tickDone := make(chan struct{})
 	var tickWG sync.WaitGroup
 	if isTTY {
-		tickWG.Add(1)
-		go func() {
-			defer tickWG.Done()
-			ticker := time.NewTicker(250 * time.Millisecond)
-			defer ticker.Stop()
+		tickWG.Go(func() {
+			tick := time.NewTicker(250 * time.Millisecond)
+			defer tick.Stop()
 			for {
 				select {
 				case <-tickDone:
 					return
-				case <-ticker.C:
-					renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, true)
+				case <-tick.C:
+					redraw(true)
 				}
 			}
-		}()
-		renderSurveyProgressLine(os.Stderr, iteration+1, conf.Iterations, time.Since(start), prog, true)
+		})
+		redraw(true)
 	}
 
-	if err = cmd.Start(); err != nil {
-		_ = pw.CloseWithError(err)
-		readWG.Wait()
-		close(tickDone)
-		tickWG.Wait()
-		if isTTY {
-			fmt.Fprint(os.Stderr, "\r\033[K")
-		}
-		return err
+	runErr := cmd.Start()
+	started := runErr == nil
+	if started {
+		runErr = cmd.Wait()
+		_ = pw.Close()
+	} else {
+		_ = pw.CloseWithError(runErr)
 	}
-
-	err = cmd.Wait()
-	_ = pw.Close()
 	readWG.Wait()
 	close(tickDone)
 	tickWG.Wait()
 
-	status := termstyle.OK.Render("✅")
-	if err != nil {
-		status = termstyle.Bad.Render("❌")
-	}
 	if isTTY {
-		fmt.Fprintf(os.Stderr, "\r\033[K")
+		fmt.Fprint(os.Stderr, "\r\033[K")
 	}
-	fmt.Fprintln(os.Stderr,
-		termstyle.Label.Render(fmt.Sprintf("iteration %d/%d ", iteration+1, conf.Iterations))+
-			status+" "+
-			termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
-	return err
+	if started {
+		status := termstyle.OK.Render("✅")
+		if runErr != nil {
+			status = termstyle.Bad.Render("❌")
+		}
+		fmt.Fprintln(os.Stderr,
+			termstyle.Label.Render(fmt.Sprintf("iteration %d/%d ", iter, iters))+
+				status+" "+
+				termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
+	}
+	return runErr
 }

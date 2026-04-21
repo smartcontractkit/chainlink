@@ -1,11 +1,14 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -48,6 +51,21 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
 
+	// Progress on stderr, same escape and TTY rules as surveyIteration /
+	// renderSurveyProgressLine (runner).
+	setupPartial := false
+	if !conf.AIOutput {
+		fmt.Fprint(os.Stderr, termstyle.Label.Render("Setting up Postgres..."))
+		setupPartial = true
+	}
+	abortSetupPartial := func() {
+		if !setupPartial {
+			return
+		}
+		fmt.Fprint(os.Stderr, "\r\033[K\n")
+		setupPartial = false
+	}
+
 	c, err := postgres.Run(ctx,
 		fmt.Sprintf("docker.io/postgres:%s-alpine", conf.PostgresVersion),
 		postgres.WithDatabase("chainlink_test"),
@@ -59,6 +77,7 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 				WithStartupTimeout(60*time.Second)),
 	)
 	if err != nil {
+		abortSetupPartial()
 		return &Handle{conf: conf}, fmt.Errorf("postgres testcontainer: %w", err)
 	}
 
@@ -67,32 +86,41 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	// Build the connection string for CL tests to use
 	connStr, err := c.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
+		abortSetupPartial()
 		return h, errors.Join(fmt.Errorf("connection string: %w", err), h.Cleanup())
 	}
 
 	// Set the connection string for CL tests to use
 	if err := os.Setenv("CL_DATABASE_URL", connStr); err != nil {
+		abortSetupPartial()
 		return h, errors.Join(err, h.Cleanup())
 	}
 
 	// Run preparetest --force to set up the database for tests
+	prepareOutput := bytes.NewBuffer(nil)
 	prep := exec.CommandContext(ctx, "go", "run", "./core/store/cmd/preparetest", "--force")
 	prep.Dir = conf.RepoRoot
 	prep.Env = os.Environ()
+	prep.Stdout = prepareOutput
+	prep.Stderr = prepareOutput
 	if err := prep.Run(); err != nil {
-		return h, errors.Join(fmt.Errorf("preparetest --force: %w", err), h.Cleanup())
+		abortSetupPartial()
+		return h, errors.Join(fmt.Errorf("preparetest --force: %w\n%s", err, prepareOutput.String()), h.Cleanup())
 	}
 
 	// Snapshot the prepared schema so Reset can restore it quickly between iterations.
 	if err := c.Snapshot(ctx); err != nil {
+		abortSetupPartial()
 		return h, errors.Join(fmt.Errorf("snapshot prepared database: %w", err), h.Cleanup())
 	}
 
 	if !conf.AIOutput {
-		fmt.Fprintln(os.Stdout,
+		fmt.Fprint(os.Stderr, "\r\033[K")
+		fmt.Fprintln(os.Stderr,
 			termstyle.Label.Render("Setup Postgres")+" "+
 				termstyle.OK.Render("✅")+" "+
 				termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
+		setupPartial = false
 	}
 
 	return h, nil
@@ -110,6 +138,80 @@ func (h *Handle) Reset(ctx context.Context) error {
 	return nil
 }
 
+// DumpState writes postgres-state-<iteration>.md to dir with the container log
+// and key system-view snapshots for that iteration. No-op when the user
+// supplied CL_DATABASE_URL (we don't own that database).
+func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error {
+	if h == nil || h.container == nil {
+		return nil
+	}
+
+	name := fmt.Sprintf("postgres-state-%d.md", iteration)
+	f, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		return fmt.Errorf("create %s: %w", name, err)
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "# Postgres State\n\nCaptured: %s\n\n", time.Now().UTC().Format(time.RFC3339))
+
+	// Container (server) log.
+	fmt.Fprint(f, "## Server Log\n\n```\n")
+	if logs, logErr := h.container.Logs(ctx); logErr != nil {
+		fmt.Fprintf(f, "error fetching logs: %v\n", logErr)
+	} else {
+		_, _ = io.Copy(f, logs)
+		_ = logs.Close()
+	}
+	fmt.Fprint(f, "```\n\n")
+
+	type query struct {
+		heading string
+		sql     string
+	}
+	queries := []query{
+		{
+			"Active Connections (pg_stat_activity)",
+			`SELECT pid, state, wait_event_type, wait_event, query_start, left(query,120) AS query ` +
+				`FROM pg_stat_activity WHERE datname='chainlink_test' ORDER BY query_start;`,
+		},
+		{
+			"Locks (pg_locks + pg_stat_activity)",
+			`SELECT l.pid, l.locktype, l.relation::regclass, l.mode, l.granted, left(a.query,80) AS query ` +
+				`FROM pg_locks l LEFT JOIN pg_stat_activity a ON a.pid=l.pid ` +
+				`WHERE l.relation IS NOT NULL ORDER BY l.granted, l.pid;`,
+		},
+		{
+			"Table Statistics (pg_stat_user_tables)",
+			`SELECT relname, seq_scan, idx_scan, n_tup_ins, n_tup_upd, n_tup_del, n_live_tup, n_dead_tup ` +
+				`FROM pg_stat_user_tables ORDER BY n_live_tup DESC LIMIT 30;`,
+		},
+		{
+			"Database Size",
+			`SELECT pg_size_pretty(pg_database_size('chainlink_test')) AS db_size;`,
+		},
+	}
+
+	for _, q := range queries {
+		fmt.Fprintf(f, "## %s\n\n```\n", q.heading)
+		exitCode, out, execErr := h.container.Exec(ctx,
+			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql})
+		if execErr != nil {
+			fmt.Fprintf(f, "error: %v\n", execErr)
+		} else if exitCode != 0 {
+			fmt.Fprintf(f, "psql exit %d\n", exitCode)
+			if out != nil {
+				_, _ = io.Copy(f, out)
+			}
+		} else {
+			_, _ = io.Copy(f, out)
+		}
+		fmt.Fprint(f, "```\n\n")
+	}
+
+	return nil
+}
+
 // Cleanup terminates the Postgres testcontainer. Safe to call on a nil or
 // no-container Handle.
 func (h *Handle) Cleanup() error {
@@ -117,18 +219,18 @@ func (h *Handle) Cleanup() error {
 		return nil
 	}
 	if !h.conf.AIOutput {
-		fmt.Fprint(os.Stdout, termstyle.Label.Render("Tearing down postgres..."))
+		fmt.Fprint(os.Stderr, termstyle.Label.Render("Tearing down postgres..."))
 	}
 	termCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := h.container.Terminate(termCtx); err != nil {
 		if !h.conf.AIOutput {
-			fmt.Fprintln(os.Stdout, " "+termstyle.Bad.Render("❌"))
+			fmt.Fprintln(os.Stderr, " "+termstyle.Bad.Render("❌"))
 		}
 		return fmt.Errorf("error terminating postgres container, you need to terminate it manually: %w", err)
 	}
 	if !h.conf.AIOutput {
-		fmt.Fprintln(os.Stdout, " "+termstyle.OK.Render("✅"))
+		fmt.Fprintln(os.Stderr, " "+termstyle.OK.Render("✅"))
 	}
 	return nil
 }

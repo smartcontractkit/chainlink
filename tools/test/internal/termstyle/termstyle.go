@@ -13,4 +13,6 @@ var (
 	Muted  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	Accent = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	Bad    = lipgloss.NewStyle().Foreground(lipgloss.Color("196"))
+	// Flaky summary (yellow); Slow uses Muted (grey) in the runner.
+	Flaky = lipgloss.NewStyle().Foreground(lipgloss.Color("226"))
 )
