@@ -933,16 +933,12 @@ func (h *eventHandler) confidentialEngineFactory(
 	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
 
-	// nil resolver: raw binaryURL is passed to the enclave as-is.
-	// PR 5/5 (#21642) wires this to the storage service retriever
-	// so the enclave receives a presigned URL.
 	module := v2.NewConfidentialModule(
 		h.capRegistry,
 		spec.BinaryURL,
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
 		attrs.VaultDonSecrets,
-		nil,
 		lggr,
 	)
 

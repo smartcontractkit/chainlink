@@ -2947,7 +2947,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	aos := make([]types.AttributedObservation, numObservers)
 	for i := range numObservers {
 		aos[i] = types.AttributedObservation{
-			Observer:    commontypes.OracleID(i), //nolint:gosec // G115 range is well within uint8 bounds
+			Observer:    commontypes.OracleID(i),
 			Observation: types.Observation(makeGetSecretsObservations(t, 10, maxOwner, maxNamespace, encryptionKeys, encryptedValue, ciphertext, shares[i])),
 		}
 	}

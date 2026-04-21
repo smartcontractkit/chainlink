@@ -1,5 +1,5 @@
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 

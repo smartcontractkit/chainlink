@@ -240,7 +240,7 @@ func NewTree[H Hash](ctx Ctx[H], leafHashes []H) (*Tree[H], error) {
 func (t *Tree[H]) String() string {
 	b := strings.Builder{}
 	for _, layer := range t.layers {
-		b.WriteString(fmt.Sprintf("%v", layer))
+		fmt.Fprintf(&b, "%v", layer)
 	}
 	return b.String()
 }

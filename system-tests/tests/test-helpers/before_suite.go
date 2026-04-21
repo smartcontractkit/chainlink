@@ -228,7 +228,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
 		require.NoErrorf(t, txOptsErr, "failed to create deployer key for chain selector %d", evmChain.ChainSelector())
-		deployerKey.Context = t.Context() //nolint:fatcontext // false-positive
+		deployerKey.Context = t.Context()
 		require.NoErrorf(
 			t,
 			setCldfEVMDeployerKey(testEnv.CreEnvironment.CldfEnvironment, evmChain.ChainSelector(), deployerKey),

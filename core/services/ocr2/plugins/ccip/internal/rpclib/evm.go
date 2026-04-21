@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -278,11 +279,12 @@ func (c EvmCall) ContractAddress() common.Address {
 }
 
 func EVMCallsToString(calls []EvmCall) string {
-	callString := ""
+
+	var callString strings.Builder
 	for _, call := range calls {
-		callString += call.String() + "\n"
+		callString.WriteString(call.String() + "\n")
 	}
-	return callString
+	return callString.String()
 }
 
 type DataAndErr struct {
