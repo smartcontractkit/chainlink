@@ -194,6 +194,15 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 			return nil, fmt.Errorf("building OCR2OracleSpecInfo: %w", err)
 		}
 		event.Ocr2OracleSpec = ocr2Info
+		event.ContractAddress = jb.OCR2OracleSpec.ContractID
+		event.ChainId = jb.OCR2OracleSpec.ChainID
+	}
+
+	if jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil {
+		event.ContractAddress = jb.OCROracleSpec.ContractAddress.String()
+		if jb.OCROracleSpec.EVMChainID != nil {
+			event.ChainId = jb.OCROracleSpec.EVMChainID.String()
+		}
 	}
 
 	return event, nil

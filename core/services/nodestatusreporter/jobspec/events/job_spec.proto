@@ -44,6 +44,11 @@ message JobSpecEvent {
   // Event metadata
   EmissionTrigger emission_trigger = 24;
   string timestamp = 25;
+
+  // Primary on-chain contract — populated for single-contract job types
+  // (OCR1, OCR2, Flux Monitor, Keeper). For OCR2, copied from ocr2_oracle_spec.
+  string contract_address = 26;
+  string chain_id = 27;
 }
 
 // EmissionTrigger is the reason a JobSpecEvent was emitted.

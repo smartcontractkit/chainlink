@@ -15,7 +15,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -211,6 +214,8 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	assert.Equal(t, "1.0.0", ev.NodeVersion)
 	assert.Equal(t, "test-host", ev.Hostname)
 	assert.Equal(t, []string{"my-bridge"}, ev.BridgeNames)
+	assert.Equal(t, "0x1234567890abcdef", ev.ContractAddress)
+	assert.Equal(t, "1", ev.ChainId)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	assert.Equal(t, "evm", ev.Ocr2OracleSpec.Relay)
 	assert.Equal(t, "median", ev.Ocr2OracleSpec.PluginType)
@@ -338,4 +343,52 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	assert.Equal(t, prop.RemoteUUID.String(), ev.RemoteUuid)
 	assert.Equal(t, int32(3), ev.SpecVersion)
 	assert.InDelta(t, approvedAt.Sub(proposedAt).Seconds(), ev.AcceptLatencySeconds, 1.0)
+}
+
+func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+	cfg := &stubConfig{
+		enabled:         true,
+		pollingInterval: time.Hour,
+		emitNonOCR2Jobs: true, // OCR1 is non-OCR2
+	}
+	svc := newTestReporter(t, cfg, nil)
+
+	jb := makeOCR1Job()
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
+	require.NoError(t, err)
+
+	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	require.Len(t, msgs, 1)
+
+	var ev events.JobSpecEvent
+	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+
+	assert.Equal(t, "0x9d9305445F404E925563d5D5EcC65C815Ec1655b", ev.ContractAddress)
+	assert.Equal(t, "11155111", ev.ChainId)
+	assert.Equal(t, "offchainreporting", ev.JobType)
+}
+
+func makeOCR1Job() job.Job {
+	return job.Job{
+		ID:            4,
+		ExternalJobID: uuid.New(),
+		Name:          null.StringFrom("test-ocr1-job"),
+		Type:          job.OffchainReporting,
+		SchemaVersion: 1,
+		PipelineSpec:  &pipeline.Spec{ID: 40, DotDagSource: `ds1 [type=bridge name="bridge-gsr"]`},
+		Pipeline: pipeline.Pipeline{
+			Tasks: []pipeline.Task{
+				&pipeline.BridgeTask{
+					BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
+					Name:     "bridge-gsr",
+				},
+			},
+		},
+		OCROracleSpec: &job.OCROracleSpec{
+			ContractAddress: evmtypes.MustEIP55Address("0x9d9305445F404E925563d5D5EcC65C815Ec1655b"),
+			EVMChainID:      sqlutil.NewI(11155111),
+		},
+		CreatedAt: time.Now(),
+	}
 }

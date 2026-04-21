@@ -109,6 +109,10 @@ type JobSpecEvent struct {
 	// Event metadata
 	EmissionTrigger EmissionTrigger `protobuf:"varint,24,opt,name=emission_trigger,json=emissionTrigger,proto3,enum=job_spec.v1.EmissionTrigger" json:"emission_trigger,omitempty"`
 	Timestamp       string          `protobuf:"bytes,25,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	// Primary on-chain contract — populated for single-contract job types
+	// (OCR1, OCR2, Flux Monitor, Keeper). For OCR2, copied from ocr2_oracle_spec.
+	ContractAddress string `protobuf:"bytes,26,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
+	ChainId         string `protobuf:"bytes,27,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -314,6 +318,20 @@ func (x *JobSpecEvent) GetEmissionTrigger() EmissionTrigger {
 func (x *JobSpecEvent) GetTimestamp() string {
 	if x != nil {
 		return x.Timestamp
+	}
+	return ""
+}
+
+func (x *JobSpecEvent) GetContractAddress() string {
+	if x != nil {
+		return x.ContractAddress
+	}
+	return ""
+}
+
+func (x *JobSpecEvent) GetChainId() string {
+	if x != nil {
+		return x.ChainId
 	}
 	return ""
 }
@@ -744,7 +762,7 @@ var File_job_spec_proto protoreflect.FileDescriptor
 
 const file_job_spec_proto_rawDesc = "" +
 	"\n" +
-	"\x0ejob_spec.proto\x12\vjob_spec.v1\"\x83\b\n" +
+	"\x0ejob_spec.proto\x12\vjob_spec.v1\"\xc9\b\n" +
 	"\fJobSpecEvent\x12&\n" +
 	"\x0fexternal_job_id\x18\x01 \x01(\tR\rexternalJobId\x12&\n" +
 	"\x0finternal_job_id\x18\x02 \x01(\x05R\rinternalJobId\x12\x12\n" +
@@ -775,7 +793,9 @@ const file_job_spec_proto_rawDesc = "" +
 	"\fnode_version\x18\x16 \x01(\tR\vnodeVersion\x12\x1a\n" +
 	"\bhostname\x18\x17 \x01(\tR\bhostname\x12G\n" +
 	"\x10emission_trigger\x18\x18 \x01(\x0e2\x1c.job_spec.v1.EmissionTriggerR\x0femissionTrigger\x12\x1c\n" +
-	"\ttimestamp\x18\x19 \x01(\tR\ttimestampB\f\n" +
+	"\ttimestamp\x18\x19 \x01(\tR\ttimestamp\x12)\n" +
+	"\x10contract_address\x18\x1a \x01(\tR\x0fcontractAddress\x12\x19\n" +
+	"\bchain_id\x18\x1b \x01(\tR\achainIdB\f\n" +
 	"\n" +
 	"_stream_id\"\x96\t\n" +
 	"\x12OCR2OracleSpecInfo\x12\x17\n" +
