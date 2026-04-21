@@ -1625,7 +1625,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	require.NotNil(t, capturedVaultReq)
-	require.Equal(t, cfg.WorkflowOwner, capturedVaultReq.WorkflowOwner) // WorkflowOwner is always set for label validation
+	require.Empty(t, capturedVaultReq.WorkflowOwner)
 	require.Empty(t, capturedVaultReq.OrgId)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:
