@@ -57,6 +57,17 @@ func (c *combinedClient) UnregisterTrigger(ctx context.Context, request capabili
 	return subscriber.UnregisterTrigger(ctx, request)
 }
 
+func (c *combinedClient) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	c.mu.RLock()
+	trigger, ok := c.triggerSubscribers[method]
+	c.mu.RUnlock()
+
+	if !ok {
+		return fmt.Errorf("method %s not defined", method)
+	}
+	return trigger.AckEvent(ctx, triggerID, eventID, method)
+}
+
 func (c *combinedClient) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
 	return errors.New("RegisterToWorkflow is not supported by remote capabilities")
 }

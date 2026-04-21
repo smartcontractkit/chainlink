@@ -53,7 +53,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 
 	// create the test trigger event in the same format as the llo asset don
 	ts := time.Now()
-	tsUnixNano := uint64(ts.UnixNano()) //nolint: gosec // G115
+	tsUnixNano := uint64(ts.UnixNano())
 	e := newLLoTriggerEvent(t, tsUnixNano, updates)
 	ocrTrigger, eventID, err := MakeOCRTriggerEvent(lggr, e, triggerDonConfiguration.KeyBundles)
 	require.NoError(t, err)
@@ -128,7 +128,9 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	}
 
 	// Encode the report to bytes
-	reportBytes, err := reportCodec.Encode(report, channelDef)
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(report.ChannelID, opts)
+	reportBytes, err := reportCodec.Encode(report, channelDef, cache)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to encode report: %w", err)
 	}
@@ -150,7 +152,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 			return nil, "", fmt.Errorf("failed to sign report with key %s: %w", key, err)
 		}
 		event.Sigs = append(event.Sigs, commoncap.OCRAttributedOnchainSignature{
-			Signer:    uint32(i), //nolint:gosec // G115
+			Signer:    uint32(i),
 			Signature: sig,
 		})
 	}
@@ -162,7 +164,7 @@ func generateSteamUpdates(t *testing.T, count int) []streamUpdate {
 	var result []streamUpdate
 	for i := 1; i <= count; i++ {
 		result = append(result, streamUpdate{
-			id:         uint32(i), //nolint:gosec // G115
+			id:         uint32(i),
 			remappedID: newFeedID(t),
 			price:      decimal.NewFromFloat(float64(i)),
 		})

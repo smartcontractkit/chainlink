@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
+	ccipChangesetSolanaV0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -387,9 +388,9 @@ func setupChains(lggr logger.Logger, e *cldf.Environment, homeChainSel, feedChai
 			FeedChainSel: feedChainSel,
 		}
 
-		buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-			GitCommitSha:   "6aaf88e0848a",
-			DestinationDir: deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
+		buildConfig := ccipChangesetSolanaV0_1_1.BuildSolanaConfig{
+			SolanaContractVersion: "7f8a0f403c3acbf740fa6d50d71bfb80a8b12ab8",
+			DestinationDir:        deployedEnv.Env.BlockChains.SolanaChains()[solChainSelectors[0]].ProgramsPath,
 		}
 
 		solTestReceiver := commonchangeset.Configure(

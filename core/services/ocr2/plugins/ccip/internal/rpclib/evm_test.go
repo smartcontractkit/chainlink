@@ -14,9 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 )
@@ -85,8 +84,8 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 			batchSizes := make([]int, 0)
 
 			ec := clienttest.NewClient(t)
-			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
-			ctx := testutils.Context(t)
+			bc := rpclib.NewDynamicLimitedBatchCaller(logger.Test(t), ec, tc.maxBatchSize, tc.backOffMultiplier, 1)
+			ctx := t.Context()
 			calls := make([]rpclib.EvmCall, tc.numCalls)
 			emptyAbi := abihelpers.MustParseABI("[]")
 			for i := range calls {
@@ -104,7 +103,7 @@ func TestDefaultEvmBatchCaller_BatchCallDynamicLimit(t *testing.T) {
 }
 
 func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	testCases := []struct {
 		numCalls              uint
@@ -121,7 +120,7 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			ec := clienttest.NewClient(t)
-			bc := rpclib.NewDynamicLimitedBatchCaller(logger.TestLogger(t), ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
+			bc := rpclib.NewDynamicLimitedBatchCaller(logger.Test(t), ec, tc.batchSize, 99999, tc.parallelRpcCallsLimit)
 
 			// generate the abi and the rpc calls
 			intTyp, err := abi.NewType("uint64", "uint64", nil)

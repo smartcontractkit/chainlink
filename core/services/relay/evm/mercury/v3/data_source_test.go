@@ -5,10 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
@@ -16,13 +12,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
+	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	reportcodecv3 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 )
 
 var _ mercurytypes.ServerFetcher = &mockFetcher{}

@@ -3,7 +3,8 @@
 InsecureFastScrypt = false # Default
 # **ADVANCED**
 # InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
-InsecurePPROFHeap = false # Default
+# Deprecated: no effect. Always enabled.
+InsecurePPROFHeap = true # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
@@ -519,6 +520,8 @@ MaxConfigSize = '50.00kb' # Default
 # SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 # Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
 SyncStrategy = 'event' # Default
+# MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
+MaxConcurrency = 12 # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.
@@ -751,6 +754,8 @@ GoroutineThreshold = 5000 # Default
 ServerAddress = 'http://localhost:4040' # Example
 # Environment sets the target environment tag in which profiles will be added to.
 Environment = 'mainnet' # Default
+# LinkTracesToProfiles enables linking traces to profiles in Grafana when Pyroscope and Tracing are enabled.
+LinkTracesToProfiles = false # Default
 
 [Sentry]
 # **ADVANCED**
@@ -949,6 +954,12 @@ IgnoreJoblessBridges = false # Default
 UseLocalTimeProvider = true # Default
 # EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
 EnableDKGRecipient = false # Default
+# DebugMode enables additional tracing and logging for workflow engines.
+DebugMode = false # Default
+
+[CRE.ConfidentialRelay]
+# Enabled controls whether the confidential relay gateway handler should be configured.
+Enabled = false # Default
 
 # Sharding holds settings for node sharding configuration.
 [Sharding]

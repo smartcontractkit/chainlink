@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 
@@ -50,6 +49,11 @@ type dispatcher struct {
 type dispatcherMetrics struct {
 	externalPeerMsgsRcvdCounter metric.Int64Counter
 	sharedPeerMsgsRcvdCounter   metric.Int64Counter
+	rateLimitedMsgsCounter      metric.Int64Counter
+	invalidMsgsCounter          metric.Int64Counter
+	unregisteredCapMsgsCounter  metric.Int64Counter
+	receiveChannelUsageGauge    metric.Float64Gauge
+	receiverDroppedMsgsCounter  metric.Int64Counter
 }
 
 var _ types.Dispatcher = &dispatcher{}
@@ -95,6 +99,26 @@ func (d *dispatcher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_shared_peer_msgs_rcvd_total): %w", err)
 	}
+	d.metrics.rateLimitedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_rate_limited_msgs_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_rate_limited_msgs_total: %w", err)
+	}
+	d.metrics.invalidMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_invalid_msgs_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_invalid_msgs_total: %w", err)
+	}
+	d.metrics.unregisteredCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unregistered_capability_msgs_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_unregistered_capability_msgs_total: %w", err)
+	}
+	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_receive_channel_usage: %w", err)
+	}
+	d.metrics.receiverDroppedMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_receiver_dropped_msgs_total")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_receiver_dropped_msgs_total: %w", err)
+	}
 	return nil
 }
 
@@ -138,11 +162,6 @@ func (d *dispatcher) Close() error {
 	d.lggr.Info("dispatcher closed")
 	return nil
 }
-
-var capReceiveChannelUsage = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "capability_receive_channel_usage",
-	Help: "The usage of the receive channel for each capability, 0 indicates empty, 1 indicates full.",
-}, []string{"capabilityId", "donId"})
 
 type receiver struct {
 	cancel context.CancelFunc
@@ -255,25 +274,32 @@ func (d *dispatcher) receive() {
 			return
 		case msg := <-externalPeerRecvCh: // deprecated, will be removed in favor of SharedPeer (CRE-707)
 			d.metrics.externalPeerMsgsRcvdCounter.Add(ctx, 1)
-			d.handleMessage(&msg)
+			d.handleMessage(ctx, &msg)
 		case msg, ok := <-sharedPeerRecvCh:
 			if !ok {
 				d.lggr.Info("shared peer channel closed - exiting receive")
 				return
 			}
 			d.metrics.sharedPeerMsgsRcvdCounter.Add(ctx, 1)
-			d.handleMessage(&msg)
+			d.handleMessage(ctx, &msg)
 		}
 	}
 }
 
-func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
-	if !d.rateLimiter.Allow(msg.Sender.String()) {
+func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
+	sender := msg.Sender.String()
+	if !d.rateLimiter.Allow(sender) {
+		d.metrics.rateLimitedMsgsCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("sender", sender),
+		))
 		d.lggr.Errorw("rate limit exceeded, dropping message", "sender", msg.Sender)
 		return
 	}
 	body, err := ValidateMessage(msg, d.peerID)
 	if err != nil {
+		d.metrics.invalidMsgsCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("sender", sender),
+		))
 		d.lggr.Debugw("received invalid message", "error", err)
 		d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
 		return
@@ -284,6 +310,11 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
 	if !ok {
+		d.metrics.unregisteredCapMsgsCounter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("capabilityId", k.capID),
+			attribute.String("donId", strconv.FormatUint(uint64(k.donID), 10)),
+			attribute.String("method", k.methodName),
+		))
 		d.lggr.Debugw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
 		d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 		return
@@ -293,11 +324,17 @@ func (d *dispatcher) handleMessage(msg *p2ptypes.Message) {
 	if d.cfg.ReceiverBufferSize() > 0 {
 		receiverQueueUsage = float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
 	}
-	capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Set(receiverQueueUsage)
+	capAttrs := metric.WithAttributes(
+		attribute.String("capabilityId", k.capID),
+		attribute.String("donId", strconv.FormatUint(uint64(k.donID), 10)),
+		attribute.String("method", k.methodName),
+	)
+	d.metrics.receiveChannelUsageGauge.Record(ctx, receiverQueueUsage, capAttrs)
 	select {
 	case receiver.ch <- body:
 	default:
-		d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
+		d.metrics.receiverDroppedMsgsCounter.Add(ctx, 1, capAttrs)
+		d.lggr.Errorw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
 	}
 }
 

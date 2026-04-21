@@ -72,7 +72,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -298,6 +298,7 @@ GoroutineThreshold = 5000
 [Pyroscope]
 ServerAddress = ''
 Environment = 'mainnet'
+LinkTracesToProfiles = false
 
 [Sentry]
 Debug = false
@@ -399,6 +400,7 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
+MaxConcurrency = 12
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
@@ -443,6 +445,7 @@ PerOwner = 200
 [CRE]
 UseLocalTimeProvider = true
 EnableDKGRecipient = false
+DebugMode = false
 
 [CRE.Streams]
 WsURL = ''
@@ -454,6 +457,9 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+
+[CRE.ConfidentialRelay]
+Enabled = false
 
 [Billing]
 URL = 'localhost:4319'

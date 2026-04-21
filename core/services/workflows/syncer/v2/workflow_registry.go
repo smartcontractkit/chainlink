@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -34,6 +35,7 @@ var (
 	defaultTickInterval          = 12 * time.Second
 	defaultRetryInterval         = 12 * time.Second
 	defaultMaxRetryInterval      = 5 * time.Minute
+	defaultMaxConcurrency        = 12
 	WorkflowRegistryContractName = "WorkflowRegistry"
 
 	GetWorkflowsByDONMethodName                   = "getWorkflowListByDON"
@@ -102,15 +104,22 @@ type workflowRegistry struct {
 
 	retryInterval    time.Duration
 	maxRetryInterval time.Duration
+	maxConcurrency   int
 	clock            clockwork.Clock
 
 	hooks Hooks
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardRoutingSteady      shardRoutingSteadyObserver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+}
+
+type shardRoutingSteadyObserver interface {
+	ObserveRoutingSteady(steady bool)
+	Invalidate()
 }
 
 type Hooks struct {
@@ -139,6 +148,14 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 func WithRetryInterval(retryInterval time.Duration) func(*workflowRegistry) {
 	return func(wr *workflowRegistry) {
 		wr.retryInterval = retryInterval
+	}
+}
+
+func WithMaxConcurrency(maxConcurrency int) func(*workflowRegistry) {
+	return func(wr *workflowRegistry) {
+		if maxConcurrency > 0 {
+			wr.maxConcurrency = maxConcurrency
+		}
 	}
 }
 
@@ -237,6 +254,12 @@ func WithShardID(shardID uint32) Option {
 	}
 }
 
+func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardRoutingSteady = signal
+	}
+}
+
 // NewWorkflowRegistry returns a new v2 workflowRegistry.
 // The addr parameter is optional - if empty, no contract source will be created,
 // enabling pure GRPC-only or file-only workflow deployments.
@@ -288,6 +311,7 @@ func NewWorkflowRegistry(
 		engineRegistry:                   engineRegistry,
 		retryInterval:                    defaultRetryInterval,
 		maxRetryInterval:                 defaultMaxRetryInterval,
+		maxConcurrency:                   defaultMaxConcurrency,
 		clock:                            clockwork.NewRealClock(),
 		hooks: Hooks{
 			OnStartFailure: func(_ error) {},
@@ -434,14 +458,14 @@ func (w *workflowRegistry) generateReconciliationEvents(
 ) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
-	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	// workflowMetadataIDs is a set of workflow IDs present in this tick's metadata
+	workflowMetadataIDs := make(map[string]struct{}, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
-		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+		workflowMetadataIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
 	}
 
-	// Keep track of which of the engines in the engineRegistry have been touched
-	workflowsSeen := map[string]bool{}
+	// Keep track of which of the engines in the engineRegistry have been touched.
+	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
 		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
@@ -585,7 +609,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	// the workflow no longer exists in this source's metadata
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
-			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+			if _, ok := workflowMetadataIDs[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
@@ -653,7 +677,13 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
 	if err != nil {
+		if w.shardRoutingSteady != nil {
+			w.shardRoutingSteady.Invalidate()
+		}
 		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
+	}
+	if w.shardRoutingSteady != nil {
+		w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
@@ -750,35 +780,83 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
-				// Handle events (shared handler)
+				// Handle events concurrently — each event targets a distinct workflow ID
+				var wg sync.WaitGroup
+				var mu sync.Mutex
+				sem := make(chan struct{}, w.maxConcurrency)
+				batchStart := time.Now()
+				var dispatched, backoffCount int
 				for _, event := range events {
 					select {
 					case <-ctx.Done():
 						w.lggr.Debug("readRegistryStateLoop stopped during processing")
 						return
 					default:
-						w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-						reconcileReport.NumEventsByType[string(event.Name)]++
-
-						if event.retryCount == 0 || w.clock.Now().After(event.nextRetryAt) {
-							handleErr := w.handleWithMetrics(ctx, event.Event)
-							if handleErr != nil {
-								event.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
-
-								pendingEventsBySource[sourceIdentifier][event.id] = event
-
-								reconcileReport.Backoffs[event.id] = event.nextRetryAt
-								w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", event.Name, "nextRetryAt", event.nextRetryAt, "retryCount", event.retryCount, "workflowInfo", event.Info)
-							}
-						} else {
-							// It's not ready to execute yet, let's put it back on the pending queue.
-							pendingEventsBySource[sourceIdentifier][event.id] = event
-
-							reconcileReport.Backoffs[event.id] = event.nextRetryAt
-							w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
-						}
 					}
+
+					w.lggr.Debugw("processing event", "source", sourceName, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+
+					mu.Lock()
+					reconcileReport.NumEventsByType[string(event.Name)]++
+					mu.Unlock()
+
+					if event.retryCount > 0 && !w.clock.Now().After(event.nextRetryAt) {
+						backoffCount++
+						mu.Lock()
+						pendingEventsBySource[sourceIdentifier][event.id] = event
+						reconcileReport.Backoffs[event.id] = event.nextRetryAt
+						mu.Unlock()
+						w.lggr.Debugw("skipping event, still in backoff", "nextRetryAt", event.nextRetryAt, "event", event.Name, "id", event.id, "signature", event.signature, "workflowInfo", event.Info)
+						continue
+					}
+
+					select {
+					case sem <- struct{}{}:
+					case <-ctx.Done():
+						w.lggr.Debug("readRegistryStateLoop stopped waiting for semaphore")
+						return
+					}
+
+					dispatched++
+					wg.Add(1)
+					go func(evt *reconciliationEvent) {
+						defer func() {
+							<-sem
+							wg.Done()
+						}()
+						handleErr := w.handleWithMetrics(ctx, evt.Event)
+						if handleErr != nil {
+							evt.updateNextRetryFor(w.clock, w.retryInterval, w.maxRetryInterval)
+							mu.Lock()
+							pendingEventsBySource[sourceIdentifier][evt.id] = evt
+							reconcileReport.Backoffs[evt.id] = evt.nextRetryAt
+							mu.Unlock()
+							w.lggr.Errorw("failed to handle event, backing off...", "err", handleErr, "type", evt.Name, "nextRetryAt", evt.nextRetryAt, "retryCount", evt.retryCount, "workflowInfo", evt.Info)
+						}
+					}(event)
 				}
+				wg.Wait()
+
+				// prompt the GC to reclaim transient allocations from event handling
+				// that would otherwise be delayed because the dominant CGo/wasmtime memory is invisible to the Go GC
+				if dispatched > 0 {
+					runtime.GC()
+				}
+
+				batchDuration := time.Since(batchStart)
+				w.metrics.recordReconcileBatch(ctx, sourceName, dispatched, batchDuration)
+				if backoffCount > 0 {
+					w.metrics.recordReconcileBackoff(ctx, sourceName, backoffCount)
+				}
+
+				w.lggr.Infow("reconciliation tick completed",
+					"source", sourceName,
+					"dispatched", dispatched,
+					"backoffs", backoffCount,
+					"failed", len(pendingEventsBySource[sourceIdentifier]),
+					"durationMs", batchDuration.Milliseconds(),
+					"eventsByType", reconcileReport.NumEventsByType,
+				)
 			}
 
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)

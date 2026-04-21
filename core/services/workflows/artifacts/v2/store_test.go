@@ -93,6 +93,49 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.ErrorIs(t, err, sql.ErrNoRows)
 }
 
+func Test_Store_DeleteWorkflowArtifactsBatch(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	encryptionKey, err := workflowkey.New()
+	require.NoError(t, err)
+
+	ctx := testutils.Context(t)
+	for _, id := range []string{"wf-1", "wf-2", "wf-3"} {
+		_, err = orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "",
+			Config:        "",
+			WorkflowID:    id,
+			WorkflowOwner: "owner",
+			WorkflowName:  "name-" + id,
+			CreatedAt:     time.Now(),
+			SpecType:      job.DefaultSpecType,
+		})
+		require.NoError(t, err)
+	}
+
+	fetcher := &mockFetcher{}
+	h, err := NewStore(
+		lggr, orm, fetcher.Fetch, fetcher.RetrieveURL,
+		clockwork.NewFakeClock(), encryptionKey, custmsg.NewLabeler(),
+		limits.Factory{Logger: lggr},
+		WithConfig(StoreConfig{ArtifactStorageHost: "example.com"}),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, h.DeleteWorkflowArtifactsBatch(ctx, []string{"wf-1", "wf-3"}))
+
+	_, err = orm.GetWorkflowSpec(ctx, "wf-1")
+	require.ErrorIs(t, err, sql.ErrNoRows)
+	_, err = orm.GetWorkflowSpec(ctx, "wf-3")
+	require.ErrorIs(t, err, sql.ErrNoRows)
+
+	got, err := orm.GetWorkflowSpec(ctx, "wf-2")
+	require.NoError(t, err)
+	require.Equal(t, "name-wf-2", got.WorkflowName)
+}
+
 func Test_Store_FetchWorkflowArtifacts_WithStorage(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)

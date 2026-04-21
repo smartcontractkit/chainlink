@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -36,7 +36,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 
 	for range 5 {
 		k, err := csakey.NewV2()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		fakeKeys = append(fakeKeys, k)
 		expectedKeys = append(expectedKeys, expectedKey{
@@ -51,7 +51,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 			"results": expectedKeys,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expectedResult := string(d)
 
 	testCases := []GQLTestCase{
@@ -91,7 +91,7 @@ func Test_CreateCSAKey(t *testing.T) {
 	}`
 
 	fakeKey, err := csakey.NewV2()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	expected := `
 		{
@@ -159,7 +159,7 @@ func Test_DeleteCSAKey(t *testing.T) {
 	}`
 
 	fakeKey, err := csakey.NewV2()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	expected := `
 		{

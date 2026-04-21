@@ -22,6 +22,7 @@ WsURL = "streams.url"
 
 [CRE]
 EnableDKGRecipient = true
+DebugMode = true
 
 [CRE.WorkflowFetcher]
 URL = "http://workflow-server.example.com/workflows"
@@ -47,6 +48,7 @@ func TestCREConfig(t *testing.T) {
 	assert.Equal(t, "streams.url", c.WsURL())
 	assert.Equal(t, "streams.url", c.RestURL())
 	assert.True(t, c.EnableDKGRecipient())
+	assert.True(t, c.DebugMode())
 
 	// Test the new WorkflowFetcher URL
 	fetcher := c.WorkflowFetcher()
@@ -65,6 +67,7 @@ func TestCREConfigWithFileURL(t *testing.T) {
 	fetcher := c.WorkflowFetcher()
 	assert.NotNil(t, fetcher)
 	assert.Equal(t, "file:///path/to/workflows", fetcher.URL())
+	assert.False(t, c.DebugMode())
 }
 
 func TestEmptyCREConfig(t *testing.T) {
@@ -73,6 +76,7 @@ func TestEmptyCREConfig(t *testing.T) {
 	assert.Empty(t, cfg.StreamsAPISecret())
 	assert.Empty(t, cfg.WsURL())
 	assert.Empty(t, cfg.RestURL())
+	assert.False(t, cfg.DebugMode())
 
 	// Test empty WorkflowFetcher
 	fetcher := cfg.WorkflowFetcher()

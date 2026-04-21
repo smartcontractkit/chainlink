@@ -21,7 +21,7 @@ HTTPURL = 'https://foo.bar' # Required
 ## Global
 ```toml
 InsecureFastScrypt = false # Default
-InsecurePPROFHeap = false # Default
+InsecurePPROFHeap = true # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
@@ -37,9 +37,10 @@ InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params i
 ### InsecurePPROFHeap
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-InsecurePPROFHeap = false # Default
+InsecurePPROFHeap = true # Default
 ```
 InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
+Deprecated: no effect. Always enabled.
 
 ### RootDir
 ```toml
@@ -1406,6 +1407,7 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
+MaxConcurrency = 12 # Default
 ```
 
 
@@ -1457,6 +1459,12 @@ SyncStrategy = 'event' # Default
 ```
 SyncStrategy is the strategy that will be used to bring the node up to date with the latest Workflow Registry contract state.
 Options are: event which watches for contract events or reconciliation which diffs workflow metadata state.
+
+### MaxConcurrency
+```toml
+MaxConcurrency = 12 # Default
+```
+MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -2112,6 +2120,7 @@ GoroutineThreshold is the maximum number of actively-running goroutines the node
 [Pyroscope]
 ServerAddress = 'http://localhost:4040' # Example
 Environment = 'mainnet' # Default
+LinkTracesToProfiles = false # Default
 ```
 
 
@@ -2126,6 +2135,12 @@ ServerAddress sets the address that will receive the profile logs. It enables th
 Environment = 'mainnet' # Default
 ```
 Environment sets the target environment tag in which profiles will be added to.
+
+### LinkTracesToProfiles
+```toml
+LinkTracesToProfiles = false # Default
+```
+LinkTracesToProfiles enables linking traces to profiles in Grafana when Pyroscope and Tracing are enabled.
 
 ## Sentry
 ```toml
@@ -2657,6 +2672,7 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 [CRE]
 UseLocalTimeProvider = true # Default
 EnableDKGRecipient = false # Default
+DebugMode = false # Default
 ```
 
 
@@ -2671,6 +2687,25 @@ UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not runnin
 EnableDKGRecipient = false # Default
 ```
 EnableDKGRecipient should be set to true if the DON runs a capability that uses a DKG result package.
+
+### DebugMode
+```toml
+DebugMode = false # Default
+```
+DebugMode enables additional tracing and logging for workflow engines.
+
+## CRE.ConfidentialRelay
+```toml
+[CRE.ConfidentialRelay]
+Enabled = false # Default
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled controls whether the confidential relay gateway handler should be configured.
 
 ## Sharding
 ```toml
@@ -8311,6 +8346,122 @@ ExternalRequestMaxResponseSize = 1000000
 
 [OCR]
 ContractConfirmations = 1
+ContractTransmitterTransmitTimeout = '10s'
+DatabaseTimeout = '10s'
+DeltaCOverride = '168h0m0s'
+DeltaCJitterOverride = '1h0m0s'
+ObservationGracePeriod = '1s'
+
+[OCR2]
+[OCR2.Automation]
+GasLimit = 5400000
+
+[Workflow]
+GasLimitDefault = 400000
+TxAcceptanceState = 2
+PollPeriod = '2s'
+AcceptanceTimeout = '30s'
+```
+
+</p></details>
+
+<details><summary>Pharos Mainnet (1672)</summary><p>
+
+```toml
+AutoCreateKey = true
+BlockBackfillDepth = 10
+BlockBackfillSkip = false
+FinalityDepth = 50
+SafeDepth = 0
+FinalityTagEnabled = false
+SafeTagSupported = true
+LogBackfillBatchSize = 1000
+LogPollInterval = '15s'
+LogKeepBlocksDepth = 100000
+LogPrunePageSize = 0
+BackupLogPollerBlockDelay = 100
+MinIncomingConfirmations = 3
+MinContractPayment = '0.00001 link'
+NonceAutoSync = true
+NoNewHeadsThreshold = '3m0s'
+LogBroadcasterEnabled = true
+RPCDefaultBatchSize = 100
+RPCBlockQueryDelay = 1
+FinalizedBlockOffset = 0
+NoNewFinalizedHeadsThreshold = '0s'
+
+[Transactions]
+Enabled = true
+ForwardersEnabled = false
+MaxInFlight = 16
+MaxQueued = 250
+ReaperInterval = '1h0m0s'
+ReaperThreshold = '168h0m0s'
+ResendAfterThreshold = '1m0s'
+ConfirmationTimeout = '1m0s'
+
+[Transactions.AutoPurge]
+Enabled = false
+
+[Transactions.TransactionManagerV2]
+Enabled = false
+
+[BalanceMonitor]
+Enabled = true
+
+[GasEstimator]
+Mode = 'BlockHistory'
+PriceDefault = '20 gwei'
+PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+PriceMin = '1 gwei'
+LimitDefault = 500000
+LimitMax = 500000
+LimitMultiplier = '1'
+LimitTransfer = 21000
+EstimateLimit = false
+BumpMin = '5 gwei'
+BumpPercent = 20
+BumpThreshold = 3
+EIP1559DynamicFees = false
+FeeCapDefault = '100 gwei'
+TipCapDefault = '1 wei'
+TipCapMin = '1 wei'
+
+[GasEstimator.BlockHistory]
+BatchSize = 25
+BlockHistorySize = 8
+CheckInclusionBlocks = 12
+CheckInclusionPercentile = 90
+TransactionPercentile = 60
+
+[GasEstimator.FeeHistory]
+CacheTimeout = '10s'
+
+[HeadTracker]
+HistoryDepth = 100
+MaxBufferSize = 3
+SamplingInterval = '1s'
+MaxAllowedFinalityDepth = 10000
+FinalityTagBypass = false
+PersistenceEnabled = true
+PersistenceBatchSize = 100
+
+[NodePool]
+PollFailureThreshold = 5
+PollInterval = '10s'
+SelectionMode = 'HighestHead'
+SyncThreshold = 5
+LeaseDuration = '0s'
+NodeIsSyncingEnabled = false
+FinalizedBlockPollInterval = '5s'
+EnforceRepeatableRead = true
+DeathDeclarationDelay = '1m0s'
+NewHeadsPollInterval = '0s'
+VerifyChainID = true
+ExternalRequestMaxResponseSize = 1000000
+
+[OCR]
+ContractConfirmations = 4
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
@@ -17402,6 +17553,9 @@ Enabled = false # Default
 BlockTime = '10s' # Example
 CustomURL = 'https://example.api.io' # Example
 DualBroadcast = false # Example
+ReadRequestsToMultipleNodes = false # Example
+Bundles = false # Example
+FastlaneAuctionRequestTimeout = '5s' # Example
 ```
 
 
@@ -17428,6 +17582,24 @@ CustomURL configures the base url of a custom endpoint used by the ChainDualBroa
 DualBroadcast = false # Example
 ```
 DualBroadcast enables DualBroadcast functionality.
+
+### ReadRequestsToMultipleNodes
+```toml
+ReadRequestsToMultipleNodes = false # Example
+```
+ReadRequestsToMultipleNodes controls whether txm chain client reads use multiplexed calls.
+
+### Bundles
+```toml
+Bundles = false # Example
+```
+Bundles enables Bundles functionality for SVR.
+
+### FastlaneAuctionRequestTimeout
+```toml
+FastlaneAuctionRequestTimeout = '5s' # Example
+```
+FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 
 ## EVM.BalanceMonitor
 ```toml
@@ -18487,6 +18659,7 @@ ComputeUnitLimitDefault = 200_000 # Default
 EstimateComputeUnitLimit = false # Default
 LogPollerStartingLookback = '24h0m0s' # Default
 LogPollerCPIEventsEnabled = true # Default
+LogPollerSlotsBatchSize = 100 # Default
 ```
 
 
@@ -18658,6 +18831,12 @@ LogPollerStartingLookback
 LogPollerCPIEventsEnabled = true # Default
 ```
 LogPollerCPIEventsEnabled enables the LogPoller to listen for CPI (Cross-Program Invocation) events.
+
+### LogPollerSlotsBatchSize
+```toml
+LogPollerSlotsBatchSize = 100 # Default
+```
+LogPollerSlotsBatchSize is the number of slots to process in a batch when polling for logs. Setting this value too high may increase memory usage, while setting it too low may increase the number of RPC calls and decrease performance.
 
 ## Solana.Workflow
 ```toml

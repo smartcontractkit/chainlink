@@ -83,7 +83,8 @@ func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
 	var cfg V3_1OracleConfig
 	err := json.Unmarshal([]byte(ocr3_1Cfg), &cfg)
 	require.NoError(t, err)
-	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"))
+	aptosFamilies := []string{chain_selectors.FamilyAptos}
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"), aptosFamilies)
 	require.NoError(t, err)
 	b, err := json.MarshalIndent(got, "", "  ")
 	require.NoError(t, err)
@@ -95,13 +96,13 @@ func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
 		for i := 1; i <= len(nodes); i++ {
 			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
 		}
-		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
 	})
 	t.Run("transmitter schedule equal num nodes", func(t *testing.T) {
 		cfg2 := cfg
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
-		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
 	})
 }
@@ -138,7 +139,7 @@ func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
 	var cfg V3_1OracleConfig
 	err := json.Unmarshal([]byte(ocr3_1CfgNoPrevConfigDigest), &cfg)
 	require.NoError(t, err)
-	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"))
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"), nil)
 	require.NoError(t, err)
 	_, err = json.MarshalIndent(got, "", "  ")
 	require.NoError(t, err)
@@ -149,13 +150,13 @@ func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
 		for i := 1; i <= len(nodes); i++ {
 			cfg2.TransmissionSchedule = append(cfg2.TransmissionSchedule, i)
 		}
-		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
 	})
 	t.Run("transmitter schedule equal num nodes", func(t *testing.T) {
 		cfg2 := cfg
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
-		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
 	})
 }

@@ -12,6 +12,7 @@ import (
 	rand2 "math/rand/v2"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -113,6 +114,7 @@ func (t *testDonNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DO
 }
 
 func Test_EventHandlerStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -386,6 +388,8 @@ func Test_SecretsWorker(t *testing.T) {
 			require.Equal(t, string(beforeSecretsPayload), contents)
 			limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 			require.NoError(t, err)
+			featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+			require.NoError(t, err)
 			rl, err := ratelimiter.NewRateLimiter(rlConfig)
 			require.NoError(t, err)
 
@@ -401,7 +405,7 @@ func Test_SecretsWorker(t *testing.T) {
 
 			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 			evtHandler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, engineRegistry,
-				emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
+				emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 			require.NoError(t, err)
 			handler := &testSecretsWorkEventHandler{
 				wrappedHandler: evtHandler,
@@ -575,6 +579,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
@@ -587,7 +593,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	donTime := dontime.NewStore(dontime.DefaultRequestTimeout)
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
-	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
+	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er, emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{})
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -673,6 +679,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := NewEngineRegistry()
 	limiters, err := v2.NewLimiters(limits.Factory{}, nil)
 	require.NoError(t, err)
+	featureFlags, err := v2.NewFeatureFlags(limits.Factory{}, nil)
+	require.NoError(t, err)
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, limits.Factory{})
@@ -685,7 +693,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	handler, err := NewEventHandler(lggr, wfStore, capRegistry, donTime, true, er,
-		emitter, limiters, rl, wl, store, workflowEncryptionKey, &testDonNotifier{}, WithStaticEngine(&mockService{}))
+		emitter, limiters, featureFlags, rl, wl, store, workflowEncryptionKey, &testDonNotifier{}, WithStaticEngine(&mockService{}))
 	require.NoError(t, err)
 
 	worker, err := NewWorkflowRegistry(
@@ -804,6 +812,7 @@ func Test_StratReconciliation_InitialStateSync(t *testing.T) {
 }
 
 func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -830,10 +839,9 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	workflow.ID = workflowID
 	registerWorkflow(t, backendTH, wfRegistryC, workflow)
 
-	var retryCount int
+	var retryCount atomic.Int32
 	testEventHandler := newTestEvtHandler(func() error {
-		if retryCount <= 1 {
-			retryCount++
+		if retryCount.Add(1) <= 2 {
 			return errors.New("error handling event")
 		}
 		return nil
@@ -858,20 +866,24 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 			err: nil,
 		},
 		NewEngineRegistry(),
-		WithRetryInterval(1*time.Second),
+		WithTicker(time.NewTicker(1*time.Second).C),
+		WithRetryInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
 
+	// Wait for the handler to be called 3 times: 2 failures with backoff + 1 success
 	require.Eventually(t, func() bool {
-		return len(testEventHandler.GetEvents()) == 1
+		return retryCount.Load() >= 3
 	}, 30*time.Second, 1*time.Second)
 
-	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
-
-	assert.Equal(t, 1, retryCount)
+	// All 3 calls (2 failures + 1 success) should have appended events
+	events := testEventHandler.GetEvents()
+	require.GreaterOrEqual(t, len(events), 3)
+	for _, event := range events {
+		assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
+	}
 }
 
 func updateAuthorizedAddress(

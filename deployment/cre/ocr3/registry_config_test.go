@@ -7,7 +7,81 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 )
+
+func TestExtractOCR3ConfigCount(t *testing.T) {
+	t.Run("empty input returns zero", func(t *testing.T) {
+		count, err := extractOCR3ConfigCount(nil, OCR3ConfigDefaultKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), count)
+
+		count, err = extractOCR3ConfigCount([]byte{}, OCR3ConfigDefaultKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), count)
+	})
+
+	t.Run("invalid protobuf returns error", func(t *testing.T) {
+		_, err := extractOCR3ConfigCount([]byte{0xff, 0xfe}, OCR3ConfigDefaultKey)
+		require.ErrorContains(t, err, "failed to unmarshal capability config")
+	})
+
+	t.Run("nil ocr3Configs map returns zero", func(t *testing.T) {
+		cfg := &capabilitiespb.CapabilityConfig{}
+		raw, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+
+		count, err := extractOCR3ConfigCount(raw, OCR3ConfigDefaultKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), count)
+	})
+
+	t.Run("missing key returns zero", func(t *testing.T) {
+		cfg := &capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				"other_key": {ConfigCount: 7},
+			},
+		}
+		raw, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+
+		count, err := extractOCR3ConfigCount(raw, OCR3ConfigDefaultKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(0), count)
+	})
+
+	t.Run("returns config count for matching key", func(t *testing.T) {
+		cfg := &capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				OCR3ConfigDefaultKey: {ConfigCount: 42},
+			},
+		}
+		raw, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+
+		count, err := extractOCR3ConfigCount(raw, OCR3ConfigDefaultKey)
+		require.NoError(t, err)
+		assert.Equal(t, uint64(42), count)
+	})
+
+	t.Run("returns config count for custom key", func(t *testing.T) {
+		cfg := &capabilitiespb.CapabilityConfig{
+			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+				"dkg":                {ConfigCount: 1},
+				OCR3ConfigDefaultKey: {ConfigCount: 10},
+				"vault":              {ConfigCount: 5},
+			},
+		}
+		raw, err := proto.Marshal(cfg)
+		require.NoError(t, err)
+
+		count, err := extractOCR3ConfigCount(raw, "vault")
+		require.NoError(t, err)
+		assert.Equal(t, uint64(5), count)
+	})
+}
 
 func TestValidateOCR3Config(t *testing.T) {
 	tests := []struct {

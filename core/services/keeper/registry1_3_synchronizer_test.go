@@ -260,6 +260,8 @@ func Test_RegistrySynchronizer1_3_ConfigSetLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryConfigSet{}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -311,6 +313,8 @@ func Test_RegistrySynchronizer1_3_KeepersUpdatedLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryKeepersUpdated{}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -353,6 +357,8 @@ func Test_RegistrySynchronizer1_3_UpkeepCanceledLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepCanceled{Id: big.NewInt(3)}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -395,6 +401,8 @@ func Test_RegistrySynchronizer1_3_UpkeepRegisteredLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepRegistered{Id: big.NewInt(420)}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -438,6 +446,8 @@ func Test_RegistrySynchronizer1_3_UpkeepPerformedLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
 	log := registry1_3.KeeperRegistryUpkeepPerformed{Id: big.NewInt(3), From: fromAddress}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -503,6 +513,8 @@ func Test_RegistrySynchronizer1_3_UpkeepGasLimitSetLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepGasLimitSet{Id: big.NewInt(3), GasLimit: big.NewInt(4_000_000)}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -545,6 +557,8 @@ func Test_RegistrySynchronizer1_3_UpkeepReceivedLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepReceived{Id: big.NewInt(420)}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -584,6 +598,8 @@ func Test_RegistrySynchronizer1_3_UpkeepMigratedLog(t *testing.T) {
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepMigrated{Id: big.NewInt(3)}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -625,6 +641,8 @@ func Test_RegistrySynchronizer1_3_UpkeepPausedLog_UpkeepUnpausedLog(t *testing.T
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_3.KeeperRegistryUpkeepPaused{Id: upkeepId}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")
@@ -700,6 +718,8 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 
 	updatedLog := registry1_3.KeeperRegistryUpkeepCheckDataUpdated{Id: upkeepId, NewCheckData: newCheckData}
 	logBroadcast := logmocks.NewBroadcast(t)
+	logBroadcast.On("Start").Return(nil).Maybe()
+	logBroadcast.On("Close").Return(nil).Maybe()
 	logBroadcast.On("DecodedLog").Return(&updatedLog)
 	logBroadcast.On("RawLog").Return(rawLog)
 	logBroadcast.On("String").Maybe().Return("")

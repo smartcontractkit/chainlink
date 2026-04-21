@@ -21,21 +21,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jpillora/backoff"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/crypto/sha3"
 
+	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
-	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -184,7 +184,6 @@ type HTTPClient interface {
 // sets up the initial state, and applies any provided options. The cache must be started via Start()
 // before it begins polling and fetching definitions.
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
-
 	cdc := &channelDefinitionCache{
 		orm:             orm,
 		client:          client,
@@ -529,9 +528,11 @@ func buildFeedIDMap(definitions llotypes.ChannelDefinitions) map[common.Hash]uin
 
 // mergeDefinitions reconciles new channel definitions with the current set according to source
 // authority rules. Owner definitions (SourceOwner) have full authority: they can add, update, or
-// tombstone (delete) channels. Missing channels in newDefinitions are not automatically removed;
-// channels must be explicitly tombstoned to be removed. Adder definitions (non-owner sources) have
-// limited authority: they can only add new channels and cannot overwrite or tombstone existing ones.
+// tombstone (delete) channels. Non-tombstoned channels missing from newDefinitions are preserved;
+// channels must be explicitly tombstoned to be removed. Previously tombstoned channels that are
+// omitted from the owner's newDefinitions are dropped (fully removed) from currentDefinitions.
+// Adder definitions (non-owner sources) have limited authority: they can only add new channels
+// and cannot overwrite or tombstone existing ones.
 //
 // Adder limits are enforced:
 //   - MaxChannelsPerAdder: The limit is enforced based on existing channels from the same source
@@ -620,6 +621,22 @@ func (c *channelDefinitionCache) mergeDefinitions(source uint32, currentDefiniti
 			continue
 		}
 	}
+
+	// Drop previously tombstoned channels that the owner has omitted from newDefinitions
+	// Only tombstoned channels are allowed to be dropped by the owner to eventually remove them from the OCR state.
+	if source == SourceOwner {
+		for channelID, def := range currentDefinitions {
+			if def.Tombstone {
+				if _, exists := newDefinitions[channelID]; !exists {
+					delete(currentDefinitions, channelID)
+					feedID := extractFeedID(def.Opts)
+					if feedID != (common.Hash{}) {
+						delete(feedIDToChannelID, feedID)
+					}
+				}
+			}
+		}
+	}
 }
 
 // fetchLatestLoop is an asynchronous goroutine that receives fetch triggers from the poll chain
@@ -650,7 +667,7 @@ func (c *channelDefinitionCache) fetchLatestLoop() {
 func (c *channelDefinitionCache) fetchLoop(trigger types.Trigger) {
 	defer c.wg.Done()
 	var err error
-	b := utils.NewHTTPFetchBackoff()
+	b := newHTTPFetchBackoff()
 
 	ctx, cancel := c.chStop.CtxWithTimeout(fetchRetryTimeout)
 	defer cancel()
@@ -952,4 +969,12 @@ func decodePersistedSourceDefinitions(definitionsJSON json.RawMessage) (map[uint
 	}
 
 	return sources, nil
+}
+
+func newHTTPFetchBackoff() backoff.Backoff {
+	return backoff.Backoff{
+		Min:    100 * time.Millisecond,
+		Max:    15 * time.Second,
+		Jitter: true,
+	}
 }

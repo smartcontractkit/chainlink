@@ -84,6 +84,10 @@ func (s *TriggerService) Info(ctx context.Context) (capabilities.CapabilityInfo,
 	)
 }
 
+func (s *TriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
+}
+
 // Register a new trigger
 // Can register triggers before the service is actively scheduling
 func (s *TriggerService) RegisterTrigger(ctx context.Context,

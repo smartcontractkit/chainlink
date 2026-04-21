@@ -30,9 +30,14 @@ func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConf
 	lggr := e.Logger
 
 	ds := datastore.NewMemoryDataStore()
+	// Merge only chain metadata from the environment, not the full datastore. A full Merge would
+	// copy every AddressRef from e.DataStore into the output artifact; the catalog/runtime can
+	// carry duplicate contract keys (e.g. qualifier "" vs address-type from deploy_timelock_vault
+	// or address-book migration), and passing those through would upsert unwanted rows into
+	// address_refs.json even though this changeset only updates whitelist chain metadata.
 	if e.DataStore != nil {
-		if err := ds.Merge(e.DataStore); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge existing datastore: %w", err)
+		if err := mergeChainMetadataOnly(ds, e.DataStore); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge existing chain metadata: %w", err)
 		}
 	}
 
@@ -77,6 +82,19 @@ func (s whitelistChangeset) Apply(e cldf.Environment, cfg types.SetWhitelistConf
 	return cldf.ChangesetOutput{
 		DataStore: ds,
 	}, nil
+}
+
+func mergeChainMetadataOnly(dst datastore.MutableDataStore, src datastore.DataStore) error {
+	records, err := src.ChainMetadata().Fetch()
+	if err != nil {
+		return err
+	}
+	for _, record := range records {
+		if err := dst.ChainMetadata().Upsert(record); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func mergeWhitelistEntries(existing, incoming []types.WhitelistAddress) []types.WhitelistAddress {

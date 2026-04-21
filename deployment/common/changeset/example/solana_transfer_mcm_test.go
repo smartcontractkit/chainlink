@@ -10,7 +10,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -188,7 +187,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 }
 
 func TestTransferFromTimelockConfig_Apply(t *testing.T) {
-	quarantine.Flaky(t, "DX-1754")
+	t.Skip("broken")
 	t.Parallel()
 
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector

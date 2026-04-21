@@ -11,29 +11,31 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	evmcapocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/consensus/ocr3/types"
+	dontimepb "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 )
 
 type OracleConfig struct {
-	UniqueReports                     bool
-	DeltaProgressMillis               uint32
-	DeltaResendMillis                 uint32
-	DeltaInitialMillis                uint32
-	DeltaRoundMillis                  uint32
-	DeltaGraceMillis                  uint32
-	DeltaCertifiedCommitRequestMillis uint32
-	DeltaStageMillis                  uint32
-	MaxRoundsPerEpoch                 uint64
-	TransmissionSchedule              []int
+	UniqueReports                     bool   `yaml:"uniqueReports"`
+	DeltaProgressMillis               uint32 `yaml:"deltaProgressMillis"`
+	DeltaResendMillis                 uint32 `yaml:"deltaResendMillis"`
+	DeltaInitialMillis                uint32 `yaml:"deltaInitialMillis"`
+	DeltaRoundMillis                  uint32 `yaml:"deltaRoundMillis"`
+	DeltaGraceMillis                  uint32 `yaml:"deltaGraceMillis"`
+	DeltaCertifiedCommitRequestMillis uint32 `yaml:"deltaCertifiedCommitRequestMillis"`
+	DeltaStageMillis                  uint32 `yaml:"deltaStageMillis"`
+	MaxRoundsPerEpoch                 uint64 `yaml:"maxRoundsPerEpoch"`
+	TransmissionSchedule              []int  `yaml:"transmissionSchedule"`
 
-	MaxDurationQueryMillis          uint32
-	MaxDurationObservationMillis    uint32
-	MaxDurationShouldAcceptMillis   uint32
-	MaxDurationShouldTransmitMillis uint32
+	MaxDurationQueryMillis          uint32 `yaml:"maxDurationQueryMillis"`
+	MaxDurationObservationMillis    uint32 `yaml:"maxDurationObservationMillis"`
+	MaxDurationShouldAcceptMillis   uint32 `yaml:"maxDurationShouldAcceptMillis"`
+	MaxDurationShouldTransmitMillis uint32 `yaml:"maxDurationShouldTransmitMillis"`
 
-	MaxFaultyOracles int
+	MaxFaultyOracles int `yaml:"maxFaultyOracles"`
 
-	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig
-	ChainCapOffchainConfig     *ChainCapOffchainConfig
+	ConsensusCapOffchainConfig *ConsensusCapOffchainConfig `yaml:"consensusCapOffchainConfig,omitempty"`
+	ChainCapOffchainConfig     *ChainCapOffchainConfig     `yaml:"chainCapOffchainConfig,omitempty"`
+	DontimeOffchainConfig      *DontimeOffchainConfig      `yaml:"dontimeOffchainConfig,omitempty"`
 }
 
 func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
@@ -126,10 +128,34 @@ func (oc *ConsensusCapOffchainConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&struct {
 		RequestTimeout string `json:"RequestTimeout"`
 		*aliasT
+		// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
 	}{
 		RequestTimeout: oc.RequestTimeout.String(),
 		aliasT:         (*aliasT)(oc),
 	})
+}
+
+func (oc ConsensusCapOffchainConfig) MarshalYAML() (any, error) {
+	return struct {
+		MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+		MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+		MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+		MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+		MaxReportCount            uint32 `yaml:"maxReportCount"`
+		// NOTE: MaxBatchSize is not used by the consensus plugin v2 (but still used by v1)
+		MaxBatchSize            uint32 `yaml:"maxBatchSize"`
+		OutcomePruningThreshold uint64 `yaml:"outcomePruningThreshold"`
+		RequestTimeout          string `yaml:"requestTimeout"`
+	}{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
+		OutcomePruningThreshold:   oc.OutcomePruningThreshold,
+		RequestTimeout:            oc.RequestTimeout.String(),
+	}, nil
 }
 
 func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
@@ -152,12 +178,12 @@ func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 }
 
 type ChainCapOffchainConfig struct {
-	MaxQueryLengthBytes       uint32
-	MaxObservationLengthBytes uint32
-	MaxReportLengthBytes      uint32
-	MaxOutcomeLengthBytes     uint32
-	MaxReportCount            uint32
-	MaxBatchSize              uint32
+	MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+	MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+	MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+	MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+	MaxReportCount            uint32 `yaml:"maxReportCount"`
+	MaxBatchSize              uint32 `yaml:"maxBatchSize"`
 }
 
 func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
@@ -168,5 +194,91 @@ func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
 		MaxBatchSize:              oc.MaxBatchSize,
+	}, nil
+}
+
+type DontimeOffchainConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxOutcomeLengthBytes     uint32
+	MaxReportLengthBytes      uint32
+	MaxReportCount            uint32
+	MaxBatchSize              uint32
+	MinTimeIncrease           int64
+	ExecutionRemovalTime      time.Duration
+}
+
+func (oc *DontimeOffchainConfig) UnmarshalJSON(data []byte) error {
+	type aliasT DontimeOffchainConfig
+	temp := &struct {
+		ExecutionRemovalTime string `json:"ExecutionRemovalTime"`
+		*aliasT
+	}{
+		aliasT: (*aliasT)(oc),
+	}
+	if err := json.Unmarshal(data, temp); err != nil {
+		return fmt.Errorf("failed to unmarshal DontimeOffchainConfig: %w", err)
+	}
+
+	if temp.ExecutionRemovalTime == "" {
+		oc.ExecutionRemovalTime = 0
+	} else {
+		d, err := time.ParseDuration(temp.ExecutionRemovalTime)
+		if err != nil {
+			return fmt.Errorf("failed to parse ExecutionRemovalTime: %w", err)
+		}
+		oc.ExecutionRemovalTime = d
+	}
+
+	return nil
+}
+
+func (oc *DontimeOffchainConfig) MarshalJSON() ([]byte, error) {
+	type aliasT DontimeOffchainConfig
+	return json.Marshal(&struct {
+		ExecutionRemovalTime string `json:"ExecutionRemovalTime"`
+		*aliasT
+	}{
+		ExecutionRemovalTime: oc.ExecutionRemovalTime.String(),
+		aliasT:               (*aliasT)(oc),
+	})
+}
+
+func (oc DontimeOffchainConfig) MarshalYAML() (any, error) {
+	return struct {
+		MaxQueryLengthBytes       uint32 `yaml:"maxQueryLengthBytes"`
+		MaxObservationLengthBytes uint32 `yaml:"maxObservationLengthBytes"`
+		MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
+		MaxReportLengthBytes      uint32 `yaml:"maxReportLengthBytes"`
+		MaxReportCount            uint32 `yaml:"maxReportCount"`
+		MaxBatchSize              uint32 `yaml:"maxBatchSize"`
+		MinTimeIncrease           int64  `yaml:"minTimeIncrease"`
+		ExecutionRemovalTime      string `yaml:"executionRemovalTime"`
+	}{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
+		MinTimeIncrease:           oc.MinTimeIncrease,
+		ExecutionRemovalTime:      oc.ExecutionRemovalTime.String(),
+	}, nil
+}
+
+func (oc *DontimeOffchainConfig) ToProto() (proto.Message, error) {
+	var execRemovalTime *durationpb.Duration
+	if oc.ExecutionRemovalTime > 0 {
+		execRemovalTime = durationpb.New(oc.ExecutionRemovalTime)
+	}
+	return &dontimepb.Config{
+		MaxQueryLengthBytes:       oc.MaxQueryLengthBytes,
+		MaxObservationLengthBytes: oc.MaxObservationLengthBytes,
+		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
+		MaxReportLengthBytes:      oc.MaxReportLengthBytes,
+		MaxReportCount:            oc.MaxReportCount,
+		MaxBatchSize:              oc.MaxBatchSize,
+		MinTimeIncrease:           oc.MinTimeIncrease,
+		ExecutionRemovalTime:      execRemovalTime,
 	}, nil
 }

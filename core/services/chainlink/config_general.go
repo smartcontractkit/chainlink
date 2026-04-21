@@ -458,10 +458,6 @@ func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
-func (g *generalConfig) InsecurePPROFHeap() bool {
-	return *g.c.InsecurePPROFHeap
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
@@ -563,6 +559,10 @@ func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableChainKeyLister {
 
 func (g *generalConfig) ImportedSolKeys() coreconfig.ImportableChainKeyLister {
 	return &importedSolKeyConfigs{s: g.secrets.Solana}
+}
+
+func (g *generalConfig) ImportedAptosKeys() coreconfig.ImportableChainKeyLister {
+	return &importedAptosKeyConfigs{s: g.secrets.Aptos}
 }
 
 func (g *generalConfig) ImportedDKGRecipientKey() coreconfig.ImportableKey {

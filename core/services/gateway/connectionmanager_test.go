@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -99,7 +100,8 @@ Path = "/node"` + config
 func newTestConfig(t *testing.T, nNodes int) (*config.GatewayConfig, []gc.TestNode) {
 	nodes := gc.NewTestNodes(t, nNodes)
 
-	config := `
+	var config strings.Builder
+	config.WriteString(`
 [nodeServerConfig]
 Path = "/node"
 [connectionManagerConfig]
@@ -109,15 +111,15 @@ AuthChallengeLen = 100
 [[dons]]
 DonId = "my_don_1"
 HandlerName = "dummy"
-`
+`)
 
 	for i := range nNodes {
-		config += `[[dons.members]]` + "\n"
-		config += fmt.Sprintf(`Name = "node_%d"`, i) + "\n"
-		config += fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n"
+		config.WriteString(`[[dons.members]]` + "\n")
+		config.WriteString(fmt.Sprintf(`Name = "node_%d"`, i) + "\n")
+		config.WriteString(fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n")
 	}
 
-	return parseTOMLConfig(t, config), nodes
+	return parseTOMLConfig(t, config.String()), nodes
 }
 
 func signAndPackAuthHeader(t *testing.T, authHeaderElems *network.AuthHeaderElems, signerKey *ecdsa.PrivateKey) []byte {
@@ -236,6 +238,176 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 	config.ConnectionManagerConfig.HeartbeatIntervalSec = 1
 	clock := clockwork.NewFakeClock()
 	mgr := newConnectionManager(t, config, clock)
+
+	err := mgr.Start(testutils.Context(t))
+	require.NoError(t, err)
+
+	err = mgr.Close()
+	require.NoError(t, err)
+}
+
+func TestConnectionManager_ShardedDONs_CreatesPerShardManagers(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := `
+[nodeServerConfig]
+Path = "/node"
+
+[[shardedDONs]]
+DonName = "myDON"
+F = 1
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "s0_n0"
+Address = "0x0001020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s0_n1"
+Address = "0x0002020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s0_n2"
+Address = "0x0003020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s0_n3"
+Address = "0x0004020304050607080900010203040506070809"
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "s1_n0"
+Address = "0x0005020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s1_n1"
+Address = "0x0006020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s1_n2"
+Address = "0x0007020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "s1_n3"
+Address = "0x0008020304050607080900010203040506070809"
+`
+
+	cfg := parseTOMLConfig(t, tomlConfig)
+	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
+
+	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("myDON", 0)), "shard 0 connection manager should exist")
+	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("myDON", 1)), "shard 1 connection manager should exist")
+	require.Nil(t, mgr.DONConnectionManager("myDON_2"), "shard 2 should not exist")
+}
+
+func TestConnectionManager_ShardedDONs_MultipleDONs(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := `
+[nodeServerConfig]
+Path = "/node"
+
+[[shardedDONs]]
+DonName = "donA"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "a_n0"
+Address = "0x0001020304050607080900010203040506070809"
+
+[[shardedDONs]]
+DonName = "donB"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "b_n0"
+Address = "0x0002020304050607080900010203040506070809"
+`
+
+	cfg := parseTOMLConfig(t, tomlConfig)
+	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
+
+	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("donA", 0)))
+	require.NotNil(t, mgr.DONConnectionManager(config.ShardDONID("donB", 0)))
+}
+
+func TestConnectionManager_ShardedDONs_DuplicateNodeAddress(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := `
+[nodeServerConfig]
+Path = "/node"
+
+[[shardedDONs]]
+DonName = "myDON"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "n0"
+Address = "0x0001020304050607080900010203040506070809"
+[[shardedDONs.Shards.Nodes]]
+Name = "n1"
+Address = "0x0001020304050607080900010203040506070809"
+`
+
+	cfg := parseTOMLConfig(t, tomlConfig)
+	lggr := logger.Test(t)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	_, err = gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicate node address")
+}
+
+func TestConnectionManager_ShardedDONs_SendToNode(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := `
+[nodeServerConfig]
+Path = "/node"
+
+[[shardedDONs]]
+DonName = "myDON"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "n0"
+Address = "0x0001020304050607080900010203040506070809"
+`
+
+	cfg := parseTOMLConfig(t, tomlConfig)
+	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
+
+	donMgr := mgr.DONConnectionManager(config.ShardDONID("myDON", 0))
+	require.NotNil(t, donMgr)
+
+	err := donMgr.SendToNode(testutils.Context(t), "0x0001020304050607080900010203040506070809", nil)
+	require.Error(t, err, "nil request should fail")
+
+	message := &jsonrpc.Request[json.RawMessage]{}
+	err = donMgr.SendToNode(testutils.Context(t), "0xdeadbeef", message)
+	require.Error(t, err, "unknown node should fail")
+}
+
+func TestConnectionManager_ShardedDONs_StartClose(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := `
+[nodeServerConfig]
+Path = "/node"
+[connectionManagerConfig]
+HeartbeatIntervalSec = 1
+
+[[shardedDONs]]
+DonName = "myDON"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "n0"
+Address = "0x0001020304050607080900010203040506070809"
+`
+
+	cfg := parseTOMLConfig(t, tomlConfig)
+	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
 	err := mgr.Start(testutils.Context(t))
 	require.NoError(t, err)

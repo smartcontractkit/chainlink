@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 )
 
@@ -65,7 +65,9 @@ func Start(
 
 		deployer, ok := deployers[chainFamily]
 		if !ok {
-			infra.PrintFailedContainerLogs(testLogger, 30)
+			if err := framework.PrintFailedContainerLogs(30); err != nil {
+				testLogger.Error().Err(err).Msg("failed to print failed Docker container logs")
+			}
 			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
 		}
 

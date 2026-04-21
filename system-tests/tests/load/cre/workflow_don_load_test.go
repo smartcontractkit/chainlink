@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	blockchain_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -661,7 +662,7 @@ func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
+	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles)
 	if err != nil {
 		return capabilities.OCRTriggerEvent{}, "", time.Time{}, err
 	}
@@ -700,9 +701,11 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 		Values:                          values,
 	}
 
+	cache := datastreamsllo.NewOptsCache()
+	cache.Set(report.ChannelID, []byte{})
 	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
 		Streams: streams,
-	})
+	}, cache)
 	if err != nil {
 		return nil, "", err
 	}
@@ -721,7 +724,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 			return nil, "", err2
 		}
 		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
-			Signer:    uint32(i), //nolint:gosec // G115 don't care in test code
+			Signer:    uint32(i),
 			Signature: sig,
 		})
 	}
@@ -925,13 +928,14 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 	}
 }
 
-func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+func MockCapabilitiesJob(nodeID, binaryName string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+	command := standardcapability.DefaultCapabilitiesDir + "/" + binaryName
 	jobTemplate := `type = "standardcapabilities"
 			schemaVersion = 1
 			externalJobID = "{{ .JobID }}"
 			name = "mock-capability"
 			forwardingAllowed = false
-			command = "{{ .BinaryPath }}"
+			command = "{{ .Command }}"
 			config = """
 				port=7777
 		{{ range $index, $m := .Mocks }}
@@ -957,10 +961,10 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
 	jobUUID := uuid.NewString()
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]any{
-		"JobID":      jobUUID,
-		"ShortID":    jobUUID[0:8],
-		"BinaryPath": binaryPath,
-		"Mocks":      mockJobsData,
+		"JobID":   jobUUID,
+		"ShortID": jobUUID[0:8],
+		"Command": command,
+		"Mocks":   mockJobsData,
 	})
 	if err != nil {
 		panic(err)
@@ -1192,7 +1196,8 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
-	spec := fmt.Sprintf(`
+	var spec strings.Builder
+	fmt.Fprintf(&spec, `
 	type = "offchainreporting2"
 	schemaVersion = 1
 	externalJobID = "%s"
@@ -1227,14 +1232,14 @@ func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, off
 		chainID,
 	)
 	for family, key := range ocr2KeyBundles {
-		spec += fmt.Sprintf(`
+		fmt.Fprintf(&spec, `
         %s = "%s"`, family, key)
-		spec += "\n"
+		spec.WriteString("\n")
 	}
 
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
-		Spec:   spec,
+		Spec:   spec.String(),
 	}
 }
 

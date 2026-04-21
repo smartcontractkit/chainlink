@@ -229,6 +229,10 @@ func (c *capabilitiesWorkflowRegistry) SyncStrategy() string {
 	return *c.c.SyncStrategy
 }
 
+func (c *capabilitiesWorkflowRegistry) MaxConcurrency() int {
+	return *c.c.MaxConcurrency
+}
+
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
 	return &workflowStorage{
 		c: c.c.WorkflowStorage,

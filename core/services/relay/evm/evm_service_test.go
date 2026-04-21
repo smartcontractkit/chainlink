@@ -141,6 +141,10 @@ func runSubmitTransactionTest(t *testing.T, tc SubmitTransactionTestCase) {
 		require.Contains(t, err.Error(), tc.ExpectedError)
 	} else {
 		require.NoError(t, err)
+	}
+
+	if tc.ExpectedResult != nil {
+		require.NotNil(t, result)
 		require.NotEmpty(t, result.TxIdempotencyKey)
 		result.TxIdempotencyKey = ""
 		require.Equal(t, tc.ExpectedResult, result)
@@ -269,14 +273,17 @@ func TestEVMService(t *testing.T) {
 			ExpectedError: "getting transaction receipt",
 		},
 		{
-			Name: "Fails getting transaction status",
+			Name: "Returns TxFatal with txID when GetTransactionStatus returns non-deadline error",
 			SetupMocks: func(m *Mocks, ctx any) {
 				expectedTx := txmgr.Tx{}
 				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
-				expectedMessage := "fail getting transaction status"
-				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Fatal, errors.New(expectedMessage))
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Fatal, errors.New("fail getting transaction status"))
 			},
-			ExpectedError: "failed getting transaction status",
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.Hash{},
+				TxStatus: evm.TxFatal,
+			},
+			ExpectedError: "failed to get transaction status for txID",
 		},
 		{
 			Name: "Success with pending status and then finalized status",
@@ -350,6 +357,33 @@ func TestEVMService(t *testing.T) {
 				TxHash:   common.Hash{},
 				TxStatus: evm.TxFatal,
 			},
+		},
+		{
+			Name: "Returns TxFatal with txID when GetTransactionStatus returns context deadline exceeded",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Pending, nil).Once()
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Unknown, context.DeadlineExceeded)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.Hash{},
+				TxStatus: evm.TxFatal,
+			},
+			ExpectedError: "tx still in state pending or unknown",
+		},
+		{
+			Name: "Returns TxFatal with txID when retry times out waiting for pending tx",
+			SetupMocks: func(m *Mocks, ctx any) {
+				expectedTx := txmgr.Tx{}
+				m.TxManager.EXPECT().CreateTransaction(ctx, mock.Anything).Return(expectedTx, nil)
+				m.TxManager.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Pending, nil)
+			},
+			ExpectedResult: &evm.TransactionResult{
+				TxHash:   common.Hash{},
+				TxStatus: evm.TxFatal,
+			},
+			ExpectedError: "tx still in state pending or unknown",
 		},
 		{
 			Name: "Fails with failed to get enabled addresses",

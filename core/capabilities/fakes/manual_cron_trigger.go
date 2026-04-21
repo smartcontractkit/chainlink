@@ -101,6 +101,10 @@ func (f *ManualCronTriggerService) UnregisterLegacyTrigger(ctx context.Context, 
 	return nil
 }
 
+func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID string, eventID string, method string) caperrors.Error {
+	return nil
+}
+
 func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, scheduledExecutionTime time.Time) error {
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
 

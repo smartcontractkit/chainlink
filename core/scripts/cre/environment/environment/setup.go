@@ -54,29 +54,16 @@ func init() {
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
-
-	BuildCapabilitiesCmd := &cobra.Command{
-		Use:   "build-caps",
-		Short: "Build capabilities binaries",
-		Long:  `Builds the capabilities binaries for the CRE environment`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return BuildCapabilities(cmd.Context(), config, noPrompt)
-		},
-	}
-
-	BuildCapabilitiesCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
-	BuildCapabilitiesCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
-	EnvironmentCmd.AddCommand(BuildCapabilitiesCmd)
 }
 
 // SetupConfigFile represents the full configuration loaded from setup.toml
 type SetupConfigFile struct {
 	General        GeneralConfig         `toml:"general"`
 	JobDistributor JobDistributorConfig  `toml:"job_distributor"`
+	ChipRouter     *ChipRouterConfig     `toml:"chip_router"`
 	ChipIngress    *ChipIngressConfig    `toml:"chip_ingress"`
 	ChipConfig     *ChipConfigConfig     `toml:"chip_config"`
 	BillingService *BillingServiceConfig `toml:"billing_platform_service"`
-	Capabilities   CapabilitiesConfig    `toml:"capabilities"`
 	Observability  ObservabilityConfig   `toml:"observability"`
 }
 
@@ -88,6 +75,12 @@ type GeneralConfig struct {
 
 // JobDistributorConfig contains job distributor image configuration
 type JobDistributorConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+// ChipRouterConfig contains chip router image configuration
+type ChipRouterConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -110,12 +103,6 @@ type BillingServiceConfig struct {
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
 
-// CapabilitiesConfig contains capabilities build configuration
-type CapabilitiesConfig struct {
-	TargetPath   string   `toml:"target_path"`
-	MakeCommands []string `toml:"make_commands"`
-}
-
 // ObservabilityConfig contains observability repository configuration
 type ObservabilityConfig struct {
 	RepoURL    string `toml:"repository"`
@@ -123,12 +110,20 @@ type ObservabilityConfig struct {
 	TargetPath string `toml:"target_path"`
 }
 
-var (
-	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
+const DefaultSetupConfigPath = "configs/setup.toml"
+
+const (
+	mainECREnvVarName = "MAIN_AWS_ECR"
+	sdlcECREnvVarName = "SDLC_AWS_ECR"
 )
 
-const DefaultSetupConfigPath = "configs/setup.toml"
-const DefaultCapabilityBinariesPath = ".binaries"
+func mainECR() string {
+	return os.Getenv(mainECREnvVarName)
+}
+
+func sdlcECR() string {
+	return os.Getenv(sdlcECREnvVarName)
+}
 
 type EnsureOption = string
 
@@ -246,6 +241,10 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		tag    = c.Branch
 		commit = c.Commit
 	)
+	if strings.TrimSpace(c.LocalRepo) != "" {
+		repo = c.LocalRepo
+	}
+
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
@@ -312,9 +311,20 @@ type PullConfig struct {
 	EcrImage   string `toml:"ecr_image"`
 }
 
+func (c PullConfig) MissingRegistryEnvVars() []string {
+	var missing []string
+	if strings.Contains(c.EcrImage, "{{.MAIN_ECR}}") && mainECR() == "" {
+		missing = append(missing, mainECREnvVarName)
+	}
+	if strings.Contains(c.EcrImage, "{{.SDLC_ECR}}") && sdlcECR() == "" {
+		missing = append(missing, sdlcECREnvVarName)
+	}
+	return missing
+}
+
 func (c PullConfig) Pull(ctx context.Context, awsProfile string) (localImage string, err error) {
-	if ECR == "" {
-		return "", errors.New("AWS_ECR environment variable is not set. See README for more details and references to find the correct ECR URL or visit https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI")
+	if missing := c.MissingRegistryEnvVars(); len(missing) > 0 {
+		return "", fmt.Errorf("%s environment variable(s) must be set. See README for setup details and https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", strings.Join(missing, ", "))
 	}
 
 	tmpl, tmplErr := template.New("ecr-image").Parse(c.EcrImage)
@@ -323,7 +333,8 @@ func (c PullConfig) Pull(ctx context.Context, awsProfile string) (localImage str
 	}
 
 	templateData := map[string]string{
-		"ECR": ECR,
+		"MAIN_ECR": mainECR(),
+		"SDLC_ECR": sdlcECR(),
 	}
 
 	var configBuffer bytes.Buffer
@@ -340,6 +351,13 @@ type ImageConfig struct {
 	PullConfig  PullConfig
 }
 
+func (c ImageConfig) WithLocalImage(localImage string) ImageConfig {
+	out := c
+	out.BuildConfig.LocalImage = localImage
+	out.PullConfig.LocalImage = localImage
+	return out
+}
+
 func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
@@ -354,7 +372,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 			logger.Warn().Msgf("Failed to remove local image %s: %v", c.BuildConfig.LocalImage, err)
 		}
 
-		// Remove ECR image if it exists
+		// Remove remote-tagged image if it exists
 		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, image.RemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove ECR image %s: %v", c.PullConfig.EcrImage, err)
@@ -508,6 +526,23 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
+	var chipRouterLocalImage string
+	if cfg.ChipRouter != nil {
+		chipRouterConfig := ImageConfig{
+			BuildConfig: cfg.ChipRouter.BuildConfig,
+			PullConfig:  cfg.ChipRouter.PullConfig,
+		}
+
+		var err error
+		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Chip Router image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
+	}
+
 	var chipIngressLocalImage string
 	if cfg.ChipIngress != nil {
 		chipConfig := ImageConfig{
@@ -576,16 +611,14 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
-	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
-	if capErr != nil {
-		return errors.Wrap(capErr, "failed to install capabilities")
-	}
-
 	// Print summary
 	fmt.Println()
 	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
+	if chipRouterLocalImage != "" {
+		logger.Info().Msgf("   ✓ Chip Router image %s is available", chipRouterLocalImage)
+	}
 	if chipIngressLocalImage != "" {
 		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipIngressLocalImage)
 	}
@@ -606,50 +639,14 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	} else {
 		logger.Warn().Msg("   ✗ Bun is not installed")
 	}
-	if len(cfg.Capabilities.MakeCommands) > 0 {
-		logger.Info().Msg("   ✓ Capabilities binaries installed")
-		logger.Info().Msgf("     - capabilities: %s", strings.Join(installedCapabilities, ", "))
-	}
 
 	fmt.Println()
 	logger.Info().Msg("🚀 Next Steps:")
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
 	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
-	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
 	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
-
-	return nil
-}
-
-func BuildCapabilities(ctx context.Context, config SetupConfig, noPrompt bool) error {
-	cfg, cfgErr := ReadSetupConfig(config.ConfigPath)
-	if cfgErr != nil {
-		return errors.Wrap(cfgErr, "failed to read config")
-	}
-
-	_, ghCliErr := checkGHCli(ctx, cfg.General.MinGHCLIVersion, noPrompt)
-	if ghCliErr != nil {
-		return errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
-	}
-
-	if err := runGHSetupGit(ctx); err != nil {
-		return errors.Wrap(err, "failed to run 'gh auth setup-git'")
-	}
-
-	installedCapabilities, capErr := makeCapabilities(ctx, cfg.Capabilities, relativePathToRepoRoot)
-	if capErr != nil {
-		return errors.Wrap(capErr, "failed to install capabilities")
-	}
-
-	fmt.Println()
-	logger := framework.L
-	logger.Info().Msg("✅ Build Capabilities Summary:")
-	for _, capability := range installedCapabilities {
-		logger.Info().Msgf("   ✓ %s", capability)
-	}
-	logger.Info().Msgf("   ✓ %d capabilities installed", len(installedCapabilities))
 
 	return nil
 }
@@ -680,85 +677,6 @@ func runGHSetupGit(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func makeCapabilities(ctx context.Context, capabilitiesConfig CapabilitiesConfig, repoRootRelativePath string) ([]string, error) {
-	if len(capabilitiesConfig.MakeCommands) == 0 {
-		framework.L.Info().Msg("No make commands specified for capabilities. Skipping capabilities build.")
-		return nil, nil
-	}
-
-	logger := framework.L
-	logger.Info().Msg("🔍 Installing capabilities binaries...")
-
-	tempDir, tempErr := os.MkdirTemp(".", ".tmp-capability-binaries")
-	if tempErr != nil {
-		return nil, fmt.Errorf("failed to create temporary directory: %w", tempErr)
-	}
-
-	tempDirAbsPath, tAbsErr := filepath.Abs(tempDir)
-	if tAbsErr != nil {
-		return nil, fmt.Errorf("failed to get absolute path of temporary directory: %w", tAbsErr)
-	}
-
-	defer func() {
-		_ = os.RemoveAll(tempDir)
-	}()
-
-	for _, makeCommand := range capabilitiesConfig.MakeCommands {
-		cmd := exec.CommandContext(ctx, "make", makeCommand)
-		cmd.Dir = repoRootRelativePath
-		// Set GOBIN to the absolute path of the target path, so that binaries are placed there
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, "GOBIN="+tempDirAbsPath)
-		// cross-compile for linux/amd64 with CGO disabled, because our Chainlink Docker images use linux/amd64
-		cmd.Env = append(cmd.Env, "CL_PLUGIN_ENVVARS=GOOS=linux GOARCH=amd64 CGO_ENABLED=0")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("failed to run make command '%s': %w", makeCommand, err)
-		}
-	}
-
-	if capabilitiesConfig.TargetPath == "" {
-		capabilitiesConfig.TargetPath = DefaultCapabilityBinariesPath
-	}
-
-	absPath, absErr := filepath.Abs(capabilitiesConfig.TargetPath)
-	if absErr != nil {
-		return nil, fmt.Errorf("failed to get absolute path of target path: %w", absErr)
-	}
-
-	if err := os.MkdirAll(absPath, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create target path: %w", err)
-	}
-
-	cmd := exec.CommandContext(ctx, "cp", "-R", tempDirAbsPath+string(os.PathSeparator)+".", absPath) //nolint:gosec //G204: Subprocess launched with a potential tainted input or cmd arguments
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("failed to copy binaries to target path: %w", err)
-	}
-
-	files, err := os.ReadDir(tempDirAbsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read temporary directory: %w", err)
-	}
-
-	fmt.Println("Dir: ", tempDirAbsPath)
-
-	installedCapabilities := []string{}
-	for _, f := range files {
-		if f.Type().IsRegular() {
-			installedCapabilities = append(installedCapabilities, f.Name())
-		}
-	}
-
-	logger.Info().Msgf("  ✓ %d capabilities binaries installed in %s", len(installedCapabilities), absPath)
-
-	return installedCapabilities, nil
 }
 
 // ReadSetupConfig reads and parses the setup configuration from the given path
@@ -884,8 +802,8 @@ func checkDockerConfiguration() error {
 	return nil
 }
 
-// localImageExists checks if the local image or ECR image exists
-// if ECR image exists, it tags it as the local image
+// localImageExists checks if the local image or rendered remote image exists
+// if the rendered remote image exists, it tags it as the local image
 func localImageExists(ctx context.Context, dockerClient *client.Client, localImage, ecrImage string) (bool, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
@@ -897,7 +815,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 		return true, nil
 	}
 
-	// Check if ECR image exists
+	// Check if rendered remote image exists
 	_, err = dockerClient.ImageInspect(ctx, ecrImage)
 	if err == nil {
 		logger.Info().Msgf("✓ %s image (%s) is available", name, ecrImage)
@@ -911,7 +829,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	return false, nil
 }
 
-// pullImage pulls the Job Distributor image from ECR
+// pullImage pulls the configured image from its remote registry and retags it locally.
 func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage string) (string, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")

@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -27,6 +30,7 @@ type arbiter struct {
 	services.StateMachine
 
 	grpcServer         *grpc.Server
+	healthServer       *health.Server
 	grpcHandler        *GRPCServer
 	ringArbiterHandler *RingArbiterHandler
 	state              *State
@@ -70,8 +74,16 @@ func New(
 	ringpb.RegisterArbiterServer(grpcServer, grpcHandler)
 	ringpb.RegisterArbiterScalerServer(grpcServer, ringArbiterHandler)
 
+	// Register gRPC health check service
+	healthServer := health.NewServer()
+	healthgrpc.RegisterHealthServer(grpcServer, healthServer)
+
+	// Register gRPC server reflection (enables grpcurl and other tools)
+	reflection.Register(grpcServer)
+
 	return &arbiter{
 		grpcServer:         grpcServer,
+		healthServer:       healthServer,
 		grpcHandler:        grpcHandler,
 		ringArbiterHandler: ringArbiterHandler,
 		state:              state,
@@ -102,6 +114,9 @@ func (a *arbiter) Start(ctx context.Context) error {
 		a.lggr.Infow("Arbiter service started",
 			"grpcAddr", a.grpcAddr,
 		)
+
+		// Mark gRPC health as serving
+		a.healthServer.SetServingStatus("", healthgrpc.HealthCheckResponse_SERVING)
 
 		return nil
 	})
@@ -144,6 +159,9 @@ func (a *arbiter) Close() error {
 
 		// Signal stop
 		close(a.stopCh)
+
+		// Mark health as not serving before stopping
+		a.healthServer.SetServingStatus("", healthgrpc.HealthCheckResponse_NOT_SERVING)
 
 		// Graceful shutdown of gRPC server
 		a.grpcServer.GracefulStop()

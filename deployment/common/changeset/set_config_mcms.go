@@ -66,7 +66,11 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			state, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			qualifier := ""
+			if cfg.ProposalConfig != nil {
+				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
+			}
+			state, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return err
 			}
@@ -213,7 +217,11 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 		switch family {
 		case chain_selectors.FamilyEVM:
 			chain := e.BlockChains.EVMChains()[chainSelector]
-			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			qualifier := ""
+			if cfg.ProposalConfig != nil {
+				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
+			}
+			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

@@ -1,0 +1,258 @@
+name: Upgrade Compatibility Test
+
+on:
+  workflow_call:
+    inputs:
+      strip-image-suffix:
+        description: "Strip image suffix from tag so it matches the registry tag"
+        required: false
+        type: string
+      product:
+        description: "Product name to query in RANE SOT (jq '.nodes[].jobs[].product')"
+        required: false
+        type: string
+      no-git-rollback:
+        description: "Skip git rollback during compatibility testing"
+        required: false
+        type: boolean
+        default: false
+      refs:
+        description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
+        required: false
+        type: string
+      exclude-refs:
+        description: "Patterns to exclude specific refs (e.g., beta,rc,v0,v1)"
+        required: false
+        type: string
+      buildcmd:
+        description: "Build command to run"
+        required: true
+        type: string
+      envcmd:
+        description: "Environment setup command to run"
+        required: true
+        type: string
+      testcmd:
+        description: "Test command to run"
+        required: true
+        type: string
+      upgrade-nodes:
+        description: "Number of nodes to upgrade when testing"
+        required: false
+        default: "3"
+        type: string
+      don-nodes:
+        description: "Number of available DON nodes after envcmd"
+        required: false
+        default: "5"
+        type: string
+      node-name-template:
+        description: "Template for the node name"
+        required: false
+        default: "don-node%d"
+        type: string
+      versions-back:
+        description: "Number of versions to go back for compatibility testing"
+        required: false
+        default: "2"
+        type: string
+      working-directory:
+        description: "Working directory for commands"
+        required: false
+        default: "devenv"
+        type: string
+      logs-directory:
+        description: "Logs directory"
+        required: true
+        type: string
+      ctf-log-level:
+        description: "CTF log level"
+        required: false
+        default: "info"
+        type: string
+
+jobs:
+  compatibility:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
+    env:
+      STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
+      PRODUCT: ${{ inputs.product }}
+      NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
+      REFS: ${{ inputs.refs }}
+      EXCLUDE_REFS: ${{ inputs.exclude-refs }}
+      BUILD_CMD: ${{ inputs.buildcmd }}
+      ENV_CMD: ${{ inputs.envcmd }}
+      TEST_CMD: ${{ inputs.testcmd }}
+      UPGRADE_NODES: ${{ inputs.upgrade-nodes }}
+      DON_NODES: ${{ inputs.don-nodes }}
+      NODE_NAME_TEMPLATE: ${{ inputs.node-name-template }}
+      VERSIONS_BACK: ${{ inputs.versions-back }}
+      WORKING_DIR: ${{ inputs.working-directory }}
+      LOGS_DIR: ${{ inputs.logs-directory }}
+      CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
+      # JD is required by the local CRE-based tests
+      CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+      # ChIP Router is required by the local CRE-based tests
+      CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Install Just
+        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
+        with:
+          just-version: "1.40.0"
+
+      # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to private Amazon ECRs
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Login to public Amazon ECR
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Set up Go
+        uses: actions/setup-go@v6 # v6
+        with:
+          cache: true
+          go-version-file: ${{ env.WORKING_DIR }}/go.mod
+          cache-dependency-path: ${{ env.WORKING_DIR }}/go.sum
+
+      - name: Download Go dependencies
+        run: |
+          go mod download
+
+      - name: Get CTF version from go.mod
+        shell: bash
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
+          echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
+
+      - name: Install CTF binary
+        working-directory: ${{ env.WORKING_DIR }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p bin
+          gh release download "${{ env.CTF_TAG }}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
+          tar -xzf ctf.tar.gz
+          mv ctf bin/ctf
+          chmod +x bin/ctf
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
+              echo "Service is accessible via Tailscale"
+          else
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
+          fi
+
+      - name: Run compat test
+        working-directory: ${{ env.WORKING_DIR }}
+        shell: bash
+        env:
+          CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
+          FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
+          REGISTRY: public.ecr.aws/chainlink/chainlink
+          STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
+          PRODUCT: ${{ env.PRODUCT }}
+          NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
+          BUILD_CMD: ${{ env.BUILD_CMD }}
+          ENV_CMD: ${{ env.ENV_CMD }}
+          TEST_CMD: ${{ env.TEST_CMD }}
+          NODES: ${{ env.NODES }}
+          VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
+        run: |
+          REFS_ARGS=""
+          if [ -n "${{ env.REFS }}" ]; then
+            REFS_ARGS="--refs ${{ env.REFS }}"
+          fi
+          EXCLUDE_REFS_ARGS=""
+          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
+            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          fi
+          ./bin/ctf compat backward \
+            --registry "${REGISTRY}" \
+            --buildcmd "${BUILD_CMD}" \
+            --envcmd "${ENV_CMD}" \
+            --testcmd "${TEST_CMD}" \
+            --product "${PRODUCT}" \
+            ${REFS_ARGS} \
+            ${EXCLUDE_REFS_ARGS} \
+            --upgrade-nodes "${UPGRADE_NODES}" \
+            --don_nodes "${DON_NODES}" \
+            --node-name-template "${NODE_NAME_TEMPLATE}" \
+            --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
+            --versions-back "${VERSIONS_BACK}" \
+            ${{ env.NO_GIT_ROLLBACK }}
+
+      - name: Attach CI Summary
+        working-directory: ${{ env.WORKING_DIR }}
+        if: always()
+        run: |
+          if [ -f "ci_summary.txt" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Collect Docker container logs
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mkdir -p logs
+          for container in $(docker ps -q); do
+            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
+            docker logs $container > "logs/${container_name}.log" 2>&1
+          done
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-logs-smoke-${{ job.check_run_id }}
+          path: ${{ env.LOGS_DIR }}

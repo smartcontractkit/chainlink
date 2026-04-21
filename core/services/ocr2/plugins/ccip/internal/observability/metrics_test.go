@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	ccipdatamocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks"
 )
 
@@ -41,7 +40,7 @@ func TestProperLabelsArePassed(t *testing.T) {
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {
 	expectedCounter := 4
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	chainId := int64(420)
 
 	mockedOfframp := ccipdatamocks.NewOffRampReader(t)

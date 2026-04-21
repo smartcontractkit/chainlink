@@ -116,6 +116,10 @@ func (s *fakeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, er
 	), nil
 }
 
+func (s *fakeTrigger) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+	return nil
+}
+
 func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
 	if s.cancel != nil {
 		s.t.Fatal("trigger already registered")

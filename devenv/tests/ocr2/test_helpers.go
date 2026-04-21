@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/chaos"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
@@ -27,10 +26,7 @@ var (
 	LatestRoundAnswer       = int64(0)
 )
 
-type chaosSettings struct {
-	command          string
-	recoveryWaitTime time.Duration
-}
+type chaosFunc func()
 
 type gasSettings struct {
 	gasPriceStart  *big.Int
@@ -43,7 +39,6 @@ type gasSettings struct {
 type roundSettings struct {
 	value int
 	gas   *gasSettings
-	chaos *chaosSettings
 }
 
 type testcase struct {
@@ -51,6 +46,7 @@ type testcase struct {
 	roundCheckInterval time.Duration
 	roundTimeout       time.Duration
 	repeat             int
+	chaos              chaosFunc
 	roundSettings      []*roundSettings
 	cfg                *ocr2.OCRv2SetConfigOptions
 }
@@ -132,14 +128,6 @@ func verifyRounds(t *testing.T, in *de.Cfg, o2 *ocr2aggregator.OCR2Aggregator, t
 				if currentRoundSettings.gas != nil {
 					L.Info().Msg("Creating gas spike")
 					simulateGasSpike(t, c, currentRoundSettings.gas)
-				}
-				if currentRoundSettings.chaos != nil {
-					L.Info().Msg("Executing chaos action")
-					_, err = chaos.ExecPumba(
-						currentRoundSettings.chaos.command,
-						currentRoundSettings.chaos.recoveryWaitTime,
-					)
-					require.NoError(t, err)
 				}
 				require.NoError(t, err)
 				TotalRoundsPerTestCount++

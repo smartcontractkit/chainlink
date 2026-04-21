@@ -18,7 +18,7 @@ import (
 func ExecuteCronBeholderTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
-	workflowName := "cronbeholder"
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, "cronbeholder")
 
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)
 

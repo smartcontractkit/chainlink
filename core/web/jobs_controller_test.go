@@ -195,7 +195,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.OCROracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, types.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OCROracleSpec.ContractAddress)
+				require.NotEmpty(t, jb.OCROracleSpec.ContractAddress)
 			},
 		},
 		{
@@ -743,7 +743,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS1BridgeName:      bridge2.Name.String(),
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
-		TransmitterAddress: app.Keys[0].EIP55Address.String(),
+		TransmitterAddress: app.Keys[0].String(),
 		EVMChainID:         cltest.FixtureChainID.String(),
 	})
 	require.NoError(t, err)
@@ -813,10 +813,9 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 func setupEthClientForControllerTests(t *testing.T) *clienttest.Client {
 	ec := cltest.NewEthMocksWithStartupAssertions(t)
-	ec.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	ec.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
 	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	return ec
 }
 

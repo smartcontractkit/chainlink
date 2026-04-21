@@ -341,7 +341,9 @@ func TransferAdminRoleTokenAdminRegistry(e cldf.Environment, cfg TransferAdminRo
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 
 	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
 	if err != nil {
@@ -576,7 +578,9 @@ func UpgradeTokenAdminRegistry(e cldf.Environment, cfg UpgradeTokenAdminRegistry
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 
 	for _, tokenPubKey := range cfg.TokenPubKeys {
 		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
@@ -795,7 +799,9 @@ func SetTokenPoolSupportAutoDerivation(e cldf.Environment, cfg SetTokenPoolSuppo
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch router info from state: %w", err)
 	}
-	solRouter.SetProgramID(routerProgramAddress)
+	runSafely(func() {
+		solRouter.SetProgramID(routerProgramAddress)
+	})
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(cfg.TokenPubKey, routerProgramAddress)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to calculate token admin registry PDA: %w", err)

@@ -156,7 +156,7 @@ func (o *orm) CreateSession(ctx context.Context, sr sessions.SessionRequest) (st
 		return "", pkgerrors.New("Invalid email")
 	}
 
-	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+	if !utils.CheckPasswordHash(sr.Password, string(user.HashedPassword)) {
 		o.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]any{"email": sr.Email})
 		return "", pkgerrors.New("Invalid password")
 	}
@@ -249,7 +249,7 @@ func (o *orm) ClearNonCurrentSessions(ctx context.Context, sessionID string) err
 // CreateUser creates a new API user
 func (o *orm) CreateUser(ctx context.Context, user *sessions.User) error {
 	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	return o.ds.GetContext(ctx, user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
+	return o.ds.GetContext(ctx, user, sql, strings.ToLower(user.Email), string(user.HashedPassword), user.Role)
 }
 
 // UpdateRole overwrites role field of the user specified by email.

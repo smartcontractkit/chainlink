@@ -242,7 +242,9 @@ func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoo
 	}
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
-		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		})
 		return solBurnMintTokenPool.NewInitializeInstruction(
 			state.poolConfigPDA,
 			config.TokenMint,
@@ -253,7 +255,9 @@ func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoo
 			state.configPDA,
 		).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
-		solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		runSafely(func() {
+			solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		})
 		return solLockReleaseTokenPool.NewInitializeInstruction(
 			state.poolConfigPDA,
 			config.TokenMint,
@@ -273,7 +277,9 @@ func generateTransferTokenPoolOwnershipIx(e cldf.Environment, config OnboardToke
 	// TODO: Choose signer according to the Program State
 	switch config.PoolType {
 	case shared.BurnMintTokenPool:
-		solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		runSafely(func() {
+			solBurnMintTokenPool.SetProgramID(state.tokenPoolProgramID)
+		})
 		return solBurnMintTokenPool.NewTransferOwnershipInstruction(
 			config.ProposedOwner,
 			state.poolConfigPDA,
@@ -281,7 +287,9 @@ func generateTransferTokenPoolOwnershipIx(e cldf.Environment, config OnboardToke
 			state.upgradeAuthority,
 		).ValidateAndBuild()
 	case shared.LockReleaseTokenPool:
-		solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		runSafely(func() {
+			solLockReleaseTokenPool.SetProgramID(state.tokenPoolProgramID)
+		})
 		return solLockReleaseTokenPool.NewTransferOwnershipInstruction(
 			config.ProposedOwner,
 			state.poolConfigPDA,

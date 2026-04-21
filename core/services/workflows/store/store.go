@@ -14,6 +14,7 @@ type Store interface {
 	UpsertStep(ctx context.Context, step *WorkflowExecutionStep) (WorkflowExecution, error)
 	FinishExecution(ctx context.Context, executionID string, status string) (WorkflowExecution, error)
 	Get(ctx context.Context, executionID string) (WorkflowExecution, error)
+	DeleteByWorkflowID(ctx context.Context, workflowID string) error
 }
 
 var _ Store = (*InMemoryStore)(nil)

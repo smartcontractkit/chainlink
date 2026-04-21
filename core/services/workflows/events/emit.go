@@ -349,8 +349,17 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 	return multiErr
 }
 
+func EmitUserMetric(ctx context.Context, labels map[string]string, metric *eventsv2.WorkflowUserMetric) error {
+	metric.CreInfo = buildCREMetadataV2(labels)
+	metric.Workflow = buildWorkflowKeyV2(labels)
+	metric.Timestamp = time.Now().Format(time.RFC3339)
+
+	return emitProtoMessage(ctx, metric)
+}
+
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
+// Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
 func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	s := sha256.New()
 	_, err := s.Write([]byte(workflowID))
@@ -359,6 +368,26 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	}
 
 	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(s.Sum(nil)), nil
+}
+
+func GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID string, triggerIndex int) (string, error) {
+	s := sha256.New()
+	_, err := s.Write([]byte(workflowID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(triggerEventID))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.Write([]byte(strconv.Itoa(triggerIndex)))
 	if err != nil {
 		return "", err
 	}
@@ -417,6 +446,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
 		entity = "workflows.v2." + WorkflowUserLog
+	case *eventsv2.WorkflowUserMetric:
+		schema = SchemaUserMetricV2
+		entity = "workflows.v2." + WorkflowUserMetric
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated

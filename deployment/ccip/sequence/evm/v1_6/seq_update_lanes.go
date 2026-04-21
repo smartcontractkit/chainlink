@@ -17,6 +17,7 @@ type UpdateLanesSequenceInput struct {
 	OffRampApplySourceChainConfigUpdatesSequenceInput
 	OnRampApplyDestChainConfigUpdatesSequenceInput
 	RouterApplyRampUpdatesSequenceInput
+	NonceManagerUpdatesSequenceInput
 }
 
 var UpdateLanesSequence = operations.NewSequence(
@@ -55,6 +56,14 @@ var UpdateLanesSequence = operations.NewSequence(
 			return nil, err
 		}
 		b.Logger.Info("Ramps updated on Routers")
+
+		if len(input.NonceManagerUpdatesSequenceInput.UpdatesByChain) > 0 {
+			result, err = runAndMergeSequence(b, chains, UpdateNonceManagerSequence, input.NonceManagerUpdatesSequenceInput, result)
+			if err != nil {
+				return nil, err
+			}
+			b.Logger.Info("Previous ramps updated on NonceManagers")
+		}
 
 		return result, nil
 	},

@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -208,7 +209,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	}
 
 	for nodeIdx, nodeMetadata := range input.DonMetadata.NodesMetadata {
-		nodeConfig := baseNodeConfig(commonInputs)
+		nodeConfig := baseNodeConfig(commonInputs, input.DonMetadata, nodeMetadata)
 		for _, role := range nodeMetadata.Roles {
 			switch role {
 			case cre.BootstrapNode:
@@ -262,7 +263,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 	return configOverrides, nil
 }
 
-func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
+func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
 			Feature: coretoml.Feature{
@@ -280,17 +281,36 @@ func baseNodeConfig(commonInputs *commonInputs) corechainlink.Config {
 			CRE: coretoml.CreConfig{
 				EnableDKGRecipient:   ptr.Ptr(true),
 				UseLocalTimeProvider: ptr.Ptr(false),
+				DebugMode:            ptr.Ptr(true),
 			},
 		},
 	}
 
 	if commonInputs.provider.IsDocker() {
+		nodeIdentifier := donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index)
 		c.Telemetry = coretoml.Telemetry{
 			Enabled:             ptr.Ptr(true),
 			Endpoint:            ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317"),
 			InsecureConnection:  ptr.Ptr(true),
 			LogStreamingEnabled: ptr.Ptr(true),
+			TraceSampleRatio:    ptr.Ptr(0.0), // Set to > 0 to enable tracing
+			ResourceAttributes: map[string]string{
+				"service.name":     "chainlink-node",
+				"service.instance": nodeIdentifier,
+				"node.don":         donMetadata.Name,
+				"node.index":       strconv.Itoa(nodeMetadata.Index),
+			},
 		}
+		// Note: OTEL_SERVICE_NAME env var should also be set on nodes to ensure
+		// the service name is applied correctly. The ResourceAttributes above may
+		// not override the SDK default due to OTel resource merge behavior.
+		// Add to nodeset: env_vars = { OTEL_SERVICE_NAME = "chainlink-node" }
+
+		c.Tracing.Enabled = ptr.Ptr(false) // Set to true to enable tracing
+		c.Tracing.CollectorTarget = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":4317")
+		c.Tracing.SamplingRatio = ptr.Ptr(1.0)
+		c.Tracing.Mode = ptr.Ptr("unencrypted")
+		c.Tracing.NodeID = ptr.Ptr(donMetadata.Name + "-node-" + strconv.Itoa(nodeMetadata.Index))
 	}
 
 	return c
@@ -358,6 +378,17 @@ func addBootstrapNodeConfig(
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
+	for _, ac := range commonInputs.aptosChains {
+		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
+			"ChainID": ac.ChainID,
+			"Enabled": true,
+			"Nodes":   []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+		})
+	}
+
+	// Set external registry only (local EVM capability registry). We do not set [Capabilities.Local];
+	// capabilities (e.g. cron) are registered on the on-chain capability registry via Features (e.g. Cron
+	// feature PreEnvStartup), same as workflow-don-solana.toml, workflow-gateway-don.toml, workflow-don-tron.toml.
 	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
 		existingConfig.Capabilities.ExternalRegistry = coretoml.ExternalRegistry{
 			Address:         ptr.Ptr(commonInputs.capabilityRegistry.address),
@@ -414,8 +445,9 @@ func addWorkerNodeConfig(
 	}
 
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
-	// before resetting Capabilities struct
+	// and Local capabilities config before resetting Capabilities struct.
 	existingWorkflowRegistry := existingConfig.Capabilities.WorkflowRegistry
+	existingLocalCapabilities := existingConfig.Capabilities.Local
 
 	existingConfig.Capabilities = coretoml.Capabilities{
 		Peering: coretoml.P2P{
@@ -430,6 +462,13 @@ func addWorkerNodeConfig(
 			SendToSharedPeer: ptr.Ptr(true),
 		},
 		WorkflowRegistry: existingWorkflowRegistry,
+		Local:            existingLocalCapabilities,
+	}
+
+	if len(donMetadata.RegistryBasedLaunchAllowlist) > 0 {
+		existingConfig.Capabilities.Local = coretoml.LocalCapabilities{
+			RegistryBasedLaunchAllowlist: donMetadata.RegistryBasedLaunchAllowlist,
+		}
 	}
 
 	for _, evmChain := range commonInputs.evmChains {
@@ -438,6 +477,14 @@ func addWorkerNodeConfig(
 
 	if commonInputs.solanaChain != nil {
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
+	}
+
+	for _, ac := range commonInputs.aptosChains {
+		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
+			"ChainID": ac.ChainID,
+			"Enabled": true,
+			"Nodes":   []map[string]any{{"Name": "default", "URL": ac.NodeURL}},
+		})
 	}
 
 	if existingConfig.Capabilities.ExternalRegistry.Address == nil {
@@ -467,17 +514,20 @@ func addWorkerNodeConfig(
 	if donMetadata.IsShardDON() {
 		existingConfig.Sharding.ShardingEnabled = ptr.Ptr(true)
 		existingConfig.Sharding.ShardIndex = ptr.Ptr(uint16(donMetadata.ShardIndex)) //nolint:gosec // disable G115 overflow is unrealistic
+		existingConfig.Sharding.ArbiterPort = ptr.Ptr(cre.DefaultArbiterPort)
+		existingConfig.Sharding.ShardOrchestratorPort = ptr.Ptr(cre.DefaultShardOrchestratorPort)
 
-		// all shards apart from the leader need to connect to shard orchestrators running on shard leader DON (shard0)
 		if !donMetadata.IsShardLeader() {
 			shard0, sErr := topology.DonsMetadata.ShardLeaderDON()
 			if sErr != nil {
 				return existingConfig, fmt.Errorf("failed to fetch shard leader DON: %w", sErr)
 			}
 
-			// all shards have the same amount of nodes, we can use current node index to select
-			// shard0 node it should connect to. We connect corresponding nodes to spread the load.
-			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddress()))
+			if m.Index >= len(shard0.NodesMetadata) {
+				return existingConfig, fmt.Errorf("shard %d node index %d exceeds shard leader node count %d", donMetadata.ShardIndex, m.Index, len(shard0.NodesMetadata))
+			}
+
+			existingConfig.Sharding.ShardOrchestratorAddress = ptr.Ptr(*commonconfig.MustParseURL(shard0.NodesMetadata[m.Index].ShardOrchestratorAddressWithPort(cre.DefaultShardOrchestratorPort)))
 		}
 	}
 
@@ -490,7 +540,7 @@ func addWorkerNodeConfig(
 		}
 
 		gateways := []coretoml.ConnectorGateway{}
-		if topology != nil && len(topology.GatewayConnectors.Configurations) > 0 {
+		if topology != nil && topology.GatewayConnectors != nil && len(topology.GatewayConnectors.Configurations) > 0 {
 			for _, gateway := range topology.GatewayConnectors.Configurations {
 				gateways = append(gateways, coretoml.ConnectorGateway{
 					ID: ptr.Ptr(gateway.AuthGatewayID),
@@ -594,6 +644,11 @@ type versionedAddress struct {
 	version *semver.Version
 }
 
+type aptosChain struct {
+	ChainID string
+	NodeURL string
+}
+
 type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
@@ -603,6 +658,7 @@ type commonInputs struct {
 
 	evmChains   []*evmChain
 	solanaChain *solanaChain
+	aptosChains []*aptosChain
 
 	provider infra.Provider
 }
@@ -622,6 +678,11 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	capabilitiesRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
 	workflowRegistryAddress := crecontracts.MustGetAddressFromDataStore(input.Datastore, input.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
+	aptosChains, aptosErr := findAptosChains(input)
+	if aptosErr != nil {
+		return nil, errors.Wrap(aptosErr, "failed to find Aptos chains in the environment configuration")
+	}
+
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
@@ -631,6 +692,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		},
 		evmChains:   evmChains,
 		solanaChain: solanaChain,
+		aptosChains: aptosChains,
 		capabilityRegistry: versionedAddress{
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
@@ -648,8 +710,8 @@ type evmChain struct {
 
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
-	for chainSelector, bcOut := range input.Blockchains {
-		if bcOut.IsFamily(chain_selectors.FamilySolana) {
+	for _, bcOut := range input.Blockchains {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) {
 			continue
 		}
 
@@ -659,7 +721,7 @@ func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 		}
 
 		evmChains = append(evmChains, &evmChain{
-			Name:    fmt.Sprintf("node-%d", chainSelector),
+			Name:    fmt.Sprintf("node-%d", bcOut.ChainSelector()),
 			ChainID: bcOut.ChainID(),
 			HTTPRPC: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 			WSRPC:   bcOut.CtfOutput().Nodes[0].InternalWSUrl,
@@ -691,7 +753,7 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 		solBc := bcOut.(*solana.Blockchain)
 
 		ctx, cancelFn := context.WithTimeout(context.Background(), 15*time.Second)
-		chainID, err := solBc.SolClient.GetGenesisHash(ctx)
+		chainID, err := solBc.GenesisHash(ctx)
 		if err != nil {
 			cancelFn()
 			return nil, errors.Wrap(err, "failed to get chainID for Solana")
@@ -700,12 +762,40 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 
 		solChain = &solanaChain{
 			Name:    fmt.Sprintf("node-%d", solBc.ChainSelector()),
-			ChainID: chainID.String(),
+			ChainID: chainID,
 			NodeURL: bcOut.CtfOutput().Nodes[0].InternalHTTPUrl,
 		}
 	}
 
 	return solChain, nil
+}
+
+func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
+	capabilityChainIDs := input.DonMetadata.MustNodeSet().ChainCapabilityChainIDs()
+	out := make([]*aptosChain, 0)
+	for _, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilyAptos) {
+			continue
+		}
+		if len(capabilityChainIDs) > 0 && !slices.Contains(capabilityChainIDs, bcOut.ChainID()) {
+			continue
+		}
+
+		aptosBC, ok := bcOut.(*aptoschain.Blockchain)
+		if !ok {
+			return nil, fmt.Errorf("expected Aptos blockchain implementation for chain %d, got %T", bcOut.ChainID(), bcOut)
+		}
+		nodeURL, err := aptosBC.InternalNodeURL()
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get Aptos internal node URL for chain %d", bcOut.ChainID())
+		}
+
+		out = append(out, &aptosChain{
+			ChainID: strconv.FormatUint(bcOut.ChainID(), 10),
+			NodeURL: nodeURL,
+		})
+	}
+	return out, nil
 }
 
 func buildTronEVMConfig(evmChain *evmChain) evmconfigtoml.EVMConfig {

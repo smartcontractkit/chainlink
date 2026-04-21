@@ -10,20 +10,18 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260217195306-9fec97c5dfbd"
+      gitRef: "v0.0.0-20260407161350-a86b1969da65"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
-      # current version is v0.0.0-20260223231841-af91ea434e03
-      gitRef: "v0.0.0-20260223231841-af91ea434e03"
+      # current version is v0.0.0-20260409184948-5b16fae57fe0
+      gitRef: "v0.0.0-20260409184948-5b16fae57fe0"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
     - moduleURI: "github.com/smartcontractkit/chainlink-cosmos"
-      # Git reference - can be a tag, branch, or commit hash
-      # If not specified, uses the latest version.
       gitRef: "v0.5.2-0.20260219133256-b46d473fd6f5"
       installPath: "./pkg/cosmos/cmd/chainlink-cosmos"
       # These will be copied into /usr/lib in the container.
@@ -37,25 +35,25 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260223222711-2fa6b0e07db0"
+      gitRef: "v1.1.2-0.20260416172015-a42711f2b863"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "v0.1.1-0.20260218141258-834aadbff52b" # 2026-02-18
+      gitRef: "73cd3d46ad0ce2871160369cb6447aeb9b48513f" # 2026-04-08
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.12-0.20260224150904-47eef37d9005"
+      gitRef: "v0.1.13"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260223231247-735246035dab"
+      gitRef: "v0.0.0-20260415120434-cecc380f8d87"
       installPath: "./cmd/chainlink-ton"
 
   tron:
     - moduleURI: "github.com/smartcontractkit/chainlink-tron/relayer"
-      gitRef: "v0.0.11-0.20260218133534-cbd44da2856b"
+      gitRef: "v0.0.11-0.20260408092456-3c6369888d4a"
       installPath: "./cmd/chainlink-tron"

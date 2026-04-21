@@ -1,6 +1,7 @@
 package v1_6_2_test
 
 import (
+	"cmp"
 	"maps"
 	"math/big"
 	"slices"
@@ -10,12 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6_2"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/mock_usdc_token_transmitter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -122,13 +122,11 @@ func setupCCTPMsgTransmitterProxyContractsForConfigure(
 }
 
 func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
-	t.Parallel()
-
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
 	chains := rt.Environment().BlockChains.EVMChains()
 	require.GreaterOrEqual(t, len(chains), 1)
 
-	chain := slices.Collect(maps.Values(chains))[0]
+	chain := chains[slices.Sorted(maps.Keys(chains))[0]]
 
 	addressBook := cldf.NewMemoryAddressBook()
 	_, tokenMsngr := setupCCTPMsgTransmitterProxyContractsForConfigure(t, rt.Environment().Logger, chain, addressBook)
@@ -181,38 +179,27 @@ func TestValidateConfigureCCTPMessageTransmitterProxyInput(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
 			err := test.Input.Validate(t.Context(), chain, state.Chains[chain.Selector])
+			require.Error(t, err)
 			require.Contains(t, err.Error(), test.ErrStr)
 		})
 	}
 }
 
 func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
-	quarantine.Flaky(t, "DX-2064")
-	t.Parallel()
-
 	rt := setupCCTPMsgTransmitterProxyEnvironmentForConfigure(t, true)
-	chains := rt.Environment().BlockChains.EVMChains()
+	evmChainsBySel := rt.Environment().BlockChains.EVMChains()
+	chainSelectors := slices.Sorted(maps.Keys(evmChainsBySel))
 	addrBook := cldf.NewMemoryAddressBook()
 
-	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(chains))
-	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(chains))
-	for _, chain := range chains {
+	newUSDCMsgProxies := make(map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput, len(evmChainsBySel))
+	newUSDCTokenPools := make(map[uint64]v1_6_2.DeployUSDCTokenPoolInput, len(evmChainsBySel))
+	for _, sel := range chainSelectors {
+		chain := evmChainsBySel[sel]
 		usdcToken, tokenMessenger := setupCCTPMsgTransmitterProxyContractsForConfigure(t,
 			rt.Environment().Logger,
 			chain,
 			addrBook,
 		)
-
-		err := rt.Exec(
-			runtime.ChangesetTask(v1_6_2.DeployCCTPMessageTransmitterProxyNew, v1_6_2.DeployCCTPMessageTransmitterProxyContractConfig{
-				USDCProxies: map[uint64]v1_6_2.DeployCCTPMessageTransmitterProxyInput{
-					chain.Selector: {
-						TokenMessenger: tokenMessenger.Address,
-					},
-				},
-			}),
-		)
-		require.NoError(t, err)
 
 		newUSDCMsgProxies[chain.Selector] = v1_6_2.DeployCCTPMessageTransmitterProxyInput{
 			TokenMessenger: tokenMessenger.Address,
@@ -239,19 +226,24 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 	startState, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
 
-	newUSDCProxyCnfgs := make(map[uint64]v1_6_2.ConfigureCCTPMessageTransmitterProxyInput, len(chains))
-	for _, chain := range chains {
-		pools := startState.Chains[chain.Selector].USDCTokenPoolsV1_6
-		input := make([]v1_6_2.AllowedCallerUpdate, len(pools))
+	newUSDCProxyCnfgs := make(map[uint64]v1_6_2.ConfigureCCTPMessageTransmitterProxyInput, len(evmChainsBySel))
+	for _, sel := range chainSelectors {
+		pools := startState.Chains[sel].USDCTokenPoolsV1_6
+		poolsSlice := slices.AppendSeq([]*usdc_token_pool.USDCTokenPool{}, maps.Values(pools))
+		slices.SortFunc(poolsSlice, func(a, b *usdc_token_pool.USDCTokenPool) int {
+			return cmp.Compare(a.Address().Hex(), b.Address().Hex())
+		})
+		require.NotEmpty(t, poolsSlice, "expected a 1.6 USDC token pool on chain %d before Configure", sel)
 
-		for i, pool := range slices.AppendSeq([]*usdc_token_pool.USDCTokenPool{}, maps.Values(pools)) {
+		input := make([]v1_6_2.AllowedCallerUpdate, len(poolsSlice))
+		for i, pool := range poolsSlice {
 			input[i] = v1_6_2.AllowedCallerUpdate{
 				AllowedCaller: pool.Address(),
 				Enabled:       true,
 			}
 		}
 
-		newUSDCProxyCnfgs[chain.Selector] = v1_6_2.ConfigureCCTPMessageTransmitterProxyInput{
+		newUSDCProxyCnfgs[sel] = v1_6_2.ConfigureCCTPMessageTransmitterProxyInput{
 			AllowedCallerUpdates: input,
 		}
 	}
@@ -265,9 +257,9 @@ func TestConfigureCCTPMessageTransmitterProxy(t *testing.T) {
 
 	finalState, err := stateview.LoadOnchainState(rt.Environment())
 	require.NoError(t, err)
-	for _, chain := range chains {
-		proxies := finalState.Chains[chain.Selector].CCTPMessageTransmitterProxies
-		updates := newUSDCProxyCnfgs[chain.Selector].AllowedCallerUpdates
+	for _, sel := range chainSelectors {
+		proxies := finalState.Chains[sel].CCTPMessageTransmitterProxies
+		updates := newUSDCProxyCnfgs[sel].AllowedCallerUpdates
 		require.Len(t, proxies, 1)
 
 		expectedCallers := make([]common.Address, len(updates))

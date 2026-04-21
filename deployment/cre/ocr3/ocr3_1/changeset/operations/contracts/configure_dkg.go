@@ -40,6 +40,7 @@ type ConfigureDKGInput struct {
 
 	MCMSConfig            *contracts.MCMSConfig
 	ReportingPluginConfig dkgocrtypes.ReportingPluginConfig
+	ExtraSignerFamilies   []string `json:"extraSignerFamilies,omitempty" yaml:"extraSignerFamilies,omitempty"`
 }
 
 func (i ConfigureDKGInput) UseMCMS() bool {
@@ -64,7 +65,7 @@ var ConfigureDKG = operations.NewOperation(
 			return ConfigureDKGOpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex(), "")
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
 		}
@@ -80,6 +81,7 @@ var ConfigureDKG = operations.NewOperation(
 			input.ChainSelector,
 			deps.Env.OCRSecrets,
 			input.ReportingPluginConfig,
+			input.ExtraSignerFamilies,
 		)
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to generate DKG config: %w", err)

@@ -298,7 +298,6 @@ func parseExtraDataMap(input map[string]any) (*big.Int, error) {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "gaslimit":
-			// Expect [][32]byte
 			if val, ok := fieldValue.(*big.Int); ok {
 				outputGas = val
 				return outputGas, nil

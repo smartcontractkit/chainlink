@@ -22,7 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -47,6 +49,7 @@ type EngineConfig struct {
 
 	LocalLimits                       EngineLimits
 	LocalLimiters                     *EngineLimiters
+	FeatureFlags                      *EngineFeatureFlags
 	GlobalExecutionConcurrencyLimiter limits.ResourceLimiter[int] // global + per owner WorkflowExecutionConcurrencyLimit
 
 	BeholderEmitter custmsg.MessageEmitter
@@ -64,6 +67,14 @@ type EngineConfig struct {
 
 	// includes additional logging of events internal to user workflows
 	DebugMode bool
+
+	// SdkName is the name of the SDK used to build the workflow binary, discovered during module creation.
+	SdkName string
+
+	ShardOrchestratorClient shardorchestrator.ClientInterface
+	ShardingEnabled         bool
+	MyShardID               uint32
+	ShardRoutingSteady      *shardownership.SteadySignal
 }
 
 type EngineLimiters struct {
@@ -93,6 +104,15 @@ type EngineLimiters struct {
 	HTTPActionCalls       limits.BoundLimiter[int]
 	ConfidentialHTTPCalls limits.BoundLimiter[int]
 	SecretsCalls          limits.BoundLimiter[int]
+
+	UserMetricEnabled          limits.GateLimiter
+	UserMetricPayload          limits.BoundLimiter[config.Size]
+	UserMetricNameLength       limits.BoundLimiter[int]
+	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
+	UserMetricLabelValueLength limits.BoundLimiter[int]
+
+	ExecutionTimestampsEnabled     limits.GateLimiter
+	VaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -107,7 +127,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	l.ExecutionResponse, err = limits.MakeBoundLimiter(lf, cfg.ExecutionResponseLimit)
+	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
 	if err != nil {
 		return
 	}
@@ -119,7 +139,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerSubscription, err = limits.MakeBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
+	l.TriggerSubscription, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerSubscriptionLimit)
 	if err != nil {
 		return
 	}
@@ -131,19 +151,34 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.ExecutionConcurrency, err = limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+
+	globalExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
 		return
 	}
-	l.WASMBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMBinarySizeLimit)
+	orgExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOrg.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
 		return
 	}
-	l.WASMMemorySize, err = limits.MakeBoundLimiter(lf, cfg.WASMMemoryLimit)
+	ownerExec, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit)
 	if err != nil {
 		return
 	}
-	l.WASMCompressedBinarySize, err = limits.MakeBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
+	wfExec, err := limits.MakeResourcePoolLimiter(lf, cfg.ExecutionConcurrencyLimit)
+	if err != nil {
+		return
+	}
+	l.ExecutionConcurrency = limits.MultiResourcePoolLimiter[int]{wfExec, ownerExec, orgExec, globalExec}
+
+	l.WASMBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMBinarySizeLimit)
+	if err != nil {
+		return
+	}
+	l.WASMMemorySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMMemoryLimit)
+	if err != nil {
+		return
+	}
+	l.WASMCompressedBinarySize, err = limits.MakeUpperBoundLimiter(lf, cfg.WASMCompressedBinarySizeLimit)
 	if err != nil {
 		return
 	}
@@ -163,11 +198,31 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.LogEvent, err = limits.MakeBoundLimiter(lf, cfg.LogEventLimit)
+	l.LogEvent, err = limits.MakeUpperBoundLimiter(lf, cfg.LogEventLimit)
 	if err != nil {
 		return
 	}
-	l.LogLine, err = limits.MakeBoundLimiter(lf, cfg.LogLineLimit)
+	l.LogLine, err = limits.MakeUpperBoundLimiter(lf, cfg.LogLineLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricEnabled, err = limits.MakeGateLimiter(lf, cfg.UserMetricEnabled)
+	if err != nil {
+		return
+	}
+	l.UserMetricPayload, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricPayloadLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricNameLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricNameLengthLimit)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelsPerMetric, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelsPerMetric)
+	if err != nil {
+		return
+	}
+	l.UserMetricLabelValueLength, err = limits.MakeUpperBoundLimiter(lf, cfg.UserMetricLabelValueLength)
 	if err != nil {
 		return
 	}
@@ -175,31 +230,84 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.ChainWriteTargets, err = limits.MakeBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
+	l.ChainWriteTargets, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainWrite.TargetsLimit)
 	if err != nil {
 		return
 	}
-	l.ChainReadCalls, err = limits.MakeBoundLimiter(lf, cfg.ChainRead.CallLimit)
+	l.ChainReadCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ChainRead.CallLimit)
 	if err != nil {
 		return
 	}
-	l.ConsensusCalls, err = limits.MakeBoundLimiter(lf, cfg.Consensus.CallLimit)
+	l.ConsensusCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Consensus.CallLimit)
 	if err != nil {
 		return
 	}
-	l.HTTPActionCalls, err = limits.MakeBoundLimiter(lf, cfg.HTTPAction.CallLimit)
+	l.HTTPActionCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.HTTPAction.CallLimit)
 	if err != nil {
 		return
 	}
-	l.ConfidentialHTTPCalls, err = limits.MakeBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
+	l.ConfidentialHTTPCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.ConfidentialHTTP.CallLimit)
 	if err != nil {
 		return
 	}
-	l.SecretsCalls, err = limits.MakeBoundLimiter(lf, cfg.Secrets.CallLimit)
+	l.SecretsCalls, err = limits.MakeUpperBoundLimiter(lf, cfg.Secrets.CallLimit)
+	if err != nil {
+		return
+	}
+	l.ExecutionTimestampsEnabled, err = limits.MakeGateLimiter(lf, cfg.ExecutionTimestampsEnabled)
+	if err != nil {
+		return
+	}
+	l.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
 	if err != nil {
 		return
 	}
 	return
+}
+
+// EvictWorkflow removes per-workflow scoped state (background goroutines,
+// queues, semaphores) from all limiters for the given workflow ID.  This
+// prevents leaked goroutines and map entries from accumulating after workflows
+// are deleted.
+func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
+	evictables := []any{
+		l.ExecutionResponse,
+		l.TriggerSubscriptionTime,
+		l.TriggerRegistrationsTime,
+		l.TriggerSubscription,
+		l.TriggerEventQueue,
+		l.TriggerEventQueueTime,
+		l.ExecutionConcurrency,
+		l.WASMBinarySize,
+		l.WASMMemorySize,
+		l.WASMCompressedBinarySize,
+		l.CapabilityConcurrency,
+		l.SecretsConcurrency,
+		l.ExecutionTime,
+		l.CapabilityCallTime,
+		l.LogEvent,
+		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
+		l.ChainAllowed,
+		l.ChainWriteTargets,
+		l.ChainReadCalls,
+		l.ConsensusCalls,
+		l.HTTPActionCalls,
+		l.ConfidentialHTTPCalls,
+		l.SecretsCalls,
+		l.ExecutionTimestampsEnabled,
+	}
+	var errs error
+	for _, e := range evictables {
+		if err := limits.TryEvictTenant(e, workflowID); err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+	return errs
 }
 
 func (l *EngineLimiters) Close() error {
@@ -220,6 +328,11 @@ func (l *EngineLimiters) Close() error {
 		l.CapabilityCallTime,
 		l.LogEvent,
 		l.LogLine,
+		l.UserMetricEnabled,
+		l.UserMetricPayload,
+		l.UserMetricNameLength,
+		l.UserMetricLabelsPerMetric,
+		l.UserMetricLabelValueLength,
 		l.ChainAllowed,
 		l.ChainWriteTargets,
 		l.ChainReadCalls,
@@ -227,7 +340,26 @@ func (l *EngineLimiters) Close() error {
 		l.HTTPActionCalls,
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
+		l.ExecutionTimestampsEnabled,
 	)
+}
+
+type EngineFeatureFlags struct {
+	FeatureMultiTriggerExecutionIDs limits.BoundLimiter[config.Timestamp]
+}
+
+func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
+	cfg := cresettings.Default.PerWorkflow
+	if cfgFn != nil {
+		cfgFn(&cfg)
+	}
+	featureMultiTriggerExecutionIDs, err := limits.MakeLowerBoundLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActiveAt)
+	if err != nil {
+		return nil, err
+	}
+	return &EngineFeatureFlags{
+		FeatureMultiTriggerExecutionIDs: featureMultiTriggerExecutionIDs,
+	}, nil
 }
 
 const (
@@ -293,6 +425,10 @@ func (c *EngineConfig) Validate() error {
 
 	if c.BeholderEmitter == nil {
 		return errors.New("beholder emitter not set")
+	}
+
+	if c.FeatureFlags == nil {
+		return errors.New("engine feature flags not set")
 	}
 
 	c.Hooks.setDefaultHooks()

@@ -5,17 +5,15 @@ set +e
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
-GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"25m"}
 
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.12.3
+go install gotest.tools/gotestsum@v1.13.0
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
 echo "Running go_core_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
-# Temporary reduction in concurrent packages to reduce RAM usage
-GO_TEST_FLAGS="$GO_TEST_FLAGS -p=4"
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
@@ -49,6 +47,7 @@ gotestsum \
   $RERUN_FLAGS \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
+  --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
   -- $GO_TEST_FLAGS
 

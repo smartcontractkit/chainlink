@@ -43,7 +43,7 @@ fj293fbBnlQ!f9vNs
 HTTPPort = $PORT
 
 [[Aptos]]
-ChainID = '42'
+ChainID = '4'
 
 [[Aptos.Nodes]]
 Name = 'primary'
@@ -103,10 +103,10 @@ URL = 'http://tron.org'
 SolidityURL = 'https://solidity.evm'
 
 -- out.txt --
-ok Aptos.42.RelayerService
-ok Aptos.42.RelayerService.PluginRelayerClient
-ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos
-ok Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
+ok Aptos.4.RelayerService
+ok Aptos.4.RelayerService.PluginRelayerClient
+ok Aptos.4.RelayerService.PluginRelayerClient.PluginAptos
+ok Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter
 ok BridgeStatusReporter
 ok CRE
 ok CRE.DispatcherWrapper
@@ -126,8 +126,7 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.LogBroadcaster
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
+ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.PluginRelayerConfigEmitter
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Relayer
 ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm
@@ -143,6 +142,7 @@ ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
+ok NodePlatformBuildInfo
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
@@ -189,44 +189,42 @@ ok WorkflowStore
 -- out-unhealthy.txt --
 !  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener
 	Listener connected = false, receiving heads = false
-!  EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor
-	service is "Unstarted", not started
 
 -- out.json --
 {
   "data": [
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService",
+      "id": "Aptos.4.RelayerService",
       "attributes": {
-        "name": "Aptos.42.RelayerService",
+        "name": "Aptos.4.RelayerService",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos",
         "status": "passing",
         "output": ""
       }
     },
     {
       "type": "checks",
-      "id": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+      "id": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
       "attributes": {
-        "name": "Aptos.42.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
+        "name": "Aptos.4.RelayerService.PluginRelayerClient.PluginAptos.PluginRelayerConfigEmitter",
         "status": "passing",
         "output": ""
       }
@@ -398,8 +396,8 @@ ok WorkflowStore
       "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
       "attributes": {
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
+        "status": "passing",
+        "output": ""
       }
     },
     {
@@ -533,6 +531,15 @@ ok WorkflowStore
       "id": "Mercury.WSRPCPool.CacheSet",
       "attributes": {
         "name": "Mercury.WSRPCPool.CacheSet",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "NodePlatformBuildInfo",
+      "attributes": {
+        "name": "NodePlatformBuildInfo",
         "status": "passing",
         "output": ""
       }
@@ -927,15 +934,6 @@ ok WorkflowStore
         "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.HeadTracker.HeadListener",
         "status": "failing",
         "output": "Listener connected = false, receiving heads = false"
-      }
-    },
-    {
-      "type": "checks",
-      "id": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-      "attributes": {
-        "name": "EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Mailbox.Monitor",
-        "status": "failing",
-        "output": "service is \"Unstarted\", not started"
       }
     }
   ]

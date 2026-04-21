@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -97,6 +99,19 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	<-awaitOutgoingMessageCh
 
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
+	ctx := testutils.Context(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
+	eventID := "123"
+	triggerID := "trigA"
+	regEvent := newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1])
+	publisher.Receive(ctx, regEvent)
+
+	require.True(t, underlyingTriggerCap.eventAckd)
 	require.NoError(t, publisher.Close())
 }
 
@@ -267,10 +282,25 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
+func newAckEventMessage(t *testing.T, eventID string, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+	return &remotetypes.MessageBody{
+		Sender:      sender[:],
+		Method:      remotetypes.MethodTriggerEventAck,
+		CallerDonId: callerDonID,
+		Metadata: &remotetypes.MessageBody_TriggerEventMetadata{
+			TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
+				TriggerEventId: eventID,
+				TriggerIds:     []string{triggerID},
+			},
+		},
+	}
+}
+
 type testTrigger struct {
 	info            commoncap.CapabilityInfo
 	registrationsCh chan commoncap.TriggerRegistrationRequest
 	eventCh         chan commoncap.TriggerResponse
+	eventAckd       bool
 }
 
 func (tr *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
@@ -283,6 +313,11 @@ func (tr *testTrigger) RegisterTrigger(_ context.Context, request commoncap.Trig
 }
 
 func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+	tr.eventAckd = true
 	return nil
 }
 
@@ -377,6 +412,307 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
+func TestTriggerPublisher_ResendBehavior_MultiTriggerBatch(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+
+	capabilityDONID := uint32(1)
+	workflowDONID := uint32(2)
+
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+	capDonInfo := commoncap.DON{
+		ID:      capabilityDONID,
+		Members: []p2ptypes.PeerID{peers[0]},
+		F:       0,
+	}
+
+	workflowDonInfo := commoncap.DON{
+		ID:      workflowDONID,
+		Members: []p2ptypes.PeerID{peers[0], peers[1]},
+		F:       0,
+	}
+
+	workflowDONs := map[uint32]commoncap.DON{
+		workflowDonInfo.ID: workflowDonInfo,
+	}
+
+	underlying := newMultiTrigger(commoncap.CapabilityInfo{ID: capID})
+	dispatcher := mocks.NewDispatcher(t)
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            2,
+		BatchCollectionPeriod:   10 * time.Millisecond,
+	}
+
+	publisher := remote.NewTriggerPublisher(capID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+	defer func() {
+		require.NoError(t, publisher.Close())
+	}()
+
+	// Register two triggers
+	for _, trig := range []string{"triggerA", "triggerB"} {
+		reg := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], trig)
+		publisher.Receive(ctx, reg)
+		<-underlying.registrationsCh
+	}
+
+	var mu sync.Mutex
+	sendRecords := make([]struct {
+		peer       p2ptypes.PeerID
+		triggerIDs []string
+	}, 0)
+
+	sendCh := make(chan struct{}, 10)
+
+	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		mu.Lock()
+		defer mu.Unlock()
+
+		peer := args.Get(0).(p2ptypes.PeerID)
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		meta := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
+
+		sendRecords = append(sendRecords, struct {
+			peer       p2ptypes.PeerID
+			triggerIDs []string
+		}{
+			peer:       peer,
+			triggerIDs: append([]string(nil), meta.TriggerEventMetadata.TriggerIds...),
+		})
+
+		sendCh <- struct{}{}
+	}).Return(nil)
+
+	t.Run("initial send to both peers with both triggerIDs", func(t *testing.T) {
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
+
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+
+		// Expect 2 sends
+		<-sendCh
+		<-sendCh
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		require.Len(t, sendRecords, 2)
+		for _, rec := range sendRecords {
+			require.ElementsMatch(t, []string{"triggerA", "triggerB"}, rec.triggerIDs)
+		}
+	})
+
+	t.Run("partial ACK trims only missing triggerIDs per peer", func(t *testing.T) {
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0]))
+
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
+
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+
+		// Expect 2 sends
+		<-sendCh
+		<-sendCh
+
+		mu.Lock()
+		defer mu.Unlock()
+
+		require.Len(t, sendRecords, 2)
+
+		for _, rec := range sendRecords {
+			if rec.peer == peers[0] {
+				require.ElementsMatch(t, []string{"triggerB"}, rec.triggerIDs)
+			}
+			if rec.peer == peers[1] {
+				require.ElementsMatch(t, []string{"triggerA", "triggerB"}, rec.triggerIDs)
+			}
+		}
+	})
+
+	t.Run("full ACK suppresses resend", func(t *testing.T) {
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[1]))
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[0]))
+		publisher.Receive(ctx, newAckEventMessage(t, "event1", "triggerB", workflowDONID, peers[1]))
+
+		mu.Lock()
+		sendRecords = nil
+		mu.Unlock()
+
+		underlying.SendEvent("triggerA", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+		underlying.SendEvent("triggerB", commoncap.TriggerResponse{
+			Event: commoncap.TriggerEvent{ID: "event1"},
+		})
+
+		select {
+		case <-sendCh:
+			t.Fatal("unexpected resend after full ACK")
+		case <-time.After(100 * time.Millisecond):
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		require.Empty(t, sendRecords)
+	})
+}
+
+func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
+	t.Run("user error suppresses retries", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		lggr := logger.Test(t)
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+		peers := make([]p2ptypes.PeerID, 2)
+		require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+		require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+		capDonInfo := commoncap.DON{
+			ID:      capabilityDONID,
+			Members: []p2ptypes.PeerID{peers[0]},
+			F:       0,
+		}
+		workflowDonInfo := commoncap.DON{
+			ID:      workflowDONID,
+			Members: []p2ptypes.PeerID{peers[1]},
+			F:       0,
+		}
+		workflowDONs := map[uint32]commoncap.DON{
+			workflowDonInfo.ID: workflowDonInfo,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             capID,
+			CapabilityType: commoncap.CapabilityTypeTrigger,
+		}
+		userErr := caperrors.NewPublicUserError(errors.New("bad workflow config"), caperrors.InvalidArgument)
+		underlying := &errTrigger{info: capInfo, err: userErr}
+
+		dispatcher := mocks.NewDispatcher(t)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   time.Second,
+		}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		require.NoError(t, publisher.Start(ctx))
+
+		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+
+		publisher.Receive(ctx, regMsg)
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger must not be retried after a user error")
+
+		require.NoError(t, publisher.Close())
+	})
+
+	t.Run("system error allows retries", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		lggr := logger.Test(t)
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+		peers := make([]p2ptypes.PeerID, 2)
+		require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+		require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+
+		capDonInfo := commoncap.DON{
+			ID:      capabilityDONID,
+			Members: []p2ptypes.PeerID{peers[0]},
+			F:       0,
+		}
+		workflowDonInfo := commoncap.DON{
+			ID:      workflowDONID,
+			Members: []p2ptypes.PeerID{peers[1]},
+			F:       0,
+		}
+		workflowDONs := map[uint32]commoncap.DON{
+			workflowDonInfo.ID: workflowDonInfo,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             capID,
+			CapabilityType: commoncap.CapabilityTypeTrigger,
+		}
+		underlying := &errTrigger{info: capInfo, err: errors.New("transient system failure")}
+
+		dispatcher := mocks.NewDispatcher(t)
+		config := &commoncap.RemoteTriggerConfig{
+			RegistrationRefresh:     100 * time.Millisecond,
+			RegistrationExpiry:      100 * time.Second,
+			MinResponsesToAggregate: 1,
+			MessageExpiry:           100 * time.Second,
+			MaxBatchSize:            1,
+			BatchCollectionPeriod:   time.Second,
+		}
+		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+		require.NoError(t, publisher.Start(ctx))
+
+		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 2, underlying.callCount, "RegisterTrigger should be retried after a system error")
+
+		publisher.Receive(ctx, regMsg)
+		require.Equal(t, 3, underlying.callCount, "RegisterTrigger should keep retrying on system errors")
+
+		require.NoError(t, publisher.Close())
+	})
+}
+
+// errTrigger is a TriggerCapability that always returns an error from RegisterTrigger.
+type errTrigger struct {
+	info      commoncap.CapabilityInfo
+	err       error
+	callCount int
+}
+
+func (tr *errTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
+	return tr.info, nil
+}
+
+func (tr *errTrigger) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
+	tr.callCount++
+	return nil, tr.err
+}
+
+func (tr *errTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
+	return nil
+}
+
+func (tr *errTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+	return nil
+}
+
 func newRegisterTriggerMessageWithTriggerID(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID, triggerID string) *remotetypes.MessageBody {
 	triggerRequest := commoncap.TriggerRegistrationRequest{
 		TriggerID: triggerID,
@@ -413,6 +749,10 @@ func newMultiTrigger(info commoncap.CapabilityInfo) *multiTrigger {
 
 func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
 	return tr.info, nil
+}
+
+func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+	return nil
 }
 
 func (tr *multiTrigger) RegisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {

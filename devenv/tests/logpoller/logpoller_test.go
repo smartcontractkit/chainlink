@@ -3,7 +3,6 @@ package logpoller
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -27,143 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 )
-
-type GeneratorType = string
-
-const (
-	GeneratorType_WASP   = "wasp"   //nolint: revive //we feel like using underscores
-	GeneratorType_Looped = "looped" //nolint: revive //we feel like using underscores
-)
-
-type Config struct {
-	General      General
-	ChaosConfig  *ChaosConfig
-	Wasp         *WaspConfig
-	LoopedConfig *LoopedConfig
-}
-
-func (c *Config) Validate() error {
-	err := c.General.Validate()
-	if err != nil {
-		return fmt.Errorf("General config validation failed: %w", err)
-	}
-
-	switch c.General.Generator {
-	case GeneratorType_WASP:
-		if c.Wasp == nil {
-			return errors.New("wasp config is nil")
-		}
-		err = c.Wasp.Validate()
-		if err != nil {
-			return fmt.Errorf("wasp config validation failed: %w", err)
-		}
-	case GeneratorType_Looped:
-		if c.LoopedConfig == nil {
-			return errors.New("looped config is nil")
-		}
-		err = c.LoopedConfig.Validate()
-		if err != nil {
-			return fmt.Errorf("looped config validation failed: %w", err)
-		}
-	default:
-		return fmt.Errorf("unknown generator type: %s", c.General.Generator)
-	}
-
-	if c.ChaosConfig != nil {
-		if err := c.ChaosConfig.Validate(); err != nil {
-			return fmt.Errorf("chaos config validation failed: %w", err)
-		}
-	}
-
-	return nil
-}
-
-type LoopedConfig struct {
-	ExecutionCount    int
-	MinEmitWaitTimeMs int
-	MaxEmitWaitTimeMs int
-}
-
-func (l *LoopedConfig) Validate() error {
-	if l.ExecutionCount == 0 {
-		return errors.New("execution_count must be set and > 0")
-	}
-
-	if l.MinEmitWaitTimeMs == 0 {
-		return errors.New("min_emit_wait_time_ms must be set and > 0")
-	}
-
-	if l.MaxEmitWaitTimeMs == 0 {
-		return errors.New("max_emit_wait_time_ms must be set and > 0")
-	}
-
-	return nil
-}
-
-type General struct {
-	Generator        string
-	EventsToEmit     []abi.Event
-	Contracts        int
-	EventsPerTx      int
-	FundingAmountEth float64
-}
-
-func (g *General) Validate() error {
-	if g.Generator == "" {
-		return errors.New("generator is empty")
-	}
-
-	if g.Contracts == 0 {
-		return errors.New("contracts is 0, but must be > 0")
-	}
-
-	if g.EventsPerTx == 0 {
-		return errors.New("events_per_tx is 0, but must be > 0")
-	}
-
-	return nil
-}
-
-type ChaosConfig struct {
-	ExperimentCount int
-	TargetComponent string
-}
-
-func (c *ChaosConfig) Validate() error {
-	if c.ExperimentCount == 0 {
-		return errors.New("experiment_count must be > 0")
-	}
-
-	return nil
-}
-
-type WaspConfig struct {
-	RPS                   int64         `toml:"rps"`
-	LPS                   int64         `toml:"lps"`
-	RateLimitUnitDuration time.Duration `toml:"rate_limit_unit_duration"`
-	Duration              time.Duration `toml:"duration"`
-	CallTimeout           time.Duration `toml:"call_timeout"`
-}
-
-func (w *WaspConfig) Validate() error {
-	if w.RPS == 0 && w.LPS == 0 {
-		return errors.New("either RPS or LPS needs to be a positive integer")
-	}
-	if w.RPS != 0 && w.LPS != 0 {
-		return errors.New("only one of RPS or LPS can be set")
-	}
-	if w.Duration == 0 {
-		return errors.New("duration must be set and > 0")
-	}
-	if w.CallTimeout == 0 {
-		return errors.New("call_timeout must be set and > 0")
-	}
-	if w.RateLimitUnitDuration == 0 {
-		return errors.New("rate_limit_unit_duration  must be set and > 0")
-	}
-
-	return nil
-}
 
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
@@ -238,17 +100,8 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 
-/*
-	Chaos runs require Pumba, but that container still speaks Docker API 1.42. Newer Docker daemons reject it unless you pin a
-	minimum API version. If this test never pauses anything, add the entry below to your Docker Engine config (e.g. ~/.docker/daemon.json)
-	and restart Docker:
-
-	"min-api-version": "1.42"
-*/
-
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosChainlinkNodes(t *testing.T) {
-	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",
@@ -274,17 +127,8 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 // with approximate emission of 520-550 logs per second for ~110 seconds
 // 6 filters are registered
 
-/*
-	Chaos runs require Pumba, but that container still speaks Docker API 1.42. Newer Docker daemons reject it unless you pin a
-	minimum API version. If this test never pauses anything, add the entry below to your Docker Engine config (e.g. ~/.docker/daemon.json)
-	and restart Docker:
-
-	"min-api-version": "1.42"
-*/
-
 // Execute both on environment with finalityTagEnabled and with finalityDepth
 func TestLogPollerChaosPostgres(t *testing.T) {
-	t.Skip("We need to find replacement for Pumba, which doesn't work with Docker API > 1.42")
 	cfg := &Config{
 		General: General{
 			Generator:        "looped",
@@ -316,8 +160,8 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	ctx := t.Context()
 
 	t.Cleanup(func() {
-		err := products.ScanLogs(l, products.DefaultSettings(allowedLogMessages...))
-		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(allowedLogMessages...))
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	outputFile := "../../env-out.toml"
@@ -482,8 +326,8 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l := framework.L
 	ctx := t.Context()
 	t.Cleanup(func() {
-		err := products.ScanLogs(l, products.DefaultSettings())
-		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	eventsToEmit := []abi.Event{}

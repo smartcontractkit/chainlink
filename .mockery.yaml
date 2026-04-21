@@ -18,6 +18,7 @@ packages:
       TxStrategy:
       TxAttemptBuilder:
       TxStore:
+      Finalizer:
   github.com/smartcontractkit/chainlink/v2/core/bridges:
     interfaces:
       ORM:
@@ -26,7 +27,7 @@ packages:
       DonSubscriber:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/vault:
     interfaces:
-      RequestAuthorizer:
+      Authorizer:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes:
     interfaces:
       SecretsService:
@@ -60,6 +61,18 @@ packages:
     interfaces:
       EvmTxStore:
       ChainReceipt:
+      ConfirmerI:
+        config:
+          mockname: Confirmer
+          filename: confirmer.go
+      BroadcasterI:
+        config:
+          mockname: Broadcaster
+          filename: broadcaster.go
+      TrackerI:
+        config:
+          mockname: Tracker
+          filename: tracker.go
   github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm:
     config:
       dir: common/chains/mocks
@@ -238,11 +251,6 @@ packages:
       dir: "common/types/mocks"
     interfaces:
       MonitoringEndpoint:
-  github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
-    interfaces:
-      asyncDeleter:
-        config:
-          mockname: AsyncDeleter
   github.com/smartcontractkit/chainlink-evm/pkg/config:
     config:
       dir: "core/services/relay/evm/types/mocks"
@@ -426,4 +434,3 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering:
     interfaces:
       BillingClient:
-

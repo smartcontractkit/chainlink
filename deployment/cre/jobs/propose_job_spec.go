@@ -62,9 +62,13 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifyEVMJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
 		}
+	case job_types.Aptos:
+		if err := verifyAptosJobSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for Aptos job spec: %w", err)
+		}
 	case job_types.Solana:
 		if err := verifySolanaJobSpecInputs(config.Inputs); err != nil {
-			return fmt.Errorf("invalid inputs for EVM job spec: %w", err)
+			return fmt.Errorf("invalid inputs for Solana job spec: %w", err)
 		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
 	case job_types.CRESettings:
@@ -90,12 +94,12 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana:
-		// Only consensus generates an oracle factory, for now...
-		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName, input.Template == job_types.Consensus)
+	case job_types.EVM, job_types.Aptos, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana:
+		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
 		}
+		job.GenerateOracleFactory = requiresOracleFactory(input.Template)
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
@@ -288,6 +292,16 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get Ring contract address for chain selector %d and qualifier %s: %w", jobInput.ChainSelectorEVM, jobInput.ContractQualifier, err)
 		}
 
+		shardConfigAddr := jobInput.ShardConfigAddr
+		if shardConfigAddr == "" {
+			scRefKey := pkg.GetShardConfigAddressRefKey(uint64(jobInput.ChainSelectorEVM), "")
+			scAddrRef, scErr := e.DataStore.Addresses().Get(scRefKey)
+			if scErr != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get ShardConfig address from datastore for chain selector %d: %w", jobInput.ChainSelectorEVM, scErr)
+			}
+			shardConfigAddr = scAddrRef.Address
+		}
+
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
 			job_ops.ProposeRingJob,
@@ -299,7 +313,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				JobName:          input.JobName,
 				ContractAddress:  contractAddrRef.Address,
 				ChainSelectorEVM: uint64(jobInput.ChainSelectorEVM),
-				ShardConfigAddr:  jobInput.ShardConfigAddr,
+				ShardConfigAddr:  shardConfigAddr,
 				BootstrapperUrls: jobInput.BootstrapperRingUrls,
 				DONFilters:       input.DONFilters,
 				ExtraLabels:      input.ExtraLabels,
@@ -317,4 +331,16 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	return cldf.ChangesetOutput{
 		Reports: []operations.Report[any, any]{report},
 	}, nil
+}
+
+func requiresOracleFactory(template job_types.JobSpecTemplate) bool {
+	if template == job_types.Consensus {
+		return true
+	}
+
+	if template == job_types.Aptos {
+		return true
+	}
+
+	return false
 }

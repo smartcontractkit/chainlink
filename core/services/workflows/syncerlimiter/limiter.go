@@ -27,11 +27,18 @@ type Config struct {
 }
 
 type keyedOwnerSettings struct {
-	key  string
-	vals map[string]string
+	getter settings.Getter
+	key    string
+	vals   map[string]string
 }
 
 func (k keyedOwnerSettings) GetScoped(ctx context.Context, scope settings.Scope, key string) (value string, err error) {
+	if k.getter != nil {
+		value, err = k.getter.GetScoped(ctx, scope, key)
+	}
+	if value != "" {
+		return
+	}
 	if k.key != key || scope != settings.ScopeOwner {
 		return "", nil
 	}
@@ -42,7 +49,7 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	lggr = logger.Named(lggr, "WorkflowExecutionLimiter")
 	cfg.PerOwnerOverrides = normalizeOverrides(cfg.PerOwnerOverrides)
 
-	ownerLimit := cresettings.Default.PerOwner.WorkflowExecutionConcurrencyLimit // make a copy
+	ownerLimit := cresettings.Default.PerOwner.WorkflowLimit // make a copy
 	if cfg.PerOwner > 0 {
 		ownerLimit.DefaultValue = int(cfg.PerOwner)
 	}
@@ -50,13 +57,13 @@ func NewWorkflowLimits(lggr logger.Logger, cfg Config, lf limits.Factory) (limit
 	for k, v := range cfg.PerOwnerOverrides {
 		perOwner[k] = strconv.Itoa(int(v))
 	}
-	lf.Settings = keyedOwnerSettings{key: ownerLimit.Key, vals: perOwner}
+	lf.Settings = keyedOwnerSettings{getter: lf.Settings, key: ownerLimit.Key, vals: perOwner}
 	owner, err := limits.MakeResourcePoolLimiter(lf, ownerLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create owner resource limiter: %w", err)
 	}
 
-	globalLimit := cresettings.Default.WorkflowExecutionConcurrencyLimit // make a copy
+	globalLimit := cresettings.Default.WorkflowLimit // make a copy
 	if cfg.Global > 0 {
 		globalLimit.DefaultValue = int(cfg.Global)
 	}

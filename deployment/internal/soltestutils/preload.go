@@ -123,6 +123,7 @@ func loadProgramArtifacts(t *testing.T, programNames []string, downloadFn downlo
 
 		// Add the program ID to the map
 		progIDs[name] = id
+		t.Logf("copied solana program %s to %s", name, dst)
 	}
 
 	// Return the path to the cached artifacts and the map of program IDs

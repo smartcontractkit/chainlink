@@ -13,7 +13,7 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    needs: [ runner-config ]
+    needs: [runner-config]
     runs-on: ${{ matrix.runs-on || 'ubuntu-latest' }}
     permissions:
       # required for all workflows
@@ -43,12 +43,12 @@ jobs:
             build-mode: none
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go
         if: matrix.language == 'go'
@@ -78,7 +78,7 @@ jobs:
       - name: Build go code manually
         if: matrix.language == 'go'
         run: |
-          echo "::group::Builing all go code (go build ./...)"
+          echo "::group::Building all go code (go build ./...)"
           go build ./...
           echo "::endgroup::"
 
