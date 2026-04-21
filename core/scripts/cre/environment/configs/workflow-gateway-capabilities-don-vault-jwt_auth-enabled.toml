@@ -1,4 +1,5 @@
-
+# Custom local CRE topology for Vault e2e coverage on top of workflow-gateway-capabilities-don.
+# It enables the VaultJWTAuthEnabled and VaultOrgIdAsSecretOwnerEnabled CRE flags on workflow, capabilities, and gateway nodes.
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
