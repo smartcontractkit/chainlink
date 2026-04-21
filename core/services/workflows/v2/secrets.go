@@ -204,11 +204,11 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	}
 
 	vp := &vault.GetSecretsRequest{
-		Requests:      make([]*vault.SecretRequest, 0),
-		WorkflowOwner: s.workflowOwner, // Always set for label validation
+		Requests: make([]*vault.SecretRequest, 0),
 	}
 	if orgIDGateEnabled {
 		vp.OrgId = s.orgID
+		vp.WorkflowOwner = s.workflowOwner
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)
