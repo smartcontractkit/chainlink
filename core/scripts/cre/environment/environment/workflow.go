@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	retry "github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -498,18 +499,29 @@ func deployWorkflow(
 		fmt.Printf("\n✅ Vault public key fetched\n")
 
 		if capabilitiesRegistryAddress != "" {
-			fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
+			fmt.Printf("\n⚙️ Checking vault capability config in capabilities registry\n")
 
-			if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultPublicKey); updateErr != nil {
-				return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
+			vaultDON, existingVaultCfg, getErr := getVaultCapabilityDON(ctx, sethClient, capabilitiesRegistryAddress)
+			if getErr != nil {
+				return errors.Wrap(getErr, "❌ failed to get vault capability config from capabilities registry")
 			}
 
-			fmt.Printf("\n✅ Vault capability config updated\n")
-			fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(15 * time.Second):
+			if existingVaultCfg.DefaultConfig == nil {
+				fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
+
+				if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey); updateErr != nil {
+					return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
+				}
+
+				fmt.Printf("\n✅ Vault capability config updated\n")
+				fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-time.After(15 * time.Second):
+				}
+			} else {
+				fmt.Printf("\n✅ Vault capability config already set, skipping update and propagation wait\n")
 			}
 		}
 
@@ -586,24 +598,26 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true)
 }
 
-// updateVaultCapabilityConfig finds the DON that has the vault capability registered and injects
-// the vault public key and a threshold of 1 into its DefaultConfig in the capabilities registry.
-// This is required so that workflow nodes can unwrap the capability config when calling runtime.GetSecret().
-func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr, vaultPublicKey string) error {
+// getVaultCapabilityDON returns the DON that has the vault capability registered,
+// along with the current decoded CapabilityConfig for the vault entry.
+func getVaultCapabilityDON(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, *capabilitiespb.CapabilityConfig, error) {
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to create capabilities registry wrapper")
+		return nil, nil, errors.Wrap(err, "failed to create capabilities registry wrapper")
 	}
 
 	const pageSize int64 = 100
 
-	var targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+	var (
+		targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+		targetCC  capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+	)
 	for start := int64(0); targetDON == nil; start += pageSize {
 		donsPage, getErr := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(start), big.NewInt(pageSize))
 		if getErr != nil {
-			return errors.Wrap(getErr, "failed to get DONs from capabilities registry")
+			return nil, nil, errors.Wrap(getErr, "failed to get DONs from capabilities registry")
 		}
 
 		for i := range donsPage {
@@ -611,6 +625,7 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 				if cc.CapabilityId == vault_helpers.CapabilityID {
 					don := donsPage[i]
 					targetDON = &don
+					targetCC = cc
 					break
 				}
 			}
@@ -624,11 +639,32 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 		}
 	}
 	if targetDON == nil {
-		return fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
+		return nil, nil, fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
 	}
 
-	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(targetDON.CapabilityConfigurations))
-	for _, cc := range targetDON.CapabilityConfigurations {
+	existingCfg := &capabilitiespb.CapabilityConfig{}
+	if len(targetCC.Config) > 0 {
+		if unmarshalErr := proto.Unmarshal(targetCC.Config, existingCfg); unmarshalErr != nil {
+			return nil, nil, errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
+		}
+	}
+
+	return targetDON, existingCfg, nil
+}
+
+// updateVaultCapabilityConfig injects the vault public key and a threshold of 1 into the
+// vault capability's DefaultConfig in the capabilities registry for the given DON.
+// This is required so that workflow nodes can unwrap the capability config when calling runtime.GetSecret().
+func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string, don *capabilities_registry_v2.CapabilitiesRegistryDONInfo, vaultPublicKey string) error {
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to create capabilities registry wrapper")
+	}
+
+	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(don.CapabilityConfigurations))
+	for _, cc := range don.CapabilityConfigurations {
 		if cc.CapabilityId == vault_helpers.CapabilityID {
 			existingCfg := &capabilitiespb.CapabilityConfig{}
 			if len(cc.Config) > 0 {
@@ -637,12 +673,7 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 				}
 			}
 
-			if existingCfg.DefaultConfig != nil {
-				fmt.Println("Vault capability config already has default config set, skipping update")
-				return nil
-			}
-
-			valueMap, wrapErr := chainlinkvalues.WrapMap(map[string]interface{}{
+			valueMap, wrapErr := chainlinkvalues.WrapMap(map[string]any{
 				"VaultPublicKey": vaultPublicKey,
 				"Threshold":      1,
 			})
@@ -663,56 +694,54 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 	}
 
 	updateParams := capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-		Name:                     targetDON.Name,
-		Config:                   targetDON.Config,
+		Name:                     don.Name,
+		Config:                   don.Config,
 		CapabilityConfigurations: newConfigs,
-		Nodes:                    targetDON.NodeP2PIds,
-		F:                        targetDON.F,
-		IsPublic:                 targetDON.IsPublic,
+		Nodes:                    don.NodeP2PIds,
+		F:                        don.F,
+		IsPublic:                 don.IsPublic,
 	}
 
-	_, updateErr := sethClient.Decode(capReg.UpdateDONByName(sethClient.NewTXOpts(), targetDON.Name, updateParams))
+	_, updateErr := sethClient.Decode(capReg.UpdateDONByName(sethClient.NewTXOpts(), don.Name, updateParams))
 	return errors.Wrap(updateErr, "UpdateDONByName tx failed")
 }
 
 // sendToVaultGateway sends an HTTP POST request to the vault gateway and returns the status code and body.
-func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []byte) (statusCode int, respBody []byte, err error) {
-	const maxRetries = 7
-	const retryInterval = 2 * time.Second
+func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []byte) (statusCode int, respBody []byte, respErr error) {
+	respErr = retry.Do(
+		func() error {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(requestBody))
+			if err != nil {
+				return errors.Wrap(err, "failed to build vault gateway request")
+			}
 
-	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(requestBody))
-		if err != nil {
-			return 0, nil, errors.Wrap(err, "failed to build vault gateway request")
-		}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json")
 
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return errors.Wrap(err, "vault gateway HTTP request failed")
+			}
 
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			return 0, nil, errors.Wrap(err, "vault gateway HTTP request failed")
-		}
+			respBody, err = io.ReadAll(resp.Body)
+			if err != nil {
+				return errors.Wrap(err, "failed to read vault gateway response body")
+			}
+			defer resp.Body.Close()
+			statusCode = resp.StatusCode
 
-		respBody, err = io.ReadAll(resp.Body)
-		if err != nil {
-			return resp.StatusCode, nil, errors.Wrap(err, "failed to read vault gateway response body")
-		}
-		resp.Body.Close()
-		statusCode = resp.StatusCode
+			if !isGatewayNotAllowlistedError(respBody) {
+				return nil
+			}
+			return nil
+		},
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	)
 
-		if !isGatewayNotAllowlistedError(respBody) {
-			return statusCode, respBody, nil
-		}
-
-		if attempt < maxRetries {
-			fmt.Printf("Request not yet allowlisted, retrying in %s (attempt %d/%d)...\n", retryInterval, attempt+1, maxRetries)
-			time.Sleep(retryInterval)
-		}
-	}
-
-	return statusCode, respBody, errors.New("vault gateway request failed after maximum retries")
+	return statusCode, respBody, respErr
 }
 
 // isGatewayNotAllowlistedError checks whether the response is a gateway-level
