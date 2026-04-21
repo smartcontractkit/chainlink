@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -71,6 +72,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -823,6 +825,21 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	} else {
 		feedsService = &feeds.NullService{}
 	}
+
+	hostname, _ := os.Hostname()
+	var feedsORMForReporter feeds.ORM
+	if cfg.Feature().FeedsManager() {
+		feedsORMForReporter = feeds.NewORM(opts.DS, globalLogger)
+	}
+	jobSpecReporter := jobspec.NewJobSpecReporter(
+		cfg.JobSpecReporter(),
+		jobSpawner,
+		feedsORMForReporter,
+		beholder.GetEmitter(),
+		jobspec.NodeInfo{CSAPublicKey: csaPubKeyHex, NodeVersion: static.Version, Hostname: hostname},
+		globalLogger,
+	)
+	srvcs = append(srvcs, jobSpecReporter)
 
 	for _, s := range srvcs {
 		if s == nil {

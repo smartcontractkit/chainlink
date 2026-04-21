@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
@@ -65,6 +66,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
 }
@@ -112,6 +114,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
+	c.JobSpecReporter.setFrom(&f.JobSpecReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
@@ -3081,6 +3084,55 @@ func (e *BridgeStatusReporter) ValidateConfig() error {
 	if e.IgnoreJoblessBridges == nil {
 		defaultIgnoreJobless := false
 		e.IgnoreJoblessBridges = &defaultIgnoreJobless
+	}
+
+	return nil
+}
+
+type JobSpecReporter struct {
+	Enabled                *bool
+	PollingInterval        *commonconfig.Duration
+	EnabledOCR2PluginTypes *[]string
+	EmitNonOCR2Jobs        *bool
+}
+
+func (e *JobSpecReporter) setFrom(f *JobSpecReporter) {
+	if f.Enabled != nil {
+		e.Enabled = f.Enabled
+	}
+	if f.PollingInterval != nil {
+		e.PollingInterval = f.PollingInterval
+	}
+	if f.EnabledOCR2PluginTypes != nil {
+		e.EnabledOCR2PluginTypes = f.EnabledOCR2PluginTypes
+	}
+	if f.EmitNonOCR2Jobs != nil {
+		e.EmitNonOCR2Jobs = f.EmitNonOCR2Jobs
+	}
+}
+
+func (e *JobSpecReporter) ValidateConfig() error {
+	if e.Enabled == nil || !*e.Enabled {
+		return nil
+	}
+
+	if e.PollingInterval == nil {
+		defaultInterval := commonconfig.MustNewDuration(time.Hour)
+		e.PollingInterval = defaultInterval
+	}
+
+	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
+		return configutils.ErrInvalid{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	}
+
+	if e.EnabledOCR2PluginTypes == nil {
+		defaultTypes := []string{"median"}
+		e.EnabledOCR2PluginTypes = &defaultTypes
+	}
+
+	if e.EmitNonOCR2Jobs == nil {
+		defaultEmitNonOCR2 := false
+		e.EmitNonOCR2Jobs = &defaultEmitNonOCR2
 	}
 
 	return nil

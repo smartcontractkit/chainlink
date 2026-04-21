@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events";
+
+package job_spec.v1;
+
+// JobSpecEvent is emitted for each active job on a heartbeat, on job creation,
+// and on job deletion. For the initial rollout only offchainreporting2 jobs
+// with pluginType = "median" are emitted (configurable via EnabledOCR2PluginTypes
+// and EmitNonOCR2Jobs in the JobSpecReporter config section).
+message JobSpecEvent {
+  // Job identity — covers every TOML-writable field on job.Job plus DB-assigned columns.
+  string external_job_id = 1;
+  int32  internal_job_id = 2;
+  string name = 3;
+  string job_type = 4;
+  uint32 schema_version = 5;
+  uint32 gas_limit = 6;
+  bool   forwarding_allowed = 7;
+  optional uint32 stream_id = 8;
+  double max_task_duration_seconds = 9;
+  string created_at = 10;
+
+  // Observation pipeline — the job's observationSource field.
+  string observation_source = 11;
+  int32  pipeline_spec_id = 12;
+
+  // Bridge names extracted from the observationSource DOT DAG (top-level only).
+  repeated string bridge_names = 13;
+
+  // Proposal lifecycle fields — zero/empty when the job was created manually
+  // (not via a Feeds Manager / Job Distributor).
+  int64  feeds_manager_id = 14;
+  string remote_uuid = 15;
+  int32  spec_version = 16;
+  string proposed_at = 17;
+  string approved_at = 18;
+  double accept_latency_seconds = 19;
+
+  // OCR2-specific fields — absent for non-OCR2 job types.
+  OCR2OracleSpecInfo ocr2_oracle_spec = 20;
+
+  // Node identity.
+  string csa_public_key = 21;
+  string node_version = 22;
+  string hostname = 23;
+
+  // Event metadata.
+  // emission_trigger is one of "heartbeat", "create", or "delete".
+  string emission_trigger = 24;
+  string timestamp = 25;
+}
+
+// OCR2OracleSpecInfo carries all fields of job.OCR2OracleSpec.
+message OCR2OracleSpecInfo {
+  int32  spec_id = 1;
+  string contract_id = 2;
+  string feed_id = 3;
+  string relay = 4;
+  string chain_id = 5;
+  string plugin_type = 6;
+  string transmitter_id = 7;
+  string ocr_key_bundle_id = 8;
+  string monitoring_endpoint = 9;
+  repeated string p2pv2_bootstrappers = 10;
+  bool   allow_no_bootstrappers = 11;
+  double blockchain_timeout_seconds = 12;
+  double contract_config_tracker_poll_interval_seconds = 13;
+  uint32 contract_config_confirmations = 14;
+  bool   capture_ea_telemetry = 15;
+  bool   capture_automation_custom_telemetry = 16;
+  string spec_created_at = 17;
+  string spec_updated_at = 18;
+
+  // Raw JSON passthroughs — always populated; authoritative for any field not
+  // captured in the typed sub-messages below.
+  string relay_config_json = 19;
+  string plugin_config_json = 20;
+  string onchain_signing_strategy_json = 21;
+
+  // Typed EVM relay config — populated only when relay == "evm".
+  OCR2EVMRelayConfig evm_relay_config = 22;
+
+  // Typed median plugin config — populated only when plugin_type == "median".
+  OCR2MedianPluginConfig median_plugin_config = 23;
+}
+
+// OCR2EVMRelayConfig carries the well-known fields of the EVM relay config JSON.
+// relay_config_json on OCR2OracleSpecInfo remains authoritative for any field
+// not represented here.
+message OCR2EVMRelayConfig {
+  string chain_id = 1;
+  uint64 from_block = 2;
+  string effective_transmitter_id = 3;
+  bool   enable_dual_transmission = 4;
+  bool   enable_trigger_capability = 5;
+  uint64 llo_don_id = 6;
+  string feed_id = 7;
+  repeated string sending_keys = 8;
+  string provider_type = 9;
+}
+
+// OCR2MedianPluginConfig carries all fields of median/config.PluginConfig and
+// the nested JuelsPerFeeCoinCache.
+message OCR2MedianPluginConfig {
+  string juels_per_fee_coin_source = 1;
+
+  // Empty string when gasPriceSubunitsSource is not configured.
+  string gas_price_subunits_source = 2;
+
+  // juels_per_fee_coin_cache_disabled is true when JuelsPerFeeCoinCache is nil
+  // (disabled when nil, per source comment) or when Disable is explicitly true.
+  bool   juels_per_fee_coin_cache_disabled = 3;
+  double juels_per_fee_coin_cache_update_interval_seconds = 4;
+  double juels_per_fee_coin_cache_staleness_alert_threshold_seconds = 5;
+
+  // Verbatim JSON of DeviationFunctionDefinition (map[string]any).
+  string deviation_func_json = 6;
+}

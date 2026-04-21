@@ -65,6 +65,7 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
 }

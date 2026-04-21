@@ -399,6 +399,9 @@ PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
+[JobSpecReporter]
+Enabled = false
+
 [Sharding]
 ShardingEnabled = false
 ArbiterPort = 9876

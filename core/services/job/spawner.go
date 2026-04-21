@@ -17,6 +17,13 @@ import (
 )
 
 type (
+	// Listener is notified when jobs are started or stopped by the Spawner.
+	// Callbacks are invoked asynchronously and must not block.
+	Listener interface {
+		OnJobStarted(ctx context.Context, jb Job)
+		OnJobStopped(ctx context.Context, jb Job)
+	}
+
 	// Spawner manages the spinning up and down of the long-running
 	// services that perform the work described by job specs.  Each active job spec
 	// has 1 or more of these services associated with it.
@@ -35,6 +42,10 @@ type (
 		// NOTE: Prefer to use CreateJob, this is only publicly exposed for use in tests
 		// to start a job that was previously manually inserted into DB
 		StartService(ctx context.Context, spec Job) error
+
+		// RegisterListener registers a Listener to be notified on job start/stop.
+		// Safe to call before or after Start().
+		RegisterListener(Listener)
 	}
 
 	Checker interface {
@@ -51,6 +62,9 @@ type (
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
 		lggr             logger.Logger
+
+		listeners   []Listener
+		listenersMu sync.RWMutex
 
 		chStop              services.StopChan
 		lbDependentAwaiters []utils.DependentAwaiter
@@ -274,6 +288,7 @@ func (js *spawner) CreateJob(ctx context.Context, ds sqlutil.DataSource, jb *Job
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
 	} else {
 		js.lggr.Infow("Started job services", "type", jb.Type, "jobID", jb.ID)
+		js.notifyListeners(true, *jb)
 	}
 
 	delegate.AfterJobCreated(*jb)
@@ -340,6 +355,7 @@ func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID i
 	if exists {
 		// Stop the service and remove the job from memory, which will always happen even if closing the services fail.
 		js.stopService(jobID)
+		js.notifyListeners(false, aj.spec)
 	}
 	lggr.Infow("Stopped and deleted job")
 
@@ -355,6 +371,42 @@ func (js *spawner) ActiveJobs() map[int32]Job {
 		m[jobID] = js.activeJobs[jobID].spec
 	}
 	return m
+}
+
+func (js *spawner) RegisterListener(l Listener) {
+	js.listenersMu.Lock()
+	defer js.listenersMu.Unlock()
+	js.listeners = append(js.listeners, l)
+}
+
+// notifyListeners dispatches an event to all registered listeners in a
+// best-effort, non-blocking, panic-safe goroutine.
+func (js *spawner) notifyListeners(started bool, jb Job) {
+	js.listenersMu.RLock()
+	ls := make([]Listener, len(js.listeners))
+	copy(ls, js.listeners)
+	js.listenersMu.RUnlock()
+
+	if len(ls) == 0 {
+		return
+	}
+
+	ctx, cancel := js.chStop.NewCtx()
+	go func() {
+		defer cancel()
+		defer func() {
+			if r := recover(); r != nil {
+				js.lggr.Errorw("Panic in job spawner listener", "recover", r)
+			}
+		}()
+		for _, l := range ls {
+			if started {
+				l.OnJobStarted(ctx, jb)
+			} else {
+				l.OnJobStopped(ctx, jb)
+			}
+		}
+	}()
 }
 
 func (js *spawner) activeJobIDs() []int32 {
