@@ -12,6 +12,8 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -93,7 +95,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		chainState := state.Chains[chainSel]
 		timelocks[chainSel] = chainState.Timelock.Address().Hex()
 
-		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+		inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 		}
@@ -125,7 +127,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to encode addRegistryModule call data on chain %d: %w", chainSel, err)
 		}
 
-		op, err := proposalutils.BatchOperationForChain(
+		op, err := cldfproposalutils.BatchOperationForChain(
 			chainSel, chainState.TokenAdminRegistry.Address().String(), callData, big.NewInt(0), shared.TokenAdminRegistry.String(), nil)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", chainSel, err)
@@ -154,7 +156,7 @@ func AddRegistryModuleChangeset(e cldf.Environment, cfg AddRegistryModuleConfig)
 		// Safe to access Timelock here because validation already checked it exists
 		timelocks[chainSel] = chainState.Timelock.Address().Hex()
 
-		inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
+		inspector, err := cldfproposalutils.McmsInspectorForChain(e, chainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 		}

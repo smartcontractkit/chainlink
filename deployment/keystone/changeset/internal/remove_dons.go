@@ -7,13 +7,13 @@ import (
 
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // RemoveDONsRequest holds the parameters for the RemoveDONs operation.
@@ -77,7 +77,7 @@ func RemoveDONs(lggr logger.Logger, req *RemoveDONsRequest) (*RemoveDONsResponse
 			return nil, fmt.Errorf("failed to confirm RemoveDONs transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, req.CapabilitiesRegistry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+		ops, err = cldfproposalutils.BatchOperationForChain(req.Chain.Selector, req.CapabilitiesRegistry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create batch operation: %w", err)
 		}
