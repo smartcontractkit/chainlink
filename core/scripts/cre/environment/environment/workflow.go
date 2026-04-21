@@ -703,18 +703,19 @@ func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []by
 			if err != nil {
 				return errors.Wrap(err, "vault gateway HTTP request failed")
 			}
+			defer resp.Body.Close()
 
 			respBody, err = io.ReadAll(resp.Body)
 			if err != nil {
 				return errors.Wrap(err, "failed to read vault gateway response body")
 			}
-			defer resp.Body.Close()
 			statusCode = resp.StatusCode
 
 			if !isGatewayNotAllowlistedError(respBody) {
 				return nil
 			}
-			return nil
+
+			return fmt.Errorf("vault gateway request not allowlisted yet (status %d): %s", statusCode, string(respBody))
 		},
 		retry.Context(ctx),
 		retry.Delay(500*time.Millisecond),
@@ -799,7 +800,7 @@ func fetchVaultPublicKey(ctx context.Context, gatewayURL string) (string, error)
 //
 // Format 2 (secretsNames, shared with other CRE tools):
 //
-//	secretNames:
+//	secretsNames:
 //	  SECRET_KEY:
 //	    - ENV_VAR_NAME
 func prepareVaultSecrets(secretsFilePath, vaultPublicKey string, ownerAddress common.Address, outputFilePath string) (string, error) {
@@ -922,8 +923,12 @@ func executeVaultSecrets(ctx context.Context, encryptedSecretsJSONPath, gatewayU
 	if err != nil {
 		return errors.Wrap(err, "failed to decode request digest hex")
 	}
+	if len(requestDigestBytes) != 32 {
+		return errors.Errorf("invalid request digest length: got %d bytes, want 32", len(requestDigestBytes))
+	}
 
-	reqDigestBytes := [32]byte(requestDigestBytes)
+	var reqDigestBytes [32]byte
+	copy(reqDigestBytes[:], requestDigestBytes)
 
 	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(workflowRegistryAddress, sethClient.Client)
 	if err != nil {
