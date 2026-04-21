@@ -12,7 +12,19 @@ local_image = "job-distributor:0.22.1"
 
 [job_distributor.pull_config]
 local_image = "job-distributor:0.22.1"
-ecr_image = "{{.ECR}}/job-distributor:0.22.1"
+ecr_image = "{{.MAIN_ECR}}/job-distributor:0.22.1"
+
+[chip_router.build_config]
+repository = "https://github.com/smartcontractkit/chainlink-testing-framework"
+branch = "main"
+commit = "dd420c0d953334e3fef9a109b6816de706f6be90"
+dockerfile = "framework/components/chiprouter/Dockerfile"
+docker_ctx = "framework/components/chiprouter"
+local_image = "local-cre-chip-router:v1.0.1"
+
+[chip_router.pull_config]
+local_image = "local-cre-chip-router:v1.0.1"
+ecr_image = "{{.SDLC_ECR}}/local-cre-chip-router:v1.0.1"
 
 [chip_ingress.build_config]
 repository = "https://github.com/smartcontractkit/atlas"
@@ -25,7 +37,7 @@ pre_run = "pushd chip-ingress && go mod vendor && popd"
 
 [chip_ingress.pull_config]
 local_image = "chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
-ecr_image = "{{.ECR}}/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
+ecr_image = "{{.MAIN_ECR}}/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
 
 [chip_config.build_config]
 repository = "https://github.com/smartcontractkit/atlas"
@@ -38,7 +50,7 @@ pre_run = "pushd chip-config && go mod vendor && popd"
 
 [chip_config.pull_config]
 local_image = "chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
-ecr_image = "{{.ECR}}/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
+ecr_image = "{{.MAIN_ECR}}/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 
 [billing_platform_service.build_config]
 repository = "https://github.com/smartcontractkit/billing-platform-service"
@@ -50,7 +62,7 @@ local_image = "billing-platform-service:local-cre"
 
 [billing_platform_service.pull_config]
 local_image = "billing-platform-service:local-cre"
-ecr_image = "{{.ECR}}/billing-platform-service:1.36.1"
+ecr_image = "{{.MAIN_ECR}}/billing-platform-service:1.36.1"
 
 [observability]
 repository = "https://github.com/smartcontractkit/chainlink-observability"

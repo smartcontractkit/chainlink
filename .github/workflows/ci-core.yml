@@ -44,11 +44,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -62,7 +62,7 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -112,7 +112,7 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     # We don't directly merge dependabot PRs to not waste the resources.
     if: ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name != 'merge_group' && github.actor != 'dependabot[bot]' }}
     permissions:
@@ -133,7 +133,7 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -226,7 +226,7 @@ jobs:
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=64/ram=128/family=c6i+c7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
@@ -238,7 +238,7 @@ jobs:
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency ]
+    needs: [filter, run-frequency]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
     runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os || 'ubuntu-latest' }}
@@ -254,7 +254,7 @@ jobs:
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
 
@@ -278,12 +278,12 @@ jobs:
         with:
           CLI_VERSION: 8.1.0
 
-      - name: Setup Sui CLI v1.61.2
+      - name: Setup Sui CLI v1.69.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          version: mainnet-v1.61.2
+          version: mainnet-v1.69.2
 
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
@@ -349,6 +349,8 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
+          # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
+          artifact-name: ${{ matrix.type.cmd }}_test_logs
 
       - name: Print Races
         id: print-races
@@ -358,9 +360,9 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find race.* | xargs cat > race.txt
-          if [[ -s race.txt ]]; then
-            cat race.txt
+          find race.* | xargs cat >> races.txt
+          if [[ -s races.txt ]]; then
+            cat races.txt
             echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
           else
             echo "post_to_slack=false" | tee -a "$GITHUB_OUTPUT"
@@ -376,7 +378,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && matrix.type.should-run == 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -411,7 +413,7 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -426,7 +428,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: go_core_scripts_tests_logs
           path: |
@@ -442,7 +444,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
@@ -545,7 +547,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup Go
@@ -604,7 +606,7 @@ jobs:
     name: Misc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
       - name: Setup go

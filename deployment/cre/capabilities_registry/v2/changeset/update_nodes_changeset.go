@@ -166,7 +166,7 @@ func buildNOPNameToIDMap(capReg *capabilities_registry_v2.CapabilitiesRegistry) 
 
 	nopNameToID := make(map[string]uint32, len(contractNOPs))
 	for i, nop := range contractNOPs {
-		nopNameToID[nop.Name] = uint32(i) + 1 //nolint:gosec // i is bounded by the contract's NOP list length
+		nopNameToID[nop.Name] = uint32(i) + 1
 	}
 	return nopNameToID, nil
 }

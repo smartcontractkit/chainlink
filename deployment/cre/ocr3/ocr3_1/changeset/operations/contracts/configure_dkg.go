@@ -65,7 +65,7 @@ var ConfigureDKG = operations.NewOperation(
 			return ConfigureDKGOpOutput{}, fmt.Errorf("chain %d not found in environment", input.ChainSelector)
 		}
 
-		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex())
+		contract, err := contracts.GetOwnedContractV2[*ocr3_capability.OCR3Capability](deps.Env.DataStore.Addresses(), chain, input.ContractAddress.Hex(), "")
 		if err != nil {
 			return ConfigureDKGOpOutput{}, fmt.Errorf("failed to get DKG contract: %w", err)
 		}

@@ -206,7 +206,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 		httpClient := &http.Client{}
 		_, _ = httpClient.Do(req) // could initially return error if Gateway is not fully initialized yet
 		return client.done.Load()
-	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.Equal(true))
+	}, testutils.WaitTimeout(t), testutils.TestInterval).Should(gomega.BeTrue())
 
 	// Send another request and validate that response has correct content and sender
 	req := newLegacyHTTPRequestObject(t, messageID2, userURL, userKeys.PrivateKey)

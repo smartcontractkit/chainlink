@@ -198,12 +198,12 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	req := ghcapabilities.Request{
 		URL:              binaryURL,
 		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(uint64(maxBinarySize)), //nolint:gosec // G115
+		MaxResponseBytes: safeUint32(uint64(maxBinarySize)),
 		WorkflowID:       workflowID,
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", binaryURL, err)
+		return nil, nil, &types.ArtifactFetchError{ArtifactType: "binary", URL: binaryURL, Err: err}
 	}
 
 	if decodedBinary, err = base64.StdEncoding.DecodeString(string(binary)); err != nil {
@@ -241,13 +241,13 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 		req := ghcapabilities.Request{
 			URL:              configURL,
 			Method:           http.MethodGet,
-			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)), //nolint:gosec // G115
+			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)),
 			WorkflowID:       workflowID,
 		}
 
 		config, err2 = h.fetchFn(ctx, messageID(configURL, workflowID), req)
 		if err2 != nil {
-			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", configURL, err2)
+			return nil, nil, &types.ArtifactFetchError{ArtifactType: "config", URL: configURL, Err: err2}
 		}
 	}
 	return decodedBinary, config, nil

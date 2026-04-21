@@ -539,10 +539,10 @@ func (c CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	for chain := range c.SuiChains {
 		chains[chain] = struct{}{}
 	}
-
 	for chain := range c.TonChains {
 		chains[chain] = struct{}{}
 	}
+
 	return chains
 }
 
@@ -1048,20 +1048,30 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 		TonChains:   tonChains,
 		evmMu:       &sync.RWMutex{},
 	}
+	grp, ctx := errgroup.WithContext(e.GetContext())
+	grp.SetLimit(10) // parallel EVM chain loading with bounded concurrency
 	for chainSelector, chain := range e.BlockChains.EVMChains() {
-		// get all addresses for chain from addressbook
-		// here we do not load addresses from datastore as there can be multiple
-		// contracts of the same type and version in datastore which can lead to
-		// ambiguity while loading the state
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
-			return state, fmt.Errorf("failed to get addresses for chain %d: %w", chainSelector, err)
-		}
-		chainState, err := LoadChainState(e.GetContext(), chain, addresses, opts...)
-		if err != nil {
-			return state, err
-		}
-		state.WriteEVMChainState(chainSelector, chainState)
+		sel := chainSelector
+		ch := chain
+		grp.Go(func() error {
+			// get all addresses for chain from addressbook
+			// here we do not load addresses from datastore as there can be multiple
+			// contracts of the same type and version in datastore which can lead to
+			// ambiguity while loading the state
+			addresses, err := e.ExistingAddresses.AddressesForChain(sel)
+			if err != nil && !errors.Is(err, cldf.ErrChainNotFound) {
+				return fmt.Errorf("failed to get addresses for chain %d: %w", sel, err)
+			}
+			chainState, err := LoadChainState(ctx, ch, addresses, opts...)
+			if err != nil {
+				return err
+			}
+			state.WriteEVMChainState(sel, chainState)
+			return nil
+		})
+	}
+	if err := grp.Wait(); err != nil {
+		return state, err
 	}
 	return state, state.Validate()
 }
@@ -1718,10 +1728,12 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
 			}
-			// New versions of the EVM FeeQuoter are developed to support new chain families.
-			// The FeeQuoter added to state should be the FeeQuoter in the environment with the highest version.
+			// Bind only v1 FeeQuoter here; v2 is handled via fqv2ops.
 			if tvStr.Type == ccipshared.FeeQuoter {
-				if state.FeeQuoter == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
+				if tvStr.Version.Major() != 1 {
+					continue
+				}
+				if state.FeeQuoter == nil || state.FeeQuoterVersion == nil || tvStr.Version.GreaterThan(state.FeeQuoterVersion) {
 					fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 					if err != nil {
 						return state, err

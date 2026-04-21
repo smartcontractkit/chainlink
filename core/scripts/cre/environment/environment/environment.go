@@ -79,6 +79,7 @@ var EnvironmentCmd = &cobra.Command{
 func init() {
 	EnvironmentCmd.AddCommand(startCmd())
 	EnvironmentCmd.AddCommand(stopCmd())
+	EnvironmentCmd.AddCommand(statusCmd())
 	EnvironmentCmd.AddCommand(workflowCmds())
 	EnvironmentCmd.AddCommand(beholderCmds())
 	EnvironmentCmd.AddCommand(swapCmds())
@@ -256,6 +257,11 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
 			}
 
+			persistedBeholderState, persistedBeholderStateErr := loadPersistedBeholderState(relativePathToRepoRoot)
+			if persistedBeholderStateErr != nil {
+				framework.L.Warn().Err(persistedBeholderStateErr).Msg("failed to load persisted Beholder state before startup cleanup")
+			}
+
 			cleanUpErr := envconfig.RemoveAllEnvironmentStateDir(relativePathToRepoRoot)
 			if cleanUpErr != nil {
 				return errors.Wrap(cleanUpErr, "failed to clean up environment state files")
@@ -273,6 +279,7 @@ func startCmd() *cobra.Command {
 			if err := in.Load(os.Getenv("CTF_CONFIGS")); err != nil {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
+			applyChipRouterImageOverride(in)
 
 			// Skip Docker operations for Kubernetes provider (Docker not needed)
 			isDocker := in.Infra != nil && !in.Infra.IsKubernetes()
@@ -281,6 +288,10 @@ func startCmd() *cobra.Command {
 				_ = framework.RemoveTestContainers()
 
 				if err := ensureDockerIsRunning(cmdContext); err != nil {
+					return err
+				}
+
+				if err := ensureChipRouterImageExists(cmdContext, in, setupConfig.ConfigPath); err != nil {
 					return err
 				}
 
@@ -330,8 +341,16 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
+			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
+			if in.Fake != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
+			}
+			if in.FakeHTTP != nil {
+				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
+			}
+
 			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   append(extraAllowedGatewayPorts, in.Fake.Port, in.FakeHTTP.Port),
+				ExtraAllowedPorts:   extraAllowedPorts,
 				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
 			}
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
@@ -358,6 +377,19 @@ func startCmd() *cobra.Command {
 				}
 
 				return errors.Wrap(startErr, "failed to start environment")
+			}
+
+			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+			if storeErr != nil {
+				return errors.Wrap(storeErr, "failed to store local CRE state")
+			}
+
+			if !withBeholder && persistedBeholderState != nil {
+				if err := reconcilePersistedBeholderWithRouter(cmdContext, persistedBeholderState); err != nil {
+					framework.L.Warn().Err(err).Msg("failed to re-register persisted Beholder with chip ingress router")
+				} else if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+					framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after router re-registration")
+				}
 			}
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
@@ -486,7 +518,7 @@ func startCmd() *cobra.Command {
 			if stErr != nil {
 				return errors.Wrap(stErr, "failed to set addresses on Config")
 			}
-			storeErr := in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+			storeErr = in.Store(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 			if storeErr != nil {
 				return errors.Wrap(storeErr, "failed to store local CRE state")
 			}
@@ -649,16 +681,137 @@ func stopCmd() *cobra.Command {
 				if cErr != nil {
 					framework.L.Warn().Msgf("failed to remove local CRE state file: %s", cErr)
 				} else {
-					framework.L.Info().Msgf("removed local CRE state file: %s", creStateFile)
+					framework.L.Info().Msgf("Removed local CRE state file: %s", creStateFile)
+				}
+
+				runningExtras := runningExtraServiceStopHints(detectServiceStatus(cmd.Context()))
+				if len(runningExtras) > 0 {
+					fmt.Println()
+					fmt.Println("The following extra services appear to still be running:")
+					for _, hint := range runningExtras {
+						fmt.Printf("- %s: stop with `%s`\n", hint.serviceName, hint.stopCommand)
+					}
+					fmt.Print("\n- All extra services: stop with `go run . env stop --all`\n")
 				}
 			}
 
-			fmt.Println("Environment stopped successfully")
+			fmt.Print("\nLocal CRE environment stopped successfully\n")
 			return nil
 		},
 	}
 
-	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing)")
+	cmd.Flags().BoolVarP(&allFlag, "all", "a", false, "Remove also all extra services (beholder, billing, observability)")
+
+	return cmd
+}
+
+type serviceStopHint struct {
+	serviceName string
+	stopCommand string
+}
+
+type serviceStatus struct {
+	environmentRunning   bool
+	beholderRunning      bool
+	billingRunning       bool
+	observabilityRunning bool
+}
+
+func runningExtraServiceStopHints(status serviceStatus) []serviceStopHint {
+	var hints []serviceStopHint
+
+	if status.beholderRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Beholder",
+			stopCommand: "go run . env beholder stop",
+		})
+	}
+
+	if status.billingRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Billing",
+			stopCommand: "go run . env billing stop",
+		})
+	}
+
+	if status.observabilityRunning {
+		hints = append(hints, serviceStopHint{
+			serviceName: "Observability",
+			stopCommand: "go run . obs down",
+		})
+	}
+
+	return hints
+}
+
+func detectServiceStatus(cmdContext context.Context) serviceStatus {
+	return serviceStatus{
+		environmentRunning:   envconfig.LocalCREStateFileExists(relativePathToRepoRoot),
+		beholderRunning:      envconfig.ChipIngressStateFileExists(relativePathToRepoRoot),
+		billingRunning:       envconfig.BillingStateFileExists(relativePathToRepoRoot),
+		observabilityRunning: isObservabilityGrafanaRunning(cmdContext),
+	}
+}
+
+func isObservabilityGrafanaRunning(cmdContext context.Context) bool {
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return false
+	}
+	defer dockerClient.Close()
+
+	ctx, cancel := context.WithTimeout(cmdContext, 15*time.Second)
+	defer cancel()
+
+	containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
+	if err != nil {
+		return false
+	}
+
+	for _, c := range containers {
+		// Observability is typically started from the CTF compose bundle and identified by compose labels.
+		if c.Labels["com.docker.compose.service"] == "grafana" && c.Labels["com.docker.compose.project"] == "compose" {
+			return true
+		}
+
+		// Fallback for CTF-managed containers if labels differ.
+		if c.Labels["framework"] == "ctf" {
+			for _, name := range c.Names {
+				if strings.Contains(strings.ToLower(name), "grafana") {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func statusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "status",
+		Short:            "Shows status of local CRE services",
+		Long:             "Shows status of local CRE environment and extra services",
+		PersistentPreRun: globalPreRunFunc,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			status := detectServiceStatus(cmd.Context())
+			statusText := func(running bool) string {
+				if running {
+					return "running"
+				}
+				return "stopped"
+			}
+
+			fmt.Println()
+			fmt.Println("Local CRE service status:")
+			fmt.Printf("- Environment: %s\n", statusText(status.environmentRunning))
+			fmt.Printf("- Beholder: %s\n", statusText(status.beholderRunning))
+			fmt.Printf("- Billing: %s\n", statusText(status.billingRunning))
+			fmt.Printf("- Observability: %s\n", statusText(status.observabilityRunning))
+			fmt.Println()
+			return nil
+		},
+	}
 
 	return cmd
 }
@@ -690,6 +843,7 @@ func StartCLIEnvironment(
 	universalSetupInput := &creenv.SetupInput{
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
+		ChipRouterInput:         in.ChipRouter,
 		ContractVersions:        env.ContractVersions(),
 		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
@@ -751,7 +905,7 @@ func PrintCRELogo() {
 
 func setDefaultCtfConfigs() error {
 	if os.Getenv("CTF_CONFIGS") == "" {
-		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-don.toml"); err != nil {
+		if err := os.Setenv("CTF_CONFIGS", "configs/workflow-gateway-capabilities-don.toml"); err != nil {
 			return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", err)
 		}
 
@@ -762,6 +916,50 @@ func setDefaultCtfConfigs() error {
 	defaultsSetErr := os.Setenv("CTF_CONFIGS", defaultCapabilitiesConfigFile+","+os.Getenv("CTF_CONFIGS"))
 	if defaultsSetErr != nil {
 		return fmt.Errorf("failed to set CTF_CONFIGS environment variable: %w", defaultsSetErr)
+	}
+
+	return nil
+}
+
+func applyChipRouterImageOverride(in *envconfig.Config) {
+	if in == nil || in.ChipRouter == nil {
+		return
+	}
+
+	override := strings.TrimSpace(os.Getenv(envconfig.CTFChipRouterImageEnvVar))
+	if override == "" {
+		return
+	}
+
+	in.ChipRouter.Image = override
+	framework.L.Info().Msgf("Using Chip Router image override from %s: %s", envconfig.CTFChipRouterImageEnvVar, override)
+}
+
+func ensureChipRouterImageExists(ctx context.Context, in *envconfig.Config, setupConfigPath string) error {
+	if os.Getenv("CI") == "true" {
+		framework.L.Info().Msg("CI environment detected, skipping chip image pre-check")
+		return nil
+	}
+
+	if in == nil || in.ChipRouter == nil || (in.Infra != nil && in.Infra.IsKubernetes()) {
+		return nil
+	}
+
+	setupCfg, err := ReadSetupConfig(setupConfigPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read setup config for chip router image validation")
+	}
+	if setupCfg.ChipRouter == nil {
+		return errors.New("chip_router configuration is missing from setup config")
+	}
+
+	routerImage := newMissingImage("chip-router", ImageConfig{
+		BuildConfig: setupCfg.ChipRouter.BuildConfig,
+		PullConfig:  setupCfg.ChipRouter.PullConfig,
+	}.WithLocalImage(in.ChipRouter.Image))
+
+	if err := ensureManagedImagesExist(ctx, setupCfg.General.AWSProfile, []MissingImage{routerImage}); err != nil {
+		return errors.Wrapf(err, "Chip Router image '%s' is not available", in.ChipRouter.Image)
 	}
 
 	return nil
@@ -1032,6 +1230,9 @@ func allEnvironmentStateFiles() ([]string, error) {
 
 func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 	stages := 9
+	if in.ChipRouter != nil {
+		stages++
+	}
 	if in.S3ProviderInput != nil {
 		stages++
 	}

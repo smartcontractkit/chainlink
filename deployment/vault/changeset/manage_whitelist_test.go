@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
@@ -632,4 +633,44 @@ func TestOverwriteWhitelistChangeset(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, whitelist[selector1])
 	})
+}
+
+func TestSetWhitelistOutputOmitsEnvironmentAddressRefs(t *testing.T) {
+	t.Parallel()
+
+	selector := chainselectors.TEST_90000001.Selector
+	version := semver.MustParse("1.0.0")
+
+	ds := datastore.NewMemoryDataStore()
+	err := ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: selector,
+		Address:       "0x52b93FCA1F672800B5FdBCbDAF7c76646470C506",
+		Type:          datastore.ContractType("RBACTimeLock"),
+		Version:       version,
+		Qualifier:     "0x52b93FCA1F672800B5FdBCbDAF7c76646470C506-RBACTimeLock",
+	})
+	require.NoError(t, err)
+
+	env, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{selector}),
+		environment.WithDatastore(ds.Seal()),
+	)
+	require.NoError(t, err)
+
+	cfg := types.SetWhitelistConfig{
+		WhitelistByChain: map[uint64][]types.WhitelistAddress{
+			selector: {{
+				Address:     common.HexToAddress(whitelistTestAddr1).Hex(),
+				Description: "test",
+				Labels:      []string{"team"},
+			}},
+		},
+	}
+
+	out, err := SetWhitelistChangeset.Apply(*env, cfg)
+	require.NoError(t, err)
+
+	refs, err := out.DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Empty(t, refs, "output must not merge address refs from environment; pipeline merge would upsert them into address_refs.json")
 }

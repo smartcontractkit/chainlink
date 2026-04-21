@@ -1,7 +1,6 @@
 package keepers
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"strconv"
@@ -112,11 +111,8 @@ func TestKeeperBasic(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -255,11 +251,8 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -458,11 +451,8 @@ func TestKeeperSimulation(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -605,11 +595,8 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -820,11 +807,8 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -975,11 +959,8 @@ func TestKeeperAddFunds(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1109,11 +1090,8 @@ func TestKeeperRemove(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1256,11 +1234,8 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1381,11 +1356,8 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1597,11 +1569,8 @@ func TestKeeperJobReplacement(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1758,11 +1727,8 @@ func TestKeeperNodeDown(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -1943,11 +1909,8 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"
@@ -2092,11 +2055,8 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 		t.Run(testcase.Name, func(t *testing.T) {
 			l := framework.L
 			t.Cleanup(func() {
-				err := products.ScanLogs(l, products.DefaultSettings())
-				require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-				_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-				require.NoError(t, cErr)
+				cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+				require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 			})
 
 			outputFile := "../../env-out.toml"

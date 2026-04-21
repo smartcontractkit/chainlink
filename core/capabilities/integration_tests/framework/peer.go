@@ -138,5 +138,3 @@ func getSignerStringFromOCRKeyBundle(keyBundle ocr2key.KeyBundle) (string, error
 
 	return fmt.Sprintf("0x%x", keyBundle.PublicKey()), nil
 }
-
-func ptr[T any](t T) *T { return &t }

@@ -1754,7 +1754,7 @@ func (sourceCCIP *SourceCCIPModule) IsPastRequestTriggeredWithinTimeframe(
 	if blocks < 0 {
 		return nil, fmt.Errorf("negative blocks: %d", blocks)
 	}
-	filterFromBlock := latestBlock - uint64(blocks) //nolint:gosec // G115 false positive
+	filterFromBlock := latestBlock - uint64(blocks)
 
 	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(sourceCCIP.OnRamp.EthAddress.Hex()),
 		sourceCCIP.Common.ChainClient.Backend())
@@ -4432,22 +4432,21 @@ func CreateOCR2CCIPExecutionJobs(
 }
 
 func TokenFeeForMultipleTokenAddr(tokenAddrToURL map[string]string) string {
-	source := ""
-	right := ""
 	i := 1
+	var right strings.Builder
+	var source strings.Builder
 	for addr, url := range tokenAddrToURL {
-		source = source + fmt.Sprintf(`
+		fmt.Fprintf(&source, `
 token%d [type=http method=GET url="%s"];
 token%d_parse [type=jsonparse path="data,result"];
 token%d->token%d_parse;`, i, url, i, i, i)
-		right = right + fmt.Sprintf(` \\\"%s\\\":$(token%d_parse),`, addr, i)
+		fmt.Fprintf(&right, ` \\\"%s\\\":$(token%d_parse),`, addr, i)
 		i++
 	}
-	right = right[:len(right)-1]
-	source = fmt.Sprintf(`%s
-merge [type=merge left="{}" right="{%s}"];`, source, right)
-
-	return source
+	rightS := right.String()
+	rightS = rightS[:len(rightS)-1]
+	return fmt.Sprintf(`%s
+merge [type=merge left="{}" right="{%s}"];`, source.String(), rightS)
 }
 
 // CCIPTestEnv contains the environment for running a CCIP E2E test

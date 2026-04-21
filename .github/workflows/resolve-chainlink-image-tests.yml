@@ -1,0 +1,27 @@
+name: Resolve Chainlink Image Tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/scripts/resolve-chainlink-image.sh"
+      - ".github/scripts/resolve-chainlink-image_test.sh"
+      - ".github/workflows/cre-system-tests.yaml"
+      - ".github/workflows/cre-regression-system-tests.yaml"
+      - ".github/workflows/system-tests-nightly.yml"
+  workflow_dispatch:
+
+jobs:
+  resolve-chainlink-image-tests:
+    name: Resolve Chainlink Image Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run resolver tests
+        shell: bash
+        run: bash ./.github/scripts/resolve-chainlink-image_test.sh

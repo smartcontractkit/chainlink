@@ -429,9 +429,16 @@ func (c CCIPChainState) ValidateOnRamp(
 	if err != nil {
 		return fmt.Errorf("failed to get dynamic config for chain %d onRamp %s: %w", selector, c.OnRamp.Address().Hex(), err)
 	}
-	if dynamicCfg.FeeQuoter != c.FeeQuoter.Address() && (fqV2Addr == common.Address{} || dynamicCfg.FeeQuoter != fqV2Addr) {
-		expected := c.FeeQuoter.Address().Hex()
-		if fqV2Addr != (common.Address{}) {
+	if c.FeeQuoter == nil && fqV2Addr == (common.Address{}) {
+		return errors.New("no FeeQuoter contract found in the state for onRamp validation")
+	}
+	expectedPrimary := fqV2Addr
+	if c.FeeQuoter != nil {
+		expectedPrimary = c.FeeQuoter.Address()
+	}
+	if dynamicCfg.FeeQuoter != expectedPrimary && (fqV2Addr == (common.Address{}) || dynamicCfg.FeeQuoter != fqV2Addr) {
+		expected := expectedPrimary.Hex()
+		if c.FeeQuoter != nil && fqV2Addr != (common.Address{}) && fqV2Addr != expectedPrimary {
 			expected += " or " + fqV2Addr.Hex()
 		}
 		return fmt.Errorf("onRamp %s feeQuoter mismatch in dynamic config: expected %s, got %s",
@@ -619,10 +626,16 @@ func (c CCIPChainState) ValidateOffRamp(
 	if err != nil {
 		return fmt.Errorf("failed to get dynamic config for chain %d offRamp %s: %w", selector, c.OffRamp.Address().Hex(), err)
 	}
-	// FeeQuoter address for chain should be the same as the one in the static config
-	if dynamicConfig.FeeQuoter != c.FeeQuoter.Address() && (fqV2Addr == common.Address{} || dynamicConfig.FeeQuoter != fqV2Addr) {
-		expected := c.FeeQuoter.Address().Hex()
-		if fqV2Addr != (common.Address{}) {
+	if c.FeeQuoter == nil && fqV2Addr == (common.Address{}) {
+		return errors.New("no FeeQuoter contract found in the state for offRamp validation")
+	}
+	expectedPrimary := fqV2Addr
+	if c.FeeQuoter != nil {
+		expectedPrimary = c.FeeQuoter.Address()
+	}
+	if dynamicConfig.FeeQuoter != expectedPrimary && (fqV2Addr == (common.Address{}) || dynamicConfig.FeeQuoter != fqV2Addr) {
+		expected := expectedPrimary.Hex()
+		if c.FeeQuoter != nil && fqV2Addr != (common.Address{}) && fqV2Addr != expectedPrimary {
 			expected += " or " + fqV2Addr.Hex()
 		}
 		return fmt.Errorf("offRamp %s feeQuoter mismatch: expected %s, got %s",

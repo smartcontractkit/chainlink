@@ -3,36 +3,47 @@ name: CRE System Tests
 on:
   workflow_dispatch:
     inputs:
-      ecr_name:
-        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
-        required: false
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
         type: string
-        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
-        description: "The tag of the Chainlink image to use for the tests."
-      chainlink_version:
+        description: "Chainlink image tag to use."
+      ecr:
         required: true
+        type: choice
+        options:
+          - "sdlc"
+          - "public"
+        default: "sdlc"
+        description: "Whether to use the SDLC or public ECR registry for the Chainlink image."
+      chainlink_version:
+        required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests."
-        default: "develop"
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        default: ""
   workflow_call:
     inputs:
-      ecr_name:
-        description: "The name of the ECR repository to pull the image from, defaults to 'chainlink'"
-        required: false
+      chainlink_image_repository_path:
+        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        required: true
         type: string
-        default: "chainlink"
       chainlink_image_tag:
         required: true
         type: string
-        description: "The tag of the Chainlink image to use for the tests."
-      chainlink_version:
-        required: true
+        description: "Chainlink image tag to use."
+      ecr:
         type: string
-        description: "The version of Chainlink repository to use for the tests."
-        default: "develop"
+        required: true
+        default: "sdlc"
+        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        default: ""
 
 jobs:
   define-test-matrix:
@@ -43,9 +54,9 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.chainlink_version }}
+          ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -55,7 +66,7 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
@@ -75,6 +86,9 @@ jobs:
 
           # Add list of tests with certain topologies
           PER_TEST_TOPOLOGIES_JSON=${PER_TEST_TOPOLOGIES_JSON:-'{
+            "Test_CRE_V2_Aptos_Suite": [
+               {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
+             ],
             "Test_CRE_V2_Solana_Suite": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
@@ -146,7 +160,7 @@ jobs:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
       deployment: false
-    timeout-minutes: 60
+    timeout-minutes: 10
     env:
       ENABLE_AUTO_QUARANTINE: "true"
       # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
@@ -162,19 +176,19 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.chainlink_version }}
+          ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: system-tests/tests/go.mod
           cache: true
 
-      # We need to login to ECR to allow the test to pull the Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) images
+      # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
         with:
@@ -185,40 +199,56 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      # Required to allow pulling public images
+      - name: Authenticate to ECR (public)
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
+
       - name: Set up gotestsum
         shell: bash
         run: |
           echo "::startgroup::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.12.3
+          go install gotest.tools/gotestsum@v1.13.0
           echo "::endgroup::"
 
-      - name: Install CTF binary
+      - name: Install Aptos CLI
+        if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: 7.8.0
+
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        working-directory: .github/scripts
         shell: bash
-        working-directory: core/scripts/cre/environment
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "framework/v0.11.9"
+          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
+          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
+          ECR_TYPE: ${{ inputs.ecr }}
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
-          echo "::startgroup::Install CTF binary"
-          mkdir -p bin
-          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
-          tar -xzf ctf.tar.gz
-          mv ctf bin/ctf
-          chmod +x bin/ctf
-          echo "::endgroup::"
+          resolved_image="$(bash resolve-chainlink-image.sh)"
+          echo "$resolved_image"
+          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         shell: bash
         id: start-local-cre
         env:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name }}:${{ inputs.chainlink_image_tag != '' && inputs.chainlink_image_tag || inputs.chainlink_version }}"
+          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
@@ -231,7 +261,7 @@ jobs:
             echo "Test requires observability stack, starting..."
 
             # Start observability stack
-            ./bin/ctf obs up -f
+            go run . obs up -f
 
             echo "::endgroup::"
             echo "::group::Validating Observability Stack"
@@ -298,15 +328,12 @@ jobs:
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          TEST_TIMEOUT: 30m
+          TEST_TIMEOUT: 7m # let's leave 3 minutes for other steps (the whole job times out after 10 minutes)
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
-          # parallelisation flags for tests
-          # fanout is necessary, because multiple tests would otherwise start chip test sinks at the same port, causing conflicts
           CRE_TEST_PARALLEL_ENABLED: "true"
-          CRE_TEST_CHIP_SINK_FANOUT_ENABLED: "true"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
@@ -332,14 +359,16 @@ jobs:
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           # when auto-quarantine is enabled, allow this to determine test failures
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
+          artifact-name: ${{ matrix.tests.test_id }}_test_logs
 
       - name: Show Docker containers status
-        if: failure()
+        if: failure() || cancelled()
         shell: bash
         run: docker ps -a
 
       - name: Save Smoke tests Docker logs
-        if: failure()
+        if: failure() || cancelled()
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
@@ -352,8 +381,8 @@ jobs:
           done
 
       - name: Upload all artifacts as single package
-        if: failure()
-        uses: actions/upload-artifact@v4.6.2
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
           path: |

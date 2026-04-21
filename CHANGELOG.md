@@ -1,5 +1,49 @@
 # Changelog Chainlink Core
 
+## 2.43.0
+
+### Minor Changes
+
+- [#21861](https://github.com/smartcontractkit/chainlink/pull/21861) [`e35dcc4`](https://github.com/smartcontractkit/chainlink/commit/e35dcc44803a3369b6c9b32f94e3a640f0f90572) - Add Pyroscope profiling support for LOOP Plugins #nops
+
+- [#21899](https://github.com/smartcontractkit/chainlink/pull/21899) [`92db8e0`](https://github.com/smartcontractkit/chainlink/commit/92db8e0991e3b1da7ce9933403a7d9828fec5a00) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22007](https://github.com/smartcontractkit/chainlink/pull/22007) [`51b37cf`](https://github.com/smartcontractkit/chainlink/commit/51b37cfd3017ae2eb883d0e7e2623cfaf9be89e1) - #bugfix bumps http-action capability version to classify timeouts as UserError
+
+- [#21868](https://github.com/smartcontractkit/chainlink/pull/21868) [`7dffc86`](https://github.com/smartcontractkit/chainlink/commit/7dffc86ad98ed8e338b914d8477a4ecd629d2294) - #bugfix Wire user metric limiters to WASM ModuleConfig
+
+## 2.42.0
+
+### Minor Changes
+
+- [#21771](https://github.com/smartcontractkit/chainlink/pull/21771) [`9a1136d`](https://github.com/smartcontractkit/chainlink/commit/9a1136d4fbe399ebc34d1e5a788d54b0e049b44c) - #changed add support for log filters in fake EVM capability
+
+- [#21803](https://github.com/smartcontractkit/chainlink/pull/21803) [`5765674`](https://github.com/smartcontractkit/chainlink/commit/5765674b7b928b5b8f04890d829568db4109dde5) - Minor bump to start next version
+
+- [#21817](https://github.com/smartcontractkit/chainlink/pull/21817) [`0e5dbb7`](https://github.com/smartcontractkit/chainlink/commit/0e5dbb7d1e699cc587fa6f1ebf6802cacf3700b0) - #added Add support for user-emitted CRE workflow metrics via WASM host function emit_metric
+
+### Patch Changes
+
+- [#21766](https://github.com/smartcontractkit/chainlink/pull/21766) [`3536f50`](https://github.com/smartcontractkit/chainlink/commit/3536f50f81f0dac6ad21e200621e4a36984cd7e0) - #internal
+
+  Add Aptos local CRE read/write support, including Capabilities Registry OCR config for Aptos write and CI coverage for the Aptos write roundtrip and expected-failure scenarios.
+
+## 2.41.0
+
+### Minor Changes
+
+- [#21679](https://github.com/smartcontractkit/chainlink/pull/21679) [`f6ec944`](https://github.com/smartcontractkit/chainlink/commit/f6ec944dbb290c9f9bea4ff24f15c7a691e5147f) - Minor bump to start next version
+
+- [#21776](https://github.com/smartcontractkit/chainlink/pull/21776) [`035fa26`](https://github.com/smartcontractkit/chainlink/commit/035fa268de1308a854ad6351344061283ed63b78) - Adds support for SVR MultiCall and TransactionLifecycleID #internal
+
+### Patch Changes
+
+- [#21688](https://github.com/smartcontractkit/chainlink/pull/21688) [`f8abcbb`](https://github.com/smartcontractkit/chainlink/commit/f8abcbb3eed3bdc478f4a7721255702dd3532453) - #changed
+
+  Move Vault node-side request authorization into the gateway handler and remove duplicated authorization from the Vault capability.
+
 ## 2.40.0
 
 ### Minor Changes
