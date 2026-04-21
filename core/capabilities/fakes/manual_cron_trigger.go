@@ -171,7 +171,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	case <-jobFired:
 		break
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	}
 
 	// Sent trigger response
