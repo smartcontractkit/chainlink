@@ -24,7 +24,6 @@ RUN useradd -u 1001 -m -d /home/user1001 user1001
 
 # Copy files as root first, then change ownership
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
-COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/
 COPY --from=build-env /go/testdir/sha.txt /go/testdir/sha.txt
 
