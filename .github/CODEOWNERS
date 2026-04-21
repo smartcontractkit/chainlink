@@ -38,10 +38,6 @@
 /core/services/webhook/ @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo/ @smartcontractkit/data-streams-engineers @smartcontractkit/core
 
-# CCIP
-/core/services/ccip/ @smartcontractkit/ccip
-/core/services/ocr2/plugins/ccip/ @smartcontractkit/ccip
-
 # VRF-related services
 /core/services/vrf/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore/ @smartcontractkit/dev-services @smartcontractkit/core

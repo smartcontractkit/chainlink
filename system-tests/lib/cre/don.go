@@ -264,7 +264,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		forwarderF = 1
 	}
 
-	don.F = uint8(forwarderF) //nolint:gosec //will never happen, we don't use more than 31 nodes
+	don.F = uint8(forwarderF)
 
 	return don, nil
 }

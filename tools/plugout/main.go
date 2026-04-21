@@ -406,19 +406,19 @@ func updateGitRefInYAML(pluginPath, module string, goModMV ModuleVersion) error 
 
 		if foundModule && strings.Contains(trimmed, "gitRef:") {
 			// preserve indentation
-			indent := ""
+			var indent strings.Builder
 			for _, ch := range line {
 				if ch != ' ' && ch != '\t' {
 					break
 				}
-				indent += string(ch)
+				indent.WriteRune(ch)
 			}
 			// preserve comment
 			comment := ""
 			if idx := strings.Index(line, "#"); idx >= 0 {
 				comment = " " + strings.TrimSpace(line[idx:])
 			}
-			lines[i] = fmt.Sprintf("%sgitRef: %q%s", indent, newGitRef, comment)
+			lines[i] = fmt.Sprintf("%sgitRef: %q%s", &indent, newGitRef, comment)
 			updated = true
 			foundModule = false
 			continue

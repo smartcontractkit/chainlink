@@ -16,7 +16,7 @@ import (
 func chainSelectorSlice(n int) []cciptypes.ChainSelector {
 	selectors := make([]cciptypes.ChainSelector, n)
 	for i := range selectors {
-		//nolint:gosec // no overflow risk here
+
 		selectors[i] = cciptypes.ChainSelector(uint64(i) + 1000)
 	}
 	return selectors

@@ -12,6 +12,7 @@ import (
 	rand2 "math/rand/v2"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -838,10 +839,9 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	workflow.ID = workflowID
 	registerWorkflow(t, backendTH, wfRegistryC, workflow)
 
-	var retryCount int
+	var retryCount atomic.Int32
 	testEventHandler := newTestEvtHandler(func() error {
-		if retryCount <= 1 {
-			retryCount++
+		if retryCount.Add(1) <= 2 {
 			return errors.New("error handling event")
 		}
 		return nil
@@ -866,20 +866,24 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 			err: nil,
 		},
 		NewEngineRegistry(),
-		WithRetryInterval(1*time.Second),
+		WithTicker(time.NewTicker(1*time.Second).C),
+		WithRetryInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
 
+	// Wait for the handler to be called 3 times: 2 failures with backoff + 1 success
 	require.Eventually(t, func() bool {
-		return len(testEventHandler.GetEvents()) == 1
+		return retryCount.Load() >= 3
 	}, 30*time.Second, 1*time.Second)
 
-	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
-
-	assert.Equal(t, 1, retryCount)
+	// All 3 calls (2 failures + 1 success) should have appended events
+	events := testEventHandler.GetEvents()
+	require.GreaterOrEqual(t, len(events), 3)
+	for _, event := range events {
+		assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
+	}
 }
 
 func updateAuthorizedAddress(
