@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	kschaintype "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -192,7 +192,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
-		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+		chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
 	})
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}

@@ -2,15 +2,19 @@ package ccipsolana
 
 import (
 	"encoding/binary"
+	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
@@ -58,7 +62,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
 			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
-				chainsel.FamilySolana: ExtraDataDecoder{},
+				chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
 			})
 			ep := EstimateProvider{extraDataCodec: edc}
 			got := ep.CalculateMessageMaxGas(msg)
@@ -102,7 +106,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.SOLANA_TESTNET.Selector)
 			edc := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 				chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
-				chainsel.FamilySolana: ExtraDataDecoder{},
+				chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
 			})
 			ep := EstimateProvider{extraDataCodec: edc}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
@@ -113,8 +117,12 @@ func TestCalculateMaxGas(t *testing.T) {
 	}
 }
 
+func serializeExtraArgs(tag []byte, data any) ([]byte, error) {
+	return ccip.SerializeExtraArgs(data, strings.TrimPrefix(hexutil.Encode(tag), "0x"))
+}
+
 func makeExtraArgsV2(computeUnits uint32, allowOOO bool) []byte {
-	extraArgs, err := SerializeExtraArgs(svmExtraArgsV1Tag, fee_quoter.SVMExtraArgsV1{
+	extraArgs, err := serializeExtraArgs(svmExtraArgsV1Tag, fee_quoter.SVMExtraArgsV1{
 		AllowOutOfOrderExecution: allowOOO,
 		ComputeUnits:             computeUnits,
 		AccountIsWritableBitmap:  0,

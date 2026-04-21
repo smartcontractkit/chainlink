@@ -30,12 +30,12 @@ import (
 
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -468,7 +468,7 @@ func BuildOCR3ConfigForCCIPHome(
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
 	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
 		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
-		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
+		chain_selectors.FamilySolana: solanacodec.NewAddressCodec(),
 	})
 
 	// check if we have info from this node for another chain in the same destFamily

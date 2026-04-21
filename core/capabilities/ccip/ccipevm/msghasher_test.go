@@ -36,15 +36,15 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 	chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
 	chainsel.FamilyEVM:    ExtraDataDecoder{},
-	chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+	chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
 	chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
 })
 

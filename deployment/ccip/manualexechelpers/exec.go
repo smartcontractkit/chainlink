@@ -14,8 +14,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -557,7 +557,7 @@ func ManuallyExecuteAll(
 ) error {
 	extraDataCodec := ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
 		chainsel.FamilyEVM:    ccipevm.ExtraDataDecoder{},
-		chainsel.FamilySolana: ccipsolana.ExtraDataDecoder{},
+		chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
 	})
 	// the chain multiple times for the same root/messages.
 	messageSentCache := NewMessageSentCache()
