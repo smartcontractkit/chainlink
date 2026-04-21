@@ -324,7 +324,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 
 			gsr := &vault.GetSecretsRequest{
 				WorkflowOwner: tc.workflowOwner,
-				Requests: reqs,
+				Requests:      reqs,
 			}
 			anyproto, err := anypb.New(gsr)
 			require.NoError(t, err)

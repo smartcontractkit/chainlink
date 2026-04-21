@@ -890,12 +890,12 @@ func BenchmarkObserve(b *testing.B) {
 	r := streams.NewRegistry(lggr, runner)
 	for i := range n {
 		jb := job.Job{
-			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
+			ID:       int32(i),
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
 			Type:     job.Stream,
 			StreamID: &i,
 			PipelineSpec: &pipeline.Spec{
-				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
+				ID: int32(i * 100),
 				DotDagSource: fmt.Sprintf(`
 // Benchmark Price
 result1          [type=memo value="900.0022"];
