@@ -66,15 +66,25 @@ type TestEntry struct {
 	LogFiles   []string      `json:"log_files,omitempty"`
 }
 
+// IterationSummary captures high-level stats for a single survey iteration.
+// Duration and ShuffleSeed are populated by the runner after analysis.
+type IterationSummary struct {
+	Index        int           `json:"index"`
+	Duration     time.Duration `json:"duration,omitempty"`
+	Result       string        `json:"result"` // "pass", "fail", "timeout"
+	FailingTests []string      `json:"failing_tests,omitempty"`
+	ShuffleSeed  int64         `json:"shuffle_seed,omitempty"`
+}
+
 // Report classifies tests across iterations of a survey run.
 type Report struct {
-	Iterations    int           `json:"iterations"`
-	SlowThreshold time.Duration `json:"slow_threshold"`
-	ShuffleSeeds  map[int]int64 `json:"shuffle_seeds,omitempty"`
-	Flakes        []TestEntry   `json:"flakes,omitempty"`
-	Failures      []TestEntry   `json:"failures,omitempty"`
-	Timeouts      []TestEntry   `json:"timeouts,omitempty"`
-	Slow          []TestEntry   `json:"slow,omitempty"`
+	Iterations         int                `json:"iterations"`
+	SlowThreshold      time.Duration      `json:"slow_threshold"`
+	IterationSummaries []IterationSummary `json:"iteration_summaries,omitempty"`
+	Flakes             []TestEntry        `json:"flakes,omitempty"`
+	Failures           []TestEntry        `json:"failures,omitempty"`
+	Timeouts           []TestEntry        `json:"timeouts,omitempty"`
+	Slow               []TestEntry        `json:"slow,omitempty"`
 }
 
 // LogMap maps (package,test) → iteration → raw interleaved output.
@@ -200,6 +210,37 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 	sortEntries(rep.Failures)
 	sortEntries(rep.Timeouts)
 	sortEntries(rep.Slow)
+
+	// Build per-iteration summaries from aggregated failure/timeout data.
+	iterFails := make(map[int][]string, len(iterations))
+	iterTimedOut := make(map[int]bool, len(iterations))
+	for key, a := range aggs {
+		if key.Test == "" {
+			continue
+		}
+		for i := range a.failedIters {
+			iterFails[i] = append(iterFails[i], key.Test)
+		}
+		for i := range a.timeoutIters {
+			iterTimedOut[i] = true
+		}
+	}
+	summaries := make([]IterationSummary, len(iterations))
+	for i := range iterations {
+		s := IterationSummary{Index: i}
+		switch {
+		case iterTimedOut[i]:
+			s.Result = "timeout"
+		case len(iterFails[i]) > 0:
+			s.Result = "fail"
+			sort.Strings(iterFails[i])
+			s.FailingTests = iterFails[i]
+		default:
+			s.Result = "pass"
+		}
+		summaries[i] = s
+	}
+	rep.IterationSummaries = summaries
 
 	logs := buildLogMap(aggs)
 	return rep, logs, nil
@@ -490,6 +531,7 @@ func formatSlowTestLine(e TestEntry) string {
 	}
 	return fmt.Sprintf("%s %s", e.Test, e.MaxElapsed.Round(time.Millisecond))
 }
+
 
 // pipeBranch returns a tree prefix: depth 1 -> "|-- ", depth 2 -> "|---- ", etc.
 func pipeBranch(depth int) string {

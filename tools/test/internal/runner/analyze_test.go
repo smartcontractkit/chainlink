@@ -347,6 +347,72 @@ func must(t *testing.T, err error) {
 	require.NoError(t, err)
 }
 
+func TestAnalyzeIterationSummaries(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name       string
+		iterations []string
+		want       []IterationSummary
+	}{
+		{
+			name: "all pass",
+			iterations: []string{
+				`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.1}` + "\n",
+				`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.2}` + "\n",
+			},
+			want: []IterationSummary{
+				{Index: 0, Result: "pass"},
+				{Index: 1, Result: "pass"},
+			},
+		},
+		{
+			name: "fail then pass",
+			iterations: []string{
+				`{"Action":"fail","Package":"p","Test":"TestA","Elapsed":0.1}` + "\n",
+				`{"Action":"pass","Package":"p","Test":"TestA","Elapsed":0.2}` + "\n",
+			},
+			want: []IterationSummary{
+				{Index: 0, Result: "fail", FailingTests: []string{"TestA"}},
+				{Index: 1, Result: "pass"},
+			},
+		},
+		{
+			name: "timeout",
+			iterations: []string{
+				`{"Action":"output","Package":"p","Test":"TestHang","Output":"panic: test timed out after 10m0s\n"}` + "\n" +
+					`{"Action":"fail","Package":"p","Test":"TestHang","Elapsed":600.0}` + "\n",
+			},
+			want: []IterationSummary{
+				{Index: 0, Result: "timeout"},
+			},
+		},
+		{
+			name: "multiple failures sorted",
+			iterations: []string{
+				`{"Action":"fail","Package":"p","Test":"TestB","Elapsed":0.1}` + "\n" +
+					`{"Action":"fail","Package":"p","Test":"TestA","Elapsed":0.1}` + "\n",
+			},
+			want: []IterationSummary{
+				{Index: 0, Result: "fail", FailingTests: []string{"TestA", "TestB"}},
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rep, _, err := Analyze(readers(tc.iterations...), 30*time.Second)
+			require.NoError(t, err)
+			require.Len(t, rep.IterationSummaries, len(tc.want))
+			// Strip Duration/ShuffleSeed — set by runner, not Analyze.
+			got := make([]IterationSummary, len(rep.IterationSummaries))
+			for i, s := range rep.IterationSummaries {
+				got[i] = IterationSummary{Index: s.Index, Result: s.Result, FailingTests: s.FailingTests}
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}
+
 func TestAnalyzeSkipsMalformedLines(t *testing.T) {
 	t.Parallel()
 	input := `not json at all

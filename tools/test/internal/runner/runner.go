@@ -65,9 +65,10 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	}
 
 	var (
-		completed    int
-		failedFast   bool
-		shuffleSeeds map[int]int64
+		completed     int
+		failedFast    bool
+		iterDurations = make([]time.Duration, 0, conf.Iterations)
+		shuffleSeeds  map[int]int64
 	)
 	if conf.Shuffle {
 		shuffleSeeds = make(map[int]int64)
@@ -89,7 +90,9 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 			seed = rand.Int64N(1<<62) + 1 // always nonzero
 			shuffleSeeds[i] = seed
 		}
+		iterStart := time.Now()
 		iterErr := surveyIteration(ctx, conf, resultsDir, targetDir, i, seed)
+		iterDurations = append(iterDurations, time.Since(iterStart))
 		if dumpDB != nil {
 			if dumpErr := dumpDB(ctx, resultsDir, i); dumpErr != nil && !conf.AIOutput {
 				fmt.Fprintf(os.Stderr, "postgres state dump iteration %d: %v\n", i, dumpErr)
@@ -118,8 +121,16 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 		fmt.Fprintf(os.Stderr, "analyze results: %v\n", analyzeErr)
 		return analyzeErr
 	}
-	if report != nil && len(shuffleSeeds) > 0 {
-		report.ShuffleSeeds = shuffleSeeds
+	if report != nil {
+		for i, d := range iterDurations {
+			if i >= len(report.IterationSummaries) {
+				break
+			}
+			report.IterationSummaries[i].Duration = d
+			if shuffleSeeds != nil {
+				report.IterationSummaries[i].ShuffleSeed = shuffleSeeds[i]
+			}
+		}
 	}
 	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
 		fmt.Fprintf(os.Stderr, "write log files: %v\n", err)

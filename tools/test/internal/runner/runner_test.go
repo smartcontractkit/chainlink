@@ -157,7 +157,7 @@ func TestSurveyShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	require.NoError(t, err)
 	var rep Report
 	require.NoError(t, json.Unmarshal(reportBytes, &rep))
-	assert.Empty(t, rep.ShuffleSeeds)
+	assert.Empty(t, rep.IterationSummaries)
 }
 
 func TestSurveyResultsDirName(t *testing.T) {
