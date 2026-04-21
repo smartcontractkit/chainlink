@@ -4,6 +4,8 @@ on:
 jobs:
   lint_workflows:
     name: Validate Github Action Workflows
+    # Avoid fan-out on mirror repos that sync many branches from chainlink.
+    if: github.repository == 'smartcontractkit/chainlink'
     runs-on: ubuntu-latest
     steps:
       - name: Check out Code

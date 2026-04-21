@@ -6,6 +6,7 @@ on:
 jobs:
   changes:
     name: Detect changes
+    if: github.repository == 'smartcontractkit/chainlink'
     runs-on: ubuntu-latest
     outputs:
       changes: ${{ steps.changes.outputs.src }}
@@ -21,6 +22,7 @@ jobs:
               - '**/*go.mod'
               - '.github/workflows/dependency-check.yml'
   Go:
+    if: github.repository == 'smartcontractkit/chainlink'
     runs-on: ubuntu-latest
     needs: [changes]
     steps:
