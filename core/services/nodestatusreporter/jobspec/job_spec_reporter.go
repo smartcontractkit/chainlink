@@ -26,9 +26,8 @@ import (
 
 const ServiceName = "JobSpecReporter"
 
-// Service polls active jobs and emits full job-spec telemetry via Beholder.
-// It mirrors the BridgeStatusReporter structure and implements job.Listener
-// to also emit immediately on create/delete.
+// Service polls active jobs and pushes their specs to Beholder, and also emits
+// on job create/delete via the job.Listener interface.
 type Service struct {
 	services.Service
 	eng *services.Engine
@@ -86,7 +85,7 @@ func (s *Service) HealthReport() map[string]error {
 	return map[string]error{ServiceName: s.Ready()}
 }
 
-// OnJobStarted implements job.Listener — called after a job service starts successfully.
+// OnJobStarted emits a create event when a job starts.
 func (s *Service) OnJobStarted(ctx context.Context, jb job.Job) {
 	if !s.ShouldEmit(&jb) {
 		return
@@ -96,7 +95,7 @@ func (s *Service) OnJobStarted(ctx context.Context, jb job.Job) {
 	}
 }
 
-// OnJobStopped implements job.Listener — called after a job is deleted.
+// OnJobStopped emits a delete event when a job is removed.
 func (s *Service) OnJobStopped(ctx context.Context, jb job.Job) {
 	if !s.ShouldEmit(&jb) {
 		return
@@ -106,8 +105,7 @@ func (s *Service) OnJobStopped(ctx context.Context, jb job.Job) {
 	}
 }
 
-// pollAllJobs is called on each heartbeat tick and emits telemetry for every
-// active job that passes the ShouldEmit gate.
+// pollAllJobs emits heartbeat telemetry for every active job that passes the emit gate.
 func (s *Service) pollAllJobs(ctx context.Context) {
 	for _, jb := range s.spawner.ActiveJobs() {
 		if !s.ShouldEmit(&jb) {
@@ -119,9 +117,8 @@ func (s *Service) pollAllJobs(ctx context.Context) {
 	}
 }
 
-// ShouldEmit returns true when the given job should produce a telemetry event
-// based on the current config. This gate applies symmetrically to heartbeats
-// and create/delete events.
+// ShouldEmit reports whether the job passes the config-driven emit gate.
+// Applied to heartbeat, create, and delete events alike.
 func (s *Service) ShouldEmit(j *job.Job) bool {
 	if j == nil {
 		return false
@@ -142,7 +139,7 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 	return false
 }
 
-// EmitForJob converts a job to a JobSpecEvent and emits it via Beholder.
+// EmitForJob builds and emits a JobSpecEvent for the given job and trigger.
 func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) error {
 	event, err := s.buildEvent(ctx, jb, trigger)
 	if err != nil {
@@ -155,7 +152,7 @@ func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger events.Emi
 	return nil
 }
 
-// buildEvent converts a job.Job into the protobuf JobSpecEvent.
+// buildEvent converts a job.Job into its protobuf JobSpecEvent representation.
 func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) (*events.JobSpecEvent, error) {
 	event := &events.JobSpecEvent{
 		ExternalJobId:          jb.ExternalJobID.String(),
@@ -202,9 +199,8 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 	return event, nil
 }
 
-// populateProposalLifecycle fills the proposal/approval fields when the job was
-// created via the Feeds Manager. Jobs not managed by the Feeds Manager are
-// returned without error via sql.ErrNoRows.
+// populateProposalLifecycle fills in proposal/approval fields for jobs created
+// via the Feeds Manager. Jobs not managed by Feeds Manager are a no-op.
 func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, event *events.JobSpecEvent) error {
 	if s.feedsORM == nil || jb.ExternalJobID == uuid.Nil {
 		return nil
@@ -235,9 +231,8 @@ func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, eve
 	return nil
 }
 
-// extractBridgeNames returns the names of all bridge tasks in the top-level
-// observationSource pipeline. Tasks in sub-pipelines (e.g. juelsPerFeeCoinSource)
-// are not included.
+// extractBridgeNames returns the names of bridge tasks in the top-level pipeline.
+// Tasks inside sub-pipelines (e.g. juelsPerFeeCoinSource) are not included.
 func extractBridgeNames(p pipeline.Pipeline) []string {
 	var names []string
 	for _, task := range p.Tasks {
@@ -253,8 +248,8 @@ func extractBridgeNames(p pipeline.Pipeline) []string {
 	return names
 }
 
-// evmRelayConfig is a minimal struct for decoding EVM relay config JSON fields
-// that we want to surface in OCR2EVMRelayConfig without importing the EVM module.
+// evmRelayConfig mirrors the EVM relay config JSON so we can surface its fields
+// in OCR2EVMRelayConfig without depending on the EVM module.
 type evmRelayConfig struct {
 	ChainID                 string   `json:"chainID"`
 	FromBlock               uint64   `json:"fromBlock"`
@@ -267,7 +262,7 @@ type evmRelayConfig struct {
 	ProviderType            string   `json:"providerType"`
 }
 
-// buildOCR2OracleSpecInfo converts an OCR2OracleSpec into its proto representation.
+// buildOCR2OracleSpecInfo converts an OCR2OracleSpec into the proto message.
 func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecInfo, error) {
 	relayConfigRaw, err := json.Marshal(spec.RelayConfig)
 	if err != nil {
@@ -330,7 +325,7 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	return info, nil
 }
 
-// buildEVMRelayConfig decodes the EVM relay config JSON into the proto message.
+// buildEVMRelayConfig decodes the EVM relay config JSON into OCR2EVMRelayConfig.
 func buildEVMRelayConfig(relayConfigJSON []byte) (*events.OCR2EVMRelayConfig, error) {
 	var cfg evmRelayConfig
 	if err := json.Unmarshal(relayConfigJSON, &cfg); err != nil {
@@ -350,7 +345,7 @@ func buildEVMRelayConfig(relayConfigJSON []byte) (*events.OCR2EVMRelayConfig, er
 	}, nil
 }
 
-// buildMedianPluginConfig decodes the plugin config JSON into the typed proto message.
+// buildMedianPluginConfig decodes the median plugin config JSON into OCR2MedianPluginConfig.
 func buildMedianPluginConfig(pluginConfigJSON []byte) (*events.OCR2MedianPluginConfig, error) {
 	var cfg medianconfig.PluginConfig
 	if err := json.Unmarshal(pluginConfigJSON, &cfg); err != nil {

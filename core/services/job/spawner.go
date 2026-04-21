@@ -17,8 +17,8 @@ import (
 )
 
 type (
-	// Listener is notified when jobs are started or stopped by the Spawner.
-	// Callbacks are invoked asynchronously and must not block.
+	// Listener is notified when the Spawner starts or stops a job.
+	// Callbacks run asynchronously and must not block.
 	Listener interface {
 		OnJobStarted(ctx context.Context, jb Job)
 		OnJobStopped(ctx context.Context, jb Job)
@@ -43,9 +43,9 @@ type (
 		// to start a job that was previously manually inserted into DB
 		StartService(ctx context.Context, spec Job) error
 
-		// RegisterListener registers a Listener to be notified on job start/stop.
-		// Safe to call before or after Start().
-		RegisterListener(Listener)
+		// RegisterListener adds l to the set of listeners notified on job start/stop.
+		// Safe to call before or after Start.
+		RegisterListener(l Listener)
 	}
 
 	Checker interface {
@@ -387,8 +387,9 @@ func (js *spawner) notifyStopped(jb Job) {
 	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.OnJobStopped(ctx, jb) })
 }
 
-// dispatchToListeners invokes fn against each registered listener in a
-// best-effort, non-blocking, panic-safe goroutine.
+// dispatchToListeners fans out fn to every registered listener in a single
+// best-effort goroutine. Panics are recovered so a faulty listener cannot
+// bring the spawner down.
 func (js *spawner) dispatchToListeners(fn func(context.Context, Listener)) {
 	js.listenersMu.RLock()
 	ls := make([]Listener, len(js.listeners))

@@ -115,24 +115,22 @@ func makeVRFJob() job.Job {
 	}
 }
 
-// newTestReporter creates a Service wired to the current global beholder emitter.
-// Call beholdertest.NewObserver(t) before this to set up the test emitter.
+// newTestReporter returns a Service wired to the current global beholder emitter.
+// The caller must set up the test emitter via beholdertest.NewObserver(t) first.
 func newTestReporter(t *testing.T, cfg *stubConfig, feedsORM feeds.ORM) *jobspec.Service {
 	t.Helper()
 	spawner := jobmocks.NewSpawner(t)
 	return jobspec.NewJobSpecReporter(cfg, spawner, feedsORM, beholder.GetEmitter(), "csa-key", "1.0.0", "test-host", logger.TestLogger(t))
 }
 
-// newFeedsORMWithoutProposal returns a feeds ORM mock that responds as if the
-// given job was not created via the feeds manager.
+// newFeedsORMWithoutProposal returns a feeds ORM mock that behaves as if the
+// given job was created outside of the Feeds Manager.
 func newFeedsORMWithoutProposal(t *testing.T, jb job.Job) *feedsmocks.ORM {
 	t.Helper()
 	feedsORM := feedsmocks.NewORM(t)
 	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
 	return feedsORM
 }
-
-// ── shouldEmit gate tests ──────────────────────────────────────────────────────
 
 func TestShouldEmit_DefaultConfig(t *testing.T) {
 	beholdertest.NewObserver(t)
@@ -162,7 +160,7 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
-	cfg.enabledOCR2PluginTypes = []string{} // empty = allow all
+	cfg.enabledOCR2PluginTypes = []string{} // empty allowlist = all OCR2 types
 
 	svc := newTestReporter(t, cfg, nil)
 
@@ -188,8 +186,6 @@ func TestShouldEmit_NonOCR2Enabled(t *testing.T) {
 	assert.True(t, svc.ShouldEmit(&vrf))
 	assert.True(t, svc.ShouldEmit(&median))
 }
-
-// ── conversion tests ──────────────────────────────────────────────────────────
 
 func TestBuildEvent_MedianJob(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
@@ -241,7 +237,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	assert.Equal(t, "ocr2keeper", ev.Ocr2OracleSpec.PluginType)
-	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig) // not median
+	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.RelayConfigJson)
 }
 
@@ -261,10 +257,8 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
 
 	assert.Equal(t, "vrf", ev.JobType)
-	assert.Nil(t, ev.Ocr2OracleSpec) // no OCR2 spec
+	assert.Nil(t, ev.Ocr2OracleSpec)
 }
-
-// ── OnJobStarted / OnJobStopped listener tests ────────────────────────────────
 
 func TestOnJobStarted_EmitsCreate(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
@@ -299,15 +293,13 @@ func TestOnJobStopped_EmitsDelete(t *testing.T) {
 func TestOnJobStarted_SkippedWhenGateFails(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
-	// default config only allows median, so VRF should not emit
+	// default config only allows median, so a VRF job should be skipped
 	svc := newTestReporter(t, defaultConfig(), nil)
 	svc.OnJobStarted(context.Background(), makeVRFJob())
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, msgs)
 }
-
-// ── proposal-latency test ─────────────────────────────────────────────────────
 
 func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
