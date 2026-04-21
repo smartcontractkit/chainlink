@@ -1455,8 +1455,6 @@ github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.7 h1:6dmdg2tpp
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.7/go.mod h1:dgwtcefGr+0i+C2S6V/Xgntzm7E5CPxXMyi2OnQvnHI=
 github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 h1:cWUHB6QETyKbmh0B988f5AKIKb3aBDWugfrZ04jAUUY=
 github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2/go.mod h1:Z4K5VJLjsfqIIaBcZ1Sfccxu0xsCxBjPa6zF+5gtQaM=
-github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2 h1:ihRlWrii5nr4RUuMu1hStTbwFvVuHUDoQQwXmCU5IdQ=
-github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2/go.mod h1:J1Za5EuI/vWDsQSIh6qbPXlVvuEhmHmnvLQBN0XVxqA=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 h1:RwZXxdIAOyjp6cwc9Quxgr38k8r7ACz+Lxh9o/A6oH0=
 github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5/go.mod h1:kHYJnZUqiPF7/xN5273prV+srrLJkS77GbBXHLKQpx0=
 github.com/smartcontractkit/chainlink-ton v0.0.0-20260415120434-cecc380f8d87 h1:NgA2+Q0wfHicP/QeY1hgULQ1ZBk1sgBpOJi3GpxfjE8=
