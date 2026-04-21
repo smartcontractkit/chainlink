@@ -94,7 +94,7 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies 
 }
 
 func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], caperrors.Error) {
-	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload])
+	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload], 1)
 	f.workflowIDs[triggerID] = metadata.WorkflowID
 	f.triggerConfigs[triggerID] = input
 	return f.callbackCh[triggerID], nil
@@ -160,25 +160,22 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 	}
 
-	go func() {
-		defer func() {
-			_ = f.scheduler.RemoveJob(job.ID())
-		}()
-
-		// Either wait for cron scheduler or skip wait signal
-		select {
-		case <-skipWait:
-			break
-		case <-jobFired:
-			break
-		case <-ctx.Done():
-			return
-		}
-
-		// Sent trigger response
-		f.callbackCh[triggerID] <- triggerEvent
+	defer func() {
+		_ = f.scheduler.RemoveJob(job.ID())
 	}()
 
+	// Either wait for cron scheduler or skip wait signal
+	select {
+	case <-skipWait:
+		break
+	case <-jobFired:
+		break
+	case <-ctx.Done():
+		return nil
+	}
+
+	// Sent trigger response
+	f.callbackCh[triggerID] <- triggerEvent
 	return nil
 }
 
