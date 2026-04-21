@@ -3,6 +3,7 @@ package environment
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -21,8 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
@@ -34,6 +37,7 @@ import (
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -45,6 +49,14 @@ import (
 
 const (
 	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+
+	// vaultConfigStaticPropagationWait is used when node DB info is not available
+	// (e.g. Kubernetes provider or missing state file) and we cannot actively poll
+	// for registry syncer propagation.
+	vaultConfigStaticPropagationWait = 15 * time.Second
+
+	// latestRegistrySyncStateQuery retrieves the most recent capabilities registry snapshot stored by the syncer.
+	latestRegistrySyncStateQuery = `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`
 )
 
 // vaultSecretsConfig defines the structure of the vault secrets YAML file.
@@ -66,6 +78,21 @@ type vaultSecretEntry struct {
 //	    - ENV_VAR_NAME
 type secretsNamesConfig struct {
 	SecretsNames map[string][]string `yaml:"secretsNames"`
+}
+
+// vaultSyncStateDONCapConfig mirrors the JSON shape of registrysyncer.CapabilityConfiguration.
+type vaultSyncStateDONCapConfig struct {
+	Config []byte `json:"Config"`
+}
+
+// vaultSyncStateDON mirrors the JSON shape of registrysyncer.DON (CapabilityConfigurations only).
+type vaultSyncStateDON struct {
+	CapabilityConfigurations map[string]vaultSyncStateDONCapConfig `json:"CapabilityConfigurations"`
+}
+
+// vaultSyncStatePayload is a partial deserialisation of the registry_syncer_states.data JSON blob.
+type vaultSyncStatePayload struct {
+	IDsToDONs map[string]vaultSyncStateDON `json:"IDsToDONs"`
 }
 
 func workflowCmds() *cobra.Command {
@@ -235,7 +262,16 @@ func deployWorkflowCmd() *cobra.Command {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
 
-			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, deleteWorkflowFileFlag)
+			var nodeDBPort, nodeCount int
+			if resolver != nil {
+				nodeDBPort, nodeCount, resolveErr = resolver.WorkflowDONNodeInfo()
+				if resolveErr != nil {
+					// Non-fatal: fall back to static wait inside waitForVaultConfigPropagation.
+					nodeDBPort, nodeCount = 0, 0
+				}
+			}
+
+			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, deleteWorkflowFileFlag, nodeDBPort, nodeCount)
 
 			return regErr
 		},
@@ -435,6 +471,7 @@ func deployWorkflow(
 	workflowRegistryVersion, capabilitiesRegistryVersion *semver.Version,
 	donIDFlag uint32,
 	deleteWorkflowFile bool,
+	nodeDBPort, nodeCount int,
 ) error {
 	copyErr := creworkflow.CopyArtifactsToDockerContainers(containerTargetDirFlag, containerNamePatternFlag, wasmWorkflowFilePathFlag)
 	if copyErr != nil {
@@ -515,10 +552,8 @@ func deployWorkflow(
 
 				fmt.Printf("\n✅ Vault capability config updated\n")
 				fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-time.After(15 * time.Second):
+				if waitErr := waitForVaultConfigPropagation(ctx, nodeDBPort, nodeCount); waitErr != nil {
+					return errors.Wrap(waitErr, "❌ failed while waiting for vault config propagation")
 				}
 			} else {
 				fmt.Printf("\n✅ Vault capability config already set, skipping update and propagation wait\n")
@@ -595,7 +630,20 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true)
+	var nodeDBPort, nodeCount int
+	resolver, resolverErr := TryLoadLocalCREStateResolver()
+	if resolverErr != nil {
+		return errors.Wrap(resolverErr, "failed to load local CRE state")
+	}
+	if resolver != nil {
+		nodeDBPort, nodeCount, resolverErr = resolver.WorkflowDONNodeInfo()
+		if resolverErr != nil {
+			// Non-fatal: fall back to static wait inside waitForVaultConfigPropagation.
+			nodeDBPort, nodeCount = 0, 0
+		}
+	}
+
+	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true, nodeDBPort, nodeCount)
 }
 
 // getVaultCapabilityDON returns the DON that has the vault capability registered,
@@ -1022,6 +1070,140 @@ func isBase64Content(content string) bool {
 
 	_, err := base64.StdEncoding.DecodeString(content)
 	return err == nil
+}
+
+// waitForVaultConfigPropagation waits until every workflow node's local registry snapshot
+// (registry_syncer_states) shows a non-nil DefaultConfig for the vault capability.
+//
+// It connects directly to each node's PostgreSQL database using the shared postgres server
+// exposed at dbPort, with one database per node named db_0 … db_{nodeCount-1}.
+//
+// If dbPort or nodeCount is 0 (e.g. Kubernetes provider or missing state file), the function
+// falls back to a static wait of vaultConfigStaticPropagationWait.
+func waitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) error {
+	if dbPort == 0 || nodeCount == 0 {
+		fmt.Printf("\n⚙️ Node DB info unavailable; waiting %s for vault config propagation\n", vaultConfigStaticPropagationWait)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(vaultConfigStaticPropagationWait):
+			return nil
+		}
+	}
+
+	fmt.Printf("\n⚙️ Polling %d workflow node(s) on db port %d for vault capability config propagation\n", nodeCount, dbPort)
+
+	const pollInterval = 2 * time.Second
+	const pollTimeout = 2 * time.Minute
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, pollTimeout)
+	defer cancel()
+
+	pending := make(map[int]struct{}, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		pending[i] = struct{}{}
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		type checkResult struct {
+			index int
+			ready bool
+			msg   string
+		}
+
+		results := make(chan checkResult, len(pending))
+		eg, tickCtx := errgroup.WithContext(timeoutCtx)
+
+		for nodeIndex := range pending {
+			// capture for goroutine
+			eg.Go(func() error {
+				ready, msg := hasVaultCapabilityConfigOnNode(tickCtx, dbPort, nodeIndex)
+				results <- checkResult{index: nodeIndex, ready: ready, msg: msg}
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			close(results)
+			return err
+		}
+		close(results)
+
+		for r := range results {
+			if r.ready {
+				delete(pending, r.index)
+				fmt.Printf("  ✅ node db_%d: vault config propagated\n", r.index)
+			} else {
+				fmt.Printf("  ⏳ node db_%d: %s\n", r.index, r.msg)
+			}
+		}
+
+		if len(pending) == 0 {
+			return nil
+		}
+
+		select {
+		case <-timeoutCtx.Done():
+			remaining := make([]int, 0, len(pending))
+			for i := range pending {
+				remaining = append(remaining, i)
+			}
+			return fmt.Errorf("timed out after %.0fs waiting for vault config propagation on nodes: %v", pollTimeout.Seconds(), remaining)
+		case <-ticker.C:
+		}
+	}
+}
+
+// hasVaultCapabilityConfigOnNode queries db_{nodeIndex} at dbPort and returns true when the latest
+// registry_syncer_states row contains a non-nil DefaultConfig for the vault capability.
+func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) (bool, string) {
+	dsn := fmt.Sprintf(
+		"host=127.0.0.1 port=%d user=%s password=%s dbname=db_%d sslmode=disable connect_timeout=3",
+		dbPort, postgres.User, postgres.Password, nodeIndex,
+	)
+
+	db, err := sqlx.Open("postgres", dsn)
+	if err != nil {
+		return false, fmt.Sprintf("failed to open DB: %v", err)
+	}
+	defer db.Close()
+
+	queryCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var rawData []byte
+	if err = db.GetContext(queryCtx, &rawData, latestRegistrySyncStateQuery); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, "registry_syncer_states is empty"
+		}
+		return false, fmt.Sprintf("query failed: %v", err)
+	}
+
+	var state vaultSyncStatePayload
+	if err = json.Unmarshal(rawData, &state); err != nil {
+		return false, fmt.Sprintf("failed to unmarshal registry syncer state: %v", err)
+	}
+
+	for _, don := range state.IDsToDONs {
+		capCfgEntry, ok := don.CapabilityConfigurations[vault_helpers.CapabilityID]
+		if !ok || len(capCfgEntry.Config) == 0 {
+			continue
+		}
+
+		capCfg := &capabilitiespb.CapabilityConfig{}
+		if unmarshalErr := proto.Unmarshal(capCfgEntry.Config, capCfg); unmarshalErr != nil {
+			return false, fmt.Sprintf("failed to unmarshal vault capability config protobuf: %v", unmarshalErr)
+		}
+
+		if capCfg.DefaultConfig != nil {
+			return true, ""
+		}
+	}
+
+	return false, fmt.Sprintf("vault capability %s DefaultConfig not yet set in any DON snapshot", vault_helpers.CapabilityID)
 }
 
 func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, versionFlag, addressFlagName string) (string, *semver.Version, error) {
