@@ -55,8 +55,8 @@ func RegisterWithContract(
 	version *semver.Version,
 	donID uint64, workflowName, binaryURL string,
 	configURL, secretsURL *string,
-	artifactsDirInContainer *string,
 	attributes []byte,
+	artifactsDirInContainer *string,
 ) (string, error) {
 	// Download and decode workflow binary
 	workflowData, err := libnet.DownloadAndDecodeBase64(ctx, binaryURL)

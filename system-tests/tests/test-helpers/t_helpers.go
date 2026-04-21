@@ -645,8 +645,8 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
-		containerTargetDir,
 		wfRegCfg.Attributes,
+		containerTargetDir,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
