@@ -17,7 +17,6 @@ These instructions apply only to files under `docs/local-cre/agent-skills/local-
 
 - Keep the skill aligned with:
   - `docs/local-cre/`
-  - `system-tests/tests/smoke/cre/README.md`
   - `core/scripts/cre/environment/configs/`
 - If test commands or topology selection rules change, update this skill in the same PR when possible.
 - Do not add generic AI-agent boilerplate; keep it specific to Local CRE usage in this repo.

@@ -149,6 +149,10 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		SyncStrategy:    ptr.Ptr("reconciliation"),
 		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
+	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
+		URL:        ptr.Ptr("host.docker.internal:18124"),
+		TLSEnabled: ptr.Ptr(false),
+	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {

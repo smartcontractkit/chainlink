@@ -27,7 +27,6 @@ import (
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
@@ -240,7 +239,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 		configPath  string
 		wantJWTGate string
 		wantOrgGate string
-		wantAuth0   bool
 		wantLinking bool
 	}{
 		{
@@ -248,16 +246,14 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			configPath:  vaultJWTAuthEnabledConfigPath,
 			wantJWTGate: "true",
 			wantOrgGate: "true",
-			wantAuth0:   true,
-			wantLinking: true,
+			wantLinking: false,
 		},
 		{
 			name:        "default",
 			configPath:  vaultDefaultConfigPath,
 			wantJWTGate: "false",
 			wantOrgGate: "false",
-			wantAuth0:   true,
-			wantLinking: true,
+			wantLinking: false,
 		},
 	}
 
@@ -291,21 +287,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				}
 			}
 
-			var capabilitiesNodeSet *cre.NodeSet
-			for _, nodeSet := range cfg.NodeSets {
-				if nodeSet.Name == "capabilities" {
-					capabilitiesNodeSet = nodeSet
-					break
-				}
-			}
-			require.NotNil(t, capabilitiesNodeSet)
-
-			auth0Value, hasAuth0 := capabilitiesNodeSet.CapabilityConfigs[cre.VaultCapability].Values["auth0"]
-			require.True(t, hasAuth0)
-			require.Equal(t, map[string]any{
-				"issuerURL": framework.HostDockerInternal() + ":18123/",
-				"audience":  vault.DefaultJWTAudience,
-			}, auth0Value)
 		})
 	}
 }

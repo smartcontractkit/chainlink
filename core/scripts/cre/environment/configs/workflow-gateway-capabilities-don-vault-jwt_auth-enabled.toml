@@ -50,11 +50,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = '''
-[CRE.Linking]
-URL = "host.docker.internal:18124"
-TLSEnabled = false
-'''
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 4
@@ -67,12 +63,6 @@ TLSEnabled = false
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
   capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
 
-  [nodesets.capability_configs]
-    [nodesets.capability_configs.vault.values]
-      [nodesets.capability_configs.vault.values.auth0]
-        issuerURL = "http://host.docker.internal:18123/"
-        audience = "https://vault.test.chain.link"
-
   [nodesets.db]
     image = "postgres:12.0"
     port = 13100
@@ -83,11 +73,7 @@ TLSEnabled = false
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = '''
-[CRE.Linking]
-URL = "host.docker.internal:18124"
-TLSEnabled = false
-'''
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 1

@@ -51,12 +51,6 @@
   capabilities = ["ocr3", "custom-compute", "web-api-target", "web-api-trigger", "vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "write-evm-2337", "read-contract-1337", "read-contract-2337", "evm-1337", "evm-2337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
-  [nodesets.capability_configs]
-    [nodesets.capability_configs.vault.values]
-      [nodesets.capability_configs.vault.values.auth0]
-        issuerURL = "http://host.docker.internal:18123/"
-        audience = "https://vault.test.chain.link"
-
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
   [nodesets.db]
@@ -78,9 +72,6 @@ URL = 'host.docker.internal:8544'
 TLSEnabled = false
 Name = 'mock-private-registry'
 
-[CRE.Linking]
-URL = "host.docker.internal:18124"
-TLSEnabled = false
 """
 
 [[nodesets]]

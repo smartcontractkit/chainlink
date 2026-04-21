@@ -42,17 +42,16 @@ go run . env setup
 
 ```bash
 cd core/scripts/cre/environment
-go run . env start --with-beholder
+go run . env start
 ```
 
 4. Optionally bring up observability helpers:
 
 ```bash
-./bin/ctf obs up
-./bin/ctf bs up
+go run . obs up
 ```
 
-`bs up` is optional and should only be used when blockscout is needed.
+Use `--with-beholder` on `env start` only when the test depends on the real Beholder stack or when you want Red Panda Console to debug workflow events.
 
 ## Running E2E Tests On The Default Topology
 
@@ -119,7 +118,7 @@ go run . env stop -a
 
 ```bash
 cd core/scripts/cre/environment
-CTF_CONFIGS=./configs/workflow-gateway-capabilities-don.toml go run . env start --with-beholder
+CTF_CONFIGS=./configs/workflow-gateway-capabilities-don.toml go run . env start
 ```
 
 3. Run the target test:
@@ -161,7 +160,7 @@ Then start it:
 
 ```bash
 cd ../
-CTF_CONFIGS=./configs/workflow-gateway-capabilities-don-my-override.toml go run . env start --with-beholder
+CTF_CONFIGS=./configs/workflow-gateway-capabilities-don-my-override.toml go run . env start
 ```
 
 Then run the intended tests:
@@ -196,7 +195,7 @@ Clean restart:
 ```bash
 cd core/scripts/cre/environment
 go run . env stop -a
-CTF_CONFIGS=./configs/<topology>.toml go run . env start --with-beholder
+CTF_CONFIGS=./configs/<topology>.toml go run . env start
 ```
 
 When done:
@@ -210,7 +209,7 @@ go run . env stop -a
 
 - If tests unexpectedly use the wrong topology, stop local CRE and restart with the intended `CTF_CONFIGS`.
 - If the test suite appears to reuse stale state, rerun with `-count=1`.
-- If a test depends on logs, traces, or dashboards, bring up `./bin/ctf obs up`.
+- If a test depends on logs, traces, or dashboards, bring up `go run . obs up`.
 - If a topology-specific failure looks unrelated to the test, first confirm the environment actually started with the intended topology.
 
 ## References
@@ -219,4 +218,3 @@ For longer repo-specific guidance, see:
 - `docs/local-cre/index.md`
 - `docs/local-cre/system-tests/index.md`
 - `docs/local-cre/system-tests/running-tests.md`
-- `system-tests/tests/smoke/cre/README.md`
