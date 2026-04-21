@@ -288,7 +288,7 @@ func (js *spawner) CreateJob(ctx context.Context, ds sqlutil.DataSource, jb *Job
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
 	} else {
 		js.lggr.Infow("Started job services", "type", jb.Type, "jobID", jb.ID)
-		js.notifyListeners(true, *jb)
+		js.notifyStarted(*jb)
 	}
 
 	delegate.AfterJobCreated(*jb)
@@ -355,7 +355,7 @@ func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID i
 	if exists {
 		// Stop the service and remove the job from memory, which will always happen even if closing the services fail.
 		js.stopService(jobID)
-		js.notifyListeners(false, aj.spec)
+		js.notifyStopped(aj.spec)
 	}
 	lggr.Infow("Stopped and deleted job")
 
@@ -379,9 +379,17 @@ func (js *spawner) RegisterListener(l Listener) {
 	js.listeners = append(js.listeners, l)
 }
 
-// notifyListeners dispatches an event to all registered listeners in a
+func (js *spawner) notifyStarted(jb Job) {
+	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.OnJobStarted(ctx, jb) })
+}
+
+func (js *spawner) notifyStopped(jb Job) {
+	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.OnJobStopped(ctx, jb) })
+}
+
+// dispatchToListeners invokes fn against each registered listener in a
 // best-effort, non-blocking, panic-safe goroutine.
-func (js *spawner) notifyListeners(started bool, jb Job) {
+func (js *spawner) dispatchToListeners(fn func(context.Context, Listener)) {
 	js.listenersMu.RLock()
 	ls := make([]Listener, len(js.listeners))
 	copy(ls, js.listeners)
@@ -400,11 +408,7 @@ func (js *spawner) notifyListeners(started bool, jb Job) {
 			}
 		}()
 		for _, l := range ls {
-			if started {
-				l.OnJobStarted(ctx, jb)
-			} else {
-				l.OnJobStopped(ctx, jb)
-			}
+			fn(ctx, l)
 		}
 	}()
 }

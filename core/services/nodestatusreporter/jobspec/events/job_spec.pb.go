@@ -21,6 +21,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// EmissionTrigger identifies the event that caused the JobSpecEvent to be emitted.
+type EmissionTrigger int32
+
+const (
+	EmissionTrigger_EMISSION_TRIGGER_UNSPECIFIED EmissionTrigger = 0
+	EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT   EmissionTrigger = 1
+	EmissionTrigger_EMISSION_TRIGGER_CREATE      EmissionTrigger = 2
+	EmissionTrigger_EMISSION_TRIGGER_DELETE      EmissionTrigger = 3
+)
+
+// Enum value maps for EmissionTrigger.
+var (
+	EmissionTrigger_name = map[int32]string{
+		0: "EMISSION_TRIGGER_UNSPECIFIED",
+		1: "EMISSION_TRIGGER_HEARTBEAT",
+		2: "EMISSION_TRIGGER_CREATE",
+		3: "EMISSION_TRIGGER_DELETE",
+	}
+	EmissionTrigger_value = map[string]int32{
+		"EMISSION_TRIGGER_UNSPECIFIED": 0,
+		"EMISSION_TRIGGER_HEARTBEAT":   1,
+		"EMISSION_TRIGGER_CREATE":      2,
+		"EMISSION_TRIGGER_DELETE":      3,
+	}
+)
+
+func (x EmissionTrigger) Enum() *EmissionTrigger {
+	p := new(EmissionTrigger)
+	*p = x
+	return p
+}
+
+func (x EmissionTrigger) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EmissionTrigger) Descriptor() protoreflect.EnumDescriptor {
+	return file_job_spec_proto_enumTypes[0].Descriptor()
+}
+
+func (EmissionTrigger) Type() protoreflect.EnumType {
+	return &file_job_spec_proto_enumTypes[0]
+}
+
+func (x EmissionTrigger) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EmissionTrigger.Descriptor instead.
+func (EmissionTrigger) EnumDescriptor() ([]byte, []int) {
+	return file_job_spec_proto_rawDescGZIP(), []int{0}
+}
+
 // JobSpecEvent is emitted for each active job on a heartbeat, on job creation,
 // and on job deletion. For the initial rollout only offchainreporting2 jobs
 // with pluginType = "median" are emitted (configurable via EnabledOCR2PluginTypes
@@ -58,9 +111,8 @@ type JobSpecEvent struct {
 	NodeVersion  string `protobuf:"bytes,22,opt,name=node_version,json=nodeVersion,proto3" json:"node_version,omitempty"`
 	Hostname     string `protobuf:"bytes,23,opt,name=hostname,proto3" json:"hostname,omitempty"`
 	// Event metadata.
-	// emission_trigger is one of "heartbeat", "create", or "delete".
-	EmissionTrigger string `protobuf:"bytes,24,opt,name=emission_trigger,json=emissionTrigger,proto3" json:"emission_trigger,omitempty"`
-	Timestamp       string `protobuf:"bytes,25,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	EmissionTrigger EmissionTrigger `protobuf:"varint,24,opt,name=emission_trigger,json=emissionTrigger,proto3,enum=job_spec.v1.EmissionTrigger" json:"emission_trigger,omitempty"`
+	Timestamp       string          `protobuf:"bytes,25,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -256,11 +308,11 @@ func (x *JobSpecEvent) GetHostname() string {
 	return ""
 }
 
-func (x *JobSpecEvent) GetEmissionTrigger() string {
+func (x *JobSpecEvent) GetEmissionTrigger() EmissionTrigger {
 	if x != nil {
 		return x.EmissionTrigger
 	}
-	return ""
+	return EmissionTrigger_EMISSION_TRIGGER_UNSPECIFIED
 }
 
 func (x *JobSpecEvent) GetTimestamp() string {
@@ -700,7 +752,7 @@ var File_job_spec_proto protoreflect.FileDescriptor
 
 const file_job_spec_proto_rawDesc = "" +
 	"\n" +
-	"\x0ejob_spec.proto\x12\vjob_spec.v1\"\xe5\a\n" +
+	"\x0ejob_spec.proto\x12\vjob_spec.v1\"\x83\b\n" +
 	"\fJobSpecEvent\x12&\n" +
 	"\x0fexternal_job_id\x18\x01 \x01(\tR\rexternalJobId\x12&\n" +
 	"\x0finternal_job_id\x18\x02 \x01(\x05R\rinternalJobId\x12\x12\n" +
@@ -729,8 +781,8 @@ const file_job_spec_proto_rawDesc = "" +
 	"\x10ocr2_oracle_spec\x18\x14 \x01(\v2\x1f.job_spec.v1.OCR2OracleSpecInfoR\x0eocr2OracleSpec\x12$\n" +
 	"\x0ecsa_public_key\x18\x15 \x01(\tR\fcsaPublicKey\x12!\n" +
 	"\fnode_version\x18\x16 \x01(\tR\vnodeVersion\x12\x1a\n" +
-	"\bhostname\x18\x17 \x01(\tR\bhostname\x12)\n" +
-	"\x10emission_trigger\x18\x18 \x01(\tR\x0femissionTrigger\x12\x1c\n" +
+	"\bhostname\x18\x17 \x01(\tR\bhostname\x12G\n" +
+	"\x10emission_trigger\x18\x18 \x01(\x0e2\x1c.job_spec.v1.EmissionTriggerR\x0femissionTrigger\x12\x1c\n" +
 	"\ttimestamp\x18\x19 \x01(\tR\ttimestampB\f\n" +
 	"\n" +
 	"_stream_id\"\x96\t\n" +
@@ -779,7 +831,12 @@ const file_job_spec_proto_rawDesc = "" +
 	"!juels_per_fee_coin_cache_disabled\x18\x03 \x01(\bR\x1cjuelsPerFeeCoinCacheDisabled\x12c\n" +
 	"0juels_per_fee_coin_cache_update_interval_seconds\x18\x04 \x01(\x01R)juelsPerFeeCoinCacheUpdateIntervalSeconds\x12v\n" +
 	":juels_per_fee_coin_cache_staleness_alert_threshold_seconds\x18\x05 \x01(\x01R2juelsPerFeeCoinCacheStalenessAlertThresholdSeconds\x12.\n" +
-	"\x13deviation_func_json\x18\x06 \x01(\tR\x11deviationFuncJsonBZZXgithub.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/eventsb\x06proto3"
+	"\x13deviation_func_json\x18\x06 \x01(\tR\x11deviationFuncJson*\x8d\x01\n" +
+	"\x0fEmissionTrigger\x12 \n" +
+	"\x1cEMISSION_TRIGGER_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aEMISSION_TRIGGER_HEARTBEAT\x10\x01\x12\x1b\n" +
+	"\x17EMISSION_TRIGGER_CREATE\x10\x02\x12\x1b\n" +
+	"\x17EMISSION_TRIGGER_DELETE\x10\x03BZZXgithub.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/eventsb\x06proto3"
 
 var (
 	file_job_spec_proto_rawDescOnce sync.Once
@@ -793,22 +850,25 @@ func file_job_spec_proto_rawDescGZIP() []byte {
 	return file_job_spec_proto_rawDescData
 }
 
+var file_job_spec_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_job_spec_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_job_spec_proto_goTypes = []any{
-	(*JobSpecEvent)(nil),           // 0: job_spec.v1.JobSpecEvent
-	(*OCR2OracleSpecInfo)(nil),     // 1: job_spec.v1.OCR2OracleSpecInfo
-	(*OCR2EVMRelayConfig)(nil),     // 2: job_spec.v1.OCR2EVMRelayConfig
-	(*OCR2MedianPluginConfig)(nil), // 3: job_spec.v1.OCR2MedianPluginConfig
+	(EmissionTrigger)(0),           // 0: job_spec.v1.EmissionTrigger
+	(*JobSpecEvent)(nil),           // 1: job_spec.v1.JobSpecEvent
+	(*OCR2OracleSpecInfo)(nil),     // 2: job_spec.v1.OCR2OracleSpecInfo
+	(*OCR2EVMRelayConfig)(nil),     // 3: job_spec.v1.OCR2EVMRelayConfig
+	(*OCR2MedianPluginConfig)(nil), // 4: job_spec.v1.OCR2MedianPluginConfig
 }
 var file_job_spec_proto_depIdxs = []int32{
-	1, // 0: job_spec.v1.JobSpecEvent.ocr2_oracle_spec:type_name -> job_spec.v1.OCR2OracleSpecInfo
-	2, // 1: job_spec.v1.OCR2OracleSpecInfo.evm_relay_config:type_name -> job_spec.v1.OCR2EVMRelayConfig
-	3, // 2: job_spec.v1.OCR2OracleSpecInfo.median_plugin_config:type_name -> job_spec.v1.OCR2MedianPluginConfig
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: job_spec.v1.JobSpecEvent.ocr2_oracle_spec:type_name -> job_spec.v1.OCR2OracleSpecInfo
+	0, // 1: job_spec.v1.JobSpecEvent.emission_trigger:type_name -> job_spec.v1.EmissionTrigger
+	3, // 2: job_spec.v1.OCR2OracleSpecInfo.evm_relay_config:type_name -> job_spec.v1.OCR2EVMRelayConfig
+	4, // 3: job_spec.v1.OCR2OracleSpecInfo.median_plugin_config:type_name -> job_spec.v1.OCR2MedianPluginConfig
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_job_spec_proto_init() }
@@ -822,13 +882,14 @@ func file_job_spec_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_job_spec_proto_rawDesc), len(file_job_spec_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_job_spec_proto_goTypes,
 		DependencyIndexes: file_job_spec_proto_depIdxs,
+		EnumInfos:         file_job_spec_proto_enumTypes,
 		MessageInfos:      file_job_spec_proto_msgTypes,
 	}.Build()
 	File_job_spec_proto = out.File

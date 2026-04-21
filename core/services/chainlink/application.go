@@ -802,8 +802,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
+	var feedsORM feeds.ORM
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(opts.DS, globalLogger)
+		feedsORM = feeds.NewORM(opts.DS, globalLogger)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -827,16 +828,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	hostname, _ := os.Hostname()
-	var feedsORMForReporter feeds.ORM
-	if cfg.Feature().FeedsManager() {
-		feedsORMForReporter = feeds.NewORM(opts.DS, globalLogger)
-	}
 	jobSpecReporter := jobspec.NewJobSpecReporter(
 		cfg.JobSpecReporter(),
 		jobSpawner,
-		feedsORMForReporter,
+		feedsORM,
 		beholder.GetEmitter(),
-		jobspec.NodeInfo{CSAPublicKey: csaPubKeyHex, NodeVersion: static.Version, Hostname: hostname},
+		csaPubKeyHex,
+		static.Version,
+		hostname,
 		globalLogger,
 	)
 	srvcs = append(srvcs, jobSpecReporter)

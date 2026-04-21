@@ -49,12 +49,10 @@ func defaultConfig() *stubConfig {
 	}
 }
 
-// makeMedianJob creates a minimal OCR2 median job for testing.
 func makeMedianJob() job.Job {
-	extID := uuid.New()
 	return job.Job{
 		ID:            1,
-		ExternalJobID: extID,
+		ExternalJobID: uuid.New(),
 		Name:          null.StringFrom("test-median-job"),
 		Type:          job.OffchainReporting2,
 		SchemaVersion: 1,
@@ -86,7 +84,6 @@ func makeMedianJob() job.Job {
 	}
 }
 
-// makeNonMedianOCR2Job creates a non-median OCR2 job.
 func makeNonMedianOCR2Job() job.Job {
 	jb := makeMedianJob()
 	jb.ID = 2
@@ -105,7 +102,6 @@ func makeNonMedianOCR2Job() job.Job {
 	return jb
 }
 
-// makeVRFJob creates a non-OCR2 job.
 func makeVRFJob() job.Job {
 	return job.Job{
 		ID:            3,
@@ -121,28 +117,39 @@ func makeVRFJob() job.Job {
 
 // newTestReporter creates a Service wired to the current global beholder emitter.
 // Call beholdertest.NewObserver(t) before this to set up the test emitter.
-func newTestReporter(t *testing.T, cfg *stubConfig, spawner job.Spawner, feedsORM feeds.ORM, nodeInfo jobspec.NodeInfo) *jobspec.Service {
+func newTestReporter(t *testing.T, cfg *stubConfig, feedsORM feeds.ORM) *jobspec.Service {
 	t.Helper()
-	return jobspec.NewJobSpecReporter(cfg, spawner, feedsORM, beholder.GetEmitter(), nodeInfo, logger.TestLogger(t))
+	spawner := jobmocks.NewSpawner(t)
+	return jobspec.NewJobSpecReporter(cfg, spawner, feedsORM, beholder.GetEmitter(), "csa-key", "1.0.0", "test-host", logger.TestLogger(t))
+}
+
+// newFeedsORMWithoutProposal returns a feeds ORM mock that responds as if the
+// given job was not created via the feeds manager.
+func newFeedsORMWithoutProposal(t *testing.T, jb job.Job) *feedsmocks.ORM {
+	t.Helper()
+	feedsORM := feedsmocks.NewORM(t)
+	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
+	return feedsORM
 }
 
 // ── shouldEmit gate tests ──────────────────────────────────────────────────────
 
 func TestShouldEmit_DefaultConfig(t *testing.T) {
 	beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
+	svc := newTestReporter(t, defaultConfig(), nil)
 
-	svc := newTestReporter(t, defaultConfig(), spawner, nil, jobspec.NodeInfo{})
+	median := makeMedianJob()
+	nonMedian := makeNonMedianOCR2Job()
+	vrf := makeVRFJob()
 
 	cases := []struct {
 		name string
 		jb   *job.Job
 		want bool
 	}{
-		{"median OCR2 job emits", jobPtr(makeMedianJob()), true},
-		{"non-median OCR2 job skipped", jobPtr(makeNonMedianOCR2Job()), false},
-		{"non-OCR2 (VRF) job skipped", jobPtr(makeVRFJob()), false},
+		{"median OCR2 job emits", &median, true},
+		{"non-median OCR2 job skipped", &nonMedian, false},
+		{"non-OCR2 (VRF) job skipped", &vrf, false},
 	}
 
 	for _, tc := range cases {
@@ -157,13 +164,15 @@ func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	cfg := defaultConfig()
 	cfg.enabledOCR2PluginTypes = []string{} // empty = allow all
 
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
-	svc := newTestReporter(t, cfg, spawner, nil, jobspec.NodeInfo{})
+	svc := newTestReporter(t, cfg, nil)
 
-	assert.True(t, svc.ShouldEmit(jobPtr(makeMedianJob())))
-	assert.True(t, svc.ShouldEmit(jobPtr(makeNonMedianOCR2Job())))
-	assert.False(t, svc.ShouldEmit(jobPtr(makeVRFJob())))
+	median := makeMedianJob()
+	nonMedian := makeNonMedianOCR2Job()
+	vrf := makeVRFJob()
+
+	assert.True(t, svc.ShouldEmit(&median))
+	assert.True(t, svc.ShouldEmit(&nonMedian))
+	assert.False(t, svc.ShouldEmit(&vrf))
 }
 
 func TestShouldEmit_NonOCR2Enabled(t *testing.T) {
@@ -171,32 +180,24 @@ func TestShouldEmit_NonOCR2Enabled(t *testing.T) {
 	cfg := defaultConfig()
 	cfg.emitNonOCR2Jobs = true
 
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
-	svc := newTestReporter(t, cfg, spawner, nil, jobspec.NodeInfo{})
+	svc := newTestReporter(t, cfg, nil)
 
-	assert.True(t, svc.ShouldEmit(jobPtr(makeVRFJob())))
-	assert.True(t, svc.ShouldEmit(jobPtr(makeMedianJob())))
+	median := makeMedianJob()
+	vrf := makeVRFJob()
+
+	assert.True(t, svc.ShouldEmit(&vrf))
+	assert.True(t, svc.ShouldEmit(&median))
 }
 
 // ── conversion tests ──────────────────────────────────────────────────────────
 
 func TestBuildEvent_MedianJob(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
 
-	feedsORM := feedsmocks.NewORM(t)
 	jb := makeMedianJob()
-	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 
-	svc := newTestReporter(t, defaultConfig(), spawner, feedsORM, jobspec.NodeInfo{
-		CSAPublicKey: "csa-key",
-		NodeVersion:  "1.0.0",
-		Hostname:     "test-host",
-	})
-
-	err := svc.EmitForJob(context.Background(), jb, "heartbeat")
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -209,7 +210,7 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	assert.Equal(t, jb.ID, ev.InternalJobId)
 	assert.Equal(t, "test-median-job", ev.Name)
 	assert.Equal(t, "offchainreporting2", ev.JobType)
-	assert.Equal(t, "heartbeat", ev.EmissionTrigger)
+	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT, ev.EmissionTrigger)
 	assert.Equal(t, "csa-key", ev.CsaPublicKey)
 	assert.Equal(t, "1.0.0", ev.NodeVersion)
 	assert.Equal(t, "test-host", ev.Hostname)
@@ -225,14 +226,11 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
-	feedsORM := feedsmocks.NewORM(t)
-	jb := makeNonMedianOCR2Job()
-	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
 
-	svc := newTestReporter(t, defaultConfig(), spawner, feedsORM, jobspec.NodeInfo{})
-	err := svc.EmitForJob(context.Background(), jb, "create")
+	jb := makeNonMedianOCR2Job()
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_CREATE)
 	require.NoError(t, err)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -249,13 +247,11 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 
 func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
 
-	svc := newTestReporter(t, defaultConfig(), spawner, nil, jobspec.NodeInfo{})
+	svc := newTestReporter(t, defaultConfig(), nil)
 
 	jb := makeVRFJob()
-	err := svc.EmitForJob(context.Background(), jb, "heartbeat")
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -272,13 +268,9 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 
 func TestOnJobStarted_EmitsCreate(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
-	feedsORM := feedsmocks.NewORM(t)
-	jb := makeMedianJob()
-	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
 
-	svc := newTestReporter(t, defaultConfig(), spawner, feedsORM, jobspec.NodeInfo{})
+	jb := makeMedianJob()
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.OnJobStarted(context.Background(), jb)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -286,18 +278,14 @@ func TestOnJobStarted_EmitsCreate(t *testing.T) {
 
 	var ev events.JobSpecEvent
 	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-	assert.Equal(t, "create", ev.EmissionTrigger)
+	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_CREATE, ev.EmissionTrigger)
 }
 
 func TestOnJobStopped_EmitsDelete(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
-	feedsORM := feedsmocks.NewORM(t)
-	jb := makeMedianJob()
-	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(nil, sql.ErrNoRows).Maybe()
 
-	svc := newTestReporter(t, defaultConfig(), spawner, feedsORM, jobspec.NodeInfo{})
+	jb := makeMedianJob()
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.OnJobStopped(context.Background(), jb)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -305,16 +293,14 @@ func TestOnJobStopped_EmitsDelete(t *testing.T) {
 
 	var ev events.JobSpecEvent
 	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-	assert.Equal(t, "delete", ev.EmissionTrigger)
+	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_DELETE, ev.EmissionTrigger)
 }
 
 func TestOnJobStarted_SkippedWhenGateFails(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
 
 	// default config only allows median, so VRF should not emit
-	svc := newTestReporter(t, defaultConfig(), spawner, nil, jobspec.NodeInfo{})
+	svc := newTestReporter(t, defaultConfig(), nil)
 	svc.OnJobStarted(context.Background(), makeVRFJob())
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -325,8 +311,6 @@ func TestOnJobStarted_SkippedWhenGateFails(t *testing.T) {
 
 func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
-	spawner := jobmocks.NewSpawner(t)
-	spawner.On("RegisterListener", mock.Anything).Maybe()
 	feedsORM := feedsmocks.NewORM(t)
 
 	jb := makeMedianJob()
@@ -348,8 +332,8 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	feedsORM.On("GetJobProposalByExternalJobID", mock.Anything, jb.ExternalJobID).Return(prop, nil)
 	feedsORM.On("GetApprovedSpec", mock.Anything, prop.ID).Return(spec, nil)
 
-	svc := newTestReporter(t, defaultConfig(), spawner, feedsORM, jobspec.NodeInfo{})
-	err := svc.EmitForJob(context.Background(), jb, "heartbeat")
+	svc := newTestReporter(t, defaultConfig(), feedsORM)
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
@@ -363,7 +347,3 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	assert.Equal(t, int32(3), ev.SpecVersion)
 	assert.InDelta(t, approvedAt.Sub(proposedAt).Seconds(), ev.AcceptLatencySeconds, 1.0)
 }
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-func jobPtr(jb job.Job) *job.Job { return &jb }

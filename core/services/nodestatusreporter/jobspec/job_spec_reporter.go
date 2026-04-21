@@ -2,34 +2,27 @@ package jobspec
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events"
+	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 )
-
-// NodeInfo contains static node identity values injected at construction time.
-type NodeInfo struct {
-	CSAPublicKey string
-	NodeVersion  string
-	Hostname     string
-}
 
 const ServiceName = "JobSpecReporter"
 
@@ -40,28 +33,33 @@ type Service struct {
 	services.Service
 	eng *services.Engine
 
-	config   coreconfig.JobSpecReporter
-	spawner  job.Spawner
-	feedsORM feeds.ORM // optional; nil-safe
-	emitter  beholder.Emitter
-	nodeInfo NodeInfo
+	config       coreconfig.JobSpecReporter
+	spawner      job.Spawner
+	feedsORM     feeds.ORM
+	emitter      beholder.Emitter
+	csaPublicKey string
+	nodeVersion  string
+	hostname     string
 }
 
-// NewJobSpecReporter creates a new Job Spec Reporter Service.
 func NewJobSpecReporter(
 	config coreconfig.JobSpecReporter,
 	spawner job.Spawner,
 	feedsORM feeds.ORM,
 	emitter beholder.Emitter,
-	nodeInfo NodeInfo,
+	csaPublicKey string,
+	nodeVersion string,
+	hostname string,
 	lggr logger.Logger,
 ) *Service {
 	s := &Service{
-		config:   config,
-		spawner:  spawner,
-		feedsORM: feedsORM,
-		emitter:  emitter,
-		nodeInfo: nodeInfo,
+		config:       config,
+		spawner:      spawner,
+		feedsORM:     feedsORM,
+		emitter:      emitter,
+		csaPublicKey: csaPublicKey,
+		nodeVersion:  nodeVersion,
+		hostname:     hostname,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  ServiceName,
@@ -70,7 +68,6 @@ func NewJobSpecReporter(
 	return s
 }
 
-// start starts the Job Spec Reporter Service.
 func (s *Service) start(ctx context.Context) error {
 	if !s.config.Enabled() {
 		s.eng.Info("Job Spec Reporter Service is disabled")
@@ -85,57 +82,47 @@ func (s *Service) start(ctx context.Context) error {
 	return nil
 }
 
-// HealthReport returns the service health.
 func (s *Service) HealthReport() map[string]error {
 	return map[string]error{ServiceName: s.Ready()}
 }
 
 // OnJobStarted implements job.Listener — called after a job service starts successfully.
 func (s *Service) OnJobStarted(ctx context.Context, jb job.Job) {
-	if !s.shouldEmit(&jb) {
+	if !s.ShouldEmit(&jb) {
 		return
 	}
-	if err := s.emitForJob(ctx, jb, "create"); err != nil {
+	if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_CREATE); err != nil {
 		s.eng.Warnw("Failed to emit job spec telemetry on create", "jobID", jb.ID, "error", err)
 	}
 }
 
 // OnJobStopped implements job.Listener — called after a job is deleted.
 func (s *Service) OnJobStopped(ctx context.Context, jb job.Job) {
-	if !s.shouldEmit(&jb) {
+	if !s.ShouldEmit(&jb) {
 		return
 	}
-	if err := s.emitForJob(ctx, jb, "delete"); err != nil {
+	if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_DELETE); err != nil {
 		s.eng.Warnw("Failed to emit job spec telemetry on delete", "jobID", jb.ID, "error", err)
 	}
 }
 
 // pollAllJobs is called on each heartbeat tick and emits telemetry for every
-// active job that passes the shouldEmit gate.
+// active job that passes the ShouldEmit gate.
 func (s *Service) pollAllJobs(ctx context.Context) {
-	activeJobs := s.spawner.ActiveJobs()
-	for _, jb := range activeJobs {
-		jbCopy := jb
-		if !s.shouldEmit(&jbCopy) {
+	for _, jb := range s.spawner.ActiveJobs() {
+		if !s.ShouldEmit(&jb) {
 			continue
 		}
-		if err := s.emitForJob(ctx, jbCopy, "heartbeat"); err != nil {
+		if err := s.EmitForJob(ctx, jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT); err != nil {
 			s.eng.Warnw("Failed to emit job spec telemetry", "jobID", jb.ID, "error", err)
 		}
 	}
 }
 
-// ShouldEmit is exported for testing. It returns true when the given job
-// should produce a telemetry event based on the current config.
-// Use shouldEmit for internal calls (identical logic).
-func (s *Service) ShouldEmit(j *job.Job) bool {
-	return s.shouldEmit(j)
-}
-
-// shouldEmit returns true when the given job should produce a telemetry event
+// ShouldEmit returns true when the given job should produce a telemetry event
 // based on the current config. This gate applies symmetrically to heartbeats
 // and create/delete events.
-func (s *Service) shouldEmit(j *job.Job) bool {
+func (s *Service) ShouldEmit(j *job.Job) bool {
 	if j == nil {
 		return false
 	}
@@ -155,14 +142,8 @@ func (s *Service) shouldEmit(j *job.Job) bool {
 	return false
 }
 
-// EmitForJob is exported for testing. It converts a job to a JobSpecEvent and
-// emits it via Beholder. Use emitForJob for internal calls (identical logic).
-func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger string) error {
-	return s.emitForJob(ctx, jb, trigger)
-}
-
-// emitForJob converts a job to a JobSpecEvent and emits it via Beholder.
-func (s *Service) emitForJob(ctx context.Context, jb job.Job, trigger string) error {
+// EmitForJob converts a job to a JobSpecEvent and emits it via Beholder.
+func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) error {
 	event, err := s.buildEvent(ctx, jb, trigger)
 	if err != nil {
 		return fmt.Errorf("building event: %w", err)
@@ -175,7 +156,7 @@ func (s *Service) emitForJob(ctx context.Context, jb job.Job, trigger string) er
 }
 
 // buildEvent converts a job.Job into the protobuf JobSpecEvent.
-func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger string) (*events.JobSpecEvent, error) {
+func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) (*events.JobSpecEvent, error) {
 	event := &events.JobSpecEvent{
 		ExternalJobId:          jb.ExternalJobID.String(),
 		InternalJobId:          jb.ID,
@@ -185,9 +166,9 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger string) (*
 		ForwardingAllowed:      jb.ForwardingAllowed,
 		MaxTaskDurationSeconds: jb.MaxTaskDuration.Duration().Seconds(),
 		CreatedAt:              jb.CreatedAt.Format(time.RFC3339Nano),
-		CsaPublicKey:           s.nodeInfo.CSAPublicKey,
-		NodeVersion:            s.nodeInfo.NodeVersion,
-		Hostname:               s.nodeInfo.Hostname,
+		CsaPublicKey:           s.csaPublicKey,
+		NodeVersion:            s.nodeVersion,
+		Hostname:               s.hostname,
 		EmissionTrigger:        trigger,
 		Timestamp:              time.Now().Format(time.RFC3339Nano),
 	}
@@ -206,7 +187,9 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger string) (*
 		event.BridgeNames = extractBridgeNames(jb.Pipeline)
 	}
 
-	s.populateProposalLifecycle(ctx, jb, event)
+	if err := s.populateProposalLifecycle(ctx, jb, event); err != nil {
+		s.eng.Warnw("Failed to populate proposal lifecycle", "jobID", jb.ID, "error", err)
+	}
 
 	if jb.Type == job.OffchainReporting2 && jb.OCR2OracleSpec != nil {
 		ocr2Info, err := buildOCR2OracleSpecInfo(jb.OCR2OracleSpec)
@@ -220,21 +203,27 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger string) (*
 }
 
 // populateProposalLifecycle fills the proposal/approval fields when the job was
-// created via the Feeds Manager. Missing rows (manually created job) are silently
-// ignored.
-func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, event *events.JobSpecEvent) {
-	if s.feedsORM == nil || jb.ExternalJobID == (uuid.UUID{}) {
-		return
+// created via the Feeds Manager. Jobs not managed by the Feeds Manager are
+// returned without error via sql.ErrNoRows.
+func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, event *events.JobSpecEvent) error {
+	if s.feedsORM == nil || jb.ExternalJobID == uuid.Nil {
+		return nil
 	}
 
 	prop, err := s.feedsORM.GetJobProposalByExternalJobID(ctx, jb.ExternalJobID)
 	if err != nil {
-		return
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("fetching job proposal: %w", err)
 	}
 
 	spec, err := s.feedsORM.GetApprovedSpec(ctx, prop.ID)
 	if err != nil {
-		return
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("fetching approved spec: %w", err)
 	}
 
 	event.FeedsManagerId = prop.FeedsManagerID
@@ -243,6 +232,7 @@ func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, eve
 	event.ProposedAt = spec.CreatedAt.Format(time.RFC3339Nano)
 	event.ApprovedAt = spec.StatusUpdatedAt.Format(time.RFC3339Nano)
 	event.AcceptLatencySeconds = spec.StatusUpdatedAt.Sub(spec.CreatedAt).Seconds()
+	return nil
 }
 
 // extractBridgeNames returns the names of all bridge tasks in the top-level
@@ -251,10 +241,14 @@ func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, eve
 func extractBridgeNames(p pipeline.Pipeline) []string {
 	var names []string
 	for _, task := range p.Tasks {
-		if task.Type() == pipeline.TaskTypeBridge {
-			bt := task.(*pipeline.BridgeTask)
-			names = append(names, bt.Name)
+		if task.Type() != pipeline.TaskTypeBridge {
+			continue
 		}
+		bt, ok := task.(*pipeline.BridgeTask)
+		if !ok {
+			continue
+		}
+		names = append(names, bt.Name)
 	}
 	return names
 }
@@ -262,30 +256,30 @@ func extractBridgeNames(p pipeline.Pipeline) []string {
 // evmRelayConfig is a minimal struct for decoding EVM relay config JSON fields
 // that we want to surface in OCR2EVMRelayConfig without importing the EVM module.
 type evmRelayConfig struct {
-	ChainID                  string   `json:"chainID"`
-	FromBlock                uint64   `json:"fromBlock"`
-	EffectiveTransmitterID   string   `json:"effectiveTransmitterID"`
-	EnableDualTransmission   bool     `json:"enableDualTransmission"`
-	EnableTriggerCapability  bool     `json:"enableTriggerCapability"`
-	LLODonID                 uint64   `json:"lloDonID"`
-	FeedID                   string   `json:"feedID"`
-	SendingKeys              []string `json:"sendingKeys"`
-	ProviderType             string   `json:"providerType"`
+	ChainID                 string   `json:"chainID"`
+	FromBlock               uint64   `json:"fromBlock"`
+	EffectiveTransmitterID  string   `json:"effectiveTransmitterID"`
+	EnableDualTransmission  bool     `json:"enableDualTransmission"`
+	EnableTriggerCapability bool     `json:"enableTriggerCapability"`
+	LLODonID                uint64   `json:"lloDonID"`
+	FeedID                  string   `json:"feedID"`
+	SendingKeys             []string `json:"sendingKeys"`
+	ProviderType            string   `json:"providerType"`
 }
 
 // buildOCR2OracleSpecInfo converts an OCR2OracleSpec into its proto representation.
 func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecInfo, error) {
-	relayConfigJSON := ""
-	if raw, err := json.Marshal(spec.RelayConfig); err == nil {
-		relayConfigJSON = string(raw)
+	relayConfigRaw, err := json.Marshal(spec.RelayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling relay config: %w", err)
 	}
-	pluginConfigJSON := ""
-	if raw, err := json.Marshal(spec.PluginConfig); err == nil {
-		pluginConfigJSON = string(raw)
+	pluginConfigRaw, err := json.Marshal(spec.PluginConfig)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling plugin config: %w", err)
 	}
-	onchainStrategyJSON := ""
-	if raw, err := json.Marshal(spec.OnchainSigningStrategy); err == nil {
-		onchainStrategyJSON = string(raw)
+	onchainStrategyRaw, err := json.Marshal(spec.OnchainSigningStrategy)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling onchain signing strategy: %w", err)
 	}
 
 	feedID := ""
@@ -294,41 +288,41 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	}
 
 	info := &events.OCR2OracleSpecInfo{
-		SpecId:                                      spec.ID,
-		ContractId:                                  spec.ContractID,
-		FeedId:                                      feedID,
-		Relay:                                       spec.Relay,
-		ChainId:                                     spec.ChainID,
-		PluginType:                                  string(spec.PluginType),
-		TransmitterId:                               spec.TransmitterID.ValueOrZero(),
-		OcrKeyBundleId:                              spec.OCRKeyBundleID.ValueOrZero(),
-		MonitoringEndpoint:                          spec.MonitoringEndpoint.ValueOrZero(),
-		P2Pv2Bootstrappers:                          spec.P2PV2Bootstrappers,
-		AllowNoBootstrappers:                        spec.AllowNoBootstrappers,
-		BlockchainTimeoutSeconds:                    spec.BlockchainTimeout.Duration().Seconds(),
-		ContractConfigTrackerPollIntervalSeconds:     spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
-		ContractConfigConfirmations:                 uint32(spec.ContractConfigConfirmations),
-		CaptureEaTelemetry:                          spec.CaptureEATelemetry,
-		CaptureAutomationCustomTelemetry:            spec.CaptureAutomationCustomTelemetry,
-		SpecCreatedAt:                               spec.CreatedAt.Format(time.RFC3339Nano),
-		SpecUpdatedAt:                               spec.UpdatedAt.Format(time.RFC3339Nano),
-		RelayConfigJson:                             relayConfigJSON,
-		PluginConfigJson:                            pluginConfigJSON,
-		OnchainSigningStrategyJson:                  onchainStrategyJSON,
+		SpecId:                                   spec.ID,
+		ContractId:                               spec.ContractID,
+		FeedId:                                   feedID,
+		Relay:                                    spec.Relay,
+		ChainId:                                  spec.ChainID,
+		PluginType:                               string(spec.PluginType),
+		TransmitterId:                            spec.TransmitterID.ValueOrZero(),
+		OcrKeyBundleId:                           spec.OCRKeyBundleID.ValueOrZero(),
+		MonitoringEndpoint:                       spec.MonitoringEndpoint.ValueOrZero(),
+		P2Pv2Bootstrappers:                       spec.P2PV2Bootstrappers,
+		AllowNoBootstrappers:                     spec.AllowNoBootstrappers,
+		BlockchainTimeoutSeconds:                 spec.BlockchainTimeout.Duration().Seconds(),
+		ContractConfigTrackerPollIntervalSeconds: spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
+		ContractConfigConfirmations:              uint32(spec.ContractConfigConfirmations),
+		CaptureEaTelemetry:                       spec.CaptureEATelemetry,
+		CaptureAutomationCustomTelemetry:         spec.CaptureAutomationCustomTelemetry,
+		SpecCreatedAt:                            spec.CreatedAt.Format(time.RFC3339Nano),
+		SpecUpdatedAt:                            spec.UpdatedAt.Format(time.RFC3339Nano),
+		RelayConfigJson:                          string(relayConfigRaw),
+		PluginConfigJson:                         string(pluginConfigRaw),
+		OnchainSigningStrategyJson:               string(onchainStrategyRaw),
 	}
 
 	if spec.Relay == "evm" {
-		evmCfg, err := buildEVMRelayConfig(spec)
+		evmCfg, err := buildEVMRelayConfig(relayConfigRaw)
 		if err != nil {
-			return nil, errors.Wrap(err, "building EVM relay config")
+			return nil, fmt.Errorf("building EVM relay config: %w", err)
 		}
 		info.EvmRelayConfig = evmCfg
 	}
 
 	if spec.PluginType == commontypes.Median {
-		medianCfg, err := buildMedianPluginConfig(spec)
+		medianCfg, err := buildMedianPluginConfig(pluginConfigRaw)
 		if err != nil {
-			return nil, errors.Wrap(err, "building median plugin config")
+			return nil, fmt.Errorf("building median plugin config: %w", err)
 		}
 		info.MedianPluginConfig = medianCfg
 	}
@@ -337,14 +331,9 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 }
 
 // buildEVMRelayConfig decodes the EVM relay config JSON into the proto message.
-func buildEVMRelayConfig(spec *job.OCR2OracleSpec) (*events.OCR2EVMRelayConfig, error) {
-	raw, err := json.Marshal(spec.RelayConfig)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling relay config: %w", err)
-	}
-
+func buildEVMRelayConfig(relayConfigJSON []byte) (*events.OCR2EVMRelayConfig, error) {
 	var cfg evmRelayConfig
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := json.Unmarshal(relayConfigJSON, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling EVM relay config: %w", err)
 	}
 
@@ -362,19 +351,14 @@ func buildEVMRelayConfig(spec *job.OCR2OracleSpec) (*events.OCR2EVMRelayConfig, 
 }
 
 // buildMedianPluginConfig decodes the plugin config JSON into the typed proto message.
-func buildMedianPluginConfig(spec *job.OCR2OracleSpec) (*events.OCR2MedianPluginConfig, error) {
-	raw, err := json.Marshal(spec.PluginConfig)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling plugin config: %w", err)
-	}
-
+func buildMedianPluginConfig(pluginConfigJSON []byte) (*events.OCR2MedianPluginConfig, error) {
 	var cfg medianconfig.PluginConfig
-	if err := json.Unmarshal(raw, &cfg); err != nil {
+	if err := json.Unmarshal(pluginConfigJSON, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling median plugin config: %w", err)
 	}
 
 	medianProto := &events.OCR2MedianPluginConfig{
-		JuelsPerFeeCoinSource: cfg.JuelsPerFeeCoinPipeline,
+		JuelsPerFeeCoinSource:  cfg.JuelsPerFeeCoinPipeline,
 		GasPriceSubunitsSource: cfg.GasPriceSubunitsPipeline,
 	}
 
@@ -388,9 +372,10 @@ func buildMedianPluginConfig(spec *job.OCR2OracleSpec) (*events.OCR2MedianPlugin
 
 	if cfg.DeviationFunctionDefinition != nil {
 		devFuncRaw, err := json.Marshal(cfg.DeviationFunctionDefinition)
-		if err == nil {
-			medianProto.DeviationFuncJson = string(devFuncRaw)
+		if err != nil {
+			return nil, fmt.Errorf("marshaling deviation function definition: %w", err)
 		}
+		medianProto.DeviationFuncJson = string(devFuncRaw)
 	}
 
 	return medianProto, nil

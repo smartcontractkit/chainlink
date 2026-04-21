@@ -46,9 +46,16 @@ message JobSpecEvent {
   string hostname = 23;
 
   // Event metadata.
-  // emission_trigger is one of "heartbeat", "create", or "delete".
-  string emission_trigger = 24;
+  EmissionTrigger emission_trigger = 24;
   string timestamp = 25;
+}
+
+// EmissionTrigger identifies the event that caused the JobSpecEvent to be emitted.
+enum EmissionTrigger {
+  EMISSION_TRIGGER_UNSPECIFIED = 0;
+  EMISSION_TRIGGER_HEARTBEAT = 1;
+  EMISSION_TRIGGER_CREATE = 2;
+  EMISSION_TRIGGER_DELETE = 3;
 }
 
 // OCR2OracleSpecInfo carries all fields of job.OCR2OracleSpec.
