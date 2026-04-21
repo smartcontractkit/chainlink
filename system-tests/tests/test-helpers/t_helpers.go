@@ -750,10 +750,11 @@ func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWo
 
 // WithAttributes sets the workflow attributes byte blob (JSON) written to the
 // WorkflowRegistry contract on upsert. The CRE syncer reads this to decide
-// routing (e.g. confidential execution via ConfidentialModule).
+// routing (e.g. confidential execution via ConfidentialModule). The input is
+// cloned so later caller mutations don't affect stored config.
 func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
 	return func(cfg *compileAndDeployWorkflowCfg) {
-		cfg.attributes = attributes
+		cfg.attributes = slices.Clone(attributes)
 	}
 }
 
