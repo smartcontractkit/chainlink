@@ -378,7 +378,7 @@ func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
 	assert.Equal(t, owner, capturedReq.WorkflowOwner)
 }
 
-func TestSecretsFetcher_OmitsOrgIDWhenGateDisabled(t *testing.T) {
+func TestSecretsFetcher_OmitsOrgIDAndWorkflowOwnerWhenGateDisabled(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -441,7 +441,7 @@ func TestSecretsFetcher_OmitsOrgIDWhenGateDisabled(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, capturedReq)
 	assert.Empty(t, capturedReq.OrgId)
-	assert.Equal(t, owner, capturedReq.WorkflowOwner) // WorkflowOwner is always set for label validation
+	assert.Empty(t, capturedReq.WorkflowOwner)
 }
 
 func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
