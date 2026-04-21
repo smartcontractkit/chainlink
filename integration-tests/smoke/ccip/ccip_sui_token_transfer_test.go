@@ -1177,7 +1177,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
-func Test_CCIPTokenTransfer_SUI2EVM_ManagedTokenPool_WithRateLimit(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -1483,7 +1483,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Amount: big.NewInt(1e18),
 				},
 			},
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, suiAddr),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  suiTokenBytes,
@@ -1552,7 +1552,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 			Receiver:  receiverByte,
 			Data:      []byte("Hello, World!"),
 			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, stateObj),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -1582,7 +1582,7 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 			Receiver:  receiverByte,
 			Data:      []byte("Hello, World!"),
 			FeeToken:  evmToken.Address(),
-			ExtraArgs: testhelpers.MakeSuiExtraArgs(10000000, true, receiverObjectIDs, stateObj),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, stateObj),
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token

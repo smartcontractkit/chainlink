@@ -144,11 +144,11 @@ func configureCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c C
 				chainSelector, err)
 		}
 
-		allowedCallerInputs := make([]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs, len(proxyConfig.AllowedCallerUpdates))
+		allowedCallerInputs := make([]cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs, 0, len(proxyConfig.AllowedCallerUpdates))
 		for _, allowedCallerUpdate := range proxyConfig.AllowedCallerUpdates {
 			allowedCallerInputs = append(allowedCallerInputs, cmtp.CCTPMessageTransmitterProxyAllowedCallerConfigArgs{
-				Allowed: true,
 				Caller:  allowedCallerUpdate.AllowedCaller,
+				Allowed: allowedCallerUpdate.Enabled,
 			})
 		}
 

@@ -16,6 +16,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
@@ -184,7 +185,9 @@ func StartDONs(
 
 	if err := errGroup.Wait(); err != nil {
 		if !infraInput.IsKubernetes() {
-			infra.PrintFailedContainerLogs(lggr, 30)
+			if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
+				lggr.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
+			}
 		}
 		return nil, err
 	}

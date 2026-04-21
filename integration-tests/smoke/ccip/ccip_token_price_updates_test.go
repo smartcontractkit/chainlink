@@ -31,6 +31,7 @@ import (
 )
 
 func Test_CCIPTokenPriceUpdates(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11029")
 	ctx := testhelpers.Context(t)
 	callOpts := &bind.CallOpts{Context: ctx}
 

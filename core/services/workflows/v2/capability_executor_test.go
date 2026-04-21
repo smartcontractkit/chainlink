@@ -15,6 +15,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+func TestExecutionHelper_SystemCapabilityBlocked(t *testing.T) {
+	t.Parallel()
+
+	exec := &ExecutionHelper{}
+
+	req := &sdk.CapabilityRequest{
+		Id:         confidentialWorkflowsCapabilityID,
+		Method:     "Execute",
+		CallbackId: 1,
+	}
+
+	_, err := exec.CallCapability(t.Context(), req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "system-only")
+}
+
 func TestExecutionHelper_ConfidentialHTTPPerWorkflowLimit(t *testing.T) {
 	t.Parallel()
 
