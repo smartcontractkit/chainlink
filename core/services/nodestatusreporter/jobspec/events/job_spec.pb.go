@@ -21,7 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// EmissionTrigger identifies the event that caused the JobSpecEvent to be emitted.
+// EmissionTrigger is the reason a JobSpecEvent was emitted.
 type EmissionTrigger int32
 
 const (
@@ -74,13 +74,10 @@ func (EmissionTrigger) EnumDescriptor() ([]byte, []int) {
 	return file_job_spec_proto_rawDescGZIP(), []int{0}
 }
 
-// JobSpecEvent is emitted for each active job on a heartbeat, on job creation,
-// and on job deletion. For the initial rollout only offchainreporting2 jobs
-// with pluginType = "median" are emitted (configurable via EnabledOCR2PluginTypes
-// and EmitNonOCR2Jobs in the JobSpecReporter config section).
+// JobSpecEvent carries a job's spec, emitted on heartbeat, create, and delete.
 type JobSpecEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Job identity — covers every TOML-writable field on job.Job plus DB-assigned columns.
+	// Job identity
 	ExternalJobId          string  `protobuf:"bytes,1,opt,name=external_job_id,json=externalJobId,proto3" json:"external_job_id,omitempty"`
 	InternalJobId          int32   `protobuf:"varint,2,opt,name=internal_job_id,json=internalJobId,proto3" json:"internal_job_id,omitempty"`
 	Name                   string  `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
@@ -91,26 +88,25 @@ type JobSpecEvent struct {
 	StreamId               *uint32 `protobuf:"varint,8,opt,name=stream_id,json=streamId,proto3,oneof" json:"stream_id,omitempty"`
 	MaxTaskDurationSeconds float64 `protobuf:"fixed64,9,opt,name=max_task_duration_seconds,json=maxTaskDurationSeconds,proto3" json:"max_task_duration_seconds,omitempty"`
 	CreatedAt              string  `protobuf:"bytes,10,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	// Observation pipeline — the job's observationSource field.
+	// Observation pipeline
 	ObservationSource string `protobuf:"bytes,11,opt,name=observation_source,json=observationSource,proto3" json:"observation_source,omitempty"`
 	PipelineSpecId    int32  `protobuf:"varint,12,opt,name=pipeline_spec_id,json=pipelineSpecId,proto3" json:"pipeline_spec_id,omitempty"`
-	// Bridge names extracted from the observationSource DOT DAG (top-level only).
+	// Top-level bridge names in the observation pipeline.
 	BridgeNames []string `protobuf:"bytes,13,rep,name=bridge_names,json=bridgeNames,proto3" json:"bridge_names,omitempty"`
-	// Proposal lifecycle fields — zero/empty when the job was created manually
-	// (not via a Feeds Manager / Job Distributor).
+	// Proposal lifecycle — zero/empty for jobs not managed by a Feeds Manager.
 	FeedsManagerId       int64   `protobuf:"varint,14,opt,name=feeds_manager_id,json=feedsManagerId,proto3" json:"feeds_manager_id,omitempty"`
 	RemoteUuid           string  `protobuf:"bytes,15,opt,name=remote_uuid,json=remoteUuid,proto3" json:"remote_uuid,omitempty"`
 	SpecVersion          int32   `protobuf:"varint,16,opt,name=spec_version,json=specVersion,proto3" json:"spec_version,omitempty"`
 	ProposedAt           string  `protobuf:"bytes,17,opt,name=proposed_at,json=proposedAt,proto3" json:"proposed_at,omitempty"`
 	ApprovedAt           string  `protobuf:"bytes,18,opt,name=approved_at,json=approvedAt,proto3" json:"approved_at,omitempty"`
 	AcceptLatencySeconds float64 `protobuf:"fixed64,19,opt,name=accept_latency_seconds,json=acceptLatencySeconds,proto3" json:"accept_latency_seconds,omitempty"`
-	// OCR2-specific fields — absent for non-OCR2 job types.
+	// OCR2-only; absent for other job types.
 	Ocr2OracleSpec *OCR2OracleSpecInfo `protobuf:"bytes,20,opt,name=ocr2_oracle_spec,json=ocr2OracleSpec,proto3" json:"ocr2_oracle_spec,omitempty"`
-	// Node identity.
+	// Node identity
 	CsaPublicKey string `protobuf:"bytes,21,opt,name=csa_public_key,json=csaPublicKey,proto3" json:"csa_public_key,omitempty"`
 	NodeVersion  string `protobuf:"bytes,22,opt,name=node_version,json=nodeVersion,proto3" json:"node_version,omitempty"`
 	Hostname     string `protobuf:"bytes,23,opt,name=hostname,proto3" json:"hostname,omitempty"`
-	// Event metadata.
+	// Event metadata
 	EmissionTrigger EmissionTrigger `protobuf:"varint,24,opt,name=emission_trigger,json=emissionTrigger,proto3,enum=job_spec.v1.EmissionTrigger" json:"emission_trigger,omitempty"`
 	Timestamp       string          `protobuf:"bytes,25,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	unknownFields   protoimpl.UnknownFields
@@ -322,7 +318,7 @@ func (x *JobSpecEvent) GetTimestamp() string {
 	return ""
 }
 
-// OCR2OracleSpecInfo carries all fields of job.OCR2OracleSpec.
+// OCR2OracleSpecInfo mirrors job.OCR2OracleSpec.
 type OCR2OracleSpecInfo struct {
 	state                                    protoimpl.MessageState `protogen:"open.v1"`
 	SpecId                                   int32                  `protobuf:"varint,1,opt,name=spec_id,json=specId,proto3" json:"spec_id,omitempty"`
@@ -343,14 +339,14 @@ type OCR2OracleSpecInfo struct {
 	CaptureAutomationCustomTelemetry         bool                   `protobuf:"varint,16,opt,name=capture_automation_custom_telemetry,json=captureAutomationCustomTelemetry,proto3" json:"capture_automation_custom_telemetry,omitempty"`
 	SpecCreatedAt                            string                 `protobuf:"bytes,17,opt,name=spec_created_at,json=specCreatedAt,proto3" json:"spec_created_at,omitempty"`
 	SpecUpdatedAt                            string                 `protobuf:"bytes,18,opt,name=spec_updated_at,json=specUpdatedAt,proto3" json:"spec_updated_at,omitempty"`
-	// Raw JSON passthroughs — always populated; authoritative for any field not
-	// captured in the typed sub-messages below.
+	// Raw JSON passthroughs — always populated; authoritative over the typed
+	// sub-messages below.
 	RelayConfigJson            string `protobuf:"bytes,19,opt,name=relay_config_json,json=relayConfigJson,proto3" json:"relay_config_json,omitempty"`
 	PluginConfigJson           string `protobuf:"bytes,20,opt,name=plugin_config_json,json=pluginConfigJson,proto3" json:"plugin_config_json,omitempty"`
 	OnchainSigningStrategyJson string `protobuf:"bytes,21,opt,name=onchain_signing_strategy_json,json=onchainSigningStrategyJson,proto3" json:"onchain_signing_strategy_json,omitempty"`
-	// Typed EVM relay config — populated only when relay == "evm".
+	// Populated when relay == "evm".
 	EvmRelayConfig *OCR2EVMRelayConfig `protobuf:"bytes,22,opt,name=evm_relay_config,json=evmRelayConfig,proto3" json:"evm_relay_config,omitempty"`
-	// Typed median plugin config — populated only when plugin_type == "median".
+	// Populated when plugin_type == "median".
 	MedianPluginConfig *OCR2MedianPluginConfig `protobuf:"bytes,23,opt,name=median_plugin_config,json=medianPluginConfig,proto3" json:"median_plugin_config,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -547,9 +543,7 @@ func (x *OCR2OracleSpecInfo) GetMedianPluginConfig() *OCR2MedianPluginConfig {
 	return nil
 }
 
-// OCR2EVMRelayConfig carries the well-known fields of the EVM relay config JSON.
-// relay_config_json on OCR2OracleSpecInfo remains authoritative for any field
-// not represented here.
+// OCR2EVMRelayConfig is a typed view of the EVM relay config JSON.
 type OCR2EVMRelayConfig struct {
 	state                   protoimpl.MessageState `protogen:"open.v1"`
 	ChainId                 string                 `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
@@ -658,19 +652,17 @@ func (x *OCR2EVMRelayConfig) GetProviderType() string {
 	return ""
 }
 
-// OCR2MedianPluginConfig carries all fields of median/config.PluginConfig and
-// the nested JuelsPerFeeCoinCache.
+// OCR2MedianPluginConfig mirrors median/config.PluginConfig.
 type OCR2MedianPluginConfig struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	JuelsPerFeeCoinSource string                 `protobuf:"bytes,1,opt,name=juels_per_fee_coin_source,json=juelsPerFeeCoinSource,proto3" json:"juels_per_fee_coin_source,omitempty"`
-	// Empty string when gasPriceSubunitsSource is not configured.
+	// Empty when gasPriceSubunitsSource is not configured.
 	GasPriceSubunitsSource string `protobuf:"bytes,2,opt,name=gas_price_subunits_source,json=gasPriceSubunitsSource,proto3" json:"gas_price_subunits_source,omitempty"`
-	// juels_per_fee_coin_cache_disabled is true when JuelsPerFeeCoinCache is nil
-	// (disabled when nil, per source comment) or when Disable is explicitly true.
+	// True when JuelsPerFeeCoinCache is nil or its Disable flag is set.
 	JuelsPerFeeCoinCacheDisabled                       bool    `protobuf:"varint,3,opt,name=juels_per_fee_coin_cache_disabled,json=juelsPerFeeCoinCacheDisabled,proto3" json:"juels_per_fee_coin_cache_disabled,omitempty"`
 	JuelsPerFeeCoinCacheUpdateIntervalSeconds          float64 `protobuf:"fixed64,4,opt,name=juels_per_fee_coin_cache_update_interval_seconds,json=juelsPerFeeCoinCacheUpdateIntervalSeconds,proto3" json:"juels_per_fee_coin_cache_update_interval_seconds,omitempty"`
 	JuelsPerFeeCoinCacheStalenessAlertThresholdSeconds float64 `protobuf:"fixed64,5,opt,name=juels_per_fee_coin_cache_staleness_alert_threshold_seconds,json=juelsPerFeeCoinCacheStalenessAlertThresholdSeconds,proto3" json:"juels_per_fee_coin_cache_staleness_alert_threshold_seconds,omitempty"`
-	// Verbatim JSON of DeviationFunctionDefinition (map[string]any).
+	// Verbatim JSON of DeviationFunctionDefinition.
 	DeviationFuncJson string `protobuf:"bytes,6,opt,name=deviation_func_json,json=deviationFuncJson,proto3" json:"deviation_func_json,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
