@@ -181,7 +181,13 @@ type vaultWorkflowCheck struct {
 	Name            string
 	SecretKey       string
 	SecretNamespace string
+	ExpectedValue   string
 	ExpectNotFound  bool
+}
+
+type vaultWorkflowPhase struct {
+	Name   string
+	Checks []vaultWorkflowCheck
 }
 
 type vaultRequestAuth struct {
@@ -703,29 +709,70 @@ func executeVaultSecretsWorkflowChecksTest(
 ) {
 	t.Helper()
 
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, workflowBaseName, []vaultWorkflowPhase{{
+		Name:   workflowBaseName,
+		Checks: checks,
+	}})
+	waitForVaultWorkflowPhase(t, workflowID, workflowBaseName, userLogsCh, baseMessageCh)
+}
+
+func startVaultSecretsWorkflowPhasesTest(
+	t *testing.T, testEnv *ttypes.TestEnvironment,
+	workflowBaseName string,
+	phases []vaultWorkflowPhase,
+) string {
+	t.Helper()
+
 	testLogger := framework.L
 	testLogger.Info().
 		Str("workflow_base_name", workflowBaseName).
-		Int("check_count", len(checks)).
-		Msg("Verifying vault workflow secret checks")
+		Int("phase_count", len(phases)).
+		Msg("Starting vault workflow phase verification")
 
 	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfgChecks := make([]vaultsecret_config.Check, 0, len(checks))
-	for _, check := range checks {
-		cfgChecks = append(cfgChecks, vaultsecret_config.Check{
-			Name:            check.Name,
-			SecretKey:       check.SecretKey,
-			SecretNamespace: check.SecretNamespace,
-			ExpectNotFound:  check.ExpectNotFound,
+	cfgPhases := make([]vaultsecret_config.Phase, 0, len(phases))
+	for _, phase := range phases {
+		cfgChecks := make([]vaultsecret_config.Check, 0, len(phase.Checks))
+		for _, check := range phase.Checks {
+			cfgChecks = append(cfgChecks, vaultsecret_config.Check{
+				Name:            check.Name,
+				SecretKey:       check.SecretKey,
+				SecretNamespace: check.SecretNamespace,
+				ExpectedValue:   check.ExpectedValue,
+				ExpectNotFound:  check.ExpectNotFound,
+			})
+		}
+		cfgPhases = append(cfgPhases, vaultsecret_config.Phase{
+			Name:   phase.Name,
+			Checks: cfgChecks,
 		})
 	}
 
-	cfg := &vaultsecret_config.Config{Checks: cfgChecks}
+	cfg := &vaultsecret_config.Config{Phases: cfgPhases}
 	const workflowFileLocation = "./vaultsecret/main.go"
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
+	return t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
+}
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Vault secret workflow batch completed", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	testLogger.Info().Msg("Vault secret workflow checks completed")
+func waitForVaultWorkflowPhase(
+	t *testing.T,
+	workflowID, phaseName string,
+	userLogsCh chan *workflowevents.UserLogs,
+	baseMessageCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	testLogger := framework.L
+	t_helpers.WatchWorkflowLogs(
+		t,
+		testLogger,
+		userLogsCh,
+		baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog,
+		"Vault secret workflow phase completed: "+phaseName,
+		4*time.Minute,
+		t_helpers.WithUserLogWorkflowID(workflowID),
+	)
+	testLogger.Info().Str("phase_name", phaseName).Msg("Vault secret workflow phase completed")
 }
 
 func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

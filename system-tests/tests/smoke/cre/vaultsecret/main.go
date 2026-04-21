@@ -36,13 +36,40 @@ func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProv
 }
 
 func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string, error) {
-	checks := cfg.EffectiveChecks()
-	if len(checks) == 0 {
-		return "", fmt.Errorf("no vault workflow checks configured")
+	phases := cfg.EffectivePhases()
+	if len(phases) == 0 {
+		return "", fmt.Errorf("no vault workflow phases configured")
 	}
 
-	for _, check := range checks {
+	var lastErr error
+	for _, phase := range phases {
+		if err := evaluatePhase(runtime, phase); err != nil {
+			lastErr = err
+			runtime.Logger().Warn("Vault secret workflow phase not yet satisfied",
+				"phaseName", phase.Name,
+				"error", err,
+			)
+			continue
+		}
+
+		runtime.Logger().Info(fmt.Sprintf("Vault secret workflow phase completed: %s", phase.Name),
+			"phaseName", phase.Name,
+			"checkCount", len(phase.Checks),
+		)
+		return fmt.Sprintf("Validated phase %s", phase.Name), nil
+	}
+
+	return "", fmt.Errorf("no vault workflow phase matched current state: %w", lastErr)
+}
+
+func evaluatePhase(runtime cre.Runtime, phase config.Phase) error {
+	if len(phase.Checks) == 0 {
+		return fmt.Errorf("phase %s has no checks", phase.Name)
+	}
+
+	for _, check := range phase.Checks {
 		runtime.Logger().Info("Vault secret workflow triggered",
+			"phaseName", phase.Name,
 			"checkName", check.Name,
 			"secretKey", check.SecretKey,
 			"secretNamespace", check.SecretNamespace,
@@ -57,49 +84,36 @@ func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string,
 		if check.ExpectNotFound {
 			if err != nil && strings.Contains(err.Error(), "key does not exist") {
 				runtime.Logger().Info("Vault secret correctly not found after deletion",
+					"phaseName", phase.Name,
 					"checkName", check.Name,
 					"secretKey", check.SecretKey,
 				)
 				continue
 			}
 			if err != nil {
-				runtime.Logger().Error("Expected 'key does not exist' but got a different error",
-					"checkName", check.Name,
-					"error", err,
-					"secretKey", check.SecretKey,
-				)
-				return "", fmt.Errorf("expected 'key does not exist' for key=%s, but got: %w", check.SecretKey, err)
+				return fmt.Errorf("phase %s check %s expected not found for key=%s but got: %w", phase.Name, check.Name, check.SecretKey, err)
 			}
-			runtime.Logger().Error("Expected secret to be gone but retrieval succeeded",
-				"checkName", check.Name,
-				"secretKey", check.SecretKey,
-			)
-			return "", fmt.Errorf("expected secret key=%s to be deleted, but it was still found", check.SecretKey)
+			return fmt.Errorf("phase %s check %s expected deleted secret key=%s, but it was still found", phase.Name, check.Name, check.SecretKey)
 		}
 
 		if err != nil {
-			runtime.Logger().Error("Failed to get secret via workflow",
-				"checkName", check.Name,
-				"error", err,
-			)
-			return "", fmt.Errorf("failed to get secret: %w", err)
+			return fmt.Errorf("phase %s check %s failed to get secret: %w", phase.Name, check.Name, err)
 		}
 
 		if secret.Value == "" {
-			runtime.Logger().Error("Secret value is empty",
-				"checkName", check.Name,
-				"secretKey", check.SecretKey,
-				"secretNamespace", check.SecretNamespace,
-			)
-			return "", fmt.Errorf("secret value is empty for key=%s namespace=%s", check.SecretKey, check.SecretNamespace)
+			return fmt.Errorf("phase %s check %s secret value is empty for key=%s namespace=%s", phase.Name, check.Name, check.SecretKey, check.SecretNamespace)
+		}
+
+		if check.ExpectedValue != "" && secret.Value != check.ExpectedValue {
+			return fmt.Errorf("phase %s check %s secret value mismatch for key=%s namespace=%s", phase.Name, check.Name, check.SecretKey, check.SecretNamespace)
 		}
 
 		runtime.Logger().Info("Vault secret retrieved successfully via workflow",
+			"phaseName", phase.Name,
 			"checkName", check.Name,
 			"secretKey", check.SecretKey,
 		)
 	}
 
-	runtime.Logger().Info("Vault secret workflow batch completed", "checkCount", len(checks))
-	return fmt.Sprintf("Validated %d secret checks", len(checks)), nil
+	return nil
 }

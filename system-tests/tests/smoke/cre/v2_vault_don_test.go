@@ -59,7 +59,11 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		require.NoError(t, err)
 		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
+		createValue := "secret-basic-create"
+		updateValue := "secret-basic-update"
+		createEnc, err := crevault.EncryptSecret(createValue, vaultPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		updateEnc, err := crevault.EncryptSecret(updateValue, vaultPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
 		ulCh := make(chan *workflowevents.UserLogs, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
@@ -72,25 +76,16 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		})
 		namespaces := []string{"main", "alt"}
 
-		executeVaultAllowListSecretsCreateTest(t, enc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-create-get", []vaultWorkflowCheck{
-			{Name: "allowlist-create-get-main", SecretKey: secretID, SecretNamespace: "main"},
-			{Name: "allowlist-create-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
-		}, ulCh, bmCh)
-		executeVaultSecretsUpdateTest(t, enc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-update-get", []vaultWorkflowCheck{
-			{Name: "allowlist-update-get-main", SecretKey: secretID, SecretNamespace: "main"},
-			{Name: "allowlist-update-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
-		}, ulCh, bmCh)
+		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "alt", sc, wfReg)
 		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"main"}, sc, wfReg)
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-delete-main-verify", []vaultWorkflowCheck{
-			{Name: "allowlist-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
-			{Name: "allowlist-delete-main-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-final-verify", []vaultWorkflowCheck{
+			{Name: "allowlist-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
 		}, ulCh, bmCh)
 		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"alt"}, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "allowlist-delete-alt-not-found", secretID, "alt", ulCh, bmCh)
 	})
 }
 
@@ -136,72 +131,88 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 
 	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
 		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-workflow-owner", vaultParsedPublicKey, orgID)
+		createValue := "secret-jwt-workflow-owner"
+		enc, err := vaultutils.EncryptSecretWithOrgID(createValue, vaultParsedPublicKey, orgID)
 		require.NoError(t, err)
 
 		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "jwt-create-get", []vaultWorkflowCheck{
-			{Name: "jwt-create-get-main", SecretKey: secretID, SecretNamespace: "main"},
-			{Name: "jwt-create-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
-		}, ulCh, bmCh)
+		workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "jwt-lifecycle", []vaultWorkflowPhase{
+			{
+				Name: "jwt-created",
+				Checks: []vaultWorkflowCheck{
+					{Name: "jwt-create-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: createValue},
+					{Name: "jwt-create-get-alt", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: createValue},
+				},
+			},
+			{
+				Name: "jwt-deleted",
+				Checks: []vaultWorkflowCheck{
+					{Name: "jwt-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+					{Name: "jwt-delete-alt-not-found", SecretKey: secretID, SecretNamespace: "alt", ExpectNotFound: true},
+				},
+			},
+		})
+		waitForVaultWorkflowPhase(t, workflowID, "jwt-created", ulCh, bmCh)
 		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "alt")
 		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "jwt-delete-not-found", []vaultWorkflowCheck{
-			{Name: "jwt-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
-			{Name: "jwt-delete-alt-not-found", SecretKey: secretID, SecretNamespace: "alt", ExpectNotFound: true},
-		}, ulCh, bmCh)
+		waitForVaultWorkflowPhase(t, workflowID, "jwt-deleted", ulCh, bmCh)
 	})
 
 	t.Run("mixed_allowlist_and_jwt_auth", func(t *testing.T) {
-		t.Run("allowlist_create_then_jwt_update_then_allowlist_delete", func(t *testing.T) {
-			secretID := strconv.Itoa(rand.Intn(10000))
-			createEnc, err := crevault.EncryptSecret("secret-mixed-allowlist-create", vaultPublicKey, workflowOwnerAddress)
-			require.NoError(t, err)
-			updateEnc, err := vaultutils.EncryptSecretWithOrgID("secret-mixed-jwt-update", vaultParsedPublicKey, orgID)
-			require.NoError(t, err)
-
-			executeVaultSecretsCreateWithAuth(t, allowlistAuth, createEnc, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetViaWorkflowTest(t, testEnv, "mixed-allowlist-create-get-main", secretID, "main", ulCh, bmCh)
-			executeVaultSecretsUpdateWithAuth(t, jwtAuth, updateEnc, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetViaWorkflowTest(t, testEnv, "mixed-jwt-update-get-main", secretID, "main", ulCh, bmCh)
-			executeVaultSecretsListWithAuth(t, allowlistAuth, []string{secretID}, orgID, gwURL, "main")
-			executeVaultSecretsListWithAuth(t, jwtAuth, []string{secretID}, orgID, gwURL, "main")
-			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "mixed-allowlist-delete-not-found", secretID, "main", ulCh, bmCh)
-		})
-
-		t.Run("allowlist_and_jwt_create_separate_secrets_then_list_with_both", func(t *testing.T) {
+		t.Run("cross_auth_create_update_list_and_delete", func(t *testing.T) {
 			allowlistSecretID := strconv.Itoa(rand.Intn(10000))
 			jwtSecretID := strconv.Itoa(rand.Intn(10000))
-			allowlistEnc, err := crevault.EncryptSecret("secret-mixed-allowlist-list", vaultPublicKey, workflowOwnerAddress)
+			allowlistCreateValue := "secret-mixed-allowlist-create"
+			jwtCreateValue := "secret-mixed-jwt-create"
+			allowlistUpdateValue := "secret-mixed-allowlist-update"
+			jwtUpdateValue := "secret-mixed-jwt-update"
+			allowlistCreateEnc, err := crevault.EncryptSecret(allowlistCreateValue, vaultPublicKey, workflowOwnerAddress)
 			require.NoError(t, err)
-			jwtEnc, err := vaultutils.EncryptSecretWithOrgID("secret-mixed-jwt-list", vaultParsedPublicKey, orgID)
+			jwtCreateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtCreateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, err)
+			allowlistUpdateEnc, err := crevault.EncryptSecret(allowlistUpdateValue, vaultPublicKey, workflowOwnerAddress)
+			require.NoError(t, err)
+			jwtUpdateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtUpdateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, err)
 
-			executeVaultSecretsCreateWithAuth(t, allowlistAuth, allowlistEnc, allowlistSecretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsCreateWithAuth(t, jwtAuth, jwtEnc, jwtSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsCreateWithAuth(t, allowlistAuth, allowlistCreateEnc, allowlistSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsCreateWithAuth(t, jwtAuth, jwtCreateEnc, jwtSecretID, orgID, gwURL, []string{"main"})
+			workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "mixed-lifecycle", []vaultWorkflowPhase{
+				{
+					Name: "mixed-created",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-allowlist-create-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistCreateValue},
+						{Name: "mixed-jwt-create-get-main", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectedValue: jwtCreateValue},
+					},
+				},
+				{
+					Name: "mixed-updated",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-jwt-update-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: jwtUpdateValue},
+						{Name: "mixed-allowlist-update-get-main", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectedValue: allowlistUpdateValue},
+					},
+				},
+				{
+					Name: "mixed-deleted",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-allowlist-delete-not-found", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectNotFound: true},
+						{Name: "mixed-jwt-delete-not-found", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectNotFound: true},
+					},
+				},
+			})
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-created", ulCh, bmCh)
+
+			executeVaultSecretsUpdateWithAuth(t, jwtAuth, jwtUpdateEnc, allowlistSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsUpdateWithAuth(t, allowlistAuth, allowlistUpdateEnc, jwtSecretID, orgID, gwURL, []string{"main"})
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-updated", ulCh, bmCh)
+
 			executeVaultSecretsListWithAuth(t, allowlistAuth, []string{allowlistSecretID, jwtSecretID}, orgID, gwURL, "main")
 			executeVaultSecretsListWithAuth(t, jwtAuth, []string{allowlistSecretID, jwtSecretID}, orgID, gwURL, "main")
+
 			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, allowlistSecretID, orgID, gwURL, []string{"main"})
 			executeVaultSecretsDeleteWithAuth(t, jwtAuth, jwtSecretID, orgID, gwURL, []string{"main"})
-		})
-
-		t.Run("jwt_create_then_allowlist_update_then_jwt_delete", func(t *testing.T) {
-			secretID := strconv.Itoa(rand.Intn(10000))
-			createEnc, err := vaultutils.EncryptSecretWithOrgID("secret-mixed-jwt-create", vaultParsedPublicKey, orgID)
-			require.NoError(t, err)
-			updateEnc, err := crevault.EncryptSecret("secret-mixed-allowlist-update", vaultPublicKey, workflowOwnerAddress)
-			require.NoError(t, err)
-
-			executeVaultSecretsCreateWithAuth(t, jwtAuth, createEnc, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetViaWorkflowTest(t, testEnv, "mixed-jwt-create-get-main", secretID, "main", ulCh, bmCh)
-			executeVaultSecretsUpdateWithAuth(t, allowlistAuth, updateEnc, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetViaWorkflowTest(t, testEnv, "mixed-allowlist-update-get-main", secretID, "main", ulCh, bmCh)
-			executeVaultSecretsListWithAuth(t, allowlistAuth, []string{secretID}, orgID, gwURL, "main")
-			executeVaultSecretsListWithAuth(t, jwtAuth, []string{secretID}, orgID, gwURL, "main")
-			executeVaultSecretsDeleteWithAuth(t, jwtAuth, secretID, orgID, gwURL, []string{"main"})
-			executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "mixed-jwt-delete-not-found", secretID, "main", ulCh, bmCh)
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-deleted", ulCh, bmCh)
 		})
 	})
 
