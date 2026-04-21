@@ -173,6 +173,15 @@ type vaultScenarioFixture struct {
 	TestEnv        *ttypes.TestEnvironment
 	Issuer         *vault.TestJWTIssuer
 	LinkingService *vault.TestLinkingService
+	GatewayURL     *url.URL
+	VaultPublicKey string
+}
+
+type vaultWorkflowCheck struct {
+	Name            string
+	SecretKey       string
+	SecretNamespace string
+	ExpectNotFound  bool
 }
 
 type vaultRequestAuth struct {
@@ -218,10 +227,17 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 		testEnv = t_helpers.SetupTestEnvironmentWithConfig(t, baseConfig)
 	}
 
+	ensureVaultDKGResultPackages(t, testEnv)
+	gatewayURL := mustVaultGatewayURL(t, testEnv)
+	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
+	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
+
 	return &vaultScenarioFixture{
 		TestEnv:        testEnv,
 		Issuer:         issuer,
 		LinkingService: linkingService,
+		GatewayURL:     gatewayURL,
+		VaultPublicKey: vaultPublicKey,
 	}
 }
 
@@ -659,20 +675,11 @@ func executeVaultSecretsGetViaWorkflowTest(
 	workflowBaseName, secretKey, secretNamespace string,
 	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
 ) {
-	testLogger := framework.L
-	testLogger.Info().Msgf("Verifying secret retrieval via workflow (key=%s, namespace=%s)...", secretKey, secretNamespace)
-
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfg := &vaultsecret_config.Config{
+	executeVaultSecretsWorkflowChecksTest(t, testEnv, workflowBaseName, []vaultWorkflowCheck{{
+		Name:            workflowBaseName,
 		SecretKey:       secretKey,
 		SecretNamespace: secretNamespace,
-	}
-	const workflowFileLocation = "./vaultsecret/main.go"
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
-
-	expectedLog := "Vault secret retrieved successfully via workflow"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	testLogger.Info().Msg("Vault secret get via workflow test completed")
+	}}, userLogsCh, baseMessageCh)
 }
 
 func executeVaultSecretsGetNotFoundViaWorkflowTest(
@@ -680,21 +687,45 @@ func executeVaultSecretsGetNotFoundViaWorkflowTest(
 	workflowBaseName, secretKey, secretNamespace string,
 	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
 ) {
-	testLogger := framework.L
-	testLogger.Info().Msgf("Verifying secret is NOT retrievable via workflow after deletion (key=%s, namespace=%s)...", secretKey, secretNamespace)
-
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfg := &vaultsecret_config.Config{
+	executeVaultSecretsWorkflowChecksTest(t, testEnv, workflowBaseName, []vaultWorkflowCheck{{
+		Name:            workflowBaseName,
 		SecretKey:       secretKey,
 		SecretNamespace: secretNamespace,
 		ExpectNotFound:  true,
+	}}, userLogsCh, baseMessageCh)
+}
+
+func executeVaultSecretsWorkflowChecksTest(
+	t *testing.T, testEnv *ttypes.TestEnvironment,
+	workflowBaseName string,
+	checks []vaultWorkflowCheck,
+	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+
+	testLogger := framework.L
+	testLogger.Info().
+		Str("workflow_base_name", workflowBaseName).
+		Int("check_count", len(checks)).
+		Msg("Verifying vault workflow secret checks")
+
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
+	cfgChecks := make([]vaultsecret_config.Check, 0, len(checks))
+	for _, check := range checks {
+		cfgChecks = append(cfgChecks, vaultsecret_config.Check{
+			Name:            check.Name,
+			SecretKey:       check.SecretKey,
+			SecretNamespace: check.SecretNamespace,
+			ExpectNotFound:  check.ExpectNotFound,
+		})
 	}
+
+	cfg := &vaultsecret_config.Config{Checks: cfgChecks}
 	const workflowFileLocation = "./vaultsecret/main.go"
 	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
 
-	expectedLog := "Vault secret correctly not found after deletion"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	testLogger.Info().Msg("Vault secret not-found via workflow test completed")
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Vault secret workflow batch completed", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	testLogger.Info().Msg("Vault secret workflow checks completed")
 }
 
 func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, requestOwner, expectedResponseOwner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

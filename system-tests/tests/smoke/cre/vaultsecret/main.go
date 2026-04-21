@@ -36,41 +36,70 @@ func RunVaultSecretWorkflow(cfg config.Config, _ *slog.Logger, _ cre.SecretsProv
 }
 
 func onTrigger(cfg config.Config, runtime cre.Runtime, _ *cron.Payload) (string, error) {
-	runtime.Logger().Info("Vault secret workflow triggered",
-		"secretKey", cfg.SecretKey,
-		"secretNamespace", cfg.SecretNamespace,
-		"expectNotFound", cfg.ExpectNotFound,
-	)
+	checks := cfg.EffectiveChecks()
+	if len(checks) == 0 {
+		return "", fmt.Errorf("no vault workflow checks configured")
+	}
 
-	secret, err := runtime.GetSecret(&cre.SecretRequest{
-		Namespace: cfg.SecretNamespace,
-		Id:        cfg.SecretKey,
-	}).Await()
+	for _, check := range checks {
+		runtime.Logger().Info("Vault secret workflow triggered",
+			"checkName", check.Name,
+			"secretKey", check.SecretKey,
+			"secretNamespace", check.SecretNamespace,
+			"expectNotFound", check.ExpectNotFound,
+		)
 
-	if cfg.ExpectNotFound {
-		if err != nil && strings.Contains(err.Error(), "key does not exist") {
-			runtime.Logger().Info("Vault secret correctly not found after deletion", "secretKey", cfg.SecretKey)
-			return fmt.Sprintf("Secret correctly not found: key=%s", cfg.SecretKey), nil
+		secret, err := runtime.GetSecret(&cre.SecretRequest{
+			Namespace: check.SecretNamespace,
+			Id:        check.SecretKey,
+		}).Await()
+
+		if check.ExpectNotFound {
+			if err != nil && strings.Contains(err.Error(), "key does not exist") {
+				runtime.Logger().Info("Vault secret correctly not found after deletion",
+					"checkName", check.Name,
+					"secretKey", check.SecretKey,
+				)
+				continue
+			}
+			if err != nil {
+				runtime.Logger().Error("Expected 'key does not exist' but got a different error",
+					"checkName", check.Name,
+					"error", err,
+					"secretKey", check.SecretKey,
+				)
+				return "", fmt.Errorf("expected 'key does not exist' for key=%s, but got: %w", check.SecretKey, err)
+			}
+			runtime.Logger().Error("Expected secret to be gone but retrieval succeeded",
+				"checkName", check.Name,
+				"secretKey", check.SecretKey,
+			)
+			return "", fmt.Errorf("expected secret key=%s to be deleted, but it was still found", check.SecretKey)
 		}
+
 		if err != nil {
-			runtime.Logger().Error("Expected 'key does not exist' but got a different error",
-				"error", err, "secretKey", cfg.SecretKey)
-			return "", fmt.Errorf("expected 'key does not exist' for key=%s, but got: %w", cfg.SecretKey, err)
+			runtime.Logger().Error("Failed to get secret via workflow",
+				"checkName", check.Name,
+				"error", err,
+			)
+			return "", fmt.Errorf("failed to get secret: %w", err)
 		}
-		runtime.Logger().Error("Expected secret to be gone but retrieval succeeded", "secretKey", cfg.SecretKey)
-		return "", fmt.Errorf("expected secret key=%s to be deleted, but it was still found", cfg.SecretKey)
+
+		if secret.Value == "" {
+			runtime.Logger().Error("Secret value is empty",
+				"checkName", check.Name,
+				"secretKey", check.SecretKey,
+				"secretNamespace", check.SecretNamespace,
+			)
+			return "", fmt.Errorf("secret value is empty for key=%s namespace=%s", check.SecretKey, check.SecretNamespace)
+		}
+
+		runtime.Logger().Info("Vault secret retrieved successfully via workflow",
+			"checkName", check.Name,
+			"secretKey", check.SecretKey,
+		)
 	}
 
-	if err != nil {
-		runtime.Logger().Error("Failed to get secret via workflow", "error", err)
-		return "", fmt.Errorf("failed to get secret: %w", err)
-	}
-
-	if secret.Value == "" {
-		runtime.Logger().Error("Secret value is empty")
-		return "", fmt.Errorf("secret value is empty for key=%s namespace=%s", cfg.SecretKey, cfg.SecretNamespace)
-	}
-
-	runtime.Logger().Info("Vault secret retrieved successfully via workflow", "secretKey", cfg.SecretKey)
-	return fmt.Sprintf("Secret retrieved: key=%s", cfg.SecretKey), nil
+	runtime.Logger().Info("Vault secret workflow batch completed", "checkCount", len(checks))
+	return fmt.Sprintf("Validated %d secret checks", len(checks)), nil
 }

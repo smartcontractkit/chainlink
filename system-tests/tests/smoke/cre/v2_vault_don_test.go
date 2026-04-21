@@ -35,26 +35,18 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
-func ExecuteVaultAllowListBasedTests(t *testing.T, testEnv *ttypes.TestEnvironment, linkingService *vault.TestLinkingService) {
+func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	var testLogger = framework.L
+	linkingService := fixture.LinkingService
 
-	ensureVaultDKGResultPackages(t, testEnv)
-	gatewayURL := mustVaultGatewayURL(t, testEnv)
-
-	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
-
-	gwURL := gatewayURL.String()
+	gwURL := fixture.GatewayURL.String()
+	vaultPublicKey := fixture.VaultPublicKey
 
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
-		if parallelEnabled {
-			t.Parallel()
-		}
-		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		expectedResponseOwner := owner
-		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(subEnv.TestConfig.EnvironmentConfigPath)
+		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 		if linkingService != nil {
 			orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			linkingService.SetOwnerOrg(owner, orgID)
@@ -62,10 +54,10 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, testEnv *ttypes.TestEnvironme
 				expectedResponseOwner = orgID
 			}
 		}
-		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
-		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 		secretID := strconv.Itoa(rand.Intn(10000))
 		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
 		require.NoError(t, err)
@@ -81,29 +73,34 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, testEnv *ttypes.TestEnvironme
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, enc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "allowlist-create-get-main", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "allowlist-create-get-alt", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-create-get", []vaultWorkflowCheck{
+			{Name: "allowlist-create-get-main", SecretKey: secretID, SecretNamespace: "main"},
+			{Name: "allowlist-create-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
+		}, ulCh, bmCh)
 		executeVaultSecretsUpdateTest(t, enc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "allowlist-update-get-main", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "allowlist-update-get-alt", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-update-get", []vaultWorkflowCheck{
+			{Name: "allowlist-update-get-main", SecretKey: secretID, SecretNamespace: "main"},
+			{Name: "allowlist-update-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
+		}, ulCh, bmCh)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "alt", sc, wfReg)
 		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"main"}, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "allowlist-delete-main-not-found", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "allowlist-delete-main-get-alt", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-delete-main-verify", []vaultWorkflowCheck{
+			{Name: "allowlist-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+			{Name: "allowlist-delete-main-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
+		}, ulCh, bmCh)
 		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"alt"}, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "allowlist-delete-alt-not-found", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "allowlist-delete-alt-not-found", secretID, "alt", ulCh, bmCh)
 	})
 }
 
-func ExecuteVaultMixedAuthTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *vault.TestJWTIssuer, linkingService *vault.TestLinkingService) {
+func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
+	issuer := fixture.Issuer
+	linkingService := fixture.LinkingService
 
-	ensureVaultDKGResultPackages(t, testEnv)
-	gatewayURL := mustVaultGatewayURL(t, testEnv)
-
-	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
+	gatewayURL := fixture.GatewayURL
+	vaultPublicKey := fixture.VaultPublicKey
 
 	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 	workflowOwner := sc.MustGetRootKeyAddress().Hex()
@@ -143,13 +140,17 @@ func ExecuteVaultMixedAuthTest(t *testing.T, testEnv *ttypes.TestEnvironment, is
 		require.NoError(t, err)
 
 		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
-		executeVaultSecretsGetViaWorkflowTest(t, testEnv, "jwt-create-get-main", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, testEnv, "jwt-create-get-alt", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "jwt-create-get", []vaultWorkflowCheck{
+			{Name: "jwt-create-get-main", SecretKey: secretID, SecretNamespace: "main"},
+			{Name: "jwt-create-get-alt", SecretKey: secretID, SecretNamespace: "alt"},
+		}, ulCh, bmCh)
 		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "main")
 		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "alt")
 		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "jwt-delete-main-not-found", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, testEnv, "jwt-delete-alt-not-found", secretID, "alt", ulCh, bmCh)
+		executeVaultSecretsWorkflowChecksTest(t, testEnv, "jwt-delete-not-found", []vaultWorkflowCheck{
+			{Name: "jwt-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+			{Name: "jwt-delete-alt-not-found", SecretKey: secretID, SecretNamespace: "alt", ExpectNotFound: true},
+		}, ulCh, bmCh)
 	})
 
 	t.Run("mixed_allowlist_and_jwt_auth", func(t *testing.T) {
@@ -209,14 +210,11 @@ func ExecuteVaultMixedAuthTest(t *testing.T, testEnv *ttypes.TestEnvironment, is
 	})
 }
 
-func ExecuteVaultJWTDisabledTest(t *testing.T, testEnv *ttypes.TestEnvironment, issuer *vault.TestJWTIssuer) {
+func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	t.Helper()
-
-	ensureVaultDKGResultPackages(t, testEnv)
-	gatewayURL := mustVaultGatewayURL(t, testEnv)
-
-	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
+	issuer := fixture.Issuer
+	gatewayURL := fixture.GatewayURL
+	vaultPublicKey := fixture.VaultPublicKey
 
 	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	gwURL := gatewayURL.String()

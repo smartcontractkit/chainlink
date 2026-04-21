@@ -153,18 +153,33 @@ func runV2SuiteScenario(t *testing.T, topology string, scenario v2suite_config.S
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
+			allowlistEnv := fixture.TestEnv
+			jwtEnv := fixture.TestEnv
+			if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
+				allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				jwtEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+			}
 
 			t.Run(allowlistSubtestName, func(t *testing.T) {
-				ExecuteVaultAllowListBasedTests(t, fixture.TestEnv, fixture.LinkingService)
+				if parallelEnabled {
+					t.Parallel()
+				}
+				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
 			if isVaultJWTAuthEnabledTopology(topology) {
 				t.Run(jwtSubtestName, func(t *testing.T) {
-					ExecuteVaultMixedAuthTest(t, fixture.TestEnv, fixture.Issuer, fixture.LinkingService)
+					if parallelEnabled {
+						t.Parallel()
+					}
+					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 				})
 				return
 			}
 			t.Run(jwtSubtestName, func(t *testing.T) {
-				ExecuteVaultJWTDisabledTest(t, fixture.TestEnv, fixture.Issuer)
+				if parallelEnabled {
+					t.Parallel()
+				}
+				ExecuteVaultJWTDisabledTest(t, fixture)
 			})
 		})
 	case v2suite_config.SuiteScenarioCronBeholder:
