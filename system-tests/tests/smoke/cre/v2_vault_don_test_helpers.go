@@ -676,31 +676,6 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 	require.Contains(t, jsonResponse.Error.Error(), expectedAuthError)
 }
 
-func executeVaultSecretsGetViaWorkflowTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName, secretKey, secretNamespace string,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
-) {
-	executeVaultSecretsWorkflowChecksTest(t, testEnv, workflowBaseName, []vaultWorkflowCheck{{
-		Name:            workflowBaseName,
-		SecretKey:       secretKey,
-		SecretNamespace: secretNamespace,
-	}}, userLogsCh, baseMessageCh)
-}
-
-func executeVaultSecretsGetNotFoundViaWorkflowTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName, secretKey, secretNamespace string,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
-) {
-	executeVaultSecretsWorkflowChecksTest(t, testEnv, workflowBaseName, []vaultWorkflowCheck{{
-		Name:            workflowBaseName,
-		SecretKey:       secretKey,
-		SecretNamespace: secretNamespace,
-		ExpectNotFound:  true,
-	}}, userLogsCh, baseMessageCh)
-}
-
 func executeVaultSecretsWorkflowChecksTest(
 	t *testing.T, testEnv *ttypes.TestEnvironment,
 	workflowBaseName string,
