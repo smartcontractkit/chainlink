@@ -104,19 +104,21 @@ func (o *Vault) PreEnvStartup(
 
 	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
-	// enable workflow registry syncer in node's TOML config
-	workerNodes, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	donsToConfigure := []*cre.DonMetadata{don}
+	workflowDONs, wfErr := topology.DonsMetadata.WorkflowDONs()
+	if wfErr == nil {
+		for _, workflowDON := range workflowDONs {
+			if workflowDON.ID == don.ID {
+				continue
+			}
+			donsToConfigure = append(donsToConfigure, workflowDON)
+		}
 	}
 
-	for _, workerNode := range workerNodes {
-		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
-		if uErr != nil {
-			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
+	for _, donToConfigure := range donsToConfigure {
+		if err := configureWorkersNodeConfig(donToConfigure, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()]); err != nil {
+			return nil, err
 		}
-		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
@@ -162,6 +164,24 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	}
 
 	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
+func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) error {
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return errors.Wrapf(wErr, "failed to find worker nodes for don %s", don.Name)
+	}
+
+	for _, workerNode := range workerNodes {
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegVersion)
+		if uErr != nil {
+			return errors.Wrapf(uErr, "failed to update node config for don %s node index %d", don.Name, workerNode.Index)
+		}
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+	}
+
+	return nil
 }
 
 func (o *Vault) PostEnvStartup(

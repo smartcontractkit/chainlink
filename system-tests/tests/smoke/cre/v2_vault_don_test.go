@@ -286,7 +286,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
 				}
 			}
-
 		})
 	}
 }
