@@ -552,6 +552,104 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 	assert.Empty(t, resolver.calledWith)
 }
 
+func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecretOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := newVaultOrgIDAsSecretOwnerLimitsFactory(t, true)
+	resolver := &testOrgResolver{orgID: "org-123"}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, resolver, lf)
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	requestID := "wf-id::exec-id::ref-id"
+	workflowOwner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+	responsePayload, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	var (
+		wg          sync.WaitGroup
+		forward     *vault.GetSecretsRequest
+		forwardedOK bool
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				cloned, ok := proto.Clone(payload).(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				forward = cloned
+				forwardedOK = true
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: responsePayload})
+				return
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       workflowOwner,
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	require.True(t, forwardedOK)
+	require.NotNil(t, forward)
+	assert.Empty(t, forward.OrgId)
+	assert.Equal(t, workflowOwner, forward.WorkflowOwner)
+	assert.Empty(t, resolver.calledWith)
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
