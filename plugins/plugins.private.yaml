@@ -9,29 +9,29 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
       flags: "-tags timetzdata"
   readcontract:
     - moduleURI: "github.com/smartcontractkit/capabilities/readcontract"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
   consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
   workflowevent:
     - enabled: false
       moduleURI: "github.com/smartcontractkit/capabilities/workflowevent"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
   httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
   httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "7cea75ba1cdcead7bdb6aab25241c7a247290bf3"
+      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
       installPath: "."
   evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
