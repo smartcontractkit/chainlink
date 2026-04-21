@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -150,7 +152,7 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
 	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
-		URL:        ptr.Ptr("host.docker.internal:18124"),
+		URL:        ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
 		TLSEnabled: ptr.Ptr(false),
 	}
 

@@ -310,7 +310,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrg
 	workflowOwner := "0x0001020304050607080900010203040506070809"
 	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
 
-	err := validator.ValidateCreateSecretsRequest(pk, &vaultcommon.CreateSecretsRequest{
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
 		RequestId:     "request-id",
 		OrgId:         orgID,
 		WorkflowOwner: workflowOwner,
@@ -339,7 +339,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 	workflowOwner := "0x0001020304050607080900010203040506070809"
 	encrypted := encryptWithEthAddressLabel(t, pk, workflowOwner)
 
-	err := validator.ValidateCreateSecretsRequest(pk, &vaultcommon.CreateSecretsRequest{
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
 		RequestId: "request-id",
 		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 			{
