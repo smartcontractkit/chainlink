@@ -18,6 +18,11 @@ release=$(gh release view -R $repo --json 'tagName,body')
 latest_tag=$(echo "$release" | jq -r '.tagName')
 body=$(echo "$release" | jq -r '.body')
 
+if [ -z "$latest_tag" ] || [ "$latest_tag" = "null" ]; then
+  echo "Error: could not retrieve latest tag from release" >&2
+  exit 1
+fi
+    
 if [ "$current_tag" = "$latest_tag" ]; then
   echo "Tag $current_tag is up to date."
   exit 0
