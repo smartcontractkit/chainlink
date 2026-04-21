@@ -112,17 +112,9 @@ func workflowCmds() *cobra.Command {
 }
 
 func deleteAllWorkflows(ctx context.Context, rpcURL, workflowRegistryAddress string, contractsVersion *semver.Version) error {
-	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-		return pkErr
-	}
-
-	sethClient, scErr := seth.NewClientBuilder().
-		WithRpcUrl(rpcURL).
-		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
-		WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
-		Build()
-	if scErr != nil {
-		return errors.Wrap(scErr, "failed to create Seth client")
+	sethClient, err := newSethClient(rpcURL)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("\n⚙️ Deleting all workflows from the workflow registry\n\n")
@@ -231,12 +223,7 @@ func deployWorkflowCmd() *cobra.Command {
 				workflowFilePathFlag = compiledWorkflowPath
 			}
 
-			rpcURL := rpcURLFlag
-			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
-				if stateRPC, err := resolver.RegistryRPC(); err == nil {
-					rpcURL = stateRPC
-				}
-			}
+			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
 			donID := donIDFlag
 			if !cmd.Flags().Changed("don-id") && resolver != nil {
@@ -262,14 +249,7 @@ func deployWorkflowCmd() *cobra.Command {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
 
-			var nodeDBPort, nodeCount int
-			if resolver != nil {
-				nodeDBPort, nodeCount, resolveErr = resolver.WorkflowDONNodeInfo()
-				if resolveErr != nil {
-					// Non-fatal: fall back to static wait inside waitForVaultConfigPropagation.
-					nodeDBPort, nodeCount = 0, 0
-				}
-			}
+			nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver)
 
 			regErr = deployWorkflow(cmd.Context(), workflowFilePathFlag, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURL, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donID, deleteWorkflowFileFlag, nodeDBPort, nodeCount)
 
@@ -325,27 +305,11 @@ func deleteWorkflowCmd() *cobra.Command {
 				return errors.Wrap(resolverErr, "failed to load local CRE state")
 			}
 
-			rpcURL := rpcURLFlag
-			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
-				if stateRPC, err := resolver.RegistryRPC(); err == nil {
-					rpcURL = stateRPC
-				}
-			}
+			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
-			var privateKey string
-			if os.Getenv("PRIVATE_KEY") != "" {
-				privateKey = os.Getenv("PRIVATE_KEY")
-			} else {
-				privateKey = blockchain.DefaultAnvilPrivateKey
-			}
-
-			sethClient, scErr := seth.NewClientBuilder().
-				WithRpcUrl(rpcURL).
-				WithPrivateKeys([]string{privateKey}).
-				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
-				Build()
-			if scErr != nil {
-				return errors.Wrap(scErr, "failed to create Seth client")
+			sethClient, err := newSethClient(rpcURL)
+			if err != nil {
+				return err
 			}
 
 			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
@@ -406,27 +370,11 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				return errors.Wrap(resolverErr, "failed to load local CRE state")
 			}
 
-			rpcURL := rpcURLFlag
-			if !cmd.Flags().Changed("rpc-url") && resolver != nil {
-				if stateRPC, err := resolver.RegistryRPC(); err == nil {
-					rpcURL = stateRPC
-				}
-			}
+			rpcURL := resolveRPCURL(cmd, rpcURLFlag, resolver)
 
-			var privateKey string
-			if os.Getenv("PRIVATE_KEY") != "" {
-				privateKey = os.Getenv("PRIVATE_KEY")
-			} else {
-				privateKey = blockchain.DefaultAnvilPrivateKey
-			}
-
-			sethClient, scErr := seth.NewClientBuilder().
-				WithRpcUrl(rpcURL).
-				WithPrivateKeys([]string{privateKey}).
-				WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
-				Build()
-			if scErr != nil {
-				return errors.Wrap(scErr, "failed to create Seth client")
+			sethClient, err := newSethClient(rpcURL)
+			if err != nil {
+				return err
 			}
 
 			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, contractsVersionFlag, "workflow-registry-address")
@@ -481,17 +429,9 @@ func deployWorkflow(
 	fmt.Printf("\n✅ Workflow copied to Docker containers\n")
 	fmt.Printf("\n⚙️ Creating Seth client\n\n")
 
-	if pkErr := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
-		return pkErr
-	}
-
-	sethClient, scErr := seth.NewClientBuilder().
-		WithRpcUrl(rpcURLFlag).
-		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
-		WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
-		Build()
-	if scErr != nil {
-		return errors.Wrap(scErr, "failed to create Seth client")
+	sethClient, err := newSethClient(rpcURLFlag)
+	if err != nil {
+		return err
 	}
 
 	var configPath *string
@@ -630,18 +570,11 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 		return errors.Wrap(compileErr, "❌ failed to compile workflow")
 	}
 
-	var nodeDBPort, nodeCount int
 	resolver, resolverErr := TryLoadLocalCREStateResolver()
 	if resolverErr != nil {
 		return errors.Wrap(resolverErr, "failed to load local CRE state")
 	}
-	if resolver != nil {
-		nodeDBPort, nodeCount, resolverErr = resolver.WorkflowDONNodeInfo()
-		if resolverErr != nil {
-			// Non-fatal: fall back to static wait inside waitForVaultConfigPropagation.
-			nodeDBPort, nodeCount = 0, 0
-		}
-	}
+	nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver)
 
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true, nodeDBPort, nodeCount)
 }
@@ -1204,6 +1137,42 @@ func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) 
 	}
 
 	return false, fmt.Sprintf("vault capability %s DefaultConfig not yet set in any DON snapshot", vault_helpers.CapabilityID)
+}
+
+// newSethClient creates a Seth client for rpcURL, ensuring PRIVATE_KEY is set in the
+// environment and falling back to blockchain.DefaultAnvilPrivateKey when it is not.
+func newSethClient(rpcURL string) (*seth.Client, error) {
+	if err := environment.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); err != nil {
+		return nil, err
+	}
+	client, err := seth.NewClientBuilder().
+		WithRpcUrl(rpcURL).
+		WithPrivateKeys([]string{os.Getenv("PRIVATE_KEY")}).
+		WithProtections(false, false, seth.MustMakeDuration(time.Minute)).
+		Build()
+	return client, errors.Wrap(err, "failed to create Seth client")
+}
+
+// resolveRPCURL returns the RPC URL from the state resolver when the rpc-url flag was not
+// explicitly provided on the command line; otherwise it returns the flag value.
+func resolveRPCURL(cmd *cobra.Command, flagValue string, resolver *LocalCREStateResolver) string {
+	if !cmd.Flags().Changed("rpc-url") && resolver != nil {
+		if stateRPC, err := resolver.RegistryRPC(); err == nil {
+			return stateRPC
+		}
+	}
+	return flagValue
+}
+
+// resolveWorkflowDONNodeInfo returns the workflow DON's shared DB port and worker count
+// from the resolver. Returns (0, 0) if the resolver is nil or node info is unavailable
+// (non-fatal: callers fall back to a static wait when these are zero).
+func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver) (dbPort, nodeCount int) {
+	if resolver == nil {
+		return 0, 0
+	}
+	dbPort, nodeCount, _ = resolver.WorkflowDONNodeInfo()
+	return dbPort, nodeCount
 }
 
 func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, versionFlag, addressFlagName string) (string, *semver.Version, error) {
