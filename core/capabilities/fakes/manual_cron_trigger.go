@@ -116,10 +116,10 @@ func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID strin
 	return nil
 }
 
-func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, skipWait <-chan struct{}) (<-chan struct{}, error) {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, skipWait <-chan struct{}) error {
 	config, exists := f.triggerConfigs[triggerID]
 	if !exists {
-		return nil, fmt.Errorf(`trigger config "%s" not found`, triggerID)
+		return fmt.Errorf(`trigger config "%s" not found`, triggerID)
 	}
 
 	jobFired := make(chan struct{}, 1)
@@ -131,11 +131,11 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		}),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create cron job: %w", err)
+		return fmt.Errorf("failed to create cron job: %w", err)
 	}
 	scheduledExecutionTime, err := job.NextRun()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get next scheduled execution time: %w", err)
+		return fmt.Errorf("failed to get next scheduled execution time: %w", err)
 	}
 
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
@@ -160,10 +160,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 	}
 
-	done := make(chan struct{}, 1)
-
 	go func() {
-		defer close(done)
 		defer func() {
 			_ = f.scheduler.RemoveJob(job.ID())
 		}()
@@ -180,10 +177,9 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 
 		// Sent trigger response
 		f.callbackCh[triggerID] <- triggerEvent
-		done <- struct{}{}
 	}()
 
-	return done, nil
+	return nil
 }
 
 func (f *ManualCronTriggerService) createManualTriggerEvent(scheduledExecutionTime time.Time) capabilities.TriggerAndId[*crontypedapi.Payload] {
