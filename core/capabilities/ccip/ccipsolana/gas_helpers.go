@@ -5,6 +5,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 )
 
 const (
@@ -43,7 +44,7 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		return 0, fmt.Errorf("failed to decode extra args: %w", err)
 	}
 
-	extraData, err := parseExtraDataMap(decodedMap)
+	extraData, err := codec.ParseExtraDataMap(decodedMap)
 	if err != nil {
 		return 0, fmt.Errorf("invalid extra args map: %w", err)
 	}
@@ -55,7 +56,7 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 			return 0, fmt.Errorf("failed to decode token dest gas overhead: %w", err)
 		}
 
-		tokenDestGasOverhead, err := extractDestGasAmountFromMap(decodedMap)
+		tokenDestGasOverhead, err := codec.ExtractDestGasAmountFromMap(decodedMap)
 		if err != nil {
 			return 0, fmt.Errorf("failed to extract dest gas amount from map: %w", err)
 		}
@@ -66,5 +67,5 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 	// TODO: base cost in 5000 lamports, not compute units
 	return DestGasOverhead +
 		totalTokenDestGasOverhead +
-		uint64(extraData.extraArgs.ComputeUnits), nil
+		uint64(extraData.ExtraArgs.ComputeUnits), nil
 }
