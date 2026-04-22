@@ -29,6 +29,12 @@ func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheRespo
 		return nil, fmt.Errorf("failed to confirm DataFeedsCache: %w", err)
 	}
 
+	// WaitDeployed polls until contract code is available at the deployed address.
+	_, err = bind.WaitDeployed(context.Background(), chain.Client, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify DataFeedsCache deployment: %w", err)
+	}
+
 	tvStr, err := cacheContract.TypeAndVersion(&bind.CallOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get type and version: %w", err)
@@ -61,6 +67,12 @@ func DeployAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, acce
 	_, err = chain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %w", err)
+	}
+
+	// WaitDeployed polls until contract code is available at the deployed address.
+	_, err = bind.WaitDeployed(context.Background(), chain.Client, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify AggregatorProxy deployment: %w", err)
 	}
 
 	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
@@ -101,6 +113,17 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 		"txNonce", tx.Nonce(),
 		"predictedAddress", proxyAddr.Hex())
 
+	blockNum, err := chain.Confirm(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm BundleAggregatorProxy: %w", err)
+	}
+
+	lggr.Debugw("BundleAggregatorProxy deploy tx confirmed",
+		"chainSelector", chain.Selector,
+		"txHash", tx.Hash().Hex(),
+		"blockNumber", blockNum,
+		"predictedAddress", proxyAddr.Hex())
+
 	deployedAddr, err := bind.WaitDeployed(context.Background(), chain.Client, tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
@@ -114,6 +137,7 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 			"txHash", tx.Hash().Hex())
 		proxyAddr = deployedAddr
 	}
+
 	code, err := chain.Client.CodeAt(context.Background(), proxyAddr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read code at BundleAggregatorProxy address %s: %w", proxyAddr, err)
