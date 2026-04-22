@@ -15,7 +15,7 @@ var gotestsumCmd = &cobra.Command{
 	Use:                "gotestsum [gotestsum flags] [-- go test flags]",
 	DisableFlagParsing: true,
 	Short:              "Run tests with gotestsum",
-	Example:            "  go -C ./tools/test run . gotestsum --format=dots -- -count=1 ./core/...",
+	Example:            "  go tool test gotestsum --format=dots -- -count=1 ./core/...",
 	Args:               cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := exec.LookPath("gotestsum"); err != nil {

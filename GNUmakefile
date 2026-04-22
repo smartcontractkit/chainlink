@@ -270,20 +270,21 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-# Chainlink tools/test harness (Postgres setup + optional diagnose). Pass flags and
-# packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
+# Chainlink tools/test harness (Postgres setup + optional diagnose). Implemented as
+# `go tool test …` from repo root (see go.mod `tool` + `replace ./tools/test`). Pass
+# flags and packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
 # Note: do not use "make target -p 4 ..." — -p is a make flag; use ARGS= instead.
 .PHONY: new_test
 new_test: ## tools/test: passthrough go test. Usage: make new_test ARGS="-v -p 4 ./core/..."
-	go -C ./tools/test run . test $(ARGS)
+	go tool test run $(ARGS)
 
 .PHONY: new_gotestsum
 new_gotestsum: ## tools/test: gotestsum. Usage: make new_gotestsum ARGS="--format=dots -- -count=1 ./core/..."
-	go -C ./tools/test run . gotestsum $(ARGS)
+	go tool test gotestsum $(ARGS)
 
 .PHONY: new_test_diagnose
 new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 -- --timeout 9m ./core/..."
-	go -C ./tools/test run . diagnose $(ARGS)
+	go tool test diagnose $(ARGS)
 
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.

@@ -123,3 +123,13 @@ Ask yourself these questions to help figure out if it's worth working on this fl
 #### 8.2 Turn it Off
 
 Assuming you're ready to declare defeat, it's time to turn off the test. How you do this depends on the test, your team, and the answers to the questions above. If you've determined the test isn't particularly important and isn't worth running anymore, you should just delete it.
+
+## Chainlink `tools/test` harness
+
+For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, use the harness from the **repository root**:
+
+```sh
+go tool test diagnose --iterations 50 -- --failfast ./path/to/package
+```
+
+See [README.md](./README.md), root `GNUmakefile` targets `new_test` / `new_gotestsum` / `new_test_diagnose`, and the agent playbook [`.agents/skills/diagnose-tests/SKILL.md`](../../.agents/skills/diagnose-tests/SKILL.md).

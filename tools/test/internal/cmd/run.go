@@ -10,11 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/runner"
 )
 
-var testCmd = &cobra.Command{
-	Use:                "test [flags] [packages]",
+var runCmd = &cobra.Command{
+	Use:                "run [flags] [packages]",
 	DisableFlagParsing: true,
 	Short:              "Run go test; all flags and args are passed through",
-	Example:            "  go -C ./tools/test run . test -v -count=1 -p 4 ./core/...",
+	Example:            "  go tool test run -v -count=1 -p 4 ./core/...",
 	Args:               cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)

@@ -1,9 +1,9 @@
 ---
 name: diagnose-and-fix-flaky-slow-tests
 description: >-
-  Repeatedly runs Chainlink Go unit tests with the `diagnose` command, parses the
-  flake/failure/timeout/slow report it emits, and helps the user root-cause and
-  fix a specific flaky or slow test.
+  Repeatedly runs Chainlink Go unit tests via `go tool test diagnose` (or
+  `make new_test_diagnose`), parses the flake/failure/timeout/slow report it
+  emits, and helps the user root-cause and fix a specific flaky or slow test.
 ---
 
 <purpose>
@@ -24,13 +24,15 @@ Failed to reset database:unable to drop postgres database: failed to connect to 
 </error>
 </restrictions>
 
-Run from repo root. **Harness-only flags** (before `--`): `--iterations`, `--slow-threshold`, `--fail-fast`, `--shuffle-seed`. **Everything after `--`** is passed to `go test` (e.g. `-timeout`, `-race`, `-run`, package patterns). Put **package patterns last** (usual `go test` layout).
+Run from the **chainlink repository root**. The harness is the `go tool test` binary declared in the root `go.mod` (`tool` + `replace` → `./tools/test`). Same entrypoints via Make: `make new_test_diagnose ARGS='…'`, `make new_test ARGS='…'`, `make new_gotestsum ARGS='…'`.
+
+**Harness-only flags** (before `--`): `--iterations`, `--slow-threshold`, `--fail-fast`, `--shuffle-seed`. **Everything after `--`** is passed to `go test` (e.g. `-timeout`, `-race`, `-run`, package patterns). Put **package patterns last** (usual `go test` layout).
 
 ```sh
 # Command help
-go -C ./tools/test run . diagnose -h
+go tool test diagnose -h
 # Example: harness flags, then --, then go test flags and packages
-go -C ./tools/test run . diagnose --iterations <N> --slow-threshold <duration> --fail-fast --ai-output -- --timeout <duration> --run '<regex>' --race ./path/to/package/...
+go tool test diagnose --iterations <N> --slow-threshold <duration> --fail-fast --ai-output -- --timeout <duration> --run '<regex>' --race ./path/to/package/...
 ```
 
 Harness semantics:
@@ -132,7 +134,7 @@ Pattern-match logs + stats against playbook. State explicit hypothesis before su
 Pass alone, fail in package: other test corrupts state. Chainlink: usually shared Postgres (`diagnose` restores between iterations, not between tests in one iteration).
 
 ```sh
-go -C ./tools/test run . diagnose --iterations 100 -- --run '^TestName$' ./path/to/package
+go tool test diagnose --iterations 100 -- --run '^TestName$' ./path/to/package
 ```
 
 Still flakes alone: problem inside test or code under test.
@@ -140,7 +142,7 @@ Still flakes alone: problem inside test or code under test.
 
 <B name="package">
 ```sh
-go -C ./tools/test run . diagnose --iterations 50 -- ./path/to/package
+go tool test diagnose --iterations 50 -- ./path/to/package
 ```
 Reproduces here but not isolation: cross-test dependency. Common chainlink culprits:
 - Shared DB rows/tables missing `t.Cleanup` deletion.
@@ -153,13 +155,13 @@ Reproduces here but not isolation: cross-test dependency. Common chainlink culpr
 ```sh
 go test -shuffle=on -count=50 -failfast ./path/to/package
 ```
-Shuffle changes pass rate: order matters. Fixes = §B. Capture seed from failing run (`go test -shuffle=<seed>`). Give seed to user.
+Shuffle changes pass rate: order matters. Fixes overlap with `<B name="package">` (cross-test dependency). Capture seed from failing run (`go test -shuffle=<seed>`). Give seed to user.
 </C>
 
 <D name="race">
 Trigger: stack trace lines don't match `t.Fatal`; nil-pointer panic on unreachable path; inconsistent field values.
 ```sh
-go -C ./tools/test run . diagnose --iterations 20 -- --race --run '^TestName$' ./path/to/package
+go tool test diagnose --iterations 20 -- --race --run '^TestName$' ./path/to/package
 ```
 `-race` costly (slow + memory-heavy). Use after hypothesis, narrowed with `-run`.
 </D>
@@ -205,7 +207,7 @@ Show diff in context (Read → Edit). Do not describe fix abstractly.
 <verify>
 Re-run the same-scope `diagnose` run after fix:
 ```sh
-go -C ./tools/test run . diagnose --iterations <N> -- <same go test args as before>
+go tool test diagnose --iterations <N> -- <same go test args as before>
 ```
 Compare new `report.json` vs previous. Success: test absent from `flakes`, `failures`, `timeouts`, `slow`. Still present → revert, revise hypothesis, repeat root-cause analysis.
 </verify>
@@ -222,5 +224,5 @@ Compare new `report.json` vs previous. Success: test absent from `flakes`, `fail
 Do not use this skill when:
 - User has known fix — apply directly.
 - Test fails deterministically first run — normal debug, no multi-run `diagnose` loop.
-- User wants full-suite CI prep — use `test` or `gotestsum` subcommands.
+- User wants full-suite CI prep — use `go tool test run` or `go tool test gotestsum` (or `make new_test` / `make new_gotestsum`).
 </skip>

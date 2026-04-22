@@ -23,18 +23,18 @@ var rootCmd = &cobra.Command{
 
 Modes:
 
-- test: Run tests using vanilla go test command and arguments
+- run: Run tests using vanilla go test command and arguments
 - gotestsum: Run tests using gotestsum for those that prefer its output and tools
 - diagnose: Run tests multiple times to collect statistics, debug logs, and more to help find flakes, races, panics, timeouts, and other issues`,
 	Annotations: map[string]string{
-		cobra.CommandDisplayNameAnnotation: "go -C ./tools/test run .",
+		cobra.CommandDisplayNameAnnotation: "go tool test",
 	},
 	Example: `# Use vanilla go test commands
-go -C ./tools/test run . test -v -count=1 -p 4 ./core/...
+go tool test run -v -count=1 -p 4 ./core/...
 # Use gotestsum as the runner
-go -C ./tools/test run . gotestsum --format=dots -- -count=1 ./core/...
+go tool test gotestsum --format=dots -- -count=1 ./core/...
 # Run the full core test suite 10 times and collect statistics, debug logs, and more
-go -C ./tools/test run . diagnose --iterations 10 -- --timeout=15m ./core/...`,
+go tool test diagnose --iterations 10 -- --timeout=15m ./core/...`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
 		if err != nil {
@@ -54,7 +54,7 @@ func init() {
 	rootCmd.PersistentFlags().String("postgres-version", config.DefaultPostgresVersion, "PostgreSQL version to run tests against")
 	rootCmd.PersistentFlags().Bool("ai-output", !term.IsTerminal(os.Stdout.Fd()), "Use sparse output for agent tooling (and robotic humans)")
 
-	rootCmd.AddCommand(testCmd)
+	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(gotestsumCmd)
 	rootCmd.AddCommand(diagnoseCmd)
 }
