@@ -1,13 +1,13 @@
-// Package termstyle holds lipgloss styles shared by survey progress, DB setup,
+// Package termstyle holds lipgloss styles shared by diagnose progress, DB setup,
 // and summary output so the CLI reads as one palette.
 package termstyle
 
 import "charm.land/lipgloss/v2"
 
-// Colors align with runner/survey_progress.go (filled bar, labels, counts).
+// Colors align with runner/diagnose_progress.go (labels, counts, accents).
 var (
 	Filled = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
-	OK     = Filled // checkmarks / success ticks (same as progress fill)
+	OK     = Filled // checkmarks / success ticks
 	Empty  = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
 	Label  = lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
 	Muted  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))

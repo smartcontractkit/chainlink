@@ -25,7 +25,7 @@ Modes:
 
 - test: Run tests using vanilla go test command and arguments
 - gotestsum: Run tests using gotestsum for those that prefer its output and tools
-- survey: Run tests multiple times to collect statistics, debug logs, and more to help find and diagnose flakes, races, panics, timeouts, and other issues`,
+- diagnose: Run tests multiple times to collect statistics, debug logs, and more to help find flakes, races, panics, timeouts, and other issues`,
 	Annotations: map[string]string{
 		cobra.CommandDisplayNameAnnotation: "go -C ./tools/test run .",
 	},
@@ -34,7 +34,7 @@ go -C ./tools/test run . test -v -count=1 -p 4 ./core/...
 # Use gotestsum as the runner
 go -C ./tools/test run . gotestsum --format=dots -- -count=1 ./core/...
 # Run the full core test suite 10 times and collect statistics, debug logs, and more
-go -C ./tools/test run . survey --iterations 10 --timeout=15m ./core/...`,
+go -C ./tools/test run . diagnose --iterations 10 --timeout=15m ./core/...`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
 		if err != nil {
@@ -56,11 +56,11 @@ func init() {
 
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(gotestsumCmd)
-	rootCmd.AddCommand(surveyCmd)
+	rootCmd.AddCommand(diagnoseCmd)
 }
 
 // Execute runs the root command. A SIGINT or SIGTERM cancels the context so
-// long-running subcommands (notably `survey`) can stop cleanly and still write
+// long-running subcommands (notably `diagnose`) can stop cleanly and still write
 // their post-run analysis. A second signal hits the default handler and
 // force-exits.
 func Execute() {

@@ -15,13 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 )
 
-// Fixed clock for surveyResultsDirName assertions (timestamp 20240601123045).
-var surveyResultsDirNameAt = time.Date(2024, 6, 1, 12, 30, 45, 0, time.UTC)
+// Fixed clock for diagnoseResultsDirName assertions (timestamp 20240601123045).
+var diagnoseResultsDirNameAt = time.Date(2024, 6, 1, 12, 30, 45, 0, time.UTC)
 
-// When ctx is already canceled before Survey starts, no iterations run but
+// When ctx is already canceled before Diagnose starts, no iterations run but
 // analysis still produces a report.json — this is the path a user hits after
-// Ctrl+C'ing a long-running survey.
-func TestSurveyCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
+// Ctrl+C'ing a long-running diagnose run.
+func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
 	conf := &config.App{
@@ -32,10 +32,10 @@ func TestSurveyCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := Survey(ctx, conf, "./...", nil, nil)
+	err := Diagnose(ctx, conf, "./...", nil, nil)
 	require.NoError(t, err)
 
-	matches, err := filepath.Glob(filepath.Join(repoRoot, surveyResultsNamePrefix+"*"))
+	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
 	resultsDir := matches[0]
@@ -52,7 +52,7 @@ func TestSurveyCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	assert.Equal(t, 0, rep.Iterations)
 }
 
-func TestBuildSurveyArgs(t *testing.T) {
+func TestBuildDiagnoseArgs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -129,13 +129,13 @@ func TestBuildSurveyArgs(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := buildSurveyArgs(tc.conf, "./pkg", tc.shuffleSeed)
+			got := buildDiagnoseArgs(tc.conf, "./pkg", tc.shuffleSeed)
 			assert.Equal(t, tc.want, got)
 		})
 	}
 }
 
-func TestSurveyShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
+func TestDiagnoseShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
 	conf := &config.App{
@@ -147,9 +147,9 @@ func TestSurveyShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	require.NoError(t, Survey(ctx, conf, "./...", nil, nil))
+	require.NoError(t, Diagnose(ctx, conf, "./...", nil, nil))
 
-	matches, err := filepath.Glob(filepath.Join(repoRoot, surveyResultsNamePrefix+"*"))
+	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
 	require.NoError(t, err)
 	require.Len(t, matches, 1)
 
@@ -160,7 +160,7 @@ func TestSurveyShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	assert.Empty(t, rep.IterationSummaries)
 }
 
-func TestSurveyResultsDirName(t *testing.T) {
+func TestDiagnoseResultsDirName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -176,7 +176,7 @@ func TestSurveyResultsDirName(t *testing.T) {
 				Timeout:    10 * time.Minute,
 			},
 			target: "./...",
-			want:   surveyResultsNamePrefix + "allpkgs-it1-to10m0s-20240601123045",
+			want:   diagnoseResultsNamePrefix + "allpkgs-it1-to10m0s-20240601123045",
 		},
 		{
 			name: "nested package with ellipsis",
@@ -185,7 +185,7 @@ func TestSurveyResultsDirName(t *testing.T) {
 				Timeout:    10 * time.Minute,
 			},
 			target: "./core/...",
-			want:   surveyResultsNamePrefix + "core_allpkgs-it10-to10m0s-20240601123045",
+			want:   diagnoseResultsNamePrefix + "core_allpkgs-it10-to10m0s-20240601123045",
 		},
 		{
 			name: "flags and run regexp",
@@ -200,7 +200,7 @@ func TestSurveyResultsDirName(t *testing.T) {
 				Run:        "^TestFoo$",
 			},
 			target: "./pkg",
-			want:   surveyResultsNamePrefix + "pkg-it2-to5m0s-race-shuffle-ff-p8-cpu-1-2-r_TestFoo_-383ceba4-20240601123045",
+			want:   diagnoseResultsNamePrefix + "pkg-it2-to5m0s-race-shuffle-ff-p8-cpu-1-2-r_TestFoo_-383ceba4-20240601123045",
 		},
 		{
 			name: "non default slow threshold",
@@ -210,7 +210,7 @@ func TestSurveyResultsDirName(t *testing.T) {
 				SlowThreshold: 45 * time.Second,
 			},
 			target: "./core/services/foo",
-			want:   surveyResultsNamePrefix + "core_services_foo-it1-to10m0s-slow45s-20240601123045",
+			want:   diagnoseResultsNamePrefix + "core_services_foo-it1-to10m0s-slow45s-20240601123045",
 		},
 		{
 			name: "default slow threshold omitted",
@@ -220,21 +220,21 @@ func TestSurveyResultsDirName(t *testing.T) {
 				SlowThreshold: 30 * time.Second,
 			},
 			target: "./a",
-			want:   surveyResultsNamePrefix + "a-it3-to10m0s-20240601123045",
+			want:   diagnoseResultsNamePrefix + "a-it3-to10m0s-20240601123045",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := surveyResultsDirName(tc.conf, tc.target, surveyResultsDirNameAt)
+			got := diagnoseResultsDirName(tc.conf, tc.target, diagnoseResultsDirNameAt)
 			assert.Equal(t, tc.want, got)
-			assert.LessOrEqual(t, len(got), maxSurveyResultsBasename)
+			assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
 		})
 	}
 }
 
-func TestSurveyResultsDirNameLongRunAndPath(t *testing.T) {
+func TestDiagnoseResultsDirNameLongRunAndPath(t *testing.T) {
 	t.Parallel()
 	longRun := strings.Repeat("Xy", 80) // 160 chars; token truncates to 40 runes
 	conf := &config.App{
@@ -242,18 +242,18 @@ func TestSurveyResultsDirNameLongRunAndPath(t *testing.T) {
 		Timeout:    10 * time.Minute,
 		Run:        longRun,
 	}
-	got := surveyResultsDirName(conf, "./p", surveyResultsDirNameAt)
-	assert.LessOrEqual(t, len(got), maxSurveyResultsBasename)
+	got := diagnoseResultsDirName(conf, "./p", diagnoseResultsDirNameAt)
+	assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
 	assert.Contains(t, got, "-it1-to10m0s-")
 	assert.Regexp(t, `r(?:Xy){20}-[0-9a-f]{8}-20240601123045`, got)
 
 	longTarget := "./" + strings.Repeat("seg/", 60) + "z"
-	got2 := surveyResultsDirName(conf, longTarget, surveyResultsDirNameAt)
-	assert.LessOrEqual(t, len(got2), maxSurveyResultsBasename)
-	assert.True(t, strings.HasPrefix(got2, surveyResultsNamePrefix))
+	got2 := diagnoseResultsDirName(conf, longTarget, diagnoseResultsDirNameAt)
+	assert.LessOrEqual(t, len(got2), maxDiagnoseResultsBasename)
+	assert.True(t, strings.HasPrefix(got2, diagnoseResultsNamePrefix))
 }
 
-func TestSurveyDumpDBCalledWithResultsDir(t *testing.T) {
+func TestDiagnoseDumpDBCalledWithResultsDir(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
 	conf := &config.App{
@@ -275,7 +275,7 @@ func TestSurveyDumpDBCalledWithResultsDir(t *testing.T) {
 	}
 
 	// pre-canceled ctx → no iterations run → dumpDB never called
-	require.NoError(t, Survey(ctx, conf, "./...", nil, dumpDB))
+	require.NoError(t, Diagnose(ctx, conf, "./...", nil, dumpDB))
 	assert.Empty(t, calls)
 }
 

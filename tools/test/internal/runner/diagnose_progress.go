@@ -12,13 +12,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/x/term"
-
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
-// chainlinkModulePrefix is trimmed from import paths in the survey progress line
-// so the bar shows repo-relative paths (e.g. core/foo).
+// chainlinkModulePrefix is trimmed from import paths in the diagnose progress line
+// so the status shows repo-relative paths (e.g. core/foo).
 const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
 
 func shortenChainlinkImportPath(importPath string) string {
@@ -33,7 +31,7 @@ func shortenChainlinkImportPath(importPath string) string {
 }
 
 // listTestPackageCount runs `go list -test -e` for the same pattern as `go test`
-// and returns how many import paths would be listed. Used as the progress bar
+// and returns how many import paths would be listed. Used as the package-count
 // denominator; on error or zero lines callers should treat the total as unknown.
 func listTestPackageCount(ctx context.Context, repoRoot, pattern string) (int, error) {
 	cmd := exec.CommandContext(ctx, "go", "list", "-test", "-e", "-f", "{{.ImportPath}}", pattern)
@@ -55,8 +53,8 @@ func listTestPackageCount(ctx context.Context, repoRoot, pattern string) (int, e
 	return n, nil
 }
 
-// surveyProgress tracks completed packages from a go test -json stream.
-type surveyProgress struct {
+// diagnoseProgress tracks completed packages from a go test -json stream.
+type diagnoseProgress struct {
 	mu         sync.Mutex
 	done       map[string]struct{}
 	lastPkg    string
@@ -64,8 +62,8 @@ type surveyProgress struct {
 	total      int               // -1 when denominator is unknown (go list failed or empty)
 }
 
-func newSurveyProgress(totalPackages int) *surveyProgress {
-	return &surveyProgress{
+func newDiagnoseProgress(totalPackages int) *diagnoseProgress {
+	return &diagnoseProgress{
 		done:       make(map[string]struct{}),
 		pkgOutcome: make(map[string]string),
 		total:      totalPackages,
@@ -74,7 +72,7 @@ func newSurveyProgress(totalPackages int) *surveyProgress {
 
 // onTestJSONLine updates state from one JSONL line. Returns true if the number
 // of completed packages increased (for throttled redraws).
-func (p *surveyProgress) onTestJSONLine(line []byte) (completedIncreased bool) {
+func (p *diagnoseProgress) onTestJSONLine(line []byte) (completedIncreased bool) {
 	if len(line) == 0 || line[0] != '{' {
 		return false
 	}
@@ -110,7 +108,7 @@ func isPackageTerminalEvent(ev *TestEvent) bool {
 	}
 }
 
-func (p *surveyProgress) snapshot() (completed int, total int, lastPkg string, outcome string) {
+func (p *diagnoseProgress) snapshot() (completed int, total int, lastPkg string, outcome string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return len(p.done), p.total, p.lastPkg, p.pkgOutcome[p.lastPkg]
@@ -135,40 +133,21 @@ func packageOutcomeMark(action, displayPkg string) string {
 	}
 }
 
-func stderrTermWidth() int {
-	fd := os.Stderr.Fd()
-	if !term.IsTerminal(fd) {
-		return 80
-	}
-	w, _, err := term.GetSize(fd)
-	if err != nil || w < 40 {
-		return 80
-	}
-	return w
-}
-
-func surveyProgressBarWidth(termW, reserved int) int {
-	const minBar, maxBar = 8, 36
-	w := termW - reserved
-	if w < minBar {
-		return minBar
-	}
-	if w > maxBar {
-		return maxBar
-	}
-	return w
-}
-
-// renderSurveyProgressLine writes one status line to w. When isTTY is true,
+// renderDiagnoseProgressLine writes one status line to w. When isTTY is true,
 // caller should prefix with "\r\033[K" to overwrite the previous line.
-func renderSurveyProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *surveyProgress, isTTY bool) {
+func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *diagnoseProgress, isTTY bool) {
 	completed, total, lastPkg, outcome := prog.snapshot()
 
-	termW := stderrTermWidth()
 	meta := fmt.Sprintf("iter %d/%d", iteration, iterations)
-	countStr := fmt.Sprintf("%d/%d", completed, total)
+	var countStr string
 	if total < 0 {
 		countStr = fmt.Sprintf("%d/?", completed)
+	} else {
+		pct := 0
+		if total > 0 {
+			pct = completed * 100 / total
+		}
+		countStr = fmt.Sprintf("%d/%d %d%%", completed, total, pct)
 	}
 
 	const pkgMaxChars = 42
@@ -180,41 +159,7 @@ func renderSurveyProgressLine(w io.Writer, iteration, iterations int, elapsed ti
 	}
 	shortPkg := ellipsizeRight(displayPkg, pkgMaxChars-markReserve) + mark
 
-	barReserved := len(meta) + len(countStr) + 12 + len(shortPkg) + 8 // rough fixed + elapsed
-	barW := surveyProgressBarWidth(termW, barReserved)
-
-	var barStyled string
-	if total > 0 {
-		filled := completed * barW / total
-		if completed > 0 && filled == 0 {
-			filled = 1
-		}
-		if filled > barW {
-			filled = barW
-		}
-		filledStr := strings.Repeat("█", filled)
-		emptyStr := strings.Repeat("░", barW-filled)
-		barStyled = termstyle.Filled.Render(filledStr) + termstyle.Empty.Render(emptyStr)
-	} else {
-		// Indeterminate: one bright cell shuttles in a dim track.
-		track := make([]rune, barW)
-		for i := range track {
-			track[i] = '░'
-		}
-		if barW > 0 {
-			pos := int(time.Now().UnixMilli()/200) % barW
-			track[pos] = '█'
-		}
-		s := string(track)
-		hi := strings.IndexRune(s, '█')
-		if hi >= 0 {
-			barStyled = termstyle.Empty.Render(s[:hi]) + termstyle.Filled.Render("█") + termstyle.Empty.Render(s[hi+1:])
-		} else {
-			barStyled = termstyle.Empty.Render(s)
-		}
-	}
-
-	line := termstyle.Label.Render(meta) + "  " + barStyled + "  " + termstyle.Accent.Render(countStr)
+	line := termstyle.Label.Render(meta) + "  " + termstyle.Accent.Render(countStr)
 	if shortPkg != "" {
 		line += "  " + termstyle.Muted.Render(shortPkg) // path + ⌛ while running, or ✅/❌/⏭ when done
 	}

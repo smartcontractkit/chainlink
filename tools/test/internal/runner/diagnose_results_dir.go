@@ -12,29 +12,29 @@ import (
 )
 
 const (
-	surveyResultsNamePrefix  = "survey-"
-	maxSurveyResultsBasename = 220
-	defaultSlowThreshold     = 30 * time.Second
+	diagnoseResultsNamePrefix  = "diagnose-"
+	maxDiagnoseResultsBasename = 220
+	defaultSlowThreshold       = 30 * time.Second
 )
 
-// surveyResultsDirName returns a repo-root-relative directory basename for
-// survey output: survey-<targetSlug>-<config>-<YYYYMMDDHHMMSS>.
-func surveyResultsDirName(conf *config.App, target string, now time.Time) string {
+// diagnoseResultsDirName returns a repo-root-relative directory basename for
+// diagnose output: diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>.
+func diagnoseResultsDirName(conf *config.App, target string, now time.Time) string {
 	tsPart := now.Format("20060102150405")
 	for phase := range 8 {
-		cfg := surveyConfigDirPartPhase(conf, phase)
+		cfg := diagnoseConfigDirPartPhase(conf, phase)
 		tail := "-" + cfg + "-" + tsPart
-		avail := max(maxSurveyResultsBasename-len(surveyResultsNamePrefix)-len(tail), 8)
-		slug := truncateUTF8MaxBytes(surveyTargetSlug(target), avail)
-		base := surveyResultsNamePrefix + slug + tail
-		if len(base) <= maxSurveyResultsBasename {
+		avail := max(maxDiagnoseResultsBasename-len(diagnoseResultsNamePrefix)-len(tail), 8)
+		slug := truncateUTF8MaxBytes(diagnoseTargetSlug(target), avail)
+		base := diagnoseResultsNamePrefix + slug + tail
+		if len(base) <= maxDiagnoseResultsBasename {
 			return base
 		}
 	}
-	return surveyResultsNamePrefix + "x" + "-" + tsPart
+	return diagnoseResultsNamePrefix + "x" + "-" + tsPart
 }
 
-func surveyTargetSlug(target string) string {
+func diagnoseTargetSlug(target string) string {
 	t := strings.TrimPrefix(target, "./")
 	switch {
 	case t == "...":
@@ -63,7 +63,7 @@ func sanitizeDirToken(s string) string {
 	return b.String()
 }
 
-func surveyRunDirToken(run string) (full string, hashOnly string) {
+func diagnoseRunDirToken(run string) (full string, hashOnly string) {
 	h := sha256.Sum256([]byte(run))
 	hash8 := hex.EncodeToString(h[:4])
 	hashOnly = "r" + hash8
@@ -84,7 +84,7 @@ func durationDirToken(d time.Duration) string {
 	return strings.ReplaceAll(d.String(), ":", "_")
 }
 
-func surveyConfigDirPartPhase(conf *config.App, phase int) string {
+func diagnoseConfigDirPartPhase(conf *config.App, phase int) string {
 	dropSlow := phase >= 1
 	runHashOnly := phase >= 2
 	dropCPU := phase >= 3
@@ -114,7 +114,7 @@ func surveyConfigDirPartPhase(conf *config.App, phase int) string {
 		parts = append(parts, "cpu-"+strings.ReplaceAll(conf.CPU, ",", "-"))
 	}
 	if conf.Run != "" {
-		full, hash := surveyRunDirToken(conf.Run)
+		full, hash := diagnoseRunDirToken(conf.Run)
 		if runHashOnly {
 			parts = append(parts, hash)
 		} else {

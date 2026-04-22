@@ -59,7 +59,8 @@ race.*
 core/services/job/testdata/wasm/testmodule.wasm
 core/services/job/testdata/wasm/testmodule.br
 temp-repo
-survey-*/
+diagnose-*/
+!.agents/skills/diagnose-tests/
 
 # DB state
 ./db/

@@ -51,8 +51,8 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
 
-	// Progress on stderr, same escape and TTY rules as surveyIteration /
-	// renderSurveyProgressLine (runner).
+	// Progress on stderr, same escape and TTY rules as diagnoseIteration /
+	// renderDiagnoseProgressLine (runner).
 	setupPartial := false
 	if !conf.AIOutput {
 		fmt.Fprint(os.Stderr, termstyle.Label.Render("Setting up Postgres..."))

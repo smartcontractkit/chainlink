@@ -45,20 +45,20 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 	return cmd.Run()
 }
 
-// Survey runs go test -json once per iteration, writing each stream to
+// Diagnose runs go test -json once per iteration, writing each stream to
 // iteration-<n>.log.jsonl, then analyzes and writes report.json.
 // Test iteration failures do not stop later runs (unless --fail-fast); they are
-// reflected in report.json. Survey returns a non-nil error for setup failures
+// reflected in report.json. Diagnose returns a non-nil error for setup failures
 // (e.g. mkdir, database reset), analyze/write report failures, or ctx errors
 // bubbling from dependencies — not for failing tests alone.
 // resetDB (optional) runs before each iteration after the first to restore the
 // database to its freshly-prepared state.
 // dumpDB (optional) runs after each iteration to capture database state for
-// per-iteration diagnosis; errors are logged but do not fail the survey.
-func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error, dumpDB func(context.Context, string, int) error) error {
+// per-iteration diagnosis; errors are logged but do not fail the diagnose run.
+func Diagnose(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error, dumpDB func(context.Context, string, int) error) error {
 	start := time.Now()
 
-	resultsDir := filepath.Join(conf.RepoRoot, surveyResultsDirName(conf, targetDir, start))
+	resultsDir := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(conf, targetDir, start))
 	err := os.MkdirAll(resultsDir, 0700)
 	if err != nil {
 		return err
@@ -91,7 +91,7 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 			shuffleSeeds[i] = seed
 		}
 		iterStart := time.Now()
-		iterErr := surveyIteration(ctx, conf, resultsDir, targetDir, i, seed)
+		iterErr := diagnoseIteration(ctx, conf, resultsDir, targetDir, i, seed)
 		iterDurations = append(iterDurations, time.Since(iterStart))
 		if dumpDB != nil {
 			if dumpErr := dumpDB(ctx, resultsDir, i); dumpErr != nil && !conf.AIOutput {
@@ -152,7 +152,7 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	}
 
 	fmt.Fprintln(os.Stderr,
-		termstyle.Label.Render("survey complete")+
+		termstyle.Label.Render("diagnose complete")+
 			termstyle.Muted.Render(fmt.Sprintf(" (%s)", time.Since(start).Round(time.Millisecond))))
 	if report != nil {
 		PrintSummary(os.Stderr, report)
@@ -162,8 +162,8 @@ func Survey(ctx context.Context, conf *config.App, targetDir string, resetDB fun
 	return nil
 }
 
-// buildSurveyArgs constructs the `go test` argv for a single survey iteration.
-func buildSurveyArgs(conf *config.App, targetDir string, shuffleSeed int64) []string {
+// buildDiagnoseArgs constructs the `go test` argv for a single diagnose iteration.
+func buildDiagnoseArgs(conf *config.App, targetDir string, shuffleSeed int64) []string {
 	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String()}
 	if conf.Race {
 		args = append(args, "-race")
@@ -184,7 +184,7 @@ func buildSurveyArgs(conf *config.App, targetDir string, shuffleSeed int64) []st
 	return args
 }
 
-func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, targetDir string, iteration int, shuffleSeed int64) error {
+func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string, targetDir string, iteration int, shuffleSeed int64) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -193,7 +193,7 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	}
 	defer resultsFile.Close()
 
-	args := buildSurveyArgs(conf, targetDir, shuffleSeed)
+	args := buildDiagnoseArgs(conf, targetDir, shuffleSeed)
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
 	cmd.Stderr = resultsFile
@@ -213,7 +213,7 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, targetDir); listErr == nil {
 		totalPkgs = n
 	}
-	prog := newSurveyProgress(totalPkgs)
+	prog := newDiagnoseProgress(totalPkgs)
 
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
@@ -226,7 +226,7 @@ func surveyIteration(ctx context.Context, conf *config.App, resultsDir string, t
 	}
 
 	redraw := func(isTTYLine bool) {
-		renderSurveyProgressLine(os.Stderr, iter, iters, time.Since(start), prog, isTTYLine)
+		renderDiagnoseProgressLine(os.Stderr, iter, iters, time.Since(start), prog, isTTYLine)
 	}
 
 	var readWG sync.WaitGroup

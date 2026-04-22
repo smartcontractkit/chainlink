@@ -66,7 +66,7 @@ type TestEntry struct {
 	LogFiles   []string      `json:"log_files,omitempty"`
 }
 
-// IterationSummary captures high-level stats for a single survey iteration.
+// IterationSummary captures high-level stats for a single diagnose iteration.
 // Duration and ShuffleSeed are populated by the runner after analysis.
 type IterationSummary struct {
 	Index        int           `json:"index"`
@@ -76,7 +76,7 @@ type IterationSummary struct {
 	ShuffleSeed  int64         `json:"shuffle_seed,omitempty"`
 }
 
-// Report classifies tests across iterations of a survey run.
+// Report classifies tests across iterations of a diagnose run.
 type Report struct {
 	Iterations         int                `json:"iterations"`
 	SlowThreshold      time.Duration      `json:"slow_threshold"`
@@ -532,7 +532,6 @@ func formatSlowTestLine(e TestEntry) string {
 	return fmt.Sprintf("%s %s", e.Test, e.MaxElapsed.Round(time.Millisecond))
 }
 
-
 // pipeBranch returns a tree prefix: depth 1 -> "|-- ", depth 2 -> "|---- ", etc.
 func pipeBranch(depth int) string {
 	if depth < 1 {
@@ -642,7 +641,6 @@ func flakeFailRatio(e TestEntry) float64 {
 	return float64(e.Fails) / float64(runs)
 }
 
-
 // reattributeTimeouts fixes the go-test-json quirk where a `panic: test timed out`
 // is attached to whichever test most recently emitted events rather than the
 // actually-stuck one. The real culprits are listed in the panic's
@@ -748,7 +746,6 @@ func buildLogMap(aggs map[testKey]*aggregate) LogMap {
 	return out
 }
 
-
 // stats computes min and p50 from a sample of durations.
 // Returns (0, 0) for an empty sample.
 func stats(samples []time.Duration) (minDur, p50 time.Duration) {
@@ -807,7 +804,6 @@ func sanitize(s string) string {
 func seconds(f float64) time.Duration {
 	return time.Duration(f * float64(time.Second))
 }
-
 
 func sortEntries(entries []TestEntry) {
 	sort.Slice(entries, func(i, j int) bool {
