@@ -3,8 +3,8 @@ module github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/lo
 go 1.26.2
 
 require (
-	github.com/ethereum/go-ethereum v1.17.1
-	github.com/smartcontractkit/cre-sdk-go v1.5.0
+	github.com/ethereum/go-ethereum v1.17.2
+	github.com/smartcontractkit/cre-sdk-go v1.8.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm v0.10.0
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
@@ -21,5 +21,4 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
