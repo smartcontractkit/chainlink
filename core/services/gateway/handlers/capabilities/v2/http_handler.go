@@ -59,12 +59,12 @@ type gatewayHandler struct {
 
 type ResponseCache interface {
 	// Set caches a response if it is cacheable (2xx or 4xx status codes) and the cache is empty or expired for the given request.
-	Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
+	Set(req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse)
 
 	// Fetch retrieves a response from the cache if it exists and the age of cached response is less than the max age of the request.
 	// If the cached response is expired or not cached, it fetches a new response from the fetchFn.
 	// The response is cached if it is cacheable and storeOnFetch is true.
-	Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
+	Fetch(ctx context.Context, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse
 
 	// DeleteExpired removes all cached responses that have exceeded their TTL (Time To Live).
 	DeleteExpired(ctx context.Context) int
@@ -306,16 +306,6 @@ func (h *gatewayHandler) createHTTPRequestCallback(ctx context.Context, requestI
 	}
 }
 
-// extractWorkflowIDFromRequestPath extracts the workflowID from an outgoing request path string.
-// The workflowID is expected to be the first element after splitting the string by "/".
-func extractWorkflowIDFromRequestPath(path string) string {
-	parts := strings.Split(path, "/")
-	if len(parts) > 1 {
-		return parts[1]
-	}
-	return ""
-}
-
 func (h *gatewayHandler) HandleLegacyUserMessage(context.Context, *api.Message, handlers.Callback) error {
 	return errors.New("HTTP capability gateway handler does not support legacy messages")
 }
@@ -340,7 +330,6 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal HTTP request from node %s: %w", nodeAddr, err)
 	}
-	workflowID := extractWorkflowIDFromRequestPath(requestID)
 	timeout := time.Duration(req.TimeoutMs) * time.Millisecond
 	httpReq := network.HTTPRequest{
 		Method:           req.Method,
@@ -367,11 +356,11 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 		callback := h.createHTTPRequestCallback(httpCtx, requestID, httpReq, req)
 		if req.CacheSettings.MaxAgeMs > 0 {
 			h.metrics.IncrementCacheReadCount(ctx, h.lggr)
-			outboundResp = h.responseCache.Fetch(httpCtx, workflowID, req, callback, req.CacheSettings.Store)
+			outboundResp = h.responseCache.Fetch(httpCtx, req, callback, req.CacheSettings.Store)
 		} else {
 			outboundResp = callback()
 			if req.CacheSettings.Store {
-				h.responseCache.Set(workflowID, req, outboundResp)
+				h.responseCache.Set(req, outboundResp)
 			}
 		}
 		h.metrics.IncrementActionCapabilityRequestCount(ctx, nodeAddr, h.lggr)

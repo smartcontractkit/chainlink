@@ -5,3 +5,4 @@ env-out.toml
 **/alloc.pprof
 
 **/logs/*
+*-out.toml

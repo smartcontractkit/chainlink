@@ -10,6 +10,7 @@ import (
 
 var (
 	Config                       = Var("CL_CONFIG")
+	DockerTag                    = Var("CL_DOCKER_TAG")
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	IgnorePrereleaseVersionCheck = Var("CL_IGNORE_PRE_RELEASE_VERSION_CHECK")
 	SkipAppVersionCheck          = Var("CL_SKIP_APP_VERSION_CHECK")

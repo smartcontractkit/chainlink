@@ -98,6 +98,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 }
 
 // Context returns a context with the test's deadline, if available.
+// Deprecated: use [testing.TB.Context] directly
 func Context(tb testing.TB) context.Context {
 	return tb.Context()
 }
@@ -219,15 +220,8 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 }
 
 // Ptr takes pointer of anything
+//
+// Deprecated: use new()
 func Ptr[T any](v T) *T {
 	return &v
-}
-
-func MustRandBytes(n int) (b []byte) {
-	b = make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-	return
 }

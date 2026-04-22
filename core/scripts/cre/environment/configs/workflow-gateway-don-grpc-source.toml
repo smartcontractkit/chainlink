@@ -4,6 +4,9 @@
 #
 # Used by: system-tests/tests/smoke/cre/v2_grpc_source_test.go
 
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
   type = "anvil"
   chain_id = "1337"

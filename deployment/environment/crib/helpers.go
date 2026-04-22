@@ -152,7 +152,7 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain cldf_evm
 	}
 
 	for i, address := range accounts {
-		currentNonce := nonce + uint64(i) //nolint:gosec // G115: i is always positive and within reasonable bounds
+		currentNonce := nonce + uint64(i)
 		baseTx := &gethtypes.DynamicFeeTx{
 			ChainID:   chainIDBig,
 			Nonce:     currentNonce,

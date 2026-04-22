@@ -111,9 +111,9 @@ func WriteArtifacts(summary *TopologySummary, outputDir string) (*Artifacts, err
 func RenderASCII(summary *TopologySummary) string {
 	var b strings.Builder
 	b.WriteString("\nDON TOPOLOGY OVERVIEW\n")
-	b.WriteString(fmt.Sprintf("Config: %s\n", summary.ConfigRef))
-	b.WriteString(fmt.Sprintf("Class: %s\n", summary.Topology))
-	b.WriteString(fmt.Sprintf("Infra: %s\n", summary.InfraType))
+	fmt.Fprintf(&b, "Config: %s\n", summary.ConfigRef)
+	fmt.Fprintf(&b, "Class: %s\n", summary.Topology)
+	fmt.Fprintf(&b, "Infra: %s\n", summary.InfraType)
 	b.WriteString("\n")
 
 	b.WriteString(RenderASCIIDONTable(summary))
@@ -125,7 +125,7 @@ func RenderASCII(summary *TopologySummary) string {
 
 func RenderASCIIStartSummary(summary *TopologySummary) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Topology: %s (%s)\n", summary.ConfigRef, summary.Topology))
+	fmt.Fprintf(&b, "Topology: %s (%s)\n", summary.ConfigRef, summary.Topology)
 	b.WriteString(RenderASCIICapabilityMatrix(summary))
 	return b.String()
 }
@@ -226,16 +226,16 @@ func RenderASCIIDONTable(summary *TopologySummary) string {
 func RenderMarkdown(summary *TopologySummary) string {
 	var b strings.Builder
 	b.WriteString("# DON Topology\n\n")
-	b.WriteString(fmt.Sprintf("- Config: `%s`\n", summary.ConfigRef))
-	b.WriteString(fmt.Sprintf("- Class: `%s`\n", summary.Topology))
-	b.WriteString(fmt.Sprintf("- Infra: `%s`\n", summary.InfraType))
+	fmt.Fprintf(&b, "- Config: `%s`\n", summary.ConfigRef)
+	fmt.Fprintf(&b, "- Class: `%s`\n", summary.Topology)
+	fmt.Fprintf(&b, "- Infra: `%s`\n", summary.InfraType)
 	b.WriteString("\n")
 
 	b.WriteString("## Capability Matrix\n\n")
 	b.WriteString("This matrix is the source of truth for capability placement by DON.\n\n")
 	b.WriteString("| Capability |")
 	for _, don := range summary.DONs {
-		b.WriteString(fmt.Sprintf(" `%s` |", don.Name))
+		fmt.Fprintf(&b, " `%s` |", don.Name)
 	}
 	b.WriteString("\n|---|")
 	for range summary.DONs {
@@ -245,9 +245,9 @@ func RenderMarkdown(summary *TopologySummary) string {
 
 	rows := buildCapabilityMatrix(summary.DONs)
 	for _, row := range rows {
-		b.WriteString(fmt.Sprintf("| `%s` |", row.Capability))
+		fmt.Fprintf(&b, "| `%s` |", row.Capability)
 		for _, don := range summary.DONs {
-			b.WriteString(fmt.Sprintf(" `%s` |", row.ByDON[don.Name]))
+			fmt.Fprintf(&b, " `%s` |", row.ByDON[don.Name])
 		}
 		b.WriteString("\n")
 	}
@@ -255,19 +255,19 @@ func RenderMarkdown(summary *TopologySummary) string {
 
 	b.WriteString("## DONs\n\n")
 	for _, don := range summary.DONs {
-		b.WriteString(fmt.Sprintf("### `%s`\n\n", don.Name))
-		b.WriteString(fmt.Sprintf("- Types: `%s`\n", strings.Join(don.DONTypes, "`, `")))
-		b.WriteString(fmt.Sprintf("- Nodes: `%d`\n", don.NodeCount))
+		fmt.Fprintf(&b, "### `%s`\n\n", don.Name)
+		fmt.Fprintf(&b, "- Types: `%s`\n", strings.Join(don.DONTypes, "`, `"))
+		fmt.Fprintf(&b, "- Nodes: `%d`\n", don.NodeCount)
 		if len(don.NodeRoles) > 0 {
-			b.WriteString(fmt.Sprintf("- Roles: `%s`\n", strings.Join(don.NodeRoles, "`, `")))
+			fmt.Fprintf(&b, "- Roles: `%s`\n", strings.Join(don.NodeRoles, "`, `"))
 		}
 		if len(don.SupportedEVMChains) > 0 {
-			b.WriteString(fmt.Sprintf("- EVM chains: `%s`\n", joinUint64(don.SupportedEVMChains)))
+			fmt.Fprintf(&b, "- EVM chains: `%s`\n", joinUint64(don.SupportedEVMChains))
 		}
 		if len(don.SupportedSolChains) > 0 {
-			b.WriteString(fmt.Sprintf("- Solana chains: `%s`\n", strings.Join(don.SupportedSolChains, "`, `")))
+			fmt.Fprintf(&b, "- Solana chains: `%s`\n", strings.Join(don.SupportedSolChains, "`, `"))
 		}
-		b.WriteString(fmt.Sprintf("- Exposes remote capabilities: `%t`\n", don.ExposesRemoteCapabilities))
+		fmt.Fprintf(&b, "- Exposes remote capabilities: `%t`\n", don.ExposesRemoteCapabilities)
 		b.WriteString("\n")
 	}
 

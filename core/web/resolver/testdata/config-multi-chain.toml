@@ -113,6 +113,7 @@ SendOnly = false
 [[Solana]]
 ChainID = 'testnet'
 OCR2CachePollPeriod = '1m0s'
+LogPollerSlotsBatchSize = 2000
 
 [Solana.MultiNode]
 Enabled = false

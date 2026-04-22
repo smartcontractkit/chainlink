@@ -364,7 +364,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			}
 
 			// empty the cache before doing selects to force a db lookup
-			store.cache = make(map[string]*upkeepStateRecord)
+			store.clearCache()
 
 			states, err := store.SelectByWorkIDs(ctx, test.queryIDs...)
 
@@ -377,6 +377,12 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			require.Equal(t, 0, observedLogs.Len())
 		})
 	}
+}
+
+func (u *upkeepStateStore) clearCache() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.cache = make(map[string]*upkeepStateRecord)
 }
 
 func TestUpkeepStateStore_emptyDB(t *testing.T) {

@@ -20,6 +20,10 @@ on:
         description: "Git refs to test, should be used only for tool testing purposes. In all other cases refs are detected automatically either from Git or RANE SOT"
         required: false
         type: string
+      exclude-refs:
+        description: "Patterns to exclude specific refs (e.g., beta,rc,v0,v1)"
+        required: false
+        type: string
       buildcmd:
         description: "Build command to run"
         required: true
@@ -72,14 +76,17 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      pull-requests: write
     runs-on: ubuntu24.04-16cores-64GB # ghv-ignore!
-    environment: "integration"
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     env:
       STRIP_IMAGE_SUFFIX: ${{ inputs.strip-image-suffix }}
       PRODUCT: ${{ inputs.product }}
       NO_GIT_ROLLBACK: ${{ inputs.no-git-rollback && '--no-git-rollback' || '' }} # Convert boolean to flag string
       REFS: ${{ inputs.refs }}
+      EXCLUDE_REFS: ${{ inputs.exclude-refs }}
       BUILD_CMD: ${{ inputs.buildcmd }}
       ENV_CMD: ${{ inputs.envcmd }}
       TEST_CMD: ${{ inputs.testcmd }}
@@ -92,6 +99,8 @@ jobs:
       CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
       # JD is required by the local CRE-based tests
       CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+      # ChIP Router is required by the local CRE-based tests
+      CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -115,13 +124,21 @@ jobs:
           role-duration-seconds: 1800
           mask-aws-account-id: true
 
-      - name: Login to Amazon ECR
+      - name: Login to private Amazon ECRs
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Login to public Amazon ECR
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
 
       - name: Set up Go
         uses: actions/setup-go@v6 # v6
@@ -152,13 +169,32 @@ jobs:
           tar -xzf ctf.tar.gz
           mv ctf bin/ctf
           chmod +x bin/ctf
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID_RANE_SOT }}
+          audience: ${{ secrets.TS_AUDIENCE_RANE_SOT }}
+          tags: tag:chainlink-gha
+
+      - name: Test Service Connectivity
+        env:
+          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+        run: |
+          # just test we are returning some JSON body
+          if curl -s "${SERVICE_URL}" | jq empty 2>/dev/null; then
+              echo "Service is accessible via Tailscale"
+          else
+              echo "Failed to reach SOT data source: ${SERVICE_URL}"
+          fi
+
       - name: Run compat test
         working-directory: ${{ env.WORKING_DIR }}
         shell: bash
         env:
           CTF_LOG_LEVEL: ${{ env.CTF_LOG_LEVEL }}
           FAKE_SERVER_IMAGE: ${{ secrets.FAKE_SERVER_IMAGE }}
-          REGISTRY: ${{ secrets.REGISTRY_SDLC }}/chainlink
+          REGISTRY: public.ecr.aws/chainlink/chainlink
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
           PRODUCT: ${{ env.PRODUCT }}
           NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
@@ -172,6 +208,10 @@ jobs:
           if [ -n "${{ env.REFS }}" ]; then
             REFS_ARGS="--refs ${{ env.REFS }}"
           fi
+          EXCLUDE_REFS_ARGS=""
+          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
+            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
@@ -179,6 +219,7 @@ jobs:
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
             ${REFS_ARGS} \
+            ${EXCLUDE_REFS_ARGS} \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
@@ -199,10 +240,19 @@ jobs:
             echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload Logs
+      - name: Collect Docker container logs
+        if: always()
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          mkdir -p logs
+          for container in $(docker ps -q); do
+            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
+            docker logs $container > "logs/${container_name}.log" 2>&1
+          done
+
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: container-logs-smoke
+          name: container-logs-smoke-${{ job.check_run_id }}
           path: ${{ env.LOGS_DIR }}
-          retention-days: 3

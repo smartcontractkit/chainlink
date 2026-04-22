@@ -92,7 +92,7 @@ func (cs AddAptosLanes) Apply(env cldf.Environment, cfg config.UpdateAptosLanesC
 	// Add lane on EVM chains
 	// TODO: applying a changeset within another changeset is an anti-pattern. Using it here until EVM is refactored into Operations
 	evmUpdatesInput := config.ToEVMUpdateLanesConfig(cfg)
-	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, evmUpdatesInput)
+	out, err := v1_6.UpdateLanesLogic(env, cfg.EVMMCMSConfig, true, evmUpdatesInput) // skipNonceManagerUpdates=true for Aptos (no v1.5 EVM contracts)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

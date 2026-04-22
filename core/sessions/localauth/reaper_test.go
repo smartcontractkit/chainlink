@@ -72,7 +72,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 					sessions, err := orm.Sessions(ctx, 0, 10)
 					assert.NoError(t, err)
 					return sessions
-				}).Should(gomega.HaveLen(0))
+				}).Should(gomega.BeEmpty())
 			} else {
 				gomega.NewWithT(t).Consistently(func() []sessions.Session {
 					sessions, err := orm.Sessions(ctx, 0, 10)

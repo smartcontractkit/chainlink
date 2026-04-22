@@ -11,7 +11,7 @@ AllowSimplePasswords = false
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -396,6 +396,9 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+
+[CRE.ConfidentialRelay]
+Enabled = false
 
 [Billing]
 URL = 'localhost:4319'

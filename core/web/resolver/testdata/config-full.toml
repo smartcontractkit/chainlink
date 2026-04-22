@@ -402,6 +402,9 @@ URL = 'https://workflow.fetcher.url'
 URL = ''
 TLSEnabled = true
 
+[CRE.ConfidentialRelay]
+Enabled = false
+
 [Billing]
 URL = 'localhost:4319'
 TLSEnabled = true
@@ -618,6 +621,7 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
+LogPollerSlotsBatchSize = 100
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -75,8 +77,27 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 		if shaToCount[sha] > maxShaToCount {
 			maxShaToCount = shaToCount[sha]
 		}
-		if shaToCount[sha] >= requiredQuorum {
-			return &r, nil
+	}
+
+	var qualifiedDigests []string
+	for sha, n := range shaToCount {
+		if n >= requiredQuorum {
+			qualifiedDigests = append(qualifiedDigests, sha)
+		}
+	}
+	if len(qualifiedDigests) > 0 {
+		slices.Sort(qualifiedDigests)
+		want := qualifiedDigests[0]
+		for _, k := range slices.Sorted(maps.Keys(resps)) {
+			r := resps[k]
+			sha, err := a.sha(&r)
+			if err != nil {
+				continue
+			}
+			if sha == want {
+				out := r
+				return &out, nil
+			}
 		}
 	}
 
@@ -137,11 +158,6 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
 		}
 		return nil, errors.New("response result and error both are is nil: cannot validate signatures")
-	}
-
-	if resp.Method == vaulttypes.MethodSecretsGet {
-		// SecretsGet responses are not signed.
-		return resp, errors.New("cannot validate signatures for Get requests")
 	}
 
 	r := &vaulttypes.SignedOCRResponse{}

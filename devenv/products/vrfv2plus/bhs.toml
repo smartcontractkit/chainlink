@@ -1,0 +1,38 @@
+[[products]]
+name = "vrfv2_plus"
+instances = 1
+
+[[vrfv2_plus]]
+enable_bhs_job          = true
+bhs_job_wait_blocks     = 2
+bhs_job_lookback_blocks = 20
+bhs_job_poll_period     = "1s"
+bhs_job_run_timeout     = "30s"
+
+num_tx_keys = 0
+cl_nodes_funding_eth = 5.0
+cl_node_max_gas_price_gwei = 400
+
+minimum_confirmations = 3
+max_gas_limit_coordinator = 2500000
+flat_fee_native_ppm = 500
+flat_fee_link_discount_ppm = 100
+native_premium_percentage = 1
+link_premium_percentage = 1
+
+vrf_job_poll_period = "1s"
+vrf_job_request_timeout = "24h"
+
+sub_funding_amount_link = 5.0
+sub_funding_amount_native = 1.0
+
+wrapper_gas_overhead = 50000
+coordinator_gas_overhead_native = 90000
+coordinator_gas_overhead_link = 105000
+coordinator_native_premium_pct = 0
+coordinator_link_premium_pct = 0
+coordinator_gas_overhead_per_word = 10
+
+[vrfv2_plus.gas_settings]
+fee_cap_multiplier = 2
+tip_cap_multiplier = 2

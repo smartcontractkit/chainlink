@@ -58,7 +58,7 @@ jobs:
     steps:
       - run: echo "${{github.event_name}}"
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -91,7 +91,10 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     outputs:
       general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
@@ -99,13 +102,13 @@ jobs:
       ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.cl_ref }}
 
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: changes
         with:
           filters: |
@@ -193,7 +196,10 @@ jobs:
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
     if: github.actor != 'dependabot[bot]'
-    environment: integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     runs-on: ${{ matrix.image.runner }}
     needs:
       [
@@ -214,8 +220,9 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
+            cache-scope: core
             # todo: optimize this conditional
-            should-build: >-
+            any-should-run: >-
               ${{
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
@@ -227,8 +234,9 @@ jobs:
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
+            cache-scope: plugins
             # todo: optimize this conditional
-            should-build: >-
+            any-should-run: >-
               ${{
                 needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
@@ -237,9 +245,9 @@ jobs:
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
 
       - name: Check if image exists in ECR
         id: check-image-exists
@@ -249,32 +257,39 @@ jobs:
           tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
-      - name: Explain
+      - name: Explain build/no-build decision
+        id: explain
         env:
-          SHOULD_BUILD: ${{ matrix.image.should-build }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          ANY_SHOULD_RUN: ${{ matrix.image.any-should-run }}
           IMAGE_EXISTS: ${{ steps.check-image-exists.outputs.exists }}
         run: |
-          if [[ "${SHOULD_BUILD}" == 'true' && "${IMAGE_EXISTS}" == 'false' ]]; then
-            echo "We will build the image because the matrix's should-build is true and the image does not already exist in ECR."
-            echo "Should build is true when:"
-              echo "- For the non-plugins image: the core tests, ccip tests, or solana tests will be run."
-              echo "- For the plugins image: the core cre e2e tests will be run."
+          if [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" == "develop" ]]; then
+            echo "We force build on pushes to develop to populate the docker layer cache."
+            echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then
+            echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."
+            echo "any-should-run is true when:"
+            echo "  - For the non-plugins image: the core tests, ccip tests, or solana tests will be run."
+            echo "  - For the plugins image: the core cre e2e tests will be run."
+
+            echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "We will not build the image because either the matrix's should-build is false or the image already exists in ECR."
-            echo "should-build: ${SHOULD_BUILD}"
-            echo "image-exists: ${IMAGE_EXISTS}"
+            echo "We will not build the image because either the matrix's any-should-run is false or the image already exists in ECR."
+            echo "build-image=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout the repo
-        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
-        uses: actions/checkout@v4
+        if: steps.explain.outputs.build-image == 'true'
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
       - name: Build Chainlink Image
-        if: matrix.image.should-build && steps.check-image-exists.outputs.exists != 'true'
+        if: steps.explain.outputs.build-image == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
@@ -286,10 +301,12 @@ jobs:
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
-          go-get-overrides: |
-            github.com/smartcontractkit/chainlink-evm=${{ inputs.evm-ref }}
+          # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
+          go-get-overrides: >-
+            ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) || '' }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          cache-scope: ${{ matrix.image.cache-scope }}
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
@@ -376,7 +393,8 @@ jobs:
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
     uses: ./.github/workflows/cre-system-tests.yaml
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr: "sdlc"
+      chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
@@ -393,7 +411,8 @@ jobs:
     if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
     uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      ecr: "sdlc"
+      chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
@@ -463,7 +482,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -562,7 +581,7 @@ jobs:
       contents: read
     needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
     if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@78642e9937e8154e65f30461a99a7099c953d35f # 2026-03-12
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
       workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
@@ -614,8 +633,10 @@ jobs:
     steps:
       - name: Check Core test results
         id: check_core_results
+        env:
+          TEST_RESULTS: ${{ needs.run-core-e2e-tests.outputs.test_results }}
         run: |
-          results='${{ needs.run-core-e2e-tests.outputs.test_results }}'
+          results="$TEST_RESULTS"
           echo "Core e2e test results:"
           echo "$results" | jq .
 
@@ -624,9 +645,12 @@ jobs:
 
       - name: Check CCIP test results
         id: check_ccip_results
+        env:
+          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
+          TEST_RESULTS: ${{ needs.run-ccip-e2e-tests.outputs.test_results }}
         run: |
-          if [[ '${{ needs.run-ccip-e2e-tests.result }}' != 'skipped' ]]; then
-            results='${{ needs.run-ccip-e2e-tests.outputs.test_results }}'
+          if [[ "$JOB_RESULT" != "skipped" ]]; then
+            results="$TEST_RESULTS"
             echo "CCIP test results:"
             echo "$results" | jq .
           else
@@ -636,85 +660,75 @@ jobs:
       - name: Fail the job if core tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core E2E tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core E2E tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core CRE E2E tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core CRE E2E tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core CRE E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE regression tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+          JOB_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::error::Core CRE E2E regression tests failed."
             exit 1
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::error::Core CRE E2E regression tests were cancelled."
             exit 1
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Core CRE E2E regression tests were skipped."
           fi
 
       - name: Warn if CCIP tests were not successful
         if: always()
         env:
-          RESULT: ${{ needs.run-ccip-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
         run: |
-          if [[ "${RESULT}" == "failure" ]]; then
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
             echo "::warning::CCIP E2E tests failed in one of the runs. Not failing as they are not mandatory."
-          elif [[ "${RESULT}" == "cancelled" ]]; then
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
             echo "::warning::CCIP E2E tests were cancelled."
-          elif [[ "${RESULT}" == "skipped" ]]; then
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::CCIP E2E tests were skipped."
           fi
 
-      - name: Fail the job if Chainlink image wasn't built
-        if: always() && needs.build-chainlink.result == 'failure'
-        run: exit 1
-
-  cleanup:
-    name: Clean up integration environment deployments
-    # If the job was cancelled, it typically means that it was manually stopped, or a new commit was pushed.
-    # By always running this, it delays the start of the next workflow run due to concurrency rules.
-    if: always() && !cancelled()
-    needs:
-      [
-        run-core-e2e-tests,
-        run-ccip-e2e-tests,
-        run-core-cre-e2e-tests,
-        run-core-cre-e2e-regression-tests,
-      ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧼 Clean up Environment
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: smartcontractkit/.github/actions/delete-deployments@delete-deployments/v1
-        with:
-          environment: integration
-          ref: ${{ github.head_ref }} # See https://github.com/github/docs/issues/15319#issuecomment-1476705663
+      - name: Fail the job if Chainlink image was cancelled or failed to build
+        if: always()
+        env:
+          JOB_RESULT: ${{ needs.build-chainlink.result }}
+        run: |
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
+            echo "::error::Chainlink image build failed."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
+            echo "::error::Chainlink image build was cancelled."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
+            echo "::warning::Chainlink image build was skipped."
+          fi
 
   show-chainlink-node-coverage:
     name: Show Chainlink Node Go Coverage
@@ -724,7 +738,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -795,7 +809,10 @@ jobs:
   get-solana-sha:
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
     name: Get Solana Sha From Go Mod
-    environment: Integration
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
     runs-on: ubuntu-latest
     needs: [solana-smoke-tests-setup]
     permissions:
@@ -804,7 +821,7 @@ jobs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -828,7 +845,7 @@ jobs:
           echo "short_sha=${short_sha}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Checkout solana
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink-solana
@@ -848,238 +865,31 @@ jobs:
           echo "sha is: ${full_sha}"
           echo "sha=${full_sha}" | tee -a "$GITHUB_OUTPUT"
 
-  solana-test-image-exists:
-    environment: integration
+  run-solana-smoke-tests:
+    name: Run Solana Smoke Tests
+    needs: [build-chainlink, get-solana-sha, solana-smoke-tests-setup]
     permissions:
-      checks: write
-      pull-requests: write
       id-token: write
       contents: read
-    name: Check If Solana Test Image Exists
-    runs-on: ubuntu-latest
-    needs: [get-solana-sha]
-    outputs:
-      exists: ${{ steps.check-image.outputs.exists }}
-    steps:
-      - name: Check if image exists
-        id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@0ce1e67b254a4f041e03cc6f0e3afc987b47c7bd # v2.3.30
-        with:
-          repository: chainlink-solana-tests
-          tag: ${{ needs.get-solana-sha.outputs.sha }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
-  solana-build-contracts:
-    name: Solana Build Artifacts
     if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu22.04-8cores-32GB
-    needs:
-      [
-        changes,
-        solana-test-image-exists,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    steps:
-      - name: Checkout the solana repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Build contracts
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-solana/.github/actions/build_contract_artifacts@841f6229b6a0be0114c47cb676b1136d92f935c9 # node20 update on may 10, 2024
-        with:
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-          runner-os: ${{ runner.os }}
-
-  solana-build-test-image:
-    name: Solana Build Test Image
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    runs-on: ubuntu22.04-8cores-32GB
-    needs:
-      [
-        solana-build-contracts,
-        solana-test-image-exists,
-        changes,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    env:
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-      GOTOOLCHAIN: auto
-    steps:
-      - name: Checkout the repo
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Download Artifacts
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: actions/download-artifact@v4
-        with:
-          name: artifacts
-          path: ${{ env.CONTRACT_ARTIFACTS_PATH }}
-      - name: Build Test Image
-        if: needs.solana-test-image-exists.outputs.exists == 'false'
-        uses: smartcontractkit/.github/actions/ctf-build-test-image@ctf-build-test-image/0.3.0
-        with:
-          repository: chainlink-solana-tests
-          tag: ${{ needs.get-solana-sha.outputs.sha }}
-          suites: smoke
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-
-  solana-smoke-tests:
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    name: Solana Smoke Tests
-    if: needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true'
-    runs-on: ${{ needs.labels.outputs.builder-runner-label || 'ubuntu22.04-8cores-32GB' }}
-    needs:
-      [
-        build-chainlink,
-        solana-build-contracts,
-        solana-build-test-image,
-        labels,
-        changes,
-        get-solana-sha,
-        solana-smoke-tests-setup,
-      ]
-    env:
-      CHAINLINK_COMMIT_SHA: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-      CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
-    steps:
-      - name: Enable S3 Cache for Self-Hosted Runners
-        # these env vars are set (and exposed) when it is a self-hosted runner with extras=s3-cache
-        if: ${{ env.RUNS_ON_INSTANCE_ID != '' && env.ACTIONS_CACHE_URL != '' }}
-        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
-      - name: Checkout the repo
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink-solana
-          ref: ${{ needs.get-solana-sha.outputs.sha }}
-      - name: Run Setup
-        uses: smartcontractkit/.github/actions/ctf-setup-run-tests-environment@ctf-setup-run-tests-environment/0.8.0
-        with:
-          go_mod_path: ./integration-tests/go.mod
-          cache_restore_only: true
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          dockerhub_username: ${{ secrets.DOCKERHUB_READONLY_USERNAME }}
-          dockerhub_password: ${{ secrets.DOCKERHUB_READONLY_PASSWORD }}
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          enable-gap: "false"
-      - name: Pull Artifacts
-        run: |
-          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }}
-          # Pull the Docker image
-          docker pull "$IMAGE_NAME"
-
-          # Create a container without starting it
-          CONTAINER_ID=$(docker create "$IMAGE_NAME")
-
-          # Copy the artifacts from the container
-          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
-          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
-
-          # Remove the created container
-          docker rm "$CONTAINER_ID"
-      - name: Install Solana CLI # required for ensuring the local test validator is configured correctly
-        run: ./scripts/install-solana-ci.sh
-
-      - name: Install gauntlet
-        run: |
-          yarn --cwd ./gauntlet install --frozen-lockfile
-          yarn --cwd ./gauntlet build
-          yarn --cwd ./gauntlet gauntlet
-      - name: Generate config overrides
-        env:
-          VERSION: ${{ inputs.evm-ref || env.CHAINLINK_REF }}
-        run:
-          | # https://github.com/smartcontractkit/chainlink-testing-framework/lib/blob/main/config/README.md
-          cat << EOF > config.toml
-          [ChainlinkImage]
-          version="${{ env.VERSION }}"
-          [Common]
-          user="${{ github.actor }}"
-          internal_docker_repo = "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com"
-          EOF
-          # shellcheck disable=SC2002
-          BASE64_CONFIG_OVERRIDE=$(cat config.toml | base64 -w 0)
-          # shellcheck disable=SC2086
-          echo ::add-mask::$BASE64_CONFIG_OVERRIDE
-          # shellcheck disable=SC2086
-          echo "BASE64_CONFIG_OVERRIDE=$BASE64_CONFIG_OVERRIDE" >> $GITHUB_ENV
-      - name: Run Tests
-        uses: smartcontractkit/.github/actions/ctf-run-tests@ctf-run-tests/0.11.0
-        env:
-          E2E_TEST_CHAINLINK_IMAGE: ${{ env.CHAINLINK_IMAGE }}
-          E2E_TEST_SOLANA_SECRET: thisisatestingonlysecret
-          CHAINLINK_USER_TEAM: "BIX"
-        with:
-          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get-solana-sha.outputs.sha }} && make test_smoke
-          test_config_override_base64: ${{ env.BASE64_CONFIG_OVERRIDE }}
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: test-${{ inputs.evm-ref || env.CHAINLINK_REF }}
-          publish_check_name: Solana Smoke Test Results
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_name: solana-test-artifacts
-          artifacts_location: |
-            ./integration-tests/smoke/logs
-            ./integration-tests/smoke/db_dumps
-            ./integration-tests/smoke/seth_artifacts
-            /tmp/gotest.log
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          run_setup: false
-          go_coverage_src_dir: /var/tmp/go-coverage
-          go_coverage_dest_dir: ${{ github.workspace }}/.covdata
-
-      - name: Upload Coverage Data
-        uses: actions/upload-artifact@v4
-        timeout-minutes: 2
-        continue-on-error: true
-        with:
-          name: cl_node_coverage_data_solana_tests
-          path: .covdata
-          retention-days: 1
+    uses: smartcontractkit/chainlink-solana/.github/workflows/e2e_custom_cl_reusable.yml@f2205f8506c7441d805fa779a198b52163a05bfd
+    with:
+      solana_ref: ${{ needs.get-solana-sha.outputs.sha }}
+      ecr_repository: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      image_tag: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+    secrets:
+      aws_account_id: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      aws_region: ${{ secrets.QA_AWS_REGION }}
+      aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 
   notify-test-failure:
     name: Notify Test Failure
     # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
     if: false
     # if: ${{ github.ref_name == 'develop' && failure() }}
-    needs: [check-e2e-test-results, solana-smoke-tests]
+    needs: [check-e2e-test-results, run-solana-smoke-tests]
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Send slack notification for failed migration tests
         id: send-slack-notification

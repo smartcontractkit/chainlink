@@ -3,6 +3,7 @@ package headreporter_test
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -118,11 +121,23 @@ func Test_EVMTelemetryReporter_NewHead_MissingEndpoint(t *testing.T) {
 
 type mockRelayer struct {
 	testutils2.MockRelayer
-	latestHead types.Head
+	latestHead    types.Head
+	finalizedHead *types.Head
+	finalizedErr  error
 }
 
-func (m mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
+func (m *mockRelayer) LatestHead(_ context.Context) (types.Head, error) {
 	return m.latestHead, nil
+}
+
+func (m *mockRelayer) FinalizedHead(_ context.Context) (types.Head, error) {
+	if m.finalizedErr != nil {
+		return types.Head{}, m.finalizedErr
+	}
+	if m.finalizedHead != nil {
+		return *m.finalizedHead, nil
+	}
+	return types.Head{}, status.Errorf(codes.Unimplemented, "method FinalizedHead not implemented")
 }
 
 func Test_SolanaTelemetryReporter_ReportPeriodic(t *testing.T) {
@@ -204,4 +219,87 @@ func Test_SolanaTelemetryReporter_ReportPeriodic_MissingEndpoint(t *testing.T) {
 
 	err := reporter.ReportPeriodic(testutils.Context(t))
 	assert.Errorf(t, err, "No monitoring endpoint provided chain_id=testchain")
+}
+
+func Test_SolanaTelemetryReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) {
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	blockHash := [32]byte(privKey.PublicKey())
+
+	head := types.Head{
+		Height:    "42",
+		Hash:      blockHash[:],
+		Timestamp: 1000,
+	}
+	fHead := &types.Head{Height: "40"}
+	r := &mockRelayer{latestHead: head, finalizedHead: fHead}
+	solanaRelays := map[types.RelayID]loop.Relayer{
+		{Network: "Solana", ChainID: "testchain"}: r,
+	}
+
+	request := telem.HeadReportRequest{
+		ChainID: "testchain",
+		Latest: &telem.Block{
+			Timestamp: head.Timestamp,
+			Number:    42,
+			Hash:      hex.EncodeToString(head.Hash),
+		},
+		Finalized: &telem.Block{
+			Number: 40,
+		},
+	}
+	requestBytes, err := proto.Marshal(&request)
+	require.NoError(t, err)
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpoint.On("SendLog", requestBytes).Return()
+
+	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
+	monitoringEndpointGen.
+		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
+		Return(monitoringEndpoint)
+
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
+
+	err = reporter.ReportPeriodic(testutils.Context(t))
+	assert.NoError(t, err)
+}
+
+func Test_SolanaTelemetryReporter_ReportPeriodic_FinalizedHeadError(t *testing.T) {
+	privKey, err := solana.NewRandomPrivateKey()
+	require.NoError(t, err)
+	blockHash := [32]byte(privKey.PublicKey())
+
+	head := types.Head{
+		Height:    "42",
+		Hash:      blockHash[:],
+		Timestamp: 1000,
+	}
+	r := &mockRelayer{latestHead: head, finalizedErr: errors.New("rpc error")}
+	solanaRelays := map[types.RelayID]loop.Relayer{
+		{Network: "Solana", ChainID: "testchain"}: r,
+	}
+
+	requestBytes, err := proto.Marshal(&telem.HeadReportRequest{
+		ChainID: "testchain",
+		Latest: &telem.Block{
+			Timestamp: head.Timestamp,
+			Number:    42,
+			Hash:      hex.EncodeToString(head.Hash),
+		},
+	})
+	require.NoError(t, err)
+
+	monitoringEndpoint := mocks2.NewMonitoringEndpoint(t)
+	monitoringEndpoint.On("SendLog", requestBytes).Return()
+
+	monitoringEndpointGen := telemetry.NewMockMonitoringEndpointGenerator(t)
+	monitoringEndpointGen.
+		On("GenMonitoringEndpoint", "Solana", "testchain", "", synchronization.HeadReport).
+		Return(monitoringEndpoint)
+
+	reporter := headreporter.NewTelemetryReporter(monitoringEndpointGen, logger.TestLogger(t), solanaRelays)
+
+	err = reporter.ReportPeriodic(testutils.Context(t))
+	assert.NoError(t, err)
 }

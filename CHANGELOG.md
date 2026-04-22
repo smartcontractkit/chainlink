@@ -1,5 +1,79 @@
 # Changelog Chainlink Core
 
+## 2.44.0
+
+### Minor Changes
+
+- [#22043](https://github.com/smartcontractkit/chainlink/pull/22043) [`6c93c02`](https://github.com/smartcontractkit/chainlink/commit/6c93c029a545e4c1ab9c884ef5e96399b010db1b) - Wire confidential relay service into CRE startup #added
+
+- [#22014](https://github.com/smartcontractkit/chainlink/pull/22014) [`877e469`](https://github.com/smartcontractkit/chainlink/commit/877e46974b2b3453a650dd35846f2972a0262bd9) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22044](https://github.com/smartcontractkit/chainlink/pull/22044) [`de6ecbc`](https://github.com/smartcontractkit/chainlink/commit/de6ecbc8a15c06800706710c1f59cc970cafb631) - Support HTTP URLs in file fetcher for local confidential workflow testing, add system-test instrumentation #changed
+
+- [#22084](https://github.com/smartcontractkit/chainlink/pull/22084) [`290a3e1`](https://github.com/smartcontractkit/chainlink/commit/290a3e1f46b6bdb2648f1ffeec3e43472a0b9203) - Deprecate InsecurePPROFHeap setting. Remove limitation.
+
+- [#22045](https://github.com/smartcontractkit/chainlink/pull/22045) [`bd5e9a8`](https://github.com/smartcontractkit/chainlink/commit/bd5e9a85f258fa69638ef0986c235d1155d7fa98) - Remove unused BinaryURLResolver from ConfidentialModule (PRIV-389 credentials sidecar)
+
+## 2.43.0
+
+### Minor Changes
+
+- [#21861](https://github.com/smartcontractkit/chainlink/pull/21861) [`e35dcc4`](https://github.com/smartcontractkit/chainlink/commit/e35dcc44803a3369b6c9b32f94e3a640f0f90572) - Add Pyroscope profiling support for LOOP Plugins #nops
+
+- [#21899](https://github.com/smartcontractkit/chainlink/pull/21899) [`92db8e0`](https://github.com/smartcontractkit/chainlink/commit/92db8e0991e3b1da7ce9933403a7d9828fec5a00) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22007](https://github.com/smartcontractkit/chainlink/pull/22007) [`51b37cf`](https://github.com/smartcontractkit/chainlink/commit/51b37cfd3017ae2eb883d0e7e2623cfaf9be89e1) - #bugfix bumps http-action capability version to classify timeouts as UserError
+
+- [#21868](https://github.com/smartcontractkit/chainlink/pull/21868) [`7dffc86`](https://github.com/smartcontractkit/chainlink/commit/7dffc86ad98ed8e338b914d8477a4ecd629d2294) - #bugfix Wire user metric limiters to WASM ModuleConfig
+
+## 2.42.0
+
+### Minor Changes
+
+- [#21771](https://github.com/smartcontractkit/chainlink/pull/21771) [`9a1136d`](https://github.com/smartcontractkit/chainlink/commit/9a1136d4fbe399ebc34d1e5a788d54b0e049b44c) - #changed add support for log filters in fake EVM capability
+
+- [#21803](https://github.com/smartcontractkit/chainlink/pull/21803) [`5765674`](https://github.com/smartcontractkit/chainlink/commit/5765674b7b928b5b8f04890d829568db4109dde5) - Minor bump to start next version
+
+- [#21817](https://github.com/smartcontractkit/chainlink/pull/21817) [`0e5dbb7`](https://github.com/smartcontractkit/chainlink/commit/0e5dbb7d1e699cc587fa6f1ebf6802cacf3700b0) - #added Add support for user-emitted CRE workflow metrics via WASM host function emit_metric
+
+### Patch Changes
+
+- [#21766](https://github.com/smartcontractkit/chainlink/pull/21766) [`3536f50`](https://github.com/smartcontractkit/chainlink/commit/3536f50f81f0dac6ad21e200621e4a36984cd7e0) - #internal
+
+  Add Aptos local CRE read/write support, including Capabilities Registry OCR config for Aptos write and CI coverage for the Aptos write roundtrip and expected-failure scenarios.
+
+## 2.41.0
+
+### Minor Changes
+
+- [#21679](https://github.com/smartcontractkit/chainlink/pull/21679) [`f6ec944`](https://github.com/smartcontractkit/chainlink/commit/f6ec944dbb290c9f9bea4ff24f15c7a691e5147f) - Minor bump to start next version
+
+- [#21776](https://github.com/smartcontractkit/chainlink/pull/21776) [`035fa26`](https://github.com/smartcontractkit/chainlink/commit/035fa268de1308a854ad6351344061283ed63b78) - Adds support for SVR MultiCall and TransactionLifecycleID #internal
+
+### Patch Changes
+
+- [#21688](https://github.com/smartcontractkit/chainlink/pull/21688) [`f8abcbb`](https://github.com/smartcontractkit/chainlink/commit/f8abcbb3eed3bdc478f4a7721255702dd3532453) - #changed
+
+  Move Vault node-side request authorization into the gateway handler and remove duplicated authorization from the Vault capability.
+
+## 2.40.0
+
+### Minor Changes
+
+- [#21566](https://github.com/smartcontractkit/chainlink/pull/21566) [`540693c`](https://github.com/smartcontractkit/chainlink/commit/540693cc71f44ccfcb89f36c959890fd5cf324fa) - Minor bump to start next version
+
+### Patch Changes
+
+- [#21643](https://github.com/smartcontractkit/chainlink/pull/21643) [`e034db3`](https://github.com/smartcontractkit/chainlink/commit/e034db36cc3a02a79aec1a3b44ccc71ddc2f21ed) - #added Add ListPendingJobProposals and ApproveJobProposalByID to the GQL SDK Client
+
+- [#21550](https://github.com/smartcontractkit/chainlink/pull/21550) [`6ed0e26`](https://github.com/smartcontractkit/chainlink/commit/6ed0e268f955a20b38a0c052efd2acac07c798c2) - #changed Bumps the chainlink-ccip reference and replaces all references to `latest` with version-locked imports
+
+- [#21604](https://github.com/smartcontractkit/chainlink/pull/21604) [`4561cb7`](https://github.com/smartcontractkit/chainlink/commit/4561cb741754d00b2910599952ef5e1a5abde45c) - #added Emit gas-related metrics through Beholder
+
 ## 2.39.0
 
 ### Minor Changes

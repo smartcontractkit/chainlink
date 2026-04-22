@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
@@ -107,19 +108,14 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 			ctx := testutils.Context(t)
 
 			if tc.mockPoller {
-				lp := new(mocks.LogPoller)
-				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-				lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
-				hasFitlerTimes := 1
-				if tc.unregister {
-					hasFitlerTimes = 2
-				}
-				lp.On("HasFilter", p.filterName(tc.upkeepID)).Return(tc.hasFilter).Times(hasFitlerTimes)
+				lp := mocks.NewLogPoller(t)
+				servicetest.SetupNoOpMock(lp)
+				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
+				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil).Maybe()
+				lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil).Maybe()
+				lp.On("HasFilter", p.filterName(tc.upkeepID)).Return(tc.hasFilter).Maybe()
 				if tc.replyed {
 					lp.On("ReplayAsync", mock.Anything).Return(nil).Times(1)
-				} else {
-					lp.On("ReplayAsync", mock.Anything).Return(nil).Times(0)
 				}
 				p.lock.Lock()
 				p.poller = lp
@@ -145,9 +141,8 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
-	mp := new(mocks.LogPoller)
+	mp := mocks.NewLogPoller(t)
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
