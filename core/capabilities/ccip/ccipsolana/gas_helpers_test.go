@@ -122,6 +122,8 @@ func serializeExtraArgs(tag []byte, data any) ([]byte, error) {
 }
 
 func makeExtraArgsV2(computeUnits uint32, allowOOO bool) []byte {
+	// bytes4(keccak256("CCIP SVMExtraArgsV1"));
+	svmExtraArgsV1Tag := hexutil.MustDecode("0x1f3b3aba")
 	extraArgs, err := serializeExtraArgs(svmExtraArgsV1Tag, fee_quoter.SVMExtraArgsV1{
 		AllowOutOfOrderExecution: allowOOO,
 		ComputeUnits:             computeUnits,
