@@ -34,7 +34,7 @@ go -C ./tools/test run . diagnose --iterations <N> --slow-threshold <duration> -
 ```
 
 Harness semantics:
-- Prepends `go test -json -count=1` each iteration (drops duplicate `-json` / `-count` if the user passed them).
+- Prepends `go test -json` each iteration (drops duplicate `-json`); adds `-count=1` unless you set `-count` greater than 1 on `go test` (prefer diagnose `--iterations` for repetition).
 - `--shuffle-seed` → random `-shuffle=<seed>` per iteration, recorded in `report.json`.
 - Defaults by hypothesis (tune `go test` after `--`):
   - Flake hunt: `--iterations 25`, `--timeout 10m` in go test, single package.

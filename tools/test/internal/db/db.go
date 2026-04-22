@@ -160,10 +160,15 @@ func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error
 	// Container (server) log.
 	fmt.Fprint(f, "## Server Log\n\n```\n")
 	if logs, logErr := h.container.Logs(ctx); logErr != nil {
-		fmt.Fprintf(f, "error fetching logs: %v\n", logErr)
+		return fmt.Errorf("fetch logs: %w", logErr)
 	} else {
-		_, _ = io.Copy(f, logs)
-		_ = logs.Close()
+		_, err = io.Copy(f, logs)
+		if err != nil {
+			return fmt.Errorf("copy logs: %w", err)
+		}
+		if err := logs.Close(); err != nil {
+			return fmt.Errorf("close logs: %w", err)
+		}
 	}
 	fmt.Fprint(f, "```\n\n")
 
@@ -205,7 +210,10 @@ func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error
 		case exitCode != 0:
 			fmt.Fprintf(f, "psql exit %d\n", exitCode)
 		}
-		_, _ = io.Copy(f, out)
+		_, err = io.Copy(f, out)
+		if err != nil {
+			return fmt.Errorf("copy output: %w", err)
+		}
 		fmt.Fprint(f, "```\n\n")
 	}
 
