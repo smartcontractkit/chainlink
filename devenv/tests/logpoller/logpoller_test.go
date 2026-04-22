@@ -328,7 +328,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l := framework.L
 	ctx := t.Context()
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(allowedLogMessages...))
 		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
