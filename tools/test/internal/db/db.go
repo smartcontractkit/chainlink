@@ -42,8 +42,7 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 
 	if conf.DatabaseURL != "" {
 		if existing := os.Getenv("CL_DATABASE_URL"); existing != "" && existing != conf.DatabaseURL {
-			return &Handle{conf: conf}, fmt.Errorf(
-				"CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
+			return &Handle{conf: conf}, errors.New("CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
 		}
 		if err := os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
 			return &Handle{conf: conf}, fmt.Errorf("set CL_DATABASE_URL: %w", err)
