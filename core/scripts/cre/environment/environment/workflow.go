@@ -475,29 +475,27 @@ func deployWorkflow(
 
 		fmt.Printf("\n✅ Vault public key fetched\n")
 
-		if capabilitiesRegistryAddress != "" {
-			fmt.Printf("\n⚙️ Checking vault capability config in capabilities registry\n")
+		fmt.Printf("\n⚙️ Checking vault capability config in capabilities registry\n")
 
-			vaultDON, existingVaultCfg, getErr := getVaultCapabilityDON(ctx, sethClient, capabilitiesRegistryAddress)
-			if getErr != nil {
-				return errors.Wrap(getErr, "❌ failed to get vault capability config from capabilities registry")
+		vaultDON, existingVaultCfg, getErr := getVaultCapabilityDON(ctx, sethClient, capabilitiesRegistryAddress)
+		if getErr != nil {
+			return errors.Wrap(getErr, "❌ failed to get vault capability config from capabilities registry")
+		}
+
+		if existingVaultCfg.DefaultConfig == nil {
+			fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
+
+			if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey); updateErr != nil {
+				return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
 			}
 
-			if existingVaultCfg.DefaultConfig == nil {
-				fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
-
-				if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey); updateErr != nil {
-					return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
-				}
-
-				fmt.Printf("\n✅ Vault capability config updated\n")
-				fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
-				if waitErr := waitForVaultConfigPropagation(ctx, nodeDBPort, nodeCount); waitErr != nil {
-					return errors.Wrap(waitErr, "❌ failed while waiting for vault config propagation")
-				}
-			} else {
-				fmt.Printf("\n✅ Vault capability config already set, skipping update and propagation wait\n")
+			fmt.Printf("\n✅ Vault capability config updated\n")
+			fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
+			if waitErr := waitForVaultConfigPropagation(ctx, nodeDBPort, nodeCount); waitErr != nil {
+				return errors.Wrap(waitErr, "❌ failed while waiting for vault config propagation")
 			}
+		} else {
+			fmt.Printf("\n✅ Vault capability config already set, skipping update and propagation wait\n")
 		}
 
 		fmt.Printf("\n⚙️ Encrypting workflow secrets for vault\n")
