@@ -23,7 +23,6 @@ import (
 
 func waitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, tx *ethtypes.Transaction, addr common.Address) error {
 	// Fibonacci backoff starting at 5s, capped at 30s per attempt, total max 90s.
-	// Sequence: 5s, 5s, 10s, 15s, 25s, 30s (capped) — ~5-6 attempts.
 	return retry.Do(ctx, retry.WithMaxDuration(90*time.Second, retry.WithCappedDuration(30*time.Second, retry.NewFibonacci(5*time.Second))), func(ctx context.Context) error {
 		receipt, err := client.TransactionReceipt(ctx, tx.Hash())
 		if err != nil {
