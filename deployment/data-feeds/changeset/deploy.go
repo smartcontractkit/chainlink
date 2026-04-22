@@ -114,10 +114,16 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 			"txHash", tx.Hash().Hex())
 		proxyAddr = deployedAddr
 	}
+	code, err := chain.Client.CodeAt(context.Background(), proxyAddr, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read code at BundleAggregatorProxy address %s: %w", proxyAddr, err)
+	}
+
 	lggr.Debugw("BundleAggregatorProxy deployed and code verified",
 		"chainSelector", chain.Selector,
 		"address", proxyAddr.Hex(),
-		"txHash", tx.Hash().Hex())
+		"txHash", tx.Hash().Hex(),
+		"codeSize", len(code))
 
 	proxyContract, err := bundleproxy.NewBundleAggregatorProxy(proxyAddr, chain.Client)
 	if err != nil {
