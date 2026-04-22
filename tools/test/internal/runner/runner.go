@@ -3,12 +3,14 @@ package runner
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand/v2"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -163,32 +165,102 @@ func Diagnose(ctx context.Context, conf *config.App, goTestArgs []string, resetD
 	return nil
 }
 
-// filterDiagnoseUserGoTestArgs removes -json and -count so the harness can inject its own.
-func filterDiagnoseUserGoTestArgs(args []string) []string {
-	var out []string
+// goTestFlagsBeforeArgs returns the portion of argv that belongs to `go test`
+// itself, stopping before -args (flags after -args are passed to the test binary).
+func goTestFlagsBeforeArgs(args []string) []string {
+	for i, a := range args {
+		if a == "-args" {
+			return args[:i]
+		}
+	}
+	return args
+}
+
+// parseDiagnoseGoTestCount returns the last -count in the portion of argv that
+// belongs to `go test` itself (before -args). If no -count appears, set is false.
+func parseDiagnoseGoTestCount(goTestArgs []string) (set bool, n int, err error) {
+	args := goTestFlagsBeforeArgs(goTestArgs)
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if a == "-json" || a == "--json" {
+		if after, ok := strings.CutPrefix(a, "-count="); ok {
+			v := after
+			num, e := strconv.Atoi(strings.TrimSpace(v))
+			if e != nil {
+				return false, 0, fmt.Errorf("invalid -count value %q: %w", v, e)
+			}
+			set = true
+			n = num
 			continue
 		}
-		if strings.HasPrefix(a, "-count=") {
-			continue
-		}
-		if a == "-count" && i+1 < len(args) {
+		if a == "-count" {
+			if i+1 >= len(args) {
+				return false, 0, errors.New("invalid go test arguments: -count must be followed by a value")
+			}
 			i++
+			num, e := strconv.Atoi(strings.TrimSpace(args[i]))
+			if e != nil {
+				return false, 0, fmt.Errorf("invalid -count value %q: %w", args[i], e)
+			}
+			set = true
+			n = num
+		}
+	}
+	return set, n, nil
+}
+
+// WarnDiagnoseGoTestCount prints hints when the user sets -count on go test, and
+// returns an error if -count values in the go test flag section are malformed.
+func WarnDiagnoseGoTestCount(w io.Writer, goTestArgs []string) error {
+	set, n, err := parseDiagnoseGoTestCount(goTestArgs)
+	if err != nil {
+		return err
+	}
+	if !set {
+		return nil
+	}
+	if n == 1 {
+		fmt.Fprintln(w, termstyle.Muted.Render(
+			"note: -count=1 is unnecessary; diagnose adds -count=1 when you omit it."))
+		return nil
+	}
+	fmt.Fprintln(w, termstyle.Muted.Render(
+		"note: prefer diagnose --iterations for repetition; use -count>1 only if you want to avoid overhead between diagnose iterations (e.g. DB setup/teardown)."))
+	return nil
+}
+
+// filterDiagnoseUserGoTestArgs removes -json/--json from the go test flag
+// section so the harness can inject -json; arguments after -args are unchanged.
+func filterDiagnoseUserGoTestArgs(args []string) []string {
+	split := len(args)
+	for i, a := range args {
+		if a == "-args" {
+			split = i
+			break
+		}
+	}
+	prefix := args[:split]
+	suffix := args[split:]
+	var out []string
+	for _, a := range prefix {
+		if a == "-json" || a == "--json" {
 			continue
 		}
 		out = append(out, a)
 	}
-	return out
+	return append(out, suffix...)
 }
 
 // buildDiagnoseArgs constructs the `go test` argv for a single diagnose iteration.
 func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) []string {
-	args := []string{"test", "-json", "-count=1"}
-	args = append(args, filterDiagnoseUserGoTestArgs(goTestArgs)...)
+	filtered := filterDiagnoseUserGoTestArgs(goTestArgs)
+	set, n, _ := parseDiagnoseGoTestCount(goTestArgs)
+	args := []string{"test", "-json"}
+	args = append(args, filtered...)
 	if shuffleSeed != 0 {
 		args = append(args, fmt.Sprintf("-shuffle=%d", shuffleSeed))
+	}
+	if !set || n <= 1 {
+		args = append(args, "-count=1")
 	}
 	return args
 }

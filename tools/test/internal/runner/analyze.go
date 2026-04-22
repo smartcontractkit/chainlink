@@ -550,10 +550,7 @@ func longestCommonPathPrefix(paths []string) string {
 	p := append([]string(nil), paths...)
 	sort.Strings(p)
 	first, last := p[0], p[len(p)-1]
-	cmpLen := len(first)
-	if len(last) < cmpLen {
-		cmpLen = len(last)
-	}
+	cmpLen := min(len(last), len(first))
 	i := 0
 	for i < cmpLen && first[i] == last[i] {
 		i++
@@ -754,7 +751,7 @@ func stats(samples []time.Duration) (minDur, p50 time.Duration) {
 		return 0, 0
 	}
 	sorted := append([]time.Duration(nil), samples...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+	slices.Sort(sorted)
 	minDur = sorted[0]
 	n := len(sorted)
 	if n%2 == 1 {

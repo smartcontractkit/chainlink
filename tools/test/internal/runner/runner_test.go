@@ -59,6 +59,68 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	assert.Equal(t, 0, rep.Iterations)
 }
 
+func TestParseDiagnoseGoTestCount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		args    []string
+		wantSet bool
+		wantN   int
+		wantErr bool
+	}{
+		{name: "no count", args: []string{"-v", "./..."}, wantSet: false, wantN: 0, wantErr: false},
+		{name: "count 1", args: []string{"-count=1", "./..."}, wantSet: true, wantN: 1, wantErr: false},
+		{name: "count 1 spaced", args: []string{"-count", "1", "./..."}, wantSet: true, wantN: 1, wantErr: false},
+		{name: "count 2", args: []string{"-count=2", "./..."}, wantSet: true, wantN: 2, wantErr: false},
+		{name: "count 99", args: []string{"-count", "99"}, wantSet: true, wantN: 99, wantErr: false},
+		{name: "last count wins", args: []string{"-count=1", "-count=3"}, wantSet: true, wantN: 3, wantErr: false},
+		{name: "count after -args ignored", args: []string{"-v", "-args", "-count=50"}, wantSet: false, wantN: 0, wantErr: false},
+		{name: "invalid count value", args: []string{"-count=maybe"}, wantErr: true},
+		{name: "-count without value", args: []string{"-count"}, wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			set, n, err := parseDiagnoseGoTestCount(tc.args)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSet, set)
+			assert.Equal(t, tc.wantN, n)
+		})
+	}
+}
+
+func TestWarnDiagnoseGoTestCount(t *testing.T) {
+	t.Parallel()
+
+	t.Run("count 1", func(t *testing.T) {
+		t.Parallel()
+		var buf strings.Builder
+		require.NoError(t, WarnDiagnoseGoTestCount(&buf, []string{"-count=1", "./pkg"}))
+		assert.Contains(t, buf.String(), "unnecessary")
+	})
+
+	t.Run("count greater than 1", func(t *testing.T) {
+		t.Parallel()
+		var buf strings.Builder
+		require.NoError(t, WarnDiagnoseGoTestCount(&buf, []string{"-count=5"}))
+		assert.Contains(t, buf.String(), "prefer")
+		assert.Contains(t, buf.String(), "iterations")
+	})
+
+	t.Run("no count", func(t *testing.T) {
+		t.Parallel()
+		var buf strings.Builder
+		require.NoError(t, WarnDiagnoseGoTestCount(&buf, []string{"./..."}))
+		assert.Empty(t, strings.TrimSpace(buf.String()))
+	})
+}
+
 func TestBuildDiagnoseArgs(t *testing.T) {
 	t.Parallel()
 
@@ -71,29 +133,34 @@ func TestBuildDiagnoseArgs(t *testing.T) {
 		{
 			name:       "passthrough flags and package",
 			goTestArgs: []string{"-timeout=5m", "./pkg"},
-			want:       []string{"test", "-json", "-count=1", "-timeout=5m", "./pkg"},
+			want:       []string{"test", "-json", "-timeout=5m", "./pkg", "-count=1"},
 		},
 		{
 			name:        "shuffle seed appended",
 			goTestArgs:  []string{"./pkg"},
 			shuffleSeed: 12345,
-			want:        []string{"test", "-json", "-count=1", "./pkg", "-shuffle=12345"},
+			want:        []string{"test", "-json", "./pkg", "-shuffle=12345", "-count=1"},
 		},
 		{
 			name:        "zero shuffle seed omitted",
 			goTestArgs:  []string{"./pkg"},
 			shuffleSeed: 0,
-			want:        []string{"test", "-json", "-count=1", "./pkg"},
+			want:        []string{"test", "-json", "./pkg", "-count=1"},
 		},
 		{
-			name:       "strips duplicate -json and -count from user args",
+			name:       "strips duplicate -json; keeps -count greater than 1",
 			goTestArgs: []string{"-json", "-count=3", "-race", "-run=^X$", "./pkg"},
-			want:       []string{"test", "-json", "-count=1", "-race", "-run=^X$", "./pkg"},
+			want:       []string{"test", "-json", "-count=3", "-race", "-run=^X$", "./pkg"},
 		},
 		{
-			name:       "strips -count with separate value",
+			name:       "passes through -count with separate value when greater than 1",
 			goTestArgs: []string{"-count", "99", "./a"},
-			want:       []string{"test", "-json", "-count=1", "./a"},
+			want:       []string{"test", "-json", "-count", "99", "./a"},
+		},
+		{
+			name:       "explicit -count=1 gets default appended",
+			goTestArgs: []string{"-count=1", "./pkg"},
+			want:       []string{"test", "-json", "-count=1", "./pkg", "-count=1"},
 		},
 	}
 
