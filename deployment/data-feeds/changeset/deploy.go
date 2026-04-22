@@ -21,13 +21,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-func waitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, tx *ethtypes.Transaction, addr common.Address) error {
-	// Fibonacci backoff starting at 5s, capped at 30s per attempt, total max 90s.
-	return retry.Do(ctx, retry.WithMaxDuration(90*time.Second, retry.WithCappedDuration(30*time.Second, retry.NewFibonacci(5*time.Second))), func(ctx context.Context) error {
-		receipt, err := client.TransactionReceipt(ctx, tx.Hash())
-		if err != nil {
-			return retry.RetryableError(err)
-		}
+func waitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, tx *ethtypes.Transaction) (common.Address, error) {
+	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get tx receipt: %w", err)
+	}
+	addr := receipt.ContractAddress
+
+	err = retry.Do(ctx, retry.WithMaxDuration(90*time.Second, retry.WithCappedDuration(30*time.Second, retry.NewFibonacci(5*time.Second))), func(ctx context.Context) error {
 		code, err := client.CodeAt(ctx, addr, receipt.BlockNumber)
 		if err != nil {
 			return retry.RetryableError(err)
@@ -37,6 +38,7 @@ func waitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, tx 
 		}
 		return nil
 	})
+	return addr, err
 }
 
 func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheResponse, error) {
@@ -50,7 +52,7 @@ func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheRespo
 		return nil, fmt.Errorf("failed to confirm DataFeedsCache: %w", err)
 	}
 
-	if err := waitForContractCode(context.Background(), chain.Client, tx, cacheAddr); err != nil {
+	if _, err := waitForContractCode(context.Background(), chain.Client, tx); err != nil {
 		return nil, fmt.Errorf("failed to verify DataFeedsCache deployment: %w", err)
 	}
 
@@ -88,7 +90,7 @@ func DeployAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, acce
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %w", err)
 	}
 
-	if err := waitForContractCode(context.Background(), chain.Client, tx, proxyAddr); err != nil {
+	if _, err := waitForContractCode(context.Background(), chain.Client, tx); err != nil {
 		return nil, fmt.Errorf("failed to verify AggregatorProxy deployment: %w", err)
 	}
 
@@ -141,9 +143,9 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 		"blockNumber", blockNum,
 		"predictedAddress", proxyAddr.Hex())
 
-	deployedAddr, err := bind.WaitDeployed(context.Background(), chain.Client, tx)
+	deployedAddr, err := waitForContractCode(context.Background(), chain.Client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
+		return nil, fmt.Errorf("failed to verify BundleAggregatorProxy deployment: %w", err)
 	}
 
 	if deployedAddr != proxyAddr {
@@ -153,10 +155,6 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 			"deployedAddress", deployedAddr.Hex(),
 			"txHash", tx.Hash().Hex())
 		proxyAddr = deployedAddr
-	}
-
-	if err := waitForContractCode(context.Background(), chain.Client, tx, proxyAddr); err != nil {
-		return nil, fmt.Errorf("failed to verify BundleAggregatorProxy deployment at %s: %w", proxyAddr, err)
 	}
 
 	lggr.Debugw("BundleAggregatorProxy deployed and code verified",
