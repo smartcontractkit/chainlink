@@ -32,6 +32,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -171,16 +172,27 @@ func (s *Services) newSubservices(
 		}
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
+
+		if cfg.CRE().ConfidentialRelay().Enabled() {
+			relayService := confidentialrelay.NewService(
+				gatewayConnectorWrapper,
+				opts.CapabilitiesRegistry,
+				lggr,
+				opts.LimitsFactory,
+			)
+			srvs = append(srvs, relayService)
+		}
 	}
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		orgResolver, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		s.OrgResolver = orgResolver
-		srvs = append(srvs, orgResolver)
+		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
+		s.OrgResolver = fallbackResolver
+		srvs = append(srvs, fallbackResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}

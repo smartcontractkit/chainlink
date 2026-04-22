@@ -255,7 +255,7 @@ jobs:
         run: |
           # Compute image tag by removing 'v' prefix
           # Examples:
-          #   v2.34.0-rc.1   -> 2.34.0-rc.1
+          #   v2.34.0   -> 2.34.0
           tag_without_v="${GIT_TAG#v}"
           echo "image-tag=$tag_without_v" | tee -a "$GITHUB_OUTPUT"
       - name: Emit release image tagged event

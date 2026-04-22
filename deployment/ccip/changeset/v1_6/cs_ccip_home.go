@@ -14,6 +14,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"golang.org/x/exp/maps"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/Masterminds/semver/v3"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
@@ -1084,7 +1086,7 @@ func revokeCandidateOps(
 			donID, types.PluginType(pluginType).String(), err)
 	}
 
-	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
+	tx, err := cldfproposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
 		big.NewInt(0), string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create UpdateDON mcms tx in revoke candidate (don: %d; ptype: %s): %w",

@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/compile"
 	mcmsbind "github.com/smartcontractkit/chainlink-aptos/bindings/mcms"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -30,7 +32,7 @@ func GenerateProposal(
 	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
 	// Get role from action
-	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
+	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}
@@ -60,7 +62,7 @@ func GenerateCurseMCMSProposal(
 	description string,
 	mcmsCfg proposalutils.TimelockConfig,
 ) (*mcms.TimelockProposal, error) {
-	role, err := proposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
+	role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsCfg.MCMSAction)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get role from action: %w", err)
 	}

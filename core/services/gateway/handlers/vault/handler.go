@@ -383,8 +383,8 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		// Public key requests don't require authorization,
 		// Let's process this request right away.
 		// Note we cache this value quite aggressively so don't need to worry about DoS.
-		publicKeyResponseBytes, _, err := h.getCachedPublicKey()
-		if err != nil {
+		publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+		if cachedPublicKey == nil {
 			// Not found in cache. Fetch from nodes.
 			ar, err := h.newActiveRequest(req, callback)
 			if err != nil {
@@ -581,8 +581,8 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	err = h.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
+	_, cachedPublicKey := h.getCachedPublicKey()
+	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -622,8 +622,8 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	vaultCapErr := h.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
+	_, cachedPublicKey := h.getCachedPublicKey()
+	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
@@ -706,23 +706,23 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, error) {
+func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, nil, errors.New("no cached public key response")
+		return nil, nil
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
 	cachedPublicKeyCopy := *h.cachedPublicKeyObject
-	return copied, &cachedPublicKeyCopy, nil
+	return copied, &cachedPublicKeyCopy
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, _, err := h.getCachedPublicKey()
-	if err == nil {
+	publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+	if cachedPublicKey != nil {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
@@ -732,7 +732,7 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 		})
 	}
 
-	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now(), "err", err)
+	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now())
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 

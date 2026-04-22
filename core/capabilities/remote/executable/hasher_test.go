@@ -164,7 +164,7 @@ func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
 	for i, sig := range sigs {
 		attrSigs = append(attrSigs, &sdk.AttributedSignature{
 			Signature: sig,
-			SignerId:  uint32(i), //nolint:gosec // G115
+			SignerId:  uint32(i),
 		})
 	}
 	report := &sdk.ReportResponse{
@@ -238,7 +238,7 @@ func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]by
 	for i, sig := range sigs {
 		attrSigs = append(attrSigs, &sdk.AttributedSignature{
 			Signature: sig,
-			SignerId:  uint32(i), //nolint:gosec // G115
+			SignerId:  uint32(i),
 		})
 	}
 	report := &sdk.ReportResponse{

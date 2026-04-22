@@ -1,6 +1,6 @@
 name: "Post Build, Sign and Publish Chainlink"
 on:
-    # # to be used with post release tests
+    # # to be used with pre-release tests
     repository_dispatch:
         types: [ pre-release-image-published ]
 

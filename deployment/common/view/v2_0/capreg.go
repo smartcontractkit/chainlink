@@ -601,7 +601,7 @@ func nodeNop(n NodeView, nops []NopView) (NopView, error) {
 	for i, nop := range nops {
 		// nops are 1-indexed. there is no natural key to match on, so we use the index.
 		idx := i + 1
-		if n.NodeOperatorID == uint32(idx) { //nolint:gosec // G115
+		if n.NodeOperatorID == uint32(idx) {
 			return nop, nil
 		}
 	}

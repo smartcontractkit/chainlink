@@ -12,10 +12,10 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -27,7 +27,7 @@ import (
 // Deprecated: use MCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
 // if you are changing this, please make the similar changes in deployment/common/changeset/state
 type MCMSWithTimelockState struct {
-	*proposalutils.MCMSWithTimelockContracts
+	*cldfproposalutils.MCMSWithTimelockContracts
 }
 
 // Deprecated: use GenerateMCMSWithTimelockView from deployment/common/changeset/state/evm.go instead
@@ -104,7 +104,7 @@ func MaybeLoadMCMSWithTimelockChainState(
 ) (*MCMSWithTimelockState, error) {
 	var (
 		state = MCMSWithTimelockState{
-			MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
+			MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{},
 		}
 
 		// We expect one of each contract on the chain.

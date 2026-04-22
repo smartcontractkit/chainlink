@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,23 +57,24 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability       CapabilityFlag = "ocr3"
-	DONTimeCapability         CapabilityFlag = "don-time"
-	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
-	CronCapability            CapabilityFlag = "cron"
-	EVMCapability             CapabilityFlag = "evm"
-	CustomComputeCapability   CapabilityFlag = "custom-compute"
-	WriteEVMCapability        CapabilityFlag = "write-evm"
-	ReadContractCapability    CapabilityFlag = "read-contract"
-	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability    CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
-	MockCapability            CapabilityFlag = "mock"
-	VaultCapability           CapabilityFlag = "vault"
-	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
-	HTTPActionCapability      CapabilityFlag = "http-action"
-	SolanaCapability          CapabilityFlag = "solana"
-	AptosCapability           CapabilityFlag = "aptos"
+	ConsensusCapability         CapabilityFlag = "ocr3"
+	DONTimeCapability           CapabilityFlag = "don-time"
+	ConsensusCapabilityV2       CapabilityFlag = "consensus" // v2
+	CronCapability              CapabilityFlag = "cron"
+	EVMCapability               CapabilityFlag = "evm"
+	CustomComputeCapability     CapabilityFlag = "custom-compute"
+	WriteEVMCapability          CapabilityFlag = "write-evm"
+	ReadContractCapability      CapabilityFlag = "read-contract"
+	LogEventTriggerCapability   CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability      CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability     CapabilityFlag = "web-api-trigger"
+	MockCapability              CapabilityFlag = "mock"
+	VaultCapability             CapabilityFlag = "vault"
+	HTTPTriggerCapability       CapabilityFlag = "http-trigger"
+	HTTPActionCapability        CapabilityFlag = "http-action"
+	SolanaCapability            CapabilityFlag = "solana"
+	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
+	AptosCapability             CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
@@ -585,6 +587,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		cfgs[i] = cfg
 	}
 
+	newNodesStart := time.Now()
 	nodes, err := newNodes(cfgs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create nodes metadata: %w", err)
@@ -592,6 +595,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	framework.L.Info().
 		Str("don", c.Name).
 		Int("nodes", len(cfgs)).
+		Float64("duration_s", time.Since(newNodesStart).Seconds()).
 		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
@@ -1023,7 +1027,7 @@ func (m DonsMetadata) validate() error {
 
 		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
 		for i, shardIdx := range shardIndexes {
-			expectedIdx := uint(i) //nolint:gosec // disable G115 overflow is unrealistic
+			expectedIdx := uint(i)
 
 			if shardIdx != expectedIdx {
 				if i > 0 && shardIdx == shardIndexes[i-1] {
@@ -1462,6 +1466,7 @@ type NodeKeyInput struct {
 }
 
 func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
+	start := time.Now()
 	out := &secrets.NodeKeys{
 		EVM:    make(map[uint64]*crypto.EVMKey),
 		Solana: make(map[string]*crypto.SolKey),
@@ -1520,7 +1525,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
 		Int("solana_chains", len(input.SolanaChainIDs)).
-		Bool("imported", input.ImportedSecrets != "").
+		Float64("duration_s", time.Since(start).Seconds()).
 		Msg("Node key generation completed")
 	return out, nil
 }

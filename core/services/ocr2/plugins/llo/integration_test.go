@@ -592,7 +592,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 {
+				if feedID == quoteStreamFeedID1 { //nolint
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
