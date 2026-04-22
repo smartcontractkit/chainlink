@@ -110,7 +110,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		AptosKey: aptosTestKey,
 	})
 	require.NoError(t, err)
-	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
+	env, err := crib.NewDeployEnvironmentFromCribOutput(t.Context(), lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, env)
 	userOverrides.Validate(t, env)
