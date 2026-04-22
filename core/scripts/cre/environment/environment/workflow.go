@@ -482,10 +482,10 @@ func deployWorkflow(
 			return errors.Wrap(getErr, "❌ failed to get vault capability config from capabilities registry")
 		}
 
-		if existingVaultCfg.DefaultConfig == nil {
+		if !vaultConfigHasPublicKey(existingVaultCfg, vaultPublicKey) {
 			fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
 
-			if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey); updateErr != nil {
+			if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey, 1); updateErr != nil {
 				return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
 			}
 
@@ -495,7 +495,7 @@ func deployWorkflow(
 				return errors.Wrap(waitErr, "❌ failed while waiting for vault config propagation")
 			}
 		} else {
-			fmt.Printf("\n✅ Vault capability config already set, skipping update and propagation wait\n")
+			fmt.Printf("\n✅ Vault public key already configured, skipping update and propagation wait\n")
 		}
 
 		fmt.Printf("\n⚙️ Encrypting workflow secrets for vault\n")
@@ -631,10 +631,34 @@ func getVaultCapabilityDON(ctx context.Context, sethClient *seth.Client, capabil
 	return targetDON, existingCfg, nil
 }
 
-// updateVaultCapabilityConfig injects the vault public key and a threshold of 1 into the
-// vault capability's DefaultConfig in the capabilities registry for the given DON.
-// This is required so that workflow nodes can unwrap the capability config when calling runtime.GetSecret().
-func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string, don *capabilities_registry_v2.CapabilitiesRegistryDONInfo, vaultPublicKey string) error {
+// vaultConfigHasPublicKey reports whether cfg.DefaultConfig already contains a
+// VaultPublicKey field whose value equals publicKey. It is used to decide whether
+// an update to the capabilities registry is necessary.
+func vaultConfigHasPublicKey(cfg *capabilitiespb.CapabilityConfig, publicKey string) bool {
+	if cfg == nil || cfg.DefaultConfig == nil {
+		return false
+	}
+	existing, err := chainlinkvalues.FromMapValueProto(cfg.DefaultConfig)
+	if err != nil {
+		return false
+	}
+	v, ok := existing.Underlying["VaultPublicKey"]
+	if !ok || v == nil {
+		return false
+	}
+	val, err := v.Unwrap()
+	if err != nil {
+		return false
+	}
+	str, ok := val.(string)
+	return ok && str == publicKey
+}
+
+// updateVaultCapabilityConfig merges the provided vaultPublicKey and threshold into the
+// vault capability's DefaultConfig in the capabilities registry for the given DON,
+// preserving any pre-existing fields. This is required so that workflow nodes can
+// unwrap the capability config when calling runtime.GetSecret().
+func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string, don *capabilities_registry_v2.CapabilitiesRegistryDONInfo, vaultPublicKey string, threshold int) error {
 	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
 		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
 	)
@@ -652,15 +676,24 @@ func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 				}
 			}
 
-			valueMap, wrapErr := chainlinkvalues.WrapMap(map[string]any{
+			base := chainlinkvalues.EmptyMap()
+			if existingCfg.DefaultConfig != nil {
+				base, err = chainlinkvalues.FromMapValueProto(existingCfg.DefaultConfig)
+				if err != nil {
+					return errors.Wrap(err, "failed to convert existing vault capability config")
+				}
+			}
+			newValues, wrapErr := chainlinkvalues.WrapMap(map[string]any{
 				"VaultPublicKey": vaultPublicKey,
-				"Threshold":      1,
+				"Threshold":      threshold,
 			})
 			if wrapErr != nil {
 				return errors.Wrap(wrapErr, "failed to wrap vault capability config values")
 			}
-
-			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(valueMap)
+			for k, v := range newValues.Underlying {
+				base.Underlying[k] = v
+			}
+			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(base)
 
 			configBytes, marshalErr := proto.Marshal(existingCfg)
 			if marshalErr != nil {
