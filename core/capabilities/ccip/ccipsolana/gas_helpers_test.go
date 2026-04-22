@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
