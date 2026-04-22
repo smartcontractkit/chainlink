@@ -9,7 +9,7 @@ defaults:
 plugins:
   cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "46fc278ec3c3ba1bc7369be9e221334b292046f4"
+      gitRef: "caad4730b7d4f28911967204045526bcd884cc83"
       installPath: "."
       flags: "-tags timetzdata"
   readcontract:
