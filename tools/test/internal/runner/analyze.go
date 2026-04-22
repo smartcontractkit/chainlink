@@ -283,10 +283,11 @@ func WriteReport(resultsDir string, rep *Report) error {
 	return os.WriteFile(filepath.Join(resultsDir, "report.json"), b, 0600)
 }
 
-// WriteLogFiles writes per-test per-failing-iteration log files under
-// <resultsDir>/logs/ and populates each flagged TestEntry's LogFiles slice
-// with paths relative to resultsDir. Only iterations where the test failed or
-// timed out get a file (clean passes are uninteresting).
+// WriteLogFiles writes per-test per-iteration log files under <resultsDir>/logs/
+// for flagged tests and populates each flagged TestEntry's LogFiles slice with
+// paths relative to resultsDir. One file is written for each iteration that has
+// any captured output in logs (including iterations that passed but produced stderr
+// or other output captured into the aggregate).
 func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 	if rep == nil {
 		return nil

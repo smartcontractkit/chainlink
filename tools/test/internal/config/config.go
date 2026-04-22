@@ -35,7 +35,8 @@ func Load(cmd *cobra.Command) (*App, error) {
 	v := viper.New()
 
 	v.SetDefault("postgres_version", DefaultPostgresVersion)
-	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd())) // If TTY (in an AI terminal), use ai-output
+	// Enable sparse output when stdout is not a TTY (e.g. redirected or CI).
+	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd()))
 	v.SetDefault("iterations", 1)
 	v.SetDefault("slow_threshold", 30*time.Second)
 	v.SetDefault("fail_fast", false)

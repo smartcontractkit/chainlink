@@ -34,10 +34,11 @@ func TestWriteLogFiles(t *testing.T) {
 	assert.Equal(t, "boom\n", string(b))
 }
 
-func TestWriteLogFilesSkipsCleanPassIterations(t *testing.T) {
+func TestWriteLogFilesWritesEachIterationWithOutput(t *testing.T) {
 	t.Parallel()
 
-	// Iter 0 fails with output, iter 1 passes with output — only iter 0 gets a log file.
+	// Iter 0 fails with output, iter 1 passes with output — both iterations
+	// have captured output, so both get a log file for this flagged flake.
 	iters := []string{
 		`{"Action":"output","Package":"p","Test":"T","Output":"fail-log\n"}
 {"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}
@@ -53,15 +54,18 @@ func TestWriteLogFilesSkipsCleanPassIterations(t *testing.T) {
 
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
-	// WriteLogFiles only writes files for iters where output exists AND test
-	// was flagged. The passing iter has output too — but the failing-iter
-	// filter is: we write for every entry.Iterations; passing iters currently
-	// still match because output is present. Document actual behavior: the
-	// flake captures logs for both iters since both have output recorded.
-	// NOTE: this test documents behavior — refine if stricter filtering is
-	// desired later (only failing iters). For now, both get written.
-	files := rep.Flakes[0].LogFiles
-	assert.Contains(t, strings.Join(files, ","), "iter-0.log")
+	require.Len(t, rep.Flakes[0].LogFiles, 2)
+	assert.ElementsMatch(t,
+		[]string{"logs/p__T__iter-0.log", "logs/p__T__iter-1.log"},
+		rep.Flakes[0].LogFiles)
+
+	b0, err := os.ReadFile(filepath.Join(dir, "logs/p__T__iter-0.log"))
+	require.NoError(t, err)
+	assert.Equal(t, "fail-log\n", string(b0))
+
+	b1, err := os.ReadFile(filepath.Join(dir, "logs/p__T__iter-1.log"))
+	require.NoError(t, err)
+	assert.Equal(t, "ok-log\n", string(b1))
 }
 
 func TestWriteLogFilesNoLogsForNonFlaggedTests(t *testing.T) {

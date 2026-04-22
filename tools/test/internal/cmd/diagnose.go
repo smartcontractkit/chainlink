@@ -29,15 +29,15 @@ go -C ./tools/test run . diagnose --iterations 10 -- ./core/...`,
 			return err
 		}
 
-		if conf.Iterations < 1 {
-			return errors.New("--iterations must be >= 1")
-		}
-
 		defer func() {
 			if err := dbHandle.Cleanup(); err != nil {
 				fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
 			}
 		}()
+
+		if conf.Iterations < 1 {
+			return errors.New("--iterations must be >= 1")
+		}
 
 		return runner.Diagnose(cmd.Context(), conf, args, dbHandle.Reset, dbHandle.DumpState)
 	},

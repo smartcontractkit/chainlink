@@ -193,6 +193,19 @@ func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) []string {
 	return args
 }
 
+// syncedWriter serializes writes to w so stdout and stderr from `go test` can
+// share one JSONL file without interleaved corrupt lines.
+type syncedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (sw *syncedWriter) Write(p []byte) (int, error) {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.w.Write(p)
+}
+
 func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
@@ -205,7 +218,6 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	args := buildDiagnoseArgs(goTestArgs, shuffleSeed)
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
-	cmd.Stderr = resultsFile
 	cmd.Stdin = os.Stdin
 	cmd.Env = os.Environ()
 	// Soft-cancel on ctx cancellation so `go test -json` gets a chance to flush
@@ -214,9 +226,14 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	cmd.WaitDelay = 5 * time.Second
 
 	if conf.AIOutput {
-		cmd.Stdout = resultsFile
+		sw := &syncedWriter{w: resultsFile}
+		cmd.Stdout = sw
+		cmd.Stderr = sw
 		return cmd.Run()
 	}
+
+	sw := &syncedWriter{w: resultsFile}
+	cmd.Stderr = sw
 
 	totalPkgs := -1
 	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, goTestArgs); listErr == nil {
@@ -239,22 +256,23 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	}
 
 	var readWG sync.WaitGroup
+	var scanErr error
 	readWG.Go(func() {
 		sc := bufio.NewScanner(pr)
 		sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
 		for sc.Scan() {
 			line := sc.Bytes()
-			if _, werr := resultsFile.Write(line); werr != nil {
-				break
-			}
-			if _, werr := resultsFile.WriteString("\n"); werr != nil {
+			out := make([]byte, len(line)+1)
+			copy(out, line)
+			out[len(line)] = '\n'
+			if _, werr := sw.Write(out); werr != nil {
 				break
 			}
 			if prog.onTestJSONLine(line) && !isTTY {
 				redraw(false)
 			}
 		}
-		_ = sc.Err()
+		scanErr = sc.Err()
 	})
 
 	tickDone := make(chan struct{})
@@ -299,6 +317,9 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 			termstyle.Label.Render(fmt.Sprintf("iteration %d/%d ", iter, iters))+
 				status+" "+
 				termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
+	}
+	if scanErr != nil {
+		return fmt.Errorf("reading go test output: %w", scanErr)
 	}
 	return runErr
 }

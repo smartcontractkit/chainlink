@@ -46,7 +46,8 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 		}
 		return &Handle{conf: conf}, nil
 	}
-	// We'll do our own cleanup, so disable Ryuk
+	// Intentional: Ryuk is disabled because this harness always tears down via
+	// Handle.Cleanup(); Ryuk can conflict with that lifecycle in some setups.
 	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
