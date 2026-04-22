@@ -27,9 +27,27 @@ type TestLinkingService struct {
 	ownerToOrg map[string]string
 }
 
+const SharedTestLinkingServiceAddr = "0.0.0.0:18124"
+
+var (
+	sharedTestLinkingServiceOnce sync.Once
+	sharedTestLinkingService     *TestLinkingService
+	sharedTestLinkingServiceErr  error
+)
+
 // NewTestLinkingService starts a mock linking service immediately.
 func NewTestLinkingService(ownerToOrg map[string]string) (*TestLinkingService, error) {
 	return NewTestLinkingServiceOnAddr(ownerToOrg, "0.0.0.0:0")
+}
+
+// EnsureSharedTestLinkingServiceStarted starts the shared local linking service once
+// on the fixed host port that Dockerized nodes use during local CRE runs.
+func EnsureSharedTestLinkingServiceStarted() (*TestLinkingService, error) {
+	sharedTestLinkingServiceOnce.Do(func() {
+		sharedTestLinkingService, sharedTestLinkingServiceErr = NewTestLinkingServiceOnAddr(nil, SharedTestLinkingServiceAddr)
+	})
+
+	return sharedTestLinkingService, sharedTestLinkingServiceErr
 }
 
 // NewTestLinkingServiceOnAddr starts a mock linking service on the provided TCP address.

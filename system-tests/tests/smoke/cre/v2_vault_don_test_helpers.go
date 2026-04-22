@@ -53,7 +53,6 @@ const (
 	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
-	vaultLinkingServiceAddr       = "0.0.0.0:18124"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -220,11 +219,8 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 		require.NoError(t, issuer.Close())
 	})
 
-	linkingService, err := vault.NewTestLinkingServiceOnAddr(nil, vaultLinkingServiceAddr)
+	linkingService, err := vault.EnsureSharedTestLinkingServiceStarted()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, linkingService.Close())
-	})
 
 	var testEnv *ttypes.TestEnvironment
 	if usePerTestKeys {

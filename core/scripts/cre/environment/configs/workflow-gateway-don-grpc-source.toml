@@ -71,7 +71,6 @@
 URL = 'host.docker.internal:8544'
 TLSEnabled = false
 Name = 'mock-private-registry'
-
 """
 
 [[nodesets]]
