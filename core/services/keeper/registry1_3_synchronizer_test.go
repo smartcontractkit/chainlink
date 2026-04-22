@@ -707,9 +707,16 @@ func Test_RegistrySynchronizer1_3_UpkeepCheckDataUpdatedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
+	// Verify initial check data before proceeding to ensure fullSync is complete
+	g.Eventually(func() []byte {
+		var upkeep keeper.UpkeepRegistration
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE upkeep_id = $1`, sqlutil.New(upkeepId))
+		require.NoError(t, err)
+		return upkeep.CheckData
+	}, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(upkeepConfig1_3.CheckData))
+
 	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
-	_ = logmocks.NewBroadcast(t)
 	newCheckData := []byte("Chainlink")
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_3ABI, contractAddress)
 	newConfig := upkeepConfig1_3
