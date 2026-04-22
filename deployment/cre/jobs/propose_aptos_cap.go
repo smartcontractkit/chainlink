@@ -141,7 +141,7 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		OCRSigningStrategy:    "single-chain",
 		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
 		ChainSelectorEVM:      pkg.ChainSelector(input.OCRChainSelector),
-		ChainSelectorAptos:    pkg.ChainSelector(input.ChainSelector),
+		// ChainSelectorAptos:    pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 
