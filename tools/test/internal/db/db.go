@@ -159,16 +159,16 @@ func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error
 
 	// Container (server) log.
 	fmt.Fprint(f, "## Server Log\n\n```\n")
-	if logs, logErr := h.container.Logs(ctx); logErr != nil {
+	logs, logErr := h.container.Logs(ctx)
+	if logErr != nil {
 		return fmt.Errorf("fetch logs: %w", logErr)
-	} else {
-		_, err = io.Copy(f, logs)
-		if err != nil {
-			return fmt.Errorf("copy logs: %w", err)
-		}
-		if err := logs.Close(); err != nil {
-			return fmt.Errorf("close logs: %w", err)
-		}
+	}
+	_, err = io.Copy(f, logs)
+	if err != nil {
+		return fmt.Errorf("copy logs: %w", err)
+	}
+	if err = logs.Close(); err != nil {
+		return fmt.Errorf("close logs: %w", err)
 	}
 	fmt.Fprint(f, "```\n\n")
 
