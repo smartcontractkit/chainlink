@@ -126,7 +126,7 @@ Assuming you're ready to declare defeat, it's time to turn off the test. How you
 
 ## Chainlink `tools/test` harness
 
-For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, use the harness from the **repository root**:
+For repeated runs with Postgres setup, `go test -json` capture, and machine-readable reports under `diagnose-*` directories, use the harness from the **repository root** (`go tool test`, declared in the root `go.mod`):
 
 ```sh
 go tool test diagnose --iterations 50 -- --failfast ./path/to/package

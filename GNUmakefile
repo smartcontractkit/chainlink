@@ -270,7 +270,7 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-# Chainlink tools/test harness (Postgres setup + optional diagnose). Implemented as
+# Chainlink tools/test harness (Postgres setup + optional diagnose). Uses
 # `go tool test …` from repo root (see go.mod `tool` + `replace ./tools/test`). Pass
 # flags and packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
 # Note: do not use "make target -p 4 ..." — -p is a make flag; use ARGS= instead.

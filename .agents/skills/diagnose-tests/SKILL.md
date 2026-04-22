@@ -24,7 +24,7 @@ Failed to reset database:unable to drop postgres database: failed to connect to 
 </error>
 </restrictions>
 
-Run from the **chainlink repository root**. The harness is the `go tool test` binary declared in the root `go.mod` (`tool` + `replace` → `./tools/test`). Same entrypoints via Make: `make new_test_diagnose ARGS='…'`, `make new_test ARGS='…'`, `make new_gotestsum ARGS='…'`.
+Run from the **chainlink repository root**. Prefer `go tool test …` (declared in root `go.mod` as a `tool` with `replace` → `./tools/test`); equivalent Make targets: `make new_test_diagnose ARGS='…'`, `make new_test ARGS='…'`, `make new_gotestsum ARGS='…'`.
 
 **Harness-only flags** (before `--`): `--iterations`, `--slow-threshold`, `--fail-fast`, `--shuffle-seed`. **Everything after `--`** is passed to `go test` (e.g. `-timeout`, `-race`, `-run`, package patterns). Put **package patterns last** (usual `go test` layout).
 
