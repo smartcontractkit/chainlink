@@ -32,7 +32,7 @@ const SharedTestLinkingServiceAddr = "0.0.0.0:18124"
 var (
 	sharedTestLinkingServiceOnce sync.Once
 	sharedTestLinkingService     *TestLinkingService
-	sharedTestLinkingServiceErr  error
+	errSharedTestLinkingService  error
 )
 
 // NewTestLinkingService starts a mock linking service immediately.
@@ -44,10 +44,10 @@ func NewTestLinkingService(ownerToOrg map[string]string) (*TestLinkingService, e
 // on the fixed host port that Dockerized nodes use during local CRE runs.
 func EnsureSharedTestLinkingServiceStarted() (*TestLinkingService, error) {
 	sharedTestLinkingServiceOnce.Do(func() {
-		sharedTestLinkingService, sharedTestLinkingServiceErr = NewTestLinkingServiceOnAddr(nil, SharedTestLinkingServiceAddr)
+		sharedTestLinkingService, errSharedTestLinkingService = NewTestLinkingServiceOnAddr(nil, SharedTestLinkingServiceAddr)
 	})
 
-	return sharedTestLinkingService, sharedTestLinkingServiceErr
+	return sharedTestLinkingService, errSharedTestLinkingService
 }
 
 // NewTestLinkingServiceOnAddr starts a mock linking service on the provided TCP address.
