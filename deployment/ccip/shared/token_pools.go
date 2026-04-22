@@ -16,7 +16,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	tvutil "github.com/smartcontractkit/chainlink/v2/core/utils/typeandversion"
 )
 
 var CurrentTokenPoolVersion = deployment.Version1_5_1
@@ -90,7 +90,7 @@ func NewTokenPoolWithMetadata[P tokenPool](
 	if err != nil {
 		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to get type and version from pool with address %s: %w", poolAddress, err)
 	}
-	_, versionStr, err := ccipconfig.ParseTypeAndVersion(typeAndVersionStr)
+	_, versionStr, err := tvutil.ParseTypeAndVersion(typeAndVersionStr)
 	if err != nil {
 		return pool, TokenPoolMetadata{}, fmt.Errorf("failed to parse type and version of pool with address %s: %w", poolAddress, err)
 	}

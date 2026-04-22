@@ -236,7 +236,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "create accepts ciphertext at the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateCreateSecretsRequest(nil, &vaultcommon.CreateSecretsRequest{
+				return validator.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -248,7 +248,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "create rejects ciphertext above the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateCreateSecretsRequest(nil, &vaultcommon.CreateSecretsRequest{
+				return validator.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -261,7 +261,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "update accepts ciphertext at the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateUpdateSecretsRequest(nil, &vaultcommon.UpdateSecretsRequest{
+				return validator.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -273,7 +273,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "update rejects ciphertext above the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateUpdateSecretsRequest(nil, &vaultcommon.UpdateSecretsRequest{
+				return validator.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},

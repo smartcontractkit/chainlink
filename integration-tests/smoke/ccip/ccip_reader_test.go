@@ -1221,6 +1221,7 @@ func commitSqNrs(
 		if err != nil {
 			return err
 		}
+		s.sb.Commit()
 	}
 	return nil
 }

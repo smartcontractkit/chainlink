@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -57,23 +57,24 @@ const (
 
 // Capabilities
 const (
-	ConsensusCapability       CapabilityFlag = "ocr3"
-	DONTimeCapability         CapabilityFlag = "don-time"
-	ConsensusCapabilityV2     CapabilityFlag = "consensus" // v2
-	CronCapability            CapabilityFlag = "cron"
-	EVMCapability             CapabilityFlag = "evm"
-	CustomComputeCapability   CapabilityFlag = "custom-compute"
-	WriteEVMCapability        CapabilityFlag = "write-evm"
-	ReadContractCapability    CapabilityFlag = "read-contract"
-	LogEventTriggerCapability CapabilityFlag = "log-event-trigger"
-	WebAPITargetCapability    CapabilityFlag = "web-api-target"
-	WebAPITriggerCapability   CapabilityFlag = "web-api-trigger"
-	MockCapability            CapabilityFlag = "mock"
-	VaultCapability           CapabilityFlag = "vault"
-	HTTPTriggerCapability     CapabilityFlag = "http-trigger"
-	HTTPActionCapability      CapabilityFlag = "http-action"
-	SolanaCapability          CapabilityFlag = "solana"
-	AptosCapability           CapabilityFlag = "aptos"
+	ConsensusCapability         CapabilityFlag = "ocr3"
+	DONTimeCapability           CapabilityFlag = "don-time"
+	ConsensusCapabilityV2       CapabilityFlag = "consensus" // v2
+	CronCapability              CapabilityFlag = "cron"
+	EVMCapability               CapabilityFlag = "evm"
+	CustomComputeCapability     CapabilityFlag = "custom-compute"
+	WriteEVMCapability          CapabilityFlag = "write-evm"
+	ReadContractCapability      CapabilityFlag = "read-contract"
+	LogEventTriggerCapability   CapabilityFlag = "log-event-trigger"
+	WebAPITargetCapability      CapabilityFlag = "web-api-target"
+	WebAPITriggerCapability     CapabilityFlag = "web-api-trigger"
+	MockCapability              CapabilityFlag = "mock"
+	VaultCapability             CapabilityFlag = "vault"
+	HTTPTriggerCapability       CapabilityFlag = "http-trigger"
+	HTTPActionCapability        CapabilityFlag = "http-action"
+	SolanaCapability            CapabilityFlag = "solana"
+	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
+	AptosCapability             CapabilityFlag = "aptos"
 	// Add more capabilities as needed
 )
 
@@ -594,7 +595,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	framework.L.Info().
 		Str("don", c.Name).
 		Int("nodes", len(cfgs)).
-		Float64("duration_s", roundSeconds(time.Since(newNodesStart))).
+		Float64("duration_s", time.Since(newNodesStart).Seconds()).
 		Msg("Node metadata generation completed")
 
 	capConfigs, capErr := processCapabilityConfigs(c, capabilityConfigs)
@@ -1026,7 +1027,7 @@ func (m DonsMetadata) validate() error {
 
 		// Validate in a single pass: must start at 0, be sequential, and have no duplicates
 		for i, shardIdx := range shardIndexes {
-			expectedIdx := uint(i) //nolint:gosec // disable G115 overflow is unrealistic
+			expectedIdx := uint(i)
 
 			if shardIdx != expectedIdx {
 				if i > 0 && shardIdx == shardIndexes[i-1] {
@@ -1524,8 +1525,7 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	framework.L.Debug().
 		Int("evm_chains", len(input.EVMChainIDs)).
 		Int("solana_chains", len(input.SolanaChainIDs)).
-		Bool("imported", input.ImportedSecrets != "").
-		Float64("duration_s", roundSeconds(time.Since(start))).
+		Float64("duration_s", time.Since(start).Seconds()).
 		Msg("Node key generation completed")
 	return out, nil
 }

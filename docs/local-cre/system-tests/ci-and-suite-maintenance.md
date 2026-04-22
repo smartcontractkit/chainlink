@@ -44,10 +44,7 @@ Parallel execution is controlled by `CRE_TEST_PARALLEL_ENABLED`.
 That flag only permits parallelism. Each test still decides whether it is safe to call `t.Parallel()`. In `cre_suite_test.go`:
 
 - some scenarios parallelize immediately
-- some scenarios parallelize only when `CRE_TEST_CHIP_SINK_FANOUT_ENABLED=1`
 - some scenarios stay serial because they depend on non-shareable infrastructure
-
-The fanout flag matters for tests that share the ChIP test sink. In fanout mode, the helper starts one sink server and distributes events to per-test subscribers. That keeps parallel cases isolated without forcing a separate sink process per test.
 
 ## Supported Topologies in CI
 

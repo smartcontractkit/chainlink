@@ -237,6 +237,9 @@ func (c SuiChainUpdate) GetSuiTokenAndTokenPool(state suistate.CCIPChainState) (
 
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
+	// Address targets specific pool on-chain without looking it up based on the provided token.
+	Address common.Address
+
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
 	ChainUpdates RateLimiterPerChain `json:"chainUpdates"`
 
@@ -282,15 +285,34 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
 	}
 
-	if c.OverrideTokenSymbol != "" {
+	if c.Address == (common.Address{}) && tokenSymbol == "" {
+		return errors.New("address or token symbol must be defined")
+	}
+
+	if c.Address != (common.Address{}) && tokenSymbol != "" {
+		return errors.New("address and token symbol cannot both be defined")
+	}
+
+	if c.Address != (common.Address{}) && c.OverrideTokenSymbol != "" {
+		return errors.New("cannot use both address and override token symbol to identify the token pool")
+	} else if c.OverrideTokenSymbol != "" {
 		tokenSymbol = c.OverrideTokenSymbol
 	}
 
-	// Ensure that a pool with given symbol, type and version is known to the environment
-	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
-	if !ok {
-		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
+	var tokenPoolAddress common.Address
+
+	if tokenSymbol != "" {
+		// Ensure that a pool with given symbol, type and version is known to the environment
+		tokenPoolFromTokenSymbol, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
+		if !ok {
+			return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
+		}
+
+		tokenPoolAddress = tokenPoolFromTokenSymbol
+	} else {
+		tokenPoolAddress = c.Address
 	}
+
 	// skips ownership check while running e2e token pool deployment + configuration, as the pool isn't yet owned by timelock
 	if !c.SkipOwnershipValidation {
 		tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
@@ -327,19 +349,19 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain cldf_evm.Chain, cci
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
 	MCMS *proposalutils.TimelockConfig
+
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
+
 	// Symbol is the symbol of the token of interest.
 	TokenSymbol shared.TokenSymbol
+
 	// Unidirectional indicates whether the rate limit applies in only one direction.
 	// If false (default), validation enforces bidirectional limits.
 	Unidirectional bool
 }
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env cldf.Environment) error {
-	if c.TokenSymbol == "" {
-		return errors.New("token symbol must be defined")
-	}
 	state, err := stateview.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -446,9 +468,18 @@ func configureTokenPool(
 		tokenSymbol = poolUpdate.OverrideTokenSymbol
 	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
-	if err != nil {
-		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+
+	var tokenPool *token_pool.TokenPool
+	var tokenConfig token_admin_registry.TokenAdminRegistryTokenConfig
+
+	if tokenSymbol != "" {
+		tokenPoolFromTokenSymbol, _, tokenConfigFromTokenSymbol, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPoolFromTokenSymbol.Address(), chain.String(), err)
+		}
+
+		tokenPool = tokenPoolFromTokenSymbol
+		tokenConfig = tokenConfigFromTokenSymbol
 	}
 
 	// For adding chain support
@@ -625,6 +656,16 @@ func configureTokenPool(
 		}
 	}
 
+	if poolUpdate.Address != (common.Address{}) {
+		tokenPoolFromAddress, _, tokenConfigFromAddress, err := GetTokenStateFromPoolByAddressEVM(ctx, poolUpdate.Address, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+		if err != nil {
+			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPoolFromAddress.Address(), chain.String(), err)
+		}
+
+		tokenPool = tokenPoolFromAddress
+		tokenConfig = tokenConfigFromAddress
+	}
+
 	for remoteChainSelector, chainUpdate := range poolUpdate.ChainUpdates {
 		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
 		if err != nil {
@@ -636,10 +677,31 @@ func configureTokenPool(
 		if remotePoolUpdate.OverrideTokenSymbol != "" {
 			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
 		}
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
-		if err != nil {
-			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+
+		var remoteTokenPool *token_pool.TokenPool
+		var remoteTokenAddress common.Address
+		var remoteTokenConfig token_admin_registry.TokenAdminRegistryTokenConfig
+
+		if tokenSymbol != "" {
+			remoteTokenPoolFromSymbol, remoteTokenAddressFromSymbol, remoteTokenConfigFromSymbol, err := GetTokenStateFromPoolEVM(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+			if err != nil {
+				return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", remoteTokenPoolFromSymbol.Address(), chain.String(), err)
+			}
+
+			remoteTokenPool = remoteTokenPoolFromSymbol
+			remoteTokenAddress = remoteTokenAddressFromSymbol
+			remoteTokenConfig = remoteTokenConfigFromSymbol
+		} else {
+			remoteTokenPoolFromAddress, remoteTokenAddressFromAddress, remoteTokenConfigFromAddress, err := GetTokenStateFromPoolByAddressEVM(ctx, remotePoolUpdate.Address, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+			if err != nil {
+				return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", remoteTokenPoolFromAddress.Address(), chain.String(), err)
+			}
+
+			remoteTokenPool = remoteTokenPoolFromAddress
+			remoteTokenAddress = remoteTokenAddressFromAddress
+			remoteTokenConfig = remoteTokenConfigFromAddress
 		}
+
 		if isSupportedChain {
 			// Just update the rate limits if the chain is already supported
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
@@ -709,7 +771,7 @@ func configureTokenPool(
 	return nil
 }
 
-// getTokenStateFromPool fetches the token config from the registry given the pool address
+// GetTokenStateFromPoolEVM fetches the token config from the registry given the pool address
 func GetTokenStateFromPoolEVM(
 	ctx context.Context,
 	symbol shared.TokenSymbol,
@@ -725,6 +787,30 @@ func GetTokenStateFromPoolEVM(
 	tokenPool, err := token_pool.NewTokenPool(tokenPoolAddress, chain.Client)
 	if err != nil {
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to connect token pool with address %s on chain %s to token pool bindings: %w", tokenPoolAddress, chain, err)
+	}
+	tokenAddress, err := tokenPool.GetToken(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get token from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
+	}
+	tokenAdminRegistry := state.TokenAdminRegistry
+	tokenConfig, err := tokenAdminRegistry.GetTokenConfig(&bind.CallOpts{Context: ctx}, tokenAddress)
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to get config of token with address %s from registry on %s: %w", tokenAddress, chain.String(), err)
+	}
+	return tokenPool, tokenAddress, tokenConfig, nil
+}
+
+func GetTokenStateFromPoolByAddressEVM(
+	ctx context.Context,
+	address common.Address,
+	poolType cldf.ContractType,
+	version semver.Version,
+	chain cldf_evm.Chain,
+	state evm.CCIPChainState,
+) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
+	tokenPool, err := token_pool.NewTokenPool(address, chain.Client)
+	if err != nil {
+		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("failed to connect token pool with address %s on chain %s to token pool bindings: %w", address, chain, err)
 	}
 	tokenAddress, err := tokenPool.GetToken(&bind.CallOpts{Context: ctx})
 	if err != nil {

@@ -238,7 +238,7 @@ func (p *Plugin) Reports(_ context.Context, _ uint64, outcome ocr3types.Outcome)
 	}
 
 	for i := 0; i < p.config.N; i++ {
-		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i) //nolint:gosec // G115: i bounded by config.N
+		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i)
 	}
 
 	info, err := structpb.NewStruct(map[string]any{

@@ -32,6 +32,9 @@ type Config struct {
 
 	// Started optionally receives a signal once the gRPC listener is bound.
 	Started chan<- struct{}
+
+	// ActualAddr optionally receives the resolved listen address after binding.
+	ActualAddr chan<- string
 }
 
 // Server implements the ChipIngress gRPC service + a tiny HTTP API.
@@ -88,6 +91,7 @@ func (s *Server) Run() error {
 		s.grpcServer.Stop()
 		return err
 	}
+	notifyAddr(s.cfg.ActualAddr, addr)
 	notifyStarted(s.cfg.Started)
 
 	if s.cfg.UpstreamEndpoint != "" {
@@ -108,7 +112,7 @@ func (s *Server) Run() error {
 func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
 	go func() {
 		if s.cfg.UpstreamEndpoint != "" {
-			forwardCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+			forwardCtx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 			defer cancelFn()
 			_, err := s.upstream.Publish(forwardCtx, event)
 			if err != nil {
@@ -118,6 +122,33 @@ func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.Pub
 	}()
 
 	return s.cfg.PublishFunc(ctx, event)
+}
+
+func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch) (*chippb.PublishResponse, error) {
+	if batch == nil || len(batch.Events) == 0 {
+		return &chippb.PublishResponse{}, nil
+	}
+
+	go func() {
+		if s.cfg.UpstreamEndpoint == "" {
+			return
+		}
+
+		forwardCtx, cancelFn := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer cancelFn()
+		_, err := s.upstream.PublishBatch(forwardCtx, batch)
+		if err != nil {
+			log.Printf("failed to forward batch to upstream: %v", err)
+		}
+	}()
+
+	for _, event := range batch.Events {
+		if _, err := s.cfg.PublishFunc(ctx, event); err != nil {
+			return nil, err
+		}
+	}
+
+	return &chippb.PublishResponse{}, nil
 }
 
 func (s *Server) Shutdown(ctx context.Context) {
@@ -152,6 +183,17 @@ func notifyStarted(ch chan<- struct{}) {
 
 	select {
 	case ch <- struct{}{}:
+	default:
+	}
+}
+
+func notifyAddr(ch chan<- string, addr string) {
+	if ch == nil || addr == "" {
+		return
+	}
+
+	select {
+	case ch <- addr:
 	default:
 	}
 }

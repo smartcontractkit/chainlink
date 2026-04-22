@@ -22,21 +22,21 @@ type RequestValidator struct {
 	MaxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
-func (r *RequestValidator) ValidateCreateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
-	return r.validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
+func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
-func (r *RequestValidator) ValidateUpdateSecretsRequest(publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
-	return r.validateWriteRequest(publicKey, request.RequestId, request.EncryptedSecrets)
+func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
-func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
-	if err := r.MaxRequestBatchSizeLimiter.Check(context.Background(), len(encryptedSecrets)); err != nil {
+	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(encryptedSecrets)); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[int]
 		if errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("request batch size exceeds maximum of %d", errBoundLimited.Limit)
@@ -63,7 +63,7 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
-		if err := r.validateCiphertextSize(req.EncryptedValue); err != nil {
+		if err := r.validateCiphertextSize(ctx, req.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
 		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner, "")
@@ -81,12 +81,12 @@ func (r *RequestValidator) validateWriteRequest(publicKey *tdh2easy.PublicKey, i
 	return nil
 }
 
-func (r *RequestValidator) validateCiphertextSize(encryptedValue string) error {
+func (r *RequestValidator) validateCiphertextSize(ctx context.Context, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
-	if err := r.MaxCiphertextLengthLimiter.Check(context.Background(), pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
+	if err := r.MaxCiphertextLengthLimiter.Check(ctx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)

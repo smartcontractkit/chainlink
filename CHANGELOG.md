@@ -1,5 +1,35 @@
 # Changelog Chainlink Core
 
+## 2.44.0
+
+### Minor Changes
+
+- [#22043](https://github.com/smartcontractkit/chainlink/pull/22043) [`6c93c02`](https://github.com/smartcontractkit/chainlink/commit/6c93c029a545e4c1ab9c884ef5e96399b010db1b) - Wire confidential relay service into CRE startup #added
+
+- [#22014](https://github.com/smartcontractkit/chainlink/pull/22014) [`877e469`](https://github.com/smartcontractkit/chainlink/commit/877e46974b2b3453a650dd35846f2972a0262bd9) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22044](https://github.com/smartcontractkit/chainlink/pull/22044) [`de6ecbc`](https://github.com/smartcontractkit/chainlink/commit/de6ecbc8a15c06800706710c1f59cc970cafb631) - Support HTTP URLs in file fetcher for local confidential workflow testing, add system-test instrumentation #changed
+
+- [#22084](https://github.com/smartcontractkit/chainlink/pull/22084) [`290a3e1`](https://github.com/smartcontractkit/chainlink/commit/290a3e1f46b6bdb2648f1ffeec3e43472a0b9203) - Deprecate InsecurePPROFHeap setting. Remove limitation.
+
+- [#22045](https://github.com/smartcontractkit/chainlink/pull/22045) [`bd5e9a8`](https://github.com/smartcontractkit/chainlink/commit/bd5e9a85f258fa69638ef0986c235d1155d7fa98) - Remove unused BinaryURLResolver from ConfidentialModule (PRIV-389 credentials sidecar)
+
+## 2.43.0
+
+### Minor Changes
+
+- [#21861](https://github.com/smartcontractkit/chainlink/pull/21861) [`e35dcc4`](https://github.com/smartcontractkit/chainlink/commit/e35dcc44803a3369b6c9b32f94e3a640f0f90572) - Add Pyroscope profiling support for LOOP Plugins #nops
+
+- [#21899](https://github.com/smartcontractkit/chainlink/pull/21899) [`92db8e0`](https://github.com/smartcontractkit/chainlink/commit/92db8e0991e3b1da7ce9933403a7d9828fec5a00) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22007](https://github.com/smartcontractkit/chainlink/pull/22007) [`51b37cf`](https://github.com/smartcontractkit/chainlink/commit/51b37cfd3017ae2eb883d0e7e2623cfaf9be89e1) - #bugfix bumps http-action capability version to classify timeouts as UserError
+
+- [#21868](https://github.com/smartcontractkit/chainlink/pull/21868) [`7dffc86`](https://github.com/smartcontractkit/chainlink/commit/7dffc86ad98ed8e338b914d8477a4ecd629d2294) - #bugfix Wire user metric limiters to WASM ModuleConfig
+
 ## 2.42.0
 
 ### Minor Changes

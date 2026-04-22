@@ -1,3 +1,6 @@
+[chip_router]
+    image = "local-cre-chip-router:v1.0.1"
+
 [[blockchains]]
     chain_id = "1337"
     container_name = "anvil-1337"

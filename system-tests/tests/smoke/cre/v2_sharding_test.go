@@ -328,9 +328,10 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(logger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
-		server.Shutdown(t.Context())
-		close(userLogsCh)
-		close(baseMessageCh)
+		// can't use t.Context() here because it will have been cancelled before the cleanup function is called
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
 	execTimeout := 3 * time.Minute

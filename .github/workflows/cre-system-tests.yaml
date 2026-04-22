@@ -248,6 +248,7 @@ jobs:
         env:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
@@ -327,15 +328,12 @@ jobs:
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
-          TEST_TIMEOUT: 30m
+          TEST_TIMEOUT: 7m # let's leave 3 minutes for other steps (the whole job times out after 10 minutes)
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
-          # parallelisation flags for tests
-          # fanout is necessary, because multiple tests would otherwise start chip test sinks at the same port, causing conflicts
           CRE_TEST_PARALLEL_ENABLED: "true"
-          CRE_TEST_CHIP_SINK_FANOUT_ENABLED: "true"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \
@@ -365,12 +363,12 @@ jobs:
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
 
       - name: Show Docker containers status
-        if: failure()
+        if: failure() || cancelled()
         shell: bash
         run: docker ps -a
 
       - name: Save Smoke tests Docker logs
-        if: failure()
+        if: failure() || cancelled()
         shell: bash
         working-directory: system-tests/tests/smoke/cre
         run: |
@@ -383,7 +381,7 @@ jobs:
           done
 
       - name: Upload all artifacts as single package
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}

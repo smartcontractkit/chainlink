@@ -220,6 +220,8 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 }
 
 // Ptr takes pointer of anything
+//
+// Deprecated: use new()
 func Ptr[T any](v T) *T {
 	return &v
 }

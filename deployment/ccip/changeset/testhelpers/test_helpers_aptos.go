@@ -17,6 +17,8 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
@@ -39,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -82,9 +85,9 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 		},
 		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
 			chainSelector: {
-				Canceller:        proposalutils.SingleGroupMCMSV2(t),
-				Proposer:         proposalutils.SingleGroupMCMSV2(t),
-				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},

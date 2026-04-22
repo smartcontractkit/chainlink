@@ -222,7 +222,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 			}
 
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "b18eed21017b", logger.Nop())
+			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "ea62f88cbdb4", logger.Nop())
 		})
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)
