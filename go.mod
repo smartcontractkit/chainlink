@@ -366,7 +366,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
-	github.com/smartcontractkit/chainlink-protos/svr v1.1.1-0.20260203131522-bb8bc5c423b3 // indirect
+	github.com/smartcontractkit/chainlink-protos/svr v1.1.1-0.20260303123527-79f0a3119973 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
@@ -440,3 +440,5 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
+
+replace github.com/smartcontractkit/chainlink-evm => ../chainlink-evm
