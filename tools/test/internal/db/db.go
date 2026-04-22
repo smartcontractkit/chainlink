@@ -196,17 +196,15 @@ func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error
 	for _, q := range queries {
 		fmt.Fprintf(f, "## %s\n\n```\n", q.heading)
 		exitCode, out, execErr := h.container.Exec(ctx,
-			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql})
-		if execErr != nil {
+			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql},
+		)
+		switch {
+		case execErr != nil:
 			fmt.Fprintf(f, "error: %v\n", execErr)
-		} else if exitCode != 0 {
+		case exitCode != 0:
 			fmt.Fprintf(f, "psql exit %d\n", exitCode)
-			if out != nil {
-				_, _ = io.Copy(f, out)
-			}
-		} else {
-			_, _ = io.Copy(f, out)
 		}
+		_, _ = io.Copy(f, out)
 		fmt.Fprint(f, "```\n\n")
 	}
 

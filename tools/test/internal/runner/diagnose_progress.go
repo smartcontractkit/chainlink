@@ -54,6 +54,7 @@ func listTestPackageCount(ctx context.Context, repoRoot string, goTestArgs []str
 	if len(pkgs) == 0 {
 		return 0, errors.New("no package patterns in go test arguments (put packages last, after flags)")
 	}
+	//nolint:gosec // it's fine
 	cmd := exec.CommandContext(ctx, "go", append([]string{"list", "-test", "-e", "-f", "{{.ImportPath}}"}, pkgs...)...)
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
