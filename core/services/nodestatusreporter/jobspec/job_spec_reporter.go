@@ -233,7 +233,7 @@ func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, eve
 
 	event.FeedsManagerId = prop.FeedsManagerID
 	event.RemoteUuid = prop.RemoteUUID.String()
-	event.SpecVersion = int32(spec.Version)
+	event.SpecVersion = spec.Version
 	event.ProposedAt = spec.CreatedAt.Format(time.RFC3339Nano)
 	event.ApprovedAt = spec.StatusUpdatedAt.Format(time.RFC3339Nano)
 	event.AcceptLatencySeconds = spec.StatusUpdatedAt.Sub(spec.CreatedAt).Seconds()

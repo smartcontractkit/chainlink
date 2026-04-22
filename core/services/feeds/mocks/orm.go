@@ -1034,65 +1034,6 @@ func (_c *ORM_GetJobProposal_Call) RunAndReturn(run func(context.Context, int64)
 	return _c
 }
 
-// GetJobProposalByRemoteUUID provides a mock function with given fields: ctx, _a1
-func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*feeds.JobProposal, error) {
-	ret := _m.Called(ctx, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetJobProposalByRemoteUUID")
-	}
-
-	var r0 *feeds.JobProposal
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*feeds.JobProposal, error)); ok {
-		return rf(ctx, _a1)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *feeds.JobProposal); ok {
-		r0 = rf(ctx, _a1)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.JobProposal)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
-		r1 = rf(ctx, _a1)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ORM_GetJobProposalByRemoteUUID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJobProposalByRemoteUUID'
-type ORM_GetJobProposalByRemoteUUID_Call struct {
-	*mock.Call
-}
-
-// GetJobProposalByRemoteUUID is a helper method to define mock.On call
-//   - ctx context.Context
-//   - _a1 uuid.UUID
-func (_e *ORM_Expecter) GetJobProposalByRemoteUUID(ctx interface{}, _a1 interface{}) *ORM_GetJobProposalByRemoteUUID_Call {
-	return &ORM_GetJobProposalByRemoteUUID_Call{Call: _e.mock.On("GetJobProposalByRemoteUUID", ctx, _a1)}
-}
-
-func (_c *ORM_GetJobProposalByRemoteUUID_Call) Run(run func(ctx context.Context, _a1 uuid.UUID)) *ORM_GetJobProposalByRemoteUUID_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID))
-	})
-	return _c
-}
-
-func (_c *ORM_GetJobProposalByRemoteUUID_Call) Return(_a0 *feeds.JobProposal, _a1 error) *ORM_GetJobProposalByRemoteUUID_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *ORM_GetJobProposalByRemoteUUID_Call) RunAndReturn(run func(context.Context, uuid.UUID) (*feeds.JobProposal, error)) *ORM_GetJobProposalByRemoteUUID_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetJobProposalByExternalJobID provides a mock function with given fields: ctx, externalJobID
 func (_m *ORM) GetJobProposalByExternalJobID(ctx context.Context, externalJobID uuid.UUID) (*feeds.JobProposal, error) {
 	ret := _m.Called(ctx, externalJobID)
@@ -1148,6 +1089,65 @@ func (_c *ORM_GetJobProposalByExternalJobID_Call) Return(_a0 *feeds.JobProposal,
 }
 
 func (_c *ORM_GetJobProposalByExternalJobID_Call) RunAndReturn(run func(context.Context, uuid.UUID) (*feeds.JobProposal, error)) *ORM_GetJobProposalByExternalJobID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetJobProposalByRemoteUUID provides a mock function with given fields: ctx, _a1
+func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*feeds.JobProposal, error) {
+	ret := _m.Called(ctx, _a1)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetJobProposalByRemoteUUID")
+	}
+
+	var r0 *feeds.JobProposal
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) (*feeds.JobProposal, error)); ok {
+		return rf(ctx, _a1)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *feeds.JobProposal); ok {
+		r0 = rf(ctx, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposal)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ORM_GetJobProposalByRemoteUUID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetJobProposalByRemoteUUID'
+type ORM_GetJobProposalByRemoteUUID_Call struct {
+	*mock.Call
+}
+
+// GetJobProposalByRemoteUUID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - _a1 uuid.UUID
+func (_e *ORM_Expecter) GetJobProposalByRemoteUUID(ctx interface{}, _a1 interface{}) *ORM_GetJobProposalByRemoteUUID_Call {
+	return &ORM_GetJobProposalByRemoteUUID_Call{Call: _e.mock.On("GetJobProposalByRemoteUUID", ctx, _a1)}
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) Run(run func(ctx context.Context, _a1 uuid.UUID)) *ORM_GetJobProposalByRemoteUUID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(uuid.UUID))
+	})
+	return _c
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) Return(_a0 *feeds.JobProposal, _a1 error) *ORM_GetJobProposalByRemoteUUID_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_GetJobProposalByRemoteUUID_Call) RunAndReturn(run func(context.Context, uuid.UUID) (*feeds.JobProposal, error)) *ORM_GetJobProposalByRemoteUUID_Call {
 	_c.Call.Return(run)
 	return _c
 }

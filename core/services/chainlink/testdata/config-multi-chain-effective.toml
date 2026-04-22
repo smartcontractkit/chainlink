@@ -401,6 +401,9 @@ IgnoreJoblessBridges = false
 
 [JobSpecReporter]
 Enabled = false
+PollingInterval = '1h0m0s'
+EnabledOCR2PluginTypes = ['median']
+EmitNonOCR2Jobs = false
 
 [Sharding]
 ShardingEnabled = false
