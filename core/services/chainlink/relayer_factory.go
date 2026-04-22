@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -143,7 +142,7 @@ type SolanaFactoryConfig struct {
 }
 
 func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
-	chainCfgs, ds := config.TOMLConfigs, config.DS
+	chainCfgs := config.TOMLConfigs
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var solLggr = logger.Named(r.Logger, "Solana")
 
@@ -164,43 +163,27 @@ func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFa
 		}
 
 		lggr := logger.Named(solLggr, relayID.ChainID)
-
-		if cmdName := env.SolanaPlugin.Cmd.Get(); cmdName != "" {
-			// setup the solana relayer to be a LOOP
-			cfgTOML, err := toml.Marshal(struct {
-				Solana solcfg.TOMLConfig
-			}{Solana: *chainCfg})
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
-			}
-			envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
-			}
-			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  relayID.Name(),
-				Cmd: cmdName,
-				Env: envVars,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
-			}
-
-			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ksCSA, r.CapabilitiesRegistry)
-		} else {
-			// fallback to embedded chain
-			opts := solana.ChainOpts{
-				Logger:   lggr,
-				KeyStore: ks,
-				DS:       ds,
-			}
-
-			chain, err := solana.NewChain(chainCfg, opts)
-			if err != nil {
-				return nil, err
-			}
-			solanaRelayers[relayID] = relay.NewServerAdapter(solana.NewRelayer(lggr, chain, r.CapabilitiesRegistry))
+		// setup the solana relayer to be a LOOP
+		cfgTOML, err := toml.Marshal(struct {
+			Solana solcfg.TOMLConfig
+		}{Solana: *chainCfg})
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 		}
+		envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
+		}
+		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
+			ID:  relayID.Name(),
+			Cmd: "chainlink-solana",
+			Env: envVars,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
+		}
+
+		solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ksCSA, r.CapabilitiesRegistry)
 	}
 	return solanaRelayers, nil
 }
