@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 

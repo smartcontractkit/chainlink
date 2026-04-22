@@ -44,7 +44,9 @@ jobs:
 
       - name: Detect prerelease phase
         id: detect-prerelease-phase
-        if: ${{ steps.release-tag-check.outputs.is-pre-release == 'true' && (contains(github.ref_name, '-beta.') || contains(github.ref_name, '-rc.')) }}
+        if: ${{ steps.release-tag-check.outputs.is-pre-release == 'true' &&
+          (contains(github.ref_name, '-beta.') || contains(github.ref_name,
+          '-rc.')) }}
         shell: bash
         env:
           GIT_TAG: ${{ github.ref_name }}
@@ -89,7 +91,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   docker-core:
-    needs: [checks]
+    needs: [ checks ]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -111,7 +113,8 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
-      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
+      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' &&
+        'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -125,7 +128,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [checks]
+    needs: [ checks ]
     # No need to build the final image as we promote the last RC to use the final tag
     # so we only run the builds for pre-releases.
     if: needs.checks.outputs.is-pre-release == 'true'
@@ -150,7 +153,8 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
-      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
+      github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' &&
+        'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
@@ -165,9 +169,10 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [checks, docker-ccip]
+    needs: [ checks, docker-ccip ]
     # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
-    if: needs.checks.outputs.is-pre-release == 'true' && needs.checks.outputs.is-hotfix == 'false'
+    if: needs.checks.outputs.is-pre-release == 'true' &&
+      needs.checks.outputs.is-hotfix == 'false'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -207,28 +212,41 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
-  post-build:
-    needs: [docker-core, docker-ccip]
-    name: Post-Build Actions
-    uses: ./.github/workflows/post-build.yml
-    secrets: inherit
+  emit-pre-release-image-published-event:
+    name: Emit pre-release image published event
+    needs: [ docker-core ]
+    runs-on: ubuntu-latest
     permissions:
-      actions: read
-      checks: write
-      id-token: write
-      contents: read
-    with:
-      chainlink_core_full_image: ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
-      chainlink_ccip_full_image: ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
-      chainlink_version: ${{ github.ref_name }}
+      contents: write
+    steps:
+      - name: Emit pre-release image published event
+        env:
+          DOCKER_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/dispatches" \
+            --input - <<JSON
+          {
+            "event_type": "pre-release-image-published",
+            "client_payload": {
+              "chainlink_image_tag": "${DOCKER_MANIFEST_TAG}",
+              "chainlink_version": "${GITHUB_REF_NAME}"
+            }
+          }
+          JSON
 
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' || needs.docker-ccip.result == 'success')
-    needs: [checks, docker-core, docker-ccip]
+    if: always() && (needs.docker-core.result == 'success' ||
+      needs.docker-ccip.result == 'success')
+    needs: [ checks, docker-core, docker-ccip ]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit
     with:

@@ -10,6 +10,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -53,7 +55,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return cldf.ChangesetOutput{}, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -64,7 +66,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	proposerMCMSes := map[uint64]string{
 		m.ChainSel: m.ContractSet.ProposerMcm.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -125,7 +127,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 		return nil, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +138,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 	proposerMCMSes := map[uint64]string{
 		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return nil, err
 	}

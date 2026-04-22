@@ -186,12 +186,13 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		orgResolver, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		s.OrgResolver = orgResolver
-		srvs = append(srvs, orgResolver)
+		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
+		s.OrgResolver = fallbackResolver
+		srvs = append(srvs, fallbackResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
