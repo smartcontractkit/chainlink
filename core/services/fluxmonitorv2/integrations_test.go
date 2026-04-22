@@ -735,7 +735,6 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -838,12 +837,14 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
-	g.Eventually(func() int {
+	require.Eventually(t, func() bool {
 		ilogs, err := fa.flagsContract.FilterFlagRaised(nil, []common.Address{})
-		require.NoError(t, err)
+		if err != nil {
+			return false
+		}
 		logs := cltest.GetLogs(t, nil, ilogs)
-		return len(logs)
-	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
+		return len(logs) == 4
+	}, testutils.WaitTimeout(t), 100*time.Millisecond, "expected 4 FlagRaised logs from flags contract")
 
 	// change in price should not trigger run
 	reportPrice.Store(8)

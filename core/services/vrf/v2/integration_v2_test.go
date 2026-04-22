@@ -718,13 +718,22 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.NoError(t, err)
 	backend.Commit()
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
-	require.NoError(t, err, "could not filter RandomWordsRequested events")
-
 	var events []v22.RandomWordsRequested
-	for iter.Next() {
-		events = append(events, iter.Event())
-	}
+	require.Eventually(t, func() bool {
+		iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
+		if err != nil {
+			return false
+		}
+		var batch []v22.RandomWordsRequested
+		for iter.Next() {
+			batch = append(batch, iter.Event())
+		}
+		if len(batch) == 0 {
+			return false
+		}
+		events = batch
+		return true
+	}, testutils.WaitTimeout(t), 100*time.Millisecond, "could not filter RandomWordsRequested events (simulated backend may need retries)")
 
 	requestID, err = vrfConsumerHandle.SRequestId(nil)
 	require.NoError(t, err)
