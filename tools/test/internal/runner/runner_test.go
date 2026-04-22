@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -18,6 +20,11 @@ import (
 // Fixed clock for diagnoseResultsDirName assertions (timestamp 20240601123045).
 var diagnoseResultsDirNameAt = time.Date(2024, 6, 1, 12, 30, 45, 0, time.UTC)
 
+func testArgHash8(goTestArgs []string) string {
+	h := sha256.Sum256([]byte(strings.Join(goTestArgs, "\x00")))
+	return hex.EncodeToString(h[:4])
+}
+
 // When ctx is already canceled before Diagnose starts, no iterations run but
 // analysis still produces a report.json — this is the path a user hits after
 // Ctrl+C'ing a long-running diagnose run.
@@ -32,7 +39,7 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := Diagnose(ctx, conf, "./...", nil, nil)
+	err := Diagnose(ctx, conf, []string{"./..."}, nil, nil)
 	require.NoError(t, err)
 
 	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
@@ -57,79 +64,43 @@ func TestBuildDiagnoseArgs(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		conf        *config.App
+		goTestArgs  []string
 		shuffleSeed int64
 		want        []string
 	}{
 		{
-			name: "default: timeout + target only",
-			conf: &config.App{Timeout: 10 * time.Minute},
-			want: []string{"test", "-json", "-count=1", "-timeout", "10m0s", "./pkg"},
+			name:       "passthrough flags and package",
+			goTestArgs: []string{"-timeout=5m", "./pkg"},
+			want:       []string{"test", "-json", "-count=1", "-timeout=5m", "./pkg"},
 		},
 		{
-			name: "with -race",
-			conf: &config.App{Timeout: 5 * time.Minute, Race: true},
-			want: []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-race", "./pkg"},
-		},
-		{
-			name: "with -run regexp",
-			conf: &config.App{Timeout: 5 * time.Minute, Run: "^TestFoo$"},
-			want: []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-run=^TestFoo$", "./pkg"},
-		},
-		{
-			name: "with -race and -run together",
-			conf: &config.App{Timeout: 5 * time.Minute, Race: true, Run: "TestFoo/bar"},
-			want: []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-race", "-run=TestFoo/bar", "./pkg"},
-		},
-		{
-			name: "empty Run is omitted (not `-run=`)",
-			conf: &config.App{Timeout: 1 * time.Minute, Run: ""},
-			want: []string{"test", "-json", "-count=1", "-timeout", "1m0s", "./pkg"},
-		},
-		{
-			name: "with -cpu list",
-			conf: &config.App{Timeout: 5 * time.Minute, CPU: "1,2,4"},
-			want: []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-cpu=1,2,4", "./pkg"},
-		},
-		{
-			name: "with -parallel",
-			conf: &config.App{Timeout: 5 * time.Minute, Parallel: 4},
-			want: []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-parallel=4", "./pkg"},
-		},
-		{
-			name:        "with shuffle seed",
-			conf:        &config.App{Timeout: 5 * time.Minute},
+			name:        "shuffle seed appended",
+			goTestArgs:  []string{"./pkg"},
 			shuffleSeed: 12345,
-			want:        []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-shuffle=12345", "./pkg"},
+			want:        []string{"test", "-json", "-count=1", "./pkg", "-shuffle=12345"},
 		},
 		{
 			name:        "zero shuffle seed omitted",
-			conf:        &config.App{Timeout: 5 * time.Minute},
+			goTestArgs:  []string{"./pkg"},
 			shuffleSeed: 0,
-			want:        []string{"test", "-json", "-count=1", "-timeout", "5m0s", "./pkg"},
+			want:        []string{"test", "-json", "-count=1", "./pkg"},
 		},
 		{
-			name: "zero parallel omitted",
-			conf: &config.App{Timeout: 1 * time.Minute, Parallel: 0},
-			want: []string{"test", "-json", "-count=1", "-timeout", "1m0s", "./pkg"},
+			name:       "strips duplicate -json and -count from user args",
+			goTestArgs: []string{"-json", "-count=3", "-race", "-run=^X$", "./pkg"},
+			want:       []string{"test", "-json", "-count=1", "-race", "-run=^X$", "./pkg"},
 		},
 		{
-			name: "empty cpu omitted",
-			conf: &config.App{Timeout: 1 * time.Minute, CPU: ""},
-			want: []string{"test", "-json", "-count=1", "-timeout", "1m0s", "./pkg"},
-		},
-		{
-			name:        "all flags together",
-			conf:        &config.App{Timeout: 5 * time.Minute, Race: true, Run: "^TestFoo$", CPU: "1,2", Parallel: 8},
-			shuffleSeed: 999,
-			want:        []string{"test", "-json", "-count=1", "-timeout", "5m0s", "-race", "-run=^TestFoo$", "-cpu=1,2", "-parallel=8", "-shuffle=999", "./pkg"},
+			name:       "strips -count with separate value",
+			goTestArgs: []string{"-count", "99", "./a"},
+			want:       []string{"test", "-json", "-count=1", "./a"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := buildDiagnoseArgs(tc.conf, "./pkg", tc.shuffleSeed)
+			got := buildDiagnoseArgs(tc.goTestArgs, tc.shuffleSeed)
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -147,7 +118,7 @@ func TestDiagnoseShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	require.NoError(t, Diagnose(ctx, conf, "./...", nil, nil))
+	require.NoError(t, Diagnose(ctx, conf, []string{"./..."}, nil, nil))
 
 	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
 	require.NoError(t, err)
@@ -164,70 +135,54 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		conf   *config.App
-		target string
-		want   string
+		name       string
+		conf       *config.App
+		goTestArgs []string
+		want       string
 	}{
 		{
 			name: "repo root pattern",
 			conf: &config.App{
 				Iterations: 1,
-				Timeout:    10 * time.Minute,
 			},
-			target: "./...",
-			want:   diagnoseResultsNamePrefix + "allpkgs-it1-to10m0s-20240601123045",
+			goTestArgs: []string{"./..."},
+			want:       diagnoseResultsNamePrefix + "allpkgs-it1-h" + testArgHash8([]string{"./..."}) + "-20240601123045",
 		},
 		{
 			name: "nested package with ellipsis",
 			conf: &config.App{
 				Iterations: 10,
-				Timeout:    10 * time.Minute,
 			},
-			target: "./core/...",
-			want:   diagnoseResultsNamePrefix + "core_allpkgs-it10-to10m0s-20240601123045",
+			goTestArgs: []string{"./core/..."},
+			want:       diagnoseResultsNamePrefix + "core_allpkgs-it10-h" + testArgHash8([]string{"./core/..."}) + "-20240601123045",
 		},
 		{
-			name: "flags and run regexp",
+			name: "fail-fast and shuffle and non-default slow",
 			conf: &config.App{
-				Iterations: 2,
-				Timeout:    5 * time.Minute,
-				Race:       true,
-				Shuffle:    true,
-				FailFast:   true,
-				Parallel:   8,
-				CPU:        "1,2",
-				Run:        "^TestFoo$",
-			},
-			target: "./pkg",
-			want:   diagnoseResultsNamePrefix + "pkg-it2-to5m0s-race-shuffle-ff-p8-cpu-1-2-r_TestFoo_-383ceba4-20240601123045",
-		},
-		{
-			name: "non default slow threshold",
-			conf: &config.App{
-				Iterations:    1,
-				Timeout:       10 * time.Minute,
+				Iterations:    2,
 				SlowThreshold: 45 * time.Second,
+				FailFast:      true,
+				Shuffle:       true,
 			},
-			target: "./core/services/foo",
-			want:   diagnoseResultsNamePrefix + "core_services_foo-it1-to10m0s-slow45s-20240601123045",
+			goTestArgs: []string{"-race", "-run=^TestFoo$", "./pkg"},
+			want: diagnoseResultsNamePrefix + "pkg-it2-h" + testArgHash8([]string{"-race", "-run=^TestFoo$", "./pkg"}) +
+				"-ff-shuffle-slow45s-20240601123045",
 		},
 		{
 			name: "default slow threshold omitted",
 			conf: &config.App{
 				Iterations:    3,
-				Timeout:       10 * time.Minute,
 				SlowThreshold: 30 * time.Second,
 			},
-			target: "./a",
-			want:   diagnoseResultsNamePrefix + "a-it3-to10m0s-20240601123045",
+			goTestArgs: []string{"./a"},
+			want:       diagnoseResultsNamePrefix + "a-it3-h" + testArgHash8([]string{"./a"}) + "-20240601123045",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := diagnoseResultsDirName(tc.conf, tc.target, diagnoseResultsDirNameAt)
+			got := diagnoseResultsDirName(tc.conf, tc.goTestArgs, diagnoseResultsDirNameAt)
 			assert.Equal(t, tc.want, got)
 			assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
 		})
@@ -236,19 +191,20 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 
 func TestDiagnoseResultsDirNameLongRunAndPath(t *testing.T) {
 	t.Parallel()
-	longRun := strings.Repeat("Xy", 80) // 160 chars; token truncates to 40 runes
+	longRun := strings.Repeat("Xy", 80)
+	goTestArgs := []string{"-run=" + longRun, "./p"}
 	conf := &config.App{
 		Iterations: 1,
-		Timeout:    10 * time.Minute,
-		Run:        longRun,
 	}
-	got := diagnoseResultsDirName(conf, "./p", diagnoseResultsDirNameAt)
+	got := diagnoseResultsDirName(conf, goTestArgs, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
-	assert.Contains(t, got, "-it1-to10m0s-")
-	assert.Regexp(t, `r(?:Xy){20}-[0-9a-f]{8}-20240601123045`, got)
+	assert.Contains(t, got, "-it1-h")
+	assert.Contains(t, got, testArgHash8(goTestArgs))
+	assert.Regexp(t, `diagnose-p-it1-h[0-9a-f]{8}-20240601123045`, got)
 
 	longTarget := "./" + strings.Repeat("seg/", 60) + "z"
-	got2 := diagnoseResultsDirName(conf, longTarget, diagnoseResultsDirNameAt)
+	goTestArgs2 := []string{longTarget}
+	got2 := diagnoseResultsDirName(conf, goTestArgs2, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got2), maxDiagnoseResultsBasename)
 	assert.True(t, strings.HasPrefix(got2, diagnoseResultsNamePrefix))
 }
@@ -275,7 +231,7 @@ func TestDiagnoseDumpDBCalledWithResultsDir(t *testing.T) {
 	}
 
 	// pre-canceled ctx → no iterations run → dumpDB never called
-	require.NoError(t, Diagnose(ctx, conf, "./...", nil, dumpDB))
+	require.NoError(t, Diagnose(ctx, conf, []string{"./..."}, nil, dumpDB))
 	assert.Empty(t, calls)
 }
 
@@ -288,4 +244,10 @@ func TestTruncateUTF8MaxBytes(t *testing.T) {
 	assert.Equal(t, "éé", truncateUTF8MaxBytes(s, 4))
 	assert.Equal(t, "ééé", truncateUTF8MaxBytes(s, 6))
 	assert.Equal(t, "ééé", truncateUTF8MaxBytes(s, 10))
+}
+
+func TestPackagePatternsFromEnd(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, []string{"./core/...", "./foo"}, packagePatternsFromEnd([]string{"-race", "-timeout=5m", "./core/...", "./foo"}))
+	assert.Nil(t, packagePatternsFromEnd([]string{"-v", "-race"}))
 }

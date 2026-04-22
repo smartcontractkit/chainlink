@@ -13,29 +13,22 @@ import (
 )
 
 var diagnoseCmd = &cobra.Command{
-	Use:   "diagnose [flags] <go test package pattern>",
+	Use:   "diagnose [flags] -- [go test arguments]",
 	Short: "Run /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more",
 	Long: `Runs /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more.
 
-Accepts exactly one positional argument: the same package pattern you would pass
-to go test (e.g. ./core/...).`,
-	Example: `# Run the full core test suite 10 times, with each iteration timing out after 15 minutes.
-go -C ./tools/test run . diagnose --iterations 10 --timeout=15m ./core/...`,
+Pass every flag and package pattern you want forwarded to go test after "--". The harness
+prepends "go test -json -count=1" for each iteration (duplicate -json / -count in your
+arguments are ignored). With --shuffle-seed, a per-iteration -shuffle=<seed> is appended.`,
+	Example: `# Run the full core test suite 10 times.
+go -C ./tools/test run . diagnose --iterations 10 -- ./core/...`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
 		if err != nil {
 			return err
 		}
 
-		if len(args) == 0 {
-			//nolint:revive,staticcheck // ... is a valid error message
-			return errors.New("specify a go test target, e.g. ./core/...")
-		}
-		if len(args) > 1 {
-			//nolint:revive,staticcheck // ... is a valid error message
-			return errors.New("only one go test target can be specified, e.g. ./core/...")
-		}
-		targetDir := args[0]
 		if conf.Iterations < 1 {
 			return errors.New("--iterations must be >= 1")
 		}
@@ -46,18 +39,13 @@ go -C ./tools/test run . diagnose --iterations 10 --timeout=15m ./core/...`,
 			}
 		}()
 
-		return runner.Diagnose(cmd.Context(), conf, targetDir, dbHandle.Reset, dbHandle.DumpState)
+		return runner.Diagnose(cmd.Context(), conf, args, dbHandle.Reset, dbHandle.DumpState)
 	},
 }
 
 func init() {
 	diagnoseCmd.Flags().Int("iterations", 1, "number of full test runs")
 	diagnoseCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
-	diagnoseCmd.Flags().Duration("timeout", 10*time.Minute, "go test -timeout for each iteration")
 	diagnoseCmd.Flags().Bool("fail-fast", false, "stop this diagnose run immediately if any iteration fails")
-	diagnoseCmd.Flags().Bool("race", false, "run tests with -race")
-	diagnoseCmd.Flags().String("run", "", "passed through as `go test -run=<regex>`; narrow the diagnose run to specific tests (e.g. `^TestFoo$` or `TestFoo/bar`)")
-	diagnoseCmd.Flags().String("cpu", "", "passed as `go test -cpu=<list>`; comma-separated GOMAXPROCS values (e.g. `1,2,4`)")
-	diagnoseCmd.Flags().Int("parallel", 0, "passed as `go test -parallel=<n>`; 0 omits the flag")
 	diagnoseCmd.Flags().Bool("shuffle-seed", false, "randomize test order each iteration; a unique seed is generated per iteration and recorded in report.json for reproduction")
 }

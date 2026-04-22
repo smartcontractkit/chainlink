@@ -19,10 +19,11 @@ const (
 
 // diagnoseResultsDirName returns a repo-root-relative directory basename for
 // diagnose output: diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>.
-func diagnoseResultsDirName(conf *config.App, target string, now time.Time) string {
+func diagnoseResultsDirName(conf *config.App, goTestArgs []string, now time.Time) string {
 	tsPart := now.Format("20060102150405")
+	target := guessPackagePatternForSlug(goTestArgs)
 	for phase := range 8 {
-		cfg := diagnoseConfigDirPartPhase(conf, phase)
+		cfg := diagnoseConfigDirPartPhase(conf, goTestArgs, phase)
 		tail := "-" + cfg + "-" + tsPart
 		avail := max(maxDiagnoseResultsBasename-len(diagnoseResultsNamePrefix)-len(tail), 8)
 		slug := truncateUTF8MaxBytes(diagnoseTargetSlug(target), avail)
@@ -63,63 +64,47 @@ func sanitizeDirToken(s string) string {
 	return b.String()
 }
 
-func diagnoseRunDirToken(run string) (full string, hashOnly string) {
-	h := sha256.Sum256([]byte(run))
-	hash8 := hex.EncodeToString(h[:4])
-	hashOnly = "r" + hash8
-
-	const maxRunes = 40
-	rs := []rune(run)
-	if len(rs) > maxRunes {
-		rs = rs[:maxRunes]
+// guessPackagePatternForSlug picks a human-readable slug from go test arguments
+// (trailing package patterns). Falls back to "pkgs" if none found.
+func guessPackagePatternForSlug(goTestArgs []string) string {
+	pkgs := packagePatternsFromEnd(goTestArgs)
+	switch len(pkgs) {
+	case 0:
+		return "pkgs"
+	case 1:
+		return pkgs[0]
+	default:
+		return strings.Join(pkgs, "__")
 	}
-	short := sanitizeDirToken(string(rs))
-	if short == "" {
-		return hashOnly, hashOnly
-	}
-	return "r" + short + "-" + hash8, hashOnly
 }
 
 func durationDirToken(d time.Duration) string {
 	return strings.ReplaceAll(d.String(), ":", "_")
 }
 
-func diagnoseConfigDirPartPhase(conf *config.App, phase int) string {
+func diagnoseConfigDirPartPhase(conf *config.App, goTestArgs []string, phase int) string {
+	h := sha256.Sum256([]byte(strings.Join(goTestArgs, "\x00")))
+	hash8 := hex.EncodeToString(h[:4])
+
 	dropSlow := phase >= 1
-	runHashOnly := phase >= 2
-	dropCPU := phase >= 3
-	dropPar := phase >= 4
-	dropFF := phase >= 5
-	dropShuffle := phase >= 6
-	dropRace := phase >= 7
+	dropShuffle := phase >= 2
+	dropFF := phase >= 3
+	shortHash := phase >= 4
 
 	var parts []string
 	if conf.Iterations > 0 {
 		parts = append(parts, fmt.Sprintf("it%d", conf.Iterations))
 	}
-	parts = append(parts, "to"+durationDirToken(conf.Timeout))
-	if !dropRace && conf.Race {
-		parts = append(parts, "race")
+	hStr := hash8
+	if shortHash {
+		hStr = hStr[:4]
 	}
-	if !dropShuffle && conf.Shuffle {
-		parts = append(parts, "shuffle")
-	}
+	parts = append(parts, "h"+hStr)
 	if !dropFF && conf.FailFast {
 		parts = append(parts, "ff")
 	}
-	if !dropPar && conf.Parallel > 0 {
-		parts = append(parts, fmt.Sprintf("p%d", conf.Parallel))
-	}
-	if !dropCPU && conf.CPU != "" {
-		parts = append(parts, "cpu-"+strings.ReplaceAll(conf.CPU, ",", "-"))
-	}
-	if conf.Run != "" {
-		full, hash := diagnoseRunDirToken(conf.Run)
-		if runHashOnly {
-			parts = append(parts, hash)
-		} else {
-			parts = append(parts, full)
-		}
+	if !dropShuffle && conf.Shuffle {
+		parts = append(parts, "shuffle")
 	}
 	if !dropSlow {
 		slow := conf.SlowThreshold

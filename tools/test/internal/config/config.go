@@ -23,13 +23,8 @@ type App struct {
 	AIOutput        bool          `mapstructure:"ai_output"`
 	Iterations      int           `mapstructure:"iterations"`
 	SlowThreshold   time.Duration `mapstructure:"slow_threshold"`
-	Timeout         time.Duration `mapstructure:"timeout"`
 	FailFast        bool          `mapstructure:"fail_fast"`
-	Race            bool          `mapstructure:"race"`
-	Run             string        `mapstructure:"run"`
-	CPU             string        `mapstructure:"cpu"`
-	Parallel        int           `mapstructure:"parallel"`
-	Shuffle         bool          `mapstructure:"shuffle"`
+	Shuffle         bool          `mapstructure:"shuffle_seed"`
 }
 
 // Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.
@@ -44,8 +39,6 @@ func Load(cmd *cobra.Command) (*App, error) {
 	v.SetDefault("iterations", 1)
 	v.SetDefault("slow_threshold", 30*time.Second)
 	v.SetDefault("fail_fast", false)
-	v.SetDefault("timeout", 10*time.Minute)
-	v.SetDefault("race", false)
 	repoRoot, err := repo.RootFromWd()
 	if err != nil {
 		return nil, err

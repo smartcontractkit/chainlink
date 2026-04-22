@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,10 +56,10 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 // database to its freshly-prepared state.
 // dumpDB (optional) runs after each iteration to capture database state for
 // per-iteration diagnosis; errors are logged but do not fail the diagnose run.
-func Diagnose(ctx context.Context, conf *config.App, targetDir string, resetDB func(context.Context) error, dumpDB func(context.Context, string, int) error) error {
+func Diagnose(ctx context.Context, conf *config.App, goTestArgs []string, resetDB func(context.Context) error, dumpDB func(context.Context, string, int) error) error {
 	start := time.Now()
 
-	resultsDir := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(conf, targetDir, start))
+	resultsDir := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(conf, goTestArgs, start))
 	err := os.MkdirAll(resultsDir, 0700)
 	if err != nil {
 		return err
@@ -91,7 +92,7 @@ func Diagnose(ctx context.Context, conf *config.App, targetDir string, resetDB f
 			shuffleSeeds[i] = seed
 		}
 		iterStart := time.Now()
-		iterErr := diagnoseIteration(ctx, conf, resultsDir, targetDir, i, seed)
+		iterErr := diagnoseIteration(ctx, conf, resultsDir, goTestArgs, i, seed)
 		iterDurations = append(iterDurations, time.Since(iterStart))
 		if dumpDB != nil {
 			if dumpErr := dumpDB(ctx, resultsDir, i); dumpErr != nil && !conf.AIOutput {
@@ -162,29 +163,37 @@ func Diagnose(ctx context.Context, conf *config.App, targetDir string, resetDB f
 	return nil
 }
 
+// filterDiagnoseUserGoTestArgs removes -json and -count so the harness can inject its own.
+func filterDiagnoseUserGoTestArgs(args []string) []string {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "-json" || a == "--json" {
+			continue
+		}
+		if strings.HasPrefix(a, "-count=") {
+			continue
+		}
+		if a == "-count" && i+1 < len(args) {
+			i++
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 // buildDiagnoseArgs constructs the `go test` argv for a single diagnose iteration.
-func buildDiagnoseArgs(conf *config.App, targetDir string, shuffleSeed int64) []string {
-	args := []string{"test", "-json", "-count=1", "-timeout", conf.Timeout.String()}
-	if conf.Race {
-		args = append(args, "-race")
-	}
-	if conf.Run != "" {
-		args = append(args, "-run="+conf.Run)
-	}
-	if conf.CPU != "" {
-		args = append(args, "-cpu="+conf.CPU)
-	}
-	if conf.Parallel > 0 {
-		args = append(args, fmt.Sprintf("-parallel=%d", conf.Parallel))
-	}
+func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) []string {
+	args := []string{"test", "-json", "-count=1"}
+	args = append(args, filterDiagnoseUserGoTestArgs(goTestArgs)...)
 	if shuffleSeed != 0 {
 		args = append(args, fmt.Sprintf("-shuffle=%d", shuffleSeed))
 	}
-	args = append(args, targetDir)
 	return args
 }
 
-func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string, targetDir string, iteration int, shuffleSeed int64) error {
+func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -193,7 +202,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	}
 	defer resultsFile.Close()
 
-	args := buildDiagnoseArgs(conf, targetDir, shuffleSeed)
+	args := buildDiagnoseArgs(goTestArgs, shuffleSeed)
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
 	cmd.Stderr = resultsFile
@@ -210,7 +219,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	}
 
 	totalPkgs := -1
-	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, targetDir); listErr == nil {
+	if n, listErr := listTestPackageCount(ctx, conf.RepoRoot, goTestArgs); listErr == nil {
 		totalPkgs = n
 	}
 	prog := newDiagnoseProgress(totalPkgs)

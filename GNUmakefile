@@ -282,7 +282,7 @@ new_gotestsum: ## tools/test: gotestsum. Usage: make new_gotestsum ARGS="--forma
 	go -C ./tools/test run . gotestsum $(ARGS)
 
 .PHONY: new_test_diagnose
-new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 --timeout 9m ./core/..."
+new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 -- --timeout 9m ./core/..."
 	go -C ./tools/test run . diagnose $(ARGS)
 
 .PHONY: gocs

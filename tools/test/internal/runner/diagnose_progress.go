@@ -19,6 +19,22 @@ import (
 // so the status shows repo-relative paths (e.g. core/foo).
 const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
 
+// packagePatternsFromEnd returns trailing non-flag arguments. This matches the usual
+// `go test [flags] [packages]` layout (package patterns last).
+func packagePatternsFromEnd(args []string) []string {
+	var pkgs []string
+	for i := len(args) - 1; i >= 0; i-- {
+		if strings.HasPrefix(args[i], "-") {
+			break
+		}
+		pkgs = append(pkgs, args[i])
+	}
+	for i, j := 0, len(pkgs)-1; i < j; i, j = i+1, j-1 {
+		pkgs[i], pkgs[j] = pkgs[j], pkgs[i]
+	}
+	return pkgs
+}
+
 func shortenChainlinkImportPath(importPath string) string {
 	if importPath == "" {
 		return ""
@@ -30,11 +46,15 @@ func shortenChainlinkImportPath(importPath string) string {
 	return strings.TrimPrefix(importPath, p)
 }
 
-// listTestPackageCount runs `go list -test -e` for the same pattern as `go test`
-// and returns how many import paths would be listed. Used as the package-count
-// denominator; on error or zero lines callers should treat the total as unknown.
-func listTestPackageCount(ctx context.Context, repoRoot, pattern string) (int, error) {
-	cmd := exec.CommandContext(ctx, "go", "list", "-test", "-e", "-f", "{{.ImportPath}}", pattern)
+// listTestPackageCount runs `go list -test -e` for the trailing package patterns
+// in go test arguments (see packagePatternsFromEnd). On error or no patterns,
+// returns an error or zero packages.
+func listTestPackageCount(ctx context.Context, repoRoot string, goTestArgs []string) (int, error) {
+	pkgs := packagePatternsFromEnd(goTestArgs)
+	if len(pkgs) == 0 {
+		return 0, errors.New("no package patterns in go test arguments (put packages last, after flags)")
+	}
+	cmd := exec.CommandContext(ctx, "go", append([]string{"list", "-test", "-e", "-f", "{{.ImportPath}}"}, pkgs...)...)
 	cmd.Dir = repoRoot
 	cmd.Env = os.Environ()
 	out, err := cmd.Output()
