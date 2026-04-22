@@ -127,8 +127,9 @@ func truncateUTF8MaxBytes(s string, maxBytes int) string {
 	}
 	s = s[:maxBytes]
 	for len(s) > 0 {
-		r, _ := utf8.DecodeLastRuneInString(s)
-		if r != utf8.RuneError {
+		r, size := utf8.DecodeLastRuneInString(s)
+		// RuneError is also the rune value U+FFFD; only strip when decoding hit invalid UTF-8 (size 1).
+		if r != utf8.RuneError || size != 1 {
 			break
 		}
 		s = s[:len(s)-1]

@@ -311,6 +311,8 @@ func TestTruncateUTF8MaxBytes(t *testing.T) {
 	assert.Equal(t, "éé", truncateUTF8MaxBytes(s, 4))
 	assert.Equal(t, "ééé", truncateUTF8MaxBytes(s, 6))
 	assert.Equal(t, "ééé", truncateUTF8MaxBytes(s, 10))
+	// U+FFFD is utf8.RuneError's value; truncation must not strip a valid final replacement character.
+	assert.Equal(t, "abc\uFFFD", truncateUTF8MaxBytes("abc\uFFFD"+"x", 6))
 }
 
 func TestPackagePatternsFromEnd(t *testing.T) {

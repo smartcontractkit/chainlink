@@ -20,6 +20,19 @@ func readers(iters ...string) []io.Reader {
 	return rs
 }
 
+func TestAnalyzePackageLevelTimeoutIterationSummary(t *testing.T) {
+	t.Parallel()
+	iterations := []string{
+		`{"Action":"output","Package":"pkg/hang","Output":"panic: test timed out after 2m0s\n"}
+{"Action":"fail","Package":"pkg/hang","Elapsed":120.0}
+`,
+	}
+	rep, _, err := Analyze(readers(iterations...), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.IterationSummaries, 1)
+	assert.Equal(t, "timeout", rep.IterationSummaries[0].Result)
+}
+
 func TestAnalyze(t *testing.T) {
 	t.Parallel()
 

@@ -27,10 +27,12 @@ type Handle struct {
 	conf      *config.App
 }
 
-// Ensure starts a Postgres testcontainer when CL_DATABASE_URL is unset, exports
-// CL_DATABASE_URL, runs preparetest --force, then snapshots the prepared state
-// so Reset can restore it between iterations. When CL_DATABASE_URL is already
-// set, it is a no-op and Reset/Cleanup do nothing.
+// Ensure configures CL_DATABASE_URL for child test processes. If --database-url
+// is set, that value is exported as CL_DATABASE_URL (failing if CL_DATABASE_URL is
+// already set to something else). Otherwise it starts an ephemeral Postgres
+// container, sets CL_DATABASE_URL to its connection string, runs preparetest
+// --force, and snapshots the prepared state so Reset can restore it between
+// diagnose iterations.
 func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	start := time.Now()
 
@@ -39,6 +41,13 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	}
 
 	if conf.DatabaseURL != "" {
+		if existing := os.Getenv("CL_DATABASE_URL"); existing != "" && existing != conf.DatabaseURL {
+			return &Handle{conf: conf}, fmt.Errorf(
+				"CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
+		}
+		if err := os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
+			return &Handle{conf: conf}, fmt.Errorf("set CL_DATABASE_URL: %w", err)
+		}
 		if !conf.AIOutput {
 			fmt.Fprintln(os.Stdout,
 				termstyle.Muted.Render("Skipping database setup, using provided database URL: ")+

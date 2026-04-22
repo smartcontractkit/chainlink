@@ -215,14 +215,14 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 	iterFails := make(map[int][]string, len(iterations))
 	iterTimedOut := make(map[int]bool, len(iterations))
 	for key, a := range aggs {
+		for i := range a.timeoutIters {
+			iterTimedOut[i] = true
+		}
 		if key.Test == "" {
 			continue
 		}
 		for i := range a.failedIters {
 			iterFails[i] = append(iterFails[i], key.Test)
-		}
-		for i := range a.timeoutIters {
-			iterTimedOut[i] = true
 		}
 	}
 	summaries := make([]IterationSummary, len(iterations))
