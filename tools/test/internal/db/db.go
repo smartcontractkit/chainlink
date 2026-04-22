@@ -71,6 +71,7 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 		postgres.WithDatabase("chainlink_test"),
 		postgres.WithUsername("postgres"),
 		postgres.WithPassword("postgres"),
+		testcontainers.WithCmdArgs("-c", "max_connections=1000"),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
