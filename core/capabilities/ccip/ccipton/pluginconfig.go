@@ -13,10 +13,9 @@ import (
 // InitializePluginConfig returns a pluginConfig for TON chains.
 func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		AddressCodec:       codec.NewAddressCodec(),
-		CommitPluginCodec:  codec.NewCommitPluginCodecV1(),
-		ExecutePluginCodec: codec.NewExecutePluginCodecV1(extraDataCodec),
-		// TODO(EVM2TON): this is a temp fix for nil msgHasher access, should be using CCIPProvider msgHasher instead, https://smartcontract-it.atlassian.net/browse/NONEVM-2778
+		AddressCodec:          codec.NewAddressCodec(),
+		CommitPluginCodec:     codec.NewCommitPluginCodecV1(),
+		ExecutePluginCodec:    codec.NewExecutePluginCodecV1(extraDataCodec),
 		MessageHasher:         codec.NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilyTon).Named("MessageHasherV1"), extraDataCodec),
 		ExtraDataCodec:        codec.NewExtraDataDecoder(),
 		GasEstimateProvider:   ccipnoop.NewGasEstimateProvider(extraDataCodec), // TODO: implement
