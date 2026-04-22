@@ -1,8 +1,8 @@
-name: "Post Build, Sign and Publish Chainlink"
+name: "Post Release Image Tagged"
 on:
-    # # to be used with pre-release tests
+    # to be used with post release tests
     repository_dispatch:
-        types: [ pre-release-image-published ]
+        types: [ release-image-tagged ]
 
 permissions: {}
 
@@ -28,8 +28,9 @@ jobs:
                       exit 1
                   fi
                   echo "Trigger validated successfully"
+
     # Upgrade compatibility tests
-    # Include rc and beta releases, since we will be upgrading from them on canary servers
+    # Run on images excluding beta and release candidate versions
     df1-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
@@ -43,7 +44,7 @@ jobs:
             upgrade-nodes: "3"
             node-name-template: "don-node%d"
             versions-back: "3"
-            exclude-refs: "ccip"
+            exclude-refs: "beta,rc,ccip"
             working-directory: "devenv"
             logs-directory: "./devenv/tests/ocr2/logs"
             ctf-log-level: "debug"
@@ -63,53 +64,10 @@ jobs:
             upgrade-nodes: "3"
             node-name-template: "workflow-node%d"
             versions-back: "3"
-            exclude-refs: "ccip"
+            exclude-refs: "beta,rc,ccip"
             working-directory: "./system-tests/tests"
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
         secrets: inherit
-
-    legacy-system-tests:
-        name: Legacy Smoke Tests
-        needs: validate-trigger
-        permissions:
-            contents: read
-            id-token: write
-        uses: ./.github/workflows/legacy-system-tests.yml
-        with:
-            ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
-            chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
-        secrets: inherit
-
-    cre-smoke-tests:
-        name: CRE Smoke Tests
-        needs: validate-trigger
-        permissions:
-            actions: read
-            contents: read
-            id-token: write
-        uses: ./.github/workflows/cre-system-tests.yaml
-        with:
-            ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
-            chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
-        secrets: inherit
-
-    cre-regression-tests:
-        name: CRE Regression Tests
-        needs: validate-trigger
-        permissions:
-            actions: read
-            contents: read
-            id-token: write
-        uses: ./.github/workflows/cre-regression-system-tests.yaml
-        with:
-            ecr: "public"
-            chainlink_version: ${{ github.event.client_payload.chainlink_version }}
-            chainlink_image_repository_path: "chainlink/chainlink"
-            chainlink_image_tag: ${{ github.event.client_payload.chainlink_image_tag }}
-        secrets: inherit
+        # Do not run other tests, since they were already run on the pre-release image

@@ -142,28 +142,25 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 		"blockNumber", blockNum,
 		"predictedAddress", proxyAddr.Hex())
 
-	receipt, err := chain.Client.TransactionReceipt(context.Background(), tx.Hash())
+	deployedAddr, err := bind.WaitDeployed(context.Background(), chain.Client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for BundleAggregatorProxy deploy tx: %w", err)
+		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
 	}
 
-	receiptAddr := receipt.ContractAddress
-	if receiptAddr != proxyAddr {
-		lggr.Warnw("BundleAggregatorProxy predicted address does not match receipt address",
+	if deployedAddr != proxyAddr {
+		lggr.Warnw("BundleAggregatorProxy predicted address does not match deployed address",
 			"chainSelector", chain.Selector,
 			"predictedAddress", proxyAddr.Hex(),
-			"receiptAddress", receiptAddr.Hex(),
-			"txHash", tx.Hash().Hex(),
-			"txNonce", tx.Nonce(),
-			"receiptStatus", receipt.Status)
-		proxyAddr = receiptAddr
+			"deployedAddress", deployedAddr.Hex(),
+			"txHash", tx.Hash().Hex())
+		proxyAddr = deployedAddr
 	}
 
 	if err := waitForContractCode(context.Background(), chain.Client, tx, proxyAddr); err != nil {
 		return nil, fmt.Errorf("failed to verify BundleAggregatorProxy deployment at %s: %w", proxyAddr, err)
 	}
 
-	lggr.Debugw("BundleAggregatorProxy code verified at address",
+	lggr.Debugw("BundleAggregatorProxy deployed and code verified",
 		"chainSelector", chain.Selector,
 		"address", proxyAddr.Hex())
 

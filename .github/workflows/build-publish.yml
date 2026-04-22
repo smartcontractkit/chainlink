@@ -239,6 +239,45 @@ jobs:
           }
           JSON
 
+  emit-release-image-tagged-event:
+    name: Emit release image tagged event
+    needs: [ checks ]
+    if: needs.checks.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Compute image tag
+        id: compute-image-tag
+        shell: bash
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          # Compute image tag by removing 'v' prefix
+          # Examples:
+          #   v2.34.0   -> 2.34.0
+          tag_without_v="${GIT_TAG#v}"
+          echo "image-tag=$tag_without_v" | tee -a "$GITHUB_OUTPUT"
+      - name: Emit release image tagged event
+        env:
+          DOCKER_IMAGE_TAG: ${{ steps.compute-image-tag.outputs.image-tag }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/dispatches" \
+            --input - <<JSON
+          {
+            "event_type": "release-image-tagged",
+            "client_payload": {
+              "chainlink_image_tag": "${DOCKER_IMAGE_TAG}",
+              "chainlink_version": "${GITHUB_REF_NAME}"
+            }
+          }
+          JSON
+
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify:
