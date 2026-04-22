@@ -101,53 +101,23 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 		"txNonce", tx.Nonce(),
 		"predictedAddress", proxyAddr.Hex())
 
-	blockNum, err := chain.Confirm(tx)
+	deployedAddr, err := bind.WaitDeployed(context.Background(), chain.Client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to confirm BundleAggregatorProxy: %w", err)
+		return nil, fmt.Errorf("failed to deploy BundleAggregatorProxy: %w", err)
 	}
 
-	lggr.Debugw("BundleAggregatorProxy deploy tx confirmed",
-		"chainSelector", chain.Selector,
-		"txHash", tx.Hash().Hex(),
-		"blockNumber", blockNum,
-		"predictedAddress", proxyAddr.Hex())
-
-	receipt, err := chain.Client.TransactionReceipt(context.Background(), tx.Hash())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for BundleAggregatorProxy deploy tx: %w", err)
-	}
-
-	receiptAddr := receipt.ContractAddress
-	if receiptAddr != proxyAddr {
-		lggr.Warnw("BundleAggregatorProxy predicted address does not match receipt address",
+	if deployedAddr != proxyAddr {
+		lggr.Warnw("BundleAggregatorProxy predicted address does not match deployed address",
 			"chainSelector", chain.Selector,
 			"predictedAddress", proxyAddr.Hex(),
-			"receiptAddress", receiptAddr.Hex(),
-			"txHash", tx.Hash().Hex(),
-			"txNonce", tx.Nonce(),
-			"receiptStatus", receipt.Status)
-		proxyAddr = receiptAddr
+			"deployedAddress", deployedAddr.Hex(),
+			"txHash", tx.Hash().Hex())
+		proxyAddr = deployedAddr
 	}
-
-	code, err := chain.Client.CodeAt(context.Background(), proxyAddr, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check code at BundleAggregatorProxy address %s: %w", proxyAddr, err)
-	}
-	if len(code) == 0 {
-		lggr.Errorw("No contract code found at BundleAggregatorProxy address after confirmed deployment",
-			"chainSelector", chain.Selector,
-			"address", proxyAddr.Hex(),
-			"txHash", tx.Hash().Hex(),
-			"txNonce", tx.Nonce(),
-			"receiptStatus", receipt.Status,
-			"blockNumber", receipt.BlockNumber)
-		return nil, fmt.Errorf("no contract code at BundleAggregatorProxy address %s (tx %s, status %d)", proxyAddr, tx.Hash(), receipt.Status)
-	}
-
-	lggr.Debugw("BundleAggregatorProxy code verified at address",
+	lggr.Debugw("BundleAggregatorProxy deployed and code verified",
 		"chainSelector", chain.Selector,
 		"address", proxyAddr.Hex(),
-		"codeSize", len(code))
+		"txHash", tx.Hash().Hex())
 
 	proxyContract, err := bundleproxy.NewBundleAggregatorProxy(proxyAddr, chain.Client)
 	if err != nil {
