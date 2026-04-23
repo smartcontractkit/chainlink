@@ -607,7 +607,7 @@ func TestEngine_Execution(t *testing.T) {
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
-		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
+		require.Equal(t, uint32(1), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
 		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
 		require.Equal(t, "method", capturedTriggerRequest.Method)
 		require.Nil(t, capturedTriggerRequest.Payload)
@@ -1625,7 +1625,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// received.
 	res := <-resultReceivedCh
 	require.NotNil(t, capturedVaultReq)
-	require.Equal(t, cfg.WorkflowOwner, capturedVaultReq.WorkflowOwner) // WorkflowOwner is always set for label validation
+	require.Empty(t, capturedVaultReq.WorkflowOwner)
 	require.Empty(t, capturedVaultReq.OrgId)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:

@@ -281,6 +281,23 @@ func TestProposeAptosCapJobSpec_Apply_success(t *testing.T) {
 	assert.Len(t, out.Reports, 1)
 }
 
+func TestProposeAptosCapJobSpec_Apply_withP2PToTransmitterMap(t *testing.T) {
+	setup := setupAptosCapTest(t)
+	env := setup.env
+
+	input := setup.baseInput
+	input.P2PToTransmitterMap = map[string]string{
+		"aabbccdd": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+		"11223344": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+	}
+
+	require.NoError(t, jobs.ProposeAptosCapJobSpec{}.VerifyPreconditions(*env, input))
+
+	out, err := jobs.ProposeAptosCapJobSpec{}.Apply(*env, input)
+	require.NoError(t, err)
+	assert.Len(t, out.Reports, 1)
+}
+
 func TestProposeAptosCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	setup := setupAptosCapTest(t)
 	env := setup.env

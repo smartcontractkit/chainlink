@@ -275,7 +275,7 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 100
+LogPollerSlotsBatchSize = 1000
 Nodes = []
 
 [Workflow]

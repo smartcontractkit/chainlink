@@ -200,12 +200,12 @@ type DecodedCall struct {
 func (d *DecodedCall) Describe(context *ArgumentContext) string {
 	var description strings.Builder
 	addrAnn := AddressArgument{Value: d.Address}.Annotation(context)
-	description.WriteString(fmt.Sprintf("**Address:** `%s`", d.Address))
+	fmt.Fprintf(&description, "**Address:** `%s`", d.Address)
 	if addrAnn != "" {
-		description.WriteString(fmt.Sprintf(" <sub><i>%s</i></sub>", addrAnn))
+		fmt.Fprintf(&description, " <sub><i>%s</i></sub>", addrAnn)
 	}
 	description.WriteString("\n")
-	description.WriteString(fmt.Sprintf("**Method:** `%s`\n\n", d.Method))
+	fmt.Fprintf(&description, "**Method:** `%s`\n\n", d.Method)
 	describedInputs := d.describeArguments(d.Inputs, context, "Inputs")
 	if len(describedInputs) > 0 {
 		description.WriteString(describedInputs)
@@ -222,7 +222,7 @@ func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *Argu
 		return ""
 	}
 	var description strings.Builder
-	description.WriteString(fmt.Sprintf("**%s:**\n\n", label))
+	fmt.Fprintf(&description, "**%s:**\n\n", label)
 	// Table header
 	description.WriteString("| Name | Value | Annotation |\n")
 	description.WriteString("|------|-------|------------|\n")
@@ -241,10 +241,10 @@ func (d *DecodedCall) describeArguments(arguments []NamedArgument, context *Argu
 
 		if strings.Contains(val, "\n") {
 			ref := fmt.Sprintf("See below: `%s`", argument.Name)
-			description.WriteString(fmt.Sprintf("| `%s` | %s | %s |\n", argument.Name, ref, annot))
+			fmt.Fprintf(&description, "| `%s` | %s | %s |\n", argument.Name, ref, annot)
 			multiLineDetails = append(multiLineDetails, fmt.Sprintf("<details><summary>%s</summary>\n\n```\n%s\n```\n</details>\n", argument.Name, val))
 		} else {
-			description.WriteString(fmt.Sprintf("| `%s` | `%s` | %s |\n", argument.Name, val, annot))
+			fmt.Fprintf(&description, "| `%s` | `%s` | %s |\n", argument.Name, val, annot)
 		}
 	}
 	description.WriteString("\n") // Blank line after table for spacing
@@ -440,10 +440,10 @@ func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatch
 		if err != nil || chainName == "" {
 			chainName = "<chain unknown>"
 		}
-		describedProposal.WriteString(fmt.Sprintf("### Batch %d\n", batchIdx))
-		describedProposal.WriteString(fmt.Sprintf("**Chain selector:** `%d` (`%s`)\n\n", chainSelector, chainName))
+		fmt.Fprintf(&describedProposal, "### Batch %d\n", batchIdx)
+		fmt.Fprintf(&describedProposal, "**Chain selector:** `%d` (`%s`)\n\n", chainSelector, chainName)
 		for opIdx, opDesc := range describedOperations {
-			describedProposal.WriteString(fmt.Sprintf("#### Operation %d\n", opIdx))
+			fmt.Fprintf(&describedProposal, "#### Operation %d\n", opIdx)
 			describedProposal.WriteString(opDesc)
 			describedProposal.WriteString("\n\n")
 		}

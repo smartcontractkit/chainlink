@@ -241,7 +241,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 
 		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second) //nolint:gosec // G115
+		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
 		if cacheErr != nil {
 			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 			if !errors.Is(cacheErr, sql.ErrNoRows) {

@@ -166,7 +166,7 @@ func TestJWTBasedAuth_ValidToken(t *testing.T) {
 	assert.False(t, result.ExpiresAt.IsZero())
 }
 
-func TestJWTBasedAuth_ValidToken_NoWorkflowOwner(t *testing.T) {
+func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 	rsaKey := generateTestRSAKey(t, "key-1")
 	jwksServer := newTestJWKSServer(t, rsaKey)
 
@@ -190,10 +190,8 @@ func TestJWTBasedAuth_ValidToken_NoWorkflowOwner(t *testing.T) {
 	tokenString := createTestJWT(t, rsaKey, claims)
 
 	result, err := v.validateToken(context.Background(), tokenString)
-	require.NoError(t, err)
-	assert.Equal(t, "org_no_wfowner", result.OrgID)
-	assert.Empty(t, result.WorkflowOwner)
-	assert.Equal(t, "digest456", result.RequestDigest)
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrMissingWorkflowOwner)
 }
 
 func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
@@ -449,18 +447,6 @@ func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
 	require.NoError(t, v.Close())
 }
 
-func TestJWTBasedAuth_DisabledStartSkipsPeriodicRefresh(t *testing.T) {
-	v, err := NewJWTBasedAuth(
-		JWTBasedAuthConfig{},
-		limits.Factory{Settings: cresettings.DefaultGetter},
-		logger.TestLogger(t),
-		WithDisabledJWTBasedAuth(),
-	)
-	require.NoError(t, err)
-	require.NoError(t, v.Start(t.Context()))
-	require.NoError(t, v.Close())
-}
-
 func TestNewJWTBasedAuth_InvalidConfig(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
@@ -517,6 +503,48 @@ func TestNewJWTBasedAuth_UsesVaultJWTAuthEnabledLimiter_Enabled(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "invalid JWT auth token")
 	require.ErrorContains(t, err, ErrMissingToken.Error())
+}
+
+func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"org-123"},"encrypted_value":"cipher+/=="}]}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":    issuer,
+		"aud":    audience,
+		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":    jwt.NewNumericDate(time.Now()),
+		"org_id": "org-123",
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+			map[string]interface{}{
+				"type":  "workflow_owner",
+				"value": "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01",
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, "org-123", authResult.OrgID())
+	require.Equal(t, digest, authResult.Digest())
 }
 
 func setDefaultGetter(t *testing.T, payload string) {

@@ -7,6 +7,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -39,7 +41,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		lggr,
 		chain,
 		ab,
-		proposalutils.SingleGroupMCMSV2(t),
+		cldftesthelpers.SingleGroupMCMS(t),
 	)
 	require.NoError(t, err)
 	require.Empty(t, mcmNoLabel.Tv.Labels, "expected no label to be set")
@@ -51,7 +53,7 @@ func TestDeployMCMSWithConfig(t *testing.T) {
 		lggr,
 		chain,
 		ab,
-		proposalutils.SingleGroupMCMSV2(t),
+		cldftesthelpers.SingleGroupMCMS(t),
 		evminternal.WithLabel(label),
 	)
 	require.NoError(t, err)

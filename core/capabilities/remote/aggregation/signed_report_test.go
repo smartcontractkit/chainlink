@@ -52,7 +52,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		configDigest[i] = byte(i)
 	}
 	seqNr := uint64(123)
-	currentTime := uint64(time.Now().UnixNano()) //nolint:gosec // disable G115
+	currentTime := uint64(time.Now().UnixNano())
 
 	// Create a valid outputs map
 	outputsMap, err := values.NewMap(map[string]values.Value{

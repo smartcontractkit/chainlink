@@ -464,7 +464,7 @@ func deployWorkflow(
 
 	fmt.Printf("\n⚙️ Registering workflow '%s' with the workflow registry\n\n", workflowNameFlag)
 
-	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryVersion, uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, nil, &containerTargetDirFlag)
+	workflowID, registerErr := creworkflow.RegisterWithContract(ctx, sethClient, common.HexToAddress(workflowRegistryAddress), workflowRegistryVersion, uint64(donIDFlag), workflowNameFlag, "file://"+wasmWorkflowFilePathFlag, configPath, nil, nil, &containerTargetDirFlag)
 	if registerErr != nil {
 		return errors.Wrapf(registerErr, "❌ failed to register workflow %s", workflowNameFlag)
 	}
