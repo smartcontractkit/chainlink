@@ -159,7 +159,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260421131224-c46cbfe7bc6c // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260409184948-5b16fae57fe0 // indirect
-	github.com/smartcontractkit/cld-changesets v0.0.0-20260423161231-d3a752aabdbf // indirect
+	github.com/smartcontractkit/cld-changesets v0.0.0-20260423181317-433f1bfb2fe1 // indirect
 	github.com/stellar/go-stellar-sdk v0.1.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20231122183749-b53fb00bcac2 // indirect
 	go.opentelemetry.io/collector/internal/componentalias v0.148.0 // indirect
