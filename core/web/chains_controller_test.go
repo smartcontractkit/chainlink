@@ -15,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/quarantine"
 
+	gotoml "github.com/pelletier/go-toml/v2"
+
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -423,11 +425,17 @@ type TestSolanaChainsController struct {
 }
 
 func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*config.TOMLConfig) *TestSolanaChainsController {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
+	rawCfgs := make(chainlink.RawConfigs, len(cfgs))
+	for i, c := range cfgs {
+		c.SetDefaults()
+		raw, err := gotoml.Marshal(c)
+		require.NoError(t, err)
+		var m chainlink.RawConfig
+		require.NoError(t, gotoml.Unmarshal(raw, &m))
+		rawCfgs[i] = m
 	}
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = cfgs
+		c.Solana = rawCfgs
 		c.EVM = nil
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg)

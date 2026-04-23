@@ -16,8 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
@@ -76,26 +74,27 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Nodes:   toml.EVMNodes{&node2_1},
 			})
 
-			c.Solana = solcfg.TOMLConfigs{
-				&solcfg.TOMLConfig{
-					ChainID: &solanaChainID1,
-					Enabled: ptr(true),
-					Nodes: []*solcfg.Node{{
-						Name: ptr("solana chain 1 node 1"),
-						URL:  commonconfig.MustParseURL("http://localhost:8547"),
-					}},
+			c.Solana = chainlink.RawConfigs{
+				{
+					"ChainID": solanaChainID1,
+					"Enabled": true,
+					"Nodes": []any{
+						map[string]any{
+							"Name": "solana chain 1 node 1",
+							"URL":  "http://localhost:8547",
+						},
+					},
 				},
-				&solcfg.TOMLConfig{
-					ChainID: &solanaChainID2,
-					Enabled: ptr(true),
-					Nodes: []*solcfg.Node{{
-						Name: ptr("solana chain 2 node 1"),
-						URL:  commonconfig.MustParseURL("http://localhost:8527"),
-					}},
+				{
+					"ChainID": solanaChainID2,
+					"Enabled": true,
+					"Nodes": []any{
+						map[string]any{
+							"Name": "solana chain 2 node 1",
+							"URL":  "http://localhost:8527",
+						},
+					},
 				},
-			}
-			for i := range c.Solana {
-				c.Solana[i].SetDefaults()
 			}
 		})
 	}
@@ -165,8 +164,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		{name: "2 solana chain with 2 node",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
-					TOMLConfigs: newConfig().SolanaConfigs()}),
+				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), newConfig().SolanaConfigs()),
 			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
@@ -178,8 +176,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "all chains",
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
-				TOMLConfigs: newConfig().SolanaConfigs()}),
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), newConfig().SolanaConfigs()),
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
 						ChainConfigs:   cfg.EVMConfigs(),

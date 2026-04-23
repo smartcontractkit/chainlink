@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
+	gotoml "github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -65,13 +65,13 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	assert.Equal(t, chainID.String(), n1.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node1.Name), n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
-	wantConfig, err := toml.Marshal(node1)
+	wantConfig, err := gotoml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, chainID.String(), n2.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(chainID.String(), *node2.Name), n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
-	wantConfig2, err := toml.Marshal(node2)
+	wantConfig2, err := gotoml.Marshal(node2)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
@@ -97,11 +97,17 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 }
 
 func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest.TestApplication {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
+	rawCfgs := make(chainlink.RawConfigs, len(cfgs))
+	for i, c := range cfgs {
+		c.SetDefaults()
+		raw, err := gotoml.Marshal(c)
+		require.NoError(t, err)
+		var m chainlink.RawConfig
+		require.NoError(t, gotoml.Unmarshal(raw, &m))
+		rawCfgs[i] = m
 	}
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = cfgs
+		c.Solana = rawCfgs
 		c.EVM = nil
 	})
 }
@@ -134,13 +140,13 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	assert.Equal(t, id, n1.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node1.Name), n1.ID)
 	assert.Equal(t, *node1.Name, n1.Name)
-	wantConfig, err := toml.Marshal(node1)
+	wantConfig, err := gotoml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, id, n2.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node2.Name), n2.ID)
 	assert.Equal(t, *node2.Name, n2.Name)
-	wantConfig2, err := toml.Marshal(node2)
+	wantConfig2, err := gotoml.Marshal(node2)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)

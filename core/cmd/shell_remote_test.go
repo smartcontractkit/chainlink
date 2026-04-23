@@ -24,7 +24,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -123,12 +122,15 @@ func TestShell_ReplayBlocks(t *testing.T) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 
-		solCfg := &config.TOMLConfig{
-			ChainID: ptr("devnet"),
-			Enabled: ptr(true),
+		c.Solana = chainlink.RawConfigs{
+			{
+				"ChainID": "devnet",
+				"Enabled": true,
+				"Nodes": []any{
+					map[string]any{"Name": "primary", "URL": "http://localhost:8899"},
+				},
+			},
 		}
-		solCfg.SetDefaults()
-		c.Solana = config.TOMLConfigs{solCfg}
 	})
 	client, _ := app.NewShellAndRenderer()
 
