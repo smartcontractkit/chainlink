@@ -4,6 +4,10 @@
 
 set -e
 
+# Generate the committed module graph from published module requirements, not
+# from any developer-local workspace overrides in go.work.
+export GOWORK=off
+
 echo "# smartcontractkit Go modules
 ## Main module
 \`\`\`mermaid
