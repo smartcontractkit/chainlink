@@ -34,7 +34,7 @@ var (
 	ErrJWKSKeyNotFound                 = errors.New("signing key not found in JWKS")
 )
 
-const claimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_management_enabled"
+const ClaimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_management_enabled"
 
 const (
 	defaultJWKSRefreshInterval = 15 * time.Minute
@@ -281,7 +281,7 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, ErrMissingOrgID
 	}
 
-	if v, ok := claims[claimVaultSecretManagementEnabled].(string); !ok || v != "true" {
+	if v, ok := claims[ClaimVaultSecretManagementEnabled].(string); !ok || v != "true" {
 		return nil, ErrVaultSecretManagementNotEnabled
 	}
 

@@ -22,6 +22,7 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
@@ -222,8 +223,8 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 
 	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {
 		executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, workflowOwner, gwURL,
-			map[string]any{"urn:chainlink:claim_vault_secret_management_enabled": "false"},
-			"claim_vault_secret_management_enabled claim must be true",
+			map[string]any{vaultcap.ClaimVaultSecretManagementEnabled: "false"},
+			vaultcap.ErrVaultSecretManagementNotEnabled.Error(),
 		)
 	})
 }

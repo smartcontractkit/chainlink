@@ -122,7 +122,7 @@ func validTestClaims(issuer, audience string) jwt.MapClaims {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_test123",
-		"urn:chainlink:claim_vault_secret_management_enabled": "true",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -181,7 +181,7 @@ func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_no_wfowner",
-		"urn:chainlink:claim_vault_secret_management_enabled": "true",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -272,7 +272,7 @@ func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	claims := validTestClaims(issuer, audience)
-	delete(claims, "urn:chainlink:claim_vault_secret_management_enabled")
+	delete(claims, ClaimVaultSecretManagementEnabled)
 	tokenString := createTestJWT(t, rsaKey, claims)
 
 	_, err := v.validateToken(context.Background(), tokenString)
@@ -289,7 +289,7 @@ func TestJWTBasedAuth_VaultSecretManagementClaimNotTrue(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	claims := validTestClaims(issuer, audience)
-	claims["urn:chainlink:claim_vault_secret_management_enabled"] = "false"
+	claims[ClaimVaultSecretManagementEnabled] = "false"
 	tokenString := createTestJWT(t, rsaKey, claims)
 
 	_, err := v.validateToken(context.Background(), tokenString)
@@ -411,7 +411,7 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_single",
-		"urn:chainlink:claim_vault_secret_management_enabled": "true",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{"type": "request_digest", "value": "single_digest"},
 			map[string]interface{}{"type": "workflow_owner", "value": "0x1111"},
@@ -563,7 +563,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org-123",
-		"urn:chainlink:claim_vault_secret_management_enabled": "true",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
