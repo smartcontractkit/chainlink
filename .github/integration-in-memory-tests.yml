@@ -1381,7 +1381,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-1.68.1
+    sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
     free_disk_space: true
 
