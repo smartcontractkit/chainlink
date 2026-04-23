@@ -138,9 +138,10 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		Command:               "/usr/local/bin/aptos",
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
-		OCRSigningStrategy:    "multi-chain",
+		OCRSigningStrategy:    "single-chain",
 		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
 		ChainSelectorEVM:      pkg.ChainSelector(input.OCRChainSelector),
+		ChainSelectorAptos:    pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
 	}
 

@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -187,13 +186,12 @@ func (s *Services) newSubservices(
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		orgResolver, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		s.OrgResolver = fallbackResolver
-		srvs = append(srvs, fallbackResolver)
+		s.OrgResolver = orgResolver
+		srvs = append(srvs, orgResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -503,7 +501,7 @@ func (w *dispatcherWrapper) newSubservices(
 	capCfg := cfg.Capabilities()
 
 	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
-		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
+		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		return nil, nil
 	}
 
@@ -546,17 +544,6 @@ func (w *dispatcherWrapper) newSubservices(
 	w.dispatcher = remoteDispatcher
 	subs = append(subs, remoteDispatcher)
 	return subs, nil
-}
-
-func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
-	registry := &capabilities.TestMetadataRegistry{}
-	if localCfg != nil && localCfg.GetCapabilityConfig(capStreams.MockTriggerCapabilityID) != nil {
-		// The mock streams trigger emits 2F+1 signatures, so the synthetic local
-		// workflow DON needs to advertise F=1 only for that opt-in compatibility path.
-		registry.WorkflowDONF = 1
-	}
-
-	return registry
 }
 
 // newDispatcherWrapper creates a new dispatcherWrapper service with peer wrappers if peering is enabled

@@ -73,7 +73,6 @@ on:
 
 jobs:
   compatibility:
-    name: Upgrade Compatibility Test
     permissions:
       id-token: write
       contents: read

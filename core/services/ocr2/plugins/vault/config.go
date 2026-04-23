@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 type DKGConfig struct {
@@ -14,7 +13,6 @@ type DKGConfig struct {
 type Config struct {
 	RequestExpiryDuration commonconfig.Duration `json:"requestExpiryDuration"`
 	DKG                   *DKGConfig            `json:"dkg,omitempty"`
-	Auth0                 *vaultcap.Auth0Config `json:"auth0,omitempty"`
 }
 
 func (c *Config) Validate() error {
