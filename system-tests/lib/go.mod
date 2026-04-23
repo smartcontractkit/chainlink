@@ -13,6 +13,7 @@ require (
 	github.com/alitto/pond/v2 v2.5.0
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aptos-labs/aptos-go-sdk v1.12.1
+	github.com/avast/retry-go/v5 v5.0.0
 	github.com/cockroachdb/errors v1.11.3
 	github.com/cosmos/gogoproto v1.7.0
 	github.com/docker/docker v28.5.3-0.20260325154711-31a1689cb0a1+incompatible

@@ -1,16 +1,8 @@
 package environment
 
 import (
-	"bytes"
 	"context"
-	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
-	"math/big"
-	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -18,82 +10,23 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	retry "github.com/avast/retry-go/v4"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
-	"gopkg.in/yaml.v3"
 
-	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
-	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 const (
 	DefaultWorkflowOwnerAddress = "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
-
-	// vaultConfigStaticPropagationWait is used when node DB info is not available
-	// (e.g. Kubernetes provider or missing state file) and we cannot actively poll
-	// for registry syncer propagation.
-	vaultConfigStaticPropagationWait = 15 * time.Second
-
-	// latestRegistrySyncStateQuery retrieves the most recent capabilities registry snapshot stored by the syncer.
-	latestRegistrySyncStateQuery = `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`
 )
-
-// vaultSecretsConfig defines the structure of the vault secrets YAML file.
-type vaultSecretsConfig struct {
-	Secrets []vaultSecretEntry `yaml:"secrets"`
-}
-
-// vaultSecretEntry represents a single secret to be stored in the vault.
-type vaultSecretEntry struct {
-	Key       string `yaml:"key"`       // Vault key identifier
-	EnvVar    string `yaml:"envVar"`    // Name of the env var containing the secret value
-	Namespace string `yaml:"namespace"` // Vault namespace (defaults to "main" if empty)
-}
-
-// secretsNamesConfig is the secrets YAML format used by CRE:
-//
-//	secretsNames:
-//	  SECRET_KEY:
-//	    - ENV_VAR_NAME
-type secretsNamesConfig struct {
-	SecretsNames map[string][]string `yaml:"secretsNames"`
-}
-
-// vaultSyncStateDONCapConfig mirrors the JSON shape of registrysyncer.CapabilityConfiguration.
-type vaultSyncStateDONCapConfig struct {
-	Config []byte `json:"Config"`
-}
-
-// vaultSyncStateDON mirrors the JSON shape of registrysyncer.DON (CapabilityConfigurations only).
-type vaultSyncStateDON struct {
-	CapabilityConfigurations map[string]vaultSyncStateDONCapConfig `json:"CapabilityConfigurations"`
-}
-
-// vaultSyncStatePayload is a partial deserialisation of the registry_syncer_states.data JSON blob.
-type vaultSyncStatePayload struct {
-	IDsToDONs map[string]vaultSyncStateDON `json:"IDsToDONs"`
-}
 
 func workflowCmds() *cobra.Command {
 	workflowCmd := &cobra.Command{
@@ -209,7 +142,7 @@ func deployWorkflowCmd() *cobra.Command {
 			}()
 
 			if !compileWorkflowFlag {
-				if err := isBase64File(workflowFilePathFlag); err != nil {
+				if err := creworkflow.IsBase64File(workflowFilePathFlag); err != nil {
 					return errors.Wrap(err, "❌ invalid WASM workflow file. Please make sure you're passing a base64-encoded and compiled workflow WASM file. If you want to compile and deploy a workflow, add '--compile' flag to the command instead")
 				}
 			}
@@ -468,7 +401,7 @@ func deployWorkflow(
 
 		fmt.Printf("\n⚙️ Fetching vault public key from gateway\n")
 
-		vaultPublicKey, vpkErr := fetchVaultPublicKey(ctx, gatewayURL)
+		vaultPublicKey, vpkErr := creworkflow.FetchVaultPublicKey(ctx, gatewayURL)
 		if vpkErr != nil {
 			return errors.Wrap(vpkErr, "❌ failed to fetch vault public key from gateway")
 		}
@@ -477,21 +410,21 @@ func deployWorkflow(
 
 		fmt.Printf("\n⚙️ Checking vault capability config in capabilities registry\n")
 
-		vaultDON, existingVaultCfg, getErr := getVaultCapabilityDON(ctx, sethClient, capabilitiesRegistryAddress)
+		vaultDON, existingVaultCfg, getErr := cre.GetVaultCapabilityDON(ctx, sethClient, capabilitiesRegistryAddress)
 		if getErr != nil {
 			return errors.Wrap(getErr, "❌ failed to get vault capability config from capabilities registry")
 		}
 
-		if !vaultConfigHasPublicKey(existingVaultCfg, vaultPublicKey) {
+		if !creworkflow.VaultConfigHasPublicKey(existingVaultCfg, vaultPublicKey) {
 			fmt.Printf("\n⚙️ Updating vault capability config in capabilities registry\n")
 
-			if updateErr := updateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey, 1); updateErr != nil {
+			if updateErr := creworkflow.UpdateVaultCapabilityConfig(ctx, sethClient, capabilitiesRegistryAddress, vaultDON, vaultPublicKey, 1); updateErr != nil {
 				return errors.Wrap(updateErr, "❌ failed to update vault capability config in capabilities registry")
 			}
 
 			fmt.Printf("\n✅ Vault capability config updated\n")
 			fmt.Printf("\n⚙️ Waiting for registry syncer to propagate vault config change\n")
-			if waitErr := waitForVaultConfigPropagation(ctx, nodeDBPort, nodeCount); waitErr != nil {
+			if waitErr := creworkflow.WaitForVaultConfigPropagation(ctx, nodeDBPort, nodeCount); waitErr != nil {
 				return errors.Wrap(waitErr, "❌ failed while waiting for vault config propagation")
 			}
 		} else {
@@ -501,7 +434,7 @@ func deployWorkflow(
 		fmt.Printf("\n⚙️ Encrypting workflow secrets for vault\n")
 
 		ownerAddr := common.HexToAddress(workflowOwnerAddressFlag)
-		encryptedPath, prepErr := prepareVaultSecrets(secretsFilePathFlag, vaultPublicKey, ownerAddr, secretsOutputFilePathFlag)
+		encryptedPath, prepErr := creworkflow.PrepareSecrets(secretsFilePathFlag, vaultPublicKey, ownerAddr, secretsOutputFilePathFlag)
 		if prepErr != nil {
 			return errors.Wrap(prepErr, "❌ failed to prepare vault secrets")
 		}
@@ -551,7 +484,7 @@ func deployWorkflow(
 			_ = os.Remove(encryptedSecretsJSONPath)
 		}()
 
-		execErr := executeVaultSecrets(ctx, encryptedSecretsJSONPath, gatewayURL, sethClient, common.HexToAddress(workflowRegistryAddress))
+		execErr := creworkflow.ExecuteSecrets(ctx, encryptedSecretsJSONPath, gatewayURL, sethClient, common.HexToAddress(workflowRegistryAddress))
 		if execErr != nil {
 			return errors.Wrap(execErr, "❌ failed to send secrets to vault gateway")
 		}
@@ -575,604 +508,6 @@ func compileCopyAndRegisterWorkflow(ctx context.Context, workflowFilePathFlag, w
 	nodeDBPort, nodeCount := resolveWorkflowDONNodeInfo(resolver)
 
 	return deployWorkflow(ctx, compressedWorkflowWasmPath, workflowNameFlag, workflowOwnerAddressFlag, workflowRegistryAddress, capabilitiesRegistryAddress, containerNamePatternFlag, containerTargetDirFlag, configFilePathFlag, secretsFilePathFlag, secretsOutputFilePathFlag, rpcURLFlag, gatewayURL, workflowRegistryVersion, capabilitiesRegistryVersion, donIDFlag, true, nodeDBPort, nodeCount)
-}
-
-// getVaultCapabilityDON returns the DON that has the vault capability registered,
-// along with the current decoded CapabilityConfig for the vault entry.
-func getVaultCapabilityDON(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, *capabilitiespb.CapabilityConfig, error) {
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
-	)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to create capabilities registry wrapper")
-	}
-
-	const pageSize int64 = 100
-
-	var (
-		targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
-		targetCC  capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
-	)
-	for start := int64(0); targetDON == nil; start += pageSize {
-		donsPage, getErr := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(start), big.NewInt(pageSize))
-		if getErr != nil {
-			return nil, nil, errors.Wrap(getErr, "failed to get DONs from capabilities registry")
-		}
-
-		for i := range donsPage {
-			for _, cc := range donsPage[i].CapabilityConfigurations {
-				if cc.CapabilityId == vault_helpers.CapabilityID {
-					don := donsPage[i]
-					targetDON = &don
-					targetCC = cc
-					break
-				}
-			}
-			if targetDON != nil {
-				break
-			}
-		}
-
-		if len(donsPage) < int(pageSize) {
-			break
-		}
-	}
-	if targetDON == nil {
-		return nil, nil, fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
-	}
-
-	existingCfg := &capabilitiespb.CapabilityConfig{}
-	if len(targetCC.Config) > 0 {
-		if unmarshalErr := proto.Unmarshal(targetCC.Config, existingCfg); unmarshalErr != nil {
-			return nil, nil, errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
-		}
-	}
-
-	return targetDON, existingCfg, nil
-}
-
-// vaultConfigHasPublicKey reports whether cfg.DefaultConfig already contains a
-// VaultPublicKey field whose value equals publicKey. It is used to decide whether
-// an update to the capabilities registry is necessary.
-func vaultConfigHasPublicKey(cfg *capabilitiespb.CapabilityConfig, publicKey string) bool {
-	if cfg == nil || cfg.DefaultConfig == nil {
-		return false
-	}
-	existing, err := chainlinkvalues.FromMapValueProto(cfg.DefaultConfig)
-	if err != nil {
-		return false
-	}
-	v, ok := existing.Underlying["VaultPublicKey"]
-	if !ok || v == nil {
-		return false
-	}
-	val, err := v.Unwrap()
-	if err != nil {
-		return false
-	}
-	str, ok := val.(string)
-	return ok && str == publicKey
-}
-
-// updateVaultCapabilityConfig merges the provided vaultPublicKey and threshold into the
-// vault capability's DefaultConfig in the capabilities registry for the given DON,
-// preserving any pre-existing fields. This is required so that workflow nodes can
-// unwrap the capability config when calling runtime.GetSecret().
-func updateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string, don *capabilities_registry_v2.CapabilitiesRegistryDONInfo, vaultPublicKey string, threshold int) error {
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to create capabilities registry wrapper")
-	}
-
-	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(don.CapabilityConfigurations))
-	for _, cc := range don.CapabilityConfigurations {
-		if cc.CapabilityId == vault_helpers.CapabilityID {
-			existingCfg := &capabilitiespb.CapabilityConfig{}
-			if len(cc.Config) > 0 {
-				if unmarshalErr := proto.Unmarshal(cc.Config, existingCfg); unmarshalErr != nil {
-					return errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
-				}
-			}
-
-			base := chainlinkvalues.EmptyMap()
-			if existingCfg.DefaultConfig != nil {
-				base, err = chainlinkvalues.FromMapValueProto(existingCfg.DefaultConfig)
-				if err != nil {
-					return errors.Wrap(err, "failed to convert existing vault capability config")
-				}
-			}
-			newValues, wrapErr := chainlinkvalues.WrapMap(map[string]any{
-				"VaultPublicKey": vaultPublicKey,
-				"Threshold":      threshold,
-			})
-			if wrapErr != nil {
-				return errors.Wrap(wrapErr, "failed to wrap vault capability config values")
-			}
-			for k, v := range newValues.Underlying {
-				base.Underlying[k] = v
-			}
-			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(base)
-
-			configBytes, marshalErr := proto.Marshal(existingCfg)
-			if marshalErr != nil {
-				return errors.Wrap(marshalErr, "failed to marshal updated vault capability config")
-			}
-
-			cc.Config = configBytes
-		}
-		newConfigs = append(newConfigs, cc)
-	}
-
-	updateParams := capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-		Name:                     don.Name,
-		Config:                   don.Config,
-		CapabilityConfigurations: newConfigs,
-		Nodes:                    don.NodeP2PIds,
-		F:                        don.F,
-		IsPublic:                 don.IsPublic,
-	}
-
-	_, updateErr := sethClient.Decode(capReg.UpdateDONByName(sethClient.NewTXOpts(), don.Name, updateParams))
-	return errors.Wrap(updateErr, "UpdateDONByName tx failed")
-}
-
-// sendToVaultGateway sends an HTTP POST request to the vault gateway and returns the status code and body.
-func sendToVaultGateway(ctx context.Context, gatewayURL string, requestBody []byte) (statusCode int, respBody []byte, respErr error) {
-	respErr = retry.Do(
-		func() error {
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, bytes.NewReader(requestBody))
-			if err != nil {
-				return errors.Wrap(err, "failed to build vault gateway request")
-			}
-
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Accept", "application/json")
-
-			resp, err := http.DefaultClient.Do(req)
-			if err != nil {
-				return errors.Wrap(err, "vault gateway HTTP request failed")
-			}
-			defer resp.Body.Close()
-
-			respBody, err = io.ReadAll(resp.Body)
-			if err != nil {
-				return errors.Wrap(err, "failed to read vault gateway response body")
-			}
-			statusCode = resp.StatusCode
-
-			if !isGatewayNotAllowlistedError(respBody) {
-				return nil
-			}
-
-			return fmt.Errorf("vault gateway request not allowlisted yet (status %d): %s", statusCode, string(respBody))
-		},
-		retry.Context(ctx),
-		retry.Delay(500*time.Millisecond),
-		retry.Attempts(5),
-		retry.DelayType(retry.BackOffDelay),
-	)
-
-	return statusCode, respBody, respErr
-}
-
-// isGatewayNotAllowlistedError checks whether the response is a gateway-level
-// "request not allowlisted" rejection (method is empty, error code -32600).
-// Node-level rejections (method is set, code -32603) have a different format
-// and must not be retried because the gateway has already consumed the request.
-func isGatewayNotAllowlistedError(body []byte) bool {
-	var resp struct {
-		Method string `json:"method"`
-		Error  *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(body, &resp) != nil {
-		return false
-	}
-	return resp.Method == "" && resp.Error != nil &&
-		strings.Contains(resp.Error.Message, "request not allowlisted")
-}
-
-// fetchVaultPublicKey polls the vault gateway until it returns a public key.
-func fetchVaultPublicKey(ctx context.Context, gatewayURL string) (string, error) {
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uuid.New().String(),
-		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vault_helpers.GetPublicKeyRequest{},
-	}
-
-	reqBody, err := json.Marshal(getPublicKeyRequest)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal public key request")
-	}
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-	timeout := time.After(2 * time.Minute)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return "", ctx.Err()
-		case <-timeout:
-			return "", errors.New("timed out waiting for vault public key from gateway")
-		case <-ticker.C:
-			statusCode, respBody, sendErr := sendToVaultGateway(ctx, gatewayURL, reqBody)
-			if sendErr != nil || statusCode != http.StatusOK || respBody == nil {
-				continue
-			}
-
-			var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
-			if jsonErr := json.Unmarshal(respBody, &jsonResponse); jsonErr != nil {
-				continue
-			}
-
-			if jsonResponse.Result.PublicKey != "" {
-				return jsonResponse.Result.PublicKey, nil
-			}
-		}
-	}
-}
-
-// prepareVaultSecrets reads the vault secrets YAML file, encrypts each secret using the vault
-// public key, and writes the encrypted secrets list to a JSON file. The JSON file path is returned.
-//
-// Two YAML formats are accepted:
-//
-// Format 1 (explicit):
-//
-//	secrets:
-//	  - key: "my-secret"
-//	    envVar: "MY_SECRET_ENV_VAR"
-//	    namespace: "main"   # optional, defaults to "main"
-//
-// Format 2 (secretsNames, shared with other CRE tools):
-//
-//	secretsNames:
-//	  SECRET_KEY:
-//	    - ENV_VAR_NAME
-func prepareVaultSecrets(secretsFilePath, vaultPublicKey string, ownerAddress common.Address, outputFilePath string) (string, error) {
-	data, err := os.ReadFile(secretsFilePath)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to read secrets file")
-	}
-
-	var cfg vaultSecretsConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return "", errors.Wrap(err, "failed to parse secrets YAML file")
-	}
-
-	if len(cfg.Secrets) == 0 {
-		// Try the alternative secretsNames format.
-		var altCfg secretsNamesConfig
-		if altErr := yaml.Unmarshal(data, &altCfg); altErr == nil {
-			for key, envVars := range altCfg.SecretsNames {
-				if len(envVars) == 0 {
-					continue
-				}
-				cfg.Secrets = append(cfg.Secrets, vaultSecretEntry{
-					Key:    key,
-					EnvVar: envVars[0],
-				})
-			}
-		}
-	}
-
-	if len(cfg.Secrets) == 0 {
-		return "", errors.New("no secrets found in secrets file")
-	}
-
-	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(cfg.Secrets))
-	for _, entry := range cfg.Secrets {
-		value := os.Getenv(entry.EnvVar)
-		if value == "" {
-			return "", fmt.Errorf("environment variable %q is not set for secret key %q", entry.EnvVar, entry.Key)
-		}
-
-		namespace := entry.Namespace
-		if namespace == "" {
-			namespace = "main"
-		}
-
-		encryptedValue, encErr := crevault.EncryptSecret(value, vaultPublicKey, ownerAddress)
-		if encErr != nil {
-			return "", errors.Wrapf(encErr, "failed to encrypt secret %q", entry.Key)
-		}
-
-		encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
-			Id: &vault_helpers.SecretIdentifier{
-				Key:       entry.Key,
-				Owner:     ownerAddress.Hex(),
-				Namespace: namespace,
-			},
-			EncryptedValue: encryptedValue,
-		})
-	}
-
-	if outputFilePath == "" {
-		outputFilePath = "./vault_secrets.json"
-	}
-
-	absPath, absErr := filepath.Abs(outputFilePath)
-	if absErr != nil {
-		return "", errors.Wrap(absErr, "failed to resolve absolute path for secrets output file")
-	}
-
-	jsonData, marshalErr := json.Marshal(encryptedSecrets)
-	if marshalErr != nil {
-		return "", errors.Wrap(marshalErr, "failed to marshal encrypted secrets to JSON")
-	}
-
-	if writeErr := os.WriteFile(absPath, jsonData, 0600); writeErr != nil {
-		return "", errors.Wrap(writeErr, "failed to write encrypted secrets file")
-	}
-
-	return absPath, nil
-}
-
-// executeVaultSecrets reads the encrypted secrets JSON file produced by prepareVaultSecrets,
-// allowlists the vault request in the workflow registry, and sends the secrets to the vault gateway.
-func executeVaultSecrets(ctx context.Context, encryptedSecretsJSONPath, gatewayURL string, sethClient *seth.Client, workflowRegistryAddress common.Address) error {
-	data, err := os.ReadFile(encryptedSecretsJSONPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to read encrypted secrets file")
-	}
-
-	var encryptedSecrets []*vault_helpers.EncryptedSecret
-	if err = json.Unmarshal(data, &encryptedSecrets); err != nil {
-		return errors.Wrap(err, "failed to unmarshal encrypted secrets")
-	}
-
-	uniqueRequestID := uuid.New().String()
-	createSecretsRequest := vault_helpers.CreateSecretsRequest{
-		RequestId:        uniqueRequestID,
-		EncryptedSecrets: encryptedSecrets,
-	}
-
-	requestBody, err := json.Marshal(&createSecretsRequest)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal create secrets request")
-	}
-	requestBodyJSON := json.RawMessage(requestBody)
-
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsCreate,
-		Params:  &requestBodyJSON,
-	}
-
-	requestDigest, err := jsonRequest.Digest()
-	if err != nil {
-		return errors.Wrap(err, "failed to compute request digest")
-	}
-
-	requestDigestBytes, err := hex.DecodeString(requestDigest)
-	if err != nil {
-		return errors.Wrap(err, "failed to decode request digest hex")
-	}
-	if len(requestDigestBytes) != 32 {
-		return errors.Errorf("invalid request digest length: got %d bytes, want 32", len(requestDigestBytes))
-	}
-
-	var reqDigestBytes [32]byte
-	copy(reqDigestBytes[:], requestDigestBytes)
-
-	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(workflowRegistryAddress, sethClient.Client)
-	if err != nil {
-		return errors.Wrap(err, "failed to instantiate workflow registry v2 wrapper")
-	}
-
-	expiry := uint32(time.Now().Add(time.Hour).Unix()) //nolint:gosec // G115: timestamp fits uint32 until year 2106
-	_, decErr := sethClient.Decode(wfReg.AllowlistRequest(sethClient.NewTXOpts(), reqDigestBytes, expiry))
-	if decErr != nil {
-		return errors.Wrap(decErr, "failed to allowlist vault request in workflow registry")
-	}
-
-	fmt.Printf("\n✅ Vault request allowlisted in workflow registry\n")
-
-	reqBody, err := json.Marshal(jsonRequest)
-	if err != nil {
-		return errors.Wrap(err, "failed to marshal JSON-RPC request")
-	}
-
-	statusCode, respBody, sendErr := sendToVaultGateway(ctx, gatewayURL, reqBody)
-	if sendErr != nil {
-		return errors.Wrap(sendErr, "failed to send request to vault gateway")
-	}
-	if statusCode != http.StatusOK {
-		return fmt.Errorf("vault gateway responded with status %d: %s", statusCode, string(respBody))
-	}
-
-	var jsonResponse jsonrpc.Response[json.RawMessage]
-	if err := json.Unmarshal(respBody, &jsonResponse); err != nil {
-		return errors.Wrap(err, "failed to unmarshal vault gateway response")
-	}
-
-	if jsonResponse.Error != nil && jsonResponse.Error.Error() != "" {
-		return fmt.Errorf("vault gateway returned error: %s", jsonResponse.Error.Error())
-	}
-
-	return nil
-}
-
-func isBase64File(filename string) error {
-	fileInfo, fErr := os.Stat(filename)
-	if fErr != nil {
-		return errors.Wrap(fErr, "failed to get file info")
-	}
-
-	readSize := min(fileInfo.Size(), 4*1024*1024) // 4MB
-
-	file, oErr := os.Open(filename)
-	if oErr != nil {
-		return errors.Wrap(oErr, "failed to open file")
-	}
-	defer file.Close()
-
-	buffer := make([]byte, readSize)
-	n, rErr := file.Read(buffer)
-	if rErr != nil && rErr != io.EOF {
-		return errors.Wrap(rErr, "failed to read file")
-	}
-
-	if !isBase64Content(string(buffer[:n])) {
-		return fmt.Errorf("❌ file %s is not a base64-encoded file", filename)
-	}
-
-	return nil
-}
-
-func isBase64Content(content string) bool {
-	// Remove whitespace and newlines, just to be safe
-	content = strings.ReplaceAll(content, "\n", "")
-	content = strings.ReplaceAll(content, "\r", "")
-	content = strings.ReplaceAll(content, " ", "")
-	content = strings.ReplaceAll(content, "\t", "")
-
-	if len(content) == 0 {
-		return false
-	}
-
-	_, err := base64.StdEncoding.DecodeString(content)
-	return err == nil
-}
-
-// waitForVaultConfigPropagation waits until every workflow node's local registry snapshot
-// (registry_syncer_states) shows a non-nil DefaultConfig for the vault capability.
-//
-// It connects directly to each node's PostgreSQL database using the shared postgres server
-// exposed at dbPort, with one database per node named db_0 … db_{nodeCount-1}.
-//
-// If dbPort or nodeCount is 0 (e.g. Kubernetes provider or missing state file), the function
-// falls back to a static wait of vaultConfigStaticPropagationWait.
-func waitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) error {
-	if dbPort == 0 || nodeCount == 0 {
-		fmt.Printf("\n⚙️ Node DB info unavailable; waiting %s for vault config propagation\n", vaultConfigStaticPropagationWait)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(vaultConfigStaticPropagationWait):
-			return nil
-		}
-	}
-
-	fmt.Printf("\n⚙️ Polling %d workflow node(s) on db port %d for vault capability config propagation\n", nodeCount, dbPort)
-
-	const pollInterval = 2 * time.Second
-	const pollTimeout = 2 * time.Minute
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, pollTimeout)
-	defer cancel()
-
-	pending := make(map[int]struct{}, nodeCount)
-	for i := 0; i < nodeCount; i++ {
-		pending[i] = struct{}{}
-	}
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	for {
-		type checkResult struct {
-			index int
-			ready bool
-			msg   string
-		}
-
-		results := make(chan checkResult, len(pending))
-		eg, tickCtx := errgroup.WithContext(timeoutCtx)
-
-		for nodeIndex := range pending {
-			// capture for goroutine
-			eg.Go(func() error {
-				ready, msg := hasVaultCapabilityConfigOnNode(tickCtx, dbPort, nodeIndex)
-				results <- checkResult{index: nodeIndex, ready: ready, msg: msg}
-				return nil
-			})
-		}
-
-		if err := eg.Wait(); err != nil {
-			close(results)
-			return err
-		}
-		close(results)
-
-		for r := range results {
-			if r.ready {
-				delete(pending, r.index)
-				fmt.Printf("  ✅ node db_%d: vault config propagated\n", r.index)
-			} else {
-				fmt.Printf("  ⏳ node db_%d: %s\n", r.index, r.msg)
-			}
-		}
-
-		if len(pending) == 0 {
-			return nil
-		}
-
-		select {
-		case <-timeoutCtx.Done():
-			remaining := make([]int, 0, len(pending))
-			for i := range pending {
-				remaining = append(remaining, i)
-			}
-			return fmt.Errorf("timed out after %.0fs waiting for vault config propagation on nodes: %v", pollTimeout.Seconds(), remaining)
-		case <-ticker.C:
-		}
-	}
-}
-
-// hasVaultCapabilityConfigOnNode queries db_{nodeIndex} at dbPort and returns true when the latest
-// registry_syncer_states row contains a non-nil DefaultConfig for the vault capability.
-func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) (bool, string) {
-	dsn := fmt.Sprintf(
-		"host=127.0.0.1 port=%d user=%s password=%s dbname=db_%d sslmode=disable connect_timeout=3",
-		dbPort, postgres.User, postgres.Password, nodeIndex,
-	)
-
-	db, err := sqlx.Open("postgres", dsn)
-	if err != nil {
-		return false, fmt.Sprintf("failed to open DB: %v", err)
-	}
-	defer db.Close()
-
-	queryCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-
-	var rawData []byte
-	if err = db.GetContext(queryCtx, &rawData, latestRegistrySyncStateQuery); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return false, "registry_syncer_states is empty"
-		}
-		return false, fmt.Sprintf("query failed: %v", err)
-	}
-
-	var state vaultSyncStatePayload
-	if err = json.Unmarshal(rawData, &state); err != nil {
-		return false, fmt.Sprintf("failed to unmarshal registry syncer state: %v", err)
-	}
-
-	for _, don := range state.IDsToDONs {
-		capCfgEntry, ok := don.CapabilityConfigurations[vault_helpers.CapabilityID]
-		if !ok || len(capCfgEntry.Config) == 0 {
-			continue
-		}
-
-		capCfg := &capabilitiespb.CapabilityConfig{}
-		if unmarshalErr := proto.Unmarshal(capCfgEntry.Config, capCfg); unmarshalErr != nil {
-			return false, fmt.Sprintf("failed to unmarshal vault capability config protobuf: %v", unmarshalErr)
-		}
-
-		if capCfg.DefaultConfig != nil {
-			return true, ""
-		}
-	}
-
-	return false, fmt.Sprintf("vault capability %s DefaultConfig not yet set in any DON snapshot", vault_helpers.CapabilityID)
 }
 
 // newSethClient creates a Seth client for rpcURL, ensuring PRIVATE_KEY is set in the
