@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"golang.org/x/sync/errgroup"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -91,7 +92,7 @@ import (
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
-	state.MCMSWithTimelockState
+	evmstate.MCMSWithTimelockState
 	state.LinkTokenState
 	state.StaticLinkTokenState
 	ABIByAddress       map[string]string

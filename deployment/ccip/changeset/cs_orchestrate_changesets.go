@@ -6,11 +6,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -68,7 +69,7 @@ type OrchestrateChangesetsConfig struct {
 	ChangeSets                []WithConfig
 }
 
-func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s stateview.CCIPOnChainState) (map[uint64]state.MCMSWithTimelockState, error) {
+func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s stateview.CCIPOnChainState) (map[uint64]evmstate.MCMSWithTimelockState, error) {
 	if c.MCMSOverridesForEVMChains == nil {
 		return s.EVMMCMSStateByChain(), nil
 	}
@@ -100,7 +101,7 @@ func (c OrchestrateChangesetsConfig) EVMMCMSStateByChain(e cldf.Environment, s s
 				return nil, fmt.Errorf("failed to create ManyChainMultiSig for ProposerMcm on chain %s: %w", chain, err)
 			}
 		}
-		evmState[chainSelector] = state.MCMSWithTimelockState{
+		evmState[chainSelector] = evmstate.MCMSWithTimelockState{
 			CancellerMcm: cancellerMcm,
 			BypasserMcm:  bypasserMcm,
 			ProposerMcm:  proposerMcm,

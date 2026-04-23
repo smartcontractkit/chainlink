@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	xerrgroup "golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -124,8 +125,8 @@ func DeployMCMSWithTimelockV2(
 				// load mcms state with qualifier awareness
 				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateWithQualifier
 				// due to one of the chain not found
-				var chainstate *state.MCMSWithTimelockState
-				s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
+				var chainstate *evmstate.MCMSWithTimelockState
+				s, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
 				if err != nil {
 					// if the state is not found for chain, we assume it's a fresh deployment
 					// this includes "no addresses found" which is expected for new qualifiers
