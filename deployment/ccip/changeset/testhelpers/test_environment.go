@@ -73,6 +73,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
@@ -1213,7 +1214,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := tontestutils.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "054376f21418" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-054376f21418
+		contractVersion := "acf49a1f2022" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-054376f21418
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version
