@@ -66,7 +66,6 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
-	initErr                 error
 
 	isNewlyCreatedJob bool
 }
@@ -100,11 +99,6 @@ func NewDelegate(
 	localCfg coreconfig.LocalCapabilities,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
-	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
-	if initErr != nil {
-		logger.Errorw("Failed to register optional mock streams trigger", "err", initErr)
-	}
-
 	return &Delegate{
 		logger:                  logger,
 		ds:                      ds,
@@ -125,7 +119,6 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
-		initErr:                 initErr,
 		selectorOpts:            opts,
 	}
 }
@@ -140,10 +133,6 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	command := spec.StandardCapabilitiesSpec.Command
 	configJSON := spec.StandardCapabilitiesSpec.Config
 
@@ -170,10 +159,6 @@ func (d *Delegate) NewServices(
 	externalJobID uuid.UUID,
 	oracleFactoryConfig job.OracleFactoryConfig,
 ) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
 	kvStore := job.NewKVStore(jobID, d.ds)

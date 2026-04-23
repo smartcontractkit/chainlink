@@ -10,7 +10,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	aptoscappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/aptos"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -134,20 +133,6 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 		}
-	case writeReportFamilyAptos:
-		var wrReq aptoscappb.WriteReportRequest
-		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
-			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
-		}
-		if wrReq.Report == nil {
-			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
-		}
-
-		wrReq.Report.Sigs = nil // exclude signatures from hash
-		payload, err = anypb.New(&wrReq)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
-		}
 	default:
 		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
 	}
@@ -166,7 +151,6 @@ type writeReportFamily string
 var (
 	writeReportFamilyEVM    writeReportFamily = "evm"
 	writeReportFamilySolana writeReportFamily = "solana"
-	writeReportFamilyAptos  writeReportFamily = "aptos"
 )
 
 func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
@@ -180,11 +164,9 @@ func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
 		return writeReportFamilyEVM, nil
 	case "solana":
 		return writeReportFamilySolana, nil
-	case "aptos":
-		return writeReportFamilyAptos, nil
 	}
 
-	return "", errors.New("report family is unknown, available families: evm, solana, aptos")
+	return "", errors.New("report family is unknown, available families: evm, solana")
 }
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {

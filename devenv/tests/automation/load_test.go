@@ -77,6 +77,7 @@ func TestLoad(t *testing.T) {
 				},
 			},
 		)
+		t.Error("failed to scan Docker container logs:", scanErr)
 
 		if t.Failed() {
 			saveErr := framework.StreamCTFContainerLogsFanout(

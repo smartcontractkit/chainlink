@@ -27,7 +27,6 @@ var (
 	ErrMissingToken         = errors.New("missing JWT token")
 	ErrInvalidToken         = errors.New("invalid JWT token")
 	ErrMissingOrgID         = errors.New("missing org_id claim")
-	ErrMissingWorkflowOwner = errors.New("missing workflow_owner in authorization_details")
 	ErrMissingRequestDigest = errors.New("missing request_digest in authorization_details")
 	ErrJWKSFetchFailed      = errors.New("failed to fetch JWKS")
 	ErrJWKSKeyNotFound      = errors.New("signing key not found in JWKS")
@@ -37,12 +36,6 @@ const (
 	defaultJWKSRefreshInterval = 15 * time.Minute
 	defaultHTTPTimeout         = 5 * time.Second
 )
-
-// Auth0Config captures the Vault JWT issuer settings shared by gateway and node handlers.
-type Auth0Config struct {
-	IssuerURL string `json:"issuerURL" toml:"issuerURL" yaml:"issuerURL"`
-	Audience  string `json:"audience" toml:"audience" yaml:"audience"`
-}
 
 // JWTBasedAuthConfig holds the configuration for JWTBasedAuth validation.
 type JWTBasedAuthConfig struct {
@@ -56,7 +49,7 @@ type JWTBasedAuthConfig struct {
 // relevant to Vault request authorization.
 type JWTClaims struct {
 	OrgID         string
-	WorkflowOwner string // from authorization_details
+	WorkflowOwner string // from authorization_details; may be empty for new JWT-only clients
 	RequestDigest string // from authorization_details
 	ExpiresAt     time.Time
 }
@@ -91,6 +84,7 @@ type jwtBasedAuth struct {
 	jwksURL         string
 	refreshInterval time.Duration
 	authEnabledGate limits.GateLimiter
+	refreshEnabled  bool
 
 	mu            sync.RWMutex
 	keySet        *jsonWebKeySet
@@ -103,7 +97,8 @@ type jwtBasedAuth struct {
 }
 
 type jwtBasedAuthOptions struct {
-	authEnabledGate limits.GateLimiter
+	authEnabledGate  limits.GateLimiter
+	skipConfigChecks bool
 }
 
 // JWTBasedAuthOption customizes JWTBasedAuth construction without multiplying constructors.
@@ -113,6 +108,14 @@ type JWTBasedAuthOption func(*jwtBasedAuthOptions)
 func WithJWTBasedAuthGateLimiter(gateLimiter limits.GateLimiter) JWTBasedAuthOption {
 	return func(opts *jwtBasedAuthOptions) {
 		opts.authEnabledGate = gateLimiter
+	}
+}
+
+// WithDisabledJWTBasedAuth makes the constructed JWTBasedAuth fail closed without requiring issuer config.
+func WithDisabledJWTBasedAuth() JWTBasedAuthOption {
+	return func(opts *jwtBasedAuthOptions) {
+		opts.authEnabledGate = limits.NewGateLimiter(false)
+		opts.skipConfigChecks = true
 	}
 }
 
@@ -127,10 +130,10 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	if options.authEnabledGate == nil {
 		options.authEnabledGate = newVaultJWTAuthEnabledGateLimiter(limitsFactory, lggr)
 	}
-	if cfg.IssuerURL == "" {
+	if !options.skipConfigChecks && cfg.IssuerURL == "" {
 		return nil, errors.New("issuer URL is required")
 	}
-	if cfg.Audience == "" {
+	if !options.skipConfigChecks && cfg.Audience == "" {
 		return nil, errors.New("audience is required")
 	}
 
@@ -153,6 +156,7 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 		jwksURL:         jwksURL,
 		refreshInterval: refreshInterval,
 		authEnabledGate: options.authEnabledGate,
+		refreshEnabled:  !options.skipConfigChecks,
 		httpClient:      httpClient,
 		lggr:            logger.Named(lggr, "VaultJWTBasedAuth"),
 	}
@@ -176,6 +180,11 @@ func newVaultJWTAuthEnabledGateLimiter(limitsFactory limits.Factory, lggr logger
 }
 
 func (v *jwtBasedAuth) start(context.Context) error {
+	if !v.refreshEnabled {
+		v.lggr.Debug("JWTBasedAuth periodic JWKS refresh disabled")
+		return nil
+	}
+
 	v.eng.GoTick(services.NewTicker(v.refreshInterval), func(ctx context.Context) {
 		if err := v.refreshJWKS(ctx); err != nil {
 			v.lggr.Warnw("periodic JWKS refresh failed", "error", err)
@@ -200,21 +209,21 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, errors.New("JWTBasedAuth is disabled")
 	}
 
+	requestDigest, err := req.Digest()
+	if err != nil {
+		v.lggr.Debugw("JWTBasedAuth failed to compute request digest", "method", req.Method, "requestID", req.ID, "error", err)
+		return nil, fmt.Errorf("failed to compute request digest: %w", err)
+	}
+
 	claims, err := v.validateToken(ctx, req.Auth)
 	if err != nil {
 		v.lggr.Debugw("JWTBasedAuth token validation failed", "method", req.Method, "requestID", req.ID, "error", err)
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	requestDigest, err := req.Digest()
-	if err != nil {
-		v.lggr.Debugw("JWTBasedAuth failed to compute request digest", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "error", err)
-		return nil, fmt.Errorf("failed to compute request digest: %w", err)
-	}
-
 	if !strings.EqualFold(requestDigest, claims.RequestDigest) {
 		v.lggr.Debugw("JWTBasedAuth request digest mismatch", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "computedDigest", requestDigest, "claimedDigest", claims.RequestDigest)
-		return nil, fmt.Errorf("request digest mismatch: computed=%s claimed=%s", requestDigest, claims.RequestDigest)
+		return nil, errors.New("request digest mismatch")
 	}
 
 	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
@@ -324,9 +333,6 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 
 	if requestDigest == "" {
 		return "", "", ErrMissingRequestDigest
-	}
-	if workflowOwner == "" {
-		return "", "", ErrMissingWorkflowOwner
 	}
 
 	return workflowOwner, requestDigest, nil
