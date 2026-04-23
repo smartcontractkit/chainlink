@@ -12,7 +12,7 @@ on:
         type: string
         description: "Chainlink image tag to use."
       ecr:
-        required: true
+        required: false
         type: choice
         options:
           - "sdlc"
@@ -36,7 +36,7 @@ on:
         description: "Chainlink image tag to use."
       ecr:
         type: string
-        required: true
+        required: false
         default: "sdlc"
         description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
       chainlink_version:
