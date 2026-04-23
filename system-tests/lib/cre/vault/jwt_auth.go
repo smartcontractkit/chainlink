@@ -317,6 +317,7 @@ func SignTestJWT(privateKey *rsa.PrivateKey, claims JWTTokenClaims) (string, err
 		"iat":    jwt.NewNumericDate(claims.IssuedAt),
 		"exp":    jwt.NewNumericDate(claims.ExpiresAt),
 		"org_id": claims.OrgID,
+		"urn:chainlink:claim_vault_secret_management_enabled": "true",
 		"authorization_details": []map[string]string{
 			{
 				"type":  "request_digest",
