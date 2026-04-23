@@ -24,14 +24,14 @@ import (
 )
 
 var (
-	ErrMissingToken                        = errors.New("missing JWT token")
-	ErrInvalidToken                        = errors.New("invalid JWT token")
-	ErrMissingOrgID                        = errors.New("missing org_id claim")
-	ErrMissingWorkflowOwner                = errors.New("missing workflow_owner in authorization_details")
-	ErrMissingRequestDigest                = errors.New("missing request_digest in authorization_details")
-	ErrVaultSecretManagementNotEnabled     = errors.New("claim_vault_secret_management_enabled claim must be true")
-	ErrJWKSFetchFailed                     = errors.New("failed to fetch JWKS")
-	ErrJWKSKeyNotFound                     = errors.New("signing key not found in JWKS")
+	ErrMissingToken                    = errors.New("missing JWT token")
+	ErrInvalidToken                    = errors.New("invalid JWT token")
+	ErrMissingOrgID                    = errors.New("missing org_id claim")
+	ErrMissingWorkflowOwner            = errors.New("missing workflow_owner in authorization_details")
+	ErrMissingRequestDigest            = errors.New("missing request_digest in authorization_details")
+	ErrVaultSecretManagementNotEnabled = errors.New("claim_vault_secret_management_enabled claim must be true")
+	ErrJWKSFetchFailed                 = errors.New("failed to fetch JWKS")
+	ErrJWKSKeyNotFound                 = errors.New("signing key not found in JWKS")
 )
 
 const claimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_management_enabled"

@@ -219,6 +219,13 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	t.Run("jwt_rejected_when_workflow_owner_missing", func(t *testing.T) {
 		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "missing workflow_owner in authorization_details")
 	})
+
+	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, workflowOwner, gwURL,
+			map[string]any{"urn:chainlink:claim_vault_secret_management_enabled": "false"},
+			"claim_vault_secret_management_enabled claim must be true",
+		)
+	})
 }
 
 func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
