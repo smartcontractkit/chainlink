@@ -294,6 +294,9 @@ func startCmd() *cobra.Command {
 				if err := ensureChipRouterImageExists(cmdContext, in, setupConfig.ConfigPath); err != nil {
 					return err
 				}
+				if err := ensureVaultSupportServiceImagesExist(cmdContext, in, setupConfig.ConfigPath); err != nil {
+					return err
+				}
 
 				// This will not work with remote images that require authentication, but it will catch early most of the issues with missing env setup
 				if err := ensureDockerImagesExist(cmdContext, framework.L, in); err != nil {
@@ -844,6 +847,8 @@ func StartCLIEnvironment(
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
+		VaultJWTIssuerInput:     in.VaultJWTIssuer,
+		LinkingServiceInput:     in.LinkingService,
 		ContractVersions:        env.ContractVersions(),
 		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
@@ -963,6 +968,42 @@ func ensureChipRouterImageExists(ctx context.Context, in *envconfig.Config, setu
 	}
 
 	return nil
+}
+
+func ensureVaultSupportServiceImagesExist(ctx context.Context, in *envconfig.Config, setupConfigPath string) error {
+	if in == nil || (in.Infra != nil && in.Infra.IsKubernetes()) {
+		return nil
+	}
+
+	setupCfg, err := ReadSetupConfig(setupConfigPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to read setup config for Vault support service image validation")
+	}
+
+	requiredImages := make([]MissingImage, 0, 2)
+	if in.VaultJWTIssuer != nil {
+		if setupCfg.VaultJWTIssuer == nil {
+			return errors.New("vault_jwt_issuer configuration is missing from setup config")
+		}
+		requiredImages = append(requiredImages, newMissingImage("vault-jwt-issuer", ImageConfig{
+			BuildConfig: setupCfg.VaultJWTIssuer.BuildConfig,
+			PullConfig:  setupCfg.VaultJWTIssuer.PullConfig,
+		}.WithLocalImage(in.VaultJWTIssuer.Image)))
+	}
+	if in.LinkingService != nil {
+		if setupCfg.LinkingService == nil {
+			return errors.New("linking_service configuration is missing from setup config")
+		}
+		requiredImages = append(requiredImages, newMissingImage("linking-service", ImageConfig{
+			BuildConfig: setupCfg.LinkingService.BuildConfig,
+			PullConfig:  setupCfg.LinkingService.PullConfig,
+		}.WithLocalImage(in.LinkingService.Image)))
+	}
+	if len(requiredImages) == 0 {
+		return nil
+	}
+
+	return ensureManagedImagesExist(ctx, setupCfg.General.AWSProfile, requiredImages)
 }
 
 func hasBuiltDockerImage(in *envconfig.Config) bool {

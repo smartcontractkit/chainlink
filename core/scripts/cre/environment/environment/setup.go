@@ -61,6 +61,8 @@ type SetupConfigFile struct {
 	General        GeneralConfig         `toml:"general"`
 	JobDistributor JobDistributorConfig  `toml:"job_distributor"`
 	ChipRouter     *ChipRouterConfig     `toml:"chip_router"`
+	VaultJWTIssuer *VaultJWTIssuerConfig `toml:"vault_jwt_issuer"`
+	LinkingService *LinkingServiceConfig `toml:"linking_service"`
 	ChipIngress    *ChipIngressConfig    `toml:"chip_ingress"`
 	ChipConfig     *ChipConfigConfig     `toml:"chip_config"`
 	BillingService *BillingServiceConfig `toml:"billing_platform_service"`
@@ -81,6 +83,16 @@ type JobDistributorConfig struct {
 
 // ChipRouterConfig contains chip router image configuration
 type ChipRouterConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+type VaultJWTIssuerConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+type LinkingServiceConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -543,6 +555,40 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
 	}
 
+	var vaultJWTIssuerLocalImage string
+	if cfg.VaultJWTIssuer != nil {
+		vaultJWTIssuerConfig := ImageConfig{
+			BuildConfig: cfg.VaultJWTIssuer.BuildConfig,
+			PullConfig:  cfg.VaultJWTIssuer.PullConfig,
+		}
+
+		var err error
+		vaultJWTIssuerLocalImage, err = vaultJWTIssuerConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Vault JWT issuer image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Vault JWT issuer setup, because configuration is not provided in the config file")
+	}
+
+	var linkingServiceLocalImage string
+	if cfg.LinkingService != nil {
+		linkingServiceConfig := ImageConfig{
+			BuildConfig: cfg.LinkingService.BuildConfig,
+			PullConfig:  cfg.LinkingService.PullConfig,
+		}
+
+		var err error
+		linkingServiceLocalImage, err = linkingServiceConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Linking service image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Linking service setup, because configuration is not provided in the config file")
+	}
+
 	var chipIngressLocalImage string
 	if cfg.ChipIngress != nil {
 		chipConfig := ImageConfig{
@@ -618,6 +664,12 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
 	if chipRouterLocalImage != "" {
 		logger.Info().Msgf("   ✓ Chip Router image %s is available", chipRouterLocalImage)
+	}
+	if vaultJWTIssuerLocalImage != "" {
+		logger.Info().Msgf("   ✓ Vault JWT issuer image %s is available", vaultJWTIssuerLocalImage)
+	}
+	if linkingServiceLocalImage != "" {
+		logger.Info().Msgf("   ✓ Linking service image %s is available", linkingServiceLocalImage)
 	}
 	if chipIngressLocalImage != "" {
 		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipIngressLocalImage)

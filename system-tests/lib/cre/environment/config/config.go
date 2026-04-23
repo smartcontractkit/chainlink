@@ -23,7 +23,9 @@ import (
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+	ctfvaultjwtissuer "github.com/smartcontractkit/chainlink-testing-framework/framework/components/vaultjwtissuer"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -67,6 +69,8 @@ type Config struct {
 	Fake              *fake.Input                     `toml:"fake"`
 	FakeHTTP          *fake.Input                     `toml:"fake_http"`
 	ChipRouter        *ctfchiprouter.Input            `toml:"chip_router" validate:"required"`
+	VaultJWTIssuer    *ctfvaultjwtissuer.Input        `toml:"vault_jwt_issuer"`
+	LinkingService    *ctflinkingservice.Input        `toml:"linking_service"`
 	S3ProviderInput   *s3provider.Input               `toml:"s3provider"`
 	CapabilityConfigs map[string]cre.CapabilityConfig `toml:"capability_configs"` // capability flag -> capability config
 	Addresses         []string                        `toml:"addresses"`

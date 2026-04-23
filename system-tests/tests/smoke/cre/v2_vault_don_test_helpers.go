@@ -40,7 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -52,7 +52,6 @@ import (
 const (
 	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultJWTIssuerListenAddr      = "0.0.0.0:18123"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
@@ -170,8 +169,8 @@ func isGatewayNotAllowlistedError(body []byte) bool {
 
 type vaultScenarioFixture struct {
 	TestEnv        *ttypes.TestEnvironment
-	Issuer         *vault.TestJWTIssuer
-	LinkingService *vault.TestLinkingService
+	Issuer         *vaultTestJWTIssuer
+	LinkingService *vaultTestLinkingService
 	GatewayURL     *url.URL
 	VaultPublicKey string
 }
@@ -213,21 +212,19 @@ func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
 	t.Helper()
 
-	issuer, err := vault.NewTestJWTIssuerOnAddr(vaultJWTIssuerListenAddr)
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, issuer.Close())
-	})
-
-	linkingService, err := vault.EnsureSharedTestLinkingServiceStarted()
-	require.NoError(t, err)
-
 	var testEnv *ttypes.TestEnvironment
 	if usePerTestKeys {
 		testEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, baseConfig)
 	} else {
 		testEnv = t_helpers.SetupTestEnvironmentWithConfig(t, baseConfig)
 	}
+
+	issuer, err := newVaultDockerizedTestJWTIssuer(
+		testEnv.Config.VaultJWTIssuer.Out.LocalHTTPURL,
+		testEnv.Config.VaultJWTIssuer.Out.DockerHTTPURL,
+	)
+	require.NoError(t, err)
+	linkingService := newVaultDockerizedTestLinkingService(testEnv.Config.LinkingService.Out)
 
 	ensureVaultDKGResultPackages(t, testEnv)
 	gatewayURL := mustVaultGatewayURL(t, testEnv)
@@ -258,7 +255,7 @@ func ensureVaultDKGResultPackages(t *testing.T, testEnv *ttypes.TestEnvironment)
 			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
 				for i, node := range nodeSet.NodeSpecs {
 					if !slices.Contains(node.Roles, cre.BootstrapNode) {
-						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
+						packageCount, err := crevault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
 						if err != nil || packageCount != 1 {
 							return false
 						}
@@ -300,7 +297,7 @@ func newAllowlistVaultRequestAuth(requestOwner string, sethClient *seth.Client, 
 	}
 }
 
-func newJWTVaultRequestAuth(issuer *vault.TestJWTIssuer, orgID, workflowOwner string) vaultRequestAuth {
+func newJWTVaultRequestAuth(issuer *vaultTestJWTIssuer, orgID, workflowOwner string) vaultRequestAuth {
 	return vaultRequestAuth{
 		requestOwner: orgID,
 		authorize: func(t *testing.T, req *jsonrpc.Request[json.RawMessage]) {
@@ -566,38 +563,37 @@ func executeVaultAllowListSecretsCreateTest(t *testing.T, encryptedSecret, secre
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *vault.TestJWTIssuer, encryptedSecret, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *vaultTestJWTIssuer, encryptedSecret, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, orgID, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsListTest(t *testing.T, issuer *vault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL, namespace string) {
+func executeVaultJWTSecretsListTest(t *testing.T, issuer *vaultTestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL, namespace string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsListWithAuth(t, auth, []string{secretID}, orgID, gatewayURL, namespace)
 }
 
-func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *vault.TestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *vaultTestJWTIssuer, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
 	auth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, orgID, gatewayURL, namespaces)
 }
 
-func mustMintVaultJWTForRequest(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string) string {
+func mustMintVaultJWTForRequest(t *testing.T, issuer *vaultTestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string) string {
 	t.Helper()
 
-	outboundReq := outboundRequestWithoutAuth(req)
-	requestDigest, err := outboundReq.Digest()
+	requestDigest, err := outboundVaultRequestDigest(req)
 	require.NoError(t, err, "failed to compute request digest")
 
-	token, err := issuer.MintToken(vault.JWTTokenClaims{
-		KeyID:         vault.DefaultJWTIssuerKeyID,
+	token, err := issuer.MintToken(vaultJWTTokenClaims{
+		KeyID:         defaultVaultJWTIssuerKeyID,
 		Issuer:        issuer.DockerIssuerURL(),
-		Audience:      vault.DefaultJWTAudience,
+		Audience:      defaultVaultJWTAudience,
 		OrgID:         orgID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
@@ -639,7 +635,7 @@ func outboundRequestWithoutAuth(req jsonrpc.Request[json.RawMessage]) jsonrpc.Re
 
 func executeVaultJWTSecretsCreateUnauthorizedTest(
 	t *testing.T,
-	issuer *vault.TestJWTIssuer,
+	issuer *vaultTestJWTIssuer,
 	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
 	expectedAuthError string,
 ) {

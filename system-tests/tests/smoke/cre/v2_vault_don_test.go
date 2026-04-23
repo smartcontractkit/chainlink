@@ -29,7 +29,6 @@ import (
 
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -300,11 +299,8 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 }
 
 func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
-	issuer, err := vault.NewTestJWTIssuer()
+	issuer, err := newLocalVaultTestJWTIssuer()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, issuer.Close())
-	})
 
 	params, err := json.Marshal(vault_helpers.CreateSecretsRequest{
 		RequestId: "req-1",

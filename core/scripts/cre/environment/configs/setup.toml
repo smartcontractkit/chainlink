@@ -26,6 +26,30 @@ local_image = "local-cre-chip-router:v1.0.1"
 local_image = "local-cre-chip-router:v1.0.1"
 ecr_image = "{{.SDLC_ECR}}/local-cre-chip-router:v1.0.1"
 
+[vault_jwt_issuer.build_config]
+repository = "https://github.com/smartcontractkit/chainlink-testing-framework"
+local_repo = "/Users/prashantyadav/cl-codex/chainlink-testing-framework"
+branch = "main"
+dockerfile = "framework/components/vaultjwtissuer/Dockerfile"
+docker_ctx = "."
+local_image = "local-cre-vault-jwt-issuer:latest"
+
+[vault_jwt_issuer.pull_config]
+local_image = "local-cre-vault-jwt-issuer:latest"
+ecr_image = "{{.SDLC_ECR}}/local-cre-vault-jwt-issuer:latest"
+
+[linking_service.build_config]
+repository = "https://github.com/smartcontractkit/chainlink-testing-framework"
+local_repo = "/Users/prashantyadav/cl-codex/chainlink-testing-framework"
+branch = "main"
+dockerfile = "framework/components/linkingservice/Dockerfile"
+docker_ctx = "."
+local_image = "local-cre-linking-service:latest"
+
+[linking_service.pull_config]
+local_image = "local-cre-linking-service:latest"
+ecr_image = "{{.SDLC_ECR}}/local-cre-linking-service:latest"
+
 [chip_ingress.build_config]
 repository = "https://github.com/smartcontractkit/atlas"
 branch = "master"

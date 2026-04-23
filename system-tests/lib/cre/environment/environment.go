@@ -23,7 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+	ctfvaultjwtissuer "github.com/smartcontractkit/chainlink-testing-framework/framework/components/vaultjwtissuer"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -56,6 +58,8 @@ type SetupInput struct {
 	NodeSets               []*cre.NodeSet
 	BlockchainsInput       []*blockchain.Input
 	ChipRouterInput        *ctfchiprouter.Input
+	VaultJWTIssuerInput    *ctfvaultjwtissuer.Input
+	LinkingServiceInput    *ctflinkingservice.Input
 	JdInput                *jd.Input
 	Provider               infra.Provider
 	ContractVersions       map[cre.ContractType]*semver.Version
@@ -116,6 +120,22 @@ func SetupTestEnvironment(
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
+	}
+
+	if input.VaultJWTIssuerInput != nil {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Vault JWT issuer")))
+		if _, err := ctfvaultjwtissuer.NewWithContext(ctx, input.VaultJWTIssuerInput); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to start Vault JWT issuer")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Vault JWT issuer started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
+	}
+
+	if input.LinkingServiceInput != nil {
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting linking service")))
+		if _, err := ctflinkingservice.NewWithContext(ctx, input.LinkingServiceInput); err != nil {
+			return nil, pkgerrors.Wrap(err, "failed to start linking service")
+		}
+		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Linking service started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Chip Router")))

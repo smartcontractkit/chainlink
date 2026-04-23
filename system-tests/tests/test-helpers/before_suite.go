@@ -28,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
+	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
+	ctfvaultjwtissuer "github.com/smartcontractkit/chainlink-testing-framework/framework/components/vaultjwtissuer"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -40,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -129,11 +130,17 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 	sharedEnvMu.Unlock()
 
 	entry.once.Do(func() {
-		_, err := crevault.EnsureSharedTestLinkingServiceStarted()
-		require.NoError(t, err, "failed to ensure linking service is running")
 		createEnvironment(t, tconf, flags...)
-		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
+		if _, err := ctfvaultjwtissuer.NewWithContext(t.Context(), in.VaultJWTIssuer); err != nil {
+			entry.err = fmt.Errorf("failed to ensure vault JWT issuer is running: %w", err)
+			return
+		}
+		if _, err := ctflinkingservice.NewWithContext(t.Context(), in.LinkingService); err != nil {
+			entry.err = fmt.Errorf("failed to ensure linking service is running: %w", err)
+			return
+		}
+		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 		if err != nil {
 			entry.err = err
