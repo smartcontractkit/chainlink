@@ -175,24 +175,36 @@ type SecretEntry struct {
 type Config struct {
 	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
+	Auth0             *vaultcap.Auth0Config       `json:"auth0,omitempty"`
 }
 
 // NewHandler creates the gateway-side Vault handler with internal auth wiring.
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+	var cfg Config
+	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
+	}
+
 	allowListBasedAuth := vaultcap.NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
-	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+	var jwtBasedAuth vaultcap.Authorizer
+	var jwtAuth services.Service
+	if cfg.Auth0 != nil {
+		validator, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
+			IssuerURL: cfg.Auth0.IssuerURL,
+			Audience:  cfg.Auth0.Audience,
+		}, limitsFactory, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		}
+		jwtBasedAuth = validator
+		jwtAuth = validator
 	}
 	authorizer := vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
-	return newHandlerWithJWTAuth(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtBasedAuth, lggr, clock, limitsFactory)
+
+	return newHandlerWithAuthorizer(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
 }
 
-func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
-	return newHandlerWithJWTAuth(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, nil, lggr, clock, limitsFactory)
-}
-
-func newHandlerWithJWTAuth(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -397,11 +409,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 	}
 
-	authResult, err := h.authorizer.AuthorizeRequest(ctx, req)
-	if err != nil {
-		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", err)
-		return errors.New("request not authorized: " + err.Error())
+	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
+	if authErr != nil {
+		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
+		return errors.New("request not authorized: " + authErr.Error())
 	}
+	normalizedReq, normalizeErr := vaultcap.NormalizeRequestWithIdentity(req, authResult.OrgID(), authResult.WorkflowOwner())
+	if normalizeErr != nil {
+		h.lggr.Errorw("failed to normalize authorized request identity", "method", req.Method, "requestID", req.ID, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner(), "error", normalizeErr)
+		return normalizeErr
+	}
+	req = normalizedReq
 	authorizedOwner := authResult.AuthorizedOwner()
 	// Generate a unique ID for the request.
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
@@ -409,9 +427,9 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "authorizedOwner", authorizedOwner)
-	ar, err := h.newActiveRequest(req, callback)
-	if err != nil {
-		return err
+	ar, activeRequestErr := h.newActiveRequest(req, callback)
+	if activeRequestErr != nil {
+		return activeRequestErr
 	}
 
 	switch req.Method {

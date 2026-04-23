@@ -430,10 +430,16 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 
 // GatewayServiceConfig represents a service in the service-centric gateway format.
 // Each service groups handlers and references the DON names it operates on.
+type GatewayServiceAuth0Config struct {
+	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
+	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+}
+
 type GatewayServiceConfig struct {
-	ServiceName string   `yaml:"servicename"`
-	Handlers    []string `yaml:"handlers"`
-	DONs        []string `yaml:"dons"`
+	ServiceName string                     `yaml:"servicename"`
+	Handlers    []string                   `yaml:"handlers"`
+	DONs        []string                   `yaml:"dons"`
+	Auth0       *GatewayServiceAuth0Config `yaml:"auth0,omitempty"`
 }
 
 type GatewayConnectors struct {

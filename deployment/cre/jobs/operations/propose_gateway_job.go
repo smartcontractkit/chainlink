@@ -42,9 +42,10 @@ type DON struct {
 }
 
 type GatewayService struct {
-	ServiceName string   `yaml:"servicename"`
-	Handlers    []string `yaml:"handlers"`
-	DONs        []string `yaml:"dons"`
+	ServiceName string           `yaml:"servicename"`
+	Handlers    []string         `yaml:"handlers"`
+	DONs        []string         `yaml:"dons"`
+	Auth0       *pkg.Auth0Config `yaml:"auth0,omitempty"`
 }
 
 type ProposeGatewayJobDeps struct {
@@ -172,6 +173,7 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 			ServiceName: svc.ServiceName,
 			Handlers:    svc.Handlers,
 			DONs:        svc.DONs,
+			Auth0:       svc.Auth0,
 		}
 	}
 

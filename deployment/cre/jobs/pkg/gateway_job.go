@@ -53,6 +53,7 @@ type GatewayServiceConfig struct {
 	ServiceName string
 	Handlers    []string
 	DONs        []string
+	Auth0       *Auth0Config
 }
 
 type GatewayJob struct {
@@ -227,7 +228,7 @@ func (g GatewayJob) buildLegacyDons() ([]legacyDON, error) {
 			case GatewayHandlerTypeWebAPICapabilities:
 				hs = append(hs, newDefaultWebAPICapabilitiesHandler())
 			case GatewayHandlerTypeVault:
-				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec))
+				hs = append(hs, newDefaultVaultHandler(g.RequestTimeoutSec, nil))
 			case GatewayHandlerTypeHTTPCapabilities:
 				hs = append(hs, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
@@ -271,7 +272,7 @@ func (g GatewayJob) buildServicesAndShardedDONs() ([]shardedDON, []service, erro
 			case GatewayHandlerTypeWebAPICapabilities:
 				handlers = append(handlers, newDefaultWebAPICapabilitiesHandler())
 			case GatewayHandlerTypeVault:
-				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec))
+				handlers = append(handlers, newDefaultVaultHandler(g.RequestTimeoutSec, svcCfg.Auth0))
 			case GatewayHandlerTypeHTTPCapabilities:
 				handlers = append(handlers, newDefaultHTTPCapabilitiesHandler())
 			case GatewayHandlerTypeConfidentialRelay:
@@ -314,9 +315,10 @@ func newDefaultWebAPICapabilitiesHandler() handler {
 type vaultHandlerConfig struct {
 	RequestTimeoutSec int                   `toml:"requestTimeoutSec"`
 	NodeRateLimiter   nodeRateLimiterConfig `toml:"NodeRateLimiter"`
+	Auth0             *Auth0Config          `toml:"auth0,omitempty"`
 }
 
-func newDefaultVaultHandler(requestTimeoutSec int) handler {
+func newDefaultVaultHandler(requestTimeoutSec int, auth0 *Auth0Config) handler {
 	return handler{
 		Name:        GatewayHandlerTypeVault,
 		ServiceName: ServiceNameVault,
@@ -330,6 +332,7 @@ func newDefaultVaultHandler(requestTimeoutSec int) handler {
 				PerSenderBurst: 10,
 				PerSenderRPS:   10,
 			},
+			Auth0: auth0,
 		},
 	}
 }
