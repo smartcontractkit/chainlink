@@ -78,12 +78,12 @@ When logs and `report.json` are not enough, suggest **narrowing** with `-run` (a
 
 **Typical flags** (all go in the `go test` argument list after `--`):
 
-| Flag | Use when |
-|------|----------|
-| `-race` | Suspected data race (see playbook `<D name="race">`); heavy. |
-| `-cpuprofile`, `-memprofile` | CPU hotspots, alloc pressure, slow tests. |
-| `-blockprofile`, `-mutexprofile` | Blocking on channels/locks, mutex contention, “hangy” tests. |
-| `-trace trace.out` | Scheduler stalls, long GC pauses, end-to-end timing; open with `go tool trace`. |
+| Flag                             | Use when                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------- |
+| `-race`                          | Suspected data race (see playbook `<D name="race">`); heavy.                    |
+| `-cpuprofile`, `-memprofile`     | CPU hotspots, alloc pressure, slow tests.                                       |
+| `-blockprofile`, `-mutexprofile` | Blocking on channels/locks, mutex contention, “hangy” tests.                    |
+| `-trace trace.out`               | Scheduler stalls, long GC pauses, end-to-end timing; open with `go tool trace`. |
 
 **Viewing**: `go tool pprof -http=:0 cpu.prof` (or `mem.prof`, `block.prof`, `mutex.prof`). For `-trace`, `go tool trace trace.out`.
 
@@ -134,7 +134,12 @@ Pattern-match logs + stats against playbook. State explicit hypothesis before su
 Pass alone, fail in package: other test corrupts state. Chainlink: usually shared Postgres (`diagnose` restores between iterations, not between tests in one iteration).
 
 ```sh
+# Use high iterations if you need a fresh DB each run
 go tool test diagnose --iterations 100 -- --run '^TestName$' ./path/to/package
+# Use high count for more efficient runtime if DB resets are unnecessary
+go tool test diagnose -- --run '^TestName$' -count=100 ./path/to/package
+# Use -race flag to help induce more unusual timing
+go tool test diagnose -- --run '^TestName$' -count=100 -race ./path/to/package
 ```
 
 Still flakes alone: problem inside test or code under test.
@@ -202,6 +207,11 @@ Lead with hypothesis. Pick one archetype:
 - Dead flake on dead code → delete test. See `tools/test/fixing-flaky-tests.md` §8.
 
 Show diff in context (Read → Edit). Do not describe fix abstractly.
+
+<restricted>
+- DO NOT modify the ultimate goal of the test to make it pass
+- DO NOT remove tests or assertions, unless you're replacing them with better ones, or have well defined reasons with high confidence.
+</restricted>
 </fixes>
 
 <verify>
