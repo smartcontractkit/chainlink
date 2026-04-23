@@ -281,7 +281,7 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, ErrMissingOrgID
 	}
 
-	if claims[claimVaultSecretManagementEnabled] != "true" {
+	if v, ok := claims[claimVaultSecretManagementEnabled].(string); !ok || v != "true" {
 		return nil, ErrVaultSecretManagementNotEnabled
 	}
 
