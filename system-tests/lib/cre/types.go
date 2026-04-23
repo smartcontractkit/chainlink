@@ -478,6 +478,7 @@ type GenerateConfigsInput struct {
 	DonMetadata             *DonMetadata
 	Blockchains             map[uint64]blockchains.Blockchain
 	RegistryChainSelector   uint64
+	LinkingServiceEnabled   bool
 	Flags                   []string
 	CapabilitiesPeeringData CapabilitiesPeeringData
 	OCRPeeringData          OCRPeeringData
@@ -1549,6 +1550,7 @@ type Environment struct {
 	Blockchains           []blockchains.Blockchain
 	ContractVersions      map[ContractType]*semver.Version
 	Provider              infra.Provider
+	LinkingServiceEnabled bool
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
 }
 

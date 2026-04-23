@@ -1,5 +1,5 @@
 # Custom local CRE topology for Vault e2e coverage on top of workflow-gateway-capabilities-don.
-# It declares the optional linking/JWT issuer support services, enables Vault auth0 config, and turns on the VaultJWTAuthEnabled and VaultOrgIdAsSecretOwnerEnabled CRE flags.
+# It declares the optional linking service and Vault JWT issuer support services plus Vault auth0 config, while keeping the JWT-related CRE flags disabled.
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
@@ -28,7 +28,7 @@
   docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
 
 [jd]
-  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
   image = "job-distributor:0.22.1"
 
 [fake]
@@ -47,7 +47,7 @@
   override_mode = "all"
   http_port_range_start = 10100
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   capabilities = ["ocr3", "custom-compute", "web-api-trigger", "cron", "http-action", "http-trigger", "consensus", "don-time", "write-evm-1337", "read-contract-1337", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -71,7 +71,7 @@
   override_mode = "all"
   http_port_range_start = 10200
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   capabilities = ["web-api-target", "vault", "write-evm-2337", "read-contract-2337", "evm-2337"]
 
   [nodesets.db]
@@ -92,7 +92,7 @@
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"VaultJWTAuthEnabled":"true","VaultOrgIdAsSecretOwnerEnabled":"true"}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
   supported_evm_chains = [1337, 2337]
 
   [nodesets.db]

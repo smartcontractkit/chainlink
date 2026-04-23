@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -115,7 +114,12 @@ func (o *Vault) PreEnvStartup(
 	}
 
 	for _, donToConfigure := range donsToConfigure {
-		if err := configureWorkersNodeConfig(donToConfigure, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()]); err != nil {
+		if err := configureWorkersNodeConfig(
+			donToConfigure,
+			registryChainID,
+			common.HexToAddress(workflowRegistryAddress),
+			creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -137,7 +141,13 @@ func (o *Vault) PreEnvStartup(
 	}, nil
 }
 
-func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) (*string, error) {
+func updateNodeConfig(
+	workerNode *cre.NodeMetadata,
+	currentConfig string,
+	registryChainID uint64,
+	workflowRegistryAddress common.Address,
+	wfRegVersion *semver.Version,
+) (*string, error) {
 	var typedConfig corechainlink.Config
 	unmarshallErr := toml.Unmarshal([]byte(currentConfig), &typedConfig)
 	if unmarshallErr != nil {
@@ -152,10 +162,6 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		SyncStrategy:    ptr.Ptr("reconciliation"),
 		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
-	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
-		URL:        ptr.Ptr(ctflinkingservice.DefaultContainerName + ":" + strconv.Itoa(ctflinkingservice.DefaultGRPCPort)),
-		TLSEnabled: ptr.Ptr(false),
-	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {
@@ -165,7 +171,12 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	return ptr.Ptr(string(stringifiedConfig)), nil
 }
 
-func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) error {
+func configureWorkersNodeConfig(
+	don *cre.DonMetadata,
+	registryChainID uint64,
+	workflowRegistryAddress common.Address,
+	wfRegVersion *semver.Version,
+) error {
 	workerNodes, wErr := don.Workers()
 	if wErr != nil {
 		return errors.Wrapf(wErr, "failed to find worker nodes for don %s", don.Name)
@@ -173,7 +184,13 @@ func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, wo
 
 	for _, workerNode := range workerNodes {
 		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegVersion)
+		updatedConfig, uErr := updateNodeConfig(
+			workerNode,
+			currentConfig,
+			registryChainID,
+			workflowRegistryAddress,
+			wfRegVersion,
+		)
 		if uErr != nil {
 			return errors.Wrapf(uErr, "failed to update node config for don %s node index %d", don.Name, workerNode.Index)
 		}

@@ -153,6 +153,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAIN_AWS_ECR: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.us-west-2.amazonaws.com
           SDLC_AWS_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.us-west-2.amazonaws.com
+          CTF_CONFIGS: "./configs/workflow-gateway-don.toml"
         run: |
           # Remove chip_ingress/chip_config sections since CI role lacks ECR permissions for the Atlas repo
           awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} /^\[chip_config\.build_config\]/,/^$/{next} /^\[chip_config\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
@@ -167,6 +168,8 @@ jobs:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
           CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          CTF_VAULT_JWT_ISSUER_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
+          CTF_LINKING_SERVICE_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-linking-service:sha-5f31e9f9b20c"
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |

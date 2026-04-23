@@ -28,29 +28,27 @@ ecr_image = "{{.SDLC_ECR}}/local-cre-chip-router:v1.0.1"
 
 [vault_jwt_issuer.build_config]
 repository = "https://github.com/smartcontractkit/chainlink-testing-framework"
-local_repo = "/Users/prashantyadav/cl-codex/chainlink-testing-framework"
 branch = "main"
-commit = "eb358da3d9f87e304d28922468aca796c7679736"
+commit = "5f31e9f9b20c427fd59ef910bff17223a48e21b5"
 dockerfile = "framework/components/vaultjwtissuer/Dockerfile"
 docker_ctx = "."
-local_image = "local-cre-vault-jwt-issuer:latest"
+local_image = "local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
 
 [vault_jwt_issuer.pull_config]
-local_image = "local-cre-vault-jwt-issuer:latest"
-ecr_image = "{{.SDLC_ECR}}/local-cre-vault-jwt-issuer:latest"
+local_image = "local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
+ecr_image = "{{.MAIN_ECR}}/local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
 
 [linking_service.build_config]
 repository = "https://github.com/smartcontractkit/chainlink-testing-framework"
-local_repo = "/Users/prashantyadav/cl-codex/chainlink-testing-framework"
 branch = "main"
-commit = "eb358da3d9f87e304d28922468aca796c7679736"
+commit = "5f31e9f9b20c427fd59ef910bff17223a48e21b5"
 dockerfile = "framework/components/linkingservice/Dockerfile"
 docker_ctx = "."
-local_image = "local-cre-linking-service:latest"
+local_image = "local-cre-linking-service:sha-5f31e9f9b20c"
 
 [linking_service.pull_config]
-local_image = "local-cre-linking-service:latest"
-ecr_image = "{{.SDLC_ECR}}/local-cre-linking-service:latest"
+local_image = "local-cre-linking-service:sha-5f31e9f9b20c"
+ecr_image = "{{.MAIN_ECR}}/local-cre-linking-service:sha-5f31e9f9b20c"
 
 [chip_ingress.build_config]
 repository = "https://github.com/smartcontractkit/atlas"

@@ -19,6 +19,7 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -48,7 +49,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 		if linkingService != nil {
 			orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
-			linkingService.SetOwnerOrg(owner, orgID)
+			require.NoError(t, linkingService.SetOwnerOrg(t.Context(), owner, orgID))
 			if orgIDAsSecretOwnerEnabled {
 				expectedResponseOwner = orgID
 			}
@@ -96,10 +97,13 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	gatewayURL := fixture.GatewayURL
 	vaultPublicKey := fixture.VaultPublicKey
 
+	require.NotNil(t, issuer, "Vault JWT issuer should be configured for mixed auth tests")
+	require.NotNil(t, linkingService, "linking service should be configured for mixed auth tests")
+
 	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 	workflowOwner := sc.MustGetRootKeyAddress().Hex()
 	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	linkingService.SetOwnerOrg(workflowOwner, orgID)
+	require.NoError(t, linkingService.SetOwnerOrg(t.Context(), workflowOwner, orgID))
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
@@ -240,28 +244,24 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
 		name        string
 		configPath  string
 		wantJWTGate string
 		wantOrgGate string
-		wantLinking bool
 	}{
 		{
 			name:        "enabled",
 			configPath:  vaultJWTAuthEnabledConfigPath,
 			wantJWTGate: "true",
 			wantOrgGate: "true",
-			wantLinking: false,
 		},
 		{
 			name:        "default",
 			configPath:  vaultDefaultConfigPath,
 			wantJWTGate: "false",
 			wantOrgGate: "false",
-			wantLinking: false,
 		},
 	}
 
@@ -269,6 +269,23 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &envconfig.Config{}
 			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
+			require.NotNil(t, cfg.VaultJWTIssuer)
+			require.NotNil(t, cfg.LinkingService)
+			require.Equal(t, "local-cre-vault-jwt-issuer", cfg.VaultJWTIssuer.ContainerName)
+			require.Equal(t, "local-cre-linking-service", cfg.LinkingService.ContainerName)
+
+			vaultCapabilityConfig, ok := cfg.CapabilityConfigs[crelib.VaultCapability]
+			require.True(t, ok)
+
+			auth0Bytes, err := json.Marshal(vaultCapabilityConfig.Values["auth0"])
+			require.NoError(t, err)
+			var auth0 struct {
+				IssuerURL string `json:"issuerURL"`
+				Audience  string `json:"audience"`
+			}
+			require.NoError(t, json.Unmarshal(auth0Bytes, &auth0))
+			require.Equal(t, "http://local-cre-vault-jwt-issuer:18123/", auth0.IssuerURL)
+			require.Equal(t, defaultVaultJWTAudience, auth0.Audience)
 
 			for _, nodeSet := range cfg.NodeSets {
 				if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
@@ -286,11 +303,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				}
 
 				for _, nodeSpec := range nodeSet.NodeSpecs {
-					if tc.wantLinking {
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
-						continue
-					}
 					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
 				}
 			}

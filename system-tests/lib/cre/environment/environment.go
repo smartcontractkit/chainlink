@@ -163,6 +163,7 @@ func SetupTestEnvironment(
 		ContractVersions:      input.ContractVersions,
 		Provider:              input.Provider,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
+		LinkingServiceEnabled: input.LinkingServiceInput != nil,
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))

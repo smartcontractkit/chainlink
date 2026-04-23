@@ -50,7 +50,7 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultDefaultConfigPath        = "/configs/workflow-gateway-capabilities-don-vault.toml"
 	vaultJWTAuthEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 )
 
@@ -218,6 +218,11 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 	} else {
 		testEnv = t_helpers.SetupTestEnvironmentWithConfig(t, baseConfig)
 	}
+
+	require.NotNil(t, testEnv.Config.VaultJWTIssuer, "Vault JWT issuer config should be declared for Vault tests")
+	require.NotNil(t, testEnv.Config.VaultJWTIssuer.Out, "Vault JWT issuer output should be available for Vault tests")
+	require.NotNil(t, testEnv.Config.LinkingService, "linking service config should be declared for Vault tests")
+	require.NotNil(t, testEnv.Config.LinkingService.Out, "linking service output should be available for Vault tests")
 
 	issuer, err := newVaultDockerizedTestJWTIssuer(
 		testEnv.Config.VaultJWTIssuer.Out.LocalHTTPURL,

@@ -132,13 +132,17 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 	entry.once.Do(func() {
 		createEnvironment(t, tconf, flags...)
 		in := getEnvironmentConfig(t)
-		if _, err := ctfvaultjwtissuer.NewWithContext(t.Context(), in.VaultJWTIssuer); err != nil {
-			entry.err = fmt.Errorf("failed to ensure vault JWT issuer is running: %w", err)
-			return
+		if in.VaultJWTIssuer != nil {
+			if _, err := ctfvaultjwtissuer.NewWithContext(t.Context(), in.VaultJWTIssuer); err != nil {
+				entry.err = fmt.Errorf("failed to ensure vault JWT issuer is running: %w", err)
+				return
+			}
 		}
-		if _, err := ctflinkingservice.NewWithContext(t.Context(), in.LinkingService); err != nil {
-			entry.err = fmt.Errorf("failed to ensure linking service is running: %w", err)
-			return
+		if in.LinkingService != nil {
+			if _, err := ctflinkingservice.NewWithContext(t.Context(), in.LinkingService); err != nil {
+				entry.err = fmt.Errorf("failed to ensure linking service is running: %w", err)
+				return
+			}
 		}
 		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)

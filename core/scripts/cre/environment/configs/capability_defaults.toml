@@ -1,17 +1,6 @@
 [capability_configs.consensus]
   binary_name = "consensus"
 
-[vault_jwt_issuer]
-  image = "local-cre-vault-jwt-issuer:latest"
-  container_name = "local-cre-vault-jwt-issuer"
-  http_port = 18123
-
-[linking_service]
-  image = "local-cre-linking-service:latest"
-  container_name = "local-cre-linking-service"
-  grpc_port = 18124
-  admin_port = 18125
-
 # Global values for consensus are optional - uses empty jobspec config by default
 [capability_configs.consensus.values]
 # MaxRequestSizeBytes = 200000  # Default: 100000
@@ -118,11 +107,6 @@
 
 #[capability_configs.vault]
 #  no binary path for vault, it's built-in
-
-[capability_configs.vault.values]
-  [capability_configs.vault.values.auth0]
-    issuerURL = "http://local-cre-vault-jwt-issuer:18123/"
-    audience = "https://vault.test.chain.link"
 
 [capability_configs.write-evm]
   # No binary_name needed - this is a built-in capability, it doesn't exist as a separate binary

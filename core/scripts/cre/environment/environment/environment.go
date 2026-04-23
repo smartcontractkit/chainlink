@@ -30,6 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
+	ctfvaultjwtissuer "github.com/smartcontractkit/chainlink-testing-framework/framework/components/vaultjwtissuer"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
@@ -280,6 +282,7 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 			applyChipRouterImageOverride(in)
+			applyVaultSupportServiceImageOverrides(in)
 
 			// Skip Docker operations for Kubernetes provider (Docker not needed)
 			isDocker := in.Infra != nil && !in.Infra.IsKubernetes()
@@ -940,6 +943,23 @@ func applyChipRouterImageOverride(in *envconfig.Config) {
 	framework.L.Info().Msgf("Using Chip Router image override from %s: %s", envconfig.CTFChipRouterImageEnvVar, override)
 }
 
+func applyVaultSupportServiceImageOverrides(in *envconfig.Config) {
+	if in == nil {
+		return
+	}
+
+	if in.VaultJWTIssuer != nil {
+		if override := ctfvaultjwtissuer.ApplyImageOverride(in.VaultJWTIssuer); override != "" {
+			framework.L.Info().Msgf("Using Vault JWT issuer image override from %s: %s", envconfig.CTFVaultJWTIssuerImageEnvVar, override)
+		}
+	}
+	if in.LinkingService != nil {
+		if override := ctflinkingservice.ApplyImageOverride(in.LinkingService); override != "" {
+			framework.L.Info().Msgf("Using linking service image override from %s: %s", envconfig.CTFLinkingServiceImageEnvVar, override)
+		}
+	}
+}
+
 func ensureChipRouterImageExists(ctx context.Context, in *envconfig.Config, setupConfigPath string) error {
 	if os.Getenv("CI") == "true" {
 		framework.L.Info().Msg("CI environment detected, skipping chip image pre-check")
@@ -971,6 +991,11 @@ func ensureChipRouterImageExists(ctx context.Context, in *envconfig.Config, setu
 }
 
 func ensureVaultSupportServiceImagesExist(ctx context.Context, in *envconfig.Config, setupConfigPath string) error {
+	if os.Getenv("CI") == "true" {
+		framework.L.Info().Msg("CI environment detected, skipping vault support service image pre-check")
+		return nil
+	}
+
 	if in == nil || (in.Infra != nil && in.Infra.IsKubernetes()) {
 		return nil
 	}
@@ -1292,6 +1317,12 @@ func allEnvironmentStateFiles() ([]string, error) {
 func initLocalCREStageGen(in *envconfig.Config) *stagegen.StageGen {
 	stages := 9
 	if in.ChipRouter != nil {
+		stages++
+	}
+	if in.VaultJWTIssuer != nil {
+		stages++
+	}
+	if in.LinkingService != nil {
 		stages++
 	}
 	if in.S3ProviderInput != nil {

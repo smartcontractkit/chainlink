@@ -59,7 +59,11 @@ func (c *Config) SetAddresses(refs []datastore.AddressRef) error {
 	return nil
 }
 
-const CTFChipRouterImageEnvVar = "CTF_CHIP_ROUTER_IMAGE"
+const (
+	CTFChipRouterImageEnvVar     = "CTF_CHIP_ROUTER_IMAGE"
+	CTFVaultJWTIssuerImageEnvVar = ctfvaultjwtissuer.ImageEnvVar
+	CTFLinkingServiceImageEnvVar = ctflinkingservice.ImageEnvVar
+)
 
 type Config struct {
 	Blockchains       []*blockchain.Input             `toml:"blockchains" validate:"required,min=1"`

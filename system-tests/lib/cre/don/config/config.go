@@ -25,6 +25,7 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ctflinkingservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/linkingservice"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -110,6 +111,7 @@ func PrepareNodeTOMLs(
 					DonMetadata:             donMetadata,
 					Blockchains:             chainPerSelector,
 					Flags:                   donMetadata.Flags,
+					LinkingServiceEnabled:   creEnv.LinkingServiceEnabled,
 					CapabilitiesPeeringData: capabilitiesPeeringData,
 					OCRPeeringData:          ocrPeeringData,
 					RegistryChainSelector:   creEnv.RegistryChainSelector,
@@ -433,6 +435,12 @@ func addWorkerNodeConfig(
 		existingConfig.CRE.WorkflowFetcher = &coretoml.WorkflowFetcherConfig{
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
+		if commonInputs.linkingServiceEnabled {
+			existingConfig.CRE.Linking = &coretoml.LinkingConfig{
+				URL:        ptr.Ptr(ctflinkingservice.DefaultContainerName + ":" + strconv.Itoa(ctflinkingservice.DefaultGRPCPort)),
+				TLSEnabled: ptr.Ptr(false),
+			}
+		}
 
 		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
@@ -652,6 +660,7 @@ type aptosChain struct {
 type commonInputs struct {
 	registryChainID       uint64
 	registryChainSelector uint64
+	linkingServiceEnabled bool
 
 	workflowRegistry   versionedAddress
 	capabilityRegistry versionedAddress
@@ -686,6 +695,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
+		linkingServiceEnabled: input.LinkingServiceEnabled,
 		workflowRegistry: versionedAddress{
 			address: workflowRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],

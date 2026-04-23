@@ -119,6 +119,8 @@ jobs:
       CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
       CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
       BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
+      CTF_VAULT_JWT_ISSUER_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-vault-jwt-issuer:sha-5f31e9f9b20c
+      CTF_LINKING_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-linking-service:sha-5f31e9f9b20c
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners

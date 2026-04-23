@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 )
 
 var SetupCmd *cobra.Command
@@ -147,6 +148,11 @@ const (
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
 	ConfigPath string
+}
+
+type optionalSupportServiceSelection struct {
+	VaultJWTIssuer bool
+	LinkingService bool
 }
 
 type BuildConfig struct {
@@ -501,6 +507,12 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		return
 	}
 
+	optionalSupportServices, optionalSupportErr := resolveOptionalSupportServices()
+	if optionalSupportErr != nil {
+		setupErr = errors.Wrap(optionalSupportErr, "failed to resolve optional support services from topology config")
+		return
+	}
+
 	ghCli, ghCliErr := checkGHCli(ctx, cfg.General.MinGHCLIVersion, noPrompt)
 	if ghCliErr != nil {
 		setupErr = errors.Wrap(ghCliErr, "failed to ensure GitHub CLI")
@@ -564,37 +576,45 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	}
 
 	var vaultJWTIssuerLocalImage string
-	if cfg.VaultJWTIssuer != nil {
+	if optionalSupportServices.VaultJWTIssuer {
+		if cfg.VaultJWTIssuer == nil {
+			setupErr = errors.New("vault JWT issuer is declared in the active topology, but no setup config was found")
+			return
+		}
 		vaultJWTIssuerConfig := ImageConfig{
 			BuildConfig: cfg.VaultJWTIssuer.BuildConfig,
 			PullConfig:  cfg.VaultJWTIssuer.PullConfig,
 		}
 
 		var err error
-		vaultJWTIssuerLocalImage, err = vaultJWTIssuerConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
+		vaultJWTIssuerLocalImage, err = vaultJWTIssuerConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Vault JWT issuer image")
 			return
 		}
 	} else {
-		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Vault JWT issuer setup, because configuration is not provided in the config file")
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Vault JWT issuer setup, because it is not declared in the active topology config")
 	}
 
 	var linkingServiceLocalImage string
-	if cfg.LinkingService != nil {
+	if optionalSupportServices.LinkingService {
+		if cfg.LinkingService == nil {
+			setupErr = errors.New("linking service is declared in the active topology, but no setup config was found")
+			return
+		}
 		linkingServiceConfig := ImageConfig{
 			BuildConfig: cfg.LinkingService.BuildConfig,
 			PullConfig:  cfg.LinkingService.PullConfig,
 		}
 
 		var err error
-		linkingServiceLocalImage, err = linkingServiceConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, BuildOption, purge)
+		linkingServiceLocalImage, err = linkingServiceConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Linking service image")
 			return
 		}
 	} else {
-		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Linking service setup, because configuration is not provided in the config file")
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Linking service setup, because it is not declared in the active topology config")
 	}
 
 	var chipIngressLocalImage string
@@ -709,6 +729,23 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 
 	return nil
+}
+
+func resolveOptionalSupportServices() (*optionalSupportServiceSelection, error) {
+	selection := &optionalSupportServiceSelection{}
+	topologyConfig := strings.TrimSpace(os.Getenv("CTF_CONFIGS"))
+	if topologyConfig == "" {
+		return selection, nil
+	}
+
+	cfg := &envconfig.Config{}
+	if err := cfg.Load(topologyConfig); err != nil {
+		return nil, err
+	}
+
+	selection.VaultJWTIssuer = cfg.VaultJWTIssuer != nil
+	selection.LinkingService = cfg.LinkingService != nil
+	return selection, nil
 }
 
 func runGHSetupGit(ctx context.Context) error {
