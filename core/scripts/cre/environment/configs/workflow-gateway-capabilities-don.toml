@@ -59,10 +59,10 @@
  [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "core/chainlink.Dockerfile"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      image = "chainlink-tmp:latest"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
 
 [[nodesets]]
@@ -87,10 +87,10 @@
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "core/chainlink.Dockerfile"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      image = "chainlink-tmp:latest"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
 
 [[nodesets]]
@@ -110,11 +110,11 @@
   [[nodesets.node_specs]]
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "core/chainlink.Dockerfile"
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]
-      image = "chainlink-tmp:latest"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = ""
