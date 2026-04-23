@@ -592,20 +592,25 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		start := time.Now()
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
 			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
 			continue
 		}
+		e.logger().Debugw("TriggerEventQueueTimeLimit duration", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds(), "duration", time.Now().Sub(start))
+
 		if eventAge > triggerEventMaxAge {
 			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 			continue
 		}
+		start = time.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
 		if err != nil {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.logger().Debugw("ExecutionsSemaphore duration", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds(), "duration", time.Now().Sub(start))
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
