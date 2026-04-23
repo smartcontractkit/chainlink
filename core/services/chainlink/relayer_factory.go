@@ -176,7 +176,7 @@ func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFa
 		}
 		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:  relayID.Name(),
-			Cmd: "chainlink-solana",
+			Cmd: env.SolanaPlugin.Cmd.Get(),
 			Env: envVars,
 		})
 		if err != nil {
