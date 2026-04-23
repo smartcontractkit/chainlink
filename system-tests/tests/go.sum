@@ -1816,8 +1816,8 @@ github.com/smartcontractkit/chainlink-aptos v0.0.0-20260407161350-a86b1969da65 h
 github.com/smartcontractkit/chainlink-aptos v0.0.0-20260407161350-a86b1969da65/go.mod h1:BbVsx2VcwSVWkd0C5TcAkQBnFaeYFnogJgUa9BUla18=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260417153334-3b564ef614de h1:coysmw4zHm6TLOZawoe2h0hHh/25ft+hq9+9mRNkqTs=
-github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260417153334-3b564ef614de/go.mod h1:1XxxpkgCmG/z6y30yRuVrcxre6zixIVX3xzi706Db/8=
+github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260423164805-f44aeafa2aaa h1:GE4B480m+/OMgkmZ9mEI1Abh927N7oW+Ruq9uuKIFQw=
+github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260423164805-f44aeafa2aaa/go.mod h1:1XxxpkgCmG/z6y30yRuVrcxre6zixIVX3xzi706Db/8=
 github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd h1:Jtw6p5iisjXZyFOcBvWh6PDQKtvryrRU2JMmezdutjo=
 github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd/go.mod h1:zLqdD2kBX7NsntBneclb2yrHhjFaJdoyA8dK5eimlrE=
 github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260415165642-49f23e4d76cc h1:dP1ERzdTbiJbHVXfHYdBAi1+8NjgkyQuY2oFNWWWDsQ=
