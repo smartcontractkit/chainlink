@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+option go_package = "consensus/oracle/types";
+
+package value_consensus_types;
+
+import "google/protobuf/timestamp.proto";
+import "sdk/v1alpha/sdk.proto";
+
+enum RequestType {
+  VALUE_CONSENSUS = 0;
+  REPORT_GENERATION = 1;
+}
+
+message RequestMetaData {
+  string request_id = 1;
+  string workflow_execution_id = 2;
+  string workflow_step_reference = 3;
+  string workflow_id = 4;
+  string workflow_owner = 5;
+  string workflow_name = 6;
+  uint32 workflow_don_id = 7;
+  uint32 workflow_don_config_version = 8;
+
+  string report_id = 9;
+
+  string keyBundleId = 10;
+
+  RequestType request_type = 11;
+}
+
+message Query {
+  repeated string requestIDs = 1;
+}
+
+message RequestObservation {
+  RequestMetaData metadata = 1;
+  sdk.v1alpha.SimpleConsensusInputs input = 2;
+  google.protobuf.Timestamp received_at = 3;
+
+  bool remove_lib_use_in_failure_message_formatting_flag = 4; // remove use of libraries in failure message formatting; flag to be removed after rollout
+}
+
+message Observation {
+  map<string,RequestObservation> observations = 1;
+}
+
+// this message is used when calculating the current batch size and serves no other purpose
+message ObservationMapEntry {
+  string key = 1;
+  RequestObservation value = 2;
+}
+
+message ConsensusOutcome {
+  oneof outcome {
+    ConsensusSuccessOutcome success = 1;
+    ConsensusFailedOutcome failure = 2;
+  }
+}
+
+message ConsensusSuccessOutcome {
+  RequestMetaData metadata = 1;
+  bytes outcome = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+enum ConsensusFailureCode {
+  // Consensus calculation failed - e.g. this would happen with identical consensus if there are less than F+1 identical observations
+  CONSENSUS_CALCULATION_FAILED = 0;
+  // Failed to calculate the consensus metadata, descriptor and default (MDD). F+1 identical MDDs are required for consensus
+  FAILED_TO_CALCULATE_CONSENSUS_MDD = 1;
+  // Received F+1 errors from observers when attempting to calculate consensus
+  RECEIVED_FPLUS1_ERRORS = 2;
+  // The outcome produced is too large to fit in any batch. The user should reduce the size of their request.
+  OUTCOME_TOO_LARGE = 3;
+  // The report produced is too large to transmit. The user should reduce the size of their request.
+  REPORT_TOO_LARGE = 4;
+  // More than one valid identical consensus outcome was calculated from the observation set.  This occurs when the caller of the capability
+  // is attempting to achieve identical consensus on a volatile data source, such that there are multiple clusters of f+1
+  // identical observations that are not identical to each other.
+  // The user should investigate the source of volatility in their data and consider if identical consensus is the right
+  // approach for their use case.
+  MORE_THAN_ONE_VALID_OUTCOME_FOR_IDENTICAL_CONSENSUS = 5;
+}
+
+message ConsensusFailedOutcome {
+  string requestID = 1;
+  string failure_message = 2;
+  string keyBundleId = 3;
+  ConsensusFailureCode code = 4;
+}
+
+message Outcome {
+  repeated ConsensusOutcome outcomes = 1;
+
+  // A record of the sequence number when the outcome for each request ID was calculated, used for tracking recent historical outcomes
+  map<string, uint64> historical_outcomes = 2;
+}
+
+// this message is used when calculating the current batch size and serves no other purpose
+message HistoricalOutcomeMapEntry {
+  string key = 1;
+  uint64 value = 2;
+}
