@@ -96,15 +96,15 @@ jobs:
         run: |
           if [[ "${SETUP_GO_CACHE_HIT}" == "true" ]]; then
             echo "::debug::Cache hit - skipping dependency download"
-            echo "deps_download_seconds=0" >> $GITHUB_OUTPUT
+            echo "deps_download_seconds=0" >> "$GITHUB_OUTPUT"
           else
             echo "::debug::Cache miss - downloading dependencies"
             { time go mod tidy && go mod download; } 2> >(tee /tmp/go_deps_time >&2)
-            deps_time=$(cat /tmp/go_deps_time | grep real | awk '{print $2}')
-            minutes=$(echo $deps_time | awk -F'm' '{print $1}')
-            seconds=$(echo $deps_time | awk -F'm' '{print $2}' | sed 's/s//')
+            deps_time=$(grep real /tmp/go_deps_time | awk '{print $2}')
+            minutes=$(awk -F'm' '{print $1}' <<< "$deps_time")
+            seconds=$(awk -F'm' '{print $2}' <<< "$deps_time" | sed 's/s//')
             total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
-            echo "deps_download_seconds=$total_seconds" >> $GITHUB_OUTPUT
+            echo "deps_download_seconds=$total_seconds" >> "$GITHUB_OUTPUT"
           fi
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
@@ -127,7 +127,7 @@ jobs:
       - name: Set date variable
         id: set-date
         if: ${{ github.event_name == 'pull_request' }}
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+        run: echo "date=$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
 
       - name: Setup GitHub token using GATI
         id: github-token
@@ -143,7 +143,7 @@ jobs:
       - name: Install Bun
         run: |
           curl -fsSL https://bun.sh/install | bash
-          echo "$HOME/.bun/bin" >> $GITHUB_PATH
+          echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
       - name: Setup the environment
         shell: bash
@@ -156,7 +156,8 @@ jobs:
           CTF_CONFIGS: "./configs/workflow-gateway-don.toml"
         run: |
           # Remove chip_ingress/chip_config sections since CI role lacks ECR permissions for the Atlas repo
-          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} /^\[chip_config\.build_config\]/,/^$/{next} /^\[chip_config\.pull_config\]/,/^$/{next} {print}' configs/setup.toml > configs/setup.toml.tmp && mv configs/setup.toml.tmp configs/setup.toml
+          setup_toml="configs/setup.toml"
+          awk '/^\[chip_ingress\.build_config\]/,/^$/{next} /^\[chip_ingress\.pull_config\]/,/^$/{next} /^\[chip_config\.build_config\]/,/^$/{next} /^\[chip_config\.pull_config\]/,/^$/{next} {print}' "$setup_toml" > "${setup_toml}.tmp" && mv "${setup_toml}.tmp" "$setup_toml"
           go run . env setup --no-prompt
 
       - name: Start the environment
@@ -176,9 +177,9 @@ jobs:
           { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds
-          time_str=$(cat /tmp/time_output | grep real | awk '{print $2}')
-          minutes=$(echo $time_str | awk -F'm' '{print $1}')
-          seconds=$(echo $time_str | awk -F'm' '{print $2}' | sed 's/s//')
+          time_str=$(grep real /tmp/time_output | awk '{print $2}')
+          minutes=$(awk -F'm' '{print $1}' <<< "$time_str")
+          seconds=$(awk -F'm' '{print $2}' <<< "$time_str" | sed 's/s//')
           total_seconds=$(echo "$minutes * 60 + $seconds" | bc)
           echo "execution_time=$total_seconds" >> $GITHUB_OUTPUT
 

@@ -275,7 +275,7 @@ jobs:
             # Wait for Loki to be available
             echo "Waiting for Loki to be available at http://localhost:3030..."
             loki_ready=false
-            for i in {1..30}; do
+            for _ in {1..30}; do
               if curl -s http://localhost:3030/ready >/dev/null 2>&1; then
                 echo "✅ Loki is ready at http://localhost:3030"
                 loki_ready=true
@@ -351,8 +351,8 @@ jobs:
             github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
 
           exit_code=$?
-          if [ $exit_code -eq 0 ]; then
-            echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
+          if [[ "$exit_code" -eq 0 ]]; then
+            echo "tests_result=✅ Tests passed" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
