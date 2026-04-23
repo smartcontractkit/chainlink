@@ -254,10 +254,18 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		commit = c.Commit
 	)
 	if strings.TrimSpace(c.LocalRepo) != "" {
-		repo = c.LocalRepo
+		if stat, statErr := os.Stat(c.LocalRepo); statErr == nil && stat.IsDir() {
+			repo = c.LocalRepo
+		}
 	}
 
 	logger := framework.L
+	if repo == c.LocalRepo && strings.TrimSpace(c.LocalRepo) != "" {
+		logger.Info().Msgf("Using local repository override for image build: %s", c.LocalRepo)
+	} else if strings.TrimSpace(c.LocalRepo) != "" {
+		logger.Info().Msgf("Local repository override %s not found, falling back to %s", c.LocalRepo, c.RepoURL)
+	}
+
 	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
 	logger.Info().Msgf("Building %s image...", name)
@@ -405,7 +413,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = PullOption // Default to Pull
+		input := defaultOption
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {

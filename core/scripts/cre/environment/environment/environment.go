@@ -1003,7 +1003,27 @@ func ensureVaultSupportServiceImagesExist(ctx context.Context, in *envconfig.Con
 		return nil
 	}
 
-	return ensureManagedImagesExist(ctx, setupCfg.General.AWSProfile, requiredImages)
+	dockerClient, err := client.NewClientWithOpts(client.WithAPIVersionNegotiation())
+	if err != nil {
+		return errors.Wrap(err, "failed to create Docker client for Vault support service image setup")
+	}
+	defer dockerClient.Close()
+
+	_, err = dockerClient.Ping(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Docker is not running")
+	}
+
+	for _, img := range requiredImages {
+		if _, err := (ImageConfig{
+			BuildConfig: img.BuildConfig,
+			PullConfig:  img.PullConfig,
+		}).Ensure(ctx, dockerClient, setupCfg.General.AWSProfile, true, BuildOption, false); err != nil {
+			return errors.Wrapf(err, "%s image '%s' is not available", img.Name, img.FullImage)
+		}
+	}
+
+	return nil
 }
 
 func hasBuiltDockerImage(in *envconfig.Config) bool {
