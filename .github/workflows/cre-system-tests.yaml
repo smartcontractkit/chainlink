@@ -261,6 +261,12 @@ jobs:
         run: |
           cd core/scripts/cre/environment
 
+          mapfile -t stale_chip_router_ids < <(docker ps -aq --filter "name=chip-router")
+          if [[ "${#stale_chip_router_ids[@]}" -gt 0 ]]; then
+            echo "Removing stale chip router containers: ${stale_chip_router_ids[*]}"
+            docker rm -f "${stale_chip_router_ids[@]}"
+          fi
+
           # Check if test requires observability stack
           if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
             echo "::group::Starting Observability Stack"

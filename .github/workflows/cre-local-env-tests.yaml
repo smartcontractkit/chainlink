@@ -174,6 +174,12 @@ jobs:
           DISABLE_DX_TRACKING: "true"
           CI: "true"
         run: |
+          mapfile -t stale_chip_router_ids < <(docker ps -aq --filter "name=chip-router")
+          if [[ "${#stale_chip_router_ids[@]}" -gt 0 ]]; then
+            echo "Removing stale chip router containers: ${stale_chip_router_ids[*]}"
+            docker rm -f "${stale_chip_router_ids[@]}"
+          fi
+
           { time go run . env start; } 2> >(tee /tmp/time_output >&2)
 
           # Convert time to total seconds

@@ -202,6 +202,12 @@ jobs:
         run: |
           cd core/scripts/cre/environment
 
+          mapfile -t stale_chip_router_ids < <(docker ps -aq --filter "name=chip-router")
+          if [[ "${#stale_chip_router_ids[@]}" -gt 0 ]]; then
+            echo "Removing stale chip router containers: ${stale_chip_router_ids[*]}"
+            docker rm -f "${stale_chip_router_ids[@]}"
+          fi
+
           # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
           if [[ "${CRE_VERSION}" == "v1" ]]; then
             echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
