@@ -47,17 +47,6 @@ func ParseWorkflowAttributes(data []byte) (WorkflowAttributes, error) {
 	return attrs, nil
 }
 
-// IsConfidential returns true if the Attributes JSON has "confidential": true.
-// Returns an error if the attributes contain malformed JSON, so callers can
-// fail loudly rather than silently falling through to non-confidential execution.
-func IsConfidential(data []byte) (bool, error) {
-	attrs, err := ParseWorkflowAttributes(data)
-	if err != nil {
-		return false, err
-	}
-	return attrs.Confidential, nil
-}
-
 // ConfidentialModule implements host.ModuleV2 for confidential workflows.
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
@@ -80,6 +69,7 @@ func NewConfidentialModule(
 	binaryURL string,
 	binaryHash []byte,
 	workflowID, workflowOwner, workflowName, workflowTag string,
+	// TODO remove this
 	vaultDonSecrets []SecretIdentifier,
 	lggr logger.Logger,
 ) *ConfidentialModule {

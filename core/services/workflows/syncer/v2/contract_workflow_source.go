@@ -165,7 +165,7 @@ func (c *ContractWorkflowSource) Ready() error {
 	return nil
 }
 
-// tryInitialize attempts to initialize the contract reader. Returns true if ready.
+// tryInitialize attempts to initialize the contract reader. Returns true if shouldRun.
 func (c *ContractWorkflowSource) tryInitialize(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()

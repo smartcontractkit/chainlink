@@ -358,7 +358,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				case <-ticker:
 					// Async initialization of contract reader for allowlisted requests.
 					// There is an on-chain call dependency that would cause a deadlock if we block.
-					// Instead, we poll until the contract reader is ready.
+					// Instead, we poll until the contract reader is shouldRun.
 					reader, err := w.newAllowlistedRequestsContractReader(ctx)
 					if err != nil {
 						w.lggr.Infow("contract reader unavailable", "error", err.Error())

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -51,7 +53,7 @@ type ORM interface {
 // has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryUrl string, initDone chan<- error) (services.Service, error)
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
@@ -113,7 +115,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -589,40 +591,11 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
-	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
-	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	var sdkName string
-	h.emitterMu.RLock()
-	labeler := h.emitter
-	h.emitterMu.RUnlock()
-	moduleConfig := &host.ModuleConfig{
-		Logger:                               lggr,
-		Labeler:                              labeler,
-		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
-		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
-		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
-		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
-		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
-		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
-		SdkLabeler: func(name string) {
-			sdkName = name
-			h.emitterMu.Lock()
-			h.emitter = h.emitter.With(platform.KeySDK, name)
-			h.emitterMu.Unlock()
-		},
-	}
-
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
-
-	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryUrl string, initDone chan<- error) (services.Service, error) {
+	module, moduleConfig, sdkName, err := h.createModule(ctx, workflowID, owner, name, tag, binary, binaryUrl)
 	if err != nil {
-		return nil, fmt.Errorf("could not instantiate module: %w", err)
+		return nil, err
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -733,10 +706,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		))
 	defer span.End()
 
-	// Ensure the capabilities registry is ready before creating any Engine instances.
+	// Ensure the capabilities registry is shouldRun before creating any Engine instances.
 	// This should be guaranteed by the Workflow Registry Syncer.
 	if err := h.ensureCapRegistryReady(ctx); err != nil {
-		return fmt.Errorf("failed to ensure capabilities registry is ready: %w", err)
+		return fmt.Errorf("failed to ensure capabilities registry is shouldRun: %w", err)
 	}
 
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
@@ -774,23 +747,13 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		return fmt.Errorf("invalid workflow name: %w", err)
 	}
 
-	confidential, err := v2.IsConfidential(spec.Attributes)
-	if err != nil {
-		return fmt.Errorf("failed to parse workflow attributes: %w", err)
-	}
-
 	// Create a channel to receive the initialization result.
 	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
 	var engine services.Service
 
-	if confidential {
-		h.lggr.Infow("routing workflow to confidential execution", "workflowID", spec.WorkflowID)
-		engine, err = h.confidentialEngineFactory(spec, workflowName, decodedBinary, initDone)
-	} else {
-		engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, initDone)
-	}
+	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -914,38 +877,73 @@ func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- er
 	}
 }
 
-// confidentialEngineFactory creates a V2 engine backed by a ConfidentialModule
-// instead of a local WASM module. The ConfidentialModule delegates execution to
-// the confidential-workflows capability which runs the WASM inside a TEE.
-func (h *eventHandler) confidentialEngineFactory(
-	spec *job.WorkflowSpec,
-	workflowName types.WorkflowName,
-	decodedBinary []byte,
-	initDone chan<- error,
-) (services.Service, error) {
-	attrs, err := v2.ParseWorkflowAttributes(spec.Attributes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse workflow attributes: %w", err)
-	}
+func (h *eventHandler) createModule(
+	ctx context.Context,
+	workflowID string,
+	owner string,
+	name types.WorkflowName,
+	tag string,
+	binary []byte,
+	binaryUrl string,
+) (host.ModuleV2, *host.ModuleConfig, string, error) {
+	// TODO rtiniaonv use the right value here, get it from module?
+	// Workflow string was used before...?
+	decodedBinary := binary
 
 	binaryHash := v2.ComputeBinaryHash(decodedBinary)
-
-	lggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
-	lggr = logger.With(lggr, "workflowID", spec.WorkflowID, "workflowName", spec.WorkflowName, "workflowOwner", spec.WorkflowOwner)
-
-	module := v2.NewConfidentialModule(
+	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	confidential := v2.NewConfidentialModule(
 		h.capRegistry,
-		spec.BinaryURL,
+		binaryUrl,
 		binaryHash,
-		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
-		attrs.VaultDonSecrets,
-		lggr,
+		workflowID, owner, name.String(), tag,
+		nil,
+		confLggr,
 	)
 
-	cfg := h.newV2EngineConfig(module, spec.WorkflowID, spec.WorkflowOwner, spec.WorkflowTag, "", workflowName, []byte(spec.Config))
-	h.wireInitDoneHook(cfg, initDone)
+	// TODO rtinianov regions...?
+	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: generichost.NewTeeProvider(sdkpb.TeeType_TEE_TYPE_AWS_NITRO, []string{})}
 
-	return v2.NewEngine(cfg)
+	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
+	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	var sdkName string
+	h.emitterMu.RLock()
+	labeler := h.emitter
+	h.emitterMu.RUnlock()
+	moduleConfig := &host.ModuleConfig{
+		Logger:                               lggr,
+		Labeler:                              labeler,
+		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
+		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
+		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
+		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
+		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
+		SdkLabeler: func(name string) {
+			sdkName = name
+			h.emitterMu.Lock()
+			h.emitter = h.emitter.With(platform.KeySDK, name)
+			h.emitterMu.Unlock()
+		},
+	}
+	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	selectingModule := generichost.NewRequirementSelectingModule(
+		generichost.ModuleAndHandler{Module: module},
+		[]generichost.ModuleAndHandler{{
+			Module:              confidential,
+			RequirementsHandler: confidentialRequirementsHandler,
+		}},
+	)
+
+	return selectingModule, moduleConfig, sdkName, nil
 }
 
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.
@@ -957,7 +955,7 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 }
 
 func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
-	// Check every 500ms until the capabilities registry is ready.
+	// Check every 500ms until the capabilities registry is shouldRun.
 	retryInterval := time.Millisecond * time.Duration(500)
 	return internal.RunWithRetries(
 		ctx,
@@ -965,10 +963,10 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 		retryInterval,
 		0, // infinite retries, until context is done
 		func() error {
-			// Test that the registry is ready by attempting to get the local node
+			// Test that the registry is shouldRun by attempting to get the local node
 			_, err := h.capRegistry.LocalNode(ctx)
 			if err != nil {
-				return fmt.Errorf("capabilities registry not ready: %w", err)
+				return fmt.Errorf("capabilities registry not shouldRun: %w", err)
 			}
 			return nil
 		})
