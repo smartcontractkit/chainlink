@@ -45,21 +45,15 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
-func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
 	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
-	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// Receiver Address
-	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
-
-	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
 			RemoteChainSelector: destChain,
@@ -70,7 +64,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 			InboundCapacity:     100000,
 			InboundRate:         100,
 		},
-	}) // SourceChain = SUI, destChain = EVM
+	})
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
@@ -79,14 +73,90 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 			Name:           "Send token to EOA",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(),
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
 					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        5000000000, // Send 5 LINK to EVM
+					Amount:        5000000000,
+				},
+			},
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  evmToken.Address().Bytes(),
+					Amount: big.NewInt(5e18),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+
+	err = testhelpers.ConfirmMultipleCommits(
+		t,
+		updatedEnv,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+		t,
+		updatedEnv,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+}
+
+func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
+
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
+	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
+
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndLockReleaseTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	})
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "Send token to EOA",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(),
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
+			SuiTokens: []testhelpers.SuiTokenAmount{
+				{
+					TokenPoolType: sui_deployment.TokenPoolTypeLockRelease,
+					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
+					Amount:        5000000000,
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
@@ -137,7 +207,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 
 	deps := getOpTxDeps(e.Env.BlockChains.SuiChains()[sourceChain])
 
-	// enable allowlist but not adding the current sender to the allowlist
 	liqReport, err := operations.ExecuteOperation(e.Env.OperationsBundle, lockreleasetokenpoolops.LockReleaseTokenPoolProvideLiquidityOp, deps, lockreleasetokenpoolops.LockReleaseTokenPoolProvideLiquidityInput{
 		LockReleaseTokenPoolPackageId: suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].PackageID,
 		StateObjectId:                 suiState[sourceChain].LnRTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
@@ -169,10 +238,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	}, suiBind.Object{Id: suiState[sourceChain].CCIPObjectRef}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
 	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
-			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:      []byte("Hello, World!"),
 			FeeToken:  feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit)), false),
@@ -199,7 +271,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
-			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
+			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:      []byte("Hello, World!"),
 			FeeToken:  feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			ExtraArgs: testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(suiFeeQuoterDestChainConfig.MaxPerMsgGasLimit+10)), false),
@@ -534,16 +606,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 4000000000)
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
-	// Receiver Address
-	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
-
-	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
 			RemoteChainSelector: destChain,
@@ -558,61 +622,16 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:           "Send token to Receiver",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // send 2 LINK to EVM
-				},
-			},
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2e18),
-				},
-			},
-		},
-	}
-
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
-
-	err = testhelpers.ConfirmMultipleCommits(
-		t,
-		updatedEnv,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
+	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
-		t,
-		updatedEnv,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
-	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
+	ctx := testhelpers.Context(t)
 
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
 
 	deps := getOpTxDeps(suiChain)
-
-	// reload state to include the BnM token pool
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
 
 	// enable allowlist but not adding the current sender to the allowlist
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledOp, deps, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledInput{
@@ -662,9 +681,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	})
 	require.NoError(t, err)
 
-	tcs = []testhelpers.TestTransferRequest{
+	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:           "Send token to Receiver",
+			Name:           "Send token to Receiver after signer allowlisted",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
@@ -680,7 +699,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(3.5e18),
+					Amount: big.NewInt(1.5e18),
 				},
 			},
 		},
@@ -689,7 +708,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -701,7 +720,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e.Env,
 		state,

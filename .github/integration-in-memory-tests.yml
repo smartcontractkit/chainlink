@@ -1187,7 +1187,7 @@ runner-test-matrix:
     free_disk_space: true
 
   # Sui token transfer tests
-  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
     test_env_type: in-memory
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
@@ -1199,7 +1199,25 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.69.2
+    install_plugins_public: true
+    free_disk_space: true
+
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert
+    path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
