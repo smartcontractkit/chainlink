@@ -195,6 +195,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Max Data Bytes + 1 - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)+1))
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
@@ -210,6 +211,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Max Data Bytes + 1 to EOA - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := []byte(strings.Repeat("0", int(suiFeeQuoterDestChainConfig.MaxDataBytes)+1))
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
@@ -225,6 +227,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Max Gas Limit + 1 - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := standardMessage
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
@@ -240,6 +243,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Missing ExtraArgs - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := standardMessage
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
@@ -255,6 +259,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Send message to invalid receiver - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := standardMessage
 		mlt.Run(mlt.TestCase{
 			TestSetup: mltTestSetup,
@@ -270,6 +275,7 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 	})
 
 	t.Run("Send message to invalid chain selector - Should Fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		message := []byte("Hello Sui, from EVM!")
 		mlt.Run(mlt.TestCase{
 			TestSetup: invalidDestChainSelectorTestSetup,

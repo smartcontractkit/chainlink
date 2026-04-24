@@ -1,12 +1,14 @@
 package ccip
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -164,6 +166,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:      []byte("Hello, World!"),
@@ -190,6 +193,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	})
 
 	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:      []byte("Hello, World!"),
@@ -327,6 +331,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	t.Run("Send invalid token to CCIP Receiver - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:      []byte("Hello, World!"),
@@ -353,6 +358,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
 	})
 
 	t.Run("Send token to CCIP Receiver setting gas above max gas allowed - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver:  common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:      []byte("Hello, World!"),
@@ -475,6 +481,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	require.NoError(t, err)
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32), // left-pad 20-byte address up to 32 bytes to make it compatible with evm
 			Data:     []byte("Hello, World!"),
@@ -656,6 +663,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	require.NoError(t, err)
 
 	t.Run("Sender not in allowlist - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -841,6 +849,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
 	t.Run("Send token above Sui's outbound rate limit - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -1005,6 +1014,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	require.NoError(t, err)
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -1256,6 +1266,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 
 	t.Run("Send tokens exceeding Sui's outbound rate limit - should fail", func(t *testing.T) {
+		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
 			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
 			Data:     []byte("Hello, World!"),
@@ -2043,4 +2054,50 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 	fmt.Println("Error: ", err.Error())
 	require.Contains(t, err.Error(), execRevertErrorMsg)
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
+}
+
+// waitForSuiRPCSync blocks until the Sui fullnode JSON-RPC view has had a chance to index
+// recent transactions, by waiting for the latest checkpoint sequence to advance.
+//
+// Background: since Sui v1.33 the JSON-RPC node silently ignores `requestType:
+// "WaitForLocalExecution"` and returns as soon as effects are certified
+// (https://forums.sui.io/t/deprecating-waitforlocalexecution/45988). The Typescript SDK
+// works around this by polling `client.waitForTransaction({ digest })`, but the Go SDK
+// (block-vision/sui-go-sdk) does not. As a result, a tight sequence like
+// "mutating admin tx -> ccip_send" can fetch stale owned-object versions (e.g. the gas
+// coin) and the validators reject the second tx with "Object ... Version ... is not
+// available for consumption" — masking the Move abort we are trying to assert.
+//
+// Call this helper at the top of any "should fail" subtest that submits a Sui tx
+// immediately after a previous Sui tx in the same test. This is a test-side band-aid;
+// the proper fix belongs in chainlink-sui/bindings/bind (poll sui_getTransactionBlock on
+// the returned digest, matching the Typescript SDK behavior).
+func waitForSuiRPCSync(t *testing.T, suiChain sui.Chain) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	before, err := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+	if err != nil {
+		t.Logf("waitForSuiRPCSync: failed to read initial checkpoint seq (%v); falling back to fixed sleep", err)
+		time.Sleep(3 * time.Second)
+		return
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		time.Sleep(500 * time.Millisecond)
+		after, cerr := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+		if cerr != nil {
+			continue
+		}
+		// Require at least 2 new checkpoints to ensure any recently-issued tx has been
+		// materialized in the RPC view, not just the one that triggered the current
+		// checkpoint boundary.
+		if after >= before+2 {
+			return
+		}
+	}
+	t.Logf("waitForSuiRPCSync: timeout waiting for checkpoint to advance from %d", before)
 }
