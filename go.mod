@@ -425,8 +425,8 @@ require (
 	github.com/supranational/blst v0.3.16 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/testcontainers/testcontainers-go v0.41.0 // indirect
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.39.0 // indirect
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.39.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
@@ -492,6 +492,16 @@ require (
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
 replace github.com/smartcontractkit/chainlink/v2/tools/test => ./tools/test
+
+// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
+// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
+replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
+
+replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
+
+replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
+
+replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 

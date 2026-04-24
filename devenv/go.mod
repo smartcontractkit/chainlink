@@ -2,6 +2,16 @@ module github.com/smartcontractkit/chainlink/devenv
 
 go 1.26.2
 
+// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
+// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
+replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
+
+replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
+
+replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
+
+replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
+
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.7.0
@@ -333,7 +343,7 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/supranational/blst v0.3.16 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
-	github.com/testcontainers/testcontainers-go v0.41.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.37.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
