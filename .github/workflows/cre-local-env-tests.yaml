@@ -153,21 +153,34 @@ jobs:
             exit 0
           fi
 
-          for offset in {0..7}; do
-            tag="nightly-$(date -u -d "-${offset} day" +'%Y%m%d')-plugins"
-            if aws ecr describe-images \
+          latest_plugins_tag="$(
+            aws ecr describe-images \
               --repository-name chainlink \
-              --image-ids imageTag="${tag}" \
-              --region "${AWS_REGION}" >/dev/null 2>&1; then
-              image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
-              echo "Resolved nightly plugins image: ${image}"
-              echo "resolved_image=${image}" >> "${GITHUB_OUTPUT}"
-              exit 0
-            fi
-          done
+              --filter tagStatus=TAGGED \
+              --region "${AWS_REGION}" \
+              --output json |
+            jq -r '
+              [
+                .imageDetails[]
+                | .imagePushedAt as $pushedAt
+                | (.imageTags // [])[]
+                | select(endswith("-plugins"))
+                | {tag: ., pushedAt: $pushedAt}
+              ]
+              | sort_by(.pushedAt)
+              | last
+              | .tag // empty
+            '
+          )"
 
-          echo "Error: failed to find a nightly plugins Chainlink image in ECR for the last 8 days" >&2
-          exit 1
+          if [[ -z "${latest_plugins_tag}" ]]; then
+            echo "Error: failed to find a tagged plugins Chainlink image in ECR" >&2
+            exit 1
+          fi
+
+          image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${latest_plugins_tag}"
+          echo "Resolved latest plugins image: ${image}"
+          echo "resolved_image=${image}" >> "${GITHUB_OUTPUT}"
 
       - name: Setup the environment
         shell: bash
