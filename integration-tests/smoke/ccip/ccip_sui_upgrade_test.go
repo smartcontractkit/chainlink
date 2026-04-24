@@ -90,6 +90,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
 	require.True(t, ok)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(normalizedAddr[:], 32)
@@ -181,6 +183,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	receiverByte := receiverByteDecoded
 
@@ -314,6 +318,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	receiverByte := receiverByteDecoded
 
 	var clockObj [32]byte
@@ -433,6 +439,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	receiverByte := receiverByteDecoded
 
