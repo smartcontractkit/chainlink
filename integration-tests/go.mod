@@ -11,7 +11,7 @@ require (
 	github.com/AlekSi/pointer v1.1.0
 	github.com/aptos-labs/aptos-go-sdk v1.12.1
 	github.com/avast/retry-go/v4 v4.7.0
-	github.com/block-vision/sui-go-sdk v1.1.4
+	github.com/block-vision/sui-go-sdk v1.2.1
 	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/ethereum/go-ethereum v1.17.2
 	github.com/gagliardetto/solana-go v1.13.0
