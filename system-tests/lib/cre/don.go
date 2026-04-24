@@ -3,39 +3,45 @@ package cre
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v5"
+	"github.com/cosmos/gogoproto/proto"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/sethvargo/go-retry"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 
+	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 const (
@@ -533,10 +539,15 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		n.Keys.OCR2BundleIDs[strings.ToLower(chainType)] = ocr2BundleID
 
 		// Retry create+observe to preserve the original JD behavior.
-		retryErr := retry.Do(ctx, retry.WithMaxDuration(jdChainConfigPollTimeout, retry.NewConstant(3*time.Second)), func(ctx context.Context) error {
+		retryErr := retry.New(
+			retry.Context(ctx),
+			retry.Delay(500*time.Millisecond),
+			retry.Attempts(5),
+			retry.DelayType(retry.BackOffDelay),
+		).Do(func() error {
 			nodeChainConfigIDs, err := listNodeChainConfigIDs(ctx, jd, n.JobDistributorDetails.NodeID)
 			if err != nil {
-				return retry.RetryableError(fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err))
+				return fmt.Errorf("failed to list node chain configs for node %s: %w", n.Name, err)
 			}
 			if _, exists := nodeChainConfigIDs[chainIDStr]; exists {
 				return nil
@@ -567,7 +578,7 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				return err
 			}
 
-			return retry.RetryableError(errors.New("retrying CreateChainConfig in JD"))
+			return errors.New("retrying CreateChainConfig in JD")
 		})
 		if retryErr != nil {
 			return fmt.Errorf("failed to create JD chain configuration for node %s: %w", n.Name, retryErr)
@@ -762,21 +773,28 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
 	// wait for the node to connect to the job distributor
-	err = retry.Do(ctx, retry.WithMaxDuration(1*time.Minute, retry.NewFibonacci(1*time.Second)), func(ctx context.Context) error {
+	err = retry.New(
+		retry.Context(ctx),
+		retry.Delay(500*time.Millisecond),
+		retry.Attempts(5),
+		retry.DelayType(retry.BackOffDelay),
+	).Do(func() error {
 		getRes, getErr := jd.GetNode(ctx, &nodev1.GetNodeRequest{
 			Id: n.JobDistributorDetails.NodeID,
 		})
 		if getErr != nil {
-			return retry.RetryableError(fmt.Errorf("failed to get node %s: %w", n.Name, getErr))
+			return fmt.Errorf("failed to get node %s: %w", n.Name, getErr)
 		}
 		if getRes.GetNode() == nil {
 			return fmt.Errorf("no node found for node id %s", n.JobDistributorDetails.NodeID)
 		}
 		if !getRes.GetNode().IsConnected {
-			return retry.RetryableError(fmt.Errorf("node %s not connected to job distributor", n.Name))
+			return fmt.Errorf("node %s not connected to job distributor", n.Name)
 		}
 		return nil
-	})
+	},
+	)
+
 	if err != nil {
 		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
 	}
@@ -943,4 +961,58 @@ func (d *Don) ResolveORC3Config(config *keystone_changeset.OracleConfig) *keysto
 	config.TransmissionSchedule = []int{d.WorkersCount()}
 
 	return config
+}
+
+// GetVaultCapabilityDON returns the DON that has the vault capability registered,
+// along with the current decoded CapabilityConfig for the vault entry.
+func GetVaultCapabilityDON(ctx context.Context, sethClient *seth.Client, capabilitiesRegistryAddr string) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, *capabilitiespb.CapabilityConfig, error) {
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
+	)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create capabilities registry wrapper")
+	}
+
+	const pageSize int64 = 100
+
+	var (
+		targetDON *capabilities_registry_v2.CapabilitiesRegistryDONInfo
+		targetCC  capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration
+	)
+	for start := int64(0); targetDON == nil; start += pageSize {
+		donsPage, getErr := capReg.GetDONs(&bind.CallOpts{Context: ctx}, big.NewInt(start), big.NewInt(pageSize))
+		if getErr != nil {
+			return nil, nil, errors.Wrap(getErr, "failed to get DONs from capabilities registry")
+		}
+
+		for i := range donsPage {
+			for _, cc := range donsPage[i].CapabilityConfigurations {
+				if cc.CapabilityId == vault_helpers.CapabilityID {
+					don := donsPage[i]
+					targetDON = &don
+					targetCC = cc
+					break
+				}
+			}
+			if targetDON != nil {
+				break
+			}
+		}
+
+		if len(donsPage) < int(pageSize) {
+			break
+		}
+	}
+	if targetDON == nil {
+		return nil, nil, fmt.Errorf("no DON with %s capability found in capabilities registry", vault_helpers.CapabilityID)
+	}
+
+	existingCfg := &capabilitiespb.CapabilityConfig{}
+	if len(targetCC.Config) > 0 {
+		if unmarshalErr := proto.Unmarshal(targetCC.Config, existingCfg); unmarshalErr != nil {
+			return nil, nil, errors.Wrap(unmarshalErr, "failed to unmarshal existing vault capability config")
+		}
+	}
+
+	return targetDON, existingCfg, nil
 }

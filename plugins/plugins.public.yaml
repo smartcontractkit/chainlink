@@ -17,7 +17,7 @@ plugins:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
       # current version is v0.0.0-20260409184948-5b16fae57fe0
-      gitRef: "v0.0.0-20260409162403-8bca8f7c9de5"
+      gitRef: "v0.0.0-20260420191233-429504ae18dc"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -35,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260407162454-407b2a207dcc"
+      gitRef: "v1.1.2-0.20260421131224-c46cbfe7bc6c"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:

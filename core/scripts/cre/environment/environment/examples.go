@@ -153,7 +153,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, contractsVersion, contractsVersion, workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "", contractsVersion, nil, workflowDonID)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}

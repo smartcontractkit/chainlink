@@ -237,8 +237,8 @@ github.com/blang/semver/v4 v4.0.0 h1:1PFHFE6yCCTv8C1TeyNNarDzntLi7wMI5i/pzqYIsAM
 github.com/blang/semver/v4 v4.0.0/go.mod h1:IbckMUScFkM3pff0VJDNKRiT6TG/YpiHIM2yvyW5YoQ=
 github.com/blendle/zapdriver v1.3.1 h1:C3dydBOWYRiOk+B8X9IVZ5IOe+7cl+tGOexN4QqHfpE=
 github.com/blendle/zapdriver v1.3.1/go.mod h1:mdXfREi6u5MArG4j9fewC+FGnXaBR+T4Ox4J2u4eHCc=
-github.com/block-vision/sui-go-sdk v1.1.4 h1:1PPgYxQjo1P9UCgFOPTvDCuGEglRL32NwjKPulR4FQk=
-github.com/block-vision/sui-go-sdk v1.1.4/go.mod h1:t8mWASwfyv+EyqHGO9ZrcDiCJWGOFEXqq50TMJ8GQco=
+github.com/block-vision/sui-go-sdk v1.2.1 h1:uwvGbzfcrS4SsIaakclYxy0qgEF1XWIUtTYWXB4PoAw=
+github.com/block-vision/sui-go-sdk v1.2.1/go.mod h1:t8mWASwfyv+EyqHGO9ZrcDiCJWGOFEXqq50TMJ8GQco=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
 github.com/bmatcuk/doublestar/v4 v4.8.1 h1:54Bopc5c2cAvhLRAzqOGCYHYyhcDHsFF4wWIR5wKP38=
 github.com/bmatcuk/doublestar/v4 v4.8.1/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
@@ -1460,8 +1460,8 @@ github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260421131224-c46cbfe7bc6
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260421131224-c46cbfe7bc6c/go.mod h1:sUsEwLtVPBlz0wPcysaolS+HVj9cOAt4jYhwE6J8dXg=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c h1:Hn/80PyYFrQhRlNSaq9HY4cjc/7AuP9zyWLle22t34A=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c/go.mod h1:C5pZsbYX3qkhZTYWr1aYJi9QMfonFAun+Jl1npQ7UJA=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260409184948-5b16fae57fe0 h1:nmuT5gKyTHpsHBEJMDM1C+v1d8jR/N8Xfg3KvqJUm8U=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260409184948-5b16fae57fe0/go.mod h1:YQDu2RcdoAzI5xlhtpbjvaQQZwkUt/Q+IhLbP25M614=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260420191233-429504ae18dc h1:BfUgvQ9PzvCPfFyNOrFMN7F7ljpPA7p+RbGZPB2+kLw=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260420191233-429504ae18dc/go.mod h1:wfcTy4b7gblAAuJ2HiBRc0OH/D9lztBmUZBVrqOIA1s=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260409184948-5b16fae57fe0 h1:y8Gpr9G/3/+zoJtYu4cXmZPEx6plXD3P4Rwp/qFbtY8=
 github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260409184948-5b16fae57fe0/go.mod h1:9bJiHD79fK2BiJ+S++2vAn8EEqRgdhl0BwJFcTNELWE=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.16 h1:pzrAgF6QFMQLS/kukXenLN87PCa48SEMlE7QvJxTOHs=
