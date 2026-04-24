@@ -140,6 +140,35 @@ jobs:
           curl -fsSL https://bun.sh/install | bash
           echo "$HOME/.bun/bin" >> "$GITHUB_PATH"
 
+      - name: Resolve Chainlink image
+        id: resolve-chainlink-image
+        shell: bash
+        env:
+          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" != "pull_request" ]]; then
+            image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${{ inputs.chainlink_image_tag }}"
+            echo "resolved_image=${image}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          for offset in {0..7}; do
+            tag="nightly-$(date -u -d "-${offset} day" +'%Y%m%d')-plugins"
+            if aws ecr describe-images \
+              --repository-name chainlink \
+              --image-ids imageTag="${tag}" \
+              --region "${AWS_REGION}" >/dev/null 2>&1; then
+              image="${AWS_ACCOUNT_NUMBER}.dkr.ecr.${AWS_REGION}.amazonaws.com/chainlink:${tag}"
+              echo "Resolved nightly plugins image: ${image}"
+              echo "resolved_image=${image}" >> "${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          done
+
+          echo "Error: failed to find a nightly plugins Chainlink image in ECR for the last 8 days" >&2
+          exit 1
+
       - name: Setup the environment
         shell: bash
         working-directory: core/scripts/cre/environment
@@ -162,7 +191,7 @@ jobs:
         env:
           CTF_CONFIGS: "./configs/workflow-gateway-don.toml"
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ github.event_name == 'pull_request' && 'chainlink-integration-tests' || 'chainlink' }}:${{ github.event_name == 'pull_request' && format('PR-{0}-{1}', github.event.pull_request.number, github.sha) || inputs.chainlink_image_tag }}"
+          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           CTF_VAULT_JWT_ISSUER_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
           CTF_LINKING_SERVICE_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-linking-service:sha-5f31e9f9b20c"
@@ -246,7 +275,7 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ github.event_name == 'pull_request' && 'chainlink-integration-tests' || 'chainlink' }}:${{ github.event_name == 'pull_request' && format('PR-{0}-{1}', github.event.pull_request.number, github.sha) || inputs.chainlink_image_tag }}"
+          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
         run: |
           go run . env swap nodes
 
