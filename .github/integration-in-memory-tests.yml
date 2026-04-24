@@ -1131,42 +1131,42 @@ runner-test-matrix:
     install_plugins_public: true
     free_disk_space: true
 
-  # - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_EVM2Sui
-  #   path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
-  #   test_env_type: in-memory
-  #   runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-  #   triggers:
-  #     - PR Integration CCIP Tests
-  #     - Nightly Integration CCIP Tests
-  #   test_cmd: |
-  #     gotestsum \
-  #       --junitfile=/tmp/junit.xml \
-  #       --jsonfile=/tmp/gotest.log \
-  #       --format=github-actions \
-  #       -- -v -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
-  #   test_go_project_path: integration-tests
-  #   sui_cli_version: mainnet-1.69.2
-  #   install_plugins_public: true
-  #   free_disk_space: true
-  #   test_artifacts_on_failure: integration-tests/logs/
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Upgrade_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.69.2
+    install_plugins_public: true
+    free_disk_space: true
+    test_artifacts_on_failure: integration-tests/logs/
 
-  # - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_CommonPkg_EVM2Sui
-  #   path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
-  #   test_env_type: in-memory
-  #   runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-  #   triggers:
-  #     - PR Integration CCIP Tests
-  #     - Nightly Integration CCIP Tests
-  #   test_cmd: |
-  #     gotestsum \
-  #       --junitfile=/tmp/junit.xml \
-  #       --jsonfile=/tmp/gotest.log \
-  #       --format=github-actions \
-  #       -- -v -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
-  #   test_go_project_path: integration-tests
-  #   sui_cli_version: mainnet-1.69.2
-  #   install_plugins_public: true
-  #   free_disk_space: true
+  - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_CommonPkg_EVM2Sui
+    path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIP_Upgrade_CommonPkg_EVM2Sui" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.69.2
+    install_plugins_public: true
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_sui_upgrade_test.go:Test_CCIP_Upgrade_NoBlock_EVM2Sui
     path: integration-tests/smoke/ccip/ccip_sui_upgrade_test.go
@@ -1199,7 +1199,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1217,7 +1217,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1235,7 +1235,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1253,7 +1253,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1271,7 +1271,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1289,7 +1289,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 15m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
@@ -1349,23 +1349,23 @@ runner-test-matrix:
     install_plugins_public: true
     free_disk_space: true
 
-  # - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit
-  #   path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
-  #   test_env_type: in-memory
-  #   runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-  #   triggers:
-  #     - PR Integration CCIP Tests
-  #     - Nightly Integration CCIP Tests
-  #   test_cmd: |
-  #     gotestsum \
-  #       --junitfile=/tmp/junit.xml \
-  #       --jsonfile=/tmp/gotest.log \
-  #       --format=github-actions \
-  #       -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
-  #   test_go_project_path: integration-tests
-  #   sui_cli_version: mainnet-1.69.2
-  #   install_plugins_public: true
-  #   free_disk_space: true
+  - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit
+    path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
+    test_env_type: in-memory
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    triggers:
+      - PR Integration CCIP Tests
+      - Nightly Integration CCIP Tests
+    test_cmd: |
+      gotestsum \
+        --junitfile=/tmp/junit.xml \
+        --jsonfile=/tmp/gotest.log \
+        --format=github-actions \
+        -- -v -run "Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
+    test_go_project_path: integration-tests
+    sui_cli_version: mainnet-1.69.2
+    install_plugins_public: true
+    free_disk_space: true
 
   - id: smoke/ccip/ccip_sui_token_transfer_test.go:Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool
     path: integration-tests/smoke/ccip/ccip_sui_token_transfer_test.go
@@ -1381,7 +1381,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-1.68.1
+    sui_cli_version: mainnet-1.69.2
     install_plugins_public: true
     free_disk_space: true
 
@@ -1434,7 +1434,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIP_Messaging_Sui2EVM" -timeout 12m -count=1 -parallel=1 ./smoke/ccip
+        -- -v -run "Test_CCIP_Messaging_Sui2EVM" -timeout 25m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
     sui_cli_version: mainnet-1.69.2
     install_plugins_public: true

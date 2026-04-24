@@ -18,19 +18,26 @@ var ErrSuiTxIndexingWaitTimeout = errors.New("sui tx not visible on fullnode wit
 
 var (
 	// SuiTxIndexingWaitTimeout bounds polling after a successful sui_executeTransactionBlock.
-	SuiTxIndexingWaitTimeout = 30 * time.Second
-	suiTxIndexingInitial     = 100 * time.Millisecond
-	suiTxIndexingMax         = 1 * time.Second
+	SuiTxIndexingWaitTimeout = 100 * time.Second
+	suiTxIndexingInitial     = 1 * time.Millisecond
+	suiTxIndexingMax         = 8 * time.Second
 )
 
 // WaitForSuiFullnodeTransaction polls sui_getTransactionBlock until digest is returned.
 // Use after any mutating Sui tx when the next RPC read must see updated owned-object versions
 // (gas coin, pool state, etc.) on JSON-RPC fullnodes that ignore WaitForLocalExecution.
+//
+// ctx is reserved for future cancellation/propagation; the poll deadline is intentionally
+// NOT derived from ctx. cldf.Environment.GetContext() typically carries the whole test's
+// deadline; nesting context.WithTimeout(ctx, SuiTxIndexingWaitTimeout) caps the wait at
+// whatever time remains on that parent and causes spurious "context deadline exceeded" on
+// sui_getTransactionBlock long before SuiTxIndexingWaitTimeout elapses.
 func WaitForSuiFullnodeTransaction(ctx context.Context, client sui.ISuiAPI, digest string) error {
+	_ = ctx // API stability; poll uses an independent wall-clock budget (see doc above).
 	if digest == "" {
 		return nil
 	}
-	pollCtx, cancel := context.WithTimeout(ctx, SuiTxIndexingWaitTimeout)
+	pollCtx, cancel := context.WithTimeout(context.Background(), SuiTxIndexingWaitTimeout)
 	defer cancel()
 
 	req := models.SuiGetTransactionBlockRequest{
