@@ -594,7 +594,7 @@ func mustMintVaultJWTForRequest(t *testing.T, issuer *vaultTestJWTIssuer, req js
 	return mustMintVaultJWTForRequestWithExtraClaims(t, issuer, req, orgID, workflowOwner, nil)
 }
 
-func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string, extraClaims map[string]any) string {
+func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *vaultTestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string, extraClaims map[string]any) string {
 	t.Helper()
 
 	requestDigest, err := outboundVaultRequestDigest(req)
@@ -656,7 +656,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 
 func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	t *testing.T,
-	issuer *vault.TestJWTIssuer,
+	issuer *vaultTestJWTIssuer,
 	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
 	extraClaims map[string]any,
 	expectedAuthError string,
