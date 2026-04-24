@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
@@ -51,6 +53,10 @@ type secretsFetcher struct {
 	workflowEncryptionKey workflowkey.Key
 
 	metrics *monitoring.WorkflowsMetricLabeler
+
+	// overrideFetcher is an optional static map fetcher (e.g. NewLocalSecretsFetcher).
+	// When set, getSecretsForBatch tries it first before calling Vault.
+	overrideFetcher SecretsFetcher
 }
 
 func NewSecretsFetcher(
@@ -66,6 +72,7 @@ func NewSecretsFetcher(
 	workflowID string,
 	phaseID string,
 	workflowEncryptionKey workflowkey.Key,
+	overrideFetcher SecretsFetcher,
 ) *secretsFetcher {
 	lggr = logger.Named(lggr, "WorkflowEngine.SecretsFetcher")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", workflowName, "workflowOwner", workflowOwner, "phaseID", phaseID)
@@ -82,6 +89,7 @@ func NewSecretsFetcher(
 		phaseID:                        phaseID,
 		workflowEncryptionKey:          workflowEncryptionKey,
 		metrics:                        metrics,
+		overrideFetcher:                overrideFetcher,
 	}
 }
 
@@ -109,7 +117,7 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 			return nil, err
 		}
 		defer free()
-		return s.getSecretsForBatch(ctx, request)
+		return s.getSecretsForBatchWithLocalFallback(ctx, request)
 	}()
 	getSecretsDuration := time.Since(start).Milliseconds()
 	if err != nil {
@@ -145,7 +153,70 @@ func normalizeOwner(owner string) (string, error) {
 	return common.HexToAddress(owner).Hex(), nil
 }
 
-func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+func LocalSecretOverrideOwnerKey(owner string) (string, error) {
+	owner = strings.TrimPrefix(strings.ToLower(owner), "0x")
+	if err := types.ValidateWorkflowOwner(owner); err != nil {
+		return "", err
+	}
+	return owner, nil
+}
+
+// getSecretsForBatchWithLocalFallback tries all requests through overrideFetcher first;
+// any request not resolved locally falls through to vault.
+func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	if s.overrideFetcher == nil {
+		return s.getVaultSecretsForBatch(ctx, request)
+	}
+	if request == nil || len(request.Requests) == 0 {
+		return nil, nil
+	}
+	overrideResp, err := s.overrideFetcher.GetSecrets(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	var forVault []*sdkpb.SecretRequest
+	for i, r := range request.Requests {
+		ns := r.Namespace
+		if ns == "" {
+			ns = vaulttypes.DefaultNamespace
+		}
+		nsID := ns + "::" + r.Id
+		if overrideResp[i].GetError() != nil {
+			s.lggr.Debugw("failed to get secret from local override fetcher, falling back to vault", "error", overrideResp[i].GetError(), "nsID", nsID)
+			forVault = append(forVault, r)
+		} else {
+			s.lggr.Debugw("secret resolved from local override fetcher", "nsID", nsID)
+		}
+	}
+	var vaultResp []*sdkpb.SecretResponse
+	if len(forVault) > 0 {
+		vaultResp, err = s.getVaultSecretsForBatch(ctx, &sdkpb.GetSecretsRequest{
+			Requests:   forVault,
+			CallbackId: request.CallbackId,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	combinedResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
+	vaultRespIdx := 0
+	for i := range request.Requests {
+		if overrideResp[i].GetError() == nil {
+			combinedResp = append(combinedResp, overrideResp[i])
+		} else {
+			combinedResp = append(combinedResp, vaultResp[vaultRespIdx])
+			vaultRespIdx++
+		}
+	}
+	return combinedResp, nil
+}
+
+func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
+	if request == nil || len(request.Requests) == 0 {
+		return nil, nil
+	}
 	vaultCap, err := s.capRegistry.GetExecutable(ctx, vault.CapabilityID)
 	if err != nil {
 		return nil, errors.New("failed to get vault capability: " + err.Error())

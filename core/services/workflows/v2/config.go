@@ -39,6 +39,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	OverrideFetcher      SecretsFetcher // Optional local secrets overrides
 	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
