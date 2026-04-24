@@ -333,7 +333,7 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	pipelines := make([]*mockPipeline, n)
 
 	for i := range n {
-		ui := uint32(i)
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
 		sid1 := ui*3 + 1
 		sid2 := ui*3 + 2
 		sid3 := ui*3 + 3
@@ -366,7 +366,7 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range n {
-		ui := uint32(i)
+		ui := uint32(i) //nolint:gosec // i bounded by n=20
 		sid1 := ui*3 + 1
 		sid2 := ui*3 + 2
 		sid3 := ui*3 + 3
@@ -423,12 +423,12 @@ func BenchmarkObservationContext_Observe_integrationRealPipeline_concurrencyStre
 
 	for i := range n {
 		jb := job.Job{
-			ID:       int32(i),
+			ID:       int32(i), //nolint:gosec // G115 // overflow impossible
 			Name:     null.StringFrom(fmt.Sprintf("job-%d", i)),
 			Type:     job.Stream,
 			StreamID: &i,
 			PipelineSpec: &pipeline.Spec{
-				ID: int32(i * 100),
+				ID: int32(i * 100), //nolint:gosec // G115 // overflow impossible
 				DotDagSource: fmt.Sprintf(`
 // Benchmark Price
 result1          [type=memo value="900.0022"];

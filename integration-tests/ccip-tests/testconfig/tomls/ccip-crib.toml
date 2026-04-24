@@ -1,0 +1,96 @@
+[CCIP]
+[CCIP.Env]
+Mockserver = 'http://parrot'
+
+[CCIP.Env.Network]
+selected_networks = ['AVALANCHE_FUJI', 'BSC_TESTNET']
+
+[CCIP.Env.Network.EVMNetworks.AVALANCHE_FUJI]
+evm_name = 'Avalanche Fuji'
+evm_chain_id = 43113
+evm_urls = ['wss://...']
+evm_http_urls = ['https://...']
+evm_keys = ['<your private key>']
+evm_simulated = false
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 50000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_tag = true
+
+[CCIP.Env.Network.EVMNetworks.BSC_TESTNET]
+evm_name = 'BSC Testnet'
+evm_chain_id = 97
+evm_urls = ['wss://...']
+evm_http_urls = ['https://...']
+evm_keys = ['<your private key>']
+evm_simulated = false
+client_implementation = 'BSC'
+evm_chainlink_transaction_limit = 50000
+evm_transaction_timeout = '2m'
+evm_minimum_confirmations = 3
+evm_gas_estimation_buffer = 0
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_tag = true
+
+[CCIP.Env.ExistingCLCluster]
+Name = 'crib-ani'
+NoOfNodes = 6
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node1.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-1'
+
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node2.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-2'
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node3.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-3'
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node4.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-4'
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node5.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-5'
+
+[[CCIP.Env.ExistingCLCluster.NodeConfigs]]
+URL = 'https://crib-ani-demo-node6.main.stage.cldev.sh/'
+Email = 'notreal@fakeemail.ch'
+Password = 'fj293fbBnlQ!f9vNs'
+InternalIP = 'app-node-6'
+
+[CCIP.Groups]
+[CCIP.Groups.smoke]
+LocalCluster = false
+TestRunName = 'crib-ani-demo'
+NodeFunding = 1000.0
+
+
+[CCIP.Groups.load]
+LocalCluster = false
+
+[CCIP.Groups.load.LoadProfile]
+TestRunName = 'crib-ani-demo'
+TimeUnit = '1s'
+TestDuration = '15m'
+RequestPerUnitTime = [1]
+NodeFunding = 1000.0

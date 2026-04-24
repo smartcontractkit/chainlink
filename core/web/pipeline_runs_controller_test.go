@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -37,7 +36,6 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)
@@ -94,7 +92,6 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(10 * time.Millisecond)

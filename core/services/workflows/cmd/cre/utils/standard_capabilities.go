@@ -52,8 +52,7 @@ func newStandardCapabilities(
 	lggr logger.Logger,
 	registry *capabilities.Registry,
 ) []services.Service {
-	// At most one entry per name in the map can be appended (enabled loop plugins).
-	caps := make([]services.Service, 0, len(standardCapabilities))
+	caps := make([]services.Service, 0)
 
 	pluginRegistrar := plugins.NewRegistrarConfig(
 		loop.GRPCOpts{},

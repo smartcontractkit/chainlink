@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/url"
 	"slices"
 	"strconv"
@@ -264,7 +265,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		forwarderF = 1
 	}
 
-	don.F = uint8(forwarderF)
+	don.F = uint8(forwarderF) //nolint:gosec //will never happen, we don't use more than 31 nodes
 
 	return don, nil
 }
@@ -287,9 +288,15 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
+					chainConfigStart := time.Now()
 					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
+					framework.L.Info().
+						Str("don", d.Name).
+						Str("node", node.Name).
+						Float64("duration_s", roundSeconds(time.Since(chainConfigStart))).
+						Msg("JD chain-config setup completed")
 				case RoleGateway:
 					// no chains configuration needed for gateway nodes
 				default:
@@ -429,6 +436,8 @@ type JobDistributorDetails struct {
 type Addresses struct {
 	AdminAddress string `toml:"admin_address" json:"admin_address"` // address used to pay for transactions, applicable only for worker nodes
 	MultiAddress string `toml:"multi_address" json:"multi_address"` // multi address used by OCR2, applicable only for bootstrap nodes
+
+	// maybe in the future add public addresses per chain to avoid the need to access node's keys every time?
 }
 
 type NodeClients struct {
@@ -452,11 +461,9 @@ var (
 
 func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd nodeChainConfigLister) error {
 	ocr2BundleIDsByType := make(map[string]string)
-	// Dedupe by (chain ID, chain type) so we never create the same config twice.
-	seen := make(map[string]struct{})
+
 	for _, chain := range supportedChains {
 		var account string
-		var accountAddrPubKey string
 		chainIDStr := strconv.FormatUint(chain.ChainID(), 10)
 
 		switch strings.ToLower(chain.ChainFamily()) {
@@ -493,14 +500,15 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				account = accounts[0]
 			}
 		case chainselectors.FamilyAptos:
-			aptosAccount, aptosErr := aptosAccountForNode(n)
-			if aptosErr != nil {
-				return fmt.Errorf("failed to fetch aptos account address for node %s: %w", n.Name, aptosErr)
+			// always fetch; currently Node doesn't have Aptos keys
+			accounts, err := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
+			if err != nil {
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), err)
 			}
-			account = aptosAccount
-			// Deployment parsing prefers AccountAddressPublicKey for Aptos chain configs.
-			// Mirror transmitter into this field so OCRConfigForChainSelector always resolves it.
-			accountAddrPubKey = account
+			if len(accounts) == 0 {
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
+			}
+			account = accounts[0]
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainFamily())
 		}
@@ -509,11 +517,6 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 		if chain.IsFamily(blockchain.FamilyTron) {
 			chainType = strings.ToUpper(blockchain.FamilyEVM)
 		}
-		dedupeKey := chainIDStr + "\x00" + chainType
-		if _, exists := seen[dedupeKey]; exists {
-			continue
-		}
-		seen[dedupeKey] = struct{}{}
 
 		ocr2BundleID, ok := ocr2BundleIDsByType[chainType]
 		if !ok {
@@ -542,28 +545,20 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 				return nil
 			}
 
-			// We need a JD chain config for each chain because later changesets ask the
-			// node for chain data. Each node also needs OCR2 enabled because p2pIDs are
-			// used by some contracts to identify nodes (e.g. capability registry).
 			_, err = n.Clients.GQLClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
-				JobDistributorID:  n.JobDistributorDetails.JDID,
-				ChainID:           chainIDStr,
-				ChainType:         chainType,
-				AccountAddr:       account,
-				AccountAddrPubKey: accountAddrPubKey,
-				AdminAddr:         n.Addresses.AdminAddress,
-				Ocr2Enabled:       true,
-				Ocr2IsBootstrap:   n.HasRole(RoleBootstrap),
-				Ocr2Multiaddr:     n.Addresses.MultiAddress,
-				Ocr2P2PPeerID:     n.Keys.P2PKey.PeerID.String(),
-				Ocr2KeyBundleID:   ocr2BundleID,
-				Ocr2Plugins:       `{}`,
+				JobDistributorID: n.JobDistributorDetails.JDID,
+				ChainID:          chainIDStr,
+				ChainType:        chainType,
+				AccountAddr:      account,
+				AdminAddr:        n.Addresses.AdminAddress,
+				Ocr2Enabled:      true,
+				Ocr2IsBootstrap:  n.HasRole(RoleBootstrap),
+				Ocr2Multiaddr:    n.Addresses.MultiAddress,
+				Ocr2P2PPeerID:    n.Keys.P2PKey.PeerID.String(),
+				Ocr2KeyBundleID:  ocr2BundleID,
+				Ocr2Plugins:      `{}`,
 			})
 			if err != nil {
-				// Config may already exist (e.g. duplicate key from prior run or concurrent node registration); treat as success.
-				if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505") {
-					return nil
-				}
 				return err
 			}
 
@@ -603,38 +598,6 @@ func listNodeChainConfigIDs(ctx context.Context, jd nodeChainConfigLister, nodeI
 	}
 
 	return chainIDs, nil
-}
-
-func aptosAccountForNode(n *Node) (string, error) {
-	if n.Keys != nil && n.Keys.Aptos != nil && n.Keys.Aptos.Account != "" {
-		return n.Keys.Aptos.Account, nil
-	}
-
-	// Prefer Aptos account from node metadata when available. Falling back to the
-	// framework helper here is only to backfill older metadata shapes, and we
-	// cache the normalized account back into n.Keys.Aptos below so later callers
-	// can reuse it.
-	runtimeAccounts, err := n.Clients.RestClient.MustReadAptosAccounts()
-	if err != nil {
-		return "", fmt.Errorf("failed to read Aptos keys from node API: %w", err)
-	}
-	if len(runtimeAccounts) == 0 {
-		return "", fmt.Errorf("no Aptos keys found on node %s", n.Name)
-	}
-
-	account, err := crypto.NormalizeAptosAccount(runtimeAccounts[0])
-	if err != nil {
-		return "", fmt.Errorf("invalid Aptos account returned by node API: %w", err)
-	}
-
-	if n.Keys != nil {
-		if n.Keys.Aptos == nil {
-			n.Keys.Aptos = &crypto.AptosKey{}
-		}
-		n.Keys.Aptos.Account = account
-	}
-
-	return account, nil
 }
 
 // AcceptJob accepts the job proposal for the given job proposal spec
@@ -839,6 +802,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 		return errors.New("input is nil")
 	}
 
+	start := time.Now()
 	dons := input.Dons.List()
 	donMetadata := input.Topology.DonsMetadata.List()
 	nodeIDsByDON := make([][]string, len(dons))
@@ -846,6 +810,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	errGroup, groupCtx := errgroup.WithContext(ctx)
 	for idx, don := range dons {
 		errGroup.Go(func() error {
+			donStart := time.Now()
 			supportedChains, schErr := findDonSupportedChains(donMetadata[idx], input.Blockchains)
 			if schErr != nil {
 				return errors.Wrap(schErr, "failed to find supported chains for DON")
@@ -856,6 +821,10 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 			}
 
 			nodeIDsByDON[idx] = don.JDNodeIDs()
+			framework.L.Info().
+				Str("don", don.Name).
+				Float64("duration_s", roundSeconds(time.Since(donStart))).
+				Msg("JD registration completed for DON")
 			return nil
 		})
 	}
@@ -871,6 +840,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 
 	input.CldfEnvironment.NodeIDs = nodeIDs
 	framework.L.Info().
+		Float64("duration_s", roundSeconds(time.Since(start))).
 		Msg("Post-start JD linking completed")
 
 	return nil
@@ -893,11 +863,9 @@ func HasFlag(values []string, capability string) bool {
 
 func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
-	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 
 	for _, bc := range bcs {
 		hasEVMChainEnabled := slices.Contains(donMetadata.EVMChains(), bc.ChainID()) || len(donMetadata.EVMChains()) == 0
-		hasChainCapabilityEnabled := slices.Contains(chainCapabilityIDs, bc.ChainID())
 		hasSolanaChainEnabled := false
 		if bc.IsFamily(chainselectors.FamilySolana) {
 			solChain, ok := bc.(*solana.Blockchain)
@@ -907,9 +875,7 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 			hasSolanaChainEnabled = slices.Contains(donMetadata.SolanaChains(), solChain.SolanaChainID)
 		}
 
-		// Keep legacy EVM/Solana behavior, and also include chains that are explicitly
-		// referenced by chain-scoped capabilities (e.g. aptos-4).
-		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !hasSolanaChainEnabled {
+		if !hasEVMChainEnabled && !hasSolanaChainEnabled {
 			continue
 		}
 
@@ -917,6 +883,10 @@ func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 	}
 
 	return chains, nil
+}
+
+func roundSeconds(d time.Duration) float64 {
+	return math.Round(d.Seconds()*10) / 10
 }
 
 // Make DonMetadata also implement it, just in case?

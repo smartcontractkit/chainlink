@@ -2,6 +2,7 @@ package vrfv2plus
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"strconv"
 	"testing"
@@ -24,8 +25,8 @@ import (
 
 func TestVRFv2PlusSmoke(t *testing.T) {
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	outputFile := "../../env-vrf2plus-out.toml"

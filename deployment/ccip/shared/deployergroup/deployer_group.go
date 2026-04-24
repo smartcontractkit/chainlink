@@ -10,8 +10,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +22,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -35,8 +32,8 @@ type DeployerGroup struct {
 	state             stateview.CCIPOnChainState
 	mcmConfig         *proposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
-	txDecoder         *shared.TxCallDecoder
-	describeContext   *shared.ArgumentContext
+	txDecoder         *proposalutils.TxCallDecoder
+	describeContext   *proposalutils.ArgumentContext
 }
 
 type DescribedTransaction interface {
@@ -54,7 +51,7 @@ func (d EvmDescribedTransaction) Describe() string {
 }
 
 func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction, error) {
-	return cldfproposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
+	return proposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
 }
 
 type SolanaDescribedTransaction struct {
@@ -124,8 +121,8 @@ type deployerGroupBuilder struct {
 	e               cldf.Environment
 	state           stateview.CCIPOnChainState
 	mcmConfig       *proposalutils.TimelockConfig
-	txDecoder       *shared.TxCallDecoder
-	describeContext *shared.ArgumentContext
+	txDecoder       *proposalutils.TxCallDecoder
+	describeContext *proposalutils.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -157,8 +154,8 @@ func NewDeployerGroup(e cldf.Environment, state stateview.CCIPOnChainState, mcmC
 		e:               e,
 		mcmConfig:       mcmConfig,
 		state:           state,
-		txDecoder:       shared.NewTxCallDecoder(nil),
-		describeContext: shared.NewArgumentContext(addresses),
+		txDecoder:       proposalutils.NewTxCallDecoder(nil),
+		describeContext: proposalutils.NewArgumentContext(addresses),
 	}
 	// update state if timelock needs to be loaded from datastore with qualifier
 	if d.mcmConfig != nil && d.mcmConfig.TimelockQualifierPerChain != nil {
@@ -410,7 +407,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
 		}
-		inspectors, err := cldfproposalutils.McmsInspectors(d.e)
+		inspectors, err := proposalutils.McmsInspectors(d.e)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
 		}
@@ -427,7 +424,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
-		describedProposal := shared.DescribeTimelockProposal(proposal, describedBatches)
+		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
@@ -453,13 +450,14 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 }
 
 func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
-	var count uint64
+	batches := make([]mcmstypes.BatchOperation, 0)
 	for _, batchOperation := range timelockProposal.Operations {
 		if batchOperation.ChainSelector == chain {
-			count++
+			batches = append(batches, batchOperation)
 		}
 	}
-	return count
+
+	return uint64(len(batches))
 }
 
 func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {

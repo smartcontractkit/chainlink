@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/wsrpc/logger"
 	"github.com/stretchr/testify/require"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	cldfchain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -203,9 +201,9 @@ func TestConfigureForwarder(t *testing.T) {
 			ds,
 			rt.Environment().BlockChains.SolanaChains()[solSel],
 			commontypes.MCMSWithTimelockConfigV2{
-				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
-				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
-				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+				Canceller:        proposalutils.SingleGroupMCMSV2(t),
+				Proposer:         proposalutils.SingleGroupMCMSV2(t),
+				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 				TimelockMinDelay: big.NewInt(0),
 			},
 		)
@@ -236,7 +234,7 @@ func TestConfigureForwarder(t *testing.T) {
 					Version:   "1.0.0",
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 
@@ -254,7 +252,7 @@ func TestConfigureForwarder(t *testing.T) {
 					},
 				},
 			),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 	})

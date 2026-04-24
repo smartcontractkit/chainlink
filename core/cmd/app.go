@@ -80,20 +80,15 @@ func NewApp(s *Shell) *cli.App {
 		// logger instead.
 		lggr, closeFn := logger.NewLogger()
 
+		cfg, err := opts.New()
+		if err != nil {
+			return err
+		}
+
 		s.Logger = lggr
 		s.Registerer = prometheus.DefaultRegisterer // use the global DefaultRegisterer, should be safe since we only ever run one instance of the app per shell
 		s.CloseLogger = closeFn
-
-		// Preserve a pre-set s.Config. Overwriting it here would clobber
-		// test configs that use a txdb-wrapped driver and cause real pgx
-		// connections to leak into the shared test database.
-		if s.Config == nil {
-			cfg, err := opts.New()
-			if err != nil {
-				return err
-			}
-			s.Config = cfg
-		}
+		s.Config = cfg
 
 		if c.Bool("json") {
 			s.Renderer = RendererJSON{Writer: os.Stdout}
@@ -127,11 +122,11 @@ func NewApp(s *Shell) *cli.App {
 
 		// Allow for initServerConfig to be called if the flag is provided.
 		if c.Bool("applyInitServerConfig") {
-			serverCfg, err := initServerConfig(&opts, s.configFiles, s.secretsFiles)
+			cfg, err = initServerConfig(&opts, s.configFiles, s.secretsFiles)
 			if err != nil {
 				return err
 			}
-			s.Config = serverCfg
+			s.Config = cfg
 		}
 
 		return nil

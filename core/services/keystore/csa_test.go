@@ -29,24 +29,21 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 	}
 
-	// Reset to start with empty state, unpolluted by previous tests
-	reset()
-
 	t.Run("initializes with an empty state", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Empty(t, keys, "keys should start empty for E2E test")
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		_, err := ks.Get("non-existent-id")
 		require.Error(t, err)
 	})
 
 	t.Run("creates a key", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		ctx := testutils.Context(t)
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
@@ -65,7 +62,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("imports and exports a key", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		ctx := testutils.Context(t)
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
@@ -106,7 +103,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		ctx := testutils.Context(t)
 		newKey, err := csakey.NewV2()
 		require.NoError(t, err)
@@ -143,7 +140,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("adds an externally created key/ensures it already exists", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		ctx := testutils.Context(t)
 
 		newKey, err := csakey.NewV2()
@@ -163,7 +160,7 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("auto creates a key if it doesn't exists when trying to ensure it already exists", func(t *testing.T) {
-		t.Cleanup(reset)
+		defer reset()
 		ctx := testutils.Context(t)
 
 		keys, err := ks.GetAll()

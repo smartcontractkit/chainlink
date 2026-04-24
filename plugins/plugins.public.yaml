@@ -10,14 +10,14 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260407161350-a86b1969da65"
+      gitRef: "v0.0.0-20260318173523-755cafb24200"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
-      # current version is v0.0.0-20260409184948-5b16fae57fe0
-      gitRef: "v0.0.0-20260409184948-5b16fae57fe0"
+      # current version is v0.0.0-20260303203615-9d8cc32a70e7
+      gitRef: "v0.0.0-20260304150206-c64e48eb0cb0"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -35,12 +35,12 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260421131224-c46cbfe7bc6c"
+      gitRef: "v1.1.2-0.20260415133314-f9b1fef9e55f"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
     - moduleURI: "github.com/smartcontractkit/chainlink-starknet/relayer"
-      gitRef: "73cd3d46ad0ce2871160369cb6447aeb9b48513f" # 2026-04-08
+      gitRef: "v0.1.1-0.20260218141258-834aadbff52b" # 2026-02-18
       installPath: "./pkg/chainlink/cmd/chainlink-starknet"
 
   streams:
@@ -50,10 +50,10 @@ plugins:
 
   ton:
     - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v0.0.0-20260415120434-cecc380f8d87"
+      gitRef: "v0.0.0-20260407162259-97d09f9749b4"
       installPath: "./cmd/chainlink-ton"
 
   tron:
     - moduleURI: "github.com/smartcontractkit/chainlink-tron/relayer"
-      gitRef: "v0.0.11-0.20260408092456-3c6369888d4a"
+      gitRef: "v0.0.11-0.20260218133534-cbd44da2856b"
       installPath: "./cmd/chainlink-tron"

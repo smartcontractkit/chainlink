@@ -390,21 +390,10 @@ func TestPausableTicker(t *testing.T) {
 	assert.Nil(t, pt.Ticks())
 	defer pt.Destroy()
 
-	done := make(chan struct{})
-	defer close(done)
-
 	followNTicks := func(n int32, awaiter cltest.Awaiter) {
-		for {
-			select {
-			case <-done:
-				return
-			case _, ok := <-pt.Ticks():
-				if !ok {
-					return
-				}
-				if counter.Add(1) == n {
-					awaiter.ItHappened()
-				}
+		for range pt.Ticks() {
+			if counter.Add(1) == n {
+				awaiter.ItHappened()
 			}
 		}
 	}
@@ -436,20 +425,11 @@ func TestCronTicker(t *testing.T) {
 	assert.NoError(t, err)
 
 	awaiter := cltest.NewAwaiter()
-	done := make(chan struct{})
 
 	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case _, ok := <-ct.Ticks():
-				if !ok {
-					return
-				}
-				if counter.Add(1) == 2 {
-					awaiter.ItHappened()
-				}
+		for range ct.Ticks() {
+			if counter.Add(1) == 2 {
+				awaiter.ItHappened()
 			}
 		}
 	}()
@@ -463,7 +443,6 @@ func TestCronTicker(t *testing.T) {
 	awaiter.AwaitOrFail(t)
 
 	assert.True(t, ct.Stop())
-	close(done)
 	c := counter.Load()
 	time.Sleep(1 * time.Second)
 	assert.Equal(t, c, counter.Load())

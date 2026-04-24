@@ -15,9 +15,6 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
@@ -52,7 +49,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	evmChain := rt.Environment().BlockChains.EVMChains()[evmSelector]
 	solChain := rt.Environment().BlockChains.SolanaChains()[solSelector]
 
-	config := cldftesthelpers.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMSV2(t)
 
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]commontypes.MCMSWithTimelockConfigV2{
@@ -90,7 +87,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 		evmSelector: mcmsState.ProposerMcm.Address().Hex(),
 		solSelector: solana.ContractAddress(solState.McmProgram, solana.PDASeed(solState.ProposerMcmSeed)),
 	}
-	inspectorPerChain, err := cldfproposalutils.McmsInspectors(rt.Environment())
+	inspectorPerChain, err := proposalutils.McmsInspectors(rt.Environment())
 	require.NoError(t, err)
 
 	description := "Test Proposal"

@@ -91,16 +91,6 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	var triggerMeta map[string]any
 	require.NoError(t, json.Unmarshal(trigger.Metadata, &triggerMeta))
 
-	// this tests if modifier scaffolding works in the changeset
-	// each modifier's code is not tested here
-	capWithModifierID := capabilities_registry_v2.CapabilitiesRegistryCapability{
-		CapabilityId:          "aptos:ChainSelector:123456@1.0.0",
-		ConfigurationContract: common.Address{},
-		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
-	}
-	var aptosWriteChainMeta map[string]any
-	require.NoError(t, json.Unmarshal(capWithModifierID.Metadata, &aptosWriteChainMeta))
-
 	nop1 := "test-nop-1"
 	nop2 := "test-nop-2"
 	nodes := []changeset.CapabilitiesRegistryNodeParams{
@@ -110,7 +100,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 			P2pID:               p2pID1,
 			EncryptionPublicKey: encryptionPublicKey,
 			CsaKey:              csaKey,
-			CapabilityIDs:       []string{writeChain.CapabilityId, trigger.CapabilityId, capWithModifierID.CapabilityId},
+			CapabilityIDs:       []string{writeChain.CapabilityId, trigger.CapabilityId},
 		},
 		{
 			NOP:                 nop2,
@@ -118,7 +108,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 			P2pID:               p2pID2,
 			EncryptionPublicKey: encryptionPublicKey,
 			CsaKey:              csaKey,
-			CapabilityIDs:       []string{writeChain.CapabilityId, trigger.CapabilityId, capWithModifierID.CapabilityId},
+			CapabilityIDs:       []string{writeChain.CapabilityId, trigger.CapabilityId},
 		},
 	}
 	nodeSet := []string{p2pID1, p2pID2}
@@ -146,7 +136,6 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 		Capabilities: []changeset.CapabilitiesRegistryCapability{
 			{CapabilityID: writeChain.CapabilityId, Metadata: writeChainMeta},
 			{CapabilityID: trigger.CapabilityId, Metadata: triggerMeta},
-			{CapabilityID: capWithModifierID.CapabilityId, Metadata: aptosWriteChainMeta},
 		},
 		Nodes: nodes,
 		DONs: []changeset.CapabilitiesRegistryNewDONParams{
@@ -158,7 +147,6 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 				},
 				CapabilityConfigurations: []changeset.CapabilitiesRegistryCapabilityConfiguration{
 					{CapabilityID: writeChain.CapabilityId, Config: cfg},
-					{CapabilityID: capWithModifierID.CapabilityId, Config: cfg},
 				},
 				Nodes:            nodeSet,
 				F:                1,

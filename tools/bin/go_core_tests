@@ -8,7 +8,7 @@ JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
 
 echo "Installing gotestsum..."
-go install gotest.tools/gotestsum@v1.13.0
+go install gotest.tools/gotestsum@v1.12.3
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
@@ -47,7 +47,6 @@ gotestsum \
   $RERUN_FLAGS \
   --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
-  --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
   -- $GO_TEST_FLAGS
 

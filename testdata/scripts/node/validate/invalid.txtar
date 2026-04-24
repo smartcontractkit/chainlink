@@ -51,7 +51,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
-InsecurePPROFHeap = true
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -436,9 +436,6 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
-
-[CRE.ConfidentialRelay]
-Enabled = false
 
 [Billing]
 URL = ''

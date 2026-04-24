@@ -5,26 +5,14 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.26.2-bookworm AS deps-base
+FROM golang:1.25.7-bookworm AS deps-base
 RUN go version
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /chainlink
 
 ADD go.mod go.sum ./
-COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
-
-# CL_GOPRIVATE: set to "github.com/smartcontractkit/*" when building images
-# that depend on private Go modules (e.g. chainlink-internal-solana). When
-# empty (the default), go mod download uses the public module proxy as usual.
-ARG CL_GOPRIVATE=""
-ENV GOPRIVATE="${CL_GOPRIVATE}"
-RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
-    set -e && \
-    export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download && \
-    trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
-    ./plugins/scripts/setup_git_auth.sh && \
-    go mod download
+RUN go mod download
 
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/

@@ -19,6 +19,7 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
+	InsecurePPROFHeap() bool
 	EVMEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool

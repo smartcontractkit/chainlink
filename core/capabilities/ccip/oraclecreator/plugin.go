@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -273,7 +272,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to setup observation metrics collector: %w", err)
 	}
 
-	oracleArgs := libocr3.OCR3OracleArgs2[[]byte]{
+	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
 		// NOTE: when specifying V2Bootstrappers here we actually do NOT need to run a full bootstrap node!
@@ -298,7 +297,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
-		OnchainKeyring:         ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyring),
+		OnchainKeyring:         onchainKeyring,
 		ReportingPluginFactory: factory,
 	}
 	oracle, err := libocr3.NewOracle(oracleArgs)
@@ -306,15 +305,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, err
 	}
 
-	closers := make([]io.Closer, 0, len(contractReaders)+len(chainWriters)+len(ccipProviders)+1)
+	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters)+1)
 	for _, cr := range contractReaders {
 		closers = append(closers, cr)
 	}
 	for _, cw := range chainWriters {
 		closers = append(closers, cw)
-	}
-	for _, p := range ccipProviders {
-		closers = append(closers, p)
 	}
 	// Add metrics collector to closers so it's properly shut down
 	closers = append(closers, metricsCollector)

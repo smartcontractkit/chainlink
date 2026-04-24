@@ -11,8 +11,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -448,7 +446,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -456,7 +454,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -605,7 +603,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -613,7 +611,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 			batches = append(batches, batchOperation)
 
 			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address().Hex()
-			inspectors[srcSel], err = cldfproposalutils.McmsInspectorForChain(e, srcSel)
+			inspectors[srcSel], err = proposalutils.McmsInspectorForChain(e, srcSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", srcSel, err)
 			}
@@ -702,7 +700,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -710,7 +708,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -1520,7 +1518,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1528,7 +1526,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 			batches = append(batches, batchOperation)
 
 			timelocks[remote] = state.Chains[remote].Timelock.Address().Hex()
-			inspectors[remote], err = cldfproposalutils.McmsInspectorForChain(e, remote)
+			inspectors[remote], err = proposalutils.McmsInspectorForChain(e, remote)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", remote, err)
 			}
@@ -1639,7 +1637,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1647,7 +1645,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -1963,14 +1961,14 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			op, err := cldfproposalutils.BatchOperationForChain(
+			op, err := proposalutils.BatchOperationForChain(
 				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			inspector, err := cldfproposalutils.McmsInspectorForChain(e, chainSel)
+			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
 			}

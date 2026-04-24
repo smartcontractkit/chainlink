@@ -7,6 +7,7 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 	chains "github.com/smartcontractkit/chainlink-framework/chains"
+
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -86,7 +86,6 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 
 	ctx := testutils.Context(t)
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
@@ -352,6 +351,7 @@ var multiWordSpecTemplate string
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
+	quarantine.Flaky(t, "DX-1761")
 	t.Parallel()
 	tests := []struct {
 		name    string

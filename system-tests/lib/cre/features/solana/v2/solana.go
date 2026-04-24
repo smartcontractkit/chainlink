@@ -55,8 +55,7 @@ const (
 		"transmitter":"{{.NodeAddress}}",
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
-		"network":"{{.Network}}",
-		"deltaStage":{{printf "%d" .DeltaStage}}
+		"network":"{{.Network}}"
 	}`
 	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
 	requestTimeout = 30 * time.Second
@@ -97,14 +96,10 @@ func (s *Solana) PreEnvStartup(
 
 	// 3. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
-	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
-	for _, capability := range capabilities {
-		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilySolana}
-	}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig:         capabilities,
-		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
+		DONCapabilityWithConfig: capabilities,
+		ExtraSignerFamilies:     []string{chainselectors.FamilySolana},
 	}, nil
 }
 
@@ -221,7 +216,6 @@ func createJobs(
 				"IsLocal":             true,
 				"Network":             "solana",
 				"ChainID":             solChainID,
-				"DeltaStage":          deltaStage,
 			}
 
 			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)

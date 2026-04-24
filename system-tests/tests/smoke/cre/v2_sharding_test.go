@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
+	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -309,16 +309,6 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 		Interface("distribution", shardCounts).
 		Msg("Real workflows distributed across 2 shards after scaling")
 
-	logger.Info().Msg("Step 8b: Waiting for mapping version to stabilize before verifying shard assignments")
-	waitForMappingVersionStable(t, shardOrchClient, workflowIDs, 15*time.Second, 90*time.Second)
-
-	// Re-snapshot mappings after the barrier so we use the post-stable state.
-	resp, err = shardOrchClient.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
-		WorkflowIds: workflowIDs,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-
 	logger.Info().Msg("Step 9: Verify all workflows execute on their assigned shards via ChIP test sink")
 	workflowToShardIndex := resp.Mappings
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -328,10 +318,9 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(logger, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
-		// can't use t.Context() here because it will have been cancelled before the cleanup function is called
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+		server.Shutdown(t.Context())
+		close(userLogsCh)
+		close(baseMessageCh)
 	})
 
 	execTimeout := 3 * time.Minute
@@ -364,7 +353,7 @@ func getShardConfigRef(t *testing.T, testEnv *ttypes.TestEnvironment) datastore.
 	return datastore.NewAddressRefKey(
 		testEnv.CreEnvironment.RegistryChainSelector,
 		datastore.ContractType(deployment_contracts.ShardConfig.String()),
-		semver.MustParse("1.0.0-dev"),
+		semver.MustParse("1"),
 		"",
 	)
 }
@@ -566,14 +555,9 @@ func waitForWorkflowsDistributed(t *testing.T, client ringpb.ShardOrchestratorSe
 		for _, shardID := range resp.Mappings {
 			shardsSeen[shardID] = true
 		}
-		steady := resp.GetRoutingSteady()
-		framework.L.Info().
-			Int("shardsUsed", len(shardsSeen)).
-			Int("minShards", minShards).
-			Bool("routingSteady", steady).
-			Msg("Waiting for distribution + steady")
-		return len(shardsSeen) >= minShards && steady
-	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards (with RoutingSteady) within timeout", minShards)
+		framework.L.Info().Int("shardsUsed", len(shardsSeen)).Int("minShards", minShards).Msg("Waiting for distribution")
+		return len(shardsSeen) >= minShards
+	}, 2*time.Minute, 5*time.Second, "Workflows not distributed across %d shards within timeout", minShards)
 }
 
 func buildNodeP2PIDToShardIndex(t *testing.T, testEnv *ttypes.TestEnvironment) map[string]uint32 {
@@ -611,51 +595,6 @@ func waitForAllWorkflowsOnShard(t *testing.T, client ringpb.ShardOrchestratorSer
 	}, 2*time.Minute, 5*time.Second, "Workflows not remapped to shard %d within timeout", expectedShard)
 }
 
-func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string, stableDuration, timeout time.Duration) {
-	t.Helper()
-	logger := framework.L
-
-	lastMappings := map[string]uint32{}
-	lastChangeAt := time.Now()
-
-	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		resp, err := client.GetWorkflowShardMapping(ctx, &ringpb.GetWorkflowShardMappingRequest{
-			WorkflowIds: workflowIDs,
-		})
-		if err != nil {
-			logger.Warn().Err(err).Msg("Failed to get mapping during stability check")
-			return false
-		}
-		changed := len(resp.Mappings) != len(lastMappings)
-		if !changed {
-			for wfID, shard := range resp.Mappings {
-				if lastMappings[wfID] != shard {
-					changed = true
-					break
-				}
-			}
-		}
-		if changed {
-			logger.Info().
-				Uint64("mappingVersion", resp.MappingVersion).
-				Interface("mappings", resp.Mappings).
-				Msg("Mapping content changed, resetting stability timer")
-			lastMappings = resp.Mappings
-			lastChangeAt = time.Now()
-			return false
-		}
-		stableFor := time.Since(lastChangeAt)
-		logger.Info().
-			Uint64("mappingVersion", resp.MappingVersion).
-			Dur("stableFor", stableFor).
-			Dur("target", stableDuration).
-			Msg("Mapping content stability check")
-		return stableFor >= stableDuration
-	}, timeout, 2*time.Second, "Mapping content did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
-}
-
 func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
@@ -667,7 +606,6 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 	executedWorkflows := make(map[string]struct{})
 	seenNodes := make(map[string]struct{})
 	seenShardIndices := make(map[uint32]struct{})
-	mismatchCounts := make(map[string]int)
 
 	timeoutCh := time.After(timeout)
 	for {
@@ -678,13 +616,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			logger.Warn().
 				Int("executed", len(executedWorkflows)).
 				Int("expected", len(expectedWorkflows)).
-				Interface("mismatchCounts", mismatchCounts).
 				Msg("Timeout waiting for all workflows to execute")
-			for wfID, count := range mismatchCounts {
-				if _, confirmed := executedWorkflows[wfID]; !confirmed {
-					t.Errorf("Workflow %s saw %d log(s) on wrong shard but never on expected shard %d", wfID, count, workflowToShardIndex[wfID])
-				}
-			}
 			return executedWorkflows
 		case userLogs := <-userLogsCh:
 			if userLogs.M == nil {
@@ -708,18 +640,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 					actualShardIndex, knownNode := nodeP2PIDToShardIndex[normalizedP2PID]
 					require.True(t, knownNode, "Workflow %s executed on unknown node %s", wfID, userLogs.M.P2PID)
 					expectedShardIndex := workflowToShardIndex[wfID]
-
-					if actualShardIndex != expectedShardIndex {
-						mismatchCounts[wfID]++
-						logger.Warn().
-							Str("workflowID", wfID).
-							Str("p2pID", normalizedP2PID).
-							Uint32("actualShard", actualShardIndex).
-							Uint32("expectedShard", expectedShardIndex).
-							Int("mismatchCount", mismatchCounts[wfID]).
-							Msg("Stale log from wrong shard, waiting for correct shard execution")
-						continue
-					}
+					require.Equal(t, expectedShardIndex, actualShardIndex, "Workflow %s executed on shard index %d but expected %d (node %s)", wfID, actualShardIndex, expectedShardIndex, userLogs.M.P2PID)
 
 					executedWorkflows[wfID] = struct{}{}
 					seenNodes[normalizedP2PID] = struct{}{}
@@ -739,7 +660,6 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 				logger.Info().
 					Int("uniqueNodes", len(seenNodes)).
 					Int("uniqueShardIndices", len(seenShardIndices)).
-					Interface("mismatchCounts", mismatchCounts).
 					Msg("All workflows executed on correct shards")
 				return executedWorkflows
 			}

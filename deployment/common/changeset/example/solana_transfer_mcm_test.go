@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
@@ -188,7 +188,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 }
 
 func TestTransferFromTimelockConfig_Apply(t *testing.T) {
-	t.Skip("broken")
+	quarantine.Flaky(t, "DX-1754")
 	t.Parallel()
 
 	selector := chainselectors.TEST_22222222222222222222222222222222222222222222.Selector
@@ -236,7 +236,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 				selector: cfgAmounts,
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

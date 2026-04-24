@@ -7,6 +7,7 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
+
 	ethkey "github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 
 	mock "github.com/stretchr/testify/mock"

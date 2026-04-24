@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -142,7 +141,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		m.MCMSContracts = mcmsContracts
 		m.ChainSel = fixture.RegistrySelector
 
-		op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
@@ -168,7 +167,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		m.MCMSContracts = mcmsContracts
 		m.ChainSel = fixture.RegistrySelector
 
-		op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
@@ -194,7 +193,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		m.MCMSContracts = mcmsContracts
 		m.ChainSel = fixture.RegistrySelector
 
-		op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})
@@ -222,7 +221,7 @@ func TestMCMSTransaction_BuildProposal(t *testing.T) {
 		m.MCMSContracts = mcmsContracts
 		m.ChainSel = fixture.RegistrySelector
 
-		op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
+		op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), []byte{0x01, 0x02, 0x03}, big.NewInt(0), "", nil)
 		require.NoError(t, err)
 
 		p, err := m.BuildProposal([]mcmstypes.BatchOperation{op})

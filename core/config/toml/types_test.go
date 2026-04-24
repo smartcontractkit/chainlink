@@ -196,95 +196,95 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 	}{
 		{
 			name:            "valid http address in tls mode",
-			collectorTarget: new("https://testing.collector.dev"),
-			mode:            new("tls"),
+			collectorTarget: ptr("https://testing.collector.dev"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid http address in unencrypted mode",
-			collectorTarget: new("https://localhost:4317"),
-			mode:            new("unencrypted"),
+			collectorTarget: ptr("https://localhost:4317"),
+			mode:            ptr("unencrypted"),
 			wantErr:         true,
 			errMsg:          "CollectorTarget: invalid value (https://localhost:4317): must be a valid local URI",
 		},
 		// Tracing.Mode = 'tls'
 		{
 			name:            "valid localhost address",
-			collectorTarget: new("localhost:4317"),
-			mode:            new("tls"),
+			collectorTarget: ptr("localhost:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid docker address",
-			collectorTarget: new("otel-collector:4317"),
-			mode:            new("tls"),
+			collectorTarget: ptr("otel-collector:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid IP address",
-			collectorTarget: new("192.168.1.1:4317"),
-			mode:            new("tls"),
+			collectorTarget: ptr("192.168.1.1:4317"),
+			mode:            ptr("tls"),
 			wantErr:         false,
 		},
 		{
 			name:            "invalid port",
-			collectorTarget: new("localhost:invalid"),
+			collectorTarget: ptr("localhost:invalid"),
 			wantErr:         true,
-			mode:            new("tls"),
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid URI",
 		},
 		{
 			name:            "invalid address",
-			collectorTarget: new("invalid address"),
+			collectorTarget: ptr("invalid address"),
 			wantErr:         true,
-			mode:            new("tls"),
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid URI",
 		},
 		{
 			name:            "nil CollectorTarget",
-			collectorTarget: new(""),
+			collectorTarget: ptr(""),
 			wantErr:         true,
-			mode:            new("tls"),
+			mode:            ptr("tls"),
 			errMsg:          "CollectorTarget: invalid value (): must be a valid URI",
 		},
 		// Tracing.Mode = 'unencrypted'
 		{
 			name:            "valid localhost address",
-			collectorTarget: new("localhost:4317"),
-			mode:            new("unencrypted"),
+			collectorTarget: ptr("localhost:4317"),
+			mode:            ptr("unencrypted"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid docker address",
-			collectorTarget: new("otel-collector:4317"),
-			mode:            new("unencrypted"),
+			collectorTarget: ptr("otel-collector:4317"),
+			mode:            ptr("unencrypted"),
 			wantErr:         false,
 		},
 		{
 			name:            "valid IP address",
-			collectorTarget: new("192.168.1.1:4317"),
-			mode:            new("unencrypted"),
+			collectorTarget: ptr("192.168.1.1:4317"),
+			mode:            ptr("unencrypted"),
 			wantErr:         false,
 		},
 		{
 			name:            "invalid port",
-			collectorTarget: new("localhost:invalid"),
+			collectorTarget: ptr("localhost:invalid"),
 			wantErr:         true,
-			mode:            new("unencrypted"),
+			mode:            ptr("unencrypted"),
 			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid local URI",
 		},
 		{
 			name:            "invalid address",
-			collectorTarget: new("invalid address"),
+			collectorTarget: ptr("invalid address"),
 			wantErr:         true,
-			mode:            new("unencrypted"),
+			mode:            ptr("unencrypted"),
 			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid local URI",
 		},
 		{
 			name:            "nil CollectorTarget",
-			collectorTarget: new(""),
+			collectorTarget: ptr(""),
 			wantErr:         true,
-			mode:            new("unencrypted"),
+			mode:            ptr("unencrypted"),
 			errMsg:          "CollectorTarget: invalid value (): must be a valid local URI",
 		},
 	}
@@ -296,7 +296,7 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 				tlsCertPath = "/path/to/cert.pem"
 			}
 			tracing := &Tracing{
-				Enabled:         new(true),
+				Enabled:         ptr(true),
 				TLSCertPath:     &tlsCertPath,
 				Mode:            tt.mode,
 				CollectorTarget: tt.collectorTarget,
@@ -323,28 +323,28 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 	}{
 		{
 			name:          "valid lower bound",
-			samplingRatio: new(0.0),
+			samplingRatio: ptr(0.0),
 			wantErr:       false,
 		},
 		{
 			name:          "valid upper bound",
-			samplingRatio: new(1.0),
+			samplingRatio: ptr(1.0),
 			wantErr:       false,
 		},
 		{
 			name:          "valid value",
-			samplingRatio: new(0.5),
+			samplingRatio: ptr(0.5),
 			wantErr:       false,
 		},
 		{
 			name:          "invalid negative value",
-			samplingRatio: new(-0.1),
+			samplingRatio: ptr(-0.1),
 			wantErr:       true,
 			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
 		},
 		{
 			name:          "invalid value greater than 1",
-			samplingRatio: new(1.1),
+			samplingRatio: ptr(1.1),
 			wantErr:       true,
 			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
 		},
@@ -359,7 +359,7 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := Tracing{
 				SamplingRatio: tt.samplingRatio,
-				Enabled:       new(true),
+				Enabled:       ptr(true),
 			}
 
 			err := tracing.ValidateConfig()
@@ -384,23 +384,23 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	}{
 		{
 			name:        "valid file path",
-			tlsCertPath: new("/etc/ssl/certs/cert.pem"),
+			tlsCertPath: ptr("/etc/ssl/certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "relative file path",
-			tlsCertPath: new("certs/cert.pem"),
+			tlsCertPath: ptr("certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "excessively long file path",
-			tlsCertPath: new(strings.Repeat("z", 4097)),
+			tlsCertPath: ptr(strings.Repeat("z", 4097)),
 			wantErr:     true,
 			errMsg:      "TLSCertPath: invalid value (" + strings.Repeat("z", 4097) + "): must be a valid file path",
 		},
 		{
 			name:        "empty file path",
-			tlsCertPath: new(""),
+			tlsCertPath: ptr(""),
 			wantErr:     true,
 			errMsg:      "TLSCertPath: invalid value (): must be a valid file path",
 		},
@@ -415,22 +415,22 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	}{
 		{
 			name:        "valid file path",
-			tlsCertPath: new("/etc/ssl/certs/cert.pem"),
+			tlsCertPath: ptr("/etc/ssl/certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "relative file path",
-			tlsCertPath: new("certs/cert.pem"),
+			tlsCertPath: ptr("certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "excessively long file path",
-			tlsCertPath: new(strings.Repeat("z", 4097)),
+			tlsCertPath: ptr(strings.Repeat("z", 4097)),
 			wantErr:     false,
 		},
 		{
 			name:        "empty file path",
-			tlsCertPath: new(""),
+			tlsCertPath: ptr(""),
 			wantErr:     false,
 		},
 	}
@@ -438,9 +438,9 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	for _, tt := range tls_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
-				Mode:        new("tls"),
+				Mode:        ptr("tls"),
 				TLSCertPath: tt.tlsCertPath,
-				Enabled:     new(true),
+				Enabled:     ptr(true),
 			}
 
 			err := tracing.ValidateConfig()
@@ -457,9 +457,9 @@ func TestTracing_ValidateTLSCertPath(t *testing.T) {
 	for _, tt := range unencrypted_tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
-				Mode:        new("unencrypted"),
+				Mode:        ptr("unencrypted"),
 				TLSCertPath: tt.tlsCertPath,
-				Enabled:     new(true),
+				Enabled:     ptr(true),
 			}
 
 			err := tracing.ValidateConfig()
@@ -484,32 +484,32 @@ func TestTracing_ValidateMode(t *testing.T) {
 	}{
 		{
 			name:        "tls mode with valid TLS path",
-			mode:        new("tls"),
-			tlsCertPath: new("/path/to/cert.pem"),
+			mode:        ptr("tls"),
+			tlsCertPath: ptr("/path/to/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "tls mode without TLS path",
-			mode:        new("tls"),
+			mode:        ptr("tls"),
 			tlsCertPath: nil,
 			wantErr:     true,
 			errMsg:      "TLSCertPath: missing: must be set when Tracing.Mode is tls",
 		},
 		{
 			name:        "unencrypted mode with TLS path",
-			mode:        new("unencrypted"),
-			tlsCertPath: new("/path/to/cert.pem"),
+			mode:        ptr("unencrypted"),
+			tlsCertPath: ptr("/path/to/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "unencrypted mode without TLS path",
-			mode:        new("unencrypted"),
+			mode:        ptr("unencrypted"),
 			tlsCertPath: nil,
 			wantErr:     false,
 		},
 		{
 			name:        "invalid mode",
-			mode:        new("unknown"),
+			mode:        ptr("unknown"),
 			tlsCertPath: nil,
 			wantErr:     true,
 			errMsg:      "Mode: invalid value (unknown): must be either 'tls' or 'unencrypted'",
@@ -519,7 +519,7 @@ func TestTracing_ValidateMode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tracing := &Tracing{
-				Enabled:     new(true),
+				Enabled:     ptr(true),
 				Mode:        tt.mode,
 				TLSCertPath: tt.tlsCertPath,
 			}
@@ -545,17 +545,17 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 	}{
 		{
 			name:        "valid file path",
-			tlsCertPath: new("/etc/ssl/certs/cert.pem"),
+			tlsCertPath: ptr("/etc/ssl/certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "relative file path",
-			tlsCertPath: new("certs/cert.pem"),
+			tlsCertPath: ptr("certs/cert.pem"),
 			wantErr:     false,
 		},
 		{
 			name:        "excessively long file path",
-			tlsCertPath: new(strings.Repeat("z", 4097)),
+			tlsCertPath: ptr(strings.Repeat("z", 4097)),
 			wantErr:     true,
 			errMsg:      "CertFile: invalid value (" + strings.Repeat("z", 4097) + "): must be a valid file path",
 		},
@@ -586,8 +586,8 @@ func TestEthKeys_TOMLSerialization(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		ethKeysWrapper := EthKeys{
 			Keys: []*EthKey{
-				{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
-				{JSON: new(models.Secret("key2")), Password: new(models.Secret("pass2")), ID: new(99)},
+				{JSON: ptr(models.Secret("key1")), Password: ptr(models.Secret("pass1")), ID: ptr(1)},
+				{JSON: ptr(models.Secret("key2")), Password: ptr(models.Secret("pass2")), ID: ptr(99)},
 			},
 		}
 
@@ -628,8 +628,8 @@ func TestSolKeys_TOMLSerialization(t *testing.T) {
 	t.Run("encode", func(t *testing.T) {
 		solKeys := SolKeys{
 			Keys: []*SolKey{
-				{JSON: new(models.Secret("solkey1")), Password: new(models.Secret("pass1")), ID: new("devnet")},
-				{JSON: new(models.Secret("solkey2")), Password: new(models.Secret("pass2")), ID: new("mainnet")},
+				{JSON: ptr(models.Secret("solkey1")), Password: ptr(models.Secret("pass1")), ID: ptr("devnet")},
+				{JSON: ptr(models.Secret("solkey2")), Password: ptr(models.Secret("pass2")), ID: ptr("mainnet")},
 			},
 		}
 
@@ -671,9 +671,9 @@ func TestSolKeys_SetFrom(t *testing.T) {
 	solKeysWrapper2 := SolKeys{
 		Keys: []*SolKey{
 			{
-				JSON:     new(models.Secret("solkey1")),
-				Password: new(models.Secret("pass1")),
-				ID:       new("devnet"),
+				JSON:     ptr(models.Secret("solkey1")),
+				Password: ptr(models.Secret("pass1")),
+				ID:       ptr("devnet"),
 			},
 		},
 	}
@@ -687,7 +687,7 @@ func TestEthKeys_SetFrom(t *testing.T) {
 	ethKeysWrapper1 := &EthKeys{}
 	ethKeysWrapper2 := EthKeys{
 		Keys: []*EthKey{
-			{JSON: new(models.Secret("key1")), Password: new(models.Secret("pass1")), ID: new(1)},
+			{JSON: ptr(models.Secret("key1")), Password: ptr(models.Secret("pass1")), ID: ptr(1)},
 		},
 	}
 
@@ -695,6 +695,9 @@ func TestEthKeys_SetFrom(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ethKeysWrapper2, *ethKeysWrapper1)
 }
+
+// ptr is a utility function for converting a value to a pointer to the value.
+func ptr[T any](t T) *T { return &t }
 
 func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 	testCases := []struct {
@@ -706,7 +709,7 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "disabled with nil fields",
 			config: &BridgeStatusReporter{
-				Enabled:              new(false),
+				Enabled:              ptr(false),
 				StatusPath:           nil,
 				PollingInterval:      nil,
 				IgnoreInvalidBridges: nil,
@@ -717,22 +720,22 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "disabled with empty fields",
 			config: &BridgeStatusReporter{
-				Enabled:              new(false),
-				StatusPath:           new(""),
+				Enabled:              ptr(false),
+				StatusPath:           ptr(""),
 				PollingInterval:      durationPtr(0),
-				IgnoreInvalidBridges: new(false),
-				IgnoreJoblessBridges: new(true),
+				IgnoreInvalidBridges: ptr(false),
+				IgnoreJoblessBridges: ptr(true),
 			},
 			expectError: false,
 		},
 		{
 			name: "disabled with valid fields",
 			config: &BridgeStatusReporter{
-				Enabled:              new(false),
-				StatusPath:           new("/status"),
+				Enabled:              ptr(false),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(5 * time.Minute),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: false,
 		},
@@ -740,10 +743,10 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 			name: "nil enabled (defaults to disabled)",
 			config: &BridgeStatusReporter{
 				Enabled:              nil,
-				StatusPath:           new("/status"),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(5 * time.Minute),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: false,
 		},
@@ -751,18 +754,18 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "enabled with valid config",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new("/status"),
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(5 * time.Minute),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: false,
 		},
 		{
 			name: "enabled with nil fields - should fail validation",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
+				Enabled:              ptr(true),
 				StatusPath:           nil,
 				PollingInterval:      nil,
 				IgnoreInvalidBridges: nil,
@@ -774,22 +777,22 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "enabled with empty status path - should auto-default",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new(""),
+				Enabled:              ptr(true),
+				StatusPath:           ptr(""),
 				PollingInterval:      durationPtr(5 * time.Minute),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: false,
 		},
 		{
 			name: "enabled with zero polling interval - should fail validation",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new("/status"),
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(0),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: true,
 			errorMsg:    "must be greater than or equal to: 1m",
@@ -797,11 +800,11 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "enabled with polling interval less than 1 minute - should fail validation",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new("/status"),
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(30 * time.Second),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: true,
 			errorMsg:    "must be greater than or equal to: 1m",
@@ -809,19 +812,19 @@ func TestBridgeStatusReporter_ValidateConfig(t *testing.T) {
 		{
 			name: "enabled with polling interval exactly 1 minute",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new("/status"),
+				Enabled:              ptr(true),
+				StatusPath:           ptr("/status"),
 				PollingInterval:      durationPtr(1 * time.Minute),
-				IgnoreInvalidBridges: new(true),
-				IgnoreJoblessBridges: new(false),
+				IgnoreInvalidBridges: ptr(true),
+				IgnoreJoblessBridges: ptr(false),
 			},
 			expectError: false,
 		},
 		{
 			name: "enabled with all fields missing - should fail validation",
 			config: &BridgeStatusReporter{
-				Enabled:              new(true),
-				StatusPath:           new(""),
+				Enabled:              ptr(true),
+				StatusPath:           ptr(""),
 				PollingInterval:      durationPtr(0),
 				IgnoreInvalidBridges: nil,
 				IgnoreJoblessBridges: nil,

@@ -2,8 +2,6 @@ package changeset_test
 
 import (
 	"encoding/json"
-	"fmt"
-	"maps"
 	"testing"
 	"time"
 
@@ -76,46 +74,62 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	env := test.SetupEnvV2(t, false)
 	chainSelector := env.RegistrySelector
 
-	capCfg := []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}}
-
-	// Empty map
+	// Missing donName and donNames
 	err := cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
-		RegistryChainSel:     chainSelector,
-		RegistryQualifier:    "qual",
-		DonCapabilityConfigs: nil,
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          nil,
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "donCapabilityConfigs must contain at least one DON entry")
+	assert.Contains(t, err.Error(), "must specify donName or donNames")
 
-	// Empty DON name key
+	// Both donName and donNames set
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			"": capCfg,
-		},
+		DonName:           "don-1",
+		DonNames:          []string{"don-2"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot be empty strings")
+	assert.Contains(t, err.Error(), "cannot specify both donName and donNames")
 
-	// Empty config list for a DON
+	// donNames with empty string
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			"don-1": {},
-		},
+		DonNames:          []string{"don-1", ""},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}}},
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one capability config")
+	assert.Contains(t, err.Error(), "cannot contain an empty string")
 
-	// Valid (single DON)
+	// Missing capability configs
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			"don-1": capCfg,
-		},
+		DonNames:          []string{"don-1"},
+		CapabilityConfigs: nil,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "capabilityConfigs")
+
+	// Valid (single DON via donNames)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonNames:          []string{"don-1"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
+	})
+	require.NoError(t, err)
+
+	// Valid (single DON via donName - backward compatibility)
+	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
+		RegistryChainSel:  chainSelector,
+		RegistryQualifier: "qual",
+		DonName:           "don-1",
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
 	})
 	require.NoError(t, err)
 
@@ -123,10 +137,8 @@ func TestAddCapabilities_VerifyPreconditions(t *testing.T) {
 	err = cs.VerifyPreconditions(*env.Env, changeset.AddCapabilitiesInput{
 		RegistryChainSel:  chainSelector,
 		RegistryQualifier: "qual",
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			"don-1": capCfg,
-			"don-2": capCfg,
-		},
+		DonNames:          []string{"don-1", "don-2"},
+		CapabilityConfigs: []contracts.CapabilityConfig{{Capability: contracts.Capability{CapabilityID: "cap@1.0.0"}, Config: map[string]any{"k": "v"}}},
 	})
 	require.NoError(t, err)
 }
@@ -135,16 +147,15 @@ func addNewCapability(t *testing.T, fixture *test.EnvWrapperV2, capID string) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			test.DONName: {{
-				Capability: contracts.Capability{
-					CapabilityID:          capID,
-					ConfigurationContract: common.Address{},
-					Metadata:              newCapMetadata,
-				},
-				Config: newCapConfig,
-			}},
-		},
+		DonNames:          []string{test.DONName},
+		CapabilityConfigs: []contracts.CapabilityConfig{{
+			Capability: contracts.Capability{
+				CapabilityID:          capID,
+				ConfigurationContract: common.Address{},
+				Metadata:              newCapMetadata,
+			},
+			Config: newCapConfig,
+		}},
 		Force: true,
 	}
 
@@ -235,16 +246,15 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	input := changeset.AddCapabilitiesInput{
 		RegistryChainSel:  fixture.RegistrySelector,
 		RegistryQualifier: test.RegistryQualifier,
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			test.DONName: {{
-				Capability: contracts.Capability{
-					CapabilityID:          newCapID,
-					ConfigurationContract: common.Address{},
-					Metadata:              newCapMetadata,
-				},
-				Config: newCapConfig,
-			}},
-		},
+		DonNames:          []string{test.DONName},
+		CapabilityConfigs: []contracts.CapabilityConfig{{
+			Capability: contracts.Capability{
+				CapabilityID:          newCapID,
+				ConfigurationContract: common.Address{},
+				Metadata:              newCapMetadata,
+			},
+			Config: newCapConfig,
+		}},
 		Force: true,
 		MCMSConfig: &crecontracts.MCMSConfig{
 			MinDelay: 1 * time.Second,
@@ -265,185 +275,4 @@ func TestAddCapabilities_Apply_MCMS(t *testing.T) {
 	// Verify the changeset output
 	require.NotNil(t, csOut.Reports, "reports should be present")
 	require.NotEmpty(t, csOut.MCMSTimelockProposals, "should have MCMS proposals when using MCMS")
-}
-
-func aptosTestCapabilityID(aptosChainSelector uint64) string {
-	return fmt.Sprintf("aptos:ChainSelector:%d@1.0.0", aptosChainSelector)
-}
-
-func addCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
-	t.Helper()
-	require.NotNil(t, fixture.Env.Offchain, "Aptos add-capabilities needs JD Offchain client")
-
-	capID := aptosTestCapabilityID(fixture.AptosSelector)
-	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
-		RegistryQualifier: test.RegistryQualifier,
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			test.DONName: {{
-				Capability: contracts.Capability{
-					CapabilityID:          capID,
-					ConfigurationContract: common.Address{},
-					Metadata:              newCapMetadata,
-				},
-				Config: maps.Clone(newCapConfig),
-			}},
-		},
-		Force: true,
-	}
-
-	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
-	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
-	require.NoError(t, err)
-}
-
-func requireCapabilityWithModifier(t *testing.T, fixture *test.EnvWrapperV2) {
-	t.Helper()
-
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		fixture.RegistryAddress,
-		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
-	)
-	require.NoError(t, err)
-
-	capID := aptosTestCapabilityID(fixture.AptosSelector)
-	caps, err := pkg.GetCapabilities(nil, capReg)
-	require.NoError(t, err)
-	var foundCap bool
-	for _, c := range caps {
-		if c.CapabilityId == capID {
-			foundCap = true
-			break
-		}
-	}
-	require.True(t, foundCap, "aptos capability %s should be registered", capID)
-
-	don, err := capReg.GetDONByName(nil, test.DONName)
-	require.NoError(t, err)
-
-	var cfgFound bool
-	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == capID {
-			got := new(pkg.CapabilityConfig)
-			require.NoError(t, got.UnmarshalProto(cfg.Config))
-			requireAptosSpecP2PTransmitterMap(t, got)
-			cfgFound = true
-			break
-		}
-	}
-	require.True(t, cfgFound, "expected don to have %s capability configuration", capID)
-}
-
-// requireAptosSpecP2PTransmitterMap checks UnmarshalProto output: specConfig (values.v1.Map)
-// contains p2pToTransmitterMap with a non-empty nested map of entries.
-func requireAptosSpecP2PTransmitterMap(t *testing.T, cfg *pkg.CapabilityConfig) {
-	t.Helper()
-	spec, ok := (*cfg)["specConfig"].(map[string]any)
-	require.True(t, ok, "specConfig should be present as object")
-	fields, ok := spec["fields"].(map[string]any)
-	require.True(t, ok, "specConfig should have values.v1.Map fields")
-	const p2pKey = "p2pToTransmitterMap"
-	raw, ok := fields[p2pKey]
-	require.True(t, ok, "specConfig.fields should contain %q", p2pKey)
-	p2pVal, ok := raw.(map[string]any)
-	require.True(t, ok, "%q should be an object", p2pKey)
-	mv, ok := p2pVal["mapValue"].(map[string]any)
-	require.True(t, ok, "%q should be a values map (mapValue)", p2pKey)
-	inner, ok := mv["fields"].(map[string]any)
-	require.True(t, ok, "%q.mapValue should have fields", p2pKey)
-	require.NotEmpty(t, inner, "%q should have at least one peer→transmitter entry", p2pKey)
-}
-
-func TestAddCapabilities_Apply_Modifier(t *testing.T) {
-	fixture := test.SetupEnvV2(t, false)
-	addCapabilityWithModifier(t, fixture)
-	requireCapabilityWithModifier(t, fixture)
-}
-
-func TestAddCapabilities_Apply_WithOCR3Config(t *testing.T) {
-	fixture := test.SetupEnvV2(t, false)
-	require.NotNil(t, fixture.Env.Offchain)
-
-	capID := "ocr3-test-cap@1.0.0"
-	ocr3Config := map[string]any{
-		"ocr3Configs": map[string]any{
-			"__default__": map[string]any{
-				"offchainConfig": map[string]any{
-					"uniqueReports":                     true,
-					"deltaProgressMillis":               5000,
-					"deltaResendMillis":                 5000,
-					"deltaInitialMillis":                5000,
-					"deltaRoundMillis":                  2000,
-					"deltaGraceMillis":                  500,
-					"deltaCertifiedCommitRequestMillis": 1000,
-					"deltaStageMillis":                  30000,
-					"maxRoundsPerEpoch":                 10,
-					"transmissionSchedule":              []any{test.TotalNodes + 1}, // +1 for bootstrap
-					"maxDurationQueryMillis":            1000,
-					"maxDurationObservationMillis":      1000,
-					"maxDurationShouldAcceptMillis":     1000,
-					"maxDurationShouldTransmitMillis":   1000,
-					"maxFaultyOracles":                  1,
-				},
-			},
-		},
-	}
-
-	input := changeset.AddCapabilitiesInput{
-		RegistryChainSel:  fixture.RegistrySelector,
-		RegistryQualifier: test.RegistryQualifier,
-		DonCapabilityConfigs: map[string][]contracts.CapabilityConfig{
-			test.DONName: {{
-				Capability: contracts.Capability{
-					CapabilityID:          capID,
-					ConfigurationContract: common.Address{},
-					Metadata:              newCapMetadata,
-				},
-				Config: ocr3Config,
-			}},
-		},
-		Force: true,
-		FirstOCR3ConfigCapabilities: map[string][]string{
-			test.DONName: {capID},
-		},
-	}
-
-	require.NoError(t, changeset.AddCapabilities{}.VerifyPreconditions(*fixture.Env, input))
-	_, err := changeset.AddCapabilities{}.Apply(*fixture.Env, input)
-	require.NoError(t, err)
-
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		fixture.RegistryAddress,
-		fixture.Env.BlockChains.EVMChains()[fixture.RegistrySelector].Client,
-	)
-	require.NoError(t, err)
-
-	don, err := capReg.GetDONByName(nil, test.DONName)
-	require.NoError(t, err)
-
-	var cfgFound bool
-	for _, cfg := range don.CapabilityConfigurations {
-		if cfg.CapabilityId == capID {
-			got := new(pkg.CapabilityConfig)
-			require.NoError(t, got.UnmarshalProto(cfg.Config))
-
-			ocr3Cfgs, ok := (*got)["ocr3Configs"].(map[string]any)
-			require.True(t, ok, "ocr3Configs should be present")
-			defaultCfg, ok := ocr3Cfgs["__default__"].(map[string]any)
-			require.True(t, ok, "__default__ should be present")
-
-			_, hasSigners := defaultCfg["signers"]
-			assert.True(t, hasSigners, "expanded config should have signers")
-			_, hasTransmitters := defaultCfg["transmitters"]
-			assert.True(t, hasTransmitters, "expanded config should have transmitters")
-
-			offchainCfg, ok := defaultCfg["offchainConfig"].(string)
-			require.True(t, ok, "offchainConfig should be a base64 string after expansion")
-			assert.NotEmpty(t, offchainCfg)
-
-			cfgFound = true
-			break
-		}
-	}
-	require.True(t, cfgFound, "expected don to have %s capability configuration with expanded OCR3 config", capID)
 }

@@ -299,7 +299,6 @@ type ConfigureOCR3Config struct {
 	DryRun     bool
 
 	ReportingPluginConfigOverride []byte
-	ExtraSignerFamilies           []string
 
 	UseMCMS  bool
 	Strategy strategies.TransactionStrategy
@@ -328,7 +327,7 @@ func ConfigureOCR3ContractFromJD(env *cldf.Environment, cfg ConfigureOCR3Config)
 		return nil, err
 	}
 
-	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride, cfg.ExtraSignerFamilies)
+	config, err := GenerateOCR3ConfigFromNodes(*cfg.OCR3Config, nodes, cfg.ChainSel, env.OCRSecrets, cfg.ReportingPluginConfigOverride, nil)
 	if err != nil {
 		return nil, err
 	}

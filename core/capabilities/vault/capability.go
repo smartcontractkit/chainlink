@@ -16,7 +16,6 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -32,7 +31,6 @@ type Capability struct {
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
-	linker               *OrgIDToWorkflowOwnerLinker
 	*RequestValidator
 }
 
@@ -70,9 +68,6 @@ func (s *Capability) Close() error {
 
 	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
-	}
-	if lerr := s.linker.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing org_id linker: %w", lerr))
 	}
 
 	return err
@@ -115,13 +110,13 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
 	}
 
+	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
-			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(request.Metadata.WorkflowOwner) {
-			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
+
+		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
 	}
@@ -137,12 +132,6 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		phaseOrExecution = "subscription"
 	}
 	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
-
-	// When VaultOrgIdAsSecretOwnerEnabled is disabled, request.WorkflowOwner is
-	// not populated, so it has to be fetched from the first request's secret owner.
-	if r.WorkflowOwner == "" && len(r.Requests) > 0 && r.Requests[0] != nil && r.Requests[0].Id != nil {
-		r.WorkflowOwner = r.Requests[0].Id.Owner
-	}
 
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
@@ -169,33 +158,21 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request)
+	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
-	if err != nil {
-		return nil, err
-	}
-	request.OrgId = resolvedIdentity.OrgID
-	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request)
+	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
 	}
-	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
-	if err != nil {
-		return nil, err
-	}
-	request.OrgId = resolvedIdentity.OrgID
-	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -206,12 +183,6 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
-	if err != nil {
-		return nil, err
-	}
-	request.OrgId = resolvedIdentity.OrgID
-	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -233,12 +204,6 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
 		return nil, err
 	}
-	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
-	if err != nil {
-		return nil, err
-	}
-	request.OrgId = resolvedIdentity.OrgID
-	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -291,19 +256,6 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	}
 }
 
-// resolveRequestIdentity validates and normalizes the org/workflow-owner pair that the vault plugin consumes.
-func (s *Capability) resolveRequestIdentity(ctx context.Context, orgID string, workflowOwner string) (LinkedVaultRequestIdentity, error) {
-	s.lggr.Debugw("resolving request identity", "orgID", orgID, "workflowOwner", workflowOwner)
-	linked, err := s.linker.Link(ctx, orgID, workflowOwner)
-	if err != nil {
-		s.lggr.Errorw("failed to resolve request identity", "orgID", orgID, "workflowOwner", workflowOwner, "err", err)
-		return LinkedVaultRequestIdentity{}, err
-	}
-	s.lggr.Debugw("resolved request identity", "orgID", linked.OrgID, "workflowOwner", linked.WorkflowOwner)
-
-	return linked, nil
-}
-
 func NewCapability(
 	lggr logger.Logger,
 	clock clockwork.Clock,
@@ -311,16 +263,11 @@ func NewCapability(
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
-	orgResolver orgresolver.OrgResolver,
 	limitsFactory limits.Factory,
 ) (*Capability, error) {
 	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
-	}
-	linker, err := NewOrgIDToWorkflowOwnerLinker(orgResolver, limitsFactory)
-	if err != nil {
-		return nil, err
 	}
 	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultCiphertextSizeLimit)
 	if err != nil {
@@ -333,7 +280,6 @@ func NewCapability(
 		handler:              handler,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
-		linker:               linker,
 		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }

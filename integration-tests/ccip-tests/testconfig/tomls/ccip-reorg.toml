@@ -1,0 +1,64 @@
+[CCIP]
+[CCIP.Env]
+Mockserver = 'http://parrot'
+[CCIP.Env.Network]
+selected_networks= ['SIMULATED_1', 'SIMULATED_2']
+
+[CCIP.Env.Network.EVMNetworks.SIMULATED_1]
+evm_name = 'source-chain'
+evm_chain_id = 1337
+evm_keys = ['59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d', '7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6']
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '3m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_depth = 10
+
+[CCIP.Env.Network.EVMNetworks.SIMULATED_2]
+evm_name = 'dest-chain'
+evm_chain_id = 2337
+evm_keys = ['ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', '7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6']
+evm_simulated = true
+client_implementation = 'Ethereum'
+evm_chainlink_transaction_limit = 5000
+evm_transaction_timeout = '3m'
+evm_minimum_confirmations = 1
+evm_gas_estimation_buffer = 1000
+evm_supports_eip1559 = true
+evm_default_gas_limit = 6000000
+evm_finality_depth = 10
+
+[CCIP.Env.NewCLCluster]
+NoOfNodes = 6
+NodeMemory = '4Gi'
+NodeCPU = '2'
+DBMemory = '4Gi'
+DBCPU = '2'
+DBCapacity = '10Gi'
+IsStateful = true
+DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB']
+
+[CCIP.Env.NewCLCluster.Common]
+CommonChainConfigTOML = """
+LogPollInterval = '1s'
+[HeadTracker]
+HistoryDepth = 30
+
+[GasEstimator]
+PriceMax = '200 gwei'
+LimitDefault = 6000000
+FeeCapDefault = '200 gwei'
+"""
+
+[CCIP.Groups.smoke]
+PhaseTimeout = '3m'       # Duration to wait for the each phase validation(SendRequested, Commit, RMN Blessing, Execution) to time-out.
+LocalCluster = true
+
+[CCIP.Groups.smoke.ReorgProfile]
+FinalityDelta = 5
+
+

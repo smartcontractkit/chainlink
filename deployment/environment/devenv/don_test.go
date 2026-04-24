@@ -8,7 +8,7 @@ import (
 
 func TestPtrVal(t *testing.T) {
 	x := "hello"
-	xptr := new(x)
+	xptr := ptr(x)
 	got := value(xptr)
 	require.Equal(t, x, got)
 

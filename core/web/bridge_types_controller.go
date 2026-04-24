@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/pkg/errors"
+	"github.com/jackc/pgconn"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -17,6 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // ValidateBridgeTypeNotExist checks that a bridge has not already been created

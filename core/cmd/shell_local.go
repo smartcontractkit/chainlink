@@ -185,7 +185,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
 						},
 					},
 				},
@@ -202,7 +202,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
+							Usage: "set to true to force the reset by dropping any existing connections to the database",
 						},
 					},
 				},
@@ -552,19 +552,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.AptosEnabled() {
-		for _, k := range s.Config.ImportedAptosKeys().List() {
-			lggr.Debug("Importing aptos key")
-			_, err2 := app.GetKeyStore().Aptos().Import(rootCtx, []byte(k.JSON()), k.Password())
-			if err2 != nil {
-				if errors.Is(err2, keystore.ErrKeyExists) {
-					lggr.Debugf("Aptos key %s already exists for chain %v", k.JSON(), k.ChainDetails())
-					continue
-				}
-				return s.errorOut(fmt.Errorf("error importing aptos key: %w", err2))
-			}
-			lggr.Debugf("Imported aptos key %s for chain %v", k.JSON(), k.ChainDetails())
-		}
-
 		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure aptos key: %w", err2)
@@ -1241,10 +1228,8 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		}
 		lggr.Debug("Closed DB")
 
-		if s.CloseLogger != nil {
-			if err := s.CloseLogger(); err != nil {
-				log.Printf("Failed to close Logger: %v", err)
-			}
+		if err := s.CloseLogger(); err != nil {
+			log.Printf("Failed to close Logger: %v", err)
 		}
 	})
 }

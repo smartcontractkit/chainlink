@@ -13,7 +13,6 @@ import (
 	timelockbindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -63,7 +62,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 				Chains:  []uint64{selector},
 				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			}),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 
@@ -76,7 +75,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 					MCMSAction: mcmstypes.TimelockActionSchedule,
 				},
 			}),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 		)
 		require.NoError(t, err)
 

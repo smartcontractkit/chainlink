@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -13,18 +14,19 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	tvutil "github.com/smartcontractkit/chainlink/v2/core/utils/typeandversion"
 )
 
 type ContractType string
 
 const (
+	// default version to use when TypeAndVersion is missing.
+	defaultVersion = "1.0.0"
 	ContractName   = "TypeAndVersion"
 	MethodName     = "typeAndVersion"
 )
 
 var (
-	Unknown             ContractType = tvutil.UnknownContractType // contracts which have no TypeAndVersion
+	Unknown             ContractType = "Unknown" // contracts which have no TypeAndVersion
 	ErrNoContractReader              = errors.New("no contract reader returned by factory")
 )
 
@@ -115,7 +117,15 @@ func TypeAndVersion(ctx context.Context, addr string, crFactory ContractReaderFa
 }
 
 func ParseTypeAndVersion(tvStr string) (string, string, error) {
-	return tvutil.ParseTypeAndVersion(tvStr)
+	if tvStr == "" {
+		tvStr = string(Unknown) + " " + defaultVersion
+	}
+	typeAndVersionValues := strings.Split(tvStr, " ")
+
+	if len(typeAndVersionValues) != 2 {
+		return "", "", fmt.Errorf("invalid type and version %s", tvStr)
+	}
+	return typeAndVersionValues[0], typeAndVersionValues[1], nil
 }
 
 // RunWithRetries is a helper function that retries a function until it succeeds.

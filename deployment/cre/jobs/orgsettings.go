@@ -25,7 +25,7 @@ func CombineCRESettingsFiles(wd string, fs fs.FS) ([]byte, error) {
 	return settings.CombineTOMLFiles(os.DirFS(wd))
 }
 
-// copyOrgFiles makes a copy of each org file, with an `org_` prefix.
+// copyOrgFiles makes two copies of each org file. One with an `org_` prefix and one lower-case.
 func copyOrgFiles(dir string) error {
 	dir = filepath.Join(dir, "org")
 	err := fs.WalkDir(os.DirFS(dir), ".", func(path string, d fs.DirEntry, err error) error {
@@ -43,6 +43,13 @@ func copyOrgFiles(dir string) error {
 		err = copyFile(dir, name, prefixed)
 		if err != nil {
 			return fmt.Errorf("failed to copy file %s to %s: %w", name, prefixed, err)
+		}
+		lower := strings.ToLower(name)
+		if name != lower { // no need for a copy
+			err = copyFile(dir, name, lower)
+			if err != nil {
+				return fmt.Errorf("failed to copy file %s to %s: %w", name, lower, err)
+			}
 		}
 
 		return nil

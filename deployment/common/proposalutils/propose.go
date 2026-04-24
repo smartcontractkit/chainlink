@@ -23,7 +23,6 @@ import (
 	cldf_adapters "github.com/smartcontractkit/chainlink-deployments-framework/chain/mcms/adapters"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -332,7 +331,7 @@ func buildProposalMetadataV2(
 			}
 
 		case chain_selectors.FamilyAptos:
-			role, err := cldfproposalutils.GetAptosRoleFromAction(mcmsAction)
+			role, err := GetAptosRoleFromAction(mcmsAction)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get role from action: %w", err)
 			}

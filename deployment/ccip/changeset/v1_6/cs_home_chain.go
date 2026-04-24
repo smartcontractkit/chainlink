@@ -16,8 +16,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
@@ -548,7 +546,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	batchOperation, err := cldfproposalutils.BatchOperationForChain(cfg.HomeChainSel,
+	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -683,7 +681,7 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	batchOperation, err := cldfproposalutils.BatchOperationForChain(c.HomeChainSel,
+	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -699,7 +697,7 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, err
 	}
 	inspectors := make(map[uint64]mcmssdk.Inspector)
-	inspectors[c.HomeChainSel], err = cldfproposalutils.McmsInspectorForChain(env, c.HomeChainSel)
+	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}

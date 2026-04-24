@@ -3,10 +3,11 @@
 package mocks
 
 import (
-	context "context"
-
 	common "github.com/ethereum/go-ethereum/common"
 	chains "github.com/smartcontractkit/chainlink-framework/chains"
+
+	context "context"
+
 	mock "github.com/stretchr/testify/mock"
 )
 

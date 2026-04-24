@@ -63,8 +63,7 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				config_url,
 				created_at,
 				updated_at,
-				spec_type,
-				attributes
+				spec_type
 			) VALUES (
 				:workflow,
 				:config,
@@ -77,8 +76,7 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				:config_url,
 				:created_at,
 				:updated_at,
-				:spec_type,
-				:attributes
+				:spec_type
 			) ON CONFLICT (workflow_id) DO UPDATE
 			SET
 				workflow = EXCLUDED.workflow,
@@ -91,8 +89,7 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				config_url = EXCLUDED.config_url,
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type,
-				attributes = EXCLUDED.attributes
+				spec_type = EXCLUDED.spec_type
 			RETURNING id
 		`
 

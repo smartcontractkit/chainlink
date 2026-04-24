@@ -182,7 +182,7 @@ func debugRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group.GET("/vars", expvar.Handler())
 }
 
-func metricRoutes(r *gin.RouterGroup) {
+func metricRoutes(r *gin.RouterGroup, includeHeap bool) {
 	pprofGroup := r.Group("/debug/pprof")
 	pprofGroup.GET("/", ginHandlerFromHTTP(pprof.Index))
 	pprofGroup.GET("/cmdline", ginHandlerFromHTTP(pprof.Cmdline))
@@ -193,7 +193,9 @@ func metricRoutes(r *gin.RouterGroup) {
 	pprofGroup.GET("/allocs", ginHandlerFromHTTP(pprof.Handler("allocs").ServeHTTP))
 	pprofGroup.GET("/block", ginHandlerFromHTTP(pprof.Handler("block").ServeHTTP))
 	pprofGroup.GET("/goroutine", ginHandlerFromHTTP(pprof.Handler("goroutine").ServeHTTP))
-	pprofGroup.GET("/heap", ginHandlerFromHTTP(pprof.Handler("heap").ServeHTTP))
+	if includeHeap {
+		pprofGroup.GET("/heap", ginHandlerFromHTTP(pprof.Handler("heap").ServeHTTP))
+	}
 	pprofGroup.GET("/mutex", ginHandlerFromHTTP(pprof.Handler("mutex").ServeHTTP))
 	pprofGroup.GET("/threadcreate", ginHandlerFromHTTP(pprof.Handler("threadcreate").ServeHTTP))
 }
@@ -439,7 +441,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/vault/dkg_results/export", auth.RequiresEditRole(vault.ExportDKGResult))
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2)
+		metricRoutes(authv2, app.GetConfig().InsecurePPROFHeap() || build.IsDev())
 	}
 
 	ping := PingController{app}

@@ -47,8 +47,6 @@ import (
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
-	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
-	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
@@ -290,9 +288,6 @@ type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
 		porV2types.WorkflowConfig |
-		AptosReadWorkflowConfig |
-		aptoswrite_config.Config |
-		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
@@ -317,12 +312,6 @@ type HTTPWorkflowConfig struct {
 	URL           string         `json:"url"`
 }
 
-type AptosReadWorkflowConfig struct {
-	ChainSelector    uint64 `yaml:"chainSelector"`
-	WorkflowName     string `yaml:"workflowName"`
-	ExpectedCoinName string `yaml:"expectedCoinName"`
-}
-
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
@@ -336,7 +325,6 @@ type WorkflowRegistrationConfig struct {
 	DonID                   uint64
 	ContainerTargetDir      string
 	SethClient              *seth.Client
-	Attributes              []byte
 }
 
 /*
@@ -406,24 +394,6 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
 			testLogger.Info().Msg("PoR v2 workflow config file created.")
-
-		case *AptosReadWorkflowConfig:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create aptos read workflow config file")
-			testLogger.Info().Msg("Aptos read workflow config file created.")
-
-		case *aptoswrite_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create aptos write workflow config file")
-			testLogger.Info().Msg("Aptos write workflow config file created.")
-
-		case *aptoswriteroundtrip_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create aptos write roundtrip workflow config file")
-			testLogger.Info().Msg("Aptos write roundtrip workflow config file created.")
 
 		case *HTTPWorkflowConfig:
 			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg, outputDir)
@@ -645,7 +615,6 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
-		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
@@ -723,7 +692,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
-		Attributes:              cfg.attributes,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
@@ -732,7 +700,6 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 
 type compileAndDeployWorkflowCfg struct {
 	artifactCopyDONTypes []cre.CapabilityFlag
-	attributes           []byte
 }
 
 // CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
@@ -745,16 +712,6 @@ func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWo
 			return
 		}
 		cfg.artifactCopyDONTypes = append([]cre.CapabilityFlag{}, donTypes...)
-	}
-}
-
-// WithAttributes sets the workflow attributes byte blob (JSON) written to the
-// WorkflowRegistry contract on upsert. The CRE syncer reads this to decide
-// routing (e.g. confidential execution via ConfidentialModule). The input is
-// cloned so later caller mutations don't affect stored config.
-func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
-	return func(cfg *compileAndDeployWorkflowCfg) {
-		cfg.attributes = slices.Clone(attributes)
 	}
 }
 

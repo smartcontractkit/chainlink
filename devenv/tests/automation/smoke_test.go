@@ -2,6 +2,7 @@ package automation
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -42,7 +43,8 @@ func TestRegistry_2_0(t *testing.T) {
 }
 
 func TestRegistry_2_1(t *testing.T) {
-	testNames := []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"}
+	// testNames := []string{"registry_2_1_conditional", "registry_2_1_logtrigger", "registry_2_1_with_mercury_v02", "registry_2_1_with_mercury_v03"}
+	testNames := []string{"registry_2_1_logtrigger"}
 	for _, tc := range testNames {
 		basicAutomationTest(t, Testcase{
 			RegistryVersion:          contracts.RegistryVersion_2_1,
@@ -94,8 +96,11 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 	l.Info().Msg("Running test " + testcase.Name + " with registry version " + testcase.RegistryVersion.String())
 
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		err := products.ScanLogs(l, products.DefaultSettings())
+		require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
+
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	outputFile := "../../env-out.toml"

@@ -126,12 +126,12 @@ func MarshalRLPWith(arena *fastrlp.Arena, h *PolygonEdgeHeader) (*fastrlp.Value,
 func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	// Capture prefix 0's sent by nexon supernet
 	hexExtra := hex.EncodeToString(extra)
-	var prefix strings.Builder
+	prefix := ""
 	for _, s := range hexExtra {
 		if s != '0' {
 			break
 		}
-		prefix.WriteString("0")
+		prefix = prefix + "0"
 	}
 
 	hexExtra = strings.TrimLeft(hexExtra, "0")
@@ -160,8 +160,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	}
 
 	// Add prefix 0's sent by nexon supernet before sending output
-	prefix.WriteString(hex.EncodeToString(cleanedExtra))
-	hexExtra = prefix.String()
+	hexExtra = prefix + hex.EncodeToString(cleanedExtra)
 	cleanedExtra, err = hex.DecodeString(hexExtra)
 	return cleanedExtra, err
 }

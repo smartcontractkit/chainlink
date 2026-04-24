@@ -1,6 +1,7 @@
 package flux
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
 	"github.com/smartcontractkit/chainlink/devenv/products/flux"
@@ -23,8 +25,8 @@ func TestSmoke(t *testing.T) {
 	productCfg, err := products.LoadOutput[flux.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	c, _, _, err := products.ETHClient(

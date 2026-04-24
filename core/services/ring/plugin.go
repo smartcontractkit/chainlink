@@ -172,9 +172,6 @@ func (p *Plugin) getHealthyShards(shardHealth map[uint32]int) []uint32 {
 }
 
 func (p *Plugin) Outcome(_ context.Context, outctx ocr3types.OutcomeContext, _ types.Query, aos []types.AttributedObservation) (ocr3types.Outcome, error) {
-	if len(aos) == 0 {
-		return nil, errors.New("RingOCR Outcome: no attributed observations")
-	}
 	currentShardHealth, allWorkflows, nows, wantShardVotes := p.collectShardInfo(aos)
 	p.lggr.Infow("RingOCR Outcome collect shard info", "currentShardHealth", currentShardHealth, "wantShardVotes", wantShardVotes)
 
@@ -238,7 +235,7 @@ func (p *Plugin) Reports(_ context.Context, _ uint64, outcome ocr3types.Outcome)
 	}
 
 	for i := 0; i < p.config.N; i++ {
-		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i)
+		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i) //nolint:gosec // G115: i bounded by config.N
 	}
 
 	info, err := structpb.NewStruct(map[string]any{

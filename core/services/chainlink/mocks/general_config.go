@@ -3,14 +3,19 @@
 package mocks
 
 import (
-	time "time"
-
-	uuid "github.com/google/uuid"
-	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	mock "github.com/stretchr/testify/mock"
+
+	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
+	time "time"
+
+	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
+	uuid "github.com/google/uuid"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -875,53 +880,6 @@ func (_c *GeneralConfig_FluxMonitor_Call) RunAndReturn(run func() config.FluxMon
 	return _c
 }
 
-// ImportedAptosKeys provides a mock function with no fields
-func (_m *GeneralConfig) ImportedAptosKeys() config.ImportableChainKeyLister {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ImportedAptosKeys")
-	}
-
-	var r0 config.ImportableChainKeyLister
-	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.ImportableChainKeyLister)
-		}
-	}
-
-	return r0
-}
-
-// GeneralConfig_ImportedAptosKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedAptosKeys'
-type GeneralConfig_ImportedAptosKeys_Call struct {
-	*mock.Call
-}
-
-// ImportedAptosKeys is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) ImportedAptosKeys() *GeneralConfig_ImportedAptosKeys_Call {
-	return &GeneralConfig_ImportedAptosKeys_Call{Call: _e.mock.On("ImportedAptosKeys")}
-}
-
-func (_c *GeneralConfig_ImportedAptosKeys_Call) Run(run func()) *GeneralConfig_ImportedAptosKeys_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_ImportedAptosKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedAptosKeys_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_ImportedAptosKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedAptosKeys_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ImportedDKGRecipientKey provides a mock function with no fields
 func (_m *GeneralConfig) ImportedDKGRecipientKey() config.ImportableKey {
 	ret := _m.Called()
@@ -1198,6 +1156,51 @@ func (_c *GeneralConfig_InsecureFastScrypt_Call) Return(_a0 bool) *GeneralConfig
 }
 
 func (_c *GeneralConfig_InsecureFastScrypt_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecureFastScrypt_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// InsecurePPROFHeap provides a mock function with no fields
+func (_m *GeneralConfig) InsecurePPROFHeap() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsecurePPROFHeap")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_InsecurePPROFHeap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsecurePPROFHeap'
+type GeneralConfig_InsecurePPROFHeap_Call struct {
+	*mock.Call
+}
+
+// InsecurePPROFHeap is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) InsecurePPROFHeap() *GeneralConfig_InsecurePPROFHeap_Call {
+	return &GeneralConfig_InsecurePPROFHeap_Call{Call: _e.mock.On("InsecurePPROFHeap")}
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) Run(run func()) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) Return(_a0 bool) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecurePPROFHeap_Call {
 	_c.Call.Return(run)
 	return _c
 }

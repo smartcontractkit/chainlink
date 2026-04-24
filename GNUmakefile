@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.11.4"
+GOLANGCI_LINT_VERSION = "v2.5.0"
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -273,17 +273,6 @@ test-short: ## Run 'go test -short' and suppress uninteresting output
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
-
-.PHONY: dependabot
-ifndef DEPENDABOT_SEVERITY
-DEPENDABOT_SEVERITY := "critical,high"
-endif
-dependabot: gomods
-	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-          '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
-          jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-          go tool dependabot
-	gomods tidy
 
 help:
 	@echo ""

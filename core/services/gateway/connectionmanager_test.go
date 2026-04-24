@@ -4,7 +4,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -100,8 +99,7 @@ Path = "/node"` + config
 func newTestConfig(t *testing.T, nNodes int) (*config.GatewayConfig, []gc.TestNode) {
 	nodes := gc.NewTestNodes(t, nNodes)
 
-	var config strings.Builder
-	config.WriteString(`
+	config := `
 [nodeServerConfig]
 Path = "/node"
 [connectionManagerConfig]
@@ -111,15 +109,15 @@ AuthChallengeLen = 100
 [[dons]]
 DonId = "my_don_1"
 HandlerName = "dummy"
-`)
+`
 
 	for i := range nNodes {
-		config.WriteString(`[[dons.members]]` + "\n")
-		config.WriteString(fmt.Sprintf(`Name = "node_%d"`, i) + "\n")
-		config.WriteString(fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n")
+		config += `[[dons.members]]` + "\n"
+		config += fmt.Sprintf(`Name = "node_%d"`, i) + "\n"
+		config += fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n"
 	}
 
-	return parseTOMLConfig(t, config.String()), nodes
+	return parseTOMLConfig(t, config), nodes
 }
 
 func signAndPackAuthHeader(t *testing.T, authHeaderElems *network.AuthHeaderElems, signerKey *ecdsa.PrivateKey) []byte {

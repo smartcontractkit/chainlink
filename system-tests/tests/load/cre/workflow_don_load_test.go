@@ -662,7 +662,7 @@ func (s *StreamsGun) createReport() (capabilities.OCRTriggerEvent, string, time.
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles)
+	event, eventID, err := createFeedReport(logger.Nop(), price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		return capabilities.OCRTriggerEvent{}, "", time.Time{}, err
 	}
@@ -724,7 +724,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 			return nil, "", err2
 		}
 		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
-			Signer:    uint32(i),
+			Signer:    uint32(i), //nolint:gosec // G115 don't care in test code
 			Signature: sig,
 		})
 	}
@@ -1196,8 +1196,7 @@ func consensusJobSpec(chainID uint64) cretypes.JobSpecFn {
 func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, offchainBundleID string, ocr2KeyBundles map[string]string, ocrPeeringData cretypes.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
-	var spec strings.Builder
-	fmt.Fprintf(&spec, `
+	spec := fmt.Sprintf(`
 	type = "offchainreporting2"
 	schemaVersion = 1
 	externalJobID = "%s"
@@ -1232,14 +1231,14 @@ func WorkerOCR3JobSpec(nodeID string, ocr3CapabilityAddress, nodeEthAddress, off
 		chainID,
 	)
 	for family, key := range ocr2KeyBundles {
-		fmt.Fprintf(&spec, `
+		spec += fmt.Sprintf(`
         %s = "%s"`, family, key)
-		spec.WriteString("\n")
+		spec += "\n"
 	}
 
 	return &jobv1.ProposeJobRequest{
 		NodeId: nodeID,
-		Spec:   spec.String(),
+		Spec:   spec,
 	}
 }
 

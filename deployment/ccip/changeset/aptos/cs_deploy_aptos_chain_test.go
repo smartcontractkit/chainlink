@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	aptoschain "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
@@ -110,9 +109,9 @@ func TestDeployAptosChainImp_VerifyPreconditions(t *testing.T) {
 				},
 				MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
 					4457093679053095497: {
-						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
-						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
-						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+						Canceller:        proposalutils.SingleGroupMCMSV2(t),
+						Proposer:         proposalutils.SingleGroupMCMSV2(t),
+						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 						TimelockMinDelay: nil, // Invalid min delay
 					},
 				},
@@ -261,9 +260,9 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 		},
 		MCMSDeployConfigPerChain: map[uint64]types.MCMSWithTimelockConfigV2{
 			selector: {
-				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
-				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
-				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+				Canceller:        proposalutils.SingleGroupMCMSV2(t),
+				Proposer:         proposalutils.SingleGroupMCMSV2(t),
+				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 				TimelockMinDelay: big.NewInt(1),
 			},
 		},
@@ -278,7 +277,7 @@ func TestDeployAptosChain_Apply(t *testing.T) {
 
 	err = rt.Exec(
 		runtime.ChangesetTask(DeployAptosChain{}, ccipConfig),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

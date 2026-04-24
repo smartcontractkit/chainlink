@@ -48,10 +48,8 @@ jobs:
         id: runner-labels
         shell: bash
         env:
-          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7g/volume=80gb/spot=false/image=ubuntu24-full-arm64
-          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7a/volume=80gb/spot=false/image=ubuntu24-full-x64
+          SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7g/volume=80gb/spot=false/image=ubuntu24-full-arm64
+          SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c7a/volume=80gb/spot=false/image=ubuntu24-full-x64
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
@@ -83,7 +81,7 @@ jobs:
           echo "version-tag=${version_tag}" | tee -a "$GITHUB_OUTPUT"
 
   docker-core:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
@@ -115,7 +113,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
@@ -149,7 +147,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-core-plugins-testing:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
@@ -184,7 +182,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
@@ -219,7 +217,7 @@ jobs:
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip-plugins:
-    needs: [ init ]
+    needs: [init]
     if: ${{ needs.init.outputs.should-run == 'true' }}
     permissions:
       contents: read
@@ -253,25 +251,45 @@ jobs:
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-  call-post-docker-build:
-    if: ${{ github.event_name == 'schedule' || github.event_name ==
-      'workflow_dispatch' }}
-    needs: [ init, docker-core ]
-    uses: ./.github/workflows/post-docker-build.yml
-    permissions:
-      actions: read
-      id-token: write
-      contents: read
+  call-cre-local-env-tests:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [docker-core-plugins]
+    uses: ./.github/workflows/cre-local-env-tests.yaml
     with:
-      chainlink_core_image_tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-      chainlink_version: ${{ needs.init.outputs.checked-out-sha }}
+      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
+    secrets: inherit
+
+  call-cre-workflow-don-benchmark:
+    if: false
+    # temporarily disabled CRE-962
+    # if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [docker-core-plugins-testing]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cre-workflow-don-benchmark.yaml
+    with:
+      chainlink_image_tag: ${{ needs.docker-core-plugins-testing.outputs.docker-manifest-tag }}
+      chainlink_version: ${{ github.ref_name != '' && github.ref_name || 'develop' }}
+    secrets: inherit
+
+  soak-cre-memory-leak:
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    needs: [docker-core-plugins]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cre-soak-memory-leak.yml
+    with:
+      chainlink_image_tag: ${{ needs.docker-core-plugins.outputs.docker-manifest-tag }}
     secrets: inherit
 
   deploy-nightly-core:
     if: false
     # temporarily disabled
     # if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-core ]
+    needs: [docker-core]
     permissions:
       contents: read
       id-token: write
@@ -286,15 +304,14 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink',
-            secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
           pr-close-enabled: false
           products: |
             cre
 
   deploy-nightly-ccip:
     if: ${{ github.event_name == 'schedule' }}
-    needs: [ docker-ccip ]
+    needs: [docker-ccip]
     permissions:
       contents: read
       id-token: write
@@ -309,8 +326,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
           oci-image-tag: ${{ needs.docker-ccip.outputs.docker-manifest-tag }}
-          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/ccip',
-            secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
+          oci-repository-url: ${{ format('{0}.dkr.ecr.{1}.amazonaws.com/ccip', secrets.AWS_ACCOUNT_ID_SDLC, secrets.AWS_REGION) }}
           pr-close-enabled: false
           products: |
             ccip-nightlies

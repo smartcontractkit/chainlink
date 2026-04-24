@@ -2,7 +2,6 @@ package crossfamily_test
 
 import (
 	"math"
-	"slices"
 	"testing"
 	"time"
 
@@ -90,8 +89,6 @@ func getSolanaTokenTransferFeeConfig(t *testing.T, tEnv cldf.Environment, srcSel
 }
 
 func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
-	t.Skip("broken")
-
 	// Build a mixed env with EVM + non-EVM so we can validate both families in one table-driven test
 	env, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
@@ -284,11 +281,10 @@ func TestSetTokenTransferFeeConfig_Validations(t *testing.T) {
 }
 
 func TestSetTokenTransferFeeConfig_EmptyConfigIsGracefullyHandled(t *testing.T) {
-	// No Solana chains needed: empty InputsByChain early-exits before any chain interaction.
-	// Including WithSolChains would spin up a Docker container + download .so artifacts,
-	// introducing network and Docker flakiness for a path that never touches those chains.
 	env, _ := testhelpers.NewMemoryEnvironment(t,
+		testhelpers.WithCCIPSolanaContractVersion(ccip_cs_sol_v0_1_1.SolanaContractV0_1_1),
 		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSolChains(1),
 	)
 
 	_, err := commonchangeset.Apply(t, env.Env,
@@ -562,13 +558,11 @@ func TestSetTokenTransferFeeConfig_MixedFamilies_SingleApply(t *testing.T) {
 	// EVM selectors
 	evm := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilyEVM))
 	require.GreaterOrEqual(t, len(evm), 2)
-	slices.Sort(evm)
 	evmSrc, evmDst := evm[0], evm[1]
 
 	// SOL selectors
 	sol := env.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainsel.FamilySolana))
 	require.GreaterOrEqual(t, len(sol), 1)
-	slices.Sort(sol)
 	solSrc := sol[0]
 
 	// EVM: transfer to timelock so we can MCMS-apply

@@ -1,0 +1,12 @@
+{
+  "src_rpc": "<src_rpc_url>",
+  "dest_rpc": "<dest_rpc_url>",
+  "dest_owner_key": "<owner's private key for destination chain>",
+  "commit_store": "0xd2Aa03c8C6E6a8E227223E72f314d4398ABe6eD0",
+  "off_ramp": "0x60475789dF0d8739cda56aF1D914749A5b48B3f7",
+  "on_ramp": "0xBb0e1066888F9Ef72824f63fd2067ff469378f6F",
+  "dest_start_block": 0,
+  "source_chain_tx": "0x517f6d4742568d531bc9b980bc7f82460a5012fce5dd7c57ec703444f88f5d92",
+  "ccip_msg_id": "0xba2312c236dd9f83ccd22ff6636fca5af739abb0cdc9824b8f59ec9824a5daf1",
+  "dest_deployed_at": 3043616
+}

@@ -1,7 +1,6 @@
 package evm_test
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -98,12 +97,12 @@ func TestValidatePostDeploymentState_CollectsMultipleErrors(t *testing.T) {
 }
 
 func TestValidateContractOwnership_DetectsWrongOwner(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 	state, err := stateview.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	slices.Sort(evmChains)
 	chainState := state.MustGetEVMChainState(evmChains[0])
 	require.NotNil(t, chainState.Timelock, "test expects Timelock to be deployed")
 

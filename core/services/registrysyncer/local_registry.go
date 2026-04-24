@@ -2,7 +2,6 @@ package registrysyncer
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
@@ -117,10 +116,7 @@ func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfigurati
 			}
 			transmitters := make([]ocrtypes.Account, len(pbCfg.Transmitters))
 			for i, t := range pbCfg.Transmitters {
-				// OCR3 transmitter accounts cross the loop boundary as hex-encoded text.
-				// Keep LocalRegistry aligned with the external OCR config service so the
-				// imported registry path and the direct registry path serialize the same way.
-				transmitters[i] = ocrtypes.Account(hex.EncodeToString(t))
+				transmitters[i] = ocrtypes.Account(t)
 			}
 			if pbCfg.F > math.MaxUint8 {
 				return capabilities.CapabilityConfiguration{}, fmt.Errorf("OCR3Config %q: F value %d exceeds uint8 max", name, pbCfg.F)

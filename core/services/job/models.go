@@ -930,7 +930,6 @@ type WorkflowSpec struct {
 	CreatedAt     time.Time          `toml:"-"`
 	UpdatedAt     time.Time          `toml:"-"`
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
-	Attributes    []byte             `db:"attributes"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 	config        []byte

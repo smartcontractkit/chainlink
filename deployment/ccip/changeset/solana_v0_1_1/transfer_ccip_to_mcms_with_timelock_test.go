@@ -11,8 +11,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -277,9 +275,9 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (cldf.Environment, sta
 			cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			map[uint64]commontypes.MCMSWithTimelockConfigV2{
 				solChainSel: {
-					Canceller:        cldftesthelpers.SingleGroupMCMS(t),
-					Proposer:         cldftesthelpers.SingleGroupMCMS(t),
-					Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+					Canceller:        proposalutils.SingleGroupMCMSV2(t),
+					Proposer:         proposalutils.SingleGroupMCMSV2(t),
+					Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 					TimelockMinDelay: big.NewInt(0),
 				},
 			},

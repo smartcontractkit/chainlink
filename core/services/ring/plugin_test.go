@@ -116,7 +116,7 @@ func TestPlugin_Outcome(t *testing.T) {
 
 			aos = append(aos, types.AttributedObservation{
 				Observation: rawObs,
-				Observer:    commontypes.OracleID(idx),
+				Observer:    commontypes.OracleID(idx), //nolint:gosec // G115: idx bounded by observations slice
 			})
 		}
 
@@ -381,7 +381,7 @@ func makeObservationsWithWantShards(t *testing.T, shardStatuses []map[uint32]*ri
 
 		aos = append(aos, types.AttributedObservation{
 			Observation: rawObs,
-			Observer:    commontypes.OracleID(i),
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115: i bounded by shardStatuses slice
 		})
 	}
 	return aos
@@ -478,7 +478,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 		require.NoError(t, marshalErr)
 		aos[i] = types.AttributedObservation{
 			Observation: rawObs,
-			Observer:    commontypes.OracleID(i),
+			Observer:    commontypes.OracleID(i), //nolint:gosec // G115: i bounded by loop
 		}
 	}
 
@@ -564,7 +564,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Need 2F+1 = 3 observations for quorum with N=4, F=1
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
 		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
@@ -576,7 +576,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Only 2 observations - not enough for quorum
 		aos := make([]types.AttributedObservation, 2)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
 		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
@@ -588,7 +588,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// Exactly 2F+1 = 3 observations
 		aos := make([]types.AttributedObservation, 3)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
 		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)
@@ -600,7 +600,7 @@ func TestPlugin_ObservationQuorum(t *testing.T) {
 		// All N=4 observations
 		aos := make([]types.AttributedObservation, 4)
 		for i := range aos {
-			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)}
+			aos[i] = types.AttributedObservation{Observer: commontypes.OracleID(i)} //nolint:gosec // G115: i bounded by slice
 		}
 
 		quorum, qErr := plugin.ObservationQuorum(ctx, outctx, nil, aos)

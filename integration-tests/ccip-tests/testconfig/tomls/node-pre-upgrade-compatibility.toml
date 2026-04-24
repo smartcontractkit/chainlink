@@ -1,0 +1,13 @@
+[CCIP]
+[CCIP.ContractVersions]
+PriceRegistry = '1.2.0'
+OffRamp = '1.2.0'
+OnRamp = '1.2.0'
+TokenPool = '1.4.0'
+CommitStore = '1.2.0'
+
+[CCIP.Groups]
+[CCIP.Groups.smoke]
+LocalCluster = false
+KeepEnvAlive = true
+StoreLaneConfig = true

@@ -3,7 +3,6 @@ package v2_test
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -2130,9 +2129,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ec.On("Dial", mock.Anything).Maybe().Return(nil)
 	ec.On("Close").Maybe().Return(nil)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
-	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(0), nil)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
-	ec.On("SubscribeToHeads", mock.Anything).Maybe().Return(nil, nil, errors.ErrUnsupported)
 	txm := makeTestTxm(t, txStore, ks.Eth(), ec)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		KeyStore:       ks.Eth(),

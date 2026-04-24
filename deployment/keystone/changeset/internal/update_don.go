@@ -13,8 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -23,6 +21,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // CapabilityConfig is a struct that holds a capability and its configuration
@@ -152,7 +151,7 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 			return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		ops, err = cldfproposalutils.BatchOperationForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create batch operation: %w", err)
 		}

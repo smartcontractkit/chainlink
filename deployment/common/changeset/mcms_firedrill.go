@@ -10,8 +10,6 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -86,7 +84,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 	operations := make([]mcmstypes.BatchOperation, 0, len(allSelectors))
 	timelocks := map[uint64]string{}
 	mcmAddresses := map[uint64]string{}
-	inspectors, err := cldfproposalutils.McmsInspectors(e)
+	inspectors, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

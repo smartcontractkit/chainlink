@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/solidity_vrf_consumer_interface"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -26,8 +28,8 @@ func TestVRFBasic(t *testing.T) {
 	productCfg, err := products.LoadOutput[vrf.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	c, auth, _, err := products.ETHClient(
@@ -72,8 +74,8 @@ func TestVRFJobReplacement(t *testing.T) {
 	productCfg, err := products.LoadOutput[vrf.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	c, auth, _, err := products.ETHClient(

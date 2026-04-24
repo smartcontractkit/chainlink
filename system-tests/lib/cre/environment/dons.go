@@ -16,7 +16,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
@@ -185,9 +184,7 @@ func StartDONs(
 
 	if err := errGroup.Wait(); err != nil {
 		if !infraInput.IsKubernetes() {
-			if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
-				lggr.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
-			}
+			infra.PrintFailedContainerLogs(lggr, 30)
 		}
 		return nil, err
 	}
@@ -256,11 +253,6 @@ func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) 
 			return "", nil // Skip nodes without Solana keys for this chain
 		}
 		return solKey.PublicAddress.String(), nil
-	case chainselectors.FamilyAptos:
-		if node.Keys != nil && node.Keys.Aptos != nil && node.Keys.Aptos.Account != "" {
-			return node.Keys.Aptos.Account, nil
-		}
-		return "", nil // Skip nodes without Aptos keys for this chain
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}

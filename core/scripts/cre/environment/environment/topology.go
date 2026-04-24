@@ -364,11 +364,12 @@ func renderTopologyIndex(items []discoveredTopology, outputDirAbs, indexPathAbs 
 			relDocPath = docPath
 		}
 		relDocPath = filepath.ToSlash(relDocPath)
-		fmt.Fprintf(&b, "| `%s` | `%s` | %d ([details](%s)) |\n",
+		b.WriteString(fmt.Sprintf("| `%s` | `%s` | %d ([details](%s)) |\n",
 			item.ConfigPath,
 			item.Summary.Topology,
 			len(item.Summary.DONs),
-			relDocPath)
+			relDocPath,
+		))
 	}
 	b.WriteString("\nTip: run `go run . topology list` for quick terminal guidance.\n")
 	return b.String()

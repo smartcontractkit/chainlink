@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -39,7 +37,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return nil, nil, err
 	}
 
-	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return nil, tx, err
 	}
@@ -71,7 +69,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 	mcmsAddressesPerChain := map[uint64]string{
 		m.ChainSel: mcmContract.Address().Hex(),
 	}
-	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return nil, err
 	}

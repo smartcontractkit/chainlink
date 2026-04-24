@@ -2,7 +2,6 @@ package evm_test
 
 import (
 	"math/big"
-	"slices"
 	"strings"
 	"testing"
 
@@ -43,12 +42,12 @@ import (
 )
 
 func TestValidateFeeQuoter_HappyPath(t *testing.T) {
+	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := stateview.LoadOnchainState(tenv.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
 	evmChains := tenv.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
-	slices.Sort(evmChains)
 	for _, sel := range evmChains {
 		chainState := state.MustGetEVMChainState(sel)
 		v16Active := buildV16ActiveChains(t, tenv, state)

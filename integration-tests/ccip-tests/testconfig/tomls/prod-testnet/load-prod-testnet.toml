@@ -1,0 +1,235 @@
+[CCIP]
+[CCIP.ContractVersions]
+PriceRegistry = 'latest'
+OffRamp = 'latest'
+OnRamp = 'latest'
+CommitStore = 'latest'
+TokenPool = 'latest'
+
+
+[CCIP.Deployments]
+Data = """
+{
+  "lane_configs": {
+    "Avalanche Fuji": {
+      "is_native_fee_token": true,
+      "fee_token": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      "arm": "0x7e28DD790214139798446A121cFe950B51304684",
+      "router": "0xF694E193200268f9a4868e4Aa017A0118C9a8177",
+      "price_registry": "0x19e157E5fb1DAec1aE4BaB113fdf077F980704AA",
+      "wrapped_native": "0xd00ae08403B9bbb9124bB305C09058E32C39A48c",
+      "src_contracts": {
+        "Base Sepolia": {
+          "on_ramp": "0x0aEc1AC9F6D0c21332d7a66dDF1Fbcb32cF3B0B3",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x2a9EFdc9F93D9b822129038EFCa4B63Adf3f7FB5",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x75b9a75Ee1fFef6BE7c4F842a041De7c6153CF4E",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Base Sepolia": {
+          "off_ramp": "0xf8de9d5924CFD28e31a53B63B4903436D9818d69",
+          "commit_store": "0xDD7CfECE1bb4e8aC2E8b8281CFE1D44247119471",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0x1DF9D94C6916918C935E60d2Cb4Ed265Bf778005",
+          "commit_store": "0xE7eeBE5882609d28C015d0A89DE1ba4f506F4a03",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x01e3D835b4C4697D7F81B9d7Abc89A6E478E4a2f",
+          "commit_store": "0x4EC313c1Eb620432f42FB5f4Df27f8A566523c1C",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Base Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000006",
+      "arm": "0x7827dD0481EE18DB646bD250d20A8eA43da52146",
+      "router": "0xD3b06cEbF099CE7DA4AcCf578aaebFDBd6e88a93",
+      "price_registry": "0x4D20536e60832bE579Cd38E89Dc03d11E1741FbA",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0x212e8Fd9cCC330ab54E8141FA7d33967eF1eDafF",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0x2945D35F428CE564F5455AD0AF28BDFCa67e76Ab",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x29A1F4ecE9246F0042A9062FB89803fA8B1830cB",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0x3Ab3a3d35cAC95FfcFCcc127eF01eA8D87b0A64e",
+          "commit_store": "0x51313B8C068B5227fa7364E6eCB1382Fb751976F",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0x8718d1cc138421Dbc1B489CB7884FF68DE7ad867",
+          "commit_store": "0x3291D453c880E5b59EEd04E600c85268Cd378b7f",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x0ecA23Ef70B828fEDd0A84d2692cB0527B52396A",
+          "commit_store": "0xA7F84Ec616F8e9Fa593339944E76bda90A9737fE",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Optimism Sepolia": {
+      "is_native_fee_token": true,
+      "fee_token": "0x4200000000000000000000000000000000000006",
+      "arm": "0xF51366F72184E22cF4a7a8362508DB0d3370392d",
+      "router": "0x114A20A10b43D4115e5aeef7345a1A71d2a60C57",
+      "price_registry": "0x782a7Ba95215f2F7c3dD4C153cbB2Ae3Ec2d3215",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0x91a144F570ABA7FB7079Fb187A267390E0cc7367",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x6D22953cdEf8B0C9F0976Cfa52c33B198fEc5881",
+          "deployed_at": 0
+        },
+        "Sepolia Testnet": {
+          "on_ramp": "0x54b32C2aCb4451c6cF66bcbd856d8A7Cc2263531",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0xCb2266c2118b1f30D15CBeB3a885531ABaA1b556",
+          "commit_store": "0x5Ded92E2CF71a8fF7644a67850F061c38B31BfB4",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x960c62A491C30d0a60fD74a59d35B9C02697AdaA",
+          "commit_store": "0x06963745B3839B998288D1a46a46Ec25991A3D5E",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Sepolia Testnet": {
+          "off_ramp": "0x2aF9B10A5972D0c36f4d8F85773052c104E319B2",
+          "commit_store": "0x82FCF55b9e9bAb3066c2863F12a02bBc2Ba33F2F",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    },
+    "Sepolia Testnet": {
+      "is_native_fee_token": true,
+      "fee_token": "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
+      "arm": "0x27Da8735d8d1402cEc072C234759fbbB4dABBC4A",
+      "router": "0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59",
+      "price_registry": "0x9EF7D57a4ea30b9e37794E55b0C75F2A70275dCc",
+      "wrapped_native": "0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534",
+      "src_contracts": {
+        "Avalanche Fuji": {
+          "on_ramp": "0x12492154714fBD28F28219f6fc4315d19de1025B",
+          "deployed_at": 0
+        },
+        "Base Sepolia": {
+          "on_ramp": "0x8F35B097022135E0F46831f798a240Cc8c4b0B01",
+          "deployed_at": 0
+        },
+        "Optimism Sepolia": {
+          "on_ramp": "0xACDfd7a98d853FA3914047Cd46e7f5D53BBC9FbB",
+          "deployed_at": 0
+        }
+      },
+      "dest_contracts": {
+        "Avalanche Fuji": {
+          "off_ramp": "0x1DEBa99dC8e2A77832461BD386d83D9FCb133137",
+          "commit_store": "0x139E06b6dBB1a0C41A1686C091795879c943765A",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Base Sepolia": {
+          "off_ramp": "0x662738DC7DE4f7eC63d9f73Cdf9BeA5A58DdcC15",
+          "commit_store": "0x1e46bAC486Dd878cD57B62845530A52343e39693",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        },
+        "Optimism Sepolia": {
+          "off_ramp": "0xbfa6f6AAE31acB3A285e80026d6475C1a50d1d0F",
+          "commit_store": "0xB5FbA97Dc61ec68771a92a15360d9C32c9d054E7",
+          "receiver_dapp": "0xea387241d834D04CC408f4C2FE7ef2c477E4B3E7"
+        }
+      }
+    }
+  }
+}
+"""
+
+[CCIP.Env]
+TTL = '2h'
+
+[CCIP.Env.Network]
+selected_networks = [
+    'AVALANCHE_FUJI',
+    'OPTIMISM_SEPOLIA',
+    'BASE_SEPOLIA',
+    'SEPOLIA',
+]
+
+[CCIP.Groups.load]
+NetworkPairs = [
+    'AVALANCHE_FUJI,SEPOLIA',
+    'OPTIMISM_SEPOLIA,BASE_SEPOLIA'
+]
+
+BiDirectionalLane = true
+PhaseTimeout = '45m'
+ExistingDeployment = true
+
+NoOfTokensPerChain = 1
+
+# 1msg/5sec = 12msg/min
+[CCIP.Groups.load.LoadProfile]
+RequestPerUnitTime = [12]
+TimeUnit = '1m'
+TestDuration = '1h'
+TestRunName = 'ccip-prod-testnet-stress'
+
+# There is slower exec rounds in Sepolia/Ethereum, therefore reducing the frequency
+# 1msg/12sec = 5msg/min
+[CCIP.Groups.load.LoadProfile.FrequencyByDestination.sepolia-testnet]
+RequestPerUnitTime = [5]
+
+# to represent 20%, 60%, 15%, 5% of the total messages
+[CCIP.Groups.load.LoadProfile.MsgProfile]
+Frequencies = [4, 12, 3, 1]
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Token'
+DestGasLimit = 0
+DataLength = 0
+NoOfTokens = 5
+AmountPerToken = 1
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'DataWithToken'
+DestGasLimit = 500000
+DataLength = 5000
+NoOfTokens = 5
+AmountPerToken = 1
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Data'
+DestGasLimit = 800000
+DataLength = 10000
+
+[[CCIP.Groups.load.LoadProfile.MsgProfile.MsgDetails]]
+MsgType = 'Data'
+DestGasLimit = 2500000
+DataLength = 10000

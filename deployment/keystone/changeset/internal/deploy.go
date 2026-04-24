@@ -20,8 +20,6 @@ import (
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -33,6 +31,7 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 )
@@ -489,7 +488,7 @@ func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, n
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 
-	ops, err := cldfproposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	ops, err := proposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch operation: %w", err)
 	}
@@ -748,7 +747,7 @@ func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, 
 		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
 	}
 
-	ops, err := cldfproposalutils.BatchOperationForChain(regChainSel, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	ops, err := proposalutils.BatchOperationForChain(regChainSel, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch operation: %w", err)
 	}
@@ -902,7 +901,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 
 		if req.UseMCMS {
 			lggr.Debugw("adding mcms op for DON", "don", don.Name)
-			transaction, txErr := cldfproposalutils.TransactionForChain(req.RegistryChainSelector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+			transaction, txErr := proposalutils.TransactionForChain(req.RegistryChainSelector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
 			if txErr != nil {
 				return nil, fmt.Errorf("failed to create transaction for chain %d: %w", req.RegistryChainSelector, txErr)
 			}
@@ -1034,7 +1033,7 @@ func configureForwarder(lggr logger.Logger, chain cldf_evm.Chain, fwdr *kf.Keyst
 			}
 		} else {
 			// create the mcms proposals
-			ops, err := cldfproposalutils.BatchOperationForChain(chain.Selector, fwdr.Address().Hex(), tx.Data(), big.NewInt(0), string(KeystoneForwarder), nil)
+			ops, err := proposalutils.BatchOperationForChain(chain.Selector, fwdr.Address().Hex(), tx.Data(), big.NewInt(0), string(KeystoneForwarder), nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create proposal batch operation for chain %d: %w", chain.Selector, err)
 			}

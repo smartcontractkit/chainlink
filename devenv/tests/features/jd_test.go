@@ -1,13 +1,14 @@
 package features
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient/gql/client"
 	de "github.com/smartcontractkit/chainlink/devenv"
-	"github.com/smartcontractkit/chainlink/devenv/products"
 )
 
 func TestMultipleJobDistributors(t *testing.T) {
@@ -17,8 +18,8 @@ func TestMultipleJobDistributors(t *testing.T) {
 	node := in.NodeSets[0].Out.CLNodes[0].Node
 
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
-		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
+		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
+		require.NoError(t, cErr)
 	})
 
 	c, err := client.NewWithContext(t.Context(), node.ExternalURL, client.Credentials{

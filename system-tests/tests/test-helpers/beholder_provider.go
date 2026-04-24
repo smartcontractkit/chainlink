@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -47,8 +46,6 @@ const (
 	errBeholderOrConfigNil = "beholder or config is nil"
 )
 
-var beholderStartupMu sync.Mutex
-
 type Beholder struct {
 	cfg  *config.ChipIngressConfig
 	lggr zerolog.Logger
@@ -66,9 +63,6 @@ type ConsumerOptions struct {
 
 // NewBeholder creates a Beholder instance, even if it's not already running.
 func NewBeholder(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*Beholder, error) {
-	beholderStartupMu.Lock()
-	defer beholderStartupMu.Unlock()
-
 	if err := startBeholderIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, testConfig.ChipIngressGRPCPort); err != nil {
 		return nil, errors.Wrap(err, "Beholder failed to start")
 	}

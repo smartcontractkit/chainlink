@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -46,17 +45,16 @@ func Up36(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 	if len(jobIDs) != 0 {
-		var stmt strings.Builder
-		stmt.WriteString(`UPDATE jobs AS j SET external_job_id = vals.external_job_id FROM (values `)
+		stmt := `UPDATE jobs AS j SET external_job_id = vals.external_job_id FROM (values `
 		for i := range jobIDs {
 			if i == len(jobIDs)-1 {
-				fmt.Fprintf(&stmt, "(uuid('%s'), %d))", uuid.New(), jobIDs[i])
+				stmt += fmt.Sprintf("(uuid('%s'), %d))", uuid.New(), jobIDs[i])
 			} else {
-				fmt.Fprintf(&stmt, "(uuid('%s'), %d),", uuid.New(), jobIDs[i])
+				stmt += fmt.Sprintf("(uuid('%s'), %d),", uuid.New(), jobIDs[i])
 			}
 		}
-		stmt.WriteString(` AS vals(external_job_id, id) WHERE vals.id = j.id`)
-		if _, err := tx.ExecContext(ctx, stmt.String()); err != nil {
+		stmt += ` AS vals(external_job_id, id) WHERE vals.id = j.id`
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
 			return err
 		}
 	}

@@ -75,10 +75,6 @@ func TestEngine_Init(t *testing.T) {
 	initDoneCh := make(chan error)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.Hooks = v2.LifecycleHooks{
@@ -104,9 +100,9 @@ func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
 	getter, err := settings.NewTOMLGetter([]byte(`
 [global]
-WorkflowLimit = "2"
+WorkflowExecutionConcurrencyLimit = "2"
 [global.PerOwner]
-WorkflowLimit = "1"
+WorkflowExecutionConcurrencyLimit = "1"
 `))
 	require.NoError(t, err)
 	sLimiter, err := syncerlimiter.NewWorkflowLimits(logger.Test(t), syncerlimiter.Config{
@@ -171,59 +167,6 @@ WorkflowLimit = "1"
 	require.NoError(t, engine2.Close())
 	require.NoError(t, engine3.Close())
 	require.NoError(t, engine4.Close())
-}
-
-func TestEngine_Start_TriggerRegistrationOmitsOrgIDWhenGateDisabled(t *testing.T) {
-	t.Parallel()
-
-	module := modulemocks.NewModuleV2(t)
-	capreg := regmocks.NewCapabilitiesRegistry(t)
-	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
-
-	initDoneCh := make(chan error, 1)
-	subscribedToTriggersCh := make(chan []string, 1)
-
-	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
-	cfg.Module = module
-	cfg.CapRegistry = capreg
-	cfg.OrgResolver = &mockOrgResolver{orgID: "test-org-123"}
-	cfg.Hooks = v2.LifecycleHooks{
-		OnInitialized: func(err error) {
-			initDoneCh <- err
-		},
-		OnSubscribedToTriggers: func(triggerIDs []string) {
-			subscribedToTriggersCh <- triggerIDs
-		},
-	}
-
-	engine, err := v2.NewEngine(cfg)
-	require.NoError(t, err)
-
-	module.EXPECT().Start().Once()
-	module.EXPECT().Close().Once()
-	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
-
-	trigger := capmocks.NewTriggerCapability(t)
-	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil)
-	eventCh := make(chan capabilities.TriggerResponse)
-	var capturedTriggerRequest capabilities.TriggerRegistrationRequest
-	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).
-		Run(func(ctx context.Context, req capabilities.TriggerRegistrationRequest) {
-			capturedTriggerRequest = req
-		}).
-		Return(eventCh, nil).Once()
-	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
-
-	require.NoError(t, engine.Start(t.Context()))
-	require.NoError(t, <-initDoneCh)
-	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
-	require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-	require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
-	require.NoError(t, engine.Close())
 }
 
 func TestEngine_TriggerSubscriptions(t *testing.T) {
@@ -445,10 +388,6 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 	executionFinishedCh := make(chan string)
 
 	cfg := defaultTestConfig(t, nil)
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":true}}`))
-	require.NoError(t, err)
-	cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled, err = limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: cfg.Lggr}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
-	require.NoError(t, err)
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
@@ -561,10 +500,6 @@ func TestEngine_Execution(t *testing.T) {
 	cfg.Module = module
 	cfg.CapRegistry = capreg
 	cfg.BillingClient = billingClient
-	cfg.OrgResolver = &mockOrgResolver{
-		orgID: "test-org-123",
-		err:   nil,
-	}
 	cfg.Hooks = v2.LifecycleHooks{
 		OnInitialized: func(err error) {
 			initDoneCh <- err
@@ -603,11 +538,10 @@ func TestEngine_Execution(t *testing.T) {
 		require.Equal(t, v2.TriggerRegistrationID(cfg.WorkflowID, 0), capturedTriggerRequest.TriggerID)
 		require.Equal(t, cfg.WorkflowID, capturedTriggerRequest.Metadata.WorkflowID)
 		require.Equal(t, cfg.WorkflowOwner, capturedTriggerRequest.Metadata.WorkflowOwner)
-		require.Empty(t, capturedTriggerRequest.Metadata.OrgID)
 		require.Equal(t, cfg.WorkflowName.Hex(), capturedTriggerRequest.Metadata.WorkflowName)
 		require.Equal(t, cfg.WorkflowTag, capturedTriggerRequest.Metadata.WorkflowTag)
 		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonID)
-		require.Equal(t, uint32(1), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
+		require.Equal(t, uint32(0), capturedTriggerRequest.Metadata.WorkflowDonConfigVersion)
 		require.Equal(t, "trigger_0", capturedTriggerRequest.Metadata.ReferenceID)
 		require.Equal(t, "method", capturedTriggerRequest.Method)
 		require.Nil(t, capturedTriggerRequest.Payload)
@@ -1519,12 +1453,9 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	encryptedDecryptionShare2, err := cfg.WorkflowEncryptionKey.Encrypt(decryptionShare2Bytes)
 	require.NoError(t, err)
 	workflowKeyBytes := cfg.WorkflowEncryptionKey.PublicKey()
-	engineOrgID := "org-123"
-	var capturedVaultReq *vault.GetSecretsRequest
 
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
-			capturedVaultReq = proto.Clone(req).(*vault.GetSecretsRequest)
 			return &vault.GetSecretsResponse{
 				Responses: []*vault.SecretResponse{
 					{
@@ -1597,8 +1528,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.Lggr,
 		cfg.LocalLimiters.SecretsConcurrency,
 		cfg.LocalLimiters.SecretsCalls,
-		cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
-		engineOrgID,
 		cfg.WorkflowOwner,
 		cfg.WorkflowName.String(),
 		cfg.WorkflowID,
@@ -1608,9 +1537,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, engine.Close())
-	})
 
 	capreg.EXPECT().
 		GetTrigger(matches.AnyContext, triggerID).
@@ -1624,9 +1550,6 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	// Read the result from the hook and assert that the wanted response was
 	// received.
 	res := <-resultReceivedCh
-	require.NotNil(t, capturedVaultReq)
-	require.Empty(t, capturedVaultReq.WorkflowOwner)
-	require.Empty(t, capturedVaultReq.OrgId)
 	switch output := res.Result.(type) {
 	case *sdkpb.ExecutionResult_Value:
 		var value values.Value
@@ -1647,6 +1570,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, execID, <-executionFinishedCh)
+	require.NoError(t, engine.Close())
 }
 
 // TestEngine_DuplicateTriggerSameConfig verifies that the engine deduplicates executions

@@ -562,17 +562,17 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	var enDesc strings.Builder
+	var enDesc string
 	if len(b.te.PrivateEthereumConfigs) > 0 {
 		for _, en := range b.te.PrivateEthereumConfigs {
-			enDesc.WriteString(en.Describe())
+			enDesc += en.Describe()
 		}
 	} else {
-		enDesc.WriteString("none")
+		enDesc = "none"
 	}
 
 	b.l.Info().
-		Str("privateEthereumNetwork", enDesc.String()).
+		Str("privateEthereumNetwork", enDesc).
 		Bool("hasParrot", b.hasParrot).
 		Bool("hasJobDistributor", b.jdConfig != nil).
 		Int("clNodesCount", b.clNodesCount).

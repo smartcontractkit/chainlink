@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
@@ -61,9 +60,8 @@ func resetShellForTest(shell *cmd.Shell) {
 func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.DataSource, ethKeystore keystore.Eth, csaKeystore core.Keystore) *chainlink.CoreRelayerChainInteroperators {
 	lggr := logger.TestLogger(t)
 	f := chainlink.RelayerFactory{
-		Logger: lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
-			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
+		Logger:               lggr,
+		LoopRegistry:         plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
@@ -202,7 +200,6 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
-	t.Parallel()
 	// Use a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -272,7 +269,6 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
-	t.Parallel()
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -288,7 +284,6 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			// Use the non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
@@ -362,7 +357,6 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 }
 
 func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		name          string
 		enableAddress bool
@@ -375,7 +369,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			config, sqlxDB := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.DriverName = pgcommon.DriverPostgres
 
@@ -515,34 +508,24 @@ func TestShell_RemoveBlocks(t *testing.T) {
 func TestShell_BeforeNode(t *testing.T) {
 	testutils.SkipShortDB(t)
 	tests := []struct {
-		name            string
-		pwdfile         string
-		wantUnlocked    bool
-		prePopulateKeys bool
+		name         string
+		pwdfile      string
+		wantUnlocked bool
 	}{
-		{"correct password", "../internal/fixtures/correct_password.txt", true, false},
-		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false, true},
-		{"wrong file", "doesntexist.txt", false, false},
+		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
+		{"wrong file", "doesntexist.txt", false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.Database.DriverName = pgcommon.DriverPostgres
-				c.EVM = nil
+			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+				s.Password.Keystore = models.NewSecret("dummy")
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				c.Insecure.OCRDevelopmentMode = nil
 			})
-
-			// Seed key material so the wrong password actually fails decryption.
-			// An empty keystore accepts any password.
-			if test.prePopulateKeys {
-				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
-				require.NoError(t, err)
-				ks := keystore.New(db, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
-				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
-				_, err = ks.CSA().Create(testutils.Context(t))
-				require.NoError(t, err)
-			}
 
 			shell := cmd.Shell{
 				Config: cfg,
@@ -600,6 +583,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 		expectStart bool
 	}{
 		{"correct password", "../internal/fixtures/correct_password.txt", true},
+		{"incorrect password", "../internal/fixtures/incorrect_password.txt", false},
 	}
 
 	for _, test := range tests {

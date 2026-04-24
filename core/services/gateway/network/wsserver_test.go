@@ -71,7 +71,11 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	t.Parallel()
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
-	authHeader := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("abcdefgh"), 64))
+	longString := "abcdefgh"
+	for range 6 {
+		longString += longString
+	}
+	authHeader := base64.StdEncoding.EncodeToString([]byte(longString))
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, authHeader)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }

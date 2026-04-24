@@ -70,17 +70,11 @@ func (s *Server) GetWorkflowShardMapping(_ context.Context, req *ringpb.GetWorkf
 		}
 	}
 
-	rs := s.ringStore.GetRoutingState()
-	resp := &ringpb.GetWorkflowShardMappingResponse{
+	return &ringpb.GetWorkflowShardMappingResponse{
 		Mappings:       simpleMappings,
 		MappingStates:  mappingStates,
 		MappingVersion: version,
-		RoutingSteady:  ring.IsInSteadyState(rs),
-	}
-	if rs != nil {
-		resp.RoutingStateId = rs.Id
-	}
-	return resp, nil
+	}, nil
 }
 
 // ReportWorkflowTriggerRegistration handles shard registration reports

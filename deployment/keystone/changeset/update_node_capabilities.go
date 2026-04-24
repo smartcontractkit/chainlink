@@ -10,8 +10,6 @@ import (
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
@@ -137,7 +135,7 @@ func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesReq
 		proposerMCMSes := map[uint64]string{
 			c.Chain.Selector: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
-		inspector, err := cldfproposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

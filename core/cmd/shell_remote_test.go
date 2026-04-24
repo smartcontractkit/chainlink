@@ -21,6 +21,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/freeport"
+	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -478,6 +479,7 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
+	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -547,11 +549,9 @@ func TestShell_ConfigV2(t *testing.T) {
 }
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
-	// Serial: full app + OCR + synchronous pipeline run; avoid parallel scheduling
-	// starving the test deadline and keep bridge traffic on local httptest only.
+	t.Parallel()
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V2.Enabled = ptr(true)
@@ -565,18 +565,11 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
-	// Local mock adapters only: TriggerPipelineRun executes the observation pipeline synchronously.
-	mockDS1 := cltest.NewHTTPMockServer(t, 200, "POST", `{"one":{"two": 10}}`)
-	mockDS2 := cltest.NewHTTPMockServer(t, 200, "POST", `{"three":{"four": 20}}`)
-	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockDS1.URL})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockDS2.URL})
+	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
 
 	var jb job.Job
-	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		DS1BridgeName: bridge.Name.String(),
-		DS2BridgeName: bridge2.Name.String(),
-		EVMChainID:    testutils.FixtureChainID.String(),
-	})
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec

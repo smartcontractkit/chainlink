@@ -37,15 +37,15 @@ Please refer to integration-tests/testconfig/README.md for more information.
 
 	if net := os.Getenv("SELECTED_NETWORKS"); net != "" {
 		parts := strings.Split(net, ",")
-		var selectedNetworkStr strings.Builder
-		selectedNetworkStr.WriteString("[")
+		selectedNetworkStr := "["
 		for i, network := range parts {
-			fmt.Fprintf(&selectedNetworkStr, "\"%s\"", network)
+			selectedNetworkStr += fmt.Sprintf("\"%s\"", network)
+
 			if i < len(parts)-1 {
-				selectedNetworkStr.WriteString(", ")
+				selectedNetworkStr += ", "
 			}
 		}
-		selectedNetworkStr.WriteString("]")
+		selectedNetworkStr += "]"
 
 		extraInfo := `
 Or if you want to run your tests right now add following content to integration-tests/testconfig/overrides.toml:

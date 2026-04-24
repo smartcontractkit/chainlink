@@ -43,7 +43,7 @@ func (o *Mock) PreEnvStartup(
 		Capability: kcr.CapabilitiesRegistryCapability{
 			LabelledName:   "mock",
 			Version:        "1.0.0",
-			CapabilityType: 1, // ACTION
+			CapabilityType: 0, // TRIGGER
 		},
 		Config: &capabilitiespb.CapabilityConfig{
 			LocalOnly: don.HasOnlyLocalCapabilities(),

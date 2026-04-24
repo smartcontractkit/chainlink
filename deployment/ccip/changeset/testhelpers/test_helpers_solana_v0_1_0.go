@@ -28,8 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	aptos_fee_quoter "github.com/smartcontractkit/chainlink-aptos/bindings/ccip/fee_quoter"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
@@ -70,7 +68,6 @@ import (
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
@@ -89,7 +86,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -2448,9 +2445,9 @@ func TransferOwnershipSolanaV0_1_0(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 				map[uint64]commontypes.MCMSWithTimelockConfigV2{
 					solSelector: {
-						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
-						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
-						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
+						Canceller:        proposalutils.SingleGroupMCMSV2(t),
+						Proposer:         proposalutils.SingleGroupMCMSV2(t),
+						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
 						TimelockMinDelay: big.NewInt(0),
 					},
 				},

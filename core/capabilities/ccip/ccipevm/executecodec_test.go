@@ -5,16 +5,12 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/core"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -177,12 +173,9 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	// Deploy the contract
 	transactor := evmtestutils.MustNewSimTransactor(t)
-	b := simulated.NewBackend(types.GenesisAlloc{
+	simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, simulated.WithBlockGasLimit(30e6), func(_ *node.Config, ethCfg *ethconfig.Config) {
-		ethCfg.RPCEVMTimeout = 60 * time.Second
-	})
-	simulatedBackend := &backends.SimulatedBackend{Backend: b, Client: b.Client()}
+	}, 30e6)
 	address, _, _, err := report_codec.DeployReportCodec(transactor, simulatedBackend)
 	require.NoError(t, err)
 	simulatedBackend.Commit()
@@ -220,8 +213,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 			// decode using the contract
 			contractDecodedReport, err := contract.DecodeExecuteReport(&bind.CallOpts{Context: ctx}, bytes)
-			require.NoError(t, err)
-			require.Len(t, contractDecodedReport, len(report.ChainReports))
+			assert.NoError(t, err)
+			assert.Len(t, contractDecodedReport, len(report.ChainReports))
 			for i, expReport := range report.ChainReports {
 				actReport := contractDecodedReport[i]
 				assert.Equal(t, expReport.OffchainTokenData, actReport.OffchainTokenData)

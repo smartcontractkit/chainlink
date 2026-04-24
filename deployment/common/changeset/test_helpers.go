@@ -10,8 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
@@ -25,6 +23,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type testMetadata struct {
@@ -156,8 +155,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 				saltOverride := utils.RandomHash()
 				prop.SaltOverride = &saltOverride
 
-				p := cldftesthelpers.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
-				err = cldftesthelpers.ExecuteMCMSProposalV2(t, currentEnv, p)
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop, opt.realBackend)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return cldf.Environment{}, nil, err
 				}
@@ -166,7 +165,7 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 					// because the proposal is already executed in the previous step.
 					return currentEnv, outputs, nil
 				}
-				err = cldftesthelpers.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
 					return cldf.Environment{}, nil, err
 				}
@@ -179,8 +178,8 @@ func ApplyChangesets(t *testing.T, e cldf.Environment, changesetApplications []C
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := cldftesthelpers.SignMCMSProposal(t, currentEnv, &prop)
-				err = cldftesthelpers.ExecuteMCMSProposalV2(t, currentEnv, p)
+				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return cldf.Environment{}, nil, err
 				}

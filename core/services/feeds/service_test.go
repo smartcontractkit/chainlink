@@ -9,7 +9,6 @@ import (
 	"math/big"
 	"math/rand/v2"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -795,7 +794,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 				}
 
 				svc = setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-					c.JobDistributor.DisplayName = new("nop-friendly-name-test")
+					c.JobDistributor.DisplayName = testutils.Ptr("nop-friendly-name-test")
 				})
 			)
 
@@ -1321,8 +1320,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
-				c.OCR.Enabled = new(true)
-				c.OCR2.Enabled = new(true)
+				c.OCR.Enabled = testutils.Ptr(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 			})
 			if tc.before != nil {
 				tc.before(svc)
@@ -1865,7 +1864,7 @@ answer1      [type=median index=0];
 			t.Parallel()
 
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = new(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 				c.JobPipeline.HTTPRequest.DefaultTimeout = &httpTimeout
 			})
 			if tc.before != nil {
@@ -3244,7 +3243,7 @@ answer1 [type=median index=0];
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = new(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -3835,7 +3834,7 @@ updateInterval = "20m"
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = new(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -4353,7 +4352,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = new(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -4898,7 +4897,7 @@ chainID = 0
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := setupTestServiceCfg(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.OCR2.Enabled = new(true)
+				c.OCR2.Enabled = testutils.Ptr(true)
 				if tc.httpTimeout != nil {
 					c.JobPipeline.HTTPRequest.DefaultTimeout = tc.httpTimeout
 				}
@@ -5229,17 +5228,16 @@ func Test_Service_StartStop(t *testing.T) {
 func logMessages(logEntries []observer.LoggedEntry) []string {
 	messages := make([]string, 0, len(logEntries))
 	for _, entry := range logEntries {
+		messageWithContext := entry.Message
 		contextMap := entry.ContextMap()
-		var messageWithContext strings.Builder
-		messageWithContext.WriteString(entry.Message)
 		for _, key := range slices.Sorted(maps.Keys(contextMap)) {
 			if key == "version" || key == "errVerbose" {
 				continue
 			}
-			fmt.Fprintf(&messageWithContext, " %v=\"%v\"", key, entry.ContextMap()[key])
+			messageWithContext += fmt.Sprintf(" %v=\"%v\"", key, entry.ContextMap()[key])
 		}
 
-		messages = append(messages, messageWithContext.String())
+		messages = append(messages, messageWithContext)
 	}
 
 	return messages

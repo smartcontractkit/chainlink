@@ -16,18 +16,16 @@ import (
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
-	mcmslib "github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // EVMCallInput is the input structure for an EVM call operation.
@@ -145,7 +143,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 			if out.Confirmed {
 				continue
 			}
-			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, out.To.Hex(), out.Data,
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, out.To.Hex(), out.Data,
 				big.NewInt(0), string(out.ContractType), []string{})
 			if err != nil {
 				return csOutput, fmt.Errorf("failed to create batch operation for chain with selector %d: %w", chainSel, err)
@@ -157,7 +155,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 				return csOutput, fmt.Errorf("mcms state not found for chain with selector %d", chainSel)
 			}
 			timelocks[chainSel] = mcmsState.Timelock.Address().Hex()
-			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return csOutput, fmt.Errorf("failed to get inspector for chain with selector %d: %w", chainSel, err)
 			}

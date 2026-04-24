@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 	"google.golang.org/protobuf/proto"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -21,7 +19,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -189,7 +186,7 @@ func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, e
 		proposerMCMSes := map[uint64]string{
 			req.RegistryChainSel: capReg.McmsContracts.ProposerMcm.Address().Hex(),
 		}
-		inspector, err := cldfproposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}

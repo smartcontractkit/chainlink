@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -175,7 +174,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, fmt.Errorf("failed to instantiate onchain keyring with multi chain adapter: %w", err)
 	}
 
-	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs2[[]byte]{
+	oracle, err := ocr.NewOracle(ocr.OCR3OracleArgs[[]byte]{
 		ContractConfigTracker:        configTracker,
 		OffchainConfigDigester:       configDigester,
 		LocalConfig:                  AdjustLocalConfigForRegistryBasedConfig(args.LocalConfig),
@@ -189,7 +188,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		}),
 		MonitoringEndpoint: &telemetry.NoopAgent{},
 		OffchainKeyring:    of.kb,
-		OnchainKeyring:     ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
+		OnchainKeyring:     onchainKeyringAdapter,
 		MetricsRegisterer:  prometheus.WrapRegistererWith(map[string]string{"job_name": of.jobName}, prometheus.DefaultRegisterer),
 	})
 
