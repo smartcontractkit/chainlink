@@ -521,17 +521,14 @@ jobs:
         run-core-cre-e2e-regression-tests,
       ]
     steps:
-      - name: Check Core test results
+      - name: Check CCIP v1.6 E2E test results
         id: check_ccip_v1_6_results
         env:
           TEST_RESULTS: ${{ needs.run-ccip-v1-6-e2e-tests.outputs.test_results }}
         run: |
           results="$TEST_RESULTS"
-          echo "Core e2e test results:"
+          echo "CCIP v1.6 E2E test results:"
           echo "$results" | jq .
-
-          node_migration_tests_failed=$(echo "$results" | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" | tee -a "$GITHUB_OUTPUT"
 
       - name: Fail the job if CCIP v1.6 E2E tests were not successful
         if: always()
@@ -619,7 +616,7 @@ jobs:
             echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            # Run Solana tests on PRs only if the label "run-e2e-tests" is present or if there are relevant changes
             if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
               echo "Solana tests will run on PR with label and relevant changes."
               echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
