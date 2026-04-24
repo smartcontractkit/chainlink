@@ -187,8 +187,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 // Loop pacing (observationLoopPacing), per-round deadline (observationTimeout), cache TTL, and stale-refresh
 // threshold (see package constants) are chosen so refresh tends to run before entries expire without busy-spinning.
 // Each iteration schedules one goroutine per pipeline that needs work; that worker calls Observe once per
-// streams.Pipeline.StreamIDs() entry (the full pipeline list, not only plugin-requested keys), then AddMany
-// for that batch if every Observe in the worker succeeded. If any Observe fails, the worker skips AddMany for that pipeline.
+// stream ID in the intersection of p.StreamIDs() with the plugin's requested keys (see buildStreamsRefreshPlan), then
+// AddMany for that batch if every Observe in the worker succeeded. If any Observe fails, the worker skips AddMany for that pipeline.
 func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 	// atomically set the observation loop started flag to true
 	// or return if it's already started
@@ -257,7 +257,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			{
 				// Size needs to accommodate the max number of telemetry events that could be generated
 				// Standard case might be about 3 bridge requests per spec and one stream<=>spec
-				// Overallocate for safety (to avoid dropping packets). Sized from stale in-scope IDs; workers may Observe additional pipeline StreamIDs.
+				// Overallocate for safety (to avoid dropping packets). Sized from stale driver count; total Observe
+				// calls can be higher when one pipeline has several plugin-requested streams (same worker, same iteration).
 				telemCh = d.t.MakeObservationScopedTelemetryCh(osv.opts, 10*len(plan.streamIDsToRefresh))
 				if telemCh != nil {
 					if d.t.CaptureEATelemetry() {
@@ -363,7 +364,8 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 }
 
 // streamsRefreshPlan is the refresh scope for one observation loop iteration.
-// groups maps each pipeline that needs work to p.StreamIDs() (order defined by the pipeline implementation).
+// groups maps each pipeline that needs work to the ordered list of stream IDs that worker will Observe: the
+// intersection of p.StreamIDs() with the plugin's requested keys (streamValues), in pipeline order.
 // streamIDsToRefresh is the sorted list of plugin-scope keys that are refresh drivers this round (stale or uncached).
 // missingStreamIDs lists drivers with no registry entry (no Observe worker is started for them).
 type streamsRefreshPlan struct {
@@ -374,13 +376,14 @@ type streamsRefreshPlan struct {
 
 // buildStreamsRefreshPlan derives pipeline work groups and refresh-driver IDs from the cache and streamValues keys.
 // A key is a refresh driver when the cache has no live value for it, or when time.Until(expiresAt) is not greater than
-// staleRefreshSkipThreshold (same rule as package-level tuning comments). Each registered driver inserts its
-// pipeline into groups once (groups[p]=p.StreamIDs()). Unregistered drivers go to missingStreamIDs; each increments
-// promMissingStreamCount and triggers a single Warn when missingStreamIDs is non-empty.
+// staleRefreshSkipThreshold (same rule as package-level tuning comments). Each registered driver records its pipeline
+// in groups; the worker observe list is built from p.StreamIDs() filtered to keys present in streamValues so we never
+// run Observe for pipeline siblings the plugin did not request this round. Unregistered drivers go to missingStreamIDs;
+// each increments promMissingStreamCount and triggers a single Warn when missingStreamIDs is non-empty.
 func (d *dataSource) buildStreamsRefreshPlan(streamValues llo.StreamValues, observationTimeout time.Duration, lggr logger.Logger) streamsRefreshPlan {
 	candidatesValues := make(llo.StreamValues, len(streamValues))
 	for streamID := range streamValues {
-		// Plugin-scope keys that need refresh become drivers; the loop below attaches full pipeline StreamIDs to groups.
+		// Plugin-scope keys that need refresh become drivers; pipelines are collected below and scoped to these keys.
 		if val, expiresAt := d.cache.Get(streamID); val != nil {
 			if time.Until(expiresAt) > staleRefreshSkipThreshold(observationTimeout) {
 				continue
@@ -389,6 +392,8 @@ func (d *dataSource) buildStreamsRefreshPlan(streamValues llo.StreamValues, obse
 		candidatesValues[streamID] = nil
 	}
 
+	// Observe all streams for the pipelines that have at least one candidate stream
+	// that are in the plugin scope
 	groups := make(map[streams.Pipeline][]streams.StreamID, len(candidatesValues))
 	missingSet := []streams.StreamID{}
 	for sid := range candidatesValues {
@@ -399,7 +404,11 @@ func (d *dataSource) buildStreamsRefreshPlan(streamValues llo.StreamValues, obse
 		}
 
 		if _, ok := groups[p]; !ok {
-			groups[p] = p.StreamIDs()
+			for _, sid := range p.StreamIDs() {
+				if _, ok := streamValues[sid]; ok {
+					groups[p] = append(groups[p], sid)
+				}
+			}
 		}
 	}
 

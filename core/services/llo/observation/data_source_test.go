@@ -675,7 +675,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("one stale in-scope stream lists only stale IDs but worker observes full pipeline", func(t *testing.T) {
+	t.Run("one stale driver lists only stale IDs; worker observes all requested streams on that pipeline", func(t *testing.T) {
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
@@ -688,11 +688,11 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 		assert.Equal(t, []streams.StreamID{2}, plan.streamIDsToRefresh, "streamIDsToRefresh is stale plugin-scope keys only")
 		require.Len(t, plan.groups, 1)
 		for _, sids := range plan.groups {
-			assert.ElementsMatch(t, []streams.StreamID{1, 2, 3}, sids, "pipeline worker still runs Observe for every StreamIDs() entry")
+			assert.ElementsMatch(t, []streams.StreamID{1, 2, 3}, sids, "all three are in plugin scope, so observe list matches pipeline StreamIDs()")
 		}
 	})
 
-	t.Run("staleStreamIDs lists only stale keys; full pipeline still in groups", func(t *testing.T) {
+	t.Run("staleStreamIDs lists only stale keys; groups intersect pipeline with plugin scope", func(t *testing.T) {
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
@@ -706,7 +706,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 		assert.NotContains(t, plan.streamIDsToRefresh, streams.StreamID(3), "out-of-scope stream is not a refresh driver")
 		require.Len(t, plan.groups, 1)
 		for _, sids := range plan.groups {
-			assert.ElementsMatch(t, []streams.StreamID{1, 2, 3}, sids, "worker slice is still full p.StreamIDs()")
+			assert.Equal(t, []streams.StreamID{1, 2}, sids, "stream 3 is not requested; observe list is intersection with streamValues")
 		}
 	})
 
