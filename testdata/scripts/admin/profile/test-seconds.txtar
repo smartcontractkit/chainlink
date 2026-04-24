@@ -1,0 +1,33 @@
+# start node
+exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
+exec chainlink node -c config.toml start -p password -a creds &
+
+# initialize client
+env NODEURL=http://localhost:$PORT
+exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
+exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+
+# seconds=0: no CPU and trace profiles are created
+exec chainlink --remote-node-url $NODEURL admin profile -seconds 0 -output_dir ./profiles
+stderr 'Collecting profiles: \[allocs block cmdline goroutine heap mutex threadcreate\]'
+
+# seconds=1: CPU and trace profiles are created
+exec chainlink --remote-node-url $NODEURL admin profile -seconds 1 -output_dir ./profiles
+stderr 'Collecting profiles: \[allocs block cmdline goroutine heap mutex threadcreate profile trace\]'
+
+exec sh -c 'eval "ls -R $WORK"'
+
+-- testdb.txt --
+CL_DATABASE_URL
+-- testport.txt --
+PORT
+
+-- password --
+T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+-- creds --
+notreal@fakeemail.ch
+fj293fbBnlQ!f9vNs
+
+-- config.toml.tmpl --
+[Webserver]
+HTTPPort = $PORT
