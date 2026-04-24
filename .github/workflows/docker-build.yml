@@ -88,7 +88,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-allow-overwrites # testing
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -108,6 +108,7 @@ jobs:
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
       free-disk-space: "true"
+      allow-overwrites: "false"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -120,7 +121,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-allow-overwrites # testing
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -142,6 +143,7 @@ jobs:
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
       free-disk-space: "true"
+      allow-overwrites: "false"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -154,7 +156,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-allow-overwrites # testing
     with:
       aws-ecr-name: chainlink
       aws-region-ecr: us-west-2
@@ -177,6 +179,7 @@ jobs:
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
       free-disk-space: "true"
+      allow-overwrites: "false"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -189,7 +192,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-allow-overwrites # testing
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -212,6 +215,7 @@ jobs:
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
       free-disk-space: "true"
+      allow-overwrites: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
@@ -224,7 +228,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@f4ff50d0f4713ed7b247dbd8a58316484907f958 # 2026-01-13
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@test/build-push-docker-allow-overwrites # testing
     with:
       aws-ecr-name: ccip
       aws-region-ecr: us-west-2
@@ -247,6 +251,7 @@ jobs:
       github-runner-arm64: ${{ needs.init.outputs.runner-arm64 }}
       github-runner-amd64: ${{ needs.init.outputs.runner-amd64 }}
       free-disk-space: "true"
+      allow-overwrites: "true"
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
