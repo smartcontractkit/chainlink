@@ -7,9 +7,9 @@ replace github.com/smartcontractkit/chainlink/v2 => ../../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
-// Align with github.com/testcontainers/testcontainers-go/modules/compose@v0.37.0 so
-// go mod tidy does not upgrade docker/cli and docker/buildx to releases that drop
-// packages imported by github.com/docker/compose/v2 test dependencies.
+// Pins for testcontainers modules/compose@v0.37.0 (via CTF dockercompose): avoid docker/cli
+// and docker/buildx versions that drop packages docker/compose/v2 still imports.
+// buildx@v0.22.0 expects gitutil.ParseGitRef from moby/buildkit@v0.23.0.
 replace github.com/docker/cli => github.com/docker/cli v28.0.4+incompatible
 
 replace github.com/docker/buildx => github.com/docker/buildx v0.22.0
@@ -647,8 +647,3 @@ require (
 
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// moby/go-archive v0.2.0 removed deprecated aliases (archive.Gzip, etc.) that
-// docker/cli@v28.5.x still uses. docker/compose has not migrated to docker/cli v29
-// yet, so we pin to v0.1.0 which has both the old aliases and the new compression API.
-replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0

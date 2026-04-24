@@ -19,6 +19,13 @@ replace github.com/testcontainers/testcontainers-go/modules/compose => github.co
 
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
+// Same compose/docker pins as system-tests/lib (see that module's header comments).
+replace github.com/docker/cli => github.com/docker/cli v28.0.4+incompatible
+
+replace github.com/docker/buildx => github.com/docker/buildx v0.22.0
+
+replace github.com/moby/buildkit => github.com/moby/buildkit v0.23.0
+
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 
 // Using a separate `require` here to avoid surrounding line changes
@@ -712,8 +719,3 @@ require (
 )
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
-
-// moby/go-archive v0.2.0 removed deprecated aliases (archive.Gzip, etc.) that
-// docker/cli@v28.5.x still uses. docker/compose has not migrated to docker/cli v29
-// yet, so we pin to v0.1.0 which has both the old aliases and the new compression API.
-replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0
