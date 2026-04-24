@@ -1,12 +1,11 @@
 # N/B: ci-core, which runs on PRs, will trigger linting for affected directories/modules
 # no need to run lint twice
 name: Integration Tests
-run-name: Integration Tests ${{ inputs.distinct_run_name &&
-  inputs.distinct_run_name || '' }}
+run-name: Integration Tests ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 on:
   merge_group:
   pull_request:
-    types: [ opened, synchronize, reopened, labeled ]
+    types: [opened, synchronize, reopened, labeled]
   push:
     tags:
       - "*"
@@ -32,27 +31,20 @@ on:
         required: false
         type: string
       ecr_name:
-        description: "The name of the ECR repository to push the image to, defaults to
-          'chainlink'"
+        description: "The name of the ECR repository to push the image to, defaults to 'chainlink'"
         required: false
         type: string
         default: "chainlink"
 
 # Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
-  group: ${{ github.ref != 'refs/heads/develop' &&
-    format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository,
-    github.event_name, inputs.distinct_run_name) || github.sha }}
+  group: ${{ github.ref != 'refs/heads/develop' && format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository, github.event_name, inputs.distinct_run_name) || github.sha }}
   cancel-in-progress: true
 
 env:
   # for run-test variables and environment
-  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
-    secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref ||
-    github.sha }}
-  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
-    secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
-    'chainlink-integration-tests' }}
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ inputs.evm-ref || github.sha }}
+  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
   MOD_CACHE_VERSION: 2
@@ -150,17 +142,12 @@ jobs:
       contents: read
       pull-requests: write
     outputs:
-      builder-runner-label-core: ${{
-        steps.runner-labels.outputs.builder-runner-label-core ||
-        steps.runner-labels.outputs.builder-runner-label }}
-      builder-runner-label-plugins: ${{
-        steps.runner-labels.outputs.builder-runner-label-plugins ||
-        steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-core: ${{ steps.runner-labels.outputs.builder-runner-label-core || steps.runner-labels.outputs.builder-runner-label }}
+      builder-runner-label-plugins: ${{ steps.runner-labels.outputs.builder-runner-label-plugins || steps.runner-labels.outputs.builder-runner-label }}
       solana-runner-label: ${{ steps.runner-labels.outputs.solana-runner-label }}
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
-      skip-e2e-regression-label-found: ${{
-        steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
+      skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         id: label-runs-on-opt-out
@@ -189,12 +176,9 @@ jobs:
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           GH_SOLANA_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins/solana) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id
-            }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id
-            }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
-          SH_SOLANA_RUNNER: runs-on=${{ github.run_id
-            }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32+36/memory=64+72/family=c6i+c7i+c5.*/extras=s3-cache+tmpfs
+          SH_SOLANA_RUNNER: runs-on=${{ github.run_id }}-solana/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -228,8 +212,7 @@ jobs:
       matrix:
         image:
           - name: ""
-            runner: ${{ needs.labels.outputs.builder-runner-label-core ||
-              'ubuntu22.04-8cores-32GB' }}
+            runner: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             cache-scope: core
@@ -242,8 +225,7 @@ jobs:
               }}
 
           - name: (plugins)
-            runner: ${{ needs.labels.outputs.builder-runner-label-plugins ||
-              'ubuntu22.04-8cores-32GB' }}
+            runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             cache-scope: plugins
@@ -282,7 +264,7 @@ jobs:
           elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then
             echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."
             echo "any-should-run is true when:"
-            echo "  - For the non-plugins image: the core tests or solana tests will be run."
+            echo "  - For the non-plugins image: the CCIP v1.6 tests or solana tests will be run."
             echo "  - For the plugins image: the core cre e2e tests will be run."
 
             echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
@@ -303,11 +285,9 @@ jobs:
         if: steps.explain.outputs.build-image == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
-          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix
-            }}
+          image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
-          docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION }}.amazonaws.com
+          docker-registry-url: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
           docker-repository-name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -316,8 +296,7 @@ jobs:
             CL_IS_PROD_BUILD=false
           # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
           go-get-overrides: >-
-            ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) ||
-            '' }}
+            ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) || '' }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}
@@ -325,7 +304,7 @@ jobs:
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
     runs-on: ubuntu-latest
-    needs: [ changes, labels ]
+    needs: [changes, labels]
     permissions:
       contents: read
     outputs:
@@ -337,8 +316,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' ||
-            needs.changes.outputs.cre-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.cre-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found }}
         run: |
           SHOULD_RUN="false"
@@ -398,7 +376,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [ build-chainlink, run-core-cre-e2e-tests-setup ]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -411,36 +389,31 @@ jobs:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) ||
-        inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}',
-        github.sha) }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [ build-chainlink, run-core-cre-e2e-tests-setup ]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' &&
-      needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
     uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
       ecr: "sdlc"
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) ||
-        inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}',
-        github.sha) }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
   run-ccip-v1-6-e2e-tests-setup:
     name: Run CCIP v1.6 E2E Tests Setup
     runs-on: ubuntu-latest
-    needs: [ changes, labels ]
+    needs: [changes, labels]
     permissions:
       contents: read
     outputs:
@@ -453,8 +426,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' ||
-            needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
@@ -494,7 +466,7 @@ jobs:
           fi
 
   run-ccip-v1-6-e2e-tests:
-    needs: [ run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels ]
+    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
     name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
@@ -510,9 +482,7 @@ jobs:
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
-      enable_otel_traces_for_ocr2_plugins: ${{
-        contains(join(github.event.pull_request.labels.*.name, ' '), 'enable
-        tracing') }}
+      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
@@ -629,7 +599,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]'  }}
     runs-on: ubuntu-latest
-    needs: [ changes, labels ]
+    needs: [changes, labels]
     permissions:
       contents: read
     outputs:
@@ -640,8 +610,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' ||
-            needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
           INPUTS_RUN_SOLANA: ${{ inputs.run_solana }}
         run: |
@@ -686,7 +655,7 @@ jobs:
       name: integration
       deployment: false
     runs-on: ubuntu-latest
-    needs: [ solana-smoke-tests-setup ]
+    needs: [solana-smoke-tests-setup]
     permissions:
       contents: read
     outputs:
@@ -739,7 +708,7 @@ jobs:
 
   run-solana-smoke-tests:
     name: Run Solana Smoke Tests
-    needs: [ build-chainlink, get-solana-sha, solana-smoke-tests-setup ]
+    needs: [build-chainlink, get-solana-sha, solana-smoke-tests-setup]
     permissions:
       id-token: write
       contents: read
