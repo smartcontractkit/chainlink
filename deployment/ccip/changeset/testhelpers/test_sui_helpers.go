@@ -156,7 +156,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	msg := cfg.Message.(SuiSendRequest)
 
 	// Update Prices on FeeQuoter with minted LinkToken
-	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+	feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
 			CCIPPackageId:         ccipPackageID,
 			CCIPObjectRef:         ccipObjectRefID,
@@ -168,6 +168,16 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		})
 	if err != nil {
 		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	}
+
+	// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
+	// coin via SuiXGetAllCoins / object refs; without waiting for fullnode indexing, the
+	// next submit can race (stale object version) even when each individual binding call
+	// used WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
+	if d := feePriceReport.Output.Digest; d != "" {
+		if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
+			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+		}
 	}
 
 	// TODO: might be needed for validation
