@@ -110,6 +110,9 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	upgradeCCIP(ctx, t, e, sourceChain, contracts.CCIP)
 	upgradeSuiOnRamp(ctx, t, e, sourceChain, contracts.CCIPOnramp)
 
+	// Let the local fullnode drain upgrade txs before the next sui_execute + indexing wait.
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	t.Run("Sui OnRamp, CCIP FQ Upgraded: Message to EVM - Should Succeed", func(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -242,6 +245,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		)
 	)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	t.Run("OffRamp, CCIP FQ upgraded and blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
@@ -345,6 +350,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 			false, // test router
 		)
 	)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("OffRamp, CCIP FQ upgraded NoBlock: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
@@ -472,6 +479,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		sender,
 		false,
 	)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("CCIP FQ upgraded blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")

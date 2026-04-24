@@ -129,6 +129,10 @@ func Test_CCIP_Messaging_Sui2EVM(t *testing.T) {
 		)
 	})
 
+	// Pace the fullnode after the first full CCIP round-trip before larger / revert-heavy
+	// subtests (reduces JSON-RPC backlog flakes on CI).
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// For testing messages that revert on source
 	mltTestSetup := mlt.NewTestSetup(
 		t,
@@ -391,6 +395,8 @@ func Test_CCIP_Messaging_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	// TODO: consider using this for single commit with multiple report
 	// tcs := []testhelpers.TestTransferRequest{

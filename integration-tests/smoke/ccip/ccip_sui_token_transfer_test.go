@@ -158,6 +158,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	t.Log("New Balance: ", balance)
 	require.Equal(t, uint64(7000000000), balance)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	suifeeQuoter, err := module_fee_quoter.NewFeeQuoter(suiState[sourceChain].CCIPAddress, e.Env.BlockChains.SuiChains()[sourceChain].Client)
 	require.NoError(t, err)
 
@@ -222,7 +224,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool(t *testing.T) {
 	})
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -470,6 +472,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	deps := getOpTxDeps(suiChain)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -519,6 +523,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		},
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -1006,6 +1012,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	selectorBytes := make([]byte, 16)
 	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	// curse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteCurseOp, deps, ccipops.RMNRemoteCurseInput{
 		CCIPPackageId:    suiState[sourceChain].CCIPAddress,
@@ -1049,6 +1057,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		Subject:          selectorBytes,
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	tcs = []testhelpers.TestTransferRequest{
 		{
