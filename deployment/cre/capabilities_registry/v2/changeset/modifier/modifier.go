@@ -1,6 +1,7 @@
 package modifier
 
 import (
+	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -8,7 +9,9 @@ import (
 	"strconv"
 	"strings"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"golang.org/x/crypto/sha3"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -104,6 +107,10 @@ func parseChainSelectorFromCapabilityID(capabilityID, prefix string) (selector u
 // - lowercase hex of the 32-byte P2P id -> transmit account (OCR TransmitAccount)
 // for the given chainSelector.
 //
+// For Aptos chains, TransmitAccount from JD is a hex-encoded ed25519 public key;
+// this function derives the Aptos account address (sha3-256(pubkey || 0x00)) and
+// stores that instead, since the relayer and capability code expect account addresses.
+//
 // It walks only the nodes returned by NodeInfo. Each must have OCR config for
 // chainSelector and a non-empty transmit account after trim, or this returns an error.
 func buildP2PToTransmitterMap(
@@ -117,6 +124,12 @@ func buildP2PToTransmitterMap(
 	if len(donPeerIDs) == 0 {
 		return nil, errors.New("no DON peer IDs")
 	}
+
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
+	}
+
 	p2pStrs := make([]string, len(donPeerIDs))
 	for i, pid := range donPeerIDs {
 		p2pStrs[i] = pid.String()
@@ -136,9 +149,33 @@ func buildP2PToTransmitterMap(
 		if transmitter == "" {
 			return nil, fmt.Errorf("empty transmit account for node %s (%s)", node.Name, node.PeerID.String())
 		}
+
+		if family == chain_selectors.FamilyAptos {
+			addr, convErr := aptosPublicKeyHexToAccountAddress(transmitter)
+			if convErr != nil {
+				return nil, fmt.Errorf("node %s (%s): convert Aptos public key to account address: %w",
+					node.Name, node.PeerID.String(), convErr)
+			}
+			transmitter = addr
+		}
+
 		out[hex.EncodeToString(node.PeerID[:])] = transmitter
 	}
 	return out, nil
+}
+
+// aptosPublicKeyHexToAccountAddress derives an Aptos account address from a
+// hex-encoded ed25519 public key: sha3-256(pubkey_bytes || 0x00).
+func aptosPublicKeyHexToAccountAddress(hexPubKey string) (string, error) {
+	pubKeyBytes, err := hex.DecodeString(hexPubKey)
+	if err != nil {
+		return "", fmt.Errorf("decode hex public key: %w", err)
+	}
+	if len(pubKeyBytes) != ed25519.PublicKeySize {
+		return "", fmt.Errorf("invalid public key length %d, expected %d", len(pubKeyBytes), ed25519.PublicKeySize)
+	}
+	authKey := sha3.Sum256(append(pubKeyBytes, 0x00))
+	return hex.EncodeToString(authKey[:]), nil
 }
 
 // mergeP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
