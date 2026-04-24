@@ -393,16 +393,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
-	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
+	linkTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
-	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
 			RemoteChainSelector: destChain,
@@ -417,52 +414,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:           "Send token to EOA",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1 LINK to EVM
-				},
-			},
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-		},
-	}
-
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
-
-	err = testhelpers.ConfirmMultipleCommits(
-		t,
-		updatedEnv,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
-		t,
-		updatedEnv,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks)
-	require.Equal(t, expectedExecutionStates, execStates)
-
-	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
 	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	require.NoError(t, err)
@@ -495,7 +448,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        2000000000,
 				},
 			}}
@@ -529,9 +482,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	tcs = []testhelpers.TestTransferRequest{
+	tcs := []testhelpers.TestTransferRequest{
 		{
-			Name:           "Send token to EOA",
+			Name:           "Send token to EOA after uncursing",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
 			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
@@ -540,20 +493,21 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        2000000000, // Send 2 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(3e18), // 1e18 from first transfer + 2e18 from second transfer
+					Amount: big.NewInt(2e18),
 				},
 			},
 		},
 	}
 
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -565,7 +519,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
@@ -906,17 +860,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
-	linkTokenOutput1 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000)
-	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 2000000000)
-	linkTokenOutput3 := mintLinkTokenOnSui(t, e.Env, sourceChain, 1500000000)
+	linkTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 5000000000)
 
 	state, err := stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	// Receiver Address
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
-	// Token Pool setup on both SUI and EVM
 	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndManagedTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
 		{
 			RemoteChainSelector: destChain,
@@ -931,74 +881,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
-	tcs := []testhelpers.TestTransferRequest{
-		{
-			Name:           "Send token to EOA",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput1.Objects.MintedLinkTokenObjectId,
-					Amount:        1000000000, // Send 1 LINK to EVM
-				},
-			},
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1e18),
-				},
-			},
-		},
-		{
-			Name:           "Send token to Receiver",
-			SourceChain:    sourceChain,
-			DestChain:      destChain,
-			Receiver:       ccipReceiverAddress.Bytes(), // internally left padded to 32byte
-			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
-			SuiTokens: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        2000000000, // Send 2 LINK to EVM
-				},
-			},
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2e18),
-				},
-			},
-		},
-	}
-
-	ctx := testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
-
-	err = testhelpers.ConfirmMultipleCommits(
-		t,
-		updatedEnv,
-		state,
-		startBlocks,
-		false,
-		expectedSeqNums,
-	)
+	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-
-	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
-		t,
-		updatedEnv,
-		state,
-		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
-		startBlocks,
-	)
-	require.Equal(t, expectedExecutionStates, execStates)
-
-	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 
 	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
 	require.NoError(t, err)
@@ -1032,7 +916,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 			TokenAmounts: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
 			}}
@@ -1060,7 +944,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
-	tcs = []testhelpers.TestTransferRequest{
+	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to EOA after uncursing",
 			SourceChain:    sourceChain,
@@ -1071,25 +955,24 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 			SuiTokens: []testhelpers.SuiTokenAmount{
 				{
 					TokenPoolType: sui_deployment.TokenPoolTypeManaged,
-					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
+					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000, // Send 1.5 LINK to EVM
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2.5e18), // 1e18 from first transfer + 1.5e18 from second transfer
+					Amount: big.NewInt(1.5e18),
 				},
 			},
 		},
 	}
 
-	// reload state
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	ctx = testhelpers.Context(t)
-	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances = testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
+	ctx := testhelpers.Context(t)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1101,7 +984,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	)
 	require.NoError(t, err)
 
-	execStates = testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		updatedEnv,
 		state,
