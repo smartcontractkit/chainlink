@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -186,6 +188,30 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		cache.UpdateStreamValues(streamValues)
 		assert.Equal(t, &mockStreamValue{value: []byte{100}}, streamValues[1])
 	})
+}
+
+func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
+	promCacheHitEntryAgeMs.Reset()
+	promCacheHitCount.Reset()
+
+	cache := NewCache(0)
+	defer cache.Close()
+	cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+		1: &mockStreamValue{value: []byte{1}},
+	}, time.Hour)
+
+	streamValues := llo.StreamValues{1: nil}
+	cache.UpdateStreamValues(streamValues)
+
+	var m io_prometheus_client.Metric
+	require.Eventually(t, func() bool {
+		hist := promCacheHitEntryAgeMs.WithLabelValues("1").(prometheus.Metric)
+		if err := hist.Write(&m); err != nil {
+			return false
+		}
+		return m.GetHistogram().GetSampleCount() >= 1
+	}, time.Second, 5*time.Millisecond)
+	assert.GreaterOrEqual(t, m.GetHistogram().GetSampleSum(), 0.0)
 }
 
 func TestCache_Add_Get(t *testing.T) {
