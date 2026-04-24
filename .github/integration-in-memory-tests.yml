@@ -367,6 +367,9 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run ".*" -timeout 16m -count=1 -parallel=2 smoke/ccip/ccip_token_transfer_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*_LOOPP
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
@@ -453,6 +456,9 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseMCMS$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypass
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
