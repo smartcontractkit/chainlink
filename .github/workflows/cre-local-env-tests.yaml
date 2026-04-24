@@ -124,11 +124,6 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Set date variable
-        id: set-date
-        if: ${{ github.event_name == 'pull_request' }}
-        run: echo "date=$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
-
       - name: Setup GitHub token using GATI
         id: github-token
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/1.0.0
@@ -167,7 +162,7 @@ jobs:
         env:
           CTF_CONFIGS: "./configs/workflow-gateway-don.toml"
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('PR-{0}-{1}', github.event.pull_request.number, github.sha) || inputs.chainlink_image_tag }}"
           CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           CTF_VAULT_JWT_ISSUER_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-vault-jwt-issuer:sha-5f31e9f9b20c"
           CTF_LINKING_SERVICE_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-linking-service:sha-5f31e9f9b20c"
@@ -251,7 +246,7 @@ jobs:
         shell: bash
         working-directory: core/scripts/cre/environment
         env:
-          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('nightly-{0}-plugins', steps.set-date.outputs.date) || inputs.chainlink_image_tag }}"
+          CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.event_name == 'pull_request' && format('PR-{0}-{1}', github.event.pull_request.number, github.sha) || inputs.chainlink_image_tag }}"
         run: |
           go run . env swap nodes
 
