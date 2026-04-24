@@ -494,14 +494,6 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 
 replace github.com/smartcontractkit/chainlink/v2/tools/test => ./tools/test
 
-// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
-// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
-
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
 tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall

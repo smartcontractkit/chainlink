@@ -5,14 +5,6 @@ go 1.26.2
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
-// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
-
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
 // Using a separate inline `require` here to avoid surrounding line changes
@@ -376,7 +368,6 @@ require (
 	github.com/moby/go-archive v0.2.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
-	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect

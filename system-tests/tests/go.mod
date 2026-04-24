@@ -9,18 +9,10 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
 
-// Same compose/docker pins as system-tests/lib (testcontainers modules/compose@v0.37.0).
+// Same compose/docker pins as system-tests/lib.
 replace github.com/docker/cli => github.com/docker/cli v28.0.4+incompatible
 
 replace github.com/docker/buildx => github.com/docker/buildx v0.22.0
-
-// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
-// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
 
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 

@@ -100,14 +100,3 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// Pin testcontainers-go to chainlink-testing-framework/framework's required version (v0.37.0).
-// v0.42+ pulls github.com/moby/moby/client and breaks CTF.
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.37.0
-
-replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
-
-// docker/docker pkg/archive vs moby/go-archive v0.2.0 (see devenv/fakes).
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
