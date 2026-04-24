@@ -430,7 +430,7 @@ jobs:
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Core E2E tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            # Run CCIP v1.6 E2E Tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
             echo "workflow-name=Run CCIP v1.6 E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=PR E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
 
@@ -440,19 +440,19 @@ jobs:
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Core E2E tests in the merge queue, if there are relevant changes
+            # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
             echo "workflow-name=Run CCIP v1.6 E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=Merge Queue E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Core E2E tests on workflow dispatch
+            # Always Run CCIP v1.6 E2E Tests on workflow dispatch
             echo "workflow-name=Run CCIP v1.6 E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=Workflow Dispatch E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Core E2E tests on push events, only if there are relevant changes or if it's a tag push
+            # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push
             echo "workflow-name=Run CCIP v1.6 E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=Push E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
@@ -522,7 +522,7 @@ jobs:
       ]
     steps:
       - name: Check Core test results
-        id: check_core_results
+        id: check_ccip_v1_6_results
         env:
           TEST_RESULTS: ${{ needs.run-ccip-v1-6-e2e-tests.outputs.test_results }}
         run: |

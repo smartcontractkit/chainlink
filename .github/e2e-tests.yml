@@ -14,6 +14,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd integration-tests/smoke/ccip && \
@@ -34,6 +35,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd integration-tests/smoke/ccip && \
@@ -56,6 +58,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -80,6 +83,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -103,6 +107,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -127,6 +132,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -151,6 +157,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -175,6 +182,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -199,6 +207,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -223,6 +232,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -247,6 +257,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -271,6 +282,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -296,6 +308,7 @@ runner-test-matrix:
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -320,6 +333,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -344,6 +358,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -368,6 +383,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -392,6 +408,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -416,6 +433,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -441,6 +459,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
@@ -465,6 +484,7 @@ runner-test-matrix:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
       - Nightly E2E Tests
+      - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       cd smoke/ccip && \
