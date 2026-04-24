@@ -5,6 +5,7 @@ package web_test
 import (
 	"cmp"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"testing"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -349,13 +349,13 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
+		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int32N(999999))),
 		Chain: config.Chain{
 			TxTimeout: commoncfg.MustNewDuration(time.Hour),
 		},
 	}
 	chainB := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
+		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int32N(999999))),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
 		},
