@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -629,6 +630,73 @@ func Test_DataSource(t *testing.T) {
 
 	promCacheHitCount.Reset()
 	promCacheMissCount.Reset()
+	promCacheHitEntryAgeMs.Reset()
+	promObservationLoopWaitOutcome.Reset()
+}
+
+func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) {
+	promObservationLoopWaitOutcome.Reset()
+	lggr := logger.NullLogger
+	mainCtx := testutils.Context(t)
+	opts := &mockOpts{}
+
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.mu.Lock()
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	reg.mu.Unlock()
+
+	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	defer ds.Close()
+
+	// Long plugin deadline => large inter-iteration pacing; wake from Observe should advance the loop without waiting.
+	longCtx, cancel := context.WithTimeout(mainCtx, 30*time.Second)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(longCtx, vals, opts))
+
+	require.Eventually(t, func() bool {
+		return promtest.ToFloat64(promObservationLoopWaitOutcome.WithLabelValues("wake")) >= 1
+	}, 2*time.Second, 5*time.Millisecond, "expected at least one pacing wait satisfied by plugin wake")
+}
+
+func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
+	lggr := logger.NullLogger
+	mainCtx := testutils.Context(t)
+	opts := &mockOpts{}
+
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.mu.Lock()
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(1), nil)
+	reg.mu.Unlock()
+
+	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(ctx, vals, opts))
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Each call needs its own StreamValues map: Observe mutates it in place (UpdateStreamValues).
+			localVals := makeStreamValues(1)
+			_ = ds.Observe(ctx, localVals, opts)
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent Observe calls did not complete")
+	}
+	require.NoError(t, ds.Close())
 }
 
 func Test_buildStreamsRefreshPlan(t *testing.T) {
@@ -754,6 +822,8 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 
 	promCacheHitCount.Reset()
 	promCacheMissCount.Reset()
+	promCacheHitEntryAgeMs.Reset()
+	promObservationLoopWaitOutcome.Reset()
 }
 
 func Test_observationTuningHelpers(t *testing.T) {

@@ -35,11 +35,11 @@ import (
 // Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=10, staleRefresh num/den = 6/5):
 //   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
 //   - staleRefreshSkipThreshold = (6/5)·T = 300ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 300ms.
-//   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first.
+//   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
-	staleRefreshRemainingNumerator   int64 = 8
+	staleRefreshRemainingNumerator   int64 = 6
 	staleRefreshRemainingDenominator int64 = 5
 
 	observationLoopPacingMin     = 10 * time.Millisecond
@@ -104,6 +104,14 @@ var (
 	},
 		[]string{"configDigest"},
 	)
+	promObservationLoopWaitOutcome = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "observation_loop_wait_outcome_count",
+		Help:      "How the observation loop ended its inter-iteration wait: timer (pacing), wake (plugin Observe hint), or shutdown",
+	},
+		[]string{"outcome"},
+	)
 )
 
 type ErrObservationFailed struct {
@@ -146,6 +154,9 @@ type dataSource struct {
 
 	observableStreamsMu sync.Mutex
 	observableStreams   *observableStreamValues
+
+	// loopWakeCh coalesces plugin Observe hints (buffer 1): the loop may skip pacing when the plugin is active.
+	loopWakeCh chan struct{}
 }
 
 func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llo.DataSource {
@@ -159,6 +170,19 @@ func newDataSource(lggr logger.Logger, registry Registry, t Telemeter) *dataSour
 		t:                      t,
 		cache:                  NewCache(time.Minute),
 		observationLoopCloseCh: make(chan struct{}),
+		loopWakeCh:             make(chan struct{}, 1),
+	}
+}
+
+// signalObservationLoopWake notifies the background observation loop that the plugin called Observe (non-blocking,
+// coalesced). Safe when the loop is not running (no-op).
+func (d *dataSource) signalObservationLoopWake() {
+	if d.loopWakeCh == nil || !d.observationLoopStarted.Load() {
+		return
+	}
+	select {
+	case d.loopWakeCh <- struct{}{}:
+	default:
 	}
 }
 
@@ -175,6 +199,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 			go d.startObservationLoop(loopStartedCh)
 			<-loopStartedCh
 		}
+		d.signalObservationLoopWake()
 	}
 
 	// Update stream values with the cached observations for all streams.
@@ -220,16 +245,29 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 			}
 
 			if !loopStarting {
-				// Pace the loop to bound CPU; freshness is driven by cache TTL and stale-refresh threshold.
+				// Pace the loop to bound CPU; plugin Observe can wake via loopWakeCh to skip sleep when data is needed sooner.
 				pacing := observationLoopPacing(osv.observationTimeout)
 				t := time.NewTimer(pacing)
 				select {
 				case <-stopChanCtx.Done():
+					promObservationLoopWaitOutcome.WithLabelValues("shutdown").Inc()
 					if !t.Stop() {
-						<-t.C
+						select {
+						case <-t.C:
+						default:
+						}
 					}
 					return
 				case <-t.C:
+					promObservationLoopWaitOutcome.WithLabelValues("timer").Inc()
+				case <-d.loopWakeCh:
+					promObservationLoopWaitOutcome.WithLabelValues("wake").Inc()
+					if !t.Stop() {
+						select {
+						case <-t.C:
+						default:
+						}
+					}
 				}
 			}
 
