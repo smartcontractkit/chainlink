@@ -39,8 +39,8 @@ import (
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
-	staleRefreshRemainingNumerator   int64 = 3
-	staleRefreshRemainingDenominator int64 = 3
+	staleRefreshRemainingNumerator   int64 = 8
+	staleRefreshRemainingDenominator int64 = 5
 
 	observationLoopPacingMin     = 10 * time.Millisecond
 	observationLoopPacingDivisor = 10 // pacing default = T/10, capped below
