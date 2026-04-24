@@ -27,17 +27,17 @@ func Test_aptosPublicKeyHexToAccountAddress(t *testing.T) {
 		{
 			name:      "invalid hex",
 			hexPubKey: "zzzz",
-			wantErr:   "decode hex public key",
+			wantErr:   "parse ed25519 public key",
 		},
 		{
 			name:      "wrong length",
 			hexPubKey: "aabbccdd",
-			wantErr:   "invalid public key length",
+			wantErr:   "parse ed25519 public key",
 		},
 		{
 			name:      "empty string",
 			hexPubKey: "",
-			wantErr:   "invalid public key length",
+			wantErr:   "parse ed25519 public key",
 		},
 	}
 	for _, tt := range tests {

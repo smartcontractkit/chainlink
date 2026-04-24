@@ -1,7 +1,6 @@
 package modifier
 
 import (
-	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -9,9 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	aptos "github.com/aptos-labs/aptos-go-sdk"
+	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"golang.org/x/crypto/sha3"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -165,20 +165,15 @@ func buildP2PToTransmitterMap(
 }
 
 // aptosPublicKeyHexToAccountAddress derives an Aptos account address from a
-// hex-encoded ed25519 public key: sha3-256(pubkey_bytes || 0x00).
+// hex-encoded ed25519 public key using the aptos-go-sdk.
 func aptosPublicKeyHexToAccountAddress(hexPubKey string) (string, error) {
-	hexPubKey = strings.TrimSpace(hexPubKey)
-	hexPubKey = strings.TrimPrefix(hexPubKey, "0x")
-	hexPubKey = strings.TrimPrefix(hexPubKey, "0X")
-	pubKeyBytes, err := hex.DecodeString(hexPubKey)
-	if err != nil {
-		return "", fmt.Errorf("decode hex public key: %w", err)
+	var pubKey crypto.Ed25519PublicKey
+	if err := pubKey.FromHex(strings.TrimSpace(hexPubKey)); err != nil {
+		return "", fmt.Errorf("parse ed25519 public key: %w", err)
 	}
-	if len(pubKeyBytes) != ed25519.PublicKeySize {
-		return "", fmt.Errorf("invalid public key length %d, expected %d", len(pubKeyBytes), ed25519.PublicKeySize)
-	}
-	authKey := sha3.Sum256(append(pubKeyBytes, 0x00))
-	return hex.EncodeToString(authKey[:]), nil
+	var addr aptos.AccountAddress
+	addr.FromAuthKey(pubKey.AuthKey())
+	return hex.EncodeToString(addr[:]), nil
 }
 
 // mergeP2PToTransmitterIntoConfig sets cfg["specConfig"] to p2pMap (as p2pToTransmitterMap).
