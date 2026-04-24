@@ -167,6 +167,9 @@ func buildP2PToTransmitterMap(
 // aptosPublicKeyHexToAccountAddress derives an Aptos account address from a
 // hex-encoded ed25519 public key: sha3-256(pubkey_bytes || 0x00).
 func aptosPublicKeyHexToAccountAddress(hexPubKey string) (string, error) {
+	hexPubKey = strings.TrimSpace(hexPubKey)
+	hexPubKey = strings.TrimPrefix(hexPubKey, "0x")
+	hexPubKey = strings.TrimPrefix(hexPubKey, "0X")
 	pubKeyBytes, err := hex.DecodeString(hexPubKey)
 	if err != nil {
 		return "", fmt.Errorf("decode hex public key: %w", err)

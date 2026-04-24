@@ -8,11 +8,11 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
@@ -177,16 +177,16 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			CapabilitiesRegistry: capReg,
 		},
 		contracts.UpdateDONInput{
-			ChainSelector:                    config.RegistryChainSel,
-			P2PIDs:                           p2pIDs,
-			CapabilityConfigs:                config.CapabilityConfigs,
+			ChainSelector:                     config.RegistryChainSel,
+			P2PIDs:                            p2pIDs,
+			CapabilityConfigs:                 config.CapabilityConfigs,
 			MergeCapabilityConfigsWithOnChain: config.MergeCapabilityConfigsWithOnChain,
-			DonName:                          config.DONName,
-			NewDonName:                       config.NewDonName,
-			F:                                don.F,
-			IsPrivate:                        !don.IsPublic,
-			Force:                            config.Force,
-			MCMSConfig:                       config.MCMSConfig,
+			DonName:                           config.DONName,
+			NewDonName:                        config.NewDonName,
+			F:                                 don.F,
+			IsPrivate:                         !don.IsPublic,
+			Force:                             config.Force,
+			MCMSConfig:                        config.MCMSConfig,
 		},
 	)
 	if err != nil {
