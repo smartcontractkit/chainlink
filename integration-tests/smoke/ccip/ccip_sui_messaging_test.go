@@ -1,7 +1,6 @@
 package ccip
 
 import (
-	"context"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -41,7 +40,6 @@ import (
 
 // sui2EvmMessagingFixtures is shared setup for Sui→EVM messaging tests split for CI isolation.
 type sui2EvmMessagingFixtures struct {
-	ctx                    context.Context
 	e                      testhelpers.DeployedEnv
 	sourceChain, destChain uint64
 	state                  stateview.CCIPOnChainState
@@ -124,7 +122,7 @@ func prepareSui2EvmMessagingTest(t *testing.T) sui2EvmMessagingFixtures {
 
 	n := uint64(0)
 	return sui2EvmMessagingFixtures{
-		ctx: ctx, e: e, sourceChain: sourceChain, destChain: destChain,
+		e: e, sourceChain: sourceChain, destChain: destChain,
 		state: state, setup: setup,
 		suiLinkFeeToken: suiLinkFeeToken, standardMessage: standardMessage,
 		suiFQDestConfig: suiFQDestConfig, nonce: &n,
@@ -153,7 +151,8 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
 
 	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
-		latestHead, err := testhelpers.LatestBlock(fx.ctx, fx.e.Env, fx.destChain)
+		ctx := testhelpers.Context(t)
+		latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
 		require.NoError(t, err)
 		message := []byte(strings.Repeat("0", int(16000)))
 		messagingtest.Run(t,
@@ -166,14 +165,17 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) { assertEvmMessageReceived(fx.ctx, t, fx.state, fx.destChain, latestHead, message) },
+					func(t *testing.T) {
+						assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, message)
+					},
 				},
 			},
 		)
 	})
 
 	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
-		latestHead, err := testhelpers.LatestBlock(fx.ctx, fx.e.Env, fx.destChain)
+		ctx := testhelpers.Context(t)
+		latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
 		require.NoError(t, err)
 		messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -185,7 +187,9 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(fx.suiFQDestConfig.MaxPerMsgGasLimit)), false),
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) { assertEvmMessageReceived(fx.ctx, t, fx.state, fx.destChain, latestHead, fx.standardMessage) },
+					func(t *testing.T) {
+						assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, fx.standardMessage)
+					},
 				},
 			},
 		)
@@ -337,7 +341,6 @@ func Test_CCIP_Messaging_Sui2EVM_Revert_Part2(t *testing.T) {
 
 // evm2SuiMessagingFixtures is shared setup for EVM→Sui messaging tests split for CI isolation.
 type evm2SuiMessagingFixtures struct {
-	ctx                    context.Context
 	e                      testhelpers.DeployedEnv
 	sourceChain, destChain uint64
 	state                  stateview.CCIPOnChainState
@@ -427,7 +430,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 	require.NoError(t, err, "Failed to get destination chain config")
 
 	return evm2SuiMessagingFixtures{
-		ctx: ctx, e: e, sourceChain: sourceChain, destChain: destChain,
+		e: e, sourceChain: sourceChain, destChain: destChain,
 		state: state, setup: setup,
 		receiverByte: receiverByte, receiverObjectIDs: receiverObjectIDs,
 		srcFQDestConfig: srcFQDestConfig, nativeFeeToken: "0x0",

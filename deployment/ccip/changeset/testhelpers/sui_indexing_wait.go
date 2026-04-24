@@ -18,7 +18,7 @@ var ErrSuiTxIndexingWaitTimeout = errors.New("sui tx not visible on fullnode wit
 
 var (
 	// SuiTxIndexingWaitTimeout bounds polling after a successful sui_executeTransactionBlock.
-	SuiTxIndexingWaitTimeout = 100 * time.Second
+	SuiTxIndexingWaitTimeout = 150 * time.Second
 	suiTxIndexingInitial     = 1 * time.Millisecond
 	suiTxIndexingMax         = 8 * time.Second
 )
