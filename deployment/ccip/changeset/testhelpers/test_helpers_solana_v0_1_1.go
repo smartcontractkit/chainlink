@@ -17,6 +17,8 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
 
@@ -64,9 +66,9 @@ func TransferOwnershipSolanaV0_1_1(
 				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
 				map[uint64]commontypes.MCMSWithTimelockConfigV2{
 					solSelector: {
-						Canceller:        proposalutils.SingleGroupMCMSV2(t),
-						Proposer:         proposalutils.SingleGroupMCMSV2(t),
-						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 						TimelockMinDelay: big.NewInt(0),
 					},
 				},

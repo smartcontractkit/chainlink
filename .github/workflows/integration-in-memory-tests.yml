@@ -92,7 +92,7 @@ jobs:
           check-label: "runs-on-opt-out"
 
   run-ccip-integration-in-memory-tests-for-pr:
-    name: Run CCIP integration In Memory Tests For PR
+    name: Run CCIP Tests For PR
     permissions:
       actions: read
       checks: write

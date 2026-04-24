@@ -55,34 +55,6 @@ CRE_TEST_PARALLEL_ENABLED=1
 
 The smoke suite does not blindly parallelize every case. The runner in `cre_suite_test.go` enables `t.Parallel()` only for scenarios that are safe to run together.
 
-Current behavior:
-
-- tests such as Proof of Reserve, Vault DON, and HTTP Trigger Action can run in parallel when `CRE_TEST_PARALLEL_ENABLED=1`
-- tests such as HTTP Action CRUD, DON Time, Consensus, EVM Write, and EVM LogTrigger require both parallel mode and ChIP sink fanout mode
-- Cron Beholder stays serial because it uses the real ChIP ingress stack instead of the shared fanout helper
-
-## ChIP Sink Fanout Mode
-
-Some workflows depend on the ChIP test sink. Running those cases in parallel requires the fanout server mode:
-
-```bash
-CRE_TEST_PARALLEL_ENABLED=1 \
-CRE_TEST_CHIP_SINK_FANOUT_ENABLED=1 \
-go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_V2'
-```
-
-`CRE_TEST_CHIP_SINK_FANOUT_ENABLED` starts a singleton sink and fans events out to per-test subscribers. That allows multiple tests to share the sink without one test consuming another test's events or closing shared channels underneath another run.
-
-Use fanout mode when parallelizing:
-
-- HTTP Action CRUD
-- DON Time
-- Consensus
-- EVM Write
-- EVM LogTrigger
-
-Without fanout mode, those cases still run, but they stay serial even if `CRE_TEST_PARALLEL_ENABLED=1`.
-
 ## Topology Defaults
 
 For the default local flow, use:

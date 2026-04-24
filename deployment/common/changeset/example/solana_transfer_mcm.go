@@ -10,6 +10,8 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	solanachangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
@@ -77,7 +79,7 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	var batches []types.BatchOperation
-	inspectors, err := proposalutils.McmsInspectors(e)
+	inspectors, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspectors: %w", err)
 	}

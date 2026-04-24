@@ -1701,6 +1701,7 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM

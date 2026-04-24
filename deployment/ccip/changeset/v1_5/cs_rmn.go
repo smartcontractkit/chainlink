@@ -8,6 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -153,12 +155,12 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 
 		timelocks[destChain] = destState.Timelock.Address().Hex()
 
-		inspectors[destChain], err = proposalutils.McmsInspectorForChain(env, destChain)
+		inspectors[destChain], err = cldfproposalutils.McmsInspectorForChain(env, destChain)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
 		}
 
-		batchOperation, err := proposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
+		batchOperation, err := cldfproposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
 			string(shared.RMN), []string{})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)

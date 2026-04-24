@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
@@ -12,7 +14,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/stretchr/testify/require"
@@ -42,7 +43,7 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 				"0xdef": cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
 			},
 			wantState: &MCMSWithTimelockState{
-				MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{
+				MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{
 					Timelock: func() *owner_helpers.RBACTimelock {
 						tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress("0x123"), nil)
 						require.NoError(t, err)
@@ -87,7 +88,7 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 				}(),
 			},
 			wantState: &MCMSWithTimelockState{
-				MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{
+				MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{
 					Timelock: func() *owner_helpers.RBACTimelock {
 						tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress("0x123"), nil)
 						require.NoError(t, err)
@@ -137,7 +138,7 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 				}(),
 			},
 			wantState: &MCMSWithTimelockState{
-				MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{
+				MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{
 					Timelock: func() *owner_helpers.RBACTimelock {
 						tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress("0x123"), nil)
 						require.NoError(t, err)

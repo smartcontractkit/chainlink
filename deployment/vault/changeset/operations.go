@@ -13,6 +13,8 @@ import (
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -382,7 +384,7 @@ func generateMCMSProposals(b operations.Bundle, deps VaultDeps, input BatchNativ
 
 		var transactions []mcmstypes.Transaction
 		for _, transfer := range transfers {
-			tx, err := proposalutils.TransactionForChain(
+			tx, err := cldfproposalutils.TransactionForChain(
 				chainSelector,
 				transfer.To,
 				[]byte{},

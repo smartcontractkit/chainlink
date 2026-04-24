@@ -105,6 +105,14 @@
   OutgoingPerSenderBurst = 10
   OutgoingPerSenderRPS = 10
 
+#[capability_configs.vault]
+#  no binary path for vault, it's built-in
+
+[capability_configs.vault.values]
+  [capability_configs.vault.values.auth0]
+    issuerURL = "http://host.docker.internal:18123/"
+    audience = "https://vault.test.chain.link"
+
 [capability_configs.write-evm]
   # No binary_name needed - this is a built-in capability, it doesn't exist as a separate binary
 

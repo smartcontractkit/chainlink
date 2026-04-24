@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -5228,16 +5229,17 @@ func Test_Service_StartStop(t *testing.T) {
 func logMessages(logEntries []observer.LoggedEntry) []string {
 	messages := make([]string, 0, len(logEntries))
 	for _, entry := range logEntries {
-		messageWithContext := entry.Message
 		contextMap := entry.ContextMap()
+		var messageWithContext strings.Builder
+		messageWithContext.WriteString(entry.Message)
 		for _, key := range slices.Sorted(maps.Keys(contextMap)) {
 			if key == "version" || key == "errVerbose" {
 				continue
 			}
-			messageWithContext += fmt.Sprintf(" %v=\"%v\"", key, entry.ContextMap()[key])
+			fmt.Fprintf(&messageWithContext, " %v=\"%v\"", key, entry.ContextMap()[key])
 		}
 
-		messages = append(messages, messageWithContext)
+		messages = append(messages, messageWithContext.String())
 	}
 
 	return messages

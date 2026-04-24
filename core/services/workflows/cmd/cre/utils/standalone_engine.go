@@ -209,7 +209,7 @@ func NewStandaloneEngine(
 	}
 	result, err := module.Execute(ctx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          config,
 	}, v2.NewDisallowedExecutionHelper(lggr, nil, &types.LocalTimeProvider{}, secretsFetcher))
 	if err != nil {

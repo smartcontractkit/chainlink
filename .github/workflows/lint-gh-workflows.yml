@@ -1,14 +1,26 @@
 name: Lint GH Workflows
+
 on:
-  push:
+  pull_request:
+    paths:
+      - '.github/workflows/*.y*ml'
+      - '.github/actions/**/action.y*ml'
+
+permissions: {}
+
 jobs:
   lint_workflows:
     name: Validate Github Action Workflows
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
     steps:
       - name: Check out Code
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@c6ee1eb0a5d47b2af53a203652b5dac0b6c4016e # v1.43.0
+        uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d # v1.72.0

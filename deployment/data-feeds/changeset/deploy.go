@@ -3,9 +3,12 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/sethvargo/go-retry"
 
 	proxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/aggregator_proxy"
 	bundleproxy "github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/bundle_aggregator_proxy"
@@ -18,6 +21,26 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
+func waitForContractCode(ctx context.Context, client cldf_evm.OnchainClient, tx *ethtypes.Transaction) (common.Address, error) {
+	receipt, err := client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return common.Address{}, fmt.Errorf("failed to get tx receipt: %w", err)
+	}
+	addr := receipt.ContractAddress
+
+	err = retry.Do(ctx, retry.WithMaxDuration(90*time.Second, retry.WithCappedDuration(30*time.Second, retry.NewFibonacci(5*time.Second))), func(ctx context.Context) error {
+		code, err := client.CodeAt(ctx, addr, receipt.BlockNumber)
+		if err != nil {
+			return retry.RetryableError(err)
+		}
+		if len(code) == 0 {
+			return retry.RetryableError(fmt.Errorf("no contract code at %s (block %s) yet", addr, receipt.BlockNumber))
+		}
+		return nil
+	})
+	return addr, err
+}
+
 func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheResponse, error) {
 	cacheAddr, tx, cacheContract, err := cache.DeployDataFeedsCache(chain.DeployerKey, chain.Client)
 	if err != nil {
@@ -27,6 +50,10 @@ func DeployCache(chain cldf_evm.Chain, labels []string) (*types.DeployCacheRespo
 	_, err = chain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm DataFeedsCache: %w", err)
+	}
+
+	if _, err := waitForContractCode(context.Background(), chain.Client, tx); err != nil {
+		return nil, fmt.Errorf("failed to verify DataFeedsCache deployment: %w", err)
 	}
 
 	tvStr, err := cacheContract.TypeAndVersion(&bind.CallOpts{})
@@ -61,6 +88,10 @@ func DeployAggregatorProxy(chain cldf_evm.Chain, aggregator common.Address, acce
 	_, err = chain.Confirm(tx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %w", err)
+	}
+
+	if _, err := waitForContractCode(context.Background(), chain.Client, tx); err != nil {
+		return nil, fmt.Errorf("failed to verify AggregatorProxy deployment: %w", err)
 	}
 
 	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
@@ -112,42 +143,23 @@ func DeployBundleAggregatorProxy(lggr logger.Logger, chain cldf_evm.Chain, aggre
 		"blockNumber", blockNum,
 		"predictedAddress", proxyAddr.Hex())
 
-	receipt, err := chain.Client.TransactionReceipt(context.Background(), tx.Hash())
+	deployedAddr, err := waitForContractCode(context.Background(), chain.Client, tx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get receipt for BundleAggregatorProxy deploy tx: %w", err)
+		return nil, fmt.Errorf("failed to verify BundleAggregatorProxy deployment: %w", err)
 	}
 
-	receiptAddr := receipt.ContractAddress
-	if receiptAddr != proxyAddr {
-		lggr.Warnw("BundleAggregatorProxy predicted address does not match receipt address",
+	if deployedAddr != proxyAddr {
+		lggr.Warnw("BundleAggregatorProxy predicted address does not match deployed address",
 			"chainSelector", chain.Selector,
 			"predictedAddress", proxyAddr.Hex(),
-			"receiptAddress", receiptAddr.Hex(),
-			"txHash", tx.Hash().Hex(),
-			"txNonce", tx.Nonce(),
-			"receiptStatus", receipt.Status)
-		proxyAddr = receiptAddr
+			"deployedAddress", deployedAddr.Hex(),
+			"txHash", tx.Hash().Hex())
+		proxyAddr = deployedAddr
 	}
 
-	code, err := chain.Client.CodeAt(context.Background(), proxyAddr, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check code at BundleAggregatorProxy address %s: %w", proxyAddr, err)
-	}
-	if len(code) == 0 {
-		lggr.Errorw("No contract code found at BundleAggregatorProxy address after confirmed deployment",
-			"chainSelector", chain.Selector,
-			"address", proxyAddr.Hex(),
-			"txHash", tx.Hash().Hex(),
-			"txNonce", tx.Nonce(),
-			"receiptStatus", receipt.Status,
-			"blockNumber", receipt.BlockNumber)
-		return nil, fmt.Errorf("no contract code at BundleAggregatorProxy address %s (tx %s, status %d)", proxyAddr, tx.Hash(), receipt.Status)
-	}
-
-	lggr.Debugw("BundleAggregatorProxy code verified at address",
+	lggr.Debugw("BundleAggregatorProxy deployed and code verified",
 		"chainSelector", chain.Selector,
-		"address", proxyAddr.Hex(),
-		"codeSize", len(code))
+		"address", proxyAddr.Hex())
 
 	proxyContract, err := bundleproxy.NewBundleAggregatorProxy(proxyAddr, chain.Client)
 	if err != nil {

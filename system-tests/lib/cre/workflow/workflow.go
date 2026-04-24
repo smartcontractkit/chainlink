@@ -55,6 +55,7 @@ func RegisterWithContract(
 	version *semver.Version,
 	donID uint64, workflowName, binaryURL string,
 	configURL, secretsURL *string,
+	attributes []byte,
 	artifactsDirInContainer *string,
 ) (string, error) {
 	// Download and decode workflow binary
@@ -92,7 +93,7 @@ func RegisterWithContract(
 	// Register workflow based on version
 	switch version.Major() {
 	case 2:
-		if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse); err != nil {
+		if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
 			return "", err
 		}
 	default:
@@ -149,11 +150,7 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 		signature[64] += 27
 
 		_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	default:
 		return errors.New("invalid version for linking owner")
 	}
@@ -227,6 +224,7 @@ func registerWorkflowV2(
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
 	workflowName, workflowID, binaryURL, configURL string,
+	attributes []byte,
 ) error {
 	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
 	if err != nil {
@@ -251,7 +249,7 @@ func registerWorkflowV2(
 		contracts.DonFamily,
 		binaryURL,
 		configURL,
-		nil,
+		attributes,
 		false,
 	))
 	if err != nil {

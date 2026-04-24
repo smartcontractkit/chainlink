@@ -266,7 +266,6 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
-			InsecurePPROFHeap: ptr.Ptr(false), // Set to true to enable v2/debug/pprof/heap endpoint
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
 			},
