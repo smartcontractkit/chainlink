@@ -1,0 +1,33 @@
+//go:build integration
+
+package cmd_test
+
+import (
+	"flag"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+)
+
+func Test_ReplayFromBlock_Solana(t *testing.T) {
+	t.Parallel()
+
+	cfg := solcfg.TOMLConfig{
+		ChainID: ptr("devnet"),
+		Enabled: ptr(true),
+	}
+	app := solanaStartNewApplication(t, &cfg)
+	client, _ := app.NewShellAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
+
+	require.NoError(t, set.Set("block-number", "1"))
+	require.NoError(t, set.Set("chain-id", "devnet"))
+	require.NoError(t, set.Set("family", "solana"))
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.ReplayFromBlock(c))
+}
