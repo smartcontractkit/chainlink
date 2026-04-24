@@ -530,7 +530,7 @@ jobs:
           echo "Core e2e test results:"
           echo "$results" | jq .
 
-          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
+          node_migration_tests_failed=$(echo "$results" | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
           echo "node_migration_tests_failed=$node_migration_tests_failed" | tee -a "$GITHUB_OUTPUT"
 
       - name: Fail the job if CCIP v1.6 E2E tests were not successful
