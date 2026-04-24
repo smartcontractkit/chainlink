@@ -530,6 +530,9 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurse$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
+    test_env_vars:
+      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go

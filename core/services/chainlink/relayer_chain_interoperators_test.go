@@ -16,8 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
@@ -34,7 +32,6 @@ import (
 
 func TestCoreRelayerChainInteroperators(t *testing.T) {
 	evmChainID1, evmChainID2 := sqlutil.New(big.NewInt(1)), sqlutil.New(big.NewInt(2))
-	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
 
 	newConfig := func() chainlink.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -75,28 +72,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Enabled: ptr(true),
 				Nodes:   toml.EVMNodes{&node2_1},
 			})
-
-			c.Solana = solcfg.TOMLConfigs{
-				&solcfg.TOMLConfig{
-					ChainID: &solanaChainID1,
-					Enabled: ptr(true),
-					Nodes: []*solcfg.Node{{
-						Name: ptr("solana chain 1 node 1"),
-						URL:  commonconfig.MustParseURL("http://localhost:8547"),
-					}},
-				},
-				&solcfg.TOMLConfig{
-					ChainID: &solanaChainID2,
-					Enabled: ptr(true),
-					Nodes: []*solcfg.Node{{
-						Name: ptr("solana chain 2 node 1"),
-						URL:  commonconfig.MustParseURL("http://localhost:8527"),
-					}},
-				},
-			}
-			for i := range c.Solana {
-				c.Solana[i].SetDefaults()
-			}
 		})
 	}
 
@@ -123,10 +98,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		expectedEVMChainCnt   int
 		expectedEVMNodeCnt    int
 		expectedEVMRelayerIds []types.RelayID
-
-		expectedSolanaChainCnt   int
-		expectedSolanaNodeCnt    int
-		expectedSolanaRelayerIds []types.RelayID
 
 		expectedStarknetChainCnt int
 		expectedStarknetNodeCnt  int
@@ -163,23 +134,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}},
 		},
 
-		{name: "2 solana chain with 2 node",
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
-					TOMLConfigs: newConfig().SolanaConfigs()}),
-			},
-			expectedSolanaChainCnt: 2,
-			expectedSolanaNodeCnt:  2,
-			expectedSolanaRelayerIds: []types.RelayID{
-				{Network: relay.NetworkSolana, ChainID: solanaChainID1},
-				{Network: relay.NetworkSolana, ChainID: solanaChainID2},
-			},
-			expectedRelayerNetworks: map[string]struct{}{relay.NetworkSolana: {}},
-		},
-
 		{name: "all chains",
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
-				TOMLConfigs: newConfig().SolanaConfigs()}),
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
 						ChainConfigs:   cfg.EVMConfigs(),
@@ -203,14 +159,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.NetworkEVM, ChainID: evmChainID2.String()},
 			},
 
-			expectedSolanaChainCnt: 2,
-			expectedSolanaNodeCnt:  2,
-			expectedSolanaRelayerIds: []types.RelayID{
-				{Network: relay.NetworkSolana, ChainID: solanaChainID1},
-				{Network: relay.NetworkSolana, ChainID: solanaChainID2},
-			},
-
-			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkSolana: {}, relay.NetworkStarkNet: {}},
+			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkStarkNet: {}},
 		},
 	}
 	for _, tt := range tests {
@@ -223,7 +172,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				cr, err = chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
 				require.NoError(t, err)
 
-				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
+				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedStarknetChainCnt
 				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allChainsStats, expectedChainCnt)
@@ -234,7 +183,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Len(t, cr.Slice(), expectedChainCnt)
 				assert.Len(t, cr.Services(), expectedChainCnt)
 
-				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
+				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedStarknetNodeCnt
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allNodeStats, expectedNodeCnt)
@@ -249,20 +198,25 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedEVMChainCnt, tt.expectedEVMNodeCnt
 				case relay.NetworkCosmos:
 					expectedChainCnt, expectedNodeCnt = tt.expectedCosmosChainCnt, tt.expectedCosmosNodeCnt
+				// LOOP-only relayers (solana, aptos, tron, ton, sui) can't be exercised at
+				// this level without booting the LOOPP subprocess — ChainStatus/NodeStatus
+				// block on Wait until the plugin is started. Integration tests cover them
+				// end-to-end. Only networks with embedded (in-process) relayers are asserted
+				// here.
 				case relay.NetworkSolana:
-					expectedChainCnt, expectedNodeCnt = tt.expectedSolanaChainCnt, tt.expectedSolanaNodeCnt
+					t.Skip("solana is LOOP-only; exercised via integration tests")
 				case relay.NetworkStarkNet:
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
 				case relay.NetworkDummy:
 					expectedChainCnt, expectedNodeCnt = tt.expectedDummyChainCnt, tt.expectedDummyNodeCnt
 				case relay.NetworkAptos:
-					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
+					t.Skip("aptos is LOOP-only; exercised via integration tests")
 				case relay.NetworkTron:
-					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
+					t.Skip("tron is LOOP-only; exercised via integration tests")
 				case relay.NetworkTON:
-					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
+					t.Skip("ton is LOOP-only; exercised via integration tests")
 				case relay.NetworkSui:
-					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
+					t.Skip("sui is LOOP-only; exercised via integration tests")
 
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
@@ -293,7 +247,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			allRelayerIds := [][]types.RelayID{
 				tt.expectedEVMRelayerIds,
-				tt.expectedSolanaRelayerIds,
 			}
 
 			for _, chainSpecificRelayerIds := range allRelayerIds {

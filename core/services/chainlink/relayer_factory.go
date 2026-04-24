@@ -146,12 +146,20 @@ func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFa
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
 	var solLggr = logger.Named(r.Logger, "Solana")
 
+	cmdName := cmp.Or(env.SolanaPlugin.Cmd.Get(), env.SolanaPlugin.CmdDefault)
+	if cmdName == "" {
+		return nil, fmt.Errorf("plugin command not defined: %s", env.SolanaPlugin.Cmd)
+	}
+	envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
+	}
+
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayID := types.RelayID{Network: relay.NetworkSolana, ChainID: *chainCfg.ChainID}
-		_, alreadyExists := unique[relayID.Name()]
-		if alreadyExists {
+		if _, alreadyExists := unique[relayID.Name()]; alreadyExists {
 			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
 		}
 		unique[relayID.Name()] = struct{}{}
@@ -163,20 +171,15 @@ func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFa
 		}
 
 		lggr := logger.Named(solLggr, relayID.ChainID)
-		// setup the solana relayer to be a LOOP
 		cfgTOML, err := toml.Marshal(struct {
 			Solana solcfg.TOMLConfig
 		}{Solana: *chainCfg})
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 		}
-		envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
-		}
 		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
 			ID:  relayID.Name(),
-			Cmd: env.SolanaPlugin.Cmd.Get(),
+			Cmd: cmdName,
 			Env: envVars,
 		})
 		if err != nil {

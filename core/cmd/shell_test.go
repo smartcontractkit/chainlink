@@ -410,12 +410,19 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewSolana(ks, ksCSA, cfg)
+		// CL_SOLANA_CMD is unset here. Solana is LOOP-only, so NewSolana must fall back to
+		// env.SolanaPlugin.CmdDefault (chainlink-solana) and still register each enabled chain.
+		// Use an isolated registry so this case doesn't collide with the shared one used by
+		// the "plugin" and "plugin already registered" subtests below.
+		isoReg := plugins.NewTestLoopRegistry(lggr)
+		isoRF := chainlink.RelayerFactory{Logger: lggr, LoopRegistry: isoReg}
+
+		relayers, err := isoRF.NewSolana(ks, ksCSA, cfg)
 		require.NoError(t, err)
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
-		// no using plugin, so registry should be empty
-		require.Empty(t, reg.List())
+		// the default plugin cmd is used, so the registry must contain one entry per chain
+		require.Len(t, isoReg.List(), nEnabledChains)
 	})
 
 	t.Run("plugin", func(t *testing.T) {
