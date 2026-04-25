@@ -203,7 +203,6 @@ func TestEVMSignerRegistryAddSigners_StateValidation(t *testing.T) {
 			commonchangeset.Configure(ccip_attestation.EVMSignerRegistryAddSignersChangeset, config))
 		require.ErrorContains(t, err, "is already registered")
 	})
-
 }
 
 func TestEVMSignerRegistryAddSigners_CapacityCheck(t *testing.T) {
