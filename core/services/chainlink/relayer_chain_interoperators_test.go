@@ -198,11 +198,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedEVMChainCnt, tt.expectedEVMNodeCnt
 				case relay.NetworkCosmos:
 					expectedChainCnt, expectedNodeCnt = tt.expectedCosmosChainCnt, tt.expectedCosmosNodeCnt
-				// LOOP-only relayers (solana, aptos, tron, ton, sui) can't be exercised at
-				// this level without booting the LOOPP subprocess — ChainStatus/NodeStatus
-				// block on Wait until the plugin is started. Integration tests cover them
-				// end-to-end. Only networks with embedded (in-process) relayers are asserted
-				// here.
+				// LOOP-only relayers (solana, aptos, tron, ton, sui) can't be exercised at this level without booting
+				// the LOOPP subprocess, as ChainStatus/NodeStatus block on Wait until the plugin is started. Integration
+				// tests cover them end-to-end. Only networks with embedded (in-process) relayers are asserted here.
 				case relay.NetworkSolana:
 					t.Skip("solana is LOOP-only; exercised via integration tests")
 				case relay.NetworkStarkNet:
