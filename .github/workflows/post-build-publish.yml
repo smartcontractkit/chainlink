@@ -1,6 +1,6 @@
 name: "Post Build, Sign and Publish Chainlink"
 on:
-    # # to be used with post release tests
+    # # to be used with pre-release tests
     repository_dispatch:
         types: [ pre-release-image-published ]
 
@@ -29,6 +29,7 @@ jobs:
                   fi
                   echo "Trigger validated successfully"
     # Upgrade compatibility tests
+    # Include rc and beta releases, since we will be upgrading from them on canary servers
     df1-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
@@ -42,9 +43,6 @@ jobs:
             upgrade-nodes: "3"
             node-name-template: "don-node%d"
             versions-back: "3"
-            # uncomment once we have tested this pipeline with beta/rc releases
-            # exclude-refs: "beta,rc,ccip"
-            # remove when ^^ is uncommented
             exclude-refs: "ccip"
             working-directory: "devenv"
             logs-directory: "./devenv/tests/ocr2/logs"
@@ -65,9 +63,6 @@ jobs:
             upgrade-nodes: "3"
             node-name-template: "workflow-node%d"
             versions-back: "3"
-            # uncomment once we have tested this pipeline with beta/rc releases
-            # exclude-refs: "beta,rc,ccip"
-            # remove when ^^ is uncommented
             exclude-refs: "ccip"
             working-directory: "./system-tests/tests"
             logs-directory: "./system-tests/tests/smoke/cre/logs"

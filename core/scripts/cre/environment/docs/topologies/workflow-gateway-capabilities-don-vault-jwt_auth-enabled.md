@@ -1,6 +1,6 @@
 # DON Topology
 
-- Config: `configs/workflow-gateway-legacy-vault-don.toml`
+- Config: `configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml`
 - Class: `multi-don`
 - Infra: `docker`
 
