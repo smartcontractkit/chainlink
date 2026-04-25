@@ -1,34 +1,11 @@
-name: "Post Release Image Tagged"
+name: "Post Image Released"
 on:
     # to be used with post release tests
-    repository_dispatch:
-        types: [ release-image-tagged ]
+    workflow_dispatch:
 
 permissions: {}
 
 jobs:
-    validate-trigger:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-        steps:
-            - name: Validate trigger
-              env:
-                  CHAINLINK_IMAGE_TAG: ${{ github.event.client_payload.chainlink_image_tag }}
-                  CHAINLINK_VERSION: ${{ github.event.client_payload.chainlink_version }}
-              run: |
-                  echo "Image Tag: $CHAINLINK_IMAGE_TAG"
-                  echo "Chainlink Version: $CHAINLINK_VERSION"
-                  if [ -z "$CHAINLINK_IMAGE_TAG" ]; then
-                      echo "Chainlink image tag is required, but 'client_payload.chainlink_image_tag' is empty"
-                      exit 1
-                  fi
-                  if [ -z "$CHAINLINK_VERSION" ]; then
-                      echo "Chainlink Version is required, but 'client_payload.chainlink_version' is empty"
-                      exit 1
-                  fi
-                  echo "Trigger validated successfully"
-
     # Upgrade compatibility tests
     # Run on images excluding beta and release candidate versions
     df1-compat:

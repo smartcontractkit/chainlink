@@ -589,6 +589,11 @@ func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *vault.TestJWTIssuer,
 
 func mustMintVaultJWTForRequest(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string) string {
 	t.Helper()
+	return mustMintVaultJWTForRequestWithExtraClaims(t, issuer, req, orgID, workflowOwner, nil)
+}
+
+func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *vault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID, workflowOwner string, extraClaims map[string]any) string {
+	t.Helper()
 
 	outboundReq := outboundRequestWithoutAuth(req)
 	requestDigest, err := outboundReq.Digest()
@@ -601,6 +606,7 @@ func mustMintVaultJWTForRequest(t *testing.T, issuer *vault.TestJWTIssuer, req j
 		OrgID:         orgID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
+		ExtraClaims:   extraClaims,
 	})
 	require.NoError(t, err, "failed to mint JWT")
 
@@ -644,6 +650,17 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 	expectedAuthError string,
 ) {
 	t.Helper()
+	executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, workflowOwner, gatewayURL, nil, expectedAuthError)
+}
+
+func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
+	t *testing.T,
+	issuer *vault.TestJWTIssuer,
+	vaultPublicKey, orgID, workflowOwner, gatewayURL string,
+	extraClaims map[string]any,
+	expectedAuthError string,
+) {
+	t.Helper()
 
 	secretID := strconv.Itoa(rand.Intn(10000))
 	encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-disabled", mustVaultPublicKey(t, vaultPublicKey), orgID)
@@ -662,7 +679,7 @@ func executeVaultJWTSecretsCreateUnauthorizedTest(
 		}},
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
-	jsonRequest.Auth = mustMintVaultJWTForRequest(t, issuer, jsonRequest, orgID, workflowOwner)
+	jsonRequest.Auth = mustMintVaultJWTForRequestWithExtraClaims(t, issuer, jsonRequest, orgID, workflowOwner, extraClaims)
 
 	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)

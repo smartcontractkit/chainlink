@@ -23,6 +23,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 
 const (
@@ -317,6 +318,7 @@ func SignTestJWT(privateKey *rsa.PrivateKey, claims JWTTokenClaims) (string, err
 		"iat":    jwt.NewNumericDate(claims.IssuedAt),
 		"exp":    jwt.NewNumericDate(claims.ExpiresAt),
 		"org_id": claims.OrgID,
+		vaultcap.ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []map[string]string{
 			{
 				"type":  "request_digest",

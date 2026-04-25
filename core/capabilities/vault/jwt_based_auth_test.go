@@ -122,6 +122,7 @@ func validTestClaims(issuer, audience string) jwt.MapClaims {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_test123",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -180,6 +181,7 @@ func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_no_wfowner",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -259,6 +261,40 @@ func TestJWTBasedAuth_MissingOrgID(t *testing.T) {
 	_, err := v.validateToken(context.Background(), tokenString)
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMissingOrgID)
+}
+
+func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://api.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	claims := validTestClaims(issuer, audience)
+	delete(claims, ClaimVaultSecretManagementEnabled)
+	tokenString := createTestJWT(t, rsaKey, claims)
+
+	_, err := v.validateToken(context.Background(), tokenString)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrVaultSecretManagementNotEnabled)
+}
+
+func TestJWTBasedAuth_VaultSecretManagementClaimNotTrue(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://api.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	claims := validTestClaims(issuer, audience)
+	claims[ClaimVaultSecretManagementEnabled] = "false"
+	tokenString := createTestJWT(t, rsaKey, claims)
+
+	_, err := v.validateToken(context.Background(), tokenString)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrVaultSecretManagementNotEnabled)
 }
 
 func TestJWTBasedAuth_MissingRequestDigest(t *testing.T) {
@@ -375,6 +411,7 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org_single",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{"type": "request_digest", "value": "single_digest"},
 			map[string]interface{}{"type": "workflow_owner", "value": "0x1111"},
@@ -526,6 +563,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
 		"iat":    jwt.NewNumericDate(time.Now()),
 		"org_id": "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
