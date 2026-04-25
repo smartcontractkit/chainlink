@@ -11,12 +11,13 @@ import (
 	aptos "github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/crypto"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // CapabilityConfigModifierParams carries shared inputs for per-DON capability config modification.
