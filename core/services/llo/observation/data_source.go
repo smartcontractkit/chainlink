@@ -27,19 +27,21 @@ import (
 //
 // Invariants:
 //   - cacheEntryTTL(T) = cacheTTLMultiplier·T — how long successful values remain valid after cache write.
-//   - staleRefreshSkipThreshold(T) = (staleRefreshRemainingNumerator/Denominator)·T — skip refresh while remaining TTL is strictly greater than this.
-//     A larger threshold means refresh starts while more TTL remains (fresher cache, more pipeline work).
+//   - staleRefreshSkipThreshold(T) = (staleRefreshRemainingNumerator/Denominator)·T — a stream is not a refresh driver
+//     while time.Until(expiresAt) is strictly greater than this (see buildStreamsRefreshPlan). A larger threshold
+//     makes that inequality fail sooner as TTL decays, so the stream becomes a refresh driver earlier after each write
+//     (higher freshness, more pipeline work); a smaller threshold lengthens the no-driver interval (staler reads, less load).
 //   - Keep staleRefreshSkipThreshold(T)+observationLoopPacing(T) < cacheEntryTTL(T) (same T throughout). With
-//     num/den = 6/5 and default pacing = T/10, (6/5+1/10)·T = 1.3·T < 2·T.
+//     num/den = 8/5 and default pacing = T/10, (8/5+1/10)·T = 1.7·T < 2·T.
 //
-// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=10, staleRefresh num/den = 6/5):
+// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=10, staleRefresh num/den = 8/5):
 //   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
-//   - staleRefreshSkipThreshold = (6/5)·T = 300ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 300ms.
+//   - staleRefreshSkipThreshold = (8/5)·T = 400ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 400ms.
 //   - observationLoopPacing = T/10 = 25ms (≥ observationLoopPacingMin and ≤ T/2) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
-	staleRefreshRemainingNumerator   int64 = 6
+	staleRefreshRemainingNumerator   int64 = 8
 	staleRefreshRemainingDenominator int64 = 5
 
 	observationLoopPacingMin     = 10 * time.Millisecond
@@ -52,10 +54,9 @@ func cacheEntryTTL(observationTimeout time.Duration) time.Duration {
 
 // staleRefreshSkipThreshold returns (staleRefreshRemainingNumerator/staleRefreshRemainingDenominator)·T.
 // buildStreamsRefreshPlan treats a cached stream as still fresh (not a refresh driver) while time.Until(expiresAt)
-// is strictly greater than this value. A larger fraction (e.g. higher numerator) raises the threshold, so refresh
-// starts with more TTL remaining (fresher cache, more pipeline work).
+// is strictly greater than this value. A larger fraction (e.g. higher numerator) raises the threshold, so the stream
+// becomes a refresh driver again sooner after each successful write (more pipeline work, fresher cache entries).
 func staleRefreshSkipThreshold(observationTimeout time.Duration) time.Duration {
-	// (3/2)*T
 	return (time.Duration(staleRefreshRemainingNumerator) * observationTimeout) / time.Duration(staleRefreshRemainingDenominator)
 }
 
@@ -97,7 +98,7 @@ var (
 		Namespace: "llo",
 		Subsystem: "datasource",
 		Name:      "observation_loop_duration_ms",
-		Help:      "Duration of the observation loop",
+		Help:      "Wall time for one observation loop iteration (pacing excluded)",
 		Buckets: []float64{
 			10, 25, 50, 100, 250, 500, 750, 1000,
 		},
