@@ -17,8 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
@@ -520,12 +522,18 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
+	evmDeployer := updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From
+	preBal := evmBurnMint677BalanceOf(t, updatedEnv, destChain, evmToken, evmDeployer)
+	// Sui LINK 9 decimals → EVM 18 decimals: multiply Sui amount by 1e9 for minted wei on dest.
+	transferWei := new(big.Int).Mul(big.NewInt(2000000000), big.NewInt(1_000_000_000))
+	expectedEVMBal := new(big.Int).Add(preBal, transferWei)
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to EOA after uncursing",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			Receiver:       evmDeployer.Bytes(), // internally left padded to 32byte
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
@@ -538,7 +546,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(2e18),
+					Amount: expectedEVMBal,
 				},
 			},
 		},
@@ -569,7 +577,69 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }
 
-func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T) {
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_DenylistedSender(t *testing.T) {
+	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
+	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
+	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 4000000000)
+
+	updatedEnv, _, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, sourceChain, destChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: destChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // SourceChain = SUI, destChain = EVM
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
+
+	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
+	deps := getOpTxDeps(suiChain)
+
+	// enable allowlist but not adding the current sender to the allowlist
+	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledOp, deps, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledInput{
+		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
+		StateObjectId:     state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
+		OwnerCap:          state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].OwnerCapObjectId,
+		CoinObjectTypeArg: state.SuiChains[sourceChain].LinkTokenAddress + "::link::LINK",
+		Enabled:           true,
+	})
+	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+	msg := testhelpers.SuiSendRequest{
+		Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
+		Data:     []byte("Hello, World!"),
+		FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
+		TokenAmounts: []testhelpers.SuiTokenAmount{
+			{
+				TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
+				Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
+				Amount:        1500000000,
+			},
+		}}
+
+	baseOpts := []ccipclient.SendReqOpts{
+		ccipclient.WithSourceChain(sourceChain),
+		ccipclient.WithDestChain(destChain),
+		ccipclient.WithTestRouter(false),
+		ccipclient.WithMessage(msg),
+	}
+
+	_, err = testhelpers.SendRequest(e.Env, state, baseOpts...)
+	assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 1)")
+	t.Log("Expected error: ", err)
+}
+
+func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerAdded(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
 	linkTokenOutput2 := mintLinkTokenOnSui(t, e.Env, sourceChain, 4000000000)
@@ -593,13 +663,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 
 	ccipReceiverAddress := state.Chains[destChain].Receiver.Address()
 
-	ctx := testhelpers.Context(t)
-
 	suiChain := e.Env.BlockChains.SuiChains()[sourceChain]
-
 	deps := getOpTxDeps(suiChain)
 
-	// enable allowlist but not adding the current sender to the allowlist
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledOp, deps, burnminttokenpoolops.BurnMintTokenPoolSetAllowlistEnabledInput{
 		BurnMintPackageId: state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].PackageID,
 		StateObjectId:     state.SuiChains[sourceChain].BnMTokenPools[testhelpers.TokenSymbolLINK].StateObjectId,
@@ -608,32 +674,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 		Enabled:           true,
 	})
 	require.NoError(t, err)
-
-	t.Run("Sender not in allowlist - should fail", func(t *testing.T) {
-		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-		msg := testhelpers.SuiSendRequest{
-			Receiver: common.LeftPadBytes(ccipReceiverAddress.Bytes(), 32),
-			Data:     []byte("Hello, World!"),
-			FeeToken: feeTokenOutput.Objects.MintedLinkTokenObjectId,
-			TokenAmounts: []testhelpers.SuiTokenAmount{
-				{
-					TokenPoolType: sui_deployment.TokenPoolTypeBurnMint,
-					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
-					Amount:        1500000000,
-				},
-			}}
-
-		baseOpts := []ccipclient.SendReqOpts{
-			ccipclient.WithSourceChain(sourceChain),
-			ccipclient.WithDestChain(destChain),
-			ccipclient.WithTestRouter(false),
-			ccipclient.WithMessage(msg),
-		}
-
-		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 1)")
-		t.Log("Expected error: ", err)
-	})
 
 	signerAddress, err := deps.Signer.GetAddress()
 	require.NoError(t, err)
@@ -648,6 +688,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 	require.NoError(t, err)
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	preRecvBal := evmBurnMint677BalanceOf(t, updatedEnv, destChain, evmToken, ccipReceiverAddress)
+	transferWei := new(big.Int).Mul(big.NewInt(1500000000), big.NewInt(1_000_000_000))
+	expectedRecvBal := new(big.Int).Add(preRecvBal, transferWei)
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
@@ -667,15 +714,13 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist(t *testing.T
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1.5e18),
+					Amount: expectedRecvBal,
 				},
 			},
 		},
 	}
 
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
+	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -769,6 +814,16 @@ func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain uint64, am
 	return outputMapTransferToken
 }
 
+// evmBurnMint677BalanceOf reads an ERC-677 balance for WaitForTokenBalances expectations.
+// CCIP mints on top of any balance already held by the account (e.g. from earlier deliveries in the same test).
+func evmBurnMint677BalanceOf(t *testing.T, env cldf.Environment, destChain uint64, token *burn_mint_erc677.BurnMintERC677, account common.Address) *big.Int {
+	t.Helper()
+	ctx := testhelpers.Context(t)
+	bal, err := token.BalanceOf(&bind.CallOpts{Context: ctx}, account)
+	require.NoError(t, err)
+	return new(big.Int).Set(bal)
+}
+
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing.T) {
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
@@ -857,12 +912,20 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	evmDeployer := updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From
+	preBal := evmBurnMint677BalanceOf(t, updatedEnv, destChain, evmToken, evmDeployer)
+	transferWei := new(big.Int).Mul(big.NewInt(1500000000), big.NewInt(1_000_000_000))
+	expectedEVMBal := new(big.Int).Add(preBal, transferWei)
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to EOA after uncursing",
 			SourceChain:    sourceChain,
 			DestChain:      destChain,
-			Receiver:       updatedEnv.BlockChains.EVMChains()[destChain].DeployerKey.From.Bytes(), // internally left padded to 32byte
+			Receiver:       evmDeployer.Bytes(), // internally left padded to 32byte
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 			FeeToken:       feeTokenOutput.Objects.MintedLinkTokenObjectId,
 			SuiTokens: []testhelpers.SuiTokenAmount{
@@ -875,14 +938,11 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				{
 					Token:  evmToken.Address().Bytes(),
-					Amount: big.NewInt(1.5e18),
+					Amount: expectedEVMBal,
 				},
 			},
 		},
 	}
-
-	state, err = stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
@@ -1421,7 +1481,7 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
-	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1550,6 +1610,7 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 }
 
 func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM

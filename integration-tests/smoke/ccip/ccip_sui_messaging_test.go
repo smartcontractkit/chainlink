@@ -173,6 +173,8 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 		)
 	})
 
+	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
+
 	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
 		ctx := testhelpers.Context(t)
 		latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
@@ -629,6 +631,8 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 			false, // test router
 		)
 	)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
