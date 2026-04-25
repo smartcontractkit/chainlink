@@ -108,6 +108,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		expectedCosmosChainCnt int
 		expectedCosmosNodeCnt  int
+
+		expectedSolanaChainCnt int
+		expectedSolanaNodeCnt  int
 	}{
 
 		{name: "2 evm chains with 3 nodes",
@@ -151,6 +154,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}),
 				chainlink.InitStarknet(factory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()),
 				chainlink.InitCosmos(factory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()),
+				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
+					TOMLConfigs: cfg.SolanaConfigs()}),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
@@ -159,7 +164,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.NetworkEVM, ChainID: evmChainID2.String()},
 			},
 
-			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkStarkNet: {}},
+			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}, relay.NetworkCosmos: {}, relay.NetworkSolana: {}, relay.NetworkStarkNet: {}},
 		},
 	}
 	for _, tt := range tests {
@@ -172,7 +177,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				cr, err = chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
 				require.NoError(t, err)
 
-				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedStarknetChainCnt
+				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
 				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allChainsStats, expectedChainCnt)
@@ -183,7 +188,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Len(t, cr.Slice(), expectedChainCnt)
 				assert.Len(t, cr.Services(), expectedChainCnt)
 
-				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedStarknetNodeCnt
+				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allNodeStats, expectedNodeCnt)
@@ -198,23 +203,20 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					expectedChainCnt, expectedNodeCnt = tt.expectedEVMChainCnt, tt.expectedEVMNodeCnt
 				case relay.NetworkCosmos:
 					expectedChainCnt, expectedNodeCnt = tt.expectedCosmosChainCnt, tt.expectedCosmosNodeCnt
-				// LOOP-only relayers (solana, aptos, tron, ton, sui) can't be exercised at this level without booting
-				// the LOOPP subprocess, as ChainStatus/NodeStatus block on Wait until the plugin is started. Integration
-				// tests cover them end-to-end. Only networks with embedded (in-process) relayers are asserted here.
 				case relay.NetworkSolana:
-					t.Skip("solana is LOOP-only; exercised via integration tests")
+					expectedChainCnt, expectedNodeCnt = tt.expectedSolanaChainCnt, tt.expectedSolanaNodeCnt
 				case relay.NetworkStarkNet:
 					expectedChainCnt, expectedNodeCnt = tt.expectedStarknetChainCnt, tt.expectedStarknetNodeCnt
 				case relay.NetworkDummy:
 					expectedChainCnt, expectedNodeCnt = tt.expectedDummyChainCnt, tt.expectedDummyNodeCnt
 				case relay.NetworkAptos:
-					t.Skip("aptos is LOOP-only; exercised via integration tests")
+					t.Skip("aptos doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTron:
-					t.Skip("tron is LOOP-only; exercised via integration tests")
+					t.Skip("tron doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkTON:
-					t.Skip("ton is LOOP-only; exercised via integration tests")
+					t.Skip("ton doesn't need a CoreRelayerChainInteroperator")
 				case relay.NetworkSui:
-					t.Skip("sui is LOOP-only; exercised via integration tests")
+					t.Skip("sui doesn't need a CoreRelayerChainInteroperator")
 
 				default:
 					require.Fail(t, "untested relay network", relayNetwork)
