@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_attestation "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/ccip-attestation"
@@ -23,8 +23,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // deployTestSignerRegistryWithMax mirrors deployTestSignerRegistry but lets
@@ -55,13 +53,12 @@ func deployTestSignerRegistryWithMax(t *testing.T, env cldf.Environment, selecto
 }
 
 func newBaseMainnetEnv(t *testing.T) cldf.Environment {
-	e := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains: 1,
-	})
-	e.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-		memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{BaseMainnetID}, 1),
+	e, err := environment.New(t.Context(),
+		environment.WithLogger(logger.Test(t)),
+		environment.WithEVMSimulated(t, []uint64{uint64(ccip_attestation.BaseMainnetSelector)}),
 	)
-	return e
+	require.NoError(t, err)
+	return *e
 }
 
 func TestEVMSignerRegistryAddSigners_Preconditions(t *testing.T) {
@@ -71,18 +68,19 @@ func TestEVMSignerRegistryAddSigners_Preconditions(t *testing.T) {
 	selector := uint64(ccip_attestation.BaseMainnetSelector)
 
 	t.Run("Non-Base chain selector", func(t *testing.T) {
-		nonBaseEnv := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-			Chains: 1,
-		})
-		nonBaseEnv.BlockChains = cldf_chain.NewBlockChainsFromSlice(
-			memory.NewMemoryChainsEVMWithChainIDs(t, []uint64{chain_selectors.ETHEREUM_MAINNET.EvmChainID}, 1),
+		nonBaseSelector := chain_selectors.ETHEREUM_MAINNET.Selector
+		nonBaseEnv, envErr := environment.New(t.Context(),
+			environment.WithLogger(logger.Test(t)),
+			environment.WithEVMSimulated(t, []uint64{nonBaseSelector}),
 		)
+		require.NoError(t, envErr)
+
 		config := ccip_attestation.AddSignersConfig{
 			SignersByChain: map[uint64][]signer_registry.ISignerRegistrySigner{
-				chain_selectors.ETHEREUM_MAINNET.Selector: {{EvmAddress: utils.RandomAddress()}},
+				nonBaseSelector: {{EvmAddress: utils.RandomAddress()}},
 			},
 		}
-		_, err := commonchangeset.Apply(t, nonBaseEnv,
+		_, err := commonchangeset.Apply(t, *nonBaseEnv,
 			commonchangeset.Configure(ccip_attestation.EVMSignerRegistryAddSignersChangeset, config))
 		require.ErrorContains(t, err, "is not a Base chain")
 	})
@@ -381,4 +379,14 @@ func TestEVMSignerRegistryAddSigners_MCMSProposal(t *testing.T) {
 	count, err = registry.GetSignerCount(nil)
 	require.NoError(t, err)
 	require.Equal(t, uint64(3), count.Uint64(), "executed MCMS proposal should add the new signers")
+
+	registered, err := registry.GetSigners(nil)
+	require.NoError(t, err)
+	present := make(map[common.Address]struct{}, len(registered))
+	for _, signer := range registered {
+		present[signer.EvmAddress] = struct{}{}
+	}
+	for _, signer := range newSigners {
+		require.Contains(t, present, signer.EvmAddress, "new signer should be registered after MCMS execution")
+	}
 }
