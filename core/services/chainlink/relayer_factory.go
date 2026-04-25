@@ -12,14 +12,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -136,59 +134,8 @@ func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmr
 	return relayers, nil
 }
 
-type SolanaFactoryConfig struct {
-	solcfg.TOMLConfigs
-	DS sqlutil.DataSource
-}
-
-func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
-	chainCfgs := config.TOMLConfigs
-	solanaRelayers := make(map[types.RelayID]loop.Relayer)
-	var solLggr = logger.Named(r.Logger, "Solana")
-
-	cmdName := cmp.Or(env.SolanaPlugin.Cmd.Get(), env.SolanaPlugin.CmdDefault)
-	if cmdName == "" {
-		return nil, fmt.Errorf("plugin command not defined: %s", env.SolanaPlugin.Cmd)
-	}
-	envVars, err := plugins.ParseEnvFile(env.SolanaPlugin.Env.Get())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Solana env file: %w", err)
-	}
-
-	unique := make(map[string]struct{})
-	// create one relayer per chain id
-	for _, chainCfg := range chainCfgs {
-		relayID := types.RelayID{Network: relay.NetworkSolana, ChainID: *chainCfg.ChainID}
-		if _, alreadyExists := unique[relayID.Name()]; alreadyExists {
-			return nil, fmt.Errorf("duplicate chain definitions for %s", relayID.Name())
-		}
-		unique[relayID.Name()] = struct{}{}
-
-		// skip disabled chains from further processing
-		if !chainCfg.IsEnabled() {
-			solLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
-			continue
-		}
-
-		lggr := logger.Named(solLggr, relayID.ChainID)
-		cfgTOML, err := toml.Marshal(struct {
-			Solana solcfg.TOMLConfig
-		}{Solana: *chainCfg})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
-		}
-		solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:  relayID.Name(),
-			Cmd: cmdName,
-			Env: envVars,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
-		}
-
-		solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, ksCSA, r.CapabilitiesRegistry)
-	}
-	return solanaRelayers, nil
+func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Solana", relay.NetworkSolana, env.SolanaPlugin, ks, ksCSA, chainCfgs)
 }
 
 func (r *RelayerFactory) NewStarkNet(ks, ksCSA coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {

@@ -154,8 +154,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}),
 				chainlink.InitStarknet(factory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()),
 				chainlink.InitCosmos(factory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()),
-				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), chainlink.SolanaFactoryConfig{
-					TOMLConfigs: cfg.SolanaConfigs()}),
+				chainlink.InitSolana(factory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,

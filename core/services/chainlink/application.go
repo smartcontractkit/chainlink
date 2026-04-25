@@ -327,11 +327,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
-		solanaCfg := SolanaFactoryConfig{
-			TOMLConfigs: cfg.SolanaConfigs(),
-			DS:          opts.DS,
-		}
-		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), solanaCfg))
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()))
 	}
 	if cfg.StarkNetEnabled() {
 		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()))

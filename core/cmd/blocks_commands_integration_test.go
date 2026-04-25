@@ -9,17 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_ReplayFromBlock_Solana(t *testing.T) {
 	t.Parallel()
 
-	cfg := solcfg.TOMLConfig{
-		ChainID: ptr("devnet"),
-		Enabled: ptr(true),
+	chain := chainlink.RawConfig{
+		"ChainID": "devnet",
+		"Enabled": true,
 	}
-	app := solanaStartNewApplication(t, &cfg)
+	app := solanaStartNewApplication(t, chain)
 	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)

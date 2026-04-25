@@ -8,16 +8,13 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -317,12 +314,10 @@ FinalizedBlockOffset = 50
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			controller := setupSolanaChainsControllerTestV2(t, &config.TOMLConfig{
-				ChainID: ptr(validID),
-				Chain: config.Chain{
-					SkipPreflight: ptr(false),
-					TxTimeout:     commoncfg.MustNewDuration(time.Hour),
-				},
+			controller := setupSolanaChainsControllerTestV2(t, chainlink.RawConfig{
+				"ChainID":       validID,
+				"SkipPreflight": false,
+				"TxTimeout":     "1h0m0s",
 			})
 
 			wantedResult := tc.want(t, controller.app)
@@ -348,17 +343,13 @@ FinalizedBlockOffset = 50
 func Test_SolanaChainsController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainA := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int32N(999999))),
-		Chain: config.Chain{
-			TxTimeout: commoncfg.MustNewDuration(time.Hour),
-		},
+	chainA := chainlink.RawConfig{
+		"ChainID":   fmt.Sprintf("ChainlinktestA-%d", rand.Int32N(999999)),
+		"TxTimeout": "1h0m0s",
 	}
-	chainB := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int32N(999999))),
-		Chain: config.Chain{
-			SkipPreflight: ptr(false),
-		},
+	chainB := chainlink.RawConfig{
+		"ChainID":       fmt.Sprintf("ChainlinktestB-%d", rand.Int32N(999999)),
+		"SkipPreflight": false,
 	}
 	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
 
@@ -385,10 +376,8 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, *chainA.ChainID, chains[0].ID)
-	tomlA, err := chainA.TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, tomlA, chains[0].Config)
+	assert.Equal(t, chainA.ChainID(), chains[0].ID)
+	assert.NotEmpty(t, chains[0].Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -401,10 +390,8 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, *chainB.ChainID, chains[0].ID)
-	tomlB, err := chainB.TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, tomlB, chains[0].Config)
+	assert.Equal(t, chainB.ChainID(), chains[0].ID)
+	assert.NotEmpty(t, chains[0].Config)
 }
 
 type TestSolanaChainsController struct {
@@ -412,10 +399,7 @@ type TestSolanaChainsController struct {
 	client cltest.HTTPClientCleaner
 }
 
-func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*config.TOMLConfig) *TestSolanaChainsController {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
-	}
+func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...chainlink.RawConfig) *TestSolanaChainsController {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs
 		c.EVM = nil

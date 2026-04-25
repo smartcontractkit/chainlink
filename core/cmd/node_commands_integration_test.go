@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -28,10 +27,7 @@ func cosmosStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltes
 	})
 }
 
-func solanaStartNewApplication(t *testing.T, cfgs ...*solcfg.TOMLConfig) *cltest.TestApplication {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
-	}
+func solanaStartNewApplication(t *testing.T, cfgs ...chainlink.RawConfig) *cltest.TestApplication {
 	return startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs
 		c.EVM = nil
@@ -150,19 +146,19 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
-	node1 := solcfg.Node{
-		Name: ptr("first"),
-		URL:  config.MustParseURL("https://solana1.example"),
+	node1 := map[string]any{
+		"Name": ptr("first"),
+		"URL":  config.MustParseURL("https://solana1.example"),
 	}
-	node2 := solcfg.Node{
-		Name: ptr("second"),
-		URL:  config.MustParseURL("https://solana2.example"),
+	node2 := map[string]any{
+		"Name": ptr("second"),
+		"URL":  config.MustParseURL("https://solana2.example"),
 	}
-	chain := solcfg.TOMLConfig{
-		ChainID: &id,
-		Nodes:   solcfg.Nodes{&node1, &node2},
+	chain := chainlink.RawConfig{
+		"ChainID": id,
+		"Nodes":   []any{node1, node2},
 	}
-	app := solanaStartNewApplication(t, &chain)
+	app := solanaStartNewApplication(t, chain)
 	client, r := app.NewShellAndRenderer()
 
 	require.NoError(t, cmd.NewNodeClient(client, "solana").IndexNodes(cltest.EmptyCLIContext()))
@@ -172,14 +168,14 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	n1 := nodes[0]
 	n2 := nodes[1]
 	assert.Equal(t, id, n1.ChainID)
-	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node1.Name), n1.ID)
-	assert.Equal(t, *node1.Name, n1.Name)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "first"), n1.ID)
+	assert.Equal(t, "first", n1.Name)
 	wantConfig, err := toml.Marshal(node1)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig), n1.Config)
 	assert.Equal(t, id, n2.ChainID)
-	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, *node2.Name), n2.ID)
-	assert.Equal(t, *node2.Name, n2.Name)
+	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "second"), n2.ID)
+	assert.Equal(t, "second", n2.Name)
 	wantConfig2, err := toml.Marshal(node2)
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
