@@ -110,25 +110,24 @@ message OCR2EVMRelayConfig {
 }
 
 // OCR1OracleSpecInfo mirrors job.OCROracleSpec.
+// contract_address and evm_chain_id live on the parent JobSpecEvent.
 message OCR1OracleSpecInfo {
   int32  spec_id = 1;
-  string contract_address = 2;
-  string evm_chain_id = 3;
-  repeated string p2pv2_bootstrappers = 4;
-  bool   is_bootstrap_peer = 5;
-  string encrypted_ocr_key_bundle_id = 6;
-  string transmitter_address = 7;
-  double observation_timeout_seconds = 8;
-  double blockchain_timeout_seconds = 9;
-  double contract_config_tracker_subscribe_interval_seconds = 10;
-  double contract_config_tracker_poll_interval_seconds = 11;
-  uint32 contract_config_confirmations = 12;
-  double database_timeout_seconds = 13;
-  double observation_grace_period_seconds = 14;
-  double contract_transmitter_transmit_timeout_seconds = 15;
-  bool   capture_ea_telemetry = 16;
-  string spec_created_at = 17;
-  string spec_updated_at = 18;
+  repeated string p2pv2_bootstrappers = 2;
+  bool   is_bootstrap_peer = 3;
+  string encrypted_ocr_key_bundle_id = 4;
+  string transmitter_address = 5;
+  double observation_timeout_seconds = 6;
+  double blockchain_timeout_seconds = 7;
+  double contract_config_tracker_subscribe_interval_seconds = 8;
+  double contract_config_tracker_poll_interval_seconds = 9;
+  uint32 contract_config_confirmations = 10;
+  double database_timeout_seconds = 11;
+  double observation_grace_period_seconds = 12;
+  double contract_transmitter_transmit_timeout_seconds = 13;
+  bool   capture_ea_telemetry = 14;
+  string spec_created_at = 15;
+  string spec_updated_at = 16;
 }
 
 // OCR2MedianPluginConfig mirrors median/config.PluginConfig.

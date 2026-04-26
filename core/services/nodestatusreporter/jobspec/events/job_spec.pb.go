@@ -680,26 +680,25 @@ func (x *OCR2EVMRelayConfig) GetProviderType() string {
 }
 
 // OCR1OracleSpecInfo mirrors job.OCROracleSpec.
+// contract_address and evm_chain_id live on the parent JobSpecEvent.
 type OCR1OracleSpecInfo struct {
 	state                                         protoimpl.MessageState `protogen:"open.v1"`
 	SpecId                                        int32                  `protobuf:"varint,1,opt,name=spec_id,json=specId,proto3" json:"spec_id,omitempty"`
-	ContractAddress                               string                 `protobuf:"bytes,2,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
-	EvmChainId                                    string                 `protobuf:"bytes,3,opt,name=evm_chain_id,json=evmChainId,proto3" json:"evm_chain_id,omitempty"`
-	P2Pv2Bootstrappers                            []string               `protobuf:"bytes,4,rep,name=p2pv2_bootstrappers,json=p2pv2Bootstrappers,proto3" json:"p2pv2_bootstrappers,omitempty"`
-	IsBootstrapPeer                               bool                   `protobuf:"varint,5,opt,name=is_bootstrap_peer,json=isBootstrapPeer,proto3" json:"is_bootstrap_peer,omitempty"`
-	EncryptedOcrKeyBundleId                       string                 `protobuf:"bytes,6,opt,name=encrypted_ocr_key_bundle_id,json=encryptedOcrKeyBundleId,proto3" json:"encrypted_ocr_key_bundle_id,omitempty"`
-	TransmitterAddress                            string                 `protobuf:"bytes,7,opt,name=transmitter_address,json=transmitterAddress,proto3" json:"transmitter_address,omitempty"`
-	ObservationTimeoutSeconds                     float64                `protobuf:"fixed64,8,opt,name=observation_timeout_seconds,json=observationTimeoutSeconds,proto3" json:"observation_timeout_seconds,omitempty"`
-	BlockchainTimeoutSeconds                      float64                `protobuf:"fixed64,9,opt,name=blockchain_timeout_seconds,json=blockchainTimeoutSeconds,proto3" json:"blockchain_timeout_seconds,omitempty"`
-	ContractConfigTrackerSubscribeIntervalSeconds float64                `protobuf:"fixed64,10,opt,name=contract_config_tracker_subscribe_interval_seconds,json=contractConfigTrackerSubscribeIntervalSeconds,proto3" json:"contract_config_tracker_subscribe_interval_seconds,omitempty"`
-	ContractConfigTrackerPollIntervalSeconds      float64                `protobuf:"fixed64,11,opt,name=contract_config_tracker_poll_interval_seconds,json=contractConfigTrackerPollIntervalSeconds,proto3" json:"contract_config_tracker_poll_interval_seconds,omitempty"`
-	ContractConfigConfirmations                   uint32                 `protobuf:"varint,12,opt,name=contract_config_confirmations,json=contractConfigConfirmations,proto3" json:"contract_config_confirmations,omitempty"`
-	DatabaseTimeoutSeconds                        float64                `protobuf:"fixed64,13,opt,name=database_timeout_seconds,json=databaseTimeoutSeconds,proto3" json:"database_timeout_seconds,omitempty"`
-	ObservationGracePeriodSeconds                 float64                `protobuf:"fixed64,14,opt,name=observation_grace_period_seconds,json=observationGracePeriodSeconds,proto3" json:"observation_grace_period_seconds,omitempty"`
-	ContractTransmitterTransmitTimeoutSeconds     float64                `protobuf:"fixed64,15,opt,name=contract_transmitter_transmit_timeout_seconds,json=contractTransmitterTransmitTimeoutSeconds,proto3" json:"contract_transmitter_transmit_timeout_seconds,omitempty"`
-	CaptureEaTelemetry                            bool                   `protobuf:"varint,16,opt,name=capture_ea_telemetry,json=captureEaTelemetry,proto3" json:"capture_ea_telemetry,omitempty"`
-	SpecCreatedAt                                 string                 `protobuf:"bytes,17,opt,name=spec_created_at,json=specCreatedAt,proto3" json:"spec_created_at,omitempty"`
-	SpecUpdatedAt                                 string                 `protobuf:"bytes,18,opt,name=spec_updated_at,json=specUpdatedAt,proto3" json:"spec_updated_at,omitempty"`
+	P2Pv2Bootstrappers                            []string               `protobuf:"bytes,2,rep,name=p2pv2_bootstrappers,json=p2pv2Bootstrappers,proto3" json:"p2pv2_bootstrappers,omitempty"`
+	IsBootstrapPeer                               bool                   `protobuf:"varint,3,opt,name=is_bootstrap_peer,json=isBootstrapPeer,proto3" json:"is_bootstrap_peer,omitempty"`
+	EncryptedOcrKeyBundleId                       string                 `protobuf:"bytes,4,opt,name=encrypted_ocr_key_bundle_id,json=encryptedOcrKeyBundleId,proto3" json:"encrypted_ocr_key_bundle_id,omitempty"`
+	TransmitterAddress                            string                 `protobuf:"bytes,5,opt,name=transmitter_address,json=transmitterAddress,proto3" json:"transmitter_address,omitempty"`
+	ObservationTimeoutSeconds                     float64                `protobuf:"fixed64,6,opt,name=observation_timeout_seconds,json=observationTimeoutSeconds,proto3" json:"observation_timeout_seconds,omitempty"`
+	BlockchainTimeoutSeconds                      float64                `protobuf:"fixed64,7,opt,name=blockchain_timeout_seconds,json=blockchainTimeoutSeconds,proto3" json:"blockchain_timeout_seconds,omitempty"`
+	ContractConfigTrackerSubscribeIntervalSeconds float64                `protobuf:"fixed64,8,opt,name=contract_config_tracker_subscribe_interval_seconds,json=contractConfigTrackerSubscribeIntervalSeconds,proto3" json:"contract_config_tracker_subscribe_interval_seconds,omitempty"`
+	ContractConfigTrackerPollIntervalSeconds      float64                `protobuf:"fixed64,9,opt,name=contract_config_tracker_poll_interval_seconds,json=contractConfigTrackerPollIntervalSeconds,proto3" json:"contract_config_tracker_poll_interval_seconds,omitempty"`
+	ContractConfigConfirmations                   uint32                 `protobuf:"varint,10,opt,name=contract_config_confirmations,json=contractConfigConfirmations,proto3" json:"contract_config_confirmations,omitempty"`
+	DatabaseTimeoutSeconds                        float64                `protobuf:"fixed64,11,opt,name=database_timeout_seconds,json=databaseTimeoutSeconds,proto3" json:"database_timeout_seconds,omitempty"`
+	ObservationGracePeriodSeconds                 float64                `protobuf:"fixed64,12,opt,name=observation_grace_period_seconds,json=observationGracePeriodSeconds,proto3" json:"observation_grace_period_seconds,omitempty"`
+	ContractTransmitterTransmitTimeoutSeconds     float64                `protobuf:"fixed64,13,opt,name=contract_transmitter_transmit_timeout_seconds,json=contractTransmitterTransmitTimeoutSeconds,proto3" json:"contract_transmitter_transmit_timeout_seconds,omitempty"`
+	CaptureEaTelemetry                            bool                   `protobuf:"varint,14,opt,name=capture_ea_telemetry,json=captureEaTelemetry,proto3" json:"capture_ea_telemetry,omitempty"`
+	SpecCreatedAt                                 string                 `protobuf:"bytes,15,opt,name=spec_created_at,json=specCreatedAt,proto3" json:"spec_created_at,omitempty"`
+	SpecUpdatedAt                                 string                 `protobuf:"bytes,16,opt,name=spec_updated_at,json=specUpdatedAt,proto3" json:"spec_updated_at,omitempty"`
 	unknownFields                                 protoimpl.UnknownFields
 	sizeCache                                     protoimpl.SizeCache
 }
@@ -739,20 +738,6 @@ func (x *OCR1OracleSpecInfo) GetSpecId() int32 {
 		return x.SpecId
 	}
 	return 0
-}
-
-func (x *OCR1OracleSpecInfo) GetContractAddress() string {
-	if x != nil {
-		return x.ContractAddress
-	}
-	return ""
-}
-
-func (x *OCR1OracleSpecInfo) GetEvmChainId() string {
-	if x != nil {
-		return x.EvmChainId
-	}
-	return ""
 }
 
 func (x *OCR1OracleSpecInfo) GetP2Pv2Bootstrappers() []string {
@@ -1027,28 +1012,25 @@ const file_job_spec_proto_rawDesc = "" +
 	"llo_don_id\x18\x06 \x01(\x04R\blloDonId\x12\x17\n" +
 	"\afeed_id\x18\a \x01(\tR\x06feedId\x12!\n" +
 	"\fsending_keys\x18\b \x03(\tR\vsendingKeys\x12#\n" +
-	"\rprovider_type\x18\t \x01(\tR\fproviderType\"\xbb\b\n" +
+	"\rprovider_type\x18\t \x01(\tR\fproviderType\"\xee\a\n" +
 	"\x12OCR1OracleSpecInfo\x12\x17\n" +
-	"\aspec_id\x18\x01 \x01(\x05R\x06specId\x12)\n" +
-	"\x10contract_address\x18\x02 \x01(\tR\x0fcontractAddress\x12 \n" +
-	"\fevm_chain_id\x18\x03 \x01(\tR\n" +
-	"evmChainId\x12/\n" +
-	"\x13p2pv2_bootstrappers\x18\x04 \x03(\tR\x12p2pv2Bootstrappers\x12*\n" +
-	"\x11is_bootstrap_peer\x18\x05 \x01(\bR\x0fisBootstrapPeer\x12<\n" +
-	"\x1bencrypted_ocr_key_bundle_id\x18\x06 \x01(\tR\x17encryptedOcrKeyBundleId\x12/\n" +
-	"\x13transmitter_address\x18\a \x01(\tR\x12transmitterAddress\x12>\n" +
-	"\x1bobservation_timeout_seconds\x18\b \x01(\x01R\x19observationTimeoutSeconds\x12<\n" +
-	"\x1ablockchain_timeout_seconds\x18\t \x01(\x01R\x18blockchainTimeoutSeconds\x12i\n" +
-	"2contract_config_tracker_subscribe_interval_seconds\x18\n" +
-	" \x01(\x01R-contractConfigTrackerSubscribeIntervalSeconds\x12_\n" +
-	"-contract_config_tracker_poll_interval_seconds\x18\v \x01(\x01R(contractConfigTrackerPollIntervalSeconds\x12B\n" +
-	"\x1dcontract_config_confirmations\x18\f \x01(\rR\x1bcontractConfigConfirmations\x128\n" +
-	"\x18database_timeout_seconds\x18\r \x01(\x01R\x16databaseTimeoutSeconds\x12G\n" +
-	" observation_grace_period_seconds\x18\x0e \x01(\x01R\x1dobservationGracePeriodSeconds\x12`\n" +
-	"-contract_transmitter_transmit_timeout_seconds\x18\x0f \x01(\x01R)contractTransmitterTransmitTimeoutSeconds\x120\n" +
-	"\x14capture_ea_telemetry\x18\x10 \x01(\bR\x12captureEaTelemetry\x12&\n" +
-	"\x0fspec_created_at\x18\x11 \x01(\tR\rspecCreatedAt\x12&\n" +
-	"\x0fspec_updated_at\x18\x12 \x01(\tR\rspecUpdatedAt\"\xe3\x03\n" +
+	"\aspec_id\x18\x01 \x01(\x05R\x06specId\x12/\n" +
+	"\x13p2pv2_bootstrappers\x18\x02 \x03(\tR\x12p2pv2Bootstrappers\x12*\n" +
+	"\x11is_bootstrap_peer\x18\x03 \x01(\bR\x0fisBootstrapPeer\x12<\n" +
+	"\x1bencrypted_ocr_key_bundle_id\x18\x04 \x01(\tR\x17encryptedOcrKeyBundleId\x12/\n" +
+	"\x13transmitter_address\x18\x05 \x01(\tR\x12transmitterAddress\x12>\n" +
+	"\x1bobservation_timeout_seconds\x18\x06 \x01(\x01R\x19observationTimeoutSeconds\x12<\n" +
+	"\x1ablockchain_timeout_seconds\x18\a \x01(\x01R\x18blockchainTimeoutSeconds\x12i\n" +
+	"2contract_config_tracker_subscribe_interval_seconds\x18\b \x01(\x01R-contractConfigTrackerSubscribeIntervalSeconds\x12_\n" +
+	"-contract_config_tracker_poll_interval_seconds\x18\t \x01(\x01R(contractConfigTrackerPollIntervalSeconds\x12B\n" +
+	"\x1dcontract_config_confirmations\x18\n" +
+	" \x01(\rR\x1bcontractConfigConfirmations\x128\n" +
+	"\x18database_timeout_seconds\x18\v \x01(\x01R\x16databaseTimeoutSeconds\x12G\n" +
+	" observation_grace_period_seconds\x18\f \x01(\x01R\x1dobservationGracePeriodSeconds\x12`\n" +
+	"-contract_transmitter_transmit_timeout_seconds\x18\r \x01(\x01R)contractTransmitterTransmitTimeoutSeconds\x120\n" +
+	"\x14capture_ea_telemetry\x18\x0e \x01(\bR\x12captureEaTelemetry\x12&\n" +
+	"\x0fspec_created_at\x18\x0f \x01(\tR\rspecCreatedAt\x12&\n" +
+	"\x0fspec_updated_at\x18\x10 \x01(\tR\rspecUpdatedAt\"\xe3\x03\n" +
 	"\x16OCR2MedianPluginConfig\x128\n" +
 	"\x19juels_per_fee_coin_source\x18\x01 \x01(\tR\x15juelsPerFeeCoinSource\x129\n" +
 	"\x19gas_price_subunits_source\x18\x02 \x01(\tR\x16gasPriceSubunitsSource\x12G\n" +

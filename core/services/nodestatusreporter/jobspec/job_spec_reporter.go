@@ -336,11 +336,6 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 }
 
 func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo {
-	evmChainID := ""
-	if spec.EVMChainID != nil {
-		evmChainID = spec.EVMChainID.String()
-	}
-
 	keyBundleID := ""
 	if spec.EncryptedOCRKeyBundleID != nil {
 		keyBundleID = spec.EncryptedOCRKeyBundleID.String()
@@ -367,24 +362,22 @@ func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo
 	}
 
 	return &events.OCR1OracleSpecInfo{
-		SpecId:                                            spec.ID,
-		ContractAddress:                                   spec.ContractAddress.String(),
-		EvmChainId:                                        evmChainID,
-		P2Pv2Bootstrappers:                                spec.P2PV2Bootstrappers,
-		IsBootstrapPeer:                                   spec.IsBootstrapPeer,
-		EncryptedOcrKeyBundleId:                           keyBundleID,
-		TransmitterAddress:                                transmitterAddress,
-		ObservationTimeoutSeconds:                         spec.ObservationTimeout.Duration().Seconds(),
-		BlockchainTimeoutSeconds:                          spec.BlockchainTimeout.Duration().Seconds(),
-		ContractConfigTrackerSubscribeIntervalSeconds:      spec.ContractConfigTrackerSubscribeInterval.Duration().Seconds(),
-		ContractConfigTrackerPollIntervalSeconds:           spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
-		ContractConfigConfirmations:                        uint32(spec.ContractConfigConfirmations),
-		DatabaseTimeoutSeconds:                             dbTimeoutSeconds,
-		ObservationGracePeriodSeconds:                      gracePeriodSeconds,
-		ContractTransmitterTransmitTimeoutSeconds:          transmitTimeoutSeconds,
-		CaptureEaTelemetry:                                 spec.CaptureEATelemetry,
-		SpecCreatedAt:                                      spec.CreatedAt.Format(time.RFC3339Nano),
-		SpecUpdatedAt:                                      spec.UpdatedAt.Format(time.RFC3339Nano),
+		SpecId:                    spec.ID,
+		P2Pv2Bootstrappers:        spec.P2PV2Bootstrappers,
+		IsBootstrapPeer:           spec.IsBootstrapPeer,
+		EncryptedOcrKeyBundleId:   keyBundleID,
+		TransmitterAddress:        transmitterAddress,
+		ObservationTimeoutSeconds: spec.ObservationTimeout.Duration().Seconds(),
+		BlockchainTimeoutSeconds:  spec.BlockchainTimeout.Duration().Seconds(),
+		ContractConfigTrackerSubscribeIntervalSeconds: spec.ContractConfigTrackerSubscribeInterval.Duration().Seconds(),
+		ContractConfigTrackerPollIntervalSeconds:      spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
+		ContractConfigConfirmations:                   uint32(spec.ContractConfigConfirmations),
+		DatabaseTimeoutSeconds:                        dbTimeoutSeconds,
+		ObservationGracePeriodSeconds:                 gracePeriodSeconds,
+		ContractTransmitterTransmitTimeoutSeconds:     transmitTimeoutSeconds,
+		CaptureEaTelemetry:                            spec.CaptureEATelemetry,
+		SpecCreatedAt:                                 spec.CreatedAt.Format(time.RFC3339Nano),
+		SpecUpdatedAt:                                 spec.UpdatedAt.Format(time.RFC3339Nano),
 	}
 }
 

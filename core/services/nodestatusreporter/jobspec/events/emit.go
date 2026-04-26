@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
-// EmitJobSpecEvent emits a Job Spec event through the provided emitter.
 func EmitJobSpecEvent(ctx context.Context, emitter beholder.Emitter, event *JobSpecEvent) error {
 	if event.Timestamp == "" {
 		event.Timestamp = time.Now().Format(time.RFC3339Nano)

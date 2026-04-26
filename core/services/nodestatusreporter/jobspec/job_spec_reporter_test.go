@@ -225,6 +225,7 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.MedianPluginConfig.JuelsPerFeeCoinSource)
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
 	assert.Equal(t, "1", ev.Ocr2OracleSpec.EvmRelayConfig.ChainId)
+	assert.Nil(t, ev.Ocr1OracleSpec)
 }
 
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
@@ -375,8 +376,6 @@ func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
 	require.NotNil(t, ev.Ocr1OracleSpec)
 	ocr1 := ev.Ocr1OracleSpec
 	assert.Equal(t, int32(99), ocr1.SpecId)
-	assert.Equal(t, "0x9d9305445F404E925563d5D5EcC65C815Ec1655b", ocr1.ContractAddress)
-	assert.Equal(t, "11155111", ocr1.EvmChainId)
 	assert.Equal(t, []string{"12D3KooW@bootstrap:6688"}, ocr1.P2Pv2Bootstrappers)
 	assert.False(t, ocr1.IsBootstrapPeer)
 	assert.Equal(t, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20", ocr1.EncryptedOcrKeyBundleId)
@@ -395,25 +394,6 @@ func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
 
 	// OCR2 sub-message absent for OCR1 jobs
 	assert.Nil(t, ev.Ocr2OracleSpec)
-}
-
-func TestBuildEvent_OCR2Job_HasNoOCR1Spec(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
-	jb := makeMedianJob()
-	feedsORM := newFeedsORMWithoutProposal(t, jb)
-	svc := newTestReporter(t, defaultConfig(), feedsORM)
-
-	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
-	require.NoError(t, err)
-
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
-	assert.Nil(t, ev.Ocr1OracleSpec)
-	assert.NotNil(t, ev.Ocr2OracleSpec)
 }
 
 func makeOCR1Job() job.Job {
