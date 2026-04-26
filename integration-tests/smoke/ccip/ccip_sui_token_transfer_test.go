@@ -454,6 +454,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -478,6 +480,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		},
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -504,6 +508,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// uncurse globally
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
@@ -551,6 +557,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 			},
 		},
 	}
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
@@ -656,6 +664,9 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 		},
 	}) // SourceChain = SUI, destChain = EVM
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	e.Env = updatedEnv
 
 	state, err := stateview.LoadOnchainState(e.Env)
@@ -696,6 +707,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 	transferWei := new(big.Int).Mul(big.NewInt(1500000000), big.NewInt(1_000_000_000))
 	expectedRecvBal := new(big.Int).Add(preRecvBal, transferWei)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to Receiver after signer allowlisted",
@@ -719,6 +732,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 			},
 		},
 	}
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
@@ -849,6 +864,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	require.NoError(t, err)
 	e.Env = updatedEnv
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
@@ -875,6 +892,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
@@ -900,6 +919,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// uncurse destination chain
 	_, err = operations.ExecuteOperation(e.Env.OperationsBundle, ccipops.RMNRemoteUncurseOp, deps, ccipops.RMNRemoteUncurseInput{
@@ -944,6 +965,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		},
 	}
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	ctx := testhelpers.Context(t)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, updatedEnv, state, tcs)
 
@@ -965,6 +988,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		startBlocks,
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	testhelpers.WaitForTokenBalances(ctx, t, updatedEnv, expectedTokenBalances)
 }

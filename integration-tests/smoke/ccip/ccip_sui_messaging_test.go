@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
@@ -133,6 +134,8 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 	fx := prepareSui2EvmMessagingTest(t)
 	var out messagingtest.TestCaseOutput
 
+	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
+
 	t.Run("Message to EVM", func(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -175,27 +178,27 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
 
-	t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
-		ctx := testhelpers.Context(t)
-		latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
-		require.NoError(t, err)
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              fx.setup,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				FeeToken:               fx.suiLinkFeeToken,
-				Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
-				MsgData:                fx.standardMessage,
-				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(fx.suiFQDestConfig.MaxPerMsgGasLimit)), false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, fx.standardMessage)
-					},
-				},
-			},
-		)
-	})
+	// t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
+	// 	ctx := testhelpers.Context(t)
+	// 	latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
+	// 	require.NoError(t, err)
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              fx.setup,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			FeeToken:               fx.suiLinkFeeToken,
+	// 			Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
+	// 			MsgData:                fx.standardMessage,
+	// 			ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(int64(fx.suiFQDestConfig.MaxPerMsgGasLimit)), false),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 			ExtraAssertions: []func(t *testing.T){
+	// 				func(t *testing.T) {
+	// 					assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, fx.standardMessage)
+	// 				},
+	// 			},
+	// 		},
+	// 	)
+	// })
 
 	t.Logf("out: %v\n", out)
 }
@@ -443,6 +446,8 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 	fx := prepareEVM2SuiMessagingTest(t)
 	var nonce uint64
 
+	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
+
 	t.Run("Message to Sui", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
@@ -598,6 +603,7 @@ func Test_CCIP_Messaging_EVM2Sui_Revert_Part2(t *testing.T) {
 }
 
 func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),

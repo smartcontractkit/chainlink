@@ -144,11 +144,13 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
@@ -163,6 +165,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	rawOutput := output[0].Reports[0]
 
@@ -204,7 +208,10 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -218,6 +225,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	// Block ccip v2 feequoter (the pre-upgrade version)
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
@@ -229,6 +238,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -265,6 +275,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
@@ -278,11 +290,13 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
@@ -297,6 +311,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	rawOutput := output[0].Reports[0]
 
@@ -336,7 +352,9 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -373,6 +391,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
@@ -386,16 +406,19 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	var (
 		nonce  uint64
@@ -461,6 +484,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	// Block ccip v2 FQ (the pre-upgrade version)
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
@@ -472,6 +497,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -504,6 +531,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {
