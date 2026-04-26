@@ -318,6 +318,10 @@ FinalizedBlockOffset = 50
 				"ChainID":       validID,
 				"SkipPreflight": false,
 				"TxTimeout":     "1h0m0s",
+				"Nodes": []map[string]any{{
+					"Name": "primary",
+					"URL":  "http://solana.example",
+				}},
 			})
 
 			wantedResult := tc.want(t, controller.app)
@@ -346,10 +350,18 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	chainA := chainlink.RawConfig{
 		"ChainID":   fmt.Sprintf("ChainlinktestA-%d", rand.Int32N(999999)),
 		"TxTimeout": "1h0m0s",
+		"Nodes": []map[string]any{{
+			"Name": "primary",
+			"URL":  "http://solana.example",
+		}},
 	}
 	chainB := chainlink.RawConfig{
 		"ChainID":       fmt.Sprintf("ChainlinktestB-%d", rand.Int32N(999999)),
 		"SkipPreflight": false,
+		"Nodes": []map[string]any{{
+			"Name": "primary",
+			"URL":  "http://solana.example",
+		}},
 	}
 	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
 

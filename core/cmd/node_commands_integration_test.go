@@ -147,12 +147,14 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 
 	id := solanatest.RandomChainID()
 	node1 := map[string]any{
-		"Name": ptr("first"),
-		"URL":  config.MustParseURL("https://solana1.example"),
+		"Name":     ptr("first"),
+		"URL":      config.MustParseURL("https://solana1.example"),
+		"SendOnly": false,
 	}
 	node2 := map[string]any{
-		"Name": ptr("second"),
-		"URL":  config.MustParseURL("https://solana2.example"),
+		"Name":     ptr("second"),
+		"URL":      config.MustParseURL("https://solana2.example"),
+		"SendOnly": false,
 	}
 	chain := chainlink.RawConfig{
 		"ChainID": id,

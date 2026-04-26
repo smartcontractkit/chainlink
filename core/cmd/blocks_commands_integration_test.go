@@ -18,6 +18,10 @@ func Test_ReplayFromBlock_Solana(t *testing.T) {
 	chain := chainlink.RawConfig{
 		"ChainID": "devnet",
 		"Enabled": true,
+		"Nodes": []map[string]any{{
+			"Name": "primary",
+			"URL":  "http://solana.example",
+		}},
 	}
 	app := solanaStartNewApplication(t, chain)
 	client, _ := app.NewShellAndRenderer()

@@ -44,6 +44,10 @@ func TestShell_IndexSolanaChains(t *testing.T) {
 	chain := chainlink.RawConfig{
 		"ChainID": id,
 		"Enabled": true,
+		"Nodes": []map[string]any{{
+			"Name": "primary",
+			"URL":  "http://solana.example",
+		}},
 	}
 	app := solanaStartNewApplication(t, chain)
 	client, r := app.NewShellAndRenderer()
