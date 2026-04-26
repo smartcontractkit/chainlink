@@ -203,6 +203,7 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 		if jb.OCROracleSpec.EVMChainID != nil {
 			event.ChainId = jb.OCROracleSpec.EVMChainID.String()
 		}
+		event.Ocr1OracleSpec = buildOCR1OracleSpecInfo(jb.OCROracleSpec)
 	}
 
 	return event, nil
@@ -332,6 +333,59 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	}
 
 	return info, nil
+}
+
+func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo {
+	evmChainID := ""
+	if spec.EVMChainID != nil {
+		evmChainID = spec.EVMChainID.String()
+	}
+
+	keyBundleID := ""
+	if spec.EncryptedOCRKeyBundleID != nil {
+		keyBundleID = spec.EncryptedOCRKeyBundleID.String()
+	}
+
+	transmitterAddress := ""
+	if spec.TransmitterAddress != nil {
+		transmitterAddress = spec.TransmitterAddress.String()
+	}
+
+	var dbTimeoutSeconds float64
+	if spec.DatabaseTimeout != nil {
+		dbTimeoutSeconds = spec.DatabaseTimeout.Duration().Seconds()
+	}
+
+	var gracePeriodSeconds float64
+	if spec.ObservationGracePeriod != nil {
+		gracePeriodSeconds = spec.ObservationGracePeriod.Duration().Seconds()
+	}
+
+	var transmitTimeoutSeconds float64
+	if spec.ContractTransmitterTransmitTimeout != nil {
+		transmitTimeoutSeconds = spec.ContractTransmitterTransmitTimeout.Duration().Seconds()
+	}
+
+	return &events.OCR1OracleSpecInfo{
+		SpecId:                                            spec.ID,
+		ContractAddress:                                   spec.ContractAddress.String(),
+		EvmChainId:                                        evmChainID,
+		P2Pv2Bootstrappers:                                spec.P2PV2Bootstrappers,
+		IsBootstrapPeer:                                   spec.IsBootstrapPeer,
+		EncryptedOcrKeyBundleId:                           keyBundleID,
+		TransmitterAddress:                                transmitterAddress,
+		ObservationTimeoutSeconds:                         spec.ObservationTimeout.Duration().Seconds(),
+		BlockchainTimeoutSeconds:                          spec.BlockchainTimeout.Duration().Seconds(),
+		ContractConfigTrackerSubscribeIntervalSeconds:      spec.ContractConfigTrackerSubscribeInterval.Duration().Seconds(),
+		ContractConfigTrackerPollIntervalSeconds:           spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
+		ContractConfigConfirmations:                        uint32(spec.ContractConfigConfirmations),
+		DatabaseTimeoutSeconds:                             dbTimeoutSeconds,
+		ObservationGracePeriodSeconds:                      gracePeriodSeconds,
+		ContractTransmitterTransmitTimeoutSeconds:          transmitTimeoutSeconds,
+		CaptureEaTelemetry:                                 spec.CaptureEATelemetry,
+		SpecCreatedAt:                                      spec.CreatedAt.Format(time.RFC3339Nano),
+		SpecUpdatedAt:                                      spec.UpdatedAt.Format(time.RFC3339Nano),
+	}
 }
 
 // buildEVMRelayConfig decodes the EVM relay config JSON into OCR2EVMRelayConfig.
