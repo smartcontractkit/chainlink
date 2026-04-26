@@ -606,7 +606,6 @@ ComputeUnitPriceDefault = 0
 ComputeUnitPriceMax = 1000000
 ComputeUnitPriceMin = 0
 ConfirmPollPeriod = '1s'
-Enabled = true
 EstimateComputeUnitLimit = false
 FeeBumpPeriod = '3s'
 FeeEstimatorMode = 'fixed'
