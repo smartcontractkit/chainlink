@@ -172,15 +172,11 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	assert.Equal(t, id, n1.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "first"), n1.ID)
 	assert.Equal(t, "first", n1.Name)
-	wantConfig, err := toml.Marshal(node1)
-	require.NoError(t, err)
-	assert.Equal(t, string(wantConfig), n1.Config)
+	assert.Equal(t, "Name = 'first'\nURL = 'https://solana1.example'\nSendOnly = false\n", n1.Config)
 	assert.Equal(t, id, n2.ChainID)
 	assert.Equal(t, cltest.FormatWithPrefixedChainID(id, "second"), n2.ID)
 	assert.Equal(t, "second", n2.Name)
-	wantConfig2, err := toml.Marshal(node2)
-	require.NoError(t, err)
-	assert.Equal(t, string(wantConfig2), n2.Config)
+	assert.Equal(t, "Name = 'second'\nURL = 'https://solana2.example'\nSendOnly = false\n", n2.Config)
 	assertTableRenders(t, r)
 
 	// Render table and check the fields order

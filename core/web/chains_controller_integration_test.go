@@ -263,7 +263,6 @@ EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
 LogPollerSlotsBatchSize = 1000
-Nodes = []
 
 [Workflow]
 AcceptanceTimeout = '45s'
@@ -293,6 +292,11 @@ NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0
 FinalityTagEnabled = true
 FinalizedBlockOffset = 50
+
+[[Nodes]]
+Name = 'primary'
+URL = 'http://solana.example'
+SendOnly = false
 `,
 				}
 			},
