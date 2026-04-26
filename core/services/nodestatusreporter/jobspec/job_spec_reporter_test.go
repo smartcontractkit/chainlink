@@ -378,7 +378,7 @@ func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
 	assert.Equal(t, int32(99), ocr1.SpecId)
 	assert.Equal(t, []string{"12D3KooW@bootstrap:6688"}, ocr1.P2Pv2Bootstrappers)
 	assert.False(t, ocr1.IsBootstrapPeer)
-	assert.Equal(t, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20", ocr1.EncryptedOcrKeyBundleId)
+	assert.Equal(t, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20", ocr1.OcrKeyBundleId)
 	assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", ocr1.TransmitterAddress)
 	assert.InDelta(t, 30.0, ocr1.ObservationTimeoutSeconds, 0.001)
 	assert.InDelta(t, 20.0, ocr1.BlockchainTimeoutSeconds, 0.001)

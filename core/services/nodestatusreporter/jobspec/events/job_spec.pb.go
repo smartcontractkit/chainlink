@@ -110,7 +110,7 @@ type JobSpecEvent struct {
 	EmissionTrigger EmissionTrigger `protobuf:"varint,24,opt,name=emission_trigger,json=emissionTrigger,proto3,enum=job_spec.v1.EmissionTrigger" json:"emission_trigger,omitempty"`
 	Timestamp       string          `protobuf:"bytes,25,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	// Primary on-chain contract — populated for single-contract job types
-	// (OCR1, OCR2, Flux Monitor, Keeper). For OCR2, copied from ocr2_oracle_spec.
+	// (OCR1, OCR2, Flux Monitor, Keeper).
 	ContractAddress string `protobuf:"bytes,26,opt,name=contract_address,json=contractAddress,proto3" json:"contract_address,omitempty"`
 	ChainId         string `protobuf:"bytes,27,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
 	// OCR1-only; absent for other job types.
@@ -346,35 +346,34 @@ func (x *JobSpecEvent) GetOcr1OracleSpec() *OCR1OracleSpecInfo {
 }
 
 // OCR2OracleSpecInfo mirrors job.OCR2OracleSpec.
+// contract_id and chain_id live on the parent JobSpecEvent.
 type OCR2OracleSpecInfo struct {
 	state                                    protoimpl.MessageState `protogen:"open.v1"`
 	SpecId                                   int32                  `protobuf:"varint,1,opt,name=spec_id,json=specId,proto3" json:"spec_id,omitempty"`
-	ContractId                               string                 `protobuf:"bytes,2,opt,name=contract_id,json=contractId,proto3" json:"contract_id,omitempty"`
-	FeedId                                   string                 `protobuf:"bytes,3,opt,name=feed_id,json=feedId,proto3" json:"feed_id,omitempty"`
-	Relay                                    string                 `protobuf:"bytes,4,opt,name=relay,proto3" json:"relay,omitempty"`
-	ChainId                                  string                 `protobuf:"bytes,5,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
-	PluginType                               string                 `protobuf:"bytes,6,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
-	TransmitterId                            string                 `protobuf:"bytes,7,opt,name=transmitter_id,json=transmitterId,proto3" json:"transmitter_id,omitempty"`
-	OcrKeyBundleId                           string                 `protobuf:"bytes,8,opt,name=ocr_key_bundle_id,json=ocrKeyBundleId,proto3" json:"ocr_key_bundle_id,omitempty"`
-	MonitoringEndpoint                       string                 `protobuf:"bytes,9,opt,name=monitoring_endpoint,json=monitoringEndpoint,proto3" json:"monitoring_endpoint,omitempty"`
-	P2Pv2Bootstrappers                       []string               `protobuf:"bytes,10,rep,name=p2pv2_bootstrappers,json=p2pv2Bootstrappers,proto3" json:"p2pv2_bootstrappers,omitempty"`
-	AllowNoBootstrappers                     bool                   `protobuf:"varint,11,opt,name=allow_no_bootstrappers,json=allowNoBootstrappers,proto3" json:"allow_no_bootstrappers,omitempty"`
-	BlockchainTimeoutSeconds                 float64                `protobuf:"fixed64,12,opt,name=blockchain_timeout_seconds,json=blockchainTimeoutSeconds,proto3" json:"blockchain_timeout_seconds,omitempty"`
-	ContractConfigTrackerPollIntervalSeconds float64                `protobuf:"fixed64,13,opt,name=contract_config_tracker_poll_interval_seconds,json=contractConfigTrackerPollIntervalSeconds,proto3" json:"contract_config_tracker_poll_interval_seconds,omitempty"`
-	ContractConfigConfirmations              uint32                 `protobuf:"varint,14,opt,name=contract_config_confirmations,json=contractConfigConfirmations,proto3" json:"contract_config_confirmations,omitempty"`
-	CaptureEaTelemetry                       bool                   `protobuf:"varint,15,opt,name=capture_ea_telemetry,json=captureEaTelemetry,proto3" json:"capture_ea_telemetry,omitempty"`
-	CaptureAutomationCustomTelemetry         bool                   `protobuf:"varint,16,opt,name=capture_automation_custom_telemetry,json=captureAutomationCustomTelemetry,proto3" json:"capture_automation_custom_telemetry,omitempty"`
-	SpecCreatedAt                            string                 `protobuf:"bytes,17,opt,name=spec_created_at,json=specCreatedAt,proto3" json:"spec_created_at,omitempty"`
-	SpecUpdatedAt                            string                 `protobuf:"bytes,18,opt,name=spec_updated_at,json=specUpdatedAt,proto3" json:"spec_updated_at,omitempty"`
+	FeedId                                   string                 `protobuf:"bytes,2,opt,name=feed_id,json=feedId,proto3" json:"feed_id,omitempty"`
+	Relay                                    string                 `protobuf:"bytes,3,opt,name=relay,proto3" json:"relay,omitempty"`
+	PluginType                               string                 `protobuf:"bytes,4,opt,name=plugin_type,json=pluginType,proto3" json:"plugin_type,omitempty"`
+	TransmitterId                            string                 `protobuf:"bytes,5,opt,name=transmitter_id,json=transmitterId,proto3" json:"transmitter_id,omitempty"`
+	OcrKeyBundleId                           string                 `protobuf:"bytes,6,opt,name=ocr_key_bundle_id,json=ocrKeyBundleId,proto3" json:"ocr_key_bundle_id,omitempty"`
+	MonitoringEndpoint                       string                 `protobuf:"bytes,7,opt,name=monitoring_endpoint,json=monitoringEndpoint,proto3" json:"monitoring_endpoint,omitempty"`
+	P2Pv2Bootstrappers                       []string               `protobuf:"bytes,8,rep,name=p2pv2_bootstrappers,json=p2pv2Bootstrappers,proto3" json:"p2pv2_bootstrappers,omitempty"`
+	AllowNoBootstrappers                     bool                   `protobuf:"varint,9,opt,name=allow_no_bootstrappers,json=allowNoBootstrappers,proto3" json:"allow_no_bootstrappers,omitempty"`
+	BlockchainTimeoutSeconds                 float64                `protobuf:"fixed64,10,opt,name=blockchain_timeout_seconds,json=blockchainTimeoutSeconds,proto3" json:"blockchain_timeout_seconds,omitempty"`
+	ContractConfigTrackerPollIntervalSeconds float64                `protobuf:"fixed64,11,opt,name=contract_config_tracker_poll_interval_seconds,json=contractConfigTrackerPollIntervalSeconds,proto3" json:"contract_config_tracker_poll_interval_seconds,omitempty"`
+	ContractConfigConfirmations              uint32                 `protobuf:"varint,12,opt,name=contract_config_confirmations,json=contractConfigConfirmations,proto3" json:"contract_config_confirmations,omitempty"`
+	CaptureEaTelemetry                       bool                   `protobuf:"varint,13,opt,name=capture_ea_telemetry,json=captureEaTelemetry,proto3" json:"capture_ea_telemetry,omitempty"`
+	CaptureAutomationCustomTelemetry         bool                   `protobuf:"varint,14,opt,name=capture_automation_custom_telemetry,json=captureAutomationCustomTelemetry,proto3" json:"capture_automation_custom_telemetry,omitempty"`
+	SpecCreatedAt                            string                 `protobuf:"bytes,15,opt,name=spec_created_at,json=specCreatedAt,proto3" json:"spec_created_at,omitempty"`
+	SpecUpdatedAt                            string                 `protobuf:"bytes,16,opt,name=spec_updated_at,json=specUpdatedAt,proto3" json:"spec_updated_at,omitempty"`
 	// Raw JSON passthroughs — always populated; authoritative over the typed
 	// sub-messages below.
-	RelayConfigJson            string `protobuf:"bytes,19,opt,name=relay_config_json,json=relayConfigJson,proto3" json:"relay_config_json,omitempty"`
-	PluginConfigJson           string `protobuf:"bytes,20,opt,name=plugin_config_json,json=pluginConfigJson,proto3" json:"plugin_config_json,omitempty"`
-	OnchainSigningStrategyJson string `protobuf:"bytes,21,opt,name=onchain_signing_strategy_json,json=onchainSigningStrategyJson,proto3" json:"onchain_signing_strategy_json,omitempty"`
+	RelayConfigJson            string `protobuf:"bytes,17,opt,name=relay_config_json,json=relayConfigJson,proto3" json:"relay_config_json,omitempty"`
+	PluginConfigJson           string `protobuf:"bytes,18,opt,name=plugin_config_json,json=pluginConfigJson,proto3" json:"plugin_config_json,omitempty"`
+	OnchainSigningStrategyJson string `protobuf:"bytes,19,opt,name=onchain_signing_strategy_json,json=onchainSigningStrategyJson,proto3" json:"onchain_signing_strategy_json,omitempty"`
 	// Populated when relay == "evm".
-	EvmRelayConfig *OCR2EVMRelayConfig `protobuf:"bytes,22,opt,name=evm_relay_config,json=evmRelayConfig,proto3" json:"evm_relay_config,omitempty"`
+	EvmRelayConfig *OCR2EVMRelayConfig `protobuf:"bytes,20,opt,name=evm_relay_config,json=evmRelayConfig,proto3" json:"evm_relay_config,omitempty"`
 	// Populated when plugin_type == "median".
-	MedianPluginConfig *OCR2MedianPluginConfig `protobuf:"bytes,23,opt,name=median_plugin_config,json=medianPluginConfig,proto3" json:"median_plugin_config,omitempty"`
+	MedianPluginConfig *OCR2MedianPluginConfig `protobuf:"bytes,21,opt,name=median_plugin_config,json=medianPluginConfig,proto3" json:"median_plugin_config,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -416,13 +415,6 @@ func (x *OCR2OracleSpecInfo) GetSpecId() int32 {
 	return 0
 }
 
-func (x *OCR2OracleSpecInfo) GetContractId() string {
-	if x != nil {
-		return x.ContractId
-	}
-	return ""
-}
-
 func (x *OCR2OracleSpecInfo) GetFeedId() string {
 	if x != nil {
 		return x.FeedId
@@ -433,13 +425,6 @@ func (x *OCR2OracleSpecInfo) GetFeedId() string {
 func (x *OCR2OracleSpecInfo) GetRelay() string {
 	if x != nil {
 		return x.Relay
-	}
-	return ""
-}
-
-func (x *OCR2OracleSpecInfo) GetChainId() string {
-	if x != nil {
-		return x.ChainId
 	}
 	return ""
 }
@@ -686,7 +671,7 @@ type OCR1OracleSpecInfo struct {
 	SpecId                                        int32                  `protobuf:"varint,1,opt,name=spec_id,json=specId,proto3" json:"spec_id,omitempty"`
 	P2Pv2Bootstrappers                            []string               `protobuf:"bytes,2,rep,name=p2pv2_bootstrappers,json=p2pv2Bootstrappers,proto3" json:"p2pv2_bootstrappers,omitempty"`
 	IsBootstrapPeer                               bool                   `protobuf:"varint,3,opt,name=is_bootstrap_peer,json=isBootstrapPeer,proto3" json:"is_bootstrap_peer,omitempty"`
-	EncryptedOcrKeyBundleId                       string                 `protobuf:"bytes,4,opt,name=encrypted_ocr_key_bundle_id,json=encryptedOcrKeyBundleId,proto3" json:"encrypted_ocr_key_bundle_id,omitempty"`
+	OcrKeyBundleId                                string                 `protobuf:"bytes,4,opt,name=ocr_key_bundle_id,json=ocrKeyBundleId,proto3" json:"ocr_key_bundle_id,omitempty"`
 	TransmitterAddress                            string                 `protobuf:"bytes,5,opt,name=transmitter_address,json=transmitterAddress,proto3" json:"transmitter_address,omitempty"`
 	ObservationTimeoutSeconds                     float64                `protobuf:"fixed64,6,opt,name=observation_timeout_seconds,json=observationTimeoutSeconds,proto3" json:"observation_timeout_seconds,omitempty"`
 	BlockchainTimeoutSeconds                      float64                `protobuf:"fixed64,7,opt,name=blockchain_timeout_seconds,json=blockchainTimeoutSeconds,proto3" json:"blockchain_timeout_seconds,omitempty"`
@@ -754,9 +739,9 @@ func (x *OCR1OracleSpecInfo) GetIsBootstrapPeer() bool {
 	return false
 }
 
-func (x *OCR1OracleSpecInfo) GetEncryptedOcrKeyBundleId() string {
+func (x *OCR1OracleSpecInfo) GetOcrKeyBundleId() string {
 	if x != nil {
-		return x.EncryptedOcrKeyBundleId
+		return x.OcrKeyBundleId
 	}
 	return ""
 }
@@ -973,34 +958,31 @@ const file_job_spec_proto_rawDesc = "" +
 	"\bchain_id\x18\x1b \x01(\tR\achainId\x12I\n" +
 	"\x10ocr1_oracle_spec\x18\x1c \x01(\v2\x1f.job_spec.v1.OCR1OracleSpecInfoR\x0eocr1OracleSpecB\f\n" +
 	"\n" +
-	"_stream_id\"\x96\t\n" +
+	"_stream_id\"\xda\b\n" +
 	"\x12OCR2OracleSpecInfo\x12\x17\n" +
-	"\aspec_id\x18\x01 \x01(\x05R\x06specId\x12\x1f\n" +
-	"\vcontract_id\x18\x02 \x01(\tR\n" +
-	"contractId\x12\x17\n" +
-	"\afeed_id\x18\x03 \x01(\tR\x06feedId\x12\x14\n" +
-	"\x05relay\x18\x04 \x01(\tR\x05relay\x12\x19\n" +
-	"\bchain_id\x18\x05 \x01(\tR\achainId\x12\x1f\n" +
-	"\vplugin_type\x18\x06 \x01(\tR\n" +
+	"\aspec_id\x18\x01 \x01(\x05R\x06specId\x12\x17\n" +
+	"\afeed_id\x18\x02 \x01(\tR\x06feedId\x12\x14\n" +
+	"\x05relay\x18\x03 \x01(\tR\x05relay\x12\x1f\n" +
+	"\vplugin_type\x18\x04 \x01(\tR\n" +
 	"pluginType\x12%\n" +
-	"\x0etransmitter_id\x18\a \x01(\tR\rtransmitterId\x12)\n" +
-	"\x11ocr_key_bundle_id\x18\b \x01(\tR\x0eocrKeyBundleId\x12/\n" +
-	"\x13monitoring_endpoint\x18\t \x01(\tR\x12monitoringEndpoint\x12/\n" +
-	"\x13p2pv2_bootstrappers\x18\n" +
-	" \x03(\tR\x12p2pv2Bootstrappers\x124\n" +
-	"\x16allow_no_bootstrappers\x18\v \x01(\bR\x14allowNoBootstrappers\x12<\n" +
-	"\x1ablockchain_timeout_seconds\x18\f \x01(\x01R\x18blockchainTimeoutSeconds\x12_\n" +
-	"-contract_config_tracker_poll_interval_seconds\x18\r \x01(\x01R(contractConfigTrackerPollIntervalSeconds\x12B\n" +
-	"\x1dcontract_config_confirmations\x18\x0e \x01(\rR\x1bcontractConfigConfirmations\x120\n" +
-	"\x14capture_ea_telemetry\x18\x0f \x01(\bR\x12captureEaTelemetry\x12M\n" +
-	"#capture_automation_custom_telemetry\x18\x10 \x01(\bR captureAutomationCustomTelemetry\x12&\n" +
-	"\x0fspec_created_at\x18\x11 \x01(\tR\rspecCreatedAt\x12&\n" +
-	"\x0fspec_updated_at\x18\x12 \x01(\tR\rspecUpdatedAt\x12*\n" +
-	"\x11relay_config_json\x18\x13 \x01(\tR\x0frelayConfigJson\x12,\n" +
-	"\x12plugin_config_json\x18\x14 \x01(\tR\x10pluginConfigJson\x12A\n" +
-	"\x1donchain_signing_strategy_json\x18\x15 \x01(\tR\x1aonchainSigningStrategyJson\x12I\n" +
-	"\x10evm_relay_config\x18\x16 \x01(\v2\x1f.job_spec.v1.OCR2EVMRelayConfigR\x0eevmRelayConfig\x12U\n" +
-	"\x14median_plugin_config\x18\x17 \x01(\v2#.job_spec.v1.OCR2MedianPluginConfigR\x12medianPluginConfig\"\xfd\x02\n" +
+	"\x0etransmitter_id\x18\x05 \x01(\tR\rtransmitterId\x12)\n" +
+	"\x11ocr_key_bundle_id\x18\x06 \x01(\tR\x0eocrKeyBundleId\x12/\n" +
+	"\x13monitoring_endpoint\x18\a \x01(\tR\x12monitoringEndpoint\x12/\n" +
+	"\x13p2pv2_bootstrappers\x18\b \x03(\tR\x12p2pv2Bootstrappers\x124\n" +
+	"\x16allow_no_bootstrappers\x18\t \x01(\bR\x14allowNoBootstrappers\x12<\n" +
+	"\x1ablockchain_timeout_seconds\x18\n" +
+	" \x01(\x01R\x18blockchainTimeoutSeconds\x12_\n" +
+	"-contract_config_tracker_poll_interval_seconds\x18\v \x01(\x01R(contractConfigTrackerPollIntervalSeconds\x12B\n" +
+	"\x1dcontract_config_confirmations\x18\f \x01(\rR\x1bcontractConfigConfirmations\x120\n" +
+	"\x14capture_ea_telemetry\x18\r \x01(\bR\x12captureEaTelemetry\x12M\n" +
+	"#capture_automation_custom_telemetry\x18\x0e \x01(\bR captureAutomationCustomTelemetry\x12&\n" +
+	"\x0fspec_created_at\x18\x0f \x01(\tR\rspecCreatedAt\x12&\n" +
+	"\x0fspec_updated_at\x18\x10 \x01(\tR\rspecUpdatedAt\x12*\n" +
+	"\x11relay_config_json\x18\x11 \x01(\tR\x0frelayConfigJson\x12,\n" +
+	"\x12plugin_config_json\x18\x12 \x01(\tR\x10pluginConfigJson\x12A\n" +
+	"\x1donchain_signing_strategy_json\x18\x13 \x01(\tR\x1aonchainSigningStrategyJson\x12I\n" +
+	"\x10evm_relay_config\x18\x14 \x01(\v2\x1f.job_spec.v1.OCR2EVMRelayConfigR\x0eevmRelayConfig\x12U\n" +
+	"\x14median_plugin_config\x18\x15 \x01(\v2#.job_spec.v1.OCR2MedianPluginConfigR\x12medianPluginConfig\"\xfd\x02\n" +
 	"\x12OCR2EVMRelayConfig\x12\x19\n" +
 	"\bchain_id\x18\x01 \x01(\tR\achainId\x12\x1d\n" +
 	"\n" +
@@ -1012,12 +994,12 @@ const file_job_spec_proto_rawDesc = "" +
 	"llo_don_id\x18\x06 \x01(\x04R\blloDonId\x12\x17\n" +
 	"\afeed_id\x18\a \x01(\tR\x06feedId\x12!\n" +
 	"\fsending_keys\x18\b \x03(\tR\vsendingKeys\x12#\n" +
-	"\rprovider_type\x18\t \x01(\tR\fproviderType\"\xee\a\n" +
+	"\rprovider_type\x18\t \x01(\tR\fproviderType\"\xdb\a\n" +
 	"\x12OCR1OracleSpecInfo\x12\x17\n" +
 	"\aspec_id\x18\x01 \x01(\x05R\x06specId\x12/\n" +
 	"\x13p2pv2_bootstrappers\x18\x02 \x03(\tR\x12p2pv2Bootstrappers\x12*\n" +
-	"\x11is_bootstrap_peer\x18\x03 \x01(\bR\x0fisBootstrapPeer\x12<\n" +
-	"\x1bencrypted_ocr_key_bundle_id\x18\x04 \x01(\tR\x17encryptedOcrKeyBundleId\x12/\n" +
+	"\x11is_bootstrap_peer\x18\x03 \x01(\bR\x0fisBootstrapPeer\x12)\n" +
+	"\x11ocr_key_bundle_id\x18\x04 \x01(\tR\x0eocrKeyBundleId\x12/\n" +
 	"\x13transmitter_address\x18\x05 \x01(\tR\x12transmitterAddress\x12>\n" +
 	"\x1bobservation_timeout_seconds\x18\x06 \x01(\x01R\x19observationTimeoutSeconds\x12<\n" +
 	"\x1ablockchain_timeout_seconds\x18\a \x01(\x01R\x18blockchainTimeoutSeconds\x12i\n" +

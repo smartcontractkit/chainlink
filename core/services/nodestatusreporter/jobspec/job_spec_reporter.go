@@ -294,10 +294,8 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 
 	info := &events.OCR2OracleSpecInfo{
 		SpecId:                                   spec.ID,
-		ContractId:                               spec.ContractID,
 		FeedId:                                   feedID,
 		Relay:                                    spec.Relay,
-		ChainId:                                  spec.ChainID,
 		PluginType:                               string(spec.PluginType),
 		TransmitterId:                            spec.TransmitterID.ValueOrZero(),
 		OcrKeyBundleId:                           spec.OCRKeyBundleID.ValueOrZero(),
@@ -365,7 +363,7 @@ func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo
 		SpecId:                    spec.ID,
 		P2Pv2Bootstrappers:        spec.P2PV2Bootstrappers,
 		IsBootstrapPeer:           spec.IsBootstrapPeer,
-		EncryptedOcrKeyBundleId:   keyBundleID,
+		OcrKeyBundleId:            keyBundleID,
 		TransmitterAddress:        transmitterAddress,
 		ObservationTimeoutSeconds: spec.ObservationTimeout.Duration().Seconds(),
 		BlockchainTimeoutSeconds:  spec.BlockchainTimeout.Duration().Seconds(),

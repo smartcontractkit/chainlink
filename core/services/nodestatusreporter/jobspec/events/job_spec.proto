@@ -46,7 +46,7 @@ message JobSpecEvent {
   string timestamp = 25;
 
   // Primary on-chain contract — populated for single-contract job types
-  // (OCR1, OCR2, Flux Monitor, Keeper). For OCR2, copied from ocr2_oracle_spec.
+  // (OCR1, OCR2, Flux Monitor, Keeper).
   string contract_address = 26;
   string chain_id = 27;
 
@@ -63,37 +63,36 @@ enum EmissionTrigger {
 }
 
 // OCR2OracleSpecInfo mirrors job.OCR2OracleSpec.
+// contract_id and chain_id live on the parent JobSpecEvent.
 message OCR2OracleSpecInfo {
   int32  spec_id = 1;
-  string contract_id = 2;
-  string feed_id = 3;
-  string relay = 4;
-  string chain_id = 5;
-  string plugin_type = 6;
-  string transmitter_id = 7;
-  string ocr_key_bundle_id = 8;
-  string monitoring_endpoint = 9;
-  repeated string p2pv2_bootstrappers = 10;
-  bool   allow_no_bootstrappers = 11;
-  double blockchain_timeout_seconds = 12;
-  double contract_config_tracker_poll_interval_seconds = 13;
-  uint32 contract_config_confirmations = 14;
-  bool   capture_ea_telemetry = 15;
-  bool   capture_automation_custom_telemetry = 16;
-  string spec_created_at = 17;
-  string spec_updated_at = 18;
+  string feed_id = 2;
+  string relay = 3;
+  string plugin_type = 4;
+  string transmitter_id = 5;
+  string ocr_key_bundle_id = 6;
+  string monitoring_endpoint = 7;
+  repeated string p2pv2_bootstrappers = 8;
+  bool   allow_no_bootstrappers = 9;
+  double blockchain_timeout_seconds = 10;
+  double contract_config_tracker_poll_interval_seconds = 11;
+  uint32 contract_config_confirmations = 12;
+  bool   capture_ea_telemetry = 13;
+  bool   capture_automation_custom_telemetry = 14;
+  string spec_created_at = 15;
+  string spec_updated_at = 16;
 
   // Raw JSON passthroughs — always populated; authoritative over the typed
   // sub-messages below.
-  string relay_config_json = 19;
-  string plugin_config_json = 20;
-  string onchain_signing_strategy_json = 21;
+  string relay_config_json = 17;
+  string plugin_config_json = 18;
+  string onchain_signing_strategy_json = 19;
 
   // Populated when relay == "evm".
-  OCR2EVMRelayConfig evm_relay_config = 22;
+  OCR2EVMRelayConfig evm_relay_config = 20;
 
   // Populated when plugin_type == "median".
-  OCR2MedianPluginConfig median_plugin_config = 23;
+  OCR2MedianPluginConfig median_plugin_config = 21;
 }
 
 // OCR2EVMRelayConfig is a typed view of the EVM relay config JSON.
@@ -115,7 +114,7 @@ message OCR1OracleSpecInfo {
   int32  spec_id = 1;
   repeated string p2pv2_bootstrappers = 2;
   bool   is_bootstrap_peer = 3;
-  string encrypted_ocr_key_bundle_id = 4;
+  string ocr_key_bundle_id = 4;
   string transmitter_address = 5;
   double observation_timeout_seconds = 6;
   double blockchain_timeout_seconds = 7;
