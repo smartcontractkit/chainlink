@@ -49,26 +49,6 @@ var (
 	minute        = *commoncfg.MustNewDuration(time.Minute)
 	selectionMode = multinode.NodeSelectionModeHighestHead
 
-	multiNodeRaw = map[string]any{
-		"Enabled":                      false,
-		"PollFailureThreshold":         int64(5),
-		"PollInterval":                 "1s",
-		"SelectionMode":                "HighestHead",
-		"SyncThreshold":                int64(5),
-		"NodeIsSyncingEnabled":         false,
-		"LeaseDuration":                "1m0s",
-		"NewHeadsPollInterval":         "1s",
-		"FinalizedBlockPollInterval":   "1s",
-		"EnforceRepeatableRead":        true,
-		"DeathDeclarationDelay":        "1m0s",
-		"VerifyChainID":                true,
-		"NodeNoNewHeadsThreshold":      "1m0s",
-		"NoNewFinalizedHeadsThreshold": "1m0s",
-		"FinalityDepth":                int64(0),
-		"FinalityTagEnabled":           true,
-		"FinalizedBlockOffset":         int64(0),
-	}
-
 	multiChain = Config{
 		Core: toml.Core{
 			RootDir: ptr("my/root/dir"),
@@ -172,24 +152,6 @@ var (
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
-		},
-		Solana: RawConfigs{
-			{
-				"ChainID":    "mainnet",
-				"MaxRetries": int64(12),
-				"MultiNode":  multiNodeRaw,
-				"Nodes": []any{
-					map[string]any{"Name": "primary", "URL": "http://mainnet.solana.com", "SendOnly": false, "Order": int64(1)},
-				},
-			},
-			{
-				"ChainID":             "testnet",
-				"OCR2CachePollPeriod": "1m0s",
-				"MultiNode":           multiNodeRaw,
-				"Nodes": []any{
-					map[string]any{"Name": "secondary", "URL": "http://testnet.solana.com", "SendOnly": false, "Order": int64(2)},
-				},
-			},
 		},
 	}
 )
@@ -851,54 +813,6 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = RawConfigs{
-		{
-			"ChainID":                   "mainnet",
-			"Enabled":                   false,
-			"BlockTime":                 "500ms",
-			"BalancePollPeriod":         "1m0s",
-			"ConfirmPollPeriod":         "1s",
-			"OCR2CachePollPeriod":       "1m0s",
-			"OCR2CacheTTL":              "1h0m0s",
-			"TxTimeout":                 "1h0m0s",
-			"TxRetryTimeout":            "1m0s",
-			"TxConfirmTimeout":          "1s",
-			"TxExpirationRebroadcast":   false,
-			"TxRetentionTimeout":        "0s",
-			"SkipPreflight":             true,
-			"Commitment":                "banana",
-			"MaxRetries":                int64(7),
-			"FeeEstimatorMode":          "fixed",
-			"ComputeUnitPriceMax":       int64(1000),
-			"ComputeUnitPriceMin":       int64(10),
-			"ComputeUnitPriceDefault":   int64(100),
-			"FeeBumpPeriod":             "1m0s",
-			"BlockHistoryPollPeriod":    "1m0s",
-			"BlockHistorySize":          int64(1),
-			"BlockHistoryBatchLoadSize": int64(20),
-			"ComputeUnitLimitDefault":   int64(100_000),
-			"EstimateComputeUnitLimit":  false,
-			"LogPollerStartingLookback": "24h0m0s",
-			"LogPollerCPIEventsEnabled": true,
-			"LogPollerSlotsBatchSize":   int64(100),
-			"MultiNode":                 multiNodeRaw,
-			"Workflow": map[string]any{
-				"AcceptanceTimeout": "45s",
-				"ForwarderAddress":  "14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5",
-				"ForwarderState":    "14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5",
-				"FromAddress":       "4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e",
-				"GasLimitDefault":   int64(0),
-				"Local":             true,
-				"PollPeriod":        "3s",
-				"TxAcceptanceState": int64(commontypes.Finalized),
-			},
-			"Nodes": []any{
-				map[string]any{"Name": "primary", "URL": "http://solana.web", "SendOnly": false, "Order": int64(1)},
-				map[string]any{"Name": "foo", "URL": "http://solana.foo", "SendOnly": true, "Order": int64(2)},
-				map[string]any{"Name": "bar", "URL": "http://solana.bar", "SendOnly": true, "Order": int64(3)},
-			},
-		},
-	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
 			LatestReportTTL:      commoncfg.MustNewDuration(100 * time.Second),
@@ -1353,83 +1267,6 @@ HTTPURL = 'https://bar.com'
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
-`},
-		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
-BalancePollPeriod = '1m0s'
-BlockHistoryBatchLoadSize = 20
-BlockHistoryPollPeriod = '1m0s'
-BlockHistorySize = 1
-BlockTime = '500ms'
-ChainID = 'mainnet'
-Commitment = 'banana'
-ComputeUnitLimitDefault = 100000
-ComputeUnitPriceDefault = 100
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 10
-ConfirmPollPeriod = '1s'
-Enabled = false
-EstimateComputeUnitLimit = false
-FeeBumpPeriod = '1m0s'
-FeeEstimatorMode = 'fixed'
-LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 100
-LogPollerStartingLookback = '24h0m0s'
-MaxRetries = 7
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-SkipPreflight = true
-TxConfirmTimeout = '1s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-TxRetryTimeout = '1m0s'
-TxTimeout = '1h0m0s'
-
-[Solana.MultiNode]
-DeathDeclarationDelay = '1m0s'
-Enabled = false
-EnforceRepeatableRead = true
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 0
-FinalizedBlockPollInterval = '1s'
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '1s'
-NoNewFinalizedHeadsThreshold = '1m0s'
-NodeIsSyncingEnabled = false
-NodeNoNewHeadsThreshold = '1m0s'
-PollFailureThreshold = 5
-PollInterval = '1s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-VerifyChainID = true
-
-[[Solana.Nodes]]
-Name = 'primary'
-Order = 1
-SendOnly = false
-URL = 'http://solana.web'
-
-[[Solana.Nodes]]
-Name = 'foo'
-Order = 2
-SendOnly = true
-URL = 'http://solana.foo'
-
-[[Solana.Nodes]]
-Name = 'bar'
-Order = 3
-SendOnly = true
-URL = 'http://solana.bar'
-
-[Solana.Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
-GasLimitDefault = 0
-Local = true
-PollPeriod = '3s'
-TxAcceptanceState = 3
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
