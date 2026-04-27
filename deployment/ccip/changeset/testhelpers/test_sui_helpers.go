@@ -353,22 +353,29 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		typeArgsListLinkTokenPkgID := []string{linkTokenPkgID + "::link::LINK"}
 		typeParamsList = []string{}
 
+		// Split the source coin to the exact requested amount. Without this the entire
+		// coin object is passed to lock_or_burn regardless of Amount.
+		splitCoinArg := ptb.SplitCoins(
+			ptb.Object(msg.TokenAmounts[0].Token),
+			[]suitx.Argument{ptb.Pure(msg.TokenAmounts[0].Amount)},
+		)
+
 		var paramValuesLockBurn []any
 		switch msg.TokenAmounts[0].TokenPoolType {
 		case sui_deployment.TokenPoolTypeBurnMint:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to send to EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},                  // clock
 				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
 			}
 		case sui_deployment.TokenPoolTypeManaged:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to send to EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},   // clock
 				suiBind.Object{Id: "0x403"}, // deny list
@@ -377,9 +384,9 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			}
 		case sui_deployment.TokenPoolTypeLockRelease:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // locked token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to lock for EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},                  // clock
 				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id
