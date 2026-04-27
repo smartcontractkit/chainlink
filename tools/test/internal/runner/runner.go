@@ -188,6 +188,9 @@ func parseDiagnoseGoTestCount(goTestArgs []string) (set bool, n int, err error) 
 			if e != nil {
 				return false, 0, fmt.Errorf("invalid -count value %q: %w", v, e)
 			}
+			if num < 1 {
+				return false, 0, fmt.Errorf("invalid go test arguments: -count must be a positive integer, got %d", num)
+			}
 			set = true
 			n = num
 			continue
@@ -200,6 +203,9 @@ func parseDiagnoseGoTestCount(goTestArgs []string) (set bool, n int, err error) 
 			num, e := strconv.Atoi(strings.TrimSpace(args[i]))
 			if e != nil {
 				return false, 0, fmt.Errorf("invalid -count value %q: %w", args[i], e)
+			}
+			if num < 1 {
+				return false, 0, fmt.Errorf("invalid go test arguments: -count must be a positive integer, got %d", num)
 			}
 			set = true
 			n = num
@@ -251,9 +257,12 @@ func filterDiagnoseUserGoTestArgs(args []string) []string {
 }
 
 // buildDiagnoseArgs constructs the `go test` argv for a single diagnose iteration.
-func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) []string {
+func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) ([]string, error) {
 	filtered := filterDiagnoseUserGoTestArgs(goTestArgs)
-	set, n, _ := parseDiagnoseGoTestCount(goTestArgs)
+	set, n, err := parseDiagnoseGoTestCount(goTestArgs)
+	if err != nil {
+		return nil, err
+	}
 	args := []string{"test", "-json"}
 	args = append(args, filtered...)
 	if shuffleSeed != 0 {
@@ -262,7 +271,7 @@ func buildDiagnoseArgs(goTestArgs []string, shuffleSeed int64) []string {
 	if !set || n <= 1 {
 		args = append(args, "-count=1")
 	}
-	return args
+	return args, nil
 }
 
 // syncedWriter serializes writes to w so stdout and stderr from `go test` can
@@ -287,7 +296,10 @@ func diagnoseIteration(ctx context.Context, conf *config.App, resultsDir string,
 	}
 	defer resultsFile.Close()
 
-	args := buildDiagnoseArgs(goTestArgs, shuffleSeed)
+	args, err := buildDiagnoseArgs(goTestArgs, shuffleSeed)
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
 	cmd.Stdin = os.Stdin

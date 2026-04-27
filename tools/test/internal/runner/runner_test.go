@@ -78,6 +78,9 @@ func TestParseDiagnoseGoTestCount(t *testing.T) {
 		{name: "count after -args ignored", args: []string{"-v", "-args", "-count=50"}, wantSet: false, wantN: 0, wantErr: false},
 		{name: "invalid count value", args: []string{"-count=maybe"}, wantErr: true},
 		{name: "-count without value", args: []string{"-count"}, wantErr: true},
+		{name: "count zero", args: []string{"-count=0", "./..."}, wantErr: true},
+		{name: "count negative", args: []string{"-count=-1", "./..."}, wantErr: true},
+		{name: "count zero spaced", args: []string{"-count", "0"}, wantErr: true},
 	}
 
 	for _, tc := range tests {
@@ -119,6 +122,14 @@ func TestWarnDiagnoseGoTestCount(t *testing.T) {
 		require.NoError(t, WarnDiagnoseGoTestCount(&buf, []string{"./..."}))
 		assert.Empty(t, strings.TrimSpace(buf.String()))
 	})
+
+	t.Run("invalid non positive count", func(t *testing.T) {
+		t.Parallel()
+		var buf strings.Builder
+		err := WarnDiagnoseGoTestCount(&buf, []string{"-count=0", "./..."})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "positive integer")
+	})
 }
 
 func TestBuildDiagnoseArgs(t *testing.T) {
@@ -129,6 +140,7 @@ func TestBuildDiagnoseArgs(t *testing.T) {
 		goTestArgs  []string
 		shuffleSeed int64
 		want        []string
+		wantErr     bool
 	}{
 		{
 			name:       "passthrough flags and package",
@@ -162,12 +174,22 @@ func TestBuildDiagnoseArgs(t *testing.T) {
 			goTestArgs: []string{"-count=1", "./pkg"},
 			want:       []string{"test", "-json", "-count=1", "./pkg", "-count=1"},
 		},
+		{
+			name:       "reject count zero",
+			goTestArgs: []string{"-count=0", "./pkg"},
+			wantErr:    true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := buildDiagnoseArgs(tc.goTestArgs, tc.shuffleSeed)
+			got, err := buildDiagnoseArgs(tc.goTestArgs, tc.shuffleSeed)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 			assert.Equal(t, tc.want, got)
 		})
 	}

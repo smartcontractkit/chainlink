@@ -311,11 +311,16 @@ func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 			if !ok || len(m) == 0 {
 				continue
 			}
-			paths := make([]string, 0, len(m))
+			iterations := make([]int, 0, len(m))
 			for it, out := range m {
-				if out == "" {
-					continue
+				if out != "" {
+					iterations = append(iterations, it)
 				}
+			}
+			sort.Ints(iterations)
+			paths := make([]string, 0, len(iterations))
+			for _, it := range iterations {
+				out := m[it]
 				name := fmt.Sprintf("%s__%s__iter-%d.log",
 					sanitize(shortPackage(entry.Package)), sanitize(entry.Test), it)
 				abs := filepath.Join(logsDir, name)

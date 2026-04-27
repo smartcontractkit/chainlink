@@ -55,7 +55,8 @@ func TestWriteLogFilesWritesEachIterationWithOutput(t *testing.T) {
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
 	require.Len(t, rep.Flakes[0].LogFiles, 2)
-	assert.ElementsMatch(t,
+	// Iteration order in report must be stable (sorted by iteration index).
+	assert.Equal(t,
 		[]string{"logs/p__T__iter-0.log", "logs/p__T__iter-1.log"},
 		rep.Flakes[0].LogFiles)
 
