@@ -366,6 +366,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			"callerDonId", msg.CallerDonId, "minRequired", minRequired, "sender", sender)
 		delete(p.registrations, key)
 		p.unregisterCache.Delete(key)
+		p.messageCache.Delete(key)
 		p.mu.Unlock()
 
 		reg.cancel()
@@ -464,43 +465,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			return
 		case <-ticker.C:
 			cfg := p.cfg.Load()
-			// Update cleanup interval if config has changed
 			if cfg.remoteConfig.MessageExpiry != cleanupInterval {
 				cleanupInterval = cfg.remoteConfig.MessageExpiry
 				ticker.Reset(cleanupInterval)
 			}
 			now := time.Now().UnixMilli()
 
+			// Registrations are no longer expired by timeout. Subscribers that
+			// no longer want a registration respond to MethodTriggerRegistrationCheck
+			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			for key, reg := range p.registrations {
-				callerDon := cfg.workflowDONs[key.callerDonID]
-				ready, _ := p.messageCache.Ready(key, uint32(2*callerDon.F+1), now-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
-				if !ready {
-					p.lggr.Infow("trigger registration expired", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID)
-					if reg.registrationErr == nil {
-						ctx, cancel := p.stopCh.NewCtx()
-						err := cfg.underlying.UnregisterTrigger(ctx, reg.request)
-						cancel()
-						reg.cancel()
-						unregAttrs := metric.WithAttributes(
-							attribute.String("capabilityID", p.capabilityID),
-							attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
-						)
-						if err != nil {
-							p.metrics.unregisterTriggerCounter.Add(ctx, 1, unregAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
-						} else {
-							p.metrics.unregisterTriggerCounter.Add(ctx, 1, unregAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
-						}
-						p.lggr.Infow("unregistered trigger", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", err)
-					} else {
-						p.lggr.Debugw("removing failed user-error registration from local state", "callerDonID", key.callerDonID, "workflowId", key.workflowID, "triggerID", key.triggerID, "err", reg.registrationErr)
-					}
-					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
-					delete(p.registrations, key)
-					p.messageCache.Delete(key)
-				}
-			}
-
 			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
 			p.mu.Unlock()
 
@@ -684,6 +658,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 
 		ackSnapshot := make(map[string]map[p2ptypes.PeerID]bool)
 		p.mu.RLock()
+		// determine which triggerIDs / workflowIDs have not yet ACKd this trigger event
 		for _, triggerID := range triggerBatch {
 			key := ackKey{
 				callerDonID:    resp.callerDonID,
