@@ -9,10 +9,17 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
 
-// Same compose/docker pins as system-tests/lib.
-replace github.com/docker/cli => github.com/docker/cli v28.0.4+incompatible
+// Docker/Compose pins mirror system-tests/lib and keep Compose, Buildx, BuildKit,
+// and Docker CLI APIs aligned. Remove when the graph selects compatible versions.
+replace github.com/docker/cli => github.com/docker/cli v28.5.1+incompatible
 
-replace github.com/docker/buildx => github.com/docker/buildx v0.22.0
+replace github.com/docker/buildx => github.com/docker/buildx v0.29.1
+
+replace github.com/docker/compose/v2 => github.com/docker/compose/v2 v2.40.2
+
+replace github.com/moby/buildkit => github.com/moby/buildkit v0.25.1
+
+replace github.com/compose-spec/compose-go/v2 => github.com/compose-spec/compose-go/v2 v2.9.0
 
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
@@ -164,8 +171,6 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/serialx/hashring v0.0.0-20200727003509-22c0c7ab6b1b // indirect
-	github.com/sigstore/sigstore v1.10.4 // indirect
-	github.com/sigstore/sigstore-go v1.1.4 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260415165642-49f23e4d76cc // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc // indirect
@@ -183,9 +188,6 @@ require (
 	github.com/stellar/go-stellar-sdk v0.1.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20231122183749-b53fb00bcac2 // indirect
 	github.com/theupdateframework/notary v0.7.0 // indirect
-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
-	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/zclconf/go-cty v1.17.0 // indirect
 	go.opentelemetry.io/collector/internal/componentalias v0.148.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect

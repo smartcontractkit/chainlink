@@ -11,9 +11,12 @@ replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-t
 
 replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
 
+// chainlink-ccv still uses the pre-v1 tablewriter API. Remove when that dependency
+// updates its tablewriter calls or pins a compatible version itself.
 replace github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.5
 
-// Docker/Compose pins keep this module's transitive toolchain versions compatible.
+// Docker/Compose pins keep Compose, Buildx, BuildKit, and Docker CLI APIs aligned.
+// Remove when the transitive graph selects mutually compatible versions without replaces.
 replace github.com/docker/cli => github.com/docker/cli v28.5.1+incompatible
 
 replace github.com/docker/buildx => github.com/docker/buildx v0.29.1
@@ -326,7 +329,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/certificate-transparency-go v1.3.2 // indirect
 	github.com/google/flatbuffers v25.2.10+incompatible // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-github/v72 v72.0.0 // indirect
