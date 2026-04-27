@@ -319,10 +319,10 @@ ReceiverBufferSize = 10000
 SendToSharedPeer = false
 
 [Capabilities.Dispatcher.RateLimit]
-GlobalRPS = 1000.0
-GlobalBurst = 1500
-PerSenderRPS = 200.0
-PerSenderBurst = 300
+GlobalRPS = 800.0
+GlobalBurst = 1000
+PerSenderRPS = 10.0
+PerSenderBurst = 50
 
 [Capabilities.ExternalRegistry]
 Address = ''

@@ -567,13 +567,13 @@ SendToSharedPeer = false # Default
 
 [Capabilities.Dispatcher.RateLimit]
 # GlobalRPS is the global rate limit for the dispatcher.
-GlobalRPS = 1000 # Default
+GlobalRPS = 800 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
-GlobalBurst = 1500 # Default
+GlobalBurst = 1000 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 200 # Default
+PerSenderRPS = 10 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 300 # Default
+PerSenderBurst = 50 # Default
 
 [Capabilities.Peering]
 # IncomingMessageBufferSize is the per-remote number of incoming
