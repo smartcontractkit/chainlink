@@ -77,7 +77,7 @@ func TestRenderDiagnoseProgressLine_smoke(t *testing.T) {
 	var b strings.Builder
 	p := newDiagnoseProgress(10)
 	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
-	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, false)
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
 	require.Contains(t, b.String(), "iter 1/3")
 	require.Contains(t, b.String(), "1/10 10%")
 	require.Contains(t, b.String(), "✅")
@@ -88,7 +88,15 @@ func TestRenderDiagnoseProgressLine_inProgressShowsHourglass(t *testing.T) {
 	var b strings.Builder
 	p := newDiagnoseProgress(10)
 	p.onTestJSONLine([]byte(`{"Action":"run","Package":"demo/pkg","Test":"TestX"}`))
-	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, false)
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
 	require.Contains(t, b.String(), "⌛")
 	require.NotContains(t, b.String(), "✅")
+}
+
+func TestRenderDiagnoseProgressLine_notTTY(t *testing.T) {
+	var b strings.Builder
+	p := newDiagnoseProgress(10)
+	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, false)
+	require.Empty(t, b.String())
 }

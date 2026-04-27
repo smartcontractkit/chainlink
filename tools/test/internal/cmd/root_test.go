@@ -33,7 +33,7 @@ func TestSubcommandCommandPaths(t *testing.T) {
 	if gotestsum == nil {
 		t.Fatal("gotestsum subcommand not found")
 	}
-	want := "go -C tools/test gotestsum"
+	want := "go -C tools/test run . gotestsum"
 	if got := gotestsum.CommandPath(); got != want {
 		t.Fatalf("gotestsum CommandPath: got %q want %q", got, want)
 	}

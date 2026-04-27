@@ -27,7 +27,7 @@ Modes:
 - gotestsum: Run tests using gotestsum for those that prefer its output and tools
 - diagnose: Run tests multiple times to collect statistics, debug logs, and more to help find flakes, races, panics, timeouts, and other issues`,
 	Annotations: map[string]string{
-		cobra.CommandDisplayNameAnnotation: "go -C tools/test",
+		cobra.CommandDisplayNameAnnotation: "go -C tools/test run .",
 	},
 	Example: `# Use vanilla go test commands
 go -C tools/test run . run -v -count=1 -p 4 ./core/...

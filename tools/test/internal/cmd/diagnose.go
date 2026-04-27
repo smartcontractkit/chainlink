@@ -13,7 +13,7 @@ import (
 )
 
 var diagnoseCmd = &cobra.Command{
-	Use:   "diagnose [flags] -- [go test arguments]",
+	Use:   "diagnose [--diagnose flags] [-- go test flags]",
 	Short: "Run /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more",
 	Long: `Runs /chainlink unit tests multiple times to hunt down flakes, races, timeouts, and more.
 
@@ -23,7 +23,7 @@ when you omit -count or use -count=1. Prefer diagnose --iterations for repetitio
 use -count>1 to repeat inside one go test (e.g. to reduce DB setup/teardown between diagnose
 iterations). With --shuffle-seed, a per-iteration -shuffle=<seed> is appended.`,
 	Example: `# Run the full core test suite 10 times.
-go -C tools/test diagnose --iterations 10 -- ./core/...`,
+go -C tools/test run . diagnose --iterations 10 -- ./core/...`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
