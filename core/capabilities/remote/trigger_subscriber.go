@@ -359,6 +359,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			return
 		}
 
+		s.lggr.Infow("received registration check", "sender", sender)
 		for i, workflowID := range meta.WorkflowIds {
 			triggerID := meta.TriggerIds[i]
 
@@ -368,6 +369,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			s.mu.RUnlock()
 
 			if !reg {
+				s.lggr.Infow("sending unregister in response to registration check", "workflowID", workflowID, "triggerID", triggerID)
 				// Registration was removed locally — tell the publisher to clean up.
 				s.sendUnregister(workflowID, triggerID)
 			}
