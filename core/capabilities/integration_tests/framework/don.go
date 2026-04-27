@@ -139,6 +139,9 @@ type DON struct {
 	fakeLibOcr                   *FakeLibOCR
 	addOCR3NonStandardCapability bool
 
+	fakeLibOcrOCR3_1               *FakeLibOCR_OCR3_1
+	addOCR3_1NonStandardCapability bool
+
 	triggerFactories []TriggerFactory
 	targetFactories  []TargetFactory
 }
@@ -152,6 +155,11 @@ func NewDON(ctx context.Context, t *testing.T, lggr logger.Logger, donConfig Don
 		// This is required to support the non standard OCR3 capability - will be removed when required OCR3 behaviour is implemented as standard capabilities
 		don.fakeLibOcr = NewFakeLibOCR(t, lggr, donConfig.F, protocolRoundInterval)
 		servicetest.Run(t, don.fakeLibOcr)
+
+		// OCR3_1 sibling fake harness — opt-in via AddOCR3_1NonStandardCapability.
+		// v1 only drives Query (see fake_libocr_ocr3_1.go for scope).
+		don.fakeLibOcrOCR3_1 = NewFakeLibOCR_OCR3_1(t, lggr, donConfig.F, protocolRoundInterval)
+		servicetest.Run(t, don.fakeLibOcrOCR3_1)
 	}
 
 	for i, member := range donConfig.Members {
@@ -310,6 +318,16 @@ func (d *DON) Start(ctx context.Context) error {
 
 		for _, node := range d.nodes {
 			addOCR3Capability(ctx, d.t, d.lggr, node.registry, d.fakeLibOcr, d.config.F, node.KeyBundle)
+		}
+	}
+
+	if d.addOCR3_1NonStandardCapability {
+		if d.fakeLibOcrOCR3_1 == nil {
+			return errors.New("don does not support OCR")
+		}
+
+		for _, node := range d.nodes {
+			addOCR3_1Capability(ctx, d.t, d.lggr, node.registry, d.fakeLibOcrOCR3_1, d.config.F, node.KeyBundle)
 		}
 	}
 
@@ -546,6 +564,27 @@ func (d *DON) AddOCR3NonStandardCapability() {
 	})
 }
 
+// AddOCR3_1NonStandardCapability is the OCR3_1 sibling of
+// AddOCR3NonStandardCapability. Mirrors the same registry shape (legacy
+// non-standard internal-only capability); the only behavioral difference is
+// the underlying plugin implements ocr3_1types.ReportingPluginFactory instead
+// of OCR3's. Tests should pick OCR3 OR OCR3_1 per DON, not both.
+func (d *DON) AddOCR3_1NonStandardCapability() {
+	d.addOCR3_1NonStandardCapability = true
+
+	ocr := kcr.CapabilitiesRegistryCapability{
+		LabelledName:   "offchain_reporting",
+		Version:        "1.0.0",
+		CapabilityType: uint8(registrysyncer.ContractCapabilityTypeConsensus),
+	}
+
+	d.publishedCapabilities = append(d.publishedCapabilities, capability{
+		donCapabilityConfig: newCapabilityConfig(),
+		registryConfig:      ocr,
+		internalOnly:        true,
+	})
+}
+
 func (d *DON) AddPublishedEthereumWriteTargetNonStandardCapability(forwarderAddr common.Address) (string, error) {
 	published := true
 
@@ -637,4 +676,35 @@ func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, ca
 	transmitter := ocr3.NewContractTransmitter(lggr, capabilityRegistry, "")
 
 	libocr.AddNode(plugin, transmitter, ocr2KeyBundle)
+}
+
+// addOCR3_1Capability mirrors addOCR3Capability for the OCR3_1 plugin. It
+// constructs the OCR3_1 capability via chainlink-common's NewOCR3_1, registers
+// the underlying capability with the per-node registry, and adds the node to
+// the OCR3_1 fake libocr harness for the v1 Query-only protocol cycle.
+func addOCR3_1Capability(ctx context.Context, t *testing.T, lggr logger.Logger, capabilityRegistry *capabilities.Registry,
+	libocr *FakeLibOCR_OCR3_1, donF uint8, ocr2KeyBundle ocr2key.KeyBundle) {
+	requestTimeout := 10 * time.Minute
+	cfg := ocr3.Config{
+		Logger:            lggr,
+		EncoderFactory:    capabilities.NewEncoder,
+		AggregatorFactory: capabilities.NewAggregator,
+		RequestTimeout:    &requestTimeout,
+	}
+
+	ocr3_1Capability := ocr3.NewOCR3_1(cfg)
+	servicetest.Run(t, ocr3_1Capability)
+
+	pluginCfg := coretypes.ReportingPluginServiceConfig{}
+	pluginFactory, err := ocr3_1Capability.NewReportingPluginFactoryOCR3_1(ctx, pluginCfg, capabilityRegistry)
+	require.NoError(t, err)
+
+	repConfig := ocr3types.ReportingPluginConfig{
+		F: int(donF),
+	}
+	plugin, _, err := pluginFactory.NewReportingPlugin(ctx, repConfig, stubBlobBroadcastFetcher{})
+	require.NoError(t, err)
+
+	_, err = libocr.AddNode(plugin, ocr2KeyBundle)
+	require.NoError(t, err)
 }
