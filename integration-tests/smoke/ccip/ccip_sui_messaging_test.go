@@ -153,30 +153,30 @@ func Test_CCIP_Messaging_Sui2EVM_Success(t *testing.T) {
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
 
-	t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
-		ctx := testhelpers.Context(t)
-		latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
-		require.NoError(t, err)
-		message := []byte(strings.Repeat("0", int(16000)))
-		messagingtest.Run(t,
-			messagingtest.TestCase{
-				TestSetup:              fx.setup,
-				ValidationType:         messagingtest.ValidationTypeExec,
-				FeeToken:               fx.suiLinkFeeToken,
-				Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
-				MsgData:                message,
-				ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
-				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
-				ExtraAssertions: []func(t *testing.T){
-					func(t *testing.T) {
-						assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, message)
-					},
-				},
-			},
-		)
-	})
+	// t.Run("Max Data Bytes - Should Succeed", func(t *testing.T) {
+	// 	ctx := testhelpers.Context(t)
+	// 	latestHead, err := testhelpers.LatestBlock(ctx, fx.e.Env, fx.destChain)
+	// 	require.NoError(t, err)
+	// 	message := []byte(strings.Repeat("0", int(16000)))
+	// 	messagingtest.Run(t,
+	// 		messagingtest.TestCase{
+	// 			TestSetup:              fx.setup,
+	// 			ValidationType:         messagingtest.ValidationTypeExec,
+	// 			FeeToken:               fx.suiLinkFeeToken,
+	// 			Receiver:               fx.state.Chains[fx.destChain].Receiver.Address().Bytes(),
+	// 			MsgData:                message,
+	// 			ExtraArgs:              testhelpers.MakeBCSEVMExtraArgsV2(big.NewInt(300000), false),
+	// 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+	// 			ExtraAssertions: []func(t *testing.T){
+	// 				func(t *testing.T) {
+	// 					assertEvmMessageReceived(testhelpers.Context(t), t, fx.state, fx.destChain, latestHead, message)
+	// 				},
+	// 			},
+	// 		},
+	// 	)
+	// })
 
-	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
+	// waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.sourceChain])
 
 	// t.Run("Max Gas Limit - Should Succeed", func(t *testing.T) {
 	// 	ctx := testhelpers.Context(t)

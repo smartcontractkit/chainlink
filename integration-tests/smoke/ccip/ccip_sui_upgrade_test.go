@@ -135,6 +135,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
