@@ -9,8 +9,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/integration-tests => ../
 
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
-
 require (
 	github.com/aptos-labs/aptos-go-sdk v1.12.1
 	github.com/ethereum/go-ethereum v1.17.2
@@ -403,7 +401,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
-	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
@@ -544,8 +541,8 @@ require (
 	github.com/suzuki-shunsuke/go-convmap v0.2.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/testcontainers/testcontainers-go v0.41.0 // indirect
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0 // indirect
+	github.com/testcontainers/testcontainers-go v0.42.0 // indirect
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

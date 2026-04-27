@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink/devenv
 
 go 1.26.2
 
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
-
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/avast/retry-go/v4 v4.7.0

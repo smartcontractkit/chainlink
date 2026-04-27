@@ -7,8 +7,6 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
-
 require (
 	github.com/AlekSi/pointer v1.1.0
 	github.com/aptos-labs/aptos-go-sdk v1.12.1
@@ -51,7 +49,7 @@ require (
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618
 	github.com/stretchr/testify v1.11.1
 	github.com/subosito/gotenv v1.6.0
-	github.com/testcontainers/testcontainers-go v0.41.0
+	github.com/testcontainers/testcontainers-go v0.42.0
 	github.com/xssnick/tonutils-go v1.14.1
 	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
@@ -341,6 +339,8 @@ require (
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
+	github.com/moby/moby/api v1.54.1 // indirect
+	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
@@ -351,7 +351,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
-	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
@@ -453,7 +452,7 @@ require (
 	github.com/suzuki-shunsuke/go-convmap v0.2.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0 // indirect
+	github.com/testcontainers/testcontainers-go/modules/postgres v0.42.0 // indirect
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

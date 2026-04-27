@@ -2,9 +2,6 @@ module github.com/smartcontractkit/chainlink/devenv/fakes
 
 go 1.26.2
 
-// docker/docker pkg/archive references moby/go-archive types; v0.2.0 breaks archive.Compression resolution.
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0
-
 require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/rs/zerolog v1.34.0
