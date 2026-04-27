@@ -356,6 +356,7 @@ func (e *evmService) CalculateTransactionFee(ctx context.Context, receipt evm.Re
 	txFee := e.chain.TxManager().CalculateFee(txmgr.FeeParts{
 		GasUsed:           receipt.GasUsed,
 		EffectiveGasPrice: receipt.EffectiveGasPrice,
+		L1Fee:             receipt.L1Fee,
 	})
 	return &evm.TransactionFee{
 		TransactionFee: txFee,
