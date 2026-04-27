@@ -70,7 +70,7 @@ jobs:
           SHOULD_ENFORCE="false"
           if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
               echo "We are in a merge_group event, now check if we are on the develop branch"
-              target_branch=$(cat $GITHUB_EVENT_PATH | jq -r .merge_group.base_ref)
+              target_branch=$(cat "$GITHUB_EVENT_PATH" | jq -r .merge_group.base_ref)
               if [[ "$target_branch" == "refs/heads/develop" ]]; then
                   echo "We are on the develop branch, we should enforce ctf version"
                   SHOULD_ENFORCE="true"
@@ -99,7 +99,6 @@ jobs:
       general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
-      ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v6
@@ -134,9 +133,6 @@ jobs:
               - 'system-tests/**'
               - 'plugins/plugins.private.yaml'
               - 'plugins/plugins.public.yaml'
-            ccip_changes:
-              - '**/*ccip*'
-              - '**/*ccip*/**'
 
   labels:
     name: Get PR labels and set runner labels
@@ -206,8 +202,7 @@ jobs:
         labels,
         enforce-ctf-version,
         run-core-cre-e2e-tests-setup,
-        run-core-e2e-tests-setup,
-        run-ccip-e2e-tests-setup,
+        run-ccip-v1-6-e2e-tests-setup,
         solana-smoke-tests-setup,
       ]
     permissions:
@@ -224,8 +219,7 @@ jobs:
             # todo: optimize this conditional
             any-should-run: >-
               ${{
-                needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
@@ -238,8 +232,7 @@ jobs:
             # todo: optimize this conditional
             any-should-run: >-
               ${{
-                needs.run-core-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
                 needs.solana-smoke-tests-setup.outputs.should-run-solana-tests == 'true' ||
                 needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
@@ -271,7 +264,7 @@ jobs:
           elif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then
             echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."
             echo "any-should-run is true when:"
-            echo "  - For the non-plugins image: the core tests, ccip tests, or solana tests will be run."
+            echo "  - For the non-plugins image: the CCIP v1.6 tests or solana tests will be run."
             echo "  - For the plugins image: the core cre e2e tests will be run."
 
             echo "build-image=true" | tee -a "$GITHUB_OUTPUT"
@@ -417,8 +410,8 @@ jobs:
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
     secrets: inherit
 
-  run-core-e2e-tests-setup:
-    name: Run Core E2E Tests Setup
+  run-ccip-v1-6-e2e-tests-setup:
+    name: Run CCIP v1.6 E2E Tests Setup
     runs-on: ubuntu-latest
     needs: [changes, labels]
     permissions:
@@ -428,7 +421,7 @@ jobs:
       workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
       test-trigger: ${{ steps.form-inputs.outputs.test-trigger }}
     steps:
-      - name: Form Inputs for Core E2E Tests
+      - name: Form Inputs for CCIP v1.6 E2E Tests
         id: form-inputs
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -437,9 +430,9 @@ jobs:
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Core E2E tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
-            echo "workflow-name=Run Core E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=PR E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            # Run CCIP v1.6 E2E Tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            echo "workflow-name=Run CCIP v1.6 E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=PR E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
 
             if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
               # only run if the PR has the label "run-e2e-tests"
@@ -447,47 +440,47 @@ jobs:
             fi
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Core E2E tests in the merge queue, if there are relevant changes
-            echo "workflow-name=Run Core E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Merge Queue E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
+            echo "workflow-name=Run CCIP v1.6 E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Merge Queue E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Core E2E tests on workflow dispatch
-            echo "workflow-name=Run Core E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Workflow Dispatch E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            # Always Run CCIP v1.6 E2E Tests on workflow dispatch
+            echo "workflow-name=Run CCIP v1.6 E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Workflow Dispatch E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Core E2E tests on push events, only if there are relevant changes or if it's a tag push
-            echo "workflow-name=Run Core E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Push E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push
+            echo "workflow-name=Run CCIP v1.6 E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Push E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
 
           else
-            echo "workflow-name=Run Core E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Unknown E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
+            echo "workflow-name=Run CCIP v1.6 E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
+            echo "test-trigger=Unknown CCIP v1.6 E2E Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
-  run-core-e2e-tests:
-    needs: [run-core-e2e-tests-setup, build-chainlink, changes, labels]
-    name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
+  run-ccip-v1-6-e2e-tests:
+    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
+    name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-e2e-tests-setup.outputs.should-run == 'true'
+    if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
     with:
-      workflow_name: ${{ needs.run-core-e2e-tests-setup.outputs.workflow-name }}
+      workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
-      test_trigger: ${{ needs.run-core-e2e-tests-setup.outputs.test-trigger }}
+      test_trigger: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
@@ -512,108 +505,6 @@ jobs:
       AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
       AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
-      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
-
-  run-ccip-e2e-tests-setup:
-    name: Run CCIP E2E Tests Setup
-    runs-on: ubuntu-latest
-    needs: [changes, labels]
-    permissions:
-      contents: read
-    outputs:
-      should-run: ${{ steps.form-inputs.outputs.should-run }}
-      workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
-      test-trigger: ${{ steps.form-inputs.outputs.test-trigger }}
-    steps:
-      - name: Form Inputs for Core E2E Tests
-        id: form-inputs
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
-          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Core E2E tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
-            echo "workflow-name=Run CCIP E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=PR E2E CCIP Tests" | tee -a "$GITHUB_OUTPUT"
-
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
-              # only run if the PR has the label "run-e2e-tests"
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run Core E2E tests in the merge queue, if there are relevant changes
-            echo "workflow-name=Run CCIP E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Merge Queue E2E CCIP Tests" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always run Core E2E tests on workflow dispatch
-            echo "workflow-name=Run CCIP E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Workflow Dispatch E2E CCIP Tests" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run Core E2E tests on push events, only if there are relevant changes or if it's a tag push
-            echo "workflow-name=Run CCIP E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Push E2E CCIP Tests" | tee -a "$GITHUB_OUTPUT"
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          else
-            echo "workflow-name=Run Core E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Unknown E2E Core Tests" | tee -a "$GITHUB_OUTPUT"
-            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
-          fi
-
-  run-ccip-e2e-tests:
-    name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
-    permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, run-ccip-e2e-tests-setup, changes, labels]
-    if: needs.run-ccip-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@fed09778ce127da5d37f902d8bee01387856550a # 2026-03-12
-    with:
-      workflow_name: ${{ needs.run-ccip-e2e-tests-setup.outputs.workflow-name }}
-      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      test_path: .github/e2e-tests.yml
-      test_trigger: ${{ needs.run-ccip-e2e-tests-setup.outputs.test-trigger }}
-      upload_cl_node_coverage_artifact: true
-      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      team: "CCIP"
-      quarantine: "true"
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
-      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
-      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
       TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
@@ -625,51 +516,33 @@ jobs:
     needs:
       [
         build-chainlink,
-        run-core-e2e-tests,
-        run-ccip-e2e-tests,
+        run-ccip-v1-6-e2e-tests,
         run-core-cre-e2e-tests,
         run-core-cre-e2e-regression-tests,
       ]
     steps:
-      - name: Check Core test results
-        id: check_core_results
+      - name: Check CCIP v1.6 E2E test results
+        id: check_ccip_v1_6_results
         env:
-          TEST_RESULTS: ${{ needs.run-core-e2e-tests.outputs.test_results }}
+          TEST_RESULTS: ${{ needs.run-ccip-v1-6-e2e-tests.outputs.test_results }}
         run: |
           results="$TEST_RESULTS"
-          echo "Core e2e test results:"
+          echo "CCIP v1.6 E2E test results:"
           echo "$results" | jq .
 
-          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" | tee -a "$GITHUB_OUTPUT"
-
-      - name: Check CCIP test results
-        id: check_ccip_results
-        env:
-          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
-          TEST_RESULTS: ${{ needs.run-ccip-e2e-tests.outputs.test_results }}
-        run: |
-          if [[ "$JOB_RESULT" != "skipped" ]]; then
-            results="$TEST_RESULTS"
-            echo "CCIP test results:"
-            echo "$results" | jq .
-          else
-            echo "CCIP tests were skipped."
-          fi
-
-      - name: Fail the job if core tests were not successful
+      - name: Fail the job if CCIP v1.6 E2E tests were not successful
         if: always()
         env:
-          JOB_RESULT: ${{ needs.run-core-e2e-tests.result }}
+          JOB_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
         run: |
           if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Core E2E tests failed."
+            echo "::error::CCIP v1.6 E2E tests failed."
             exit 1
           elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Core E2E tests were cancelled."
+            echo "::error::CCIP v1.6 E2E tests were cancelled."
             exit 1
           elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Core E2E tests were skipped."
+            echo "::warning::CCIP v1.6 E2E tests were skipped."
           fi
 
       - name: Fail the job if core CRE tests were not successful
@@ -702,19 +575,6 @@ jobs:
             echo "::warning::Core CRE E2E regression tests were skipped."
           fi
 
-      - name: Warn if CCIP tests were not successful
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.run-ccip-e2e-tests.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::warning::CCIP E2E tests failed in one of the runs. Not failing as they are not mandatory."
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::warning::CCIP E2E tests were cancelled."
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::CCIP E2E tests were skipped."
-          fi
-
       - name: Fail the job if Chainlink image was cancelled or failed to build
         if: always()
         env:
@@ -729,28 +589,6 @@ jobs:
           elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Chainlink image build was skipped."
           fi
-
-  show-chainlink-node-coverage:
-    name: Show Chainlink Node Go Coverage
-    if: false
-    # if: always()
-    needs: [run-core-e2e-tests, run-ccip-e2e-tests]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-          ref: ${{ env.CHAINLINK_REF }}
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: cl_node_coverage_data
-          pattern: cl_node_coverage_data_*
-          merge-multiple: true
-      - name: Show Coverage
-        run: go run ./integration-tests/scripts/show_coverage.go "${{ github.workspace }}/cl_node_coverage_data/*/merged"
 
   ## Solana Section
   solana-smoke-tests-setup:
@@ -778,7 +616,7 @@ jobs:
             echo "should-run-solana-tests=false" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run Solana tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            # Run Solana tests on PRs only if the label "run-e2e-tests" is present or if there are relevant changes
             if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' && "${CONTAINS_CHANGES}" == 'true' ]]; then
               echo "Solana tests will run on PR with label and relevant changes."
               echo "should-run-solana-tests=true" | tee -a "$GITHUB_OUTPUT"
@@ -881,51 +719,3 @@ jobs:
       aws_account_id: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       aws_region: ${{ secrets.QA_AWS_REGION }}
       aws_role_to_assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-
-  notify-test-failure:
-    name: Notify Test Failure
-    # TODO: uncomment this when we want to notify on test failures post-merge, if Phase 3 is necessary
-    if: false
-    # if: ${{ github.ref_name == 'develop' && failure() }}
-    needs: [check-e2e-test-results, run-solana-smoke-tests]
-    runs-on: ubuntu-latest
-    permissions: {}
-    steps:
-      - name: Send slack notification for failed migration tests
-        id: send-slack-notification
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
-        with:
-          errors: "true"
-          method: chat.postMessage
-          token: ${{ secrets.QA_SLACK_API_KEY }}
-          payload: |
-            {
-              "channel": "C023GJUSQ0H",
-              "text": "E2E Tests Failed Post-Merge, Immediate Action Required",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*:rotating_light: E2E Tests Failed Post-Merge, Immediate Action Required :rotating_light:*"
-                  }
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Alerting <!subteam^S04SLH4V4JJ|devex-cicd-oncall> and <@U01Q4N37KFG>, E2E tests failed for commit <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}> on run ID <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. This commit was already merged to develop by user `${{ github.actor }}`. Please follow instructions below to remedy the issue."
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "1. Use the `/gh-lookup ${{ github.actor }}` command to find the who made the commit.\n2. <https://smartcontract-it.atlassian.net/wiki/spaces/ENG/pages/597262421/Raising+an+Incident|Raise a Pager Duty Incident> with that engineer to fix the issue.\n3. Start a 1 hour timer. If the E2E tests cannot be made passing on `develop` branch by then, please use `git revert <last-green-commit>` to revert the `develop` branch back to a happy state.\n4. Write a quick summary of the actions taken and post it in a thread to this message."
-                  }
-                }
-              ]
-            }
