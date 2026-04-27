@@ -230,7 +230,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to resolve CallArg at index 2", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
+		assertSuiSourceRevertExpectedError(t, err, "failed to resolve token coin object", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
 		t.Log("Expected error: ", err)
 	})
 
@@ -397,7 +397,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 		}
 
 		_, err := testhelpers.SendRequest(e.Env, state, baseOpts...)
-		assertSuiSourceRevertExpectedError(t, err, "failed to resolve CallArg at index 2", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
+		assertSuiSourceRevertExpectedError(t, err, "failed to resolve token coin object", "failed to resolve UnresolvedObject 0x0000000000000000000000000000000000000000000000000000000000000000")
 		t.Log("Expected error: ", err)
 	})
 
