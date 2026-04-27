@@ -1,3 +1,3 @@
 package events
 
-//go:generate protoc --go_out=. --go_opt=paths=source_relative job_spec.proto
+// Job spec protobufs are generated in github.com/smartcontractkit/chainlink-protos/data-feeds.

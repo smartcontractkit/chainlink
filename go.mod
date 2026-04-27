@@ -99,6 +99,7 @@ require (
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260410144512-ca02ad6ed16a
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260409211238-5b99921cbc7c
+	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260427191023-4c493ae93432
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260319180422-b5808c964785
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
