@@ -2,7 +2,6 @@ package runner
 
 import (
 	"bufio"
-	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,8 +42,8 @@ func TestAnalyzeLineExceedsDefaultScannerLimit(t *testing.T) {
 		`{"Action":"pass","Package":"p","Test":"T2","Elapsed":0.01}` + "\n"
 	_, _, err := Analyze(readers(iter), 30*time.Second)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "reading iteration 0")
-	assert.True(t, errors.Is(err, bufio.ErrTooLong), "want bufio.ErrTooLong wrapped in analyze error")
+	require.ErrorContains(t, err, "reading iteration 0")
+	require.ErrorIs(t, err, bufio.ErrTooLong, "want bufio.ErrTooLong wrapped in analyze error")
 }
 
 func TestAnalyzeBuildErrorsInterleavedWithJSONL(t *testing.T) {
@@ -59,7 +58,7 @@ badpkg.go:1:2: undefined: MissingType
 	require.NoError(t, err)
 	require.Len(t, rep.Failures, 1)
 	assert.Equal(t, "example.com/badpkg", rep.Failures[0].Package)
-	assert.Equal(t, "", rep.Failures[0].Test)
+	assert.Empty(t, rep.Failures[0].Test)
 	require.Len(t, rep.IterationSummaries, 1)
 	assert.Equal(t, "fail", rep.IterationSummaries[0].Result)
 	assert.Equal(t, []string{"example.com/badpkg"}, rep.IterationSummaries[0].FailingTests)
@@ -78,7 +77,7 @@ func TestAnalyzePackageLevelFailureIterationSummary(t *testing.T) {
 	assert.Equal(t, []string{"pkg/build"}, rep.IterationSummaries[0].FailingTests)
 	require.Len(t, rep.Failures, 1)
 	assert.Equal(t, "pkg/build", rep.Failures[0].Package)
-	assert.Equal(t, "", rep.Failures[0].Test)
+	assert.Empty(t, rep.Failures[0].Test)
 }
 
 func TestAnalyze(t *testing.T) {

@@ -18,7 +18,7 @@ func TestRunGotestsumRunsCleanupWhenLookPathFails(t *testing.T) {
 		func() error { cleanups++; return nil },
 	)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "gotestsum not on PATH")
+	require.ErrorContains(t, err, "gotestsum not on PATH")
 	assert.Equal(t, 1, cleanups, "cleanup must run when gotestsum is missing so ephemeral Postgres from PersistentPreRun is torn down")
 }
 
@@ -31,6 +31,6 @@ func TestRunGotestsumRunsCleanupWhenConfigLoadFails(t *testing.T) {
 		func() error { cleanups++; return nil },
 	)
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "command is required")
+	require.ErrorContains(t, err, "command is required")
 	assert.Equal(t, 1, cleanups, "cleanup must run after LookPath succeeds but later steps fail")
 }

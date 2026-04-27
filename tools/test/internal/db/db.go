@@ -44,7 +44,7 @@ func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 		if existing := os.Getenv("CL_DATABASE_URL"); existing != "" && existing != conf.DatabaseURL {
 			return &Handle{conf: conf}, errors.New("CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
 		}
-		if err := os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
+		if err = os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
 			return &Handle{conf: conf}, fmt.Errorf("set CL_DATABASE_URL: %w", err)
 		}
 		if !conf.AIOutput {
@@ -56,7 +56,7 @@ func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 	}
 	// Intentional: Ryuk is disabled because this harness always tears down via
 	// Handle.Cleanup(); Ryuk can conflict with that lifecycle in some setups.
-	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
+	if err = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
 
