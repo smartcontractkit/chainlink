@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
@@ -280,6 +281,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -396,6 +399,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,

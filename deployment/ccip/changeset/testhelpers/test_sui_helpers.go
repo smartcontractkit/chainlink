@@ -99,8 +99,11 @@ type TokenPoolRateLimiterConfig struct {
 
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// The SDK's default WaitForTxIndexedTimeout (30s) is too short for CI environments
-	// where fullnode indexing can lag. Override it to match our custom polling budget.
+	// where fullnode indexing can lag. Override it to match our custom polling budget,
+	// then restore it so in-process DON Sui transactions are not affected.
+	prev := suiBind.WaitForTxIndexedTimeout
 	suiBind.WaitForTxIndexedTimeout = SuiTxIndexingWaitTimeout
+	defer func() { suiBind.WaitForTxIndexedTimeout = prev }()
 
 	ctx := e.GetContext()
 	state, err := stateview.LoadOnchainState(e)
