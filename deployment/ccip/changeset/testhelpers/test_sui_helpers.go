@@ -355,10 +355,20 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 
 		// Split the source coin to the exact requested amount. Without this the entire
 		// coin object is passed to lock_or_burn regardless of Amount.
-		splitCoinArg := ptb.SplitCoins(
-			ptb.Object(msg.TokenAmounts[0].Token),
-			[]suitx.Argument{ptb.Pure(msg.TokenAmounts[0].Amount)},
-		)
+		// ptb.Object() leaves the coin as an UnresolvedObject (BCS variant 3) which
+		// the Sui network rejects. Resolve it to ImmOrOwnedObject first.
+		tokenAddrBytes, err := suitx.ConvertSuiAddressStringToBytes(models.SuiAddress(msg.TokenAmounts[0].Token))
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert token address %s: %w", msg.TokenAmounts[0].Token, err)
+		}
+		resolvedTokenCallArg, err := suiBind.NewObjectResolver(client).ResolveCallArg(ctx, &suitx.CallArg{
+			UnresolvedObject: &suitx.UnresolvedObject{ObjectId: *tokenAddrBytes},
+		}, "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve token coin object %s: %w", msg.TokenAmounts[0].Token, err)
+		}
+		tokenCoinArg := ptb.Data.V1.AddInput(*resolvedTokenCallArg)
+		splitCoinArg := ptb.SplitCoins(tokenCoinArg, []suitx.Argument{ptb.Pure(msg.TokenAmounts[0].Amount)})
 
 		var paramValuesLockBurn []any
 		switch msg.TokenAmounts[0].TokenPoolType {
