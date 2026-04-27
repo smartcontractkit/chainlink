@@ -1594,19 +1594,6 @@ func TestConfig_full(t *testing.T) {
 	}
 
 	for c := range got.Solana {
-		// Deprecated Solana workflow keys: align with full TOML fixtures for nil checks only (not used at runtime).
-		if got.Solana[c].Workflow.ForwarderAddress == nil {
-			pk := solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")
-			got.Solana[c].Workflow.ForwarderAddress = &pk
-		}
-		if got.Solana[c].Workflow.ForwarderState == nil {
-			pk := solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")
-			got.Solana[c].Workflow.ForwarderState = &pk
-		}
-		if got.Solana[c].Workflow.FromAddress == nil {
-			pk := solana.MustPublicKeyFromBase58("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e")
-			got.Solana[c].Workflow.FromAddress = &pk
-		}
 		for n := range got.Solana[c].Nodes {
 			if got.Solana[c].Nodes[n].IsLoadBalancedRPC == nil {
 				got.Solana[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
