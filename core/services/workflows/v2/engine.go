@@ -785,6 +785,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
+	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 

@@ -61,12 +61,13 @@ type EngineMetrics struct {
 	shardExecutionDeniedNotOwnerCounter     metric.Int64Counter
 	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
 
-	triggerEventEnqueuedCounter       metric.Int64Counter
-	triggerEventEnqueueDroppedCounter metric.Int64Counter
-	triggerEventExpiredCounter        metric.Int64Counter
-	triggerEventQueueWaitSeconds      metric.Float64Histogram
-	triggerPayloadBytes               metric.Int64Histogram
-	executionSemaphoreWaitSeconds     metric.Float64Histogram
+	triggerEventEnqueuedCounter         metric.Int64Counter
+	triggerEventEnqueueDroppedCounter   metric.Int64Counter
+	triggerEventExpiredCounter          metric.Int64Counter
+	triggerEventQueueWaitSeconds        metric.Float64Histogram
+	triggerQueueToExecutionStartSeconds metric.Float64Histogram
+	triggerPayloadBytes                 metric.Int64Histogram
+	executionSemaphoreWaitSeconds       metric.Float64Histogram
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -317,6 +318,15 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event queue wait histogram: %w", err)
 	}
 
+	em.triggerQueueToExecutionStartSeconds, err = beholder.GetMeter().Float64Histogram(
+		"platform_engine_trigger_queue_to_execution_start_seconds",
+		metric.WithDescription("Time from trigger enqueue timestamp until execution start (startTime in startExecution)"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger queue to execution start histogram: %w", err)
+	}
+
 	em.triggerPayloadBytes, err = beholder.GetMeter().Int64Histogram(
 		"platform_engine_trigger_payload_bytes",
 		metric.WithDescription("Byte length of trigger payloads passed to module execution"),
@@ -377,6 +387,12 @@ func MetricViews() []sdkmetric.View {
 			sdkmetric.Instrument{Name: "platform_engine_trigger_event_queue_wait_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_queue_to_execution_start_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300},
 			}},
 		),
 		sdkmetric.NewView(
@@ -618,6 +634,11 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventExpiredCounter(ctx context.
 func (c WorkflowsMetricLabeler) RecordTriggerEventQueueWaitSeconds(ctx context.Context, waitSeconds float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventQueueWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordTriggerQueueToExecutionStartSeconds(ctx context.Context, seconds float64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerQueueToExecutionStartSeconds.Record(ctx, seconds, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) RecordTriggerPayloadBytes(ctx context.Context, n int64) {
