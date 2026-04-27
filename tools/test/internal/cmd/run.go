@@ -18,9 +18,9 @@ var runCmd = &cobra.Command{
 
 Because this subcommand does not parse flags, global options (--database-url,
 --postgres-version, --ai-output) must appear on the root command before run, for example:
-  go tool test --database-url=postgres://... run -v -count=1 ./core/...`,
-	Example: `  go tool test run -v -count=1 -p 4 ./core/...
-  go tool test --postgres-version=16 run -count=1 ./core/...`,
+  go -C tools/test --database-url=postgres://... run -v -count=1 ./core/...`,
+	Example: `  go -C tools/test run -v -count=1 -p 4 ./core/...
+  go -C tools/test --postgres-version=16 run -count=1 ./core/...`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)

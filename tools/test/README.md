@@ -10,7 +10,7 @@ make new_gotestsum ARGS="--format=testname -- -count=1 ./core/..."
 make new_test_diagnose ARGS="--iterations 5 -- --timeout=9m ./core/..."
 ```
 
-When **developing only inside this directory** (nested module), use `go run .` instead of `go tool test`:
+When **developing only inside this directory** (nested module), use `go run .` instead of `go -C tools/test`:
 
 ```sh
 go run . -h

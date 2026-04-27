@@ -27,14 +27,14 @@ Modes:
 - gotestsum: Run tests using gotestsum for those that prefer its output and tools
 - diagnose: Run tests multiple times to collect statistics, debug logs, and more to help find flakes, races, panics, timeouts, and other issues`,
 	Annotations: map[string]string{
-		cobra.CommandDisplayNameAnnotation: "go tool test",
+		cobra.CommandDisplayNameAnnotation: "go -C tools/test",
 	},
 	Example: `# Use vanilla go test commands
-go tool test run -v -count=1 -p 4 ./core/...
+go -C tools/test run -v -count=1 -p 4 ./core/...
 # Use gotestsum as the runner
-go tool test gotestsum --format=dots -- -count=1 ./core/...
+go -C tools/test gotestsum --format=dots -- -count=1 ./core/...
 # Run the full core test suite 10 times and collect statistics, debug logs, and more
-go tool test diagnose --iterations 10 -- --timeout=15m ./core/...`,
+go -C tools/test diagnose --iterations 10 -- --timeout=15m ./core/...`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		conf, err := config.Load(cmd)
 		if err != nil {

@@ -19,9 +19,9 @@ var gotestsumCmd = &cobra.Command{
 
 Because this subcommand does not parse flags, global options (--database-url,
 --postgres-version, --ai-output) must appear on the root command before gotestsum, for example:
-  go tool test --database-url=postgres://... gotestsum --format=dots -- -count=1 ./core/...`,
-	Example: `go tool test gotestsum --format=dots -- -count=1 ./core/...
-go tool test --ai-output gotestsum --format=testname -- -count=1 ./core/...`,
+  go -C tools/test --database-url=postgres://... gotestsum --format=dots -- -count=1 ./core/...`,
+	Example: `go -C tools/test gotestsum --format=dots -- -count=1 ./core/...
+go -C tools/test --ai-output gotestsum --format=testname -- -count=1 ./core/...`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runGotestsum(cmd, args, exec.LookPath, func() error { return dbHandle.Cleanup() })
