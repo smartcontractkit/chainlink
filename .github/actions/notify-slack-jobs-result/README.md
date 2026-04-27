@@ -1,6 +1,6 @@
 # Notify Slack Jobs Result
 
-Composite action that posts a short Slack message for **one** job’s conclusion: a header (job name + status emoji), the raw status, and a link to the workflow run. Optionally replies in an existing thread (`thread_ts`).
+Composite action that posts a short Slack message for **one** job’s conclusion: a header (job name + status emoji), the raw status, and a link to the workflow run. Optionally replies in an existing thread (`slack_thread_ts`).
 
 Use it from a **follow-up job** that `needs` the job you care about and runs with `if: always()` so failures still notify.
 

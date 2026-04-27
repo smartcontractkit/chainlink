@@ -1,14 +1,19 @@
 name: Notify Slack Jobs Result
-description: Posts a compact Slack notification for a workflow job result (status, job name, link to run). Set SLACK_BOT_TOKEN and SLACK_CHANNEL_ID in the job or workflow env for the step that invokes this action.
+description: Posts a compact Slack notification for a workflow job result
+  (status, job name, link to run). Set SLACK_BOT_TOKEN and SLACK_CHANNEL_ID in
+  the job or workflow env for the step that invokes this action.
 inputs:
   status:
-    description: "Job conclusion, e.g. success, failure, cancelled, skipped (typically needs.<job>.result)"
+    description: "Job conclusion, e.g. success, failure, cancelled, skipped
+      (typically needs.<job>.result)"
     required: true
   job_name:
     description: "Display name for the job in the message"
     required: true
   run_url:
-    description: "URL to the workflow run (e.g. format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id))"
+    description: "URL to the workflow run (e.g.
+      format('https://github.com/{0}/actions/runs/{1}', github.repository,
+      github.run_id))"
     required: true
   slack_thread_ts:
     description: "Optional Slack thread timestamp to reply in a thread"
@@ -91,7 +96,7 @@ runs:
     - name: Post to Slack
       uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
       with:
-        errors: "false"
+        errors: "true"
         method: chat.postMessage
         token: ${{ env.SLACK_BOT_TOKEN }}
         payload-file-path: ${{ steps.slack-payload.outputs.file }}
