@@ -17,7 +17,7 @@ replace github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v
 
 // Docker/Compose pins keep Compose, Buildx, BuildKit, and Docker CLI APIs aligned.
 // Remove when the transitive graph selects mutually compatible versions without replaces.
-replace github.com/docker/cli => github.com/docker/cli v28.5.1+incompatible
+replace github.com/docker/cli => github.com/docker/cli v28.5.2+incompatible
 
 replace github.com/docker/buildx => github.com/docker/buildx v0.29.1
 
