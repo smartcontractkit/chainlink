@@ -18842,6 +18842,15 @@ LogPollerSlotsBatchSize is the number of slots to process in a batch when pollin
 ```toml
 [Solana.Workflow]
 AcceptanceTimeout = '45s' # Default
+# ForwarderAddress is the keystone forwarder program address on chain.
+# Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+# ForwarderState is the keystone forwarder program state account on chain.
+# Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+# FromAddress is Address of the transmitter key to use for workflow writes.
+# Deprecated: ignored at runtime; use capability / transmitter config. Kept for TOML compatibility.
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 GasLimitDefault = 300_000 # Default
 Local = false # Default
 PollPeriod = '3s' # Default
@@ -18854,6 +18863,24 @@ TxAcceptanceState = 3 # Default
 AcceptanceTimeout = '45s' # Default
 ```
 AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+
+### ForwarderAddress
+```toml
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderAddress is the keystone forwarder program address on chain. Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
+
+### ForwarderState
+```toml
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
+```
+ForwarderState is the keystone forwarder program state account on chain. Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
+
+### FromAddress
+```toml
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
+```
+FromAddress is the address of the transmitter key to use for workflow writes. Deprecated: ignored at runtime; use capability / transmitter config. Kept for TOML compatibility.
 
 ### GasLimitDefault
 ```toml

@@ -280,6 +280,9 @@ Nodes = []
 
 [Workflow]
 AcceptanceTimeout = '45s'
+ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
+FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
 GasLimitDefault = 300000
 Local = false
 PollPeriod = '3s'
