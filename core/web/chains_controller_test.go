@@ -280,9 +280,6 @@ Nodes = []
 
 [Workflow]
 AcceptanceTimeout = '45s'
-ForwarderAddress = '11111111111111111111111111111111'
-ForwarderState = '11111111111111111111111111111111'
-FromAddress = '11111111111111111111111111111111'
 GasLimitDefault = 300000
 Local = false
 PollPeriod = '3s'

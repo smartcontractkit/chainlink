@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -938,9 +937,6 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 			Workflow: solcfg.WorkflowConfig{
 				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
-				FromAddress:       ptr(solana.MustPublicKeyFromBase58("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e")),
-				ForwarderAddress:  ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
-				ForwarderState:    ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
 				TxAcceptanceState: ptr(commontypes.Finalized),
 				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
 				Local:             ptr(true),
@@ -1435,9 +1431,6 @@ LogPollerSlotsBatchSize = 100
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
-ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
 GasLimitDefault = 0
 Local = true
 PollPeriod = '3s'
