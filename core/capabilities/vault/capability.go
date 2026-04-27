@@ -138,6 +138,12 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}
 	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
 
+	// When VaultOrgIdAsSecretOwnerEnabled is disabled, request.WorkflowOwner is
+	// not populated, so it has to be fetched from the first request's secret owner.
+	if r.WorkflowOwner == "" && len(r.Requests) > 0 && r.Requests[0] != nil && r.Requests[0].Id != nil {
+		r.WorkflowOwner = r.Requests[0].Id.Owner
+	}
+
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
@@ -163,7 +169,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
+	err := s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err
@@ -179,7 +185,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
+	err := s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
 		return nil, err

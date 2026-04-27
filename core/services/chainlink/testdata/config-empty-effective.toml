@@ -1,5 +1,5 @@
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 

@@ -336,6 +336,7 @@ type WorkflowRegistrationConfig struct {
 	DonID                   uint64
 	ContainerTargetDir      string
 	SethClient              *seth.Client
+	Attributes              []byte
 }
 
 /*
@@ -644,6 +645,7 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
+		wfRegCfg.Attributes,
 		containerTargetDir,
 	)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
@@ -721,6 +723,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
+		Attributes:              cfg.attributes,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
@@ -729,6 +732,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 
 type compileAndDeployWorkflowCfg struct {
 	artifactCopyDONTypes []cre.CapabilityFlag
+	attributes           []byte
 }
 
 // CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
@@ -741,6 +745,16 @@ func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWo
 			return
 		}
 		cfg.artifactCopyDONTypes = append([]cre.CapabilityFlag{}, donTypes...)
+	}
+}
+
+// WithAttributes sets the workflow attributes byte blob (JSON) written to the
+// WorkflowRegistry contract on upsert. The CRE syncer reads this to decide
+// routing (e.g. confidential execution via ConfidentialModule). The input is
+// cloned so later caller mutations don't affect stored config.
+func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		cfg.attributes = slices.Clone(attributes)
 	}
 }
 

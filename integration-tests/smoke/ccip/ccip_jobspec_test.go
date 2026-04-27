@@ -16,6 +16,7 @@ import (
 
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
 func TestDeleteCCIPJobs(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11030")
 	e, _, tenv := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
 	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)

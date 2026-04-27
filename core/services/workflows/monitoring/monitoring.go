@@ -60,6 +60,14 @@ type EngineMetrics struct {
 
 	shardExecutionDeniedNotOwnerCounter     metric.Int64Counter
 	shardExecutionDeniedOrchestratorCounter metric.Int64Counter
+
+	triggerEventEnqueuedCounter         metric.Int64Counter
+	triggerEventEnqueueDroppedCounter   metric.Int64Counter
+	triggerEventExpiredCounter          metric.Int64Counter
+	triggerEventQueueWaitSeconds        metric.Float64Histogram
+	triggerQueueToExecutionStartSeconds metric.Float64Histogram
+	triggerPayloadBytes                 metric.Int64Histogram
+	executionSemaphoreWaitSeconds       metric.Float64Histogram
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -277,6 +285,66 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register shard execution denied orchestrator error counter: %w", err)
 	}
 
+	em.triggerEventEnqueuedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_enqueued_total",
+		metric.WithDescription("Trigger events accepted into the engine ingress queue"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event enqueued counter: %w", err)
+	}
+
+	em.triggerEventEnqueueDroppedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_enqueue_dropped_total",
+		metric.WithDescription("Trigger events dropped because enqueue to the engine's ingress queue failed"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event enqueue dropped counter: %w", err)
+	}
+
+	em.triggerEventExpiredCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_expired_total",
+		metric.WithDescription("Trigger events dropped for exceeding max queue wait time"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event expired counter: %w", err)
+	}
+
+	em.triggerEventQueueWaitSeconds, err = beholder.GetMeter().Float64Histogram(
+		"platform_engine_trigger_event_queue_wait_seconds",
+		metric.WithDescription("Time from enqueue timestamp until dequeue from the trigger event queue"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event queue wait histogram: %w", err)
+	}
+
+	em.triggerQueueToExecutionStartSeconds, err = beholder.GetMeter().Float64Histogram(
+		"platform_engine_trigger_queue_to_execution_start_seconds",
+		metric.WithDescription("Time from trigger enqueue timestamp until execution start (startTime in startExecution)"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger queue to execution start histogram: %w", err)
+	}
+
+	em.triggerPayloadBytes, err = beholder.GetMeter().Int64Histogram(
+		"platform_engine_trigger_payload_bytes",
+		metric.WithDescription("Byte length of trigger payloads passed to module execution"),
+		metric.WithUnit("By"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger payload bytes histogram: %w", err)
+	}
+
+	em.executionSemaphoreWaitSeconds, err = beholder.GetMeter().Float64Histogram(
+		"platform_engine_execution_semaphore_wait_seconds",
+		metric.WithDescription("Time spent waiting for an execution slot from the executions semaphore"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register execution semaphore wait histogram: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -313,6 +381,30 @@ func MetricViews() []sdkmetric.View {
 			sdkmetric.Instrument{Name: "platform_engine_capability_execution_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
 				Boundaries: []float64{0, 5, 10, 20, 60, 120, 240},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_event_queue_wait_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_queue_to_execution_start_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_trigger_payload_bytes"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304},
+			}},
+		),
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_execution_semaphore_wait_seconds"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
 			}},
 		),
 	}
@@ -522,4 +614,39 @@ func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedNotOwnerCounter(ctx
 func (c WorkflowsMetricLabeler) IncrementShardExecutionDeniedOrchestratorErrorCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.shardExecutionDeniedOrchestratorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueuedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventEnqueuedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventEnqueueDroppedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerEventExpiredCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventExpiredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordTriggerEventQueueWaitSeconds(ctx context.Context, waitSeconds float64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventQueueWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordTriggerQueueToExecutionStartSeconds(ctx context.Context, seconds float64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerQueueToExecutionStartSeconds.Record(ctx, seconds, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordTriggerPayloadBytes(ctx context.Context, n int64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerPayloadBytes.Record(ctx, n, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) RecordExecutionSemaphoreWaitSeconds(ctx context.Context, waitSeconds float64) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.executionSemaphoreWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
 }

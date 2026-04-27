@@ -40,8 +40,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -99,12 +99,16 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 	}
 
 	t.Cleanup(func() {
-		if t.Failed() {
+		// we only want to check for panics in Docker containers if the test is not a subtest
+		// because all subtests share the same Docker containers, so we don't need to run that check for each subtest
+		if t.Failed() && !strings.Contains(t.Name(), "/") {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
-			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
+			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
 				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
-				infra.PrintFailedContainerLogs(framework.L, 30)
+				if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
+					framework.L.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
+				}
 			}
 		}
 	})
@@ -125,6 +129,8 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 	sharedEnvMu.Unlock()
 
 	entry.once.Do(func() {
+		_, err := crevault.EnsureSharedTestLinkingServiceStarted()
+		require.NoError(t, err, "failed to ensure linking service is running")
 		createEnvironment(t, tconf, flags...)
 		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
@@ -225,7 +231,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
 		require.NoErrorf(t, txOptsErr, "failed to create deployer key for chain selector %d", evmChain.ChainSelector())
-		deployerKey.Context = t.Context() //nolint:fatcontext // false-positive
+		deployerKey.Context = t.Context()
 		require.NoErrorf(
 			t,
 			setCldfEVMDeployerKey(testEnv.CreEnvironment.CldfEnvironment, evmChain.ChainSelector(), deployerKey),

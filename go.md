@@ -434,7 +434,7 @@ flowchart LR
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/deployment --> chainlink/v2
+	chainlink-sui/deployment --> chainlink-ccip/deployment
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
@@ -456,8 +456,6 @@ flowchart LR
 	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/parrot
 	click chainlink-testing-framework/parrot href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-testing-framework/sentinel --> chainlink-testing-framework/lib
-	click chainlink-testing-framework/sentinel href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/seth
 	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/wasp --> chainlink-testing-framework/lib
@@ -487,6 +485,7 @@ flowchart LR
 	chainlink/deployment --> chainlink-solana/contracts
 	chainlink/deployment --> chainlink-sui/deployment
 	chainlink/deployment --> chainlink-ton/deployment
+	chainlink/deployment --> chainlink/v2
 	click chainlink/deployment href "https://github.com/smartcontractkit/chainlink"
 	chainlink/devenv --> chainlink-automation
 	chainlink/devenv --> chainlink-evm
@@ -495,7 +494,6 @@ flowchart LR
 	click chainlink/devenv href "https://github.com/smartcontractkit/chainlink"
 	chainlink/devenv/fakes --> chainlink-testing-framework/framework/components/fake
 	click chainlink/devenv/fakes href "https://github.com/smartcontractkit/chainlink"
-	chainlink/integration-tests --> chainlink-testing-framework/sentinel
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/load-tests --> chainlink-testing-framework/havoc
@@ -725,7 +723,6 @@ flowchart LR
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana
 		 chainlink-testing-framework/parrot
-		 chainlink-testing-framework/sentinel
 		 chainlink-testing-framework/seth
 		 chainlink-testing-framework/wasp
 	end

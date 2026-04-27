@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -203,7 +205,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	var batches []mcmstypes.BatchOperation
 	timelockAddressesPerChain := map[uint64]string{}
 	proposerMcmsPerChain := map[uint64]string{}
-	inspectorPerChain, err := proposalutils.McmsInspectors(e)
+	inspectorPerChain, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

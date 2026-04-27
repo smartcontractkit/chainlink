@@ -3,7 +3,8 @@
 InsecureFastScrypt = false # Default
 # **ADVANCED**
 # InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
-InsecurePPROFHeap = false # Default
+# Deprecated: no effect. Always enabled.
+InsecurePPROFHeap = true # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
 RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.

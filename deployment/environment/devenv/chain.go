@@ -149,7 +149,7 @@ func (c *ChainConfig) ToRPCs() []cldf_evm_client.RPC {
 	return rpcs
 }
 
-func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockChains, error) {
+func NewChains(ctx context.Context, logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockChains, error) {
 	var evmSyncMap sync.Map
 	var solSyncMap sync.Map
 	var aptosSyncMap sync.Map
@@ -175,7 +175,7 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (cldf_chain.BlockCha
 
 			switch chainCfg.ChainType {
 			case EVMChainType:
-				ec, err := cldf_evm_client.NewMultiClient(logger, rpcConf, chainCfg.MultiClientOpts...)
+				ec, err := cldf_evm_client.NewMultiClient(ctx, logger, rpcConf, chainCfg.MultiClientOpts...)
 				if err != nil {
 					return fmt.Errorf("failed to create multi client: %w", err)
 				}
