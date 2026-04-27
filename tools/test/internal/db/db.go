@@ -56,7 +56,7 @@ func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 	}
 	// Intentional: Ryuk is disabled because this harness always tears down via
 	// Handle.Cleanup(); Ryuk can conflict with that lifecycle in some setups.
-	if err = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
+	if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
 		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
 
@@ -171,12 +171,14 @@ func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int)
 	if logErr != nil {
 		return fmt.Errorf("fetch logs: %w", logErr)
 	}
+	defer func() {
+		if err := logs.Close(); err != nil {
+			fmt.Fprintf(f, "error closing logs: %v\n", err)
+		}
+	}()
 	_, err = io.Copy(f, logs)
 	if err != nil {
 		return fmt.Errorf("copy logs: %w", err)
-	}
-	if err = logs.Close(); err != nil {
-		return fmt.Errorf("close logs: %w", err)
 	}
 	fmt.Fprint(f, "```\n\n")
 

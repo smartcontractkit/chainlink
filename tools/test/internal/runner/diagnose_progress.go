@@ -154,9 +154,11 @@ func packageOutcomeMark(action, displayPkg string) string {
 	}
 }
 
-// renderDiagnoseProgressLine writes one status line to w. When isTTY is true,
-// caller should prefix with "\r\033[K" to overwrite the previous line.
+// renderDiagnoseProgressLine writes one status line to w.
 func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *diagnoseProgress, isTTY bool) {
+	if !isTTY {
+		return // no-op when not a TTY (ai output doesn't need this)
+	}
 	completed, total, lastPkg, outcome := prog.snapshot()
 
 	meta := fmt.Sprintf("iter %d/%d", iteration, iterations)
@@ -185,15 +187,8 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed 
 		line += "  " + termstyle.Muted.Render(shortPkg) // path + ⌛ while running, or ✅/❌/⏭ when done
 	}
 	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
-	if isTTY {
-		fmt.Fprint(w, "\r\033[K")
-	} else {
-		fmt.Fprint(w, "\n")
-	}
+	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
-	if !isTTY {
-		fmt.Fprint(w, "\n")
-	}
 }
 
 func ellipsizeRight(s string, maxLen int) string {
