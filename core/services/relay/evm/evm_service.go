@@ -63,7 +63,7 @@ func (e *evmService) FilterLogs(ctx context.Context, request evm.FilterLogsReque
 
 	logs := make([]*evm.Log, 0, len(rawLogs))
 	for _, l := range rawLogs {
-		logs = append(logs, convertLog(&l))
+		logs = append(logs, convertGethLog(&l))
 	}
 
 	return &evm.FilterLogsReply{Logs: logs}, nil
@@ -411,7 +411,7 @@ func convertHead(h *types.Head) *evm.Header {
 	}
 }
 
-func convertReceipt(r *gethtypes.Receipt) *evm.Receipt {
+func convertReceipt(r *types.Receipt) *evm.Receipt {
 	return &evm.Receipt{
 		Status:            r.Status,
 		Logs:              convertLogs(r.Logs),
@@ -422,6 +422,7 @@ func convertReceipt(r *gethtypes.Receipt) *evm.Receipt {
 		BlockNumber:       r.BlockNumber,
 		TransactionIndex:  uint64(r.TransactionIndex),
 		EffectiveGasPrice: r.EffectiveGasPrice,
+		L1Fee:             r.L1Fee,
 	}
 }
 
@@ -522,7 +523,17 @@ func toEthMsg(msg evm.CallMsg) ethereum.CallMsg {
 	}
 }
 
-func convertLogs(logs []*gethtypes.Log) []*evm.Log {
+func convertGethLogs(logs []*gethtypes.Log) []*evm.Log {
+	ret := make([]*evm.Log, 0, len(logs))
+
+	for _, l := range logs {
+		ret = append(ret, convertGethLog(l))
+	}
+
+	return ret
+}
+
+func convertLogs(logs []*types.Log) []*evm.Log {
 	ret := make([]*evm.Log, 0, len(logs))
 
 	for _, l := range logs {
@@ -531,18 +542,38 @@ func convertLogs(logs []*gethtypes.Log) []*evm.Log {
 
 	return ret
 }
-
 func convertLPLogs(logs []logpoller.Log) []*evm.Log {
 	ret := make([]*evm.Log, 0, len(logs))
 	for _, l := range logs {
 		gl := l.ToGethLog()
-		ret = append(ret, convertLog(&gl))
+		ret = append(ret, convertGethLog(&gl))
 	}
 
 	return ret
 }
 
-func convertLog(log *gethtypes.Log) *evm.Log {
+func convertGethLog(log *gethtypes.Log) *evm.Log {
+	topics := hashesToArrays(log.Topics)
+
+	var eventSig [32]byte
+	if len(log.Topics) > 0 {
+		eventSig = log.Topics[0]
+	}
+
+	return &evm.Log{
+		LogIndex:    uint32(log.Index),
+		BlockHash:   log.BlockHash,
+		BlockNumber: new(big.Int).SetUint64(log.BlockNumber),
+		Topics:      topics,
+		EventSig:    eventSig,
+		Address:     log.Address,
+		TxHash:      log.TxHash,
+		Data:        log.Data,
+		Removed:     log.Removed,
+	}
+}
+
+func convertLog(log *types.Log) *evm.Log {
 	topics := hashesToArrays(log.Topics)
 
 	var eventSig [32]byte
