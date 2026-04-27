@@ -79,6 +79,7 @@ ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok NodePlatformBuildInfo
+ok NodePlatformJobInfo
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
@@ -309,6 +310,15 @@ ok WorkflowStore
       "id": "NodePlatformBuildInfo",
       "attributes": {
         "name": "NodePlatformBuildInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "NodePlatformJobInfo",
+      "attributes": {
+        "name": "NodePlatformJobInfo",
         "status": "passing",
         "output": ""
       }

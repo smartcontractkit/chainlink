@@ -23,6 +23,7 @@ ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok NodePlatformBuildInfo
+ok NodePlatformJobInfo
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
