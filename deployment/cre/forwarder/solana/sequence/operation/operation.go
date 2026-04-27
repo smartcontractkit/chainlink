@@ -98,9 +98,9 @@ type (
 
 func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitForwarderOutput, error) {
 	var out InitForwarderOutput
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.ProgramID = in.ProgramID
-	}
+	// anchor-go bakes a default program id; deploy uses the keystone_forwarder keypair, which can differ.
+	// NewInitializeInstruction uses this package var as the program id, so it must match deploy output.
+	ks_forwarder.ProgramID = in.ProgramID
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
@@ -180,9 +180,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 	var out ConfigureForwarderOutput
 
 	var instructions solana.Instruction
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.ProgramID = in.ProgramID
-	}
+	ks_forwarder.ProgramID = in.ProgramID
 
 	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
 
