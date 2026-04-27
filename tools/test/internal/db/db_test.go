@@ -12,17 +12,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 )
 
-func TestDumpStateNilHandle(t *testing.T) {
+func TestDumpDiagnosticsNilHandle(t *testing.T) {
 	t.Parallel()
 	var h *Handle
-	require.NoError(t, h.DumpState(context.Background(), t.TempDir(), 0))
+	require.NoError(t, h.DumpDiagnostics(context.Background(), t.TempDir(), 0))
 }
 
-func TestDumpStateNoContainer(t *testing.T) {
+func TestDumpDiagnosticsNoContainer(t *testing.T) {
 	t.Parallel()
 	h := &Handle{}
 	dir := t.TempDir()
-	require.NoError(t, h.DumpState(context.Background(), dir, 0))
+	require.NoError(t, h.DumpDiagnostics(context.Background(), dir, 0))
 	_, err := os.Stat(filepath.Join(dir, "postgres-state-0.md"))
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
@@ -49,4 +49,14 @@ func TestEnsureDatabaseURLConflictsWithEnv(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "CL_DATABASE_URL")
+}
+
+func TestEnsureRequiresPostgresVersion(t *testing.T) {
+	t.Parallel()
+	_, err := Ensure(context.Background(), &config.App{
+		PostgresVersion: "",
+		AIOutput:        true,
+	})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "postgres version is required")
 }

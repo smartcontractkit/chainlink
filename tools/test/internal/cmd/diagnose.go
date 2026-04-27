@@ -45,7 +45,7 @@ go tool test diagnose --iterations 10 -- ./core/...`,
 			return err
 		}
 
-		return runner.Diagnose(cmd.Context(), conf, args, dbHandle.Reset, dbHandle.DumpState)
+		return runner.Diagnose(cmd.Context(), conf, args, dbHandle.Reset, dbHandle.DumpDiagnostics)
 	},
 }
 

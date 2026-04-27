@@ -33,7 +33,7 @@ type Handle struct {
 // container, sets CL_DATABASE_URL to its connection string, runs preparetest
 // --force, and snapshots the prepared state so Reset can restore it between
 // diagnose iterations.
-func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
+func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 	start := time.Now()
 
 	if conf.PostgresVersion == "" {
@@ -74,6 +74,11 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 		fmt.Fprint(os.Stderr, "\r\033[K\n")
 		setupPartial = false
 	}
+	defer func() {
+		if err != nil {
+			abortSetupPartial()
+		}
+	}()
 
 	c, err := postgres.Run(ctx,
 		fmt.Sprintf("docker.io/postgres:%s-alpine", conf.PostgresVersion),
@@ -87,22 +92,19 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 				WithStartupTimeout(60*time.Second)),
 	)
 	if err != nil {
-		abortSetupPartial()
 		return &Handle{conf: conf}, fmt.Errorf("postgres testcontainer: %w", err)
 	}
 
-	h := &Handle{container: c, conf: conf}
+	h = &Handle{container: c, conf: conf}
 
 	// Build the connection string for CL tests to use
 	connStr, err := c.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
-		abortSetupPartial()
 		return h, errors.Join(fmt.Errorf("connection string: %w", err), h.Cleanup())
 	}
 
 	// Set the connection string for CL tests to use
 	if err := os.Setenv("CL_DATABASE_URL", connStr); err != nil {
-		abortSetupPartial()
 		return h, errors.Join(err, h.Cleanup())
 	}
 
@@ -114,13 +116,11 @@ func Ensure(ctx context.Context, conf *config.App) (*Handle, error) {
 	prep.Stdout = prepareOutput
 	prep.Stderr = prepareOutput
 	if err := prep.Run(); err != nil {
-		abortSetupPartial()
 		return h, errors.Join(fmt.Errorf("preparetest --force: %w\n%s", err, prepareOutput.String()), h.Cleanup())
 	}
 
 	// Snapshot the prepared schema so Reset can restore it quickly between iterations.
 	if err := c.Snapshot(ctx); err != nil {
-		abortSetupPartial()
 		return h, errors.Join(fmt.Errorf("snapshot prepared database: %w", err), h.Cleanup())
 	}
 
@@ -148,10 +148,10 @@ func (h *Handle) Reset(ctx context.Context) error {
 	return nil
 }
 
-// DumpState writes postgres-state-<iteration>.md to dir with the container log
+// DumpDiagnostics writes postgres-state-<iteration>.md to dir with the container log
 // and key system-view snapshots for that iteration. No-op when the user
 // supplied CL_DATABASE_URL (we don't own that database).
-func (h *Handle) DumpState(ctx context.Context, dir string, iteration int) error {
+func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int) error {
 	if h == nil || h.container == nil {
 		return nil
 	}

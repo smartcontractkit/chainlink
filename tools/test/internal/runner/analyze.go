@@ -111,7 +111,6 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 		// non-JSON output (stderr warnings, build errors); streaming decoder
 		// can't recover from those. Skip unparsable lines silently.
 		scanner := bufio.NewScanner(r)
-		scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 		for scanner.Scan() {
 			line := scanner.Bytes()
 			if len(line) == 0 || line[0] != '{' {
@@ -194,8 +193,15 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 		switch {
 		case a.timedOut:
 			rep.Timeouts = append(rep.Timeouts, base)
-		case key.Test == "":
-			// package-level event without timeout: skip (suite-level pass/fail is noise)
+		case key.Test == "" && a.fails == 0:
+			// Package-level pass summary or benign events (no failing tests).
+		case key.Test == "" && a.fails > 0:
+			// Build failures, TestMain/init failures: Test is empty in go test -json.
+			if a.passes > 0 {
+				rep.Flakes = append(rep.Flakes, base)
+			} else {
+				rep.Failures = append(rep.Failures, base)
+			}
 		case a.passes > 0 && a.fails > 0:
 			rep.Flakes = append(rep.Flakes, base)
 		case a.fails > 0 && a.passes == 0:
@@ -218,11 +224,12 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 		for i := range a.timeoutIters {
 			iterTimedOut[i] = true
 		}
-		if key.Test == "" {
-			continue
+		failName := key.Test
+		if failName == "" {
+			failName = key.Package
 		}
 		for i := range a.failedIters {
-			iterFails[i] = append(iterFails[i], key.Test)
+			iterFails[i] = append(iterFails[i], failName)
 		}
 	}
 	summaries := make([]IterationSummary, len(iterations))

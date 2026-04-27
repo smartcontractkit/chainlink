@@ -1,6 +1,8 @@
 package runner
 
 import (
+	"bufio"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -31,6 +33,52 @@ func TestAnalyzePackageLevelTimeoutIterationSummary(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, rep.IterationSummaries, 1)
 	assert.Equal(t, "timeout", rep.IterationSummaries[0].Result)
+}
+
+func TestAnalyzeLineExceedsDefaultScannerLimit(t *testing.T) {
+	t.Parallel()
+	// bufio.Scanner default max token is bufio.MaxScanTokenSize (64 KiB).
+	over := strings.Repeat("x", bufio.MaxScanTokenSize+1) + "\n"
+	iter := `{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}` + "\n" + over +
+		`{"Action":"pass","Package":"p","Test":"T2","Elapsed":0.01}` + "\n"
+	_, _, err := Analyze(readers(iter), 30*time.Second)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "reading iteration 0")
+	assert.True(t, errors.Is(err, bufio.ErrTooLong), "want bufio.ErrTooLong wrapped in analyze error")
+}
+
+func TestAnalyzeBuildErrorsInterleavedWithJSONL(t *testing.T) {
+	t.Parallel()
+	// go test -json can interleave compiler lines (non-JSON) with events; package build ends with fail, Test "".
+	iter := `# example.com/badpkg
+badpkg.go:1:2: undefined: MissingType
+` + `{"Action":"output","Package":"example.com/badpkg","Output":"# example.com/badpkg\n"}
+{"Action":"fail","Package":"example.com/badpkg","Elapsed":0.0}
+`
+	rep, _, err := Analyze(readers(iter), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.Failures, 1)
+	assert.Equal(t, "example.com/badpkg", rep.Failures[0].Package)
+	assert.Equal(t, "", rep.Failures[0].Test)
+	require.Len(t, rep.IterationSummaries, 1)
+	assert.Equal(t, "fail", rep.IterationSummaries[0].Result)
+	assert.Equal(t, []string{"example.com/badpkg"}, rep.IterationSummaries[0].FailingTests)
+}
+
+func TestAnalyzePackageLevelFailureIterationSummary(t *testing.T) {
+	t.Parallel()
+	// go test -json uses Test == "" for build failures, TestMain failures, etc.
+	iterations := []string{
+		`{"Action":"fail","Package":"pkg/build","Elapsed":0.0}` + "\n",
+	}
+	rep, _, err := Analyze(readers(iterations...), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.IterationSummaries, 1)
+	assert.Equal(t, "fail", rep.IterationSummaries[0].Result)
+	assert.Equal(t, []string{"pkg/build"}, rep.IterationSummaries[0].FailingTests)
+	require.Len(t, rep.Failures, 1)
+	assert.Equal(t, "pkg/build", rep.Failures[0].Package)
+	assert.Equal(t, "", rep.Failures[0].Test)
 }
 
 func TestAnalyze(t *testing.T) {
@@ -135,6 +183,24 @@ func TestAnalyze(t *testing.T) {
 					MinElapsed: 45 * time.Second,
 					MaxElapsed: 45 * time.Second,
 					P50Elapsed: 45 * time.Second,
+				},
+			},
+		},
+		{
+			name: "package-level failure without test name (build/TestMain)",
+			iterations: []string{
+				`{"Action":"fail","Package":"pkg/build","Elapsed":0.0}` + "\n",
+			},
+			slowThreshold: 30 * time.Second,
+			wantFailures: []TestEntry{
+				{
+					Package:    "pkg/build",
+					Test:       "",
+					Runs:       1,
+					Fails:      1,
+					MinElapsed: 0,
+					MaxElapsed: 0,
+					P50Elapsed: 0,
 				},
 			},
 		},
