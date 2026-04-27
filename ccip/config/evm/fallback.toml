@@ -79,6 +79,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5

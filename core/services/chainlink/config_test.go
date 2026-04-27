@@ -810,6 +810,7 @@ func TestConfig_Marshal(t *testing.T) {
 
 				NodePool: evmcfg.NodePool{
 					PollFailureThreshold:           ptr[uint32](5),
+					PollSuccessThreshold:           ptr[uint32](0),
 					PollInterval:                   &minute,
 					SelectionMode:                  &selectionMode,
 					SyncThreshold:                  ptr[uint32](13),
@@ -1341,6 +1342,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13

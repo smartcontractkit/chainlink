@@ -429,10 +429,14 @@ GasEstimator.PriceMax = '79 gwei' # Example
 #
 # In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wait after receiving no new heads before marking the node as out-of-sync.
 [EVM.NodePool]
-# PollFailureThreshold indicates how many consecutive polls must fail in order to mark a node as unreachable.
+# PollFailureThreshold indicates how many polls must fail beyond those that succeed in order to mark a node as unreachable.
 #
 # Set to zero to disable poll checking.
 PollFailureThreshold = 5 # Default
+# PollSuccessThreshold indicates how many consecutive polls must succeed in order to mark a node as alive once it has been marked as unreachable.
+#
+# Set to zero to require no successful polls (previous behavior).
+PollSuccessThreshold = 0 # Default
 # PollInterval controls how often to poll the node to check for liveness.
 #
 # Set to zero to disable poll checking.

@@ -555,6 +555,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13

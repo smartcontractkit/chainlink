@@ -2870,6 +2870,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -2988,6 +2989,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3106,6 +3108,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3224,6 +3227,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3347,6 +3351,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -3466,6 +3471,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3584,6 +3590,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -3701,6 +3708,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3818,6 +3826,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -3936,6 +3945,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -4054,6 +4064,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -4173,6 +4184,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -4291,6 +4303,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '3s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -4409,6 +4422,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -4532,6 +4546,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '8s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -4650,6 +4665,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -4768,6 +4784,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -4886,6 +4903,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '3s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -5009,6 +5027,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '8s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5129,6 +5148,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5249,6 +5269,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5372,6 +5393,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5493,6 +5515,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -5615,6 +5638,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5733,6 +5757,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5850,6 +5875,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -5973,6 +5999,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -6095,6 +6122,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -6214,6 +6242,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -6333,6 +6362,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -6455,6 +6485,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -6577,6 +6608,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -6700,6 +6732,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -6823,6 +6856,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -6941,6 +6975,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -7060,6 +7095,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7183,6 +7219,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '3s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7300,6 +7337,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7423,6 +7461,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -7543,6 +7582,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7662,6 +7702,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7781,6 +7822,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -7899,6 +7941,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8016,6 +8059,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8139,6 +8183,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8262,6 +8307,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8379,6 +8425,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8496,6 +8543,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8619,6 +8667,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -8742,6 +8791,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -8860,6 +8910,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -8978,6 +9029,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9095,6 +9147,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9218,6 +9271,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -9338,6 +9392,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9455,6 +9510,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9573,6 +9629,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9691,6 +9748,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9809,6 +9867,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -9928,6 +9987,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10051,6 +10111,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10175,6 +10236,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10299,6 +10361,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10416,6 +10479,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10539,6 +10603,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -10656,6 +10721,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10775,6 +10841,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -10897,6 +10964,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11019,6 +11087,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11137,6 +11206,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '3s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11260,6 +11330,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 2
+PollSuccessThreshold = 0
 PollInterval = '3s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11382,6 +11453,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11507,6 +11579,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -11626,6 +11699,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -11748,6 +11822,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -11866,6 +11941,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -11984,6 +12060,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -12103,6 +12180,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -12228,6 +12306,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -12353,6 +12432,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -12471,6 +12551,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -12594,6 +12675,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -12711,6 +12793,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -12831,6 +12914,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -12951,6 +13035,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -13074,6 +13159,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -13197,6 +13283,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -13318,6 +13405,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -13436,6 +13524,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -13554,6 +13643,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -13672,6 +13762,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -13790,6 +13881,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -13913,6 +14005,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 4
+PollSuccessThreshold = 0
 PollInterval = '4s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -14035,6 +14128,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -14158,6 +14252,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -14275,6 +14370,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -14392,6 +14488,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -14514,6 +14611,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -14631,6 +14729,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '5s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -14748,6 +14847,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '5s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -14870,6 +14970,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -14988,6 +15089,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -15106,6 +15208,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -15228,6 +15331,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -15350,6 +15454,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -15472,6 +15577,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -15596,6 +15702,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -15720,6 +15827,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -15839,6 +15947,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -15961,6 +16070,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -16083,6 +16193,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -16206,6 +16317,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -16329,6 +16441,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -16450,6 +16563,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -16568,6 +16682,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -16691,6 +16806,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -16813,6 +16929,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -16935,6 +17052,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -17058,6 +17176,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 4
+PollSuccessThreshold = 0
 PollInterval = '4s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -17176,6 +17295,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -17294,6 +17414,7 @@ PersistenceBatchSize = 100
 
 [NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -18223,6 +18344,7 @@ GasEstimator.PriceMax overrides the maximum gas price for this key. See EVM.GasE
 ```toml
 [EVM.NodePool]
 PollFailureThreshold = 5 # Default
+PollSuccessThreshold = 0 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
@@ -18243,9 +18365,17 @@ In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wa
 ```toml
 PollFailureThreshold = 5 # Default
 ```
-PollFailureThreshold indicates how many consecutive polls must fail in order to mark a node as unreachable.
+PollFailureThreshold indicates how many polls must fail beyond those that succeed in order to mark a node as unreachable.
 
 Set to zero to disable poll checking.
+
+### PollSuccessThreshold
+```toml
+PollSuccessThreshold = 0 # Default
+```
+PollSuccessThreshold indicates how many consecutive polls must succeed in order to mark a node as alive once it has been marked as unreachable.
+
+Set to zero to require no successful polls (previous behavior).
 
 ### PollInterval
 ```toml
@@ -19064,7 +19194,7 @@ Enabled enables the multinode feature.
 ```toml
 PollFailureThreshold = 5 # Default
 ```
-PollFailureThreshold is the number of consecutive poll failures before a node is considered unhealthy.
+PollFailureThreshold is the number of poll failures beyond poll successes before a node is considered unhealthy.
 
 ### PollInterval
 ```toml
