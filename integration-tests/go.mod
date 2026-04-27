@@ -339,6 +339,8 @@ require (
 	github.com/mitchellh/pointerstructure v1.2.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/go-archive v0.2.0 // indirect
+	github.com/moby/moby/api v1.54.1 // indirect
+	github.com/moby/moby/client v0.4.0 // indirect
 	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/sys/sequential v0.6.0 // indirect
@@ -349,7 +351,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/montanaflynn/stats v0.7.1 // indirect
-	github.com/morikuni/aec v1.1.0 // indirect
 	github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
@@ -553,9 +554,3 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 
 // requires https://github.com/gagliardetto/binary/pull/12 to parse optional values in ParseEventSol
 replace github.com/gagliardetto/binary => github.com/archseer/binary v0.0.0-20250226104222-b87d7f4fd58a
-
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.40.0
-
-replace github.com/testcontainers/testcontainers-go/modules/postgres => github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
-
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0

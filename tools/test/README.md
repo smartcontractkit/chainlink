@@ -2,15 +2,9 @@
 
 A Go harness to run unit tests in /chainlink with a simpler flow and control scheme. Plus a mode to help you hunt down flakes, races, and timeouts.
 
-From the **repository root**, the parent module registers this package as a [`go tool`](https://go.dev/ref/mod#go-tool) (see root `go.mod`: `tool` + `replace` → `./tools/test`).
+From the **repository root**, use the Make targets. They run this nested module directly so its dependencies stay out of the root module.
 
 ```sh
-go tool test -h
-go tool test run -count=1 ./core/...
-go tool test gotestsum --format=testname -- -count=1 ./core/...
-go tool test diagnose --iterations 10 -- --timeout=10m ./core/...
-
-# Equivalent Make targets (also from repo root)
 make new_test ARGS="-count=1 ./core/..."
 make new_gotestsum ARGS="--format=testname -- -count=1 ./core/..."
 make new_test_diagnose ARGS="--iterations 5 -- --timeout=9m ./core/..."

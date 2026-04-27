@@ -101,24 +101,29 @@ require (
 
 require (
 	github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20251001021608-1fe7b43fc4d6 // indirect
+	github.com/ProtonMail/go-crypto v1.3.0 // indirect
 	github.com/Unheilbar/anchor-go v1.0.3 // indirect
+	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/avast/retry-go/v5 v5.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.8 // indirect
 	github.com/beevik/ntp v1.5.0 // indirect
+	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/buraksezer/consistent v0.10.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/cloudflare/circl v1.6.3 // indirect
 	github.com/creachadair/jrpc2 v1.2.0 // indirect
 	github.com/creachadair/mds v0.13.4 // indirect
+	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/digital-asset/dazl-client/v8 v8.9.0 // indirect
-	github.com/docker/cli-docs-tool v0.10.0 // indirect
+	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
+	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/docker/compose/v2 v2.40.2 // indirect
-	github.com/docker/distribution v2.8.3+incompatible // indirect
-	github.com/docker/go v1.5.1-1.0.20160303222718-d30aec9fd63c // indirect
-	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab // indirect
 	github.com/failsafe-go/failsafe-go v0.9.0 // indirect
+	github.com/go-openapi/runtime v0.29.2 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.5 // indirect
 	github.com/go-openapi/swag/conv v0.25.5 // indirect
 	github.com/go-openapi/swag/fileutils v0.25.5 // indirect
@@ -131,30 +136,50 @@ require (
 	github.com/go-openapi/swag/typeutils v0.25.5 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.5 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
+	github.com/google/certificate-transparency-go v1.3.2 // indirect
+	github.com/google/go-containerregistry v0.20.7 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
+	github.com/hiddeco/sshsig v0.2.0 // indirect
 	github.com/in-toto/attestation v1.1.2 // indirect
 	github.com/influxdata/tdigest v0.0.2-0.20210216194612-fc98d27c9e8b // indirect
 	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jhump/protocompile v0.0.0-20221021153901-4f6f732835e8 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
+	github.com/lestrrat-go/dsig v1.0.0 // indirect
+	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
+	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/httprc/v3 v3.0.1 // indirect
+	github.com/lestrrat-go/jwx/v3 v3.0.11 // indirect
+	github.com/lestrrat-go/option v1.0.1 // indirect
+	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
-	github.com/miekg/pkcs11 v1.1.1 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/moby/moby/client v0.4.1 // indirect
+	github.com/moby/policy-helpers v0.0.0-20260211190020-824747bfdd3c // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/oapi-codegen/runtime v1.1.2 // indirect
 	github.com/olekukonko/errors v1.1.0 // indirect
 	github.com/olekukonko/ll v0.0.9 // indirect
+	github.com/open-policy-agent/opa v1.10.1 // indirect
 	github.com/pb33f/jsonpath v0.8.2 // indirect
 	github.com/pb33f/libopenapi v0.34.4 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/pressly/goose/v3 v3.27.0 // indirect
 	github.com/prometheus/client_golang/exp v0.0.0-20260325093428-d8591d0db856 // indirect
 	github.com/puzpuzpuz/xsync/v4 v4.4.0 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/serialx/hashring v0.0.0-20200727003509-22c0c7ab6b1b // indirect
+	github.com/sigstore/protobuf-specs v0.5.0 // indirect
+	github.com/sigstore/rekor v1.5.0 // indirect
+	github.com/sigstore/rekor-tiles/v2 v2.0.1 // indirect
+	github.com/sigstore/sigstore v1.10.4 // indirect
+	github.com/sigstore/sigstore-go v1.1.4 // indirect
+	github.com/sigstore/timestamp-authority/v2 v2.0.3 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260415165642-49f23e4d76cc // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc // indirect
@@ -171,8 +196,13 @@ require (
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260409184948-5b16fae57fe0 // indirect
 	github.com/stellar/go-stellar-sdk v0.1.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20231122183749-b53fb00bcac2 // indirect
-	github.com/theupdateframework/notary v0.7.0 // indirect
-	github.com/vbatts/tar-split v0.12.2 // indirect
+	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
+	github.com/theupdateframework/go-tuf/v2 v2.4.1 // indirect
+	github.com/transparency-dev/formats v0.0.0-20251017110053-404c0d5b696c // indirect
+	github.com/transparency-dev/merkle v0.0.2 // indirect
+	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
+	github.com/yashtewari/glob-intersection v0.2.0 // indirect
 	github.com/zclconf/go-cty v1.17.0 // indirect
 	go.opentelemetry.io/collector/internal/componentalias v0.148.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
@@ -796,17 +826,3 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // Replace memberlist with our fork which includes some fixes that haven't been
 // merged upstream yet.
 replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
-
-replace github.com/testcontainers/testcontainers-go => github.com/testcontainers/testcontainers-go v0.40.0
-
-replace github.com/testcontainers/testcontainers-go/modules/compose => github.com/testcontainers/testcontainers-go/modules/compose v0.40.0
-
-replace github.com/docker/cli => github.com/docker/cli v28.5.1+incompatible
-
-replace github.com/docker/buildx => github.com/docker/buildx v0.29.1
-
-replace github.com/moby/buildkit => github.com/moby/buildkit v0.25.1
-
-replace github.com/compose-spec/compose-go/v2 => github.com/compose-spec/compose-go/v2 v2.9.0
-
-replace github.com/moby/go-archive => github.com/moby/go-archive v0.1.0

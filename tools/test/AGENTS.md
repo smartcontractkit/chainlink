@@ -7,7 +7,7 @@ A test runner harness for the /chainlink repo.
 </goals>
 
 <rules>
-- From /chainlink root, document `go tool test …` (see root `go.mod` `tool` + `replace` for `./tools/test`). When working only inside this module, `go run . …` is fine.
+- From /chainlink root, document `make new_test`, `make new_gotestsum`, and `make new_test_diagnose`. When working only inside this module, `go run . …` is fine.
 - Each output should account for a pretty, human-readable terminal experience, and a minimal version meant for AI ingestion
 </rules>
 
