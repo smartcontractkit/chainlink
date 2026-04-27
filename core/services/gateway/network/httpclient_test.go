@@ -903,6 +903,44 @@ func TestHTTPClient_BlockedRequests_ReturnErrBlockedRequest(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_RedirectIsErrBlockedRequest(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/redirected", http.StatusMovedPermanently)
+	}))
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	hostname, port := u.Hostname(), u.Port()
+	portInt, err := strconv.ParseInt(port, 10, 32)
+	require.NoError(t, err)
+
+	config := HTTPClientConfig{
+		AllowedIPs:   []string{hostname},
+		AllowedPorts: []int{int(portInt)},
+	}
+
+	client, err := NewHTTPClient(config, lggr)
+	require.NoError(t, err)
+
+	_, err = client.Send(t.Context(), HTTPRequest{
+		Method:  "GET",
+		URL:     server.URL + "/",
+		Headers: map[string]string{},
+		Body:    nil,
+		Timeout: 2 * time.Second,
+	})
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBlockedRequest, "redirect responses should be flagged as ErrBlockedRequest")
+	require.ErrorContains(t, err, "redirects are not allowed")
+}
+
 // verifyBackwardCompatibility checks that all keys in MultiHeaders are also present in Headers
 // with non-empty values.
 func verifyBackwardCompatibility(t *testing.T, headers map[string]string, multiHeaders map[string][]string) {

@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -128,6 +129,8 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 	sharedEnvMu.Unlock()
 
 	entry.once.Do(func() {
+		_, err := crevault.EnsureSharedTestLinkingServiceStarted()
+		require.NoError(t, err, "failed to ensure linking service is running")
 		createEnvironment(t, tconf, flags...)
 		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
@@ -228,7 +231,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
 		require.NoErrorf(t, txOptsErr, "failed to create deployer key for chain selector %d", evmChain.ChainSelector())
-		deployerKey.Context = t.Context() //nolint:fatcontext // false-positive
+		deployerKey.Context = t.Context()
 		require.NoErrorf(
 			t,
 			setCldfEVMDeployerKey(testEnv.CreEnvironment.CldfEnvironment, evmChain.ChainSelector(), deployerKey),

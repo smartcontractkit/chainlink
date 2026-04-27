@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	xerrgroup "golang.org/x/sync/errgroup"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
@@ -258,7 +260,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 		stateForChain := mcmsState[chain]
 		evmChains := e.BlockChains.EVMChains()
 		seqReport, err := evminternal.GrantRolesForTimelock(
-			e, evmChains[chain], &proposalutils.MCMSWithTimelockContracts{
+			e, evmChains[chain], &cldfproposalutils.MCMSWithTimelockContracts{
 				CancellerMcm: stateForChain.CancellerMcm,
 				BypasserMcm:  stateForChain.BypasserMcm,
 				ProposerMcm:  stateForChain.ProposerMcm,

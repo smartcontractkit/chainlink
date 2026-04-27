@@ -6,12 +6,13 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 	"github.com/zksync-sdk/zksync2-go/types"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 )
 
 func DeployRBACTimelockZk(deployOpts *accounts.TransactOpts, client *clients.Client, wallet *accounts.Wallet, backend bind.ContractBackend, args ...interface{}) (common.Address, *types.Receipt, *gethwrappers.RBACTimelock, error) {

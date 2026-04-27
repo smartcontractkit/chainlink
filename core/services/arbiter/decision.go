@@ -50,5 +50,5 @@ func (d *decisionEngine) ComputeApprovedCount(ctx context.Context, desiredCount 
 		"approved", approved,
 	)
 
-	return int(approved), nil //nolint:gosec // G115: replica count is bounded
+	return int(approved), nil
 }

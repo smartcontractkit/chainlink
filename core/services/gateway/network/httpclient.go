@@ -204,8 +204,12 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 }
 
 func disableRedirects(req *http.Request, via []*http.Request) error {
-	return errors.New("redirects are not allowed")
+	return &redirectsDisabledError{}
 }
+
+type redirectsDisabledError struct{}
+
+func (e *redirectsDisabledError) Error() string { return "redirects are not allowed" }
 
 // isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
 // It checks for safeurl typed errors.
@@ -216,18 +220,20 @@ func isBlockedRequest(err error) bool {
 
 	// Check safeurl typed errors - use errors.As for type checking
 	var (
-		ipv6Err        *safeurl.IPv6BlockedError
-		portErr        *safeurl.AllowedPortError
-		schemeErr      *safeurl.AllowedSchemeError
-		invalidHostErr *safeurl.InvalidHostError
-		ipErr          *safeurl.AllowedIPError
+		ipv6Err              *safeurl.IPv6BlockedError
+		portErr              *safeurl.AllowedPortError
+		schemeErr            *safeurl.AllowedSchemeError
+		invalidHostErr       *safeurl.InvalidHostError
+		ipErr                *safeurl.AllowedIPError
+		redirectsDisabledErr *redirectsDisabledError
 	)
 
 	return errors.As(err, &ipv6Err) ||
 		errors.As(err, &portErr) ||
 		errors.As(err, &schemeErr) ||
 		errors.As(err, &invalidHostErr) ||
-		errors.As(err, &ipErr)
+		errors.As(err, &ipErr) ||
+		errors.As(err, &redirectsDisabledErr)
 }
 
 func (c *httpClient) validateMethod(method string) error {

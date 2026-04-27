@@ -206,7 +206,7 @@ jobs:
       matrix:
         type:
           - cmd: go_core_tests
-            os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
 

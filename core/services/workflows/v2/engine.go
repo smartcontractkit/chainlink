@@ -385,7 +385,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	}
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
 	if err != nil {
@@ -455,16 +455,13 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
 			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
 			metadata := capabilities.RequestMetadata{
-				WorkflowID:          e.cfg.WorkflowID,
-				WorkflowOwner:       e.cfg.WorkflowOwner,
-				WorkflowName:        e.cfg.WorkflowName.Hex(),
-				WorkflowTag:         e.cfg.WorkflowTag,
-				DecodedWorkflowName: e.cfg.WorkflowName.String(),
-				WorkflowDonID:       e.localNode.Load().WorkflowDON.ID,
-				// TODO(CRE-1636): This should be pinnedWorkflowDonConfigVersion, but it causes CI timeouts
-				// that I can't reproduce locally. This values is unused in trigger subscription phase
-				// so it's not a problem. Still, let's do it right when CI is fixed.
-				WorkflowDonConfigVersion:      e.localNode.Load().WorkflowDON.ConfigVersion,
+				WorkflowID:                    e.cfg.WorkflowID,
+				WorkflowOwner:                 e.cfg.WorkflowOwner,
+				WorkflowName:                  e.cfg.WorkflowName.Hex(),
+				WorkflowTag:                   e.cfg.WorkflowTag,
+				DecodedWorkflowName:           e.cfg.WorkflowName.String(),
+				WorkflowDonID:                 e.localNode.Load().WorkflowDON.ID,
+				WorkflowDonConfigVersion:      pinnedWorkflowDonConfigVersion,
 				ReferenceID:                   fmt.Sprintf("trigger_%d", i),
 				WorkflowRegistryChainSelector: e.cfg.WorkflowRegistryChainSelector,
 				WorkflowRegistryAddress:       e.cfg.WorkflowRegistryAddress,
@@ -829,7 +826,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				Payload: triggerEvent.Payload,
 			},
 		},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper)
 

@@ -477,7 +477,7 @@ func ConvertV16FeeQuoterDestUpdatesToV2(in []fee_quoter.FeeQuoterDestChainConfig
 				DefaultTokenFeeUSDCents:     cfg.DestChainConfig.DefaultTokenFeeUSDCents,
 				DefaultTokenDestGasOverhead: cfg.DestChainConfig.DefaultTokenDestGasOverhead,
 				DefaultTxGasLimit:           cfg.DestChainConfig.DefaultTxGasLimit,
-				NetworkFeeUSDCents:          uint16(cfg.DestChainConfig.NetworkFeeUSDCents), //nolint:gosec // value is range-checked above
+				NetworkFeeUSDCents:          uint16(cfg.DestChainConfig.NetworkFeeUSDCents),
 				LinkFeeMultiplierPercent:    fqv2seq.LinkFeeMultiplierPercent,
 			},
 		})

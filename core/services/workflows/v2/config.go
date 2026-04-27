@@ -115,7 +115,7 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled limits.GateLimiter
+	ExecutionTimestampsEnabled     limits.GateLimiter
 	VaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
 }
 
