@@ -197,13 +197,13 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state s
 			if pool, ok := onchainState.USDCTokenPoolsV1_6[deployment.Version1_6_2]; ok {
 				validSourcePools = append(validSourcePools, pool.Address())
 			}
-			if proxy, ok := onchainState.USDCTokenPoolProxies[deployment.Version1_7_0]; ok {
+			if proxy, ok := onchainState.USDCTokenPoolProxies[deployment.Version2_0_0]; ok {
 				validSourcePools = append(validSourcePools, proxy)
 			}
 			if len(validSourcePools) == 0 {
 				return fmt.Errorf(
 					"chain %d does not have USDC token pool deployed with version %s, %s, or %s",
-					sel, deployment.Version1_5_1, deployment.Version1_6_2, deployment.Version1_7_0,
+					sel, deployment.Version1_5_1, deployment.Version1_6_2, deployment.Version2_0_0,
 				)
 			}
 
@@ -274,7 +274,7 @@ func loadOnchainStateForCandidateChangesets(e cldf.Environment) (stateview.CCIPO
 		refs := e.DataStore.Addresses().Filter(
 			datastore.AddressRefByChainSelector(chainSelector),
 			datastore.AddressRefByType(datastore.ContractType(shared.USDCTokenPoolProxy)),
-			datastore.AddressRefByVersion(&deployment.Version1_7_0),
+			datastore.AddressRefByVersion(&deployment.Version2_0_0),
 		)
 		if len(refs) == 0 {
 			continue
@@ -282,7 +282,7 @@ func loadOnchainStateForCandidateChangesets(e cldf.Environment) (stateview.CCIPO
 		if len(refs) > 1 {
 			return stateview.CCIPOnChainState{}, fmt.Errorf(
 				"multiple datastore entries found for %s %s on chain %d; qualifiers=%v",
-				shared.USDCTokenPoolProxy, deployment.Version1_7_0, chainSelector, maps.Keys(refsByQualifier(refs)),
+				shared.USDCTokenPoolProxy, deployment.Version2_0_0, chainSelector, maps.Keys(refsByQualifier(refs)),
 			)
 		}
 
@@ -293,7 +293,7 @@ func loadOnchainStateForCandidateChangesets(e cldf.Environment) (stateview.CCIPO
 		if chainState.USDCTokenPoolProxies == nil {
 			chainState.USDCTokenPoolProxies = make(map[semver.Version]common.Address)
 		}
-		chainState.USDCTokenPoolProxies[deployment.Version1_7_0] = common.HexToAddress(refs[0].Address)
+		chainState.USDCTokenPoolProxies[deployment.Version2_0_0] = common.HexToAddress(refs[0].Address)
 		state.WriteEVMChainState(chainSelector, chainState)
 	}
 
