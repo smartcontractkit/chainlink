@@ -38,7 +38,7 @@ var (
 // TON blockchain polling configuration
 const (
 	clientRetries       = 3                      // Number of retries for TON client operations
-	queryInterval       = 500 * time.Millisecond // How often to query logpoller for new events
+	queryInterval       = 100 * time.Millisecond // How often to query logpoller for new events
 	progressLogInterval = 5 * time.Second        // How often to log "still waiting" progress updates
 )
 
