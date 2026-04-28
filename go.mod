@@ -98,7 +98,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b
-	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260424165632-acf8218d3279
+	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260428164807-6cb3cb96aa48
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0

@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -9,15 +10,16 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonv1 "github.com/smartcontractkit/chainlink-protos/node-platform/common/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -28,9 +30,14 @@ const (
 	nodePlatformDataSchema      = "/node-platform/common/v1"
 	nodePlatformBeat            = 3 * time.Minute
 
-	nodeTransmitterTypeOCR                  = "ocr"
-	nodeTransmitterTypeOCR2                 = "ocr2"
-	nodeTransmitterTypeOCR2DualTransmission = "ocr2_dual_transmission"
+	nodeSubmitterFieldTransmitterAddress                 = "transmitterAddress"
+	nodeSubmitterFieldTransmitterID                      = "transmitterID"
+	nodeSubmitterFieldRelayConfigSendingKeys             = "relayConfig.sendingKeys"
+	nodeSubmitterFieldDualTransmissionTransmitterAddress = "relayConfig.dualTransmission.transmitterAddress"
+	nodeSubmitterFieldFromAddress                        = "fromAddress"
+	nodeSubmitterFieldFromAddresses                      = "fromAddresses"
+	nodeSubmitterFieldOracleFactoryTransmitterID         = "oracle_factory.transmitter_id"
+	nodeSubmitterFieldObservationSourceETHTxFrom         = "observationSource.ethtx.from"
 )
 
 type NodePlatformBuildInfoService struct {
@@ -214,8 +221,8 @@ func (s *NodePlatformJobInfoService) resolveCSAPublicKey(ctx context.Context) {
 
 func (s *NodePlatformJobInfoService) emit(ctx context.Context) {
 	payloadBytes, err := proto.Marshal(&commonv1.NodeJobInfo{
-		CsaPublicKey: s.opts.CSAPublicKey,
-		Transmitters: s.transmitters(ctx),
+		CsaPublicKey:       s.opts.CSAPublicKey,
+		SubmitterAddresses: s.submitterAddresses(ctx),
 	})
 	if err != nil {
 		s.eng.Errorw("failed to marshal node-platform job info", "err", err)
@@ -241,42 +248,54 @@ func (s *NodePlatformJobInfoService) GetBeat() time.Duration {
 	return s.beat
 }
 
-func (s *NodePlatformJobInfoService) transmitters(ctx context.Context) []*commonv1.NodeTransmitter {
+func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*commonv1.NodeSubmitterAddress {
 	if s.opts.JobReader == nil {
 		return nil
 	}
 
 	jobs, _, err := s.opts.JobReader.FindJobs(ctx, 0, math.MaxInt)
 	if err != nil {
-		s.eng.Warnw("failed to resolve node-platform transmitters", "err", err)
+		s.eng.Warnw("failed to resolve node-platform submitter addresses", "err", err)
 		return nil
 	}
 
-	return nodeTransmittersFromJobs(jobs)
+	return nodeSubmitterAddressesFromJobs(jobs)
 }
 
-func nodeTransmittersFromJobs(jobs []job.Job) []*commonv1.NodeTransmitter {
-	byChain := make(map[string]map[string]map[string]struct{})
+type nodeSubmitterAddressKey struct {
+	chainID    string
+	jobType    string
+	pluginType string
+	fieldPath  string
+}
+
+func nodeSubmitterAddressesFromJobs(jobs []job.Job) []*commonv1.NodeSubmitterAddress {
+	bySource := make(map[nodeSubmitterAddressKey]map[string]struct{})
 	for _, jb := range jobs {
-		if jb.OCROracleSpec != nil {
-			addOCRTransmitter(byChain, jb.OCROracleSpec)
-		}
-		if jb.OCR2OracleSpec != nil {
-			addOCR2Transmitters(byChain, jb.OCR2OracleSpec)
-		}
+		addOCRSubmitterAddress(bySource, jb)
+		addOCR2SubmitterAddresses(bySource, jb)
+		addKeeperSubmitterAddress(bySource, jb)
+		addVRFSubmitterAddresses(bySource, jb)
+		addBlockhashStoreSubmitterAddresses(bySource, jb)
+		addBlockHeaderFeederSubmitterAddresses(bySource, jb)
+		addLegacyGasStationServerSubmitterAddresses(bySource, jb)
+		addStandardCapabilitiesSubmitterAddress(bySource, jb)
+		addPipelineETHTxSubmitterAddresses(bySource, jb)
 	}
-	return sortedNodeTransmitters(byChain)
+	return sortedNodeSubmitterAddresses(bySource)
 }
 
-func addOCRTransmitter(byChain map[string]map[string]map[string]struct{}, spec *job.OCROracleSpec) {
+func addOCRSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.OCROracleSpec
 	if spec == nil || spec.TransmitterAddress == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeTransmitter(byChain, spec.EVMChainID.String(), nodeTransmitterTypeOCR, spec.TransmitterAddress.String())
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.OffchainReporting), "", nodeSubmitterFieldTransmitterAddress, spec.TransmitterAddress.String())
 }
 
-func addOCR2Transmitters(byChain map[string]map[string]map[string]struct{}, spec *job.OCR2OracleSpec) {
-	if spec == nil {
+func addOCR2SubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.OCR2OracleSpec
+	if spec == nil || !isOnChainOCR2Plugin(spec.PluginType) {
 		return
 	}
 	chainID := ocr2ChainID(spec)
@@ -284,13 +303,23 @@ func addOCR2Transmitters(byChain map[string]map[string]map[string]struct{}, spec
 		return
 	}
 
-	addNullableTransmitterID(byChain, chainID, nodeTransmitterTypeOCR2, spec.TransmitterID)
-	if sendingKeys, err := job.SendingKeysForJob(spec); err == nil {
-		for _, sendingKey := range sendingKeys {
-			addNodeTransmitter(byChain, chainID, nodeTransmitterTypeOCR2, sendingKey)
-		}
+	pluginType := string(spec.PluginType)
+	if spec.TransmitterID.Valid {
+		addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldTransmitterID, spec.TransmitterID.String)
 	}
-	addNodeTransmitter(byChain, chainID, nodeTransmitterTypeOCR2DualTransmission, dualTransmissionTransmitterAddress(spec.RelayConfig))
+	if sendingKeys, err := job.SendingKeysForJob(spec); err == nil {
+		addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldRelayConfigSendingKeys, sendingKeys...)
+	}
+	addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldDualTransmissionTransmitterAddress, dualTransmissionTransmitterAddress(spec.RelayConfig))
+}
+
+func isOnChainOCR2Plugin(pluginType commontypes.OCR2PluginType) bool {
+	switch pluginType {
+	case commontypes.Mercury, commontypes.LLO:
+		return false
+	default:
+		return true
+	}
 }
 
 func ocr2ChainID(spec *job.OCR2OracleSpec) string {
@@ -303,11 +332,157 @@ func ocr2ChainID(spec *job.OCR2OracleSpec) string {
 	return jsonConfigString(spec.RelayConfig, "chainID")
 }
 
-func addNullableTransmitterID(byChain map[string]map[string]map[string]struct{}, chainID, addressType string, transmitterID null.String) {
-	if !transmitterID.Valid {
+func addKeeperSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.KeeperSpec
+	if spec == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeTransmitter(byChain, chainID, addressType, transmitterID.String)
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.Keeper), "", nodeSubmitterFieldFromAddress, spec.FromAddress.String())
+}
+
+func addVRFSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.VRFSpec
+	if spec == nil || spec.EVMChainID == nil {
+		return
+	}
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.VRF), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+}
+
+func addBlockhashStoreSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.BlockhashStoreSpec
+	if spec == nil || spec.EVMChainID == nil {
+		return
+	}
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.BlockhashStore), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+}
+
+func addBlockHeaderFeederSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.BlockHeaderFeederSpec
+	if spec == nil || spec.EVMChainID == nil {
+		return
+	}
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.BlockHeaderFeeder), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+}
+
+func addLegacyGasStationServerSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.LegacyGasStationServerSpec
+	if spec == nil || spec.EVMChainID == nil {
+		return
+	}
+	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.LegacyGasStationServer), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+}
+
+func addStandardCapabilitiesSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	spec := jb.StandardCapabilitiesSpec
+	if spec == nil || !spec.OracleFactory.Enabled {
+		return
+	}
+	addNodeSubmitterAddress(bySource, spec.OracleFactory.ChainID, jobType(jb, job.StandardCapabilities), "", nodeSubmitterFieldOracleFactoryTransmitterID, spec.OracleFactory.TransmitterID)
+}
+
+func addPipelineETHTxSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+	p, ok := jobPipeline(jb)
+	if !ok {
+		return
+	}
+	for _, task := range p.Tasks {
+		ethTxTask, ok := task.(*pipeline.ETHTxTask)
+		if !ok {
+			continue
+		}
+		addresses := staticPipelineAddresses(ethTxTask.From)
+		if len(addresses) == 0 {
+			continue
+		}
+		chainID := staticPipelineString(ethTxTask.EVMChainID)
+		if chainID == "" {
+			chainID = jobEVMChainID(jb)
+		}
+		addNodeSubmitterAddress(bySource, chainID, jobType(jb, ""), "", nodeSubmitterFieldObservationSourceETHTxFrom, addresses...)
+	}
+}
+
+func jobPipeline(jb job.Job) (*pipeline.Pipeline, bool) {
+	if len(jb.Pipeline.Tasks) > 0 {
+		return &jb.Pipeline, true
+	}
+	if jb.PipelineSpec == nil {
+		return nil, false
+	}
+	p, err := jb.PipelineSpec.GetOrParsePipeline()
+	if err != nil {
+		return nil, false
+	}
+	return p, true
+}
+
+func staticPipelineAddresses(raw string) []string {
+	raw = staticPipelineString(raw)
+	if raw == "" {
+		return nil
+	}
+	if strings.HasPrefix(raw, "[") {
+		var values []string
+		if err := json.Unmarshal([]byte(raw), &values); err == nil {
+			return values
+		}
+		var anyValues []any
+		if err := json.Unmarshal([]byte(raw), &anyValues); err != nil {
+			return nil
+		}
+		addresses := make([]string, 0, len(anyValues))
+		for _, value := range anyValues {
+			if address := strings.TrimSpace(fmt.Sprint(value)); address != "" {
+				addresses = append(addresses, address)
+			}
+		}
+		return addresses
+	}
+	return []string{raw}
+}
+
+func staticPipelineString(raw string) string {
+	value := strings.Trim(strings.TrimSpace(raw), `'"`)
+	if value == "" || strings.Contains(value, "$(") {
+		return ""
+	}
+	return value
+}
+
+func jobEVMChainID(jb job.Job) string {
+	switch {
+	case jb.DirectRequestSpec != nil && jb.DirectRequestSpec.EVMChainID != nil:
+		return jb.DirectRequestSpec.EVMChainID.String()
+	case jb.FluxMonitorSpec != nil && jb.FluxMonitorSpec.EVMChainID != nil:
+		return jb.FluxMonitorSpec.EVMChainID.String()
+	case jb.OCROracleSpec != nil && jb.OCROracleSpec.EVMChainID != nil:
+		return jb.OCROracleSpec.EVMChainID.String()
+	case jb.KeeperSpec != nil && jb.KeeperSpec.EVMChainID != nil:
+		return jb.KeeperSpec.EVMChainID.String()
+	case jb.VRFSpec != nil && jb.VRFSpec.EVMChainID != nil:
+		return jb.VRFSpec.EVMChainID.String()
+	case jb.BlockhashStoreSpec != nil && jb.BlockhashStoreSpec.EVMChainID != nil:
+		return jb.BlockhashStoreSpec.EVMChainID.String()
+	case jb.BlockHeaderFeederSpec != nil && jb.BlockHeaderFeederSpec.EVMChainID != nil:
+		return jb.BlockHeaderFeederSpec.EVMChainID.String()
+	case jb.LegacyGasStationServerSpec != nil && jb.LegacyGasStationServerSpec.EVMChainID != nil:
+		return jb.LegacyGasStationServerSpec.EVMChainID.String()
+	case jb.LegacyGasStationSidecarSpec != nil && jb.LegacyGasStationSidecarSpec.EVMChainID != nil:
+		return jb.LegacyGasStationSidecarSpec.EVMChainID.String()
+	default:
+		return ""
+	}
+}
+
+func eip55AddressStrings[T fmt.Stringer](addresses []T) []string {
+	if len(addresses) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(addresses))
+	for _, address := range addresses {
+		out = append(out, address.String())
+	}
+	return out
 }
 
 func dualTransmissionTransmitterAddress(config job.JSONConfig) string {
@@ -357,53 +532,77 @@ func jsonConfigString(config map[string]any, key string) string {
 	}
 }
 
-func addNodeTransmitter(byChain map[string]map[string]map[string]struct{}, chainID, addressType, address string) {
-	chainID = strings.TrimSpace(chainID)
-	addressType = strings.TrimSpace(addressType)
-	address = strings.TrimSpace(address)
-	if chainID == "" || addressType == "" || address == "" {
-		return
+func jobType(jb job.Job, fallback job.Type) string {
+	if jb.Type != "" {
+		return jb.Type.String()
 	}
-	if byChain[chainID] == nil {
-		byChain[chainID] = make(map[string]map[string]struct{})
-	}
-	if byChain[chainID][addressType] == nil {
-		byChain[chainID][addressType] = make(map[string]struct{})
-	}
-	byChain[chainID][addressType][address] = struct{}{}
+	return fallback.String()
 }
 
-func sortedNodeTransmitters(byChain map[string]map[string]map[string]struct{}) []*commonv1.NodeTransmitter {
-	if len(byChain) == 0 {
-		return nil
+func addNodeSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, chainID, jobType, pluginType, fieldPath string, addresses ...string) {
+	chainID = strings.TrimSpace(chainID)
+	jobType = strings.TrimSpace(jobType)
+	pluginType = strings.TrimSpace(pluginType)
+	fieldPath = strings.TrimSpace(fieldPath)
+	if chainID == "" || jobType == "" || fieldPath == "" {
+		return
 	}
-	chainIDs := make([]string, 0, len(byChain))
-	for chainID := range byChain {
-		chainIDs = append(chainIDs, chainID)
+	key := nodeSubmitterAddressKey{
+		chainID:    chainID,
+		jobType:    jobType,
+		pluginType: pluginType,
+		fieldPath:  fieldPath,
 	}
-	sort.Strings(chainIDs)
-
-	transmitters := make([]*commonv1.NodeTransmitter, 0, len(chainIDs))
-	for _, chainID := range chainIDs {
-		addressesByType := make(map[string]*commonv1.NodeTransmitterAddresses, len(byChain[chainID]))
-		for addressType, addressesSet := range byChain[chainID] {
-			addresses := make([]string, 0, len(addressesSet))
-			for address := range addressesSet {
-				addresses = append(addresses, address)
-			}
-			sort.Strings(addresses)
-			if len(addresses) == 0 {
-				continue
-			}
-			addressesByType[addressType] = &commonv1.NodeTransmitterAddresses{Values: addresses}
-		}
-		if len(addressesByType) == 0 {
+	for _, address := range addresses {
+		address = strings.TrimSpace(address)
+		if address == "" {
 			continue
 		}
-		transmitters = append(transmitters, &commonv1.NodeTransmitter{
-			ChainId:   chainID,
-			Addresses: addressesByType,
+		if bySource[key] == nil {
+			bySource[key] = make(map[string]struct{})
+		}
+		bySource[key][address] = struct{}{}
+	}
+}
+
+func sortedNodeSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}) []*commonv1.NodeSubmitterAddress {
+	if len(bySource) == 0 {
+		return nil
+	}
+	keys := make([]nodeSubmitterAddressKey, 0, len(bySource))
+	for key := range bySource {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].chainID != keys[j].chainID {
+			return keys[i].chainID < keys[j].chainID
+		}
+		if keys[i].jobType != keys[j].jobType {
+			return keys[i].jobType < keys[j].jobType
+		}
+		if keys[i].pluginType != keys[j].pluginType {
+			return keys[i].pluginType < keys[j].pluginType
+		}
+		return keys[i].fieldPath < keys[j].fieldPath
+	})
+
+	out := make([]*commonv1.NodeSubmitterAddress, 0, len(keys))
+	for _, key := range keys {
+		addresses := make([]string, 0, len(bySource[key]))
+		for address := range bySource[key] {
+			addresses = append(addresses, address)
+		}
+		sort.Strings(addresses)
+		if len(addresses) == 0 {
+			continue
+		}
+		out = append(out, &commonv1.NodeSubmitterAddress{
+			ChainId:    key.chainID,
+			JobType:    key.jobType,
+			PluginType: key.pluginType,
+			FieldPath:  key.fieldPath,
+			Addresses:  addresses,
 		})
 	}
-	return transmitters
+	return out
 }
