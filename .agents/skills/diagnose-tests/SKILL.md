@@ -1,7 +1,8 @@
 ---
-name: diagnose-and-fix-flaky-slow-tests
+name: diagnose-tests
 description: >-
-  Repeatedly runs Chainlink Go unit tests, identifies flakey/broken/timeout/slow tests.
+  Investigate and fix flaky, slow, timing-out, or deadlocked Chainlink Go unit tests. 
+  Skip for ordinary test runs with clear failure reasons or work unrelated to test stability.
 ---
 
 <purpose>
