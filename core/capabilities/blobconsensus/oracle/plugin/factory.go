@@ -16,11 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 )
 
 const (
-	defaultMaxPhaseOutputBytes              = uint32(ocr3types.MaxMaxObservationLength)
+	defaultMaxPhaseOutputBytes              = uint32(ocr3_1types.MaxMaxObservationBytes)
 	defaultMaxReportLengthBytes             = uint32(1_000_000) // 1 MB
 	defaultMaxReportCount                   = 100
 	defaultRequestExpiry                    = 20 * time.Second
@@ -102,16 +103,16 @@ func (o *factory) NewReportingPlugin(_ context.Context, config ocr3types.Reporti
 
 	rp, err := NewReportingPlugin(o.lggr, o.metrics, config.F, config.N, o.store, &configProto, o.defaultKeyBundleIDForConsensusFailure,
 		o.maxRequestOutcomeSize)
-	rpInfo := ocr3types.ReportingPluginInfo{
-		Name: "Consensus Capability Plugin",
-		Limits: ocr3types.ReportingPluginLimits{
-			MaxQueryLength:       int(configProto.MaxQueryLengthBytes),
-			MaxObservationLength: int(configProto.MaxObservationLengthBytes),
-			MaxOutcomeLength:     int(configProto.MaxOutcomeLengthBytes),
-			MaxReportLength:      int(configProto.MaxReportLengthBytes),
-			MaxReportCount:       int(configProto.MaxReportCount),
-		},
+	limits31 := reportingPluginLimitsOCR31(&configProto)
+	rpInfo31 := ocr3_1types.ReportingPluginInfo1{
+		Name:   "Consensus Capability Plugin",
+		Limits: limits31,
 	}
+	if vErr := rpInfo31.Validate(); vErr != nil {
+		o.lggr.Errorw("invalid OCR 3.1 reporting plugin limits", "error", vErr)
+		return nil, ocr3types.ReportingPluginInfo{}, vErr
+	}
+	rpInfo := reportingPluginInfoOCR3From31(rpInfo31)
 	o.lggr.Infow("Created OCR3 consensus capability reporting plugin with config",
 		// "OffchainConfig" fields - internal to our plugin
 		"maxQueryLengthBytes", configProto.MaxQueryLengthBytes,
@@ -138,7 +139,7 @@ func (o *factory) NewReportingPlugin(_ context.Context, config ocr3types.Reporti
 		"defaultKeyBundleIDForConsensusFailure", o.defaultKeyBundleIDForConsensusFailure,
 	)
 
-	return rp, rpInfo, err
+	return AsOCR3ReportingPlugin(rp), rpInfo, err
 }
 
 func (o *factory) Start(ctx context.Context) error {

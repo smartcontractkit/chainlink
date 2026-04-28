@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/metrics"
@@ -272,7 +273,7 @@ func Test_ReportTooLarge_ReturnsFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call Reports and verify we get a failure report instead of an error
-	reports, err := reportingPlugin.Reports(ctx, 1, serialisedOutcome)
+	reports, err := reportingPlugin.Reports(ctx, 1, ocr3_1types.ReportsPlusPrecursor(serialisedOutcome))
 	require.NoError(t, err, "Reports should not return an error for oversized reports")
 	require.Len(t, reports, 1, "Should have one report")
 
@@ -342,7 +343,7 @@ func Test_ReportWithinLimit_Succeeds(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call Reports and verify we get a success report
-	reports, err := reportingPlugin.Reports(ctx, 1, serialisedOutcome)
+	reports, err := reportingPlugin.Reports(ctx, 1, ocr3_1types.ReportsPlusPrecursor(serialisedOutcome))
 	require.NoError(t, err)
 	require.Len(t, reports, 1)
 
@@ -413,7 +414,7 @@ func Test_ReportCountLimit(t *testing.T) {
 	require.NoError(t, err)
 
 	// Call Reports and verify the number of reports is limited to the max count
-	reports, err := reportingPlugin.Reports(ctx, 1, serialisedOutcome)
+	reports, err := reportingPlugin.Reports(ctx, 1, ocr3_1types.ReportsPlusPrecursor(serialisedOutcome))
 	require.NoError(t, err)
 	require.Len(t, reports, int(maxReportCount))
 }

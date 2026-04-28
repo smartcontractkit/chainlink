@@ -22,51 +22,10 @@ import (
 
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
-
-func (r *reportingPlugin) Outcome(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query, attributedObservations []types.AttributedObservation) (ocr3types.Outcome, error) {
-	lggr := logger.With(r.lggr, "seqNr", outctx.SeqNr)
-
-	requestsQuery := &oracletypes.Query{}
-	err := proto.Unmarshal(query, requestsQuery)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal query: %w", err)
-	}
-
-	outcomeBatch, err := batching.NewOutcomeBatch(ctx, lggr, outctx, r.outcomeExpirySeqNrSpan, int(r.config.MaxOutcomeLengthBytes), r.defaultKeyBundleIDForConsensusFailure,
-		r.metrics, r.maxRequestOutcomeSize, r.maxNumberOfReports)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new outcome batch: %w", err)
-	}
-
-	requestIDToObservations := groupAttributedObservationsByRequestID(lggr, attributedObservations)
-
-	for _, requestID := range requestsQuery.RequestIDs {
-		observations := requestIDToObservations[requestID]
-
-		// 2f+1 or more observations have been received, calculate the outcome for the request
-		if len(observations) >= 2*r.f+1 {
-			hasCapacity, err := r.addRequestOutcomeToBatch(ctx, lggr, requestID, observations, outcomeBatch)
-			if err != nil {
-				return nil, fmt.Errorf("failed to add request outcome to batch for request %s: %w", requestID, err)
-			}
-
-			if !hasCapacity {
-				lggr.Debugw("batch does not have capacity to add request outcome - skipping in this round", "requestID", requestID)
-				break
-			}
-			lggr.Debugw("added request outcome to batch", "requestID", requestID, "numObservations", len(observations))
-		} else {
-			lggr.Debugw("not enough observations to calculate outcome for request - skipping in this round", "requestID", requestID, "numObservations", len(observations))
-		}
-	}
-
-	return outcomeBatch.SerialiseOutcomeBatch(ctx)
-}
 
 // addRequestOutcomeToBatch adds the outcome for a single request to the outcome batch. Returns false if batch does not have capacity to add the outcome.
 func (r *reportingPlugin) addRequestOutcomeToBatch(ctx context.Context, lggr logger.Logger, requestID string, observations []*oracletypes.RequestObservation, outcome *batching.OutcomeBatch) (bool, error) {

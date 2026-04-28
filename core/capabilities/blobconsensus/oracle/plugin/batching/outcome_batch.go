@@ -13,8 +13,6 @@ import (
 
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
@@ -27,7 +25,7 @@ type OutcomeBatch struct {
 	metrics               metrics
 	maxRequestOutcomeSize int
 
-	outctx                         ocr3types.OutcomeContext
+	seqNr                          uint64
 	maxOutcomeLengthBytes          int
 	currentSerialisedBatchSize     int
 	initialBatchOverheadSize       int
@@ -35,10 +33,10 @@ type OutcomeBatch struct {
 	maxNumberOfReports             int
 }
 
-func NewOutcomeBatch(ctx context.Context, lggr logger.Logger, outctx ocr3types.OutcomeContext, outcomeExpirySeqNrSpan uint64, maxOutcomeLengthBytes int,
+func NewOutcomeBatch(ctx context.Context, lggr logger.Logger, seqNr uint64, previousOutcome []byte, outcomeExpirySeqNrSpan uint64, maxOutcomeLengthBytes int,
 	keybundleIDForConsensusFailure string, metrics metrics, maxRequestOutcomeSize int, maxNumberOfReports int) (*OutcomeBatch, error) {
 	metrics.IncBatchRequestsTotal(ctx, "outcome")
-	historicalOutcomes, err := getNonExpiredHistoricalRequestOutcomes(lggr, outctx, outcomeExpirySeqNrSpan)
+	historicalOutcomes, err := getNonExpiredHistoricalRequestOutcomes(lggr, seqNr, previousOutcome, outcomeExpirySeqNrSpan)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get previous outcomes: %w", err)
 	}
@@ -50,7 +48,7 @@ func NewOutcomeBatch(ctx context.Context, lggr logger.Logger, outctx ocr3types.O
 			HistoricalOutcomes: historicalOutcomes,
 		},
 		lggr:                           lggr,
-		outctx:                         outctx,
+		seqNr:                          seqNr,
 		currentSerialisedBatchSize:     initialOverhead,
 		initialBatchOverheadSize:       initialOverhead,
 		keybundleIDForConsensusFailure: keybundleIDForConsensusFailure,
@@ -88,11 +86,11 @@ func (o *OutcomeBatch) AddSuccessfulConsensusRequestOutcomeToBatch(ctx context.C
 		},
 	}
 
-	hasCapacity := o.checkOutcomeBatchHasCapacity(requestID, requestOutcome, o.outctx.SeqNr)
+	hasCapacity := o.checkOutcomeBatchHasCapacity(requestID, requestOutcome, o.seqNr)
 	if !hasCapacity {
 		o.metrics.IncBatchCapacityExceeded(ctx, "outcome")
 
-		fitsInEmptyBatch, _ := o.outcomeWouldFit(o.initialBatchOverheadSize, requestID, requestOutcome, o.outctx.SeqNr)
+		fitsInEmptyBatch, _ := o.outcomeWouldFit(o.initialBatchOverheadSize, requestID, requestOutcome, o.seqNr)
 		if !fitsInEmptyBatch {
 			failureMsg := "outcome too large: the consensus result for this request exceeds the maximum allowed size"
 			o.lggr.Errorw(failureMsg, "requestID", requestID,
@@ -105,7 +103,7 @@ func (o *OutcomeBatch) AddSuccessfulConsensusRequestOutcomeToBatch(ctx context.C
 	}
 
 	o.Outcomes = append(o.Outcomes, requestOutcome)
-	o.HistoricalOutcomes[requestID] = o.outctx.SeqNr
+	o.HistoricalOutcomes[requestID] = o.seqNr
 
 	return true, nil
 }
@@ -128,14 +126,14 @@ func (o *OutcomeBatch) AddFailedConsensusRequestOutcomeToBatch(ctx context.Conte
 		requestOutcome = o.truncateFailedRequestOutcome(requestOutcome.GetFailure())
 	}
 
-	hasCapacity := o.checkOutcomeBatchHasCapacity(requestID, requestOutcome, o.outctx.SeqNr)
+	hasCapacity := o.checkOutcomeBatchHasCapacity(requestID, requestOutcome, o.seqNr)
 	if !hasCapacity {
 		o.metrics.IncBatchCapacityExceeded(ctx, "outcome")
 		return false, nil
 	}
 
 	o.Outcomes = append(o.Outcomes, requestOutcome)
-	o.HistoricalOutcomes[requestID] = o.outctx.SeqNr
+	o.HistoricalOutcomes[requestID] = o.seqNr
 
 	return true, nil
 }
@@ -253,18 +251,18 @@ func (o *OutcomeBatch) checkOutcomeBatchHasCapacity(requestID string, requestOut
 	return fits
 }
 
-func getNonExpiredHistoricalRequestOutcomes(lggr logger.Logger, outctx ocr3types.OutcomeContext, outcomeExpirySeqNrSpan uint64) (map[string]uint64, error) {
+func getNonExpiredHistoricalRequestOutcomes(lggr logger.Logger, seqNr uint64, previousOutcome []byte, outcomeExpirySeqNrSpan uint64) (map[string]uint64, error) {
 	nonExpiredHistoricalOutcomes := map[string]uint64{}
-	if outctx.PreviousOutcome != nil {
+	if len(previousOutcome) > 0 {
 		prevOutcome := &oracletypes.Outcome{}
-		err := proto.Unmarshal(outctx.PreviousOutcome, prevOutcome)
+		err := proto.Unmarshal(previousOutcome, prevOutcome)
 		if err != nil {
 			lggr.Errorw("could not unmarshal previous outcome", "error", err)
 			return nil, err
 		}
 
 		for requestID, outcomeSeqNr := range prevOutcome.HistoricalOutcomes {
-			if outctx.SeqNr-outcomeSeqNr <= outcomeExpirySeqNrSpan {
+			if seqNr-outcomeSeqNr <= outcomeExpirySeqNrSpan {
 				nonExpiredHistoricalOutcomes[requestID] = outcomeSeqNr
 			}
 		}

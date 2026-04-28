@@ -1059,7 +1059,7 @@ func createReportingPlugin(t *testing.T, lggr logger.Logger, f int, n int,
 	metricsInstance, err := metrics.NewMetrics()
 	require.NoError(t, err)
 
-	reportingPlugin, err := plugin.NewReportingPlugin(lggr, metricsInstance, f, n, reqStore, &pbtypes.ReportingPluginConfig{
+	rp, err := plugin.NewReportingPlugin(lggr, metricsInstance, f, n, reqStore, &pbtypes.ReportingPluginConfig{
 		MaxQueryLengthBytes:              defaultMaxLengthBytes,
 		MaxObservationLengthBytes:        defaultMaxLengthBytes,
 		MaxOutcomeLengthBytes:            defaultMaxLengthBytes,
@@ -1068,7 +1068,7 @@ func createReportingPlugin(t *testing.T, lggr logger.Logger, f int, n int,
 		HistoricalOutcomeExpirySeqNrSpan: outcomeExpirySpan,
 	}, "evm", maxRequestOutcomeSize)
 	require.NoError(t, err)
-	return reportingPlugin, reqStore
+	return plugin.AsOCR3ReportingPlugin(rp), reqStore
 }
 
 // Test_QuorumReachedWithSomeOversizedRequests verifies that consensus can be reached

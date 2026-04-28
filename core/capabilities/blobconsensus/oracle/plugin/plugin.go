@@ -7,7 +7,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle"
 	oracletypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle/types"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/quorumhelper"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-var _ ocr3types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
+var _ ocr3_1types.ReportingPlugin[[]byte] = (*reportingPlugin)(nil)
 
 type reportingPlugin struct {
 	store *requests.Store[*oracle.ConsensusRequest]
@@ -74,20 +75,25 @@ func ToRequestMetaData(metadata oracle.ConsensusRequestMetadata) *oracletypes.Re
 	}
 }
 
-func (r *reportingPlugin) ValidateObservation(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query, ao types.AttributedObservation) error {
+func (r *reportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, ao types.AttributedObservation, _ ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobFetcher) error {
+	_ = seqNr
+	_ = aq
+	_ = ao
 	return nil
 }
 
-func (r *reportingPlugin) ObservationQuorum(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query, aos []types.AttributedObservation) (bool, error) {
+func (r *reportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, _ ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobFetcher) (bool, error) {
+	_ = seqNr
+	_ = aq
 	return quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.n, r.f, aos), nil
 }
 
-func (r *reportingPlugin) ShouldAcceptAttestedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
+func (r *reportingPlugin) ShouldAcceptAttestedReport(context.Context, uint64, ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	// True because we always want to transmit a report
 	return true, nil
 }
 
-func (r *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, seqNr uint64, rwi ocr3types.ReportWithInfo[[]byte]) (bool, error) {
+func (r *reportingPlugin) ShouldTransmitAcceptedReport(context.Context, uint64, ocr3types.ReportWithInfo[[]byte]) (bool, error) {
 	// True because we always want to transmit a report
 	return true, nil
 }

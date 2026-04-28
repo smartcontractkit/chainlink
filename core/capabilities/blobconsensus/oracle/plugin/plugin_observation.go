@@ -9,15 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle/plugin/batching"
 	oracletypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle/types"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 )
 
 // Observation processes the query and returns the observation for the reporting plugin.  If a request for a given
 // request ID is not found locally, it is simply skipped in the observation.
-func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.OutcomeContext, query types.Query) (types.Observation, error) {
+func (r *reportingPlugin) Observation(ctx context.Context, seqNr uint64, aq types.AttributedQuery, _ ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobBroadcastFetcher) (types.Observation, error) {
 	requestsQuery := &oracletypes.Query{}
-	err := proto.Unmarshal(query, requestsQuery)
+	err := proto.Unmarshal(aq.Query, requestsQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -39,12 +39,12 @@ func (r *reportingPlugin) Observation(ctx context.Context, outctx ocr3types.Outc
 
 		hasCapacity := observationBatch.AddObservation(ctx, reqObs)
 		if !hasCapacity {
-			r.lggr.Debugw("batch does not have capacity to add observation - skipping in this round", "seqNr", outctx.SeqNr, "requestID", reqObs.Metadata.RequestId)
+			r.lggr.Debugw("batch does not have capacity to add observation - skipping in this round", "seqNr", seqNr, "requestID", reqObs.Metadata.RequestId)
 			break
 		}
 	}
 
-	r.lggr.Debugw("consensus plugin observation complete", "seqNr", outctx.SeqNr, "numObservations", observationBatch.NumObservationsInBatch(), "numOfRequestsInQuery", len(requestsQuery.RequestIDs))
+	r.lggr.Debugw("consensus plugin observation complete", "seqNr", seqNr, "numObservations", observationBatch.NumObservationsInBatch(), "numOfRequestsInQuery", len(requestsQuery.RequestIDs))
 	return observationBatch.SerialiseObservationBatch(ctx)
 }
 

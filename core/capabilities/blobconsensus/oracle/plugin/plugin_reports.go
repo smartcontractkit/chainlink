@@ -12,6 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 )
 
@@ -22,9 +23,9 @@ const InfoConsensusFailureMessage = "failureMessage"
 const InfoConsensusFailureCode = "failureCode"
 const InfoKeyBundleName = "keyBundleName"
 
-func (r *reportingPlugin) Reports(ctx context.Context, seqNr uint64, outcome ocr3types.Outcome) ([]ocr3types.ReportPlus[[]byte], error) {
+func (r *reportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlusPrecursor ocr3_1types.ReportsPlusPrecursor) ([]ocr3types.ReportPlus[[]byte], error) {
 	requestsOutcome := &oracletypes.Outcome{}
-	err := proto.Unmarshal(outcome, requestsOutcome)
+	err := proto.Unmarshal([]byte(reportsPlusPrecursor), requestsOutcome)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +130,7 @@ func (r *reportingPlugin) Reports(ctx context.Context, seqNr uint64, outcome ocr
 			})
 			failureIDs = append(failureIDs, failedOutcome.RequestID)
 		default:
-			r.lggr.Warnw("received unknown consensus outcome type", "seqNr", seqNr, "outcome", outcome)
+			r.lggr.Warnw("received unknown consensus outcome type", "seqNr", seqNr, "reportsPlusPrecursor", reportsPlusPrecursor)
 		}
 
 		if len(reports) == r.maxNumberOfReports {

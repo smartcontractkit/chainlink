@@ -10,18 +10,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle/plugin/batching"
 	oracletypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/blobconsensus/oracle/types"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 )
 
-func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeContext) (types.Query, error) {
+func (r *reportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueStateReader ocr3_1types.KeyValueStateReader, _ ocr3_1types.BlobBroadcastFetcher) (types.Query, error) {
+	_ = seqNr
 	allRequests, err := r.store.All()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all requests: %w", err)
 	}
 
+	previousOutcome, err := readPreviousOutcomeBytesFromKV(keyValueStateReader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read previous outcome from key-value state: %w", err)
+	}
+
 	// Get only those requests that are pending consensus to prevent completed requests being included in the new query
-	pendingRequests, err := r.getPendingRequests(outctx, allRequests)
+	pendingRequests, err := r.getPendingRequestsFromPreviousOutcome(previousOutcome, allRequests)
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove completed requests: %w", err)
 	}
@@ -35,22 +41,22 @@ func (r *reportingPlugin) Query(ctx context.Context, outctx ocr3types.OutcomeCon
 		}
 	}
 
-	r.lggr.Debugw("consensus plugin query complete", "seqNr", outctx.SeqNr, "number of request ids", queryBatch.NumberOfRequestIDs())
+	r.lggr.Debugw("consensus plugin query complete", "seqNr", seqNr, "number of request ids", queryBatch.NumberOfRequestIDs())
 	return queryBatch.SerialiseQueryBatch()
 }
 
 // Removes any requests that have already been completed (successfully/failed/errored) from the batch
 // leaving only those requests that are pending consensus.
-func (r *reportingPlugin) getPendingRequests(outctx ocr3types.OutcomeContext, allRequests []*oracle.ConsensusRequest) ([]*oracle.ConsensusRequest, error) {
+func (r *reportingPlugin) getPendingRequestsFromPreviousOutcome(previousOutcome []byte, allRequests []*oracle.ConsensusRequest) ([]*oracle.ConsensusRequest, error) {
 	var pendingRequests []*oracle.ConsensusRequest
-	if outctx.PreviousOutcome == nil {
+	if len(previousOutcome) == 0 {
 		return allRequests, nil
 	}
 
 	prevOutcome := &oracletypes.Outcome{}
-	err := proto.Unmarshal(outctx.PreviousOutcome, prevOutcome)
+	err := proto.Unmarshal(previousOutcome, prevOutcome)
 	if err != nil {
-		r.lggr.Errorw("could not unmarshal previous outcome", "seqNr", outctx.SeqNr, "error", err)
+		r.lggr.Errorw("could not unmarshal previous outcome", "error", err)
 		return nil, err
 	}
 

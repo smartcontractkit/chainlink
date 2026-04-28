@@ -9,8 +9,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
@@ -34,10 +32,7 @@ func TestOutcomeBatchCapacityCalculation(t *testing.T) {
 	require.NoError(t, err)
 
 	testMetrics := newTestMetrics(t, "outcome")
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: serialisedPrevOutcome,
-		SeqNr:           1000,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 1000, serialisedPrevOutcome, 1000,
 		100_000_000, "evm", testMetrics, 1000, 10000)
 
 	require.NoError(t, err)
@@ -83,10 +78,7 @@ func TestOutcomeBatchCapacityExceeded(t *testing.T) {
 	require.NoError(t, err)
 
 	testMetrics := newTestMetrics(t, "outcome")
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: serialisedPrevOutcome,
-		SeqNr:           1000,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 1000, serialisedPrevOutcome, 1000,
 		1000, "evm", testMetrics, 1000, 10000)
 
 	require.NoError(t, err)
@@ -137,10 +129,7 @@ func TestOutcomeBatchMaxNumberOfReportsExceeded(t *testing.T) {
 	require.NoError(t, err)
 
 	testMetrics := newTestMetrics(t, "outcome")
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: serialisedPrevOutcome,
-		SeqNr:           1000,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 1000, serialisedPrevOutcome, 1000,
 		100000, "evm", testMetrics, 100000, 3)
 
 	require.NoError(t, err)
@@ -181,10 +170,7 @@ func TestOutcomeTooLargeToEverFit(t *testing.T) {
 
 	testMetrics := newTestMetrics(t, "outcome")
 	// Create a batch with a very small max size (500 bytes)
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: nil,
-		SeqNr:           1,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 1, nil, 1000,
 		500, "evm", testMetrics, 1000, 10000)
 
 	require.NoError(t, err)
@@ -209,10 +195,7 @@ func TestOutcomeDoesNotFitNowButWouldFitInEmptyBatch(t *testing.T) {
 	// Create a batch with just enough space for one outcome but not two.
 	// Based on testing, an outcome with small data takes ~32 bytes.
 	// With max size 50, one fits (32 < 50) but two don't (64 > 50).
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: nil,
-		SeqNr:           1,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 1, nil, 1000,
 		50, "evm", testMetrics, 1000, 10000)
 
 	require.NoError(t, err)
@@ -255,10 +238,7 @@ func TestOutcomeTooLargeWithExistingHistoricalOutcomes(t *testing.T) {
 
 	testMetrics := newTestMetrics(t, "outcome")
 	// Create a batch with a small max size
-	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, ocr3types.OutcomeContext{
-		PreviousOutcome: serialisedPrevOutcome,
-		SeqNr:           100,
-	}, 1000,
+	outcome, err := batching.NewOutcomeBatch(ctx, testLogger, 100, serialisedPrevOutcome, 1000,
 		500, "evm", testMetrics, 1000, 10000)
 
 	require.NoError(t, err)

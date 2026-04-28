@@ -40,7 +40,7 @@ import (
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 )
 
 const (
@@ -209,7 +209,7 @@ func (c *consensusCapability) setConfiguration(cfg string) error {
 	}
 
 	// Cap the limit at libOCR's MaxMaxObservationLength to ensure it never exceeds OCR protocol limits
-	libOCRLimit := config.Size(int(ocr3types.MaxMaxObservationLength))
+	libOCRLimit := config.Size(int(ocr3_1types.MaxMaxObservationBytes))
 	if configuredLimit > libOCRLimit {
 		c.lggr.Warnw("Request size limit exceeds libOCR maximum, capping at libOCR limit",
 			"configuredLimit", configuredLimit,
