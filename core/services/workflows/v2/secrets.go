@@ -238,7 +238,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata)
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{

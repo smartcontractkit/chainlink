@@ -96,6 +96,70 @@ jobs:
             all:
               - '**'
 
+      - name: Decide which tests to run (rollout-only)
+        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
+        # before using its output to actually gate any jobs.
+        id: triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        continue-on-error: true
+        with:
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "core/**"
+            all-test-files:
+              - "**/testdata/**"
+              - "**/*_test.go"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            e2e-tests-files:
+              - "system-tests/**"
+              - "integration-tests/**"
+            workflow-files:
+              - ".github/workflows/ci-core.yml"
+              - ".github/actions/**"
+            deployment-files:
+              - "deployment/**"
+            ignored-files:
+              - "core/scripts/cre/environment/examples/workflows/**"
+          # Note:
+          # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
+          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
+          # - by default these will resolve to true for schedule, and workflow_dispatch events
+          triggers: |
+            core-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests"
+            core-fuzz-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "!**/testdata/**"
+                - "**/fuzz/**"
+                - "tools/bin/go_core_fuzz"
+            core-race-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_race_tests"
+            core-integration-tests:
+              exclusion-sets: [ e2e-tests-files, deployment-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, all-test-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_tests_integration"
+            deployment-tests:
+              exclusion-sets: [ e2e-tests-files, core-test-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, deployment-files, workflow-files ]
+              paths:
+                - "tools/bin/go_core_ccip_deployment_tests"
+
       - name: Changed modules
         id: changed-modules
         uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
