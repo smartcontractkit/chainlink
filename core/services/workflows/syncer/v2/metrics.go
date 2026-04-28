@@ -12,10 +12,11 @@ import (
 )
 
 type metrics struct {
-	handleDuration   metric.Int64Histogram
-	fetchedWorkflows metric.Int64Gauge
-	runningWorkflows metric.Int64Gauge
-	completedSyncs   metric.Int64Counter
+	handleDuration    metric.Int64Histogram
+	fetchedWorkflows  metric.Int64Gauge
+	runningWorkflows  metric.Int64Gauge
+	drainingWorkflows metric.Int64Gauge
+	completedSyncs    metric.Int64Counter
 
 	// Per-source metrics for multi-source observability
 	sourceHealth        metric.Int64Gauge     // 1=healthy, 0=unhealthy per source
@@ -42,6 +43,10 @@ func (m *metrics) recordFetchedWorkflows(ctx context.Context, count int) {
 
 func (m *metrics) recordRunningWorkflows(ctx context.Context, count int) {
 	m.runningWorkflows.Record(ctx, int64(count))
+}
+
+func (m *metrics) recordDrainingWorkflows(ctx context.Context, count int) {
+	m.drainingWorkflows.Record(ctx, int64(count))
 }
 
 func (m *metrics) incrementCompletedSyncs(ctx context.Context) {
@@ -95,6 +100,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	drainingWorkflows, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_draining_workflows")
+	if err != nil {
+		return nil, err
+	}
+
 	completedSyncs, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_completed_syncs_total")
 	if err != nil {
 		return nil, err
@@ -140,6 +150,7 @@ func newMetrics() (*metrics, error) {
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
 		runningWorkflows:          runningWorkflows,
+		drainingWorkflows:         drainingWorkflows,
 		completedSyncs:            completedSyncs,
 		sourceHealth:              sourceHealth,
 		workflowsPerSource:        workflowsPerSource,

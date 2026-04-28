@@ -53,6 +53,15 @@ type ORM interface {
 // creation since they don't support async initialization hooks.
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
+type DrainableService interface {
+	services.Service
+	Drain()
+	ActiveExecutions() int32
+	IsDraining() bool
+}
+
+var ErrDrainInProgress = errors.New("drain in progress")
+
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
 	services.Service
@@ -363,8 +372,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if err := h.workflowPausedEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+		if err = h.workflowPausedEvent(ctx, payload); err != nil {
+			if errors.Is(err, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow pause deferred: %v", err), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			}
 			return err
 		}
 
@@ -417,8 +430,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr := h.workflowDeletedEvent(ctx, payload); herr != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+			if errors.Is(herr, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+			}
 			return herr
 		}
 
@@ -497,8 +514,15 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
+		drainable, isDrainable := prevEngine.Service.(DrainableService)
+		if isDrainable && drainable.IsDraining() {
+			h.lggr.Infow("engine is draining, replacing with a new engine", "workflowID", payload.WorkflowID.Hex())
+		}
+
 		// This is the happy-path, we're done.
-		return nil
+		if !isDrainable || !drainable.IsDraining() {
+			return nil
+		}
 	}
 
 	// Any other case ->
@@ -686,7 +710,21 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok {
-		if innerErr := e.Close(); innerErr != nil {
+		if drainable, isDrainable := e.Service.(DrainableService); isDrainable {
+			if !drainable.IsDraining() {
+				drainable.Drain()
+				h.lggr.Infow("initiated drain for workflow engine", "workflowID", payload.WorkflowID.Hex())
+			}
+
+			if active := drainable.ActiveExecutions(); active > 0 {
+				h.lggr.Infow("workflow deletion deferred: active executions still running",
+					"workflowID", payload.WorkflowID.Hex(),
+					"activeExecutions", active)
+				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+			}
+		}
+
+		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}

@@ -87,6 +87,9 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+
+	draining         atomic.Bool
+	activeExecutions atomic.Int32
 }
 
 type triggerCapability struct {
@@ -145,6 +148,21 @@ func (e *Engine) setLogger(lggr logger.SugaredLogger) {
 	e.lggrMu.Lock()
 	defer e.lggrMu.Unlock()
 	e.lggr = lggr
+}
+
+// Drain marks the engine as draining and prevents new executions from starting.
+// In-flight executions continue to run to completion.
+func (e *Engine) Drain() {
+	e.draining.Store(true)
+	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
+}
+
+func (e *Engine) IsDraining() bool {
+	return e.draining.Load()
+}
+
+func (e *Engine) ActiveExecutions() int32 {
+	return e.activeExecutions.Load()
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
@@ -586,6 +604,10 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
+		if e.draining.Load() {
+			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", queueHead.event.Event.ID)
+			return
+		}
 		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
@@ -603,9 +625,11 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.activeExecutions.Add(1)
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			defer e.activeExecutions.Add(-1)
 			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",

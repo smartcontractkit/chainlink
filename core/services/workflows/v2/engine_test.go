@@ -100,6 +100,113 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+func TestEngine_DrainSetsStateAndHealth(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+	initDoneCh := make(chan error)
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(0), nil).Once()
+	module.EXPECT().Close().Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.False(t, engine.IsDraining())
+	require.Equal(t, int32(0), engine.ActiveExecutions())
+
+	engine.Drain()
+	require.True(t, engine.IsDraining())
+	healthReport := engine.HealthReport()
+	require.NotEmpty(t, healthReport)
+	hasDrainError := false
+	for _, healthErr := range healthReport {
+		if healthErr != nil && strings.Contains(healthErr.Error(), "draining") {
+			hasDrainError = true
+			break
+		}
+	}
+	require.True(t, hasDrainError, "expected draining health condition to be reported")
+
+	require.NoError(t, engine.Close())
+}
+
+func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+	executionFinishedCh := make(chan string, 1)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+		OnExecutionFinished: func(executionID string, status string) {
+			executionFinishedCh <- executionID
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(newTriggerSubs(1), nil).Once()
+	module.EXPECT().Close().Once()
+
+	trigger := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "id_0").Return(trigger, nil).Once()
+	eventCh := make(chan capabilities.TriggerResponse, 1)
+	trigger.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(eventCh, nil).Once()
+	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
+
+	engine.Drain()
+
+	eventCh <- capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{
+			TriggerType: "basic-trigger@1.0.0",
+			ID:          "event_should_be_skipped",
+		},
+	}
+
+	select {
+	case executionID := <-executionFinishedCh:
+		t.Fatalf("unexpected execution finished while draining: %s", executionID)
+	case <-time.After(200 * time.Millisecond):
+	}
+	require.Equal(t, int32(0), engine.ActiveExecutions())
+
+	require.NoError(t, engine.Close())
+}
+
 func TestEngine_Start_RateLimited(t *testing.T) {
 	t.Parallel()
 	getter, err := settings.NewTOMLGetter([]byte(`

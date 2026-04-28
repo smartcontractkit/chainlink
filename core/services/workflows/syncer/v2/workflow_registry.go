@@ -573,6 +573,10 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
 		if !workflowsSeen[id] {
+			if drainable, isDrainable := engine.Service.(DrainableService); isDrainable && !drainable.IsDraining() {
+				drainable.Drain()
+			}
+
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
 
 			if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
@@ -864,6 +868,14 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			drainingWorkflows := 0
+			for _, workflow := range runningWorkflows {
+				drainable, isDrainable := workflow.Service.(DrainableService)
+				if isDrainable && drainable.IsDraining() {
+					drainingWorkflows++
+				}
+			}
+			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}
