@@ -1,9 +1,11 @@
 package ccip
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -768,7 +770,14 @@ func Test_CCIP_TokenTransfer_BnM_EVM2Aptos(t *testing.T) {
 }
 
 func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
-	ctx := t.Context()
+	// Increase timeout for cross-chain finality: Aptos and EVM have different consensus times.
+	// Sequential waits (ConfirmMultipleCommits, ConfirmExecWithSeqNrsForAll, WaitForTokenBalances)
+	// can exceed default context timeout. Allow up to 10 minutes for all confirmations.
+	rootCtx := t.Context()
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(rootCtx, 10*time.Minute)
+	defer cancel()
+
 	lggr := logger.TestLogger(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
