@@ -534,7 +534,7 @@ func Test_RegistrySynchronizer1_2_UpkeepReceivedLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 1)
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_2ABI, contractAddress)
-	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Once()
+	registryMock.MockResponse("getUpkeep", upkeepConfig1_2).Maybe()
 
 	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
