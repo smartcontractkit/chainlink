@@ -118,18 +118,16 @@ type mockDrainableEngine struct {
 	drainStartedAtNs atomic.Int64
 }
 
-func (m *mockDrainableEngine) Drain() {
+func (m *mockDrainableEngine) Drain() bool {
+	started := m.draining.CompareAndSwap(false, true)
 	m.draining.Store(true)
 	m.drainCalls.Add(1)
 	m.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	return started
 }
 
 func (m *mockDrainableEngine) ActiveExecutions() int32 {
 	return m.activeExecutions.Load()
-}
-
-func (m *mockDrainableEngine) IsDraining() bool {
-	return m.draining.Load()
 }
 
 func (m *mockDrainableEngine) DrainStartedAt() (time.Time, bool) {
@@ -1397,7 +1395,7 @@ func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T
 			CloseErr: assert.AnError,
 		},
 	}
-	drainable.draining.Store(true)
+	require.True(t, drainable.Drain())
 
 	registry := NewEngineRegistry()
 	require.NoError(t, registry.Add(workflowID, "test-source", drainable))

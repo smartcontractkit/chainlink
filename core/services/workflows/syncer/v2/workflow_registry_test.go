@@ -776,8 +776,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		er := NewEngineRegistry()
 		wfID := [32]byte{1}
 		drainingEngine := &mockDrainableEngine{}
-		drainingEngine.Drain()
-		require.True(t, drainingEngine.IsDraining())
+		require.True(t, drainingEngine.Drain())
 		err := er.Add(wfID, "TestSource", drainingEngine)
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(

@@ -54,9 +54,8 @@ type ORM interface {
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
 type DrainableService interface {
-	Drain()
+	Drain() bool
 	ActiveExecutions() int32
-	IsDraining() bool
 	DrainStartedAt() (time.Time, bool)
 }
 
@@ -522,12 +521,16 @@ func (h *eventHandler) workflowRegisteredEvent(
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
 		drainable, isDrainable := prevEngine.Service.(DrainableService)
-		if isDrainable && drainable.IsDraining() {
+		isDraining := false
+		if isDrainable {
+			_, isDraining = drainable.DrainStartedAt()
+		}
+		if isDrainable && isDraining {
 			h.lggr.Infow("engine is draining, replacing with a new engine", "workflowID", payload.WorkflowID.Hex())
 		}
 
 		// This is the happy-path, we're done.
-		if !isDrainable || !drainable.IsDraining() {
+		if !isDrainable || !isDraining {
 			return nil
 		}
 	}
@@ -722,8 +725,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	var isDrainable bool
 	if ok {
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
-			if !drainable.IsDraining() {
-				drainable.Drain()
+			if started := drainable.Drain(); started {
 				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
 				if h.metrics != nil {
 					h.metrics.incrementDrainStarted(ctx)

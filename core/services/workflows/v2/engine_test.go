@@ -126,11 +126,13 @@ func TestEngine_DrainSetsStateAndHealth(t *testing.T) {
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
-	require.False(t, engine.IsDraining())
+	_, draining := engine.DrainStartedAt()
+	require.False(t, draining)
 	require.Equal(t, int32(0), engine.ActiveExecutions())
 
-	engine.Drain()
-	require.True(t, engine.IsDraining())
+	require.True(t, engine.Drain())
+	_, draining = engine.DrainStartedAt()
+	require.True(t, draining)
 	healthReport := engine.HealthReport()
 	require.NotEmpty(t, healthReport)
 	hasDrainError := false
@@ -188,7 +190,7 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 	require.NoError(t, <-initDoneCh)
 	require.Equal(t, []string{"id_0"}, <-subscribedToTriggersCh)
 
-	engine.Drain()
+	require.True(t, engine.Drain())
 
 	eventCh <- capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{

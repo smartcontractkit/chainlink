@@ -154,14 +154,14 @@ func (e *Engine) setLogger(lggr logger.SugaredLogger) {
 
 // Drain marks the engine as draining and prevents new executions from starting.
 // In-flight executions continue to run to completion.
-func (e *Engine) Drain() {
-	e.draining.Store(true)
-	e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+// It returns true only on the first transition to draining.
+func (e *Engine) Drain() bool {
+	started := e.draining.CompareAndSwap(false, true)
+	if started {
+		e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	}
 	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
-}
-
-func (e *Engine) IsDraining() bool {
-	return e.draining.Load()
+	return started
 }
 
 func (e *Engine) ActiveExecutions() int32 {
