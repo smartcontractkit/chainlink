@@ -597,12 +597,10 @@ func (w *workflowRegistry) generateReconciliationEventsWithActions(
 	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
 		if !workflowsSeen[id] {
-			if _, isDrainable := engine.Service.(DrainableService); isDrainable {
-				actions = append(actions, reconcileAction{
-					kind:       reconcileActionPreDrainDelete,
-					workflowID: engine.WorkflowID,
-				})
-			}
+			actions = append(actions, reconcileAction{
+				kind:       reconcileActionPreDrainDelete,
+				workflowID: engine.WorkflowID,
+			})
 
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
 
