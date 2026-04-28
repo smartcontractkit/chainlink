@@ -222,6 +222,47 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, expectedDeletedEvent, events[0].Data)
 	})
 
+	t.Run("generateReconciliationEvents is side-effect free; pre-dispatch drains delete targets", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		drainingEngine := &mockDrainableEngine{}
+		err := er.Add(wfID, "TestSource", drainingEngine)
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			"test-chain-selector",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{}
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+
+		_, draining := drainingEngine.DrainStartedAt()
+		require.False(t, draining, "generateReconciliationEvents should not mutate engine state")
+
+		wr.applyPreDispatchReconcileActions(ctx, events)
+		_, draining = drainingEngine.DrainStartedAt()
+		require.True(t, draining, "pre-dispatch actions should initiate drain for delete events")
+	})
+
 	t.Run("No change", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)

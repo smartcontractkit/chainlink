@@ -576,12 +576,6 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
 		if !workflowsSeen[id] {
-			if drainable, isDrainable := engine.Service.(DrainableService); isDrainable {
-				if started := drainable.Drain(); started {
-					w.metrics.incrementDrainStarted(ctx)
-				}
-			}
-
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
 
 			if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
@@ -629,6 +623,34 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	}
 
 	return events, nil
+}
+
+func (w *workflowRegistry) applyPreDispatchReconcileActions(ctx context.Context, events []*reconciliationEvent) {
+	for _, event := range events {
+		if event.Name != WorkflowDeleted {
+			continue
+		}
+
+		deletedEvent, ok := event.Data.(WorkflowDeletedEvent)
+		if !ok {
+			w.lggr.Warnw("skipping pre-dispatch drain due to invalid event payload type", "eventID", event.id, "eventType", event.Name)
+			continue
+		}
+
+		serviceWithMetadata, exists := w.engineRegistry.Get(deletedEvent.WorkflowID)
+		if !exists {
+			continue
+		}
+
+		drainable, isDrainable := serviceWithMetadata.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+
+		if started := drainable.Drain(); started {
+			w.metrics.incrementDrainStarted(ctx)
+		}
+	}
 }
 
 func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
@@ -785,6 +807,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				}
 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
+
+				w.applyPreDispatchReconcileActions(ctx, events)
 
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
