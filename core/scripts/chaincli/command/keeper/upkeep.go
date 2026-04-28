@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/config"
-	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/handler"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command

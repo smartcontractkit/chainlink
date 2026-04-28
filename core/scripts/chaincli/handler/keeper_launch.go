@@ -16,7 +16,6 @@ import (
 	"syscall"
 
 	"github.com/ethereum/go-ethereum/common"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore"
@@ -24,11 +23,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/config"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -169,23 +167,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	if withdraw {
 		log.Println("Canceling upkeeps...")
 		switch k.cfg.RegistryVersion {
-		case config.RegistryVersion_1_1:
-			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
-				log.Fatal("Failed to cancel upkeeps: ", err)
-			}
-		case config.RegistryVersion_1_2:
-			registry, err := registry12.NewKeeperRegistry(
-				registryAddr,
-				k.client,
-			)
-			if err != nil {
-				log.Fatal("Registry failed: ", err)
-			}
-
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
-			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
-				log.Fatal("Failed to cancel upkeeps: ", err)
-			}
 		case config.RegistryVersion_2_0:
 			registry, err := registry20.NewKeeperRegistry(
 				registryAddr,
@@ -218,7 +199,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	}
 }
 
-// cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds for registry 1.2
+// cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds via the registry canceller interface.
 func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
 	for i := range activeUpkeepIds {
 		upkeepId := activeUpkeepIds[i]
@@ -245,42 +226,6 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 
 	tx, err := canceller.RecoverFunds(k.buildTxOpts(ctx))
 	if err != nil {
-		return fmt.Errorf("failed to recover funds: %w", err)
-	}
-
-	if err = k.waitTx(ctx, tx); err != nil {
-		log.Fatalf("failed to recover funds, error is: %s", err.Error())
-	}
-
-	return nil
-}
-
-// cancelAndWithdrawUpkeeps cancels all upkeeps for 1.1 registry and withdraws funds
-func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.Int, canceller canceller) error {
-	var err error
-	for i := int64(0); i < upkeepCount.Int64(); i++ {
-		var tx *ethtypes.Transaction
-		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
-			return fmt.Errorf("failed to cancel upkeep %d: %w", i, err)
-		}
-
-		if err = k.waitTx(ctx, tx); err != nil {
-			log.Fatalf("failed to cancel upkeep, error is: %s", err.Error())
-		}
-
-		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
-			return fmt.Errorf("failed to withdraw upkeep %d: %w", i, err)
-		}
-
-		if err = k.waitTx(ctx, tx); err != nil {
-			log.Fatalf("failed to withdraw upkeep, error is: %s", err.Error())
-		}
-
-		log.Println("Upkeep successfully canceled and refunded: ", i)
-	}
-
-	var tx *ethtypes.Transaction
-	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %w", err)
 	}
 
