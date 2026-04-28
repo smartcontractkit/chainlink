@@ -98,6 +98,13 @@ type TokenPoolRateLimiterConfig struct {
 }
 
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
+	// The SDK's default WaitForTxIndexedTimeout (30s) is too short for CI environments
+	// where fullnode indexing can lag. Override it to match our custom polling budget,
+	// then restore it so in-process DON Sui transactions are not affected.
+	prev := suiBind.WaitForTxIndexedTimeout
+	suiBind.WaitForTxIndexedTimeout = SuiTxIndexingWaitTimeout
+	defer func() { suiBind.WaitForTxIndexedTimeout = prev }()
+
 	ctx := e.GetContext()
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -156,7 +163,7 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 	msg := cfg.Message.(SuiSendRequest)
 
 	// Update Prices on FeeQuoter with minted LinkToken
-	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
+	feePriceReport, err := operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps.SuiChain,
 		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
 			CCIPPackageId:         ccipPackageID,
 			CCIPObjectRef:         ccipObjectRefID,
@@ -168,6 +175,16 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		})
 	if err != nil {
 		return &ccipclient.AnyMsgSentEvent{}, errors.New("failed to updatePrice for Sui chain " + err.Error())
+	}
+
+	// This tx mutates the signer's gas coin. The following PTB (ccip_send) selects that
+	// coin via SuiXGetAllCoins / object refs; without waiting for fullnode indexing, the
+	// next submit can race (stale object version) even when each individual binding call
+	// used WaitForExecution (see bind.WaitForTransactionIndexed / WaitForSuiFullnodeTransaction).
+	if d := feePriceReport.Output.Digest; d != "" {
+		if waitErr := WaitForSuiFullnodeTransaction(ctx, suiChain.Client, d); waitErr != nil {
+			return &ccipclient.AnyMsgSentEvent{}, fmt.Errorf("fee quoter price update tx not visible on fullnode: %w", waitErr)
+		}
 	}
 
 	// TODO: might be needed for validation
@@ -343,22 +360,39 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 		typeArgsListLinkTokenPkgID := []string{linkTokenPkgID + "::link::LINK"}
 		typeParamsList = []string{}
 
+		// Split the source coin to the exact requested amount. Without this the entire
+		// coin object is passed to lock_or_burn regardless of Amount.
+		// ptb.Object() leaves the coin as an UnresolvedObject (BCS variant 3) which
+		// the Sui network rejects. Resolve it to ImmOrOwnedObject first.
+		tokenAddrBytes, err := suitx.ConvertSuiAddressStringToBytes(models.SuiAddress(msg.TokenAmounts[0].Token))
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert token address %s: %w", msg.TokenAmounts[0].Token, err)
+		}
+		resolvedTokenCallArg, err := suiBind.NewObjectResolver(client).ResolveCallArg(ctx, &suitx.CallArg{
+			UnresolvedObject: &suitx.UnresolvedObject{ObjectId: *tokenAddrBytes},
+		}, "")
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve token coin object %s: %w", msg.TokenAmounts[0].Token, err)
+		}
+		tokenCoinArg := ptb.Data.V1.AddInput(*resolvedTokenCallArg)
+		splitCoinArg := ptb.SplitCoins(tokenCoinArg, []suitx.Argument{ptb.Pure(msg.TokenAmounts[0].Amount)})
+
 		var paramValuesLockBurn []any
 		switch msg.TokenAmounts[0].TokenPoolType {
 		case sui_deployment.TokenPoolTypeBurnMint:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to send to EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},                  // clock
 				suiBind.Object{Id: tokenPoolStateObjectID}, // BM TP state object id
 			}
 		case sui_deployment.TokenPoolTypeManaged:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // minted token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to send to EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},   // clock
 				suiBind.Object{Id: "0x403"}, // deny list
@@ -367,9 +401,9 @@ func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (
 			}
 		case sui_deployment.TokenPoolTypeLockRelease:
 			paramValuesLockBurn = []any{
-				suiBind.Object{Id: ccipObjectRefID},           // ref
-				createTokenTransferParamsResult,               // token_params
-				suiBind.Object{Id: msg.TokenAmounts[0].Token}, // locked token to send to EVM
+				suiBind.Object{Id: ccipObjectRefID}, // ref
+				createTokenTransferParamsResult,     // token_params
+				splitCoinArg,                        // exact-amount coin to lock for EVM
 				cfg.DestChain,
 				suiBind.Object{Id: "0x6"},                  // clock
 				suiBind.Object{Id: tokenPoolStateObjectID}, // LnR TP state object id

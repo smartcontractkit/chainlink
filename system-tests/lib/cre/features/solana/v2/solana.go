@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"dario.cat/mergo"
-	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -81,15 +80,11 @@ func (s *Solana) PreEnvStartup(
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
 	solChain := extractSolanaFromEnv(creEnv)
-	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
-	if fErr != nil {
+	if _, _, fErr := deployForwarder(testLogger, creEnv, solChain); fErr != nil {
 		return nil, errors.Wrapf(fErr, "failed to deploy forwarder for solana")
 	}
-	input := input{
-		ForwarderAddress: *programID,
-		ForwarderState:   *state,
-	}
-	// 2. Patch nodes TOML config to include workflow From Address
+	input := input{}
+	// 2. Patch nodes TOML config to include Solana workflow forwarder settings
 	cfgErr := patchNodeTOML(creEnv, don, input, solChain.ChainSelector())
 	if cfgErr != nil {
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
@@ -429,17 +424,10 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
-	key, ok := workerNode.Keys.Solana[chainID]
-	if !ok {
+	if _, ok := workerNode.Keys.Solana[chainID]; !ok {
 		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)
 	}
-	data.FromAddress = key.PublicAddress
-
-	runtimeValues := map[string]any{
-		"FromAddress":      data.FromAddress.String(),
-		"ForwarderAddress": data.ForwarderAddress,
-		"ForwarderState":   data.ForwarderState,
-	}
+	runtimeValues := map[string]any{}
 
 	var mErr error
 	data.WorkflowConfig, mErr = credon.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
@@ -495,18 +483,11 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 }
 
 type input struct {
-	ChainSelector    uint64
-	FromAddress      solanago.PublicKey
-	ForwarderAddress string
-	ForwarderState   string
-	HasWrite         bool
-	WorkflowConfig   map[string]any // Configuration for Solana.Workflow section
+	HasWrite       bool
+	WorkflowConfig map[string]any // Configuration for Solana.Workflow section
 }
 
 const solWorkflowConfigTemplate = `
-		ForwarderAddress = '{{.ForwarderAddress}}'
-		FromAddress      = '{{.FromAddress}}'
-		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
 		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}

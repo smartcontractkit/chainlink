@@ -245,68 +245,20 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 			inputID: validID,
 			name:    "success",
 			want: func(t *testing.T, app *cltest.TestApplication) *commonTypes.ChainStatus {
+				wc := &config.TOMLConfig{
+					ChainID: ptr(validID),
+					Chain: config.Chain{
+						SkipPreflight: ptr(false),
+						TxTimeout:     commoncfg.MustNewDuration(time.Hour),
+					},
+				}
+				wc.SetDefaults()
+				cfgStr, err := wc.TOMLString()
+				require.NoError(t, err)
 				return &commonTypes.ChainStatus{
 					ID:      validID,
 					Enabled: true,
-					Config: `ChainID = 'Chainlink-12'
-Enabled = true
-BlockTime = '500ms'
-BalancePollPeriod = '5s'
-ConfirmPollPeriod = '500ms'
-OCR2CachePollPeriod = '1s'
-OCR2CacheTTL = '1m0s'
-TxTimeout = '1h0m0s'
-TxRetryTimeout = '10s'
-TxConfirmTimeout = '30s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-SkipPreflight = false
-Commitment = 'confirmed'
-MaxRetries = 0
-FeeEstimatorMode = 'fixed'
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 0
-ComputeUnitPriceDefault = 0
-FeeBumpPeriod = '3s'
-BlockHistoryPollPeriod = '5s'
-BlockHistorySize = 1
-BlockHistoryBatchLoadSize = 20
-ComputeUnitLimitDefault = 200000
-EstimateComputeUnitLimit = false
-LogPollerStartingLookback = '24h0m0s'
-LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 1000
-Nodes = []
-
-[Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '11111111111111111111111111111111'
-ForwarderState = '11111111111111111111111111111111'
-FromAddress = '11111111111111111111111111111111'
-GasLimitDefault = 300000
-Local = false
-PollPeriod = '3s'
-TxAcceptanceState = 3
-
-[MultiNode]
-Enabled = false
-PollFailureThreshold = 5
-PollInterval = '15s'
-SelectionMode = 'PriorityLevel'
-SyncThreshold = 10
-NodeIsSyncingEnabled = false
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '5s'
-FinalizedBlockPollInterval = '5s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '20s'
-VerifyChainID = true
-NodeNoNewHeadsThreshold = '20s'
-NoNewFinalizedHeadsThreshold = '20s'
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 50
-`,
+					Config:  cfgStr,
 				}
 			},
 			wantStatusCode: http.StatusOK,

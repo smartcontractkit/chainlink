@@ -18863,18 +18863,21 @@ AcceptanceTimeout is the default timeout for a tranmission to be accepted on cha
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 ```
 ForwarderAddress is the keystone forwarder program address on chain.
+Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
 
 ### ForwarderState
 ```toml
 ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 ```
 ForwarderState is the keystone forwarder program state account on chain.
+Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
 
 ### FromAddress
 ```toml
 FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 ```
 FromAddress is Address of the transmitter key to use for workflow writes.
+Deprecated: ignored at runtime; use capability / transmitter config. Kept for TOML compatibility.
 
 ### GasLimitDefault
 ```toml

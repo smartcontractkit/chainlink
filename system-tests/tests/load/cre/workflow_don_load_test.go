@@ -633,7 +633,7 @@ func (s *StreamsGun) waitForReportWithTimestamp(timestamp int64) error {
 	ch, exists := s.waitChans[timestamp]
 	if !exists {
 		s.mu.Unlock()
-		return fmt.Errorf("cannot wait, timestamp  %q does not exist", timestamp)
+		return fmt.Errorf("cannot wait, timestamp  %d does not exist", timestamp)
 	}
 	s.mu.Unlock()
 	<-ch
