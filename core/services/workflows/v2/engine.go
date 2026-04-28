@@ -91,6 +91,7 @@ type Engine struct {
 
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
+	drainStartedAtNs atomic.Int64
 }
 
 type triggerCapability struct {
@@ -155,6 +156,7 @@ func (e *Engine) setLogger(lggr logger.SugaredLogger) {
 // In-flight executions continue to run to completion.
 func (e *Engine) Drain() {
 	e.draining.Store(true)
+	e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
 	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
 }
 
@@ -164,6 +166,15 @@ func (e *Engine) IsDraining() bool {
 
 func (e *Engine) ActiveExecutions() int32 {
 	return e.activeExecutions.Load()
+}
+
+func (e *Engine) DrainStartedAt() (time.Time, bool) {
+	ns := e.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
+	}
+
+	return time.Unix(0, ns), true
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
@@ -574,6 +585,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					if e.draining.Load() {
+						e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueueDroppedCounter(ctx)
+						e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
+						continue
+					}
 					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
 						triggerCapID: triggerID,
 						triggerIndex: idx,
@@ -609,14 +626,16 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
+		eventID := queueHead.event.Event.ID
+		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
 		if e.draining.Load() {
-			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", queueHead.event.Event.ID)
+			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
+			e.cfg.Hooks.OnTriggerEventDropped(queueHead.triggerCapID, eventID, "draining")
+			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.triggerCapID)
 			return
 		}
 		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
-		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
 		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
@@ -706,6 +725,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if addErr != nil {
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
 			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementTriggerExecutionDeduplicatedCounter(ctx)
 			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)

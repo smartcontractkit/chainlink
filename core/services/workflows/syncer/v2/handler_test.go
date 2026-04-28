@@ -10,6 +10,7 @@ import (
 	"net"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 	"google.golang.org/grpc"
@@ -114,11 +115,13 @@ type mockDrainableEngine struct {
 	activeExecutions atomic.Int32
 	drainCalls       atomic.Int32
 	closeCalls       atomic.Int32
+	drainStartedAtNs atomic.Int64
 }
 
 func (m *mockDrainableEngine) Drain() {
 	m.draining.Store(true)
 	m.drainCalls.Add(1)
+	m.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
 }
 
 func (m *mockDrainableEngine) ActiveExecutions() int32 {
@@ -127,6 +130,15 @@ func (m *mockDrainableEngine) ActiveExecutions() int32 {
 
 func (m *mockDrainableEngine) IsDraining() bool {
 	return m.draining.Load()
+}
+
+func (m *mockDrainableEngine) DrainStartedAt() (time.Time, bool) {
+	ns := m.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
+	}
+
+	return time.Unix(0, ns), true
 }
 
 func (m *mockDrainableEngine) Close() error {

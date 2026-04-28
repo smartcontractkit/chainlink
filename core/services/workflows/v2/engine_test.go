@@ -154,7 +154,7 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 
 	initDoneCh := make(chan error)
 	subscribedToTriggersCh := make(chan []string, 1)
-	executionFinishedCh := make(chan string, 1)
+	triggerDroppedCh := make(chan string, 1)
 
 	cfg := defaultTestConfig(t, nil)
 	cfg.Module = module
@@ -166,8 +166,8 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
-			executionFinishedCh <- executionID
+		OnTriggerEventDropped: func(triggerID, eventID, reason string) {
+			triggerDroppedCh <- fmt.Sprintf("%s|%s|%s", triggerID, eventID, reason)
 		},
 	}
 
@@ -198,9 +198,10 @@ func TestEngine_DrainSkipsNewTriggerExecutions(t *testing.T) {
 	}
 
 	select {
-	case executionID := <-executionFinishedCh:
-		t.Fatalf("unexpected execution finished while draining: %s", executionID)
-	case <-time.After(200 * time.Millisecond):
+	case dropped := <-triggerDroppedCh:
+		require.Equal(t, "id_0|event_should_be_skipped|draining", dropped)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected trigger dropped hook to fire while draining")
 	}
 	require.Equal(t, int32(0), engine.ActiveExecutions())
 

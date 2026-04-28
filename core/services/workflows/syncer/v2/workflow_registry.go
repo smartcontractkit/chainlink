@@ -133,10 +133,6 @@ type evtHandler interface {
 	Handle(ctx context.Context, event Event) error
 }
 
-type metricsAwareHandler interface {
-	SetMetrics(*metrics)
-}
-
 type donNotifier interface {
 	WaitForDon(ctx context.Context) (capabilities.DON, error)
 }
@@ -325,10 +321,6 @@ func NewWorkflowRegistry(
 
 	for _, opt := range opts {
 		opt(wr)
-	}
-
-	if mh, ok := handler.(metricsAwareHandler); ok {
-		mh.SetMetrics(m)
 	}
 
 	lggr.Infow("Initialized workflow registry with multi-source support",

@@ -54,10 +54,10 @@ type ORM interface {
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
 type DrainableService interface {
-	services.Service
 	Drain()
 	ActiveExecutions() int32
 	IsDraining() bool
+	DrainStartedAt() (time.Time, bool)
 }
 
 var ErrDrainInProgress = errors.New("drain in progress")
@@ -105,9 +105,7 @@ type eventHandler struct {
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 
-	metrics        *metrics
-	drainStartedMu sync.Mutex
-	drainStartedAt map[string]time.Time
+	metrics *metrics
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -257,8 +255,12 @@ func NewEventHandler(
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
 		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
-		drainStartedAt:         make(map[string]time.Time),
 	}
+	metricsInst, metricsErr := newMetrics()
+	if metricsErr != nil {
+		return nil, fmt.Errorf("new metrics: %w", metricsErr)
+	}
+	eh.metrics = metricsInst
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
 		o(eh)
@@ -270,31 +272,6 @@ func NewEventHandler(
 	}.NewServiceEngine(lggr)
 
 	return eh, nil
-}
-
-func (h *eventHandler) SetMetrics(m *metrics) {
-	h.metrics = m
-}
-
-func (h *eventHandler) markDrainStarted(workflowID string, start time.Time) {
-	h.drainStartedMu.Lock()
-	defer h.drainStartedMu.Unlock()
-	if h.drainStartedAt == nil {
-		h.drainStartedAt = make(map[string]time.Time)
-	}
-	if _, exists := h.drainStartedAt[workflowID]; !exists {
-		h.drainStartedAt[workflowID] = start
-	}
-}
-
-func (h *eventHandler) popDrainStarted(workflowID string) (time.Time, bool) {
-	h.drainStartedMu.Lock()
-	defer h.drainStartedMu.Unlock()
-	start, exists := h.drainStartedAt[workflowID]
-	if exists {
-		delete(h.drainStartedAt, workflowID)
-	}
-	return start, exists
 }
 
 func (h *eventHandler) close() error {
@@ -557,6 +534,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 	// Any other case ->
 	// - engine in registry, but service isn't running
+	// - engine in registry and service is running, but it's draining and must be replaced
 	// - state isn't active
 	// Let's clean up and recreate
 
@@ -740,20 +718,16 @@ func (h *eventHandler) workflowDeletedEvent(
 	// prior steps fail.
 	workflowID := payload.WorkflowID.Hex()
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
-	drainTracked := false
+	var drainable DrainableService
+	var isDrainable bool
 	if ok {
-		if drainable, isDrainable := e.Service.(DrainableService); isDrainable {
+		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if !drainable.IsDraining() {
 				drainable.Drain()
 				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
-				h.markDrainStarted(workflowID, time.Now())
-				drainTracked = true
 				if h.metrics != nil {
 					h.metrics.incrementDrainStarted(ctx)
 				}
-			} else {
-				h.markDrainStarted(workflowID, time.Now())
-				drainTracked = true
 			}
 
 			if active := drainable.ActiveExecutions(); active > 0 {
@@ -784,8 +758,8 @@ func (h *eventHandler) workflowDeletedEvent(
 		return err
 	}
 
-	if drainTracked {
-		startedAt, exists := h.popDrainStarted(workflowID)
+	if isDrainable {
+		startedAt, exists := drainable.DrainStartedAt()
 		if exists && h.metrics != nil {
 			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
 		}
