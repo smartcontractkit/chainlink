@@ -148,6 +148,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 func makeJob(t *testing.T) *job.Job {
 	t.Helper()
 
+	chainID := testutils.NextEVMChainID()
+	sqlChainID := sqlutil.New(chainID)
 	return &job.Job{
 		ID:            1,
 		Type:          "fluxmonitor",
@@ -163,7 +165,7 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
-			EVMChainID:        (*sqlutil.Big)(testutils.FixtureChainID),
+			EVMChainID:        sqlChainID,
 		},
 	}
 }
