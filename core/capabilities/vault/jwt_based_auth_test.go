@@ -16,6 +16,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -117,11 +118,11 @@ func createTestJWT(t *testing.T, key testRSAKey, claims jwt.MapClaims) string {
 
 func validTestClaims(issuer, audience string) jwt.MapClaims {
 	return jwt.MapClaims{
-		"iss":    issuer,
-		"aud":    audience,
-		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-		"iat":    jwt.NewNumericDate(time.Now()),
-		"org_id": "org_test123",
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org_test123",
 		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
@@ -159,7 +160,7 @@ func TestJWTBasedAuth_ValidToken(t *testing.T) {
 
 	tokenString := createTestJWT(t, rsaKey, validTestClaims(issuer, audience))
 
-	result, err := v.validateToken(context.Background(), tokenString)
+	result, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "org_test123", result.OrgID)
 	assert.Equal(t, "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01", result.WorkflowOwner)
@@ -176,11 +177,11 @@ func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	claims := jwt.MapClaims{
-		"iss":    issuer,
-		"aud":    audience,
-		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-		"iat":    jwt.NewNumericDate(time.Now()),
-		"org_id": "org_no_wfowner",
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org_no_wfowner",
 		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{
@@ -191,7 +192,7 @@ func TestJWTBasedAuth_RejectsTokenWithoutWorkflowOwner(t *testing.T) {
 	}
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	result, err := v.validateToken(context.Background(), tokenString)
+	result, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Nil(t, result)
 	require.ErrorIs(t, err, ErrMissingWorkflowOwner)
 }
@@ -208,7 +209,7 @@ func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
 	claims["exp"] = jwt.NewNumericDate(time.Now().Add(-1 * time.Minute))
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrInvalidToken)
 	assert.Contains(t, err.Error(), "expired")
@@ -225,7 +226,7 @@ func TestJWTBasedAuth_WrongIssuer(t *testing.T) {
 	claims := validTestClaims("https://wrong-issuer.auth0.com/", audience)
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidToken)
 }
@@ -241,7 +242,7 @@ func TestJWTBasedAuth_WrongAudience(t *testing.T) {
 	claims := validTestClaims(issuer, "https://wrong-audience.com")
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidToken)
 }
@@ -258,9 +259,57 @@ func TestJWTBasedAuth_MissingOrgID(t *testing.T) {
 	delete(claims, "org_id")
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMissingOrgID)
+}
+
+func TestJWTBasedAuth_LogsTokenDetailsOnValidationFailure(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://api.test.chain.link"
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	v, err := NewJWTBasedAuth(JWTBasedAuthConfig{
+		IssuerURL:           issuer,
+		Audience:            audience,
+		JWKSRefreshInterval: time.Millisecond,
+	}, limits.Factory{Settings: cresettings.DefaultGetter}, lggr, WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
+	require.NoError(t, err)
+
+	claims := validTestClaims(issuer, audience)
+	delete(claims, "org_id")
+	tokenString := createTestJWT(t, rsaKey, claims)
+
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-logs-token-details",
+		Method: vaulttypes.MethodSecretsList,
+		Auth:   tokenString,
+	}
+	_, err = v.AuthorizeRequest(t.Context(), req)
+	require.ErrorIs(t, err, ErrMissingOrgID)
+
+	logs := observed.FilterMessage("JWTBasedAuth token validation failed with token details").All()
+	require.Len(t, logs, 1)
+	logFields := logs[0].ContextMap()
+	assert.Equal(t, req.Method, logFields["method"])
+	assert.Equal(t, req.ID, logFields["requestID"])
+	assert.Equal(t, tokenString[:tokenLogPrefixLen], logFields["tokenPrefix"])
+	assert.NotContains(t, logFields, "rawToken")
+	parsedToken, ok := logFields["parsedToken"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "RS256", parsedToken["alg"])
+	assert.Contains(t, parsedToken, "header")
+	assert.Contains(t, parsedToken, "claims")
+	assert.NotContains(t, parsedToken, "raw")
+	assert.NotContains(t, parsedToken, "signature")
+
+	loggedClaims, ok := logFields["claims"].(jwt.MapClaims)
+	require.True(t, ok)
+	assert.Equal(t, issuer, loggedClaims["iss"])
+	assert.Equal(t, audience, loggedClaims["aud"])
+	assert.Equal(t, "true", loggedClaims[ClaimVaultSecretManagementEnabled])
 }
 
 func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
@@ -275,7 +324,7 @@ func TestJWTBasedAuth_MissingVaultSecretManagementClaim(t *testing.T) {
 	delete(claims, ClaimVaultSecretManagementEnabled)
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrVaultSecretManagementNotEnabled)
 }
@@ -292,7 +341,7 @@ func TestJWTBasedAuth_VaultSecretManagementClaimNotTrue(t *testing.T) {
 	claims[ClaimVaultSecretManagementEnabled] = "false"
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrVaultSecretManagementNotEnabled)
 }
@@ -314,7 +363,7 @@ func TestJWTBasedAuth_MissingRequestDigest(t *testing.T) {
 	}
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMissingRequestDigest)
 }
@@ -331,7 +380,7 @@ func TestJWTBasedAuth_MissingAuthorizationDetails(t *testing.T) {
 	delete(claims, "authorization_details")
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMissingRequestDigest)
 }
@@ -348,7 +397,7 @@ func TestJWTBasedAuth_InvalidSignature(t *testing.T) {
 	claims := validTestClaims(issuer, audience)
 	tokenString := createTestJWT(t, badKey, claims) // signed with wrong private key
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidToken)
 }
@@ -360,7 +409,7 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 	}, limits.Factory{Settings: cresettings.DefaultGetter}, logger.TestLogger(t), WithJWTBasedAuthGateLimiter(limits.NewGateLimiter(true)))
 	require.NoError(t, err)
 
-	_, err = v.validateToken(context.Background(), "")
+	_, err = v.validateToken(context.Background(), "", "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrMissingToken)
 }
@@ -378,7 +427,7 @@ func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
 	// Token signed with key-A succeeds
 	claimsA := validTestClaims(issuer, audience)
 	tokenA := createTestJWT(t, keyA, claimsA)
-	resultA, err := v.validateToken(context.Background(), tokenA)
+	resultA, err := v.validateToken(context.Background(), tokenA, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "org_test123", resultA.OrgID)
 
@@ -392,7 +441,7 @@ func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
 	claimsB := validTestClaims(issuer, audience)
 	claimsB["org_id"] = "org_after_rotation"
 	tokenB := createTestJWT(t, keyB, claimsB)
-	resultB, err := v.validateToken(context.Background(), tokenB)
+	resultB, err := v.validateToken(context.Background(), tokenB, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "org_after_rotation", resultB.OrgID)
 }
@@ -406,11 +455,11 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	claims := jwt.MapClaims{
-		"iss":    issuer,
-		"aud":    audience,
-		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-		"iat":    jwt.NewNumericDate(time.Now()),
-		"org_id": "org_single",
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org_single",
 		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{"type": "request_digest", "value": "single_digest"},
@@ -419,7 +468,7 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 	}
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	result, err := v.validateToken(context.Background(), tokenString)
+	result, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, "org_single", result.OrgID)
 	assert.Equal(t, "single_digest", result.RequestDigest)
@@ -441,7 +490,7 @@ func TestJWTBasedAuth_UnsupportedAlgorithm(t *testing.T) {
 	tokenString, err := token.SignedString([]byte("hmac-secret"))
 	require.NoError(t, err)
 
-	_, err = v.validateToken(context.Background(), tokenString)
+	_, err = v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidToken)
 }
@@ -463,9 +512,11 @@ func TestJWTBasedAuth_JWKSServerUnavailable(t *testing.T) {
 	claims := validTestClaims(issuer, audience)
 	tokenString := createTestJWT(t, rsaKey, claims)
 
-	_, err := v.validateToken(context.Background(), tokenString)
+	_, err := v.validateToken(context.Background(), tokenString, "", "")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrJWKSKeyNotFound)
+	assert.ErrorIs(t, err, ErrJWKSFetchFailed)
+	assert.Contains(t, err.Error(), "HTTP 500")
 }
 
 func TestJWTBasedAuth_StartRefreshesJWKSPeriodically(t *testing.T) {
@@ -558,11 +609,11 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	token := createTestJWT(t, rsaKey, jwt.MapClaims{
-		"iss":    issuer,
-		"aud":    audience,
-		"exp":    jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
-		"iat":    jwt.NewNumericDate(time.Now()),
-		"org_id": "org-123",
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
 		"authorization_details": []interface{}{
 			map[string]interface{}{

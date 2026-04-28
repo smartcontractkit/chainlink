@@ -39,6 +39,7 @@ const ClaimVaultSecretManagementEnabled = "urn:chainlink:claim_vault_secret_mana
 const (
 	defaultJWKSRefreshInterval = 15 * time.Minute
 	defaultHTTPTimeout         = 5 * time.Second
+	tokenLogPrefixLen          = 20
 )
 
 // Auth0Config captures the Vault JWT issuer settings shared by gateway and node handlers.
@@ -203,9 +204,8 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, errors.New("JWTBasedAuth is disabled")
 	}
 
-	claims, err := v.validateToken(ctx, req.Auth)
+	claims, err := v.validateToken(ctx, req.Auth, req.ID, req.Method)
 	if err != nil {
-		v.lggr.Debugw("JWTBasedAuth token validation failed", "method", req.Method, "requestID", req.ID, "error", err)
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
@@ -232,24 +232,24 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 // validateToken verifies the JWT signature via Auth0 JWKS, validates
 // standard claims (iss, aud, exp), and extracts Vault-specific claims
 // (org_id, workflow_owner, request_digest).
-func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*JWTClaims, error) {
+func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString, requestID, method string) (*JWTClaims, error) {
 	if tokenString == "" {
-		return nil, ErrMissingToken
+		return v.tokenValidationError(requestID, method, tokenString, nil, ErrMissingToken)
 	}
 
 	unverified, _, err := jwt.NewParser().ParseUnverified(tokenString, jwt.MapClaims{})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return v.tokenValidationError(requestID, method, tokenString, unverified, fmt.Errorf("%w: %w", ErrInvalidToken, err))
 	}
 
 	kid, ok := unverified.Header["kid"].(string)
 	if !ok || kid == "" {
-		return nil, fmt.Errorf("%w: missing kid header", ErrInvalidToken)
+		return v.tokenValidationError(requestID, method, tokenString, unverified, fmt.Errorf("%w: missing kid header", ErrInvalidToken))
 	}
 
 	rsaKey, err := v.resolveSigningKey(ctx, kid)
 	if err != nil {
-		return nil, err
+		return v.tokenValidationError(requestID, method, tokenString, unverified, err)
 	}
 
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -264,15 +264,55 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		jwt.WithIssuedAt(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return v.tokenValidationError(requestID, method, tokenString, token, fmt.Errorf("%w: %w", ErrInvalidToken, err))
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, ErrInvalidToken
+		return v.tokenValidationError(requestID, method, tokenString, token, ErrInvalidToken)
 	}
 
-	return extractVaultClaims(claims)
+	vaultClaims, err := extractVaultClaims(claims)
+	if err != nil {
+		return v.tokenValidationError(requestID, method, tokenString, token, err)
+	}
+
+	return vaultClaims, nil
+}
+
+func (v *jwtBasedAuth) tokenValidationError(requestID, method, tokenString string, token *jwt.Token, err error) (*JWTClaims, error) {
+	var claims interface{}
+	var parsedToken interface{}
+	if token != nil {
+		claims = token.Claims
+		alg := ""
+		if token.Method != nil {
+			alg = token.Method.Alg()
+		}
+		parsedToken = map[string]interface{}{
+			"alg":    alg,
+			"header": token.Header,
+			"claims": token.Claims,
+			"valid":  token.Valid,
+		}
+	}
+
+	v.lggr.Debugw("JWTBasedAuth token validation failed with token details",
+		"method", method,
+		"requestID", requestID,
+		"error", err,
+		"tokenPrefix", safeTokenPrefix(tokenString, tokenLogPrefixLen),
+		"parsedToken", parsedToken,
+		"claims", claims,
+	)
+	return nil, err
+}
+
+func safeTokenPrefix(tokenString string, maxLen int) string {
+	if len(tokenString) <= maxLen {
+		return tokenString
+	}
+	return tokenString[:maxLen]
 }
 
 func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
@@ -351,8 +391,7 @@ func (v *jwtBasedAuth) resolveSigningKey(ctx context.Context, kid string) (*rsa.
 	}
 
 	if refreshErr := v.refreshJWKS(ctx); refreshErr != nil {
-		v.lggr.Warnw("JWKS refresh failed", "error", refreshErr, "kid", kid)
-		return nil, fmt.Errorf("%w: kid=%s", ErrJWKSKeyNotFound, kid)
+		return nil, fmt.Errorf("%w: kid=%s: %w", ErrJWKSKeyNotFound, kid, refreshErr)
 	}
 
 	key, err = v.findCachedKey(kid)
