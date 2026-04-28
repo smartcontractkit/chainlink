@@ -2,6 +2,7 @@ package v2_0
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -427,6 +428,70 @@ type CapabilitiesConfiguration struct {
 	decodedOCR3 map[string]*creocr3.OracleConfig
 }
 
+// convertOCR3ByteFieldsToHex walks the ocr3Configs entries in the given config map and
+// converts the "signers" and "transmitters" byte-array fields from base64 (protojson default)
+// to hex strings for human-readable output.
+func convertOCR3ByteFieldsToHex(configCopy map[string]any) {
+	ocr3Raw, ok := configCopy["ocr3Configs"]
+	if !ok {
+		return
+	}
+	ocr3Cfgs, ok := ocr3Raw.(map[string]any)
+	if !ok {
+		return
+	}
+	for key, entryRaw := range ocr3Cfgs {
+		entry, ok := entryRaw.(map[string]any)
+		if !ok {
+			continue
+		}
+		// Convert array byte fields (signers, transmitters).
+		for _, field := range []string{"signers", "transmitters"} {
+			valRaw, ok := entry[field]
+			if !ok {
+				continue
+			}
+			vals, ok := valRaw.([]any)
+			if !ok {
+				continue
+			}
+			hexVals := make([]string, len(vals))
+			for i, v := range vals {
+				s, ok := v.(string)
+				if !ok {
+					hexVals[i] = fmt.Sprintf("%v", v)
+					continue
+				}
+				b, err := base64.StdEncoding.DecodeString(s)
+				if err != nil {
+					hexVals[i] = s
+					continue
+				}
+				hexVals[i] = "0x" + hex.EncodeToString(b)
+			}
+			entry[field] = hexVals
+		}
+		// Convert scalar byte fields (offchainConfig).
+		for _, field := range []string{"offchainConfig"} {
+			valRaw, ok := entry[field]
+			if !ok {
+				continue
+			}
+			s, ok := valRaw.(string)
+			if !ok {
+				continue
+			}
+			b, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				// already hex or otherwise not base64 — keep as-is
+				continue
+			}
+			entry[field] = "0x" + hex.EncodeToString(b)
+		}
+		ocr3Cfgs[key] = entry
+	}
+}
+
 // MarshalJSON renders CapabilitiesConfiguration with decodedOffchainConfig nested inside
 // each config.ocr3Configs entry, at the same level as offchainConfig/signers/transmitters.
 func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
@@ -435,6 +500,7 @@ func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
 	for k, v := range cc.Config {
 		configCopy[k] = v
 	}
+	convertOCR3ByteFieldsToHex(configCopy)
 	if len(cc.decodedOCR3) > 0 {
 		if ocr3CfgsRaw, ok := configCopy["ocr3Configs"]; ok {
 			if ocr3Cfgs, ok := ocr3CfgsRaw.(map[string]any); ok {
