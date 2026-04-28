@@ -134,6 +134,69 @@ jobs:
               - 'plugins/plugins.private.yaml'
               - 'plugins/plugins.public.yaml'
 
+
+      - name: Decide which tests to run (rollout-only)
+        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
+        # before using its output to actually gate any jobs.
+        id: triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        continue-on-error: true
+        with:
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "GNUmakefile"
+              - "core/**/*.go"
+              - "core/**/migrations/*.sql"
+              - "core/**/config/**/*.toml"
+            workflow-files:
+              - ".github/workflows/integration-tests.yml"
+              - ".github/actions/**/*.y*ml"
+            docker-files:
+              - "**/*Dockerfile"
+              - "plugins/plugins.public.yaml"
+              - "plugins/plugins.private.yaml"
+            legacy-integ-test-files:
+              - "integration-tests/**"
+              - ".github/e2e-tests.yml"
+            system-test-files:
+              - "system-tests/**"
+              - "core/scripts/cre/**"
+              - ".github/workflows/cre-system-tests.yaml"
+              - ".github/workflows/cre-regression-system-tests.yaml"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            deployment-test-files:
+              - "deployment/**/*_test.go"
+              - "deployment/**/testdata/**"
+          # Note:
+          # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
+          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
+          # - by default these will resolve to true for schedule, and workflow_dispatch events
+          triggers: |
+              cre-e2e:
+                exclusion-sets: [ core-test-files, deployment-test-files, legacy-integ-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, system-test-files ]
+                paths:
+                  - "!deployment/**"
+              core-e2e: # also triggers solana tests
+                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+                paths:
+                  - "!deployment/**"
+              ccip-e2e:
+                exclusion-sets: [ core-test-files, deployment-test-files, system-test-files ]
+                inclusion-sets: [ go-files, core-files, workflow-files, docker-files, legacy-integ-test-files ]
+                paths:
+                  - "!deployment/**"
+                  - "**/*ccip*"
+                  - "**/*ccip*/**"
+
   labels:
     name: Get PR labels and set runner labels
     if: github.actor != 'dependabot[bot]'
