@@ -847,7 +847,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Missing_Key",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			error:    "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -868,7 +868,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Missing_Namespace",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			error:    "namespace cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -889,7 +889,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Missing_Owner",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			error:    "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -1037,7 +1037,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
+			error: "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -1062,7 +1062,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
+			error: "namespace cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -1087,7 +1087,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
+			error: "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -1287,7 +1287,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Missing_Owner",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			error:    "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1305,7 +1305,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Missing_Namespace",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			error:    "namespace cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1323,7 +1323,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Missing_Key",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			error:    "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,

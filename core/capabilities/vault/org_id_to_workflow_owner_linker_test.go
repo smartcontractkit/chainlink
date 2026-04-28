@@ -70,14 +70,14 @@ func TestCapability_ListSecretIdentifiers_OrgIDOnlySkipsResolver(t *testing.T) {
 	resolver := &testOrgResolver{orgID: "unexpected"}
 	payload := captureListRequest(t, "request-2", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId: "request-2",
-		Owner:     "org-999",
+		Owner:     "org999",
 		Namespace: "ns",
-		OrgId:     "org-999",
+		OrgId:     "org999",
 	})
 
 	require.NotNil(t, payload)
-	assert.Equal(t, "org-999", payload.Owner)
-	assert.Equal(t, "org-999", payload.OrgId)
+	assert.Equal(t, "org999", payload.Owner)
+	assert.Equal(t, "org999", payload.OrgId)
 	assert.Empty(t, payload.WorkflowOwner)
 	assert.Empty(t, resolver.calledWith)
 }
@@ -88,17 +88,17 @@ func TestCapability_ListSecretIdentifiers_VerifiesWorkflowOwnerAgainstOrgID(t *t
 	resolver := &testOrgResolver{orgID: "org-999"}
 	payload := captureListRequest(t, "request-verify", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId:     "request-verify",
-		Owner:         "trusted-owner",
+		Owner:         "trustedowner",
 		Namespace:     "ns",
 		OrgId:         "org-999",
-		WorkflowOwner: "trusted-owner",
+		WorkflowOwner: "trustedowner",
 	})
 
 	require.NotNil(t, payload)
-	assert.Equal(t, "trusted-owner", payload.Owner)
+	assert.Equal(t, "trustedowner", payload.Owner)
 	assert.Equal(t, "org-999", payload.OrgId)
-	assert.Equal(t, "trusted-owner", payload.WorkflowOwner)
-	assert.Equal(t, []string{"trusted-owner"}, resolver.calledWith)
+	assert.Equal(t, "trustedowner", payload.WorkflowOwner)
+	assert.Equal(t, []string{"trustedowner"}, resolver.calledWith)
 }
 
 func TestCapability_ListSecretIdentifiers_RejectsWorkflowOwnerOrgIDMismatch(t *testing.T) {
@@ -213,7 +213,7 @@ func TestCapability_UpdateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.
 func TestCapability_CreateSecrets_AllowsResolvedOrgIDOwner(t *testing.T) {
 	t.Parallel()
 
-	orgID := "org-123"
+	orgID := "org123"
 	workflowOwner := "0x0001020304050607080900010203040506070809"
 	encryptedSecret, capability, store := newCapabilityWithOrgIDEncryptedSecret(t, orgID)
 
