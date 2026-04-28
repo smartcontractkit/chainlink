@@ -2697,7 +2697,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // tombstoned, the DON stops observing its streams (no bridge traffic for those stream jobs)
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
-	t.Parallel()
+	// NOTE: t.Parallel() is intentionally omitted here. This test spins up 5
+	// heavyweight nodes (1 bootstrap + 4 oracles), each with its own full
+	// PostgreSQL DB. Running it concurrently with the other parallel integration
+	// tests in this package exhausts memory on CI runners and triggers OOM
+	// kills before the test reaches its first assertion. Serialising this test
+	// relative to its siblings is the safest fix without restructuring the
+	// entire file. See CRE-3921.
 
 	const (
 		salt              = 500
@@ -2869,7 +2875,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	// while streamIDActive continues to be observed.
 	bCallsAfterReportsStopped := streamBCalls.Load()
 	aCallsAfterReportsStopped := streamACalls.Load()
-	time.Sleep(1 * time.Second)
+	// Wait long enough for any in-flight pipeline executions to complete and
+	// for the active stream to be observed at least once more.
+	// DefaultMinReportIntervalNanoseconds=1s and DeltaRound=500ms mean a
+	// pipeline started just before the snapshot could complete within 1s;
+	// 3s provides comfortable headroom. See CRE-3921.
+	time.Sleep(3 * time.Second)
 	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
 	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,

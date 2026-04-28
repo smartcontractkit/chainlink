@@ -232,8 +232,11 @@ func TestComputeFetch(t *testing.T) {
 		SendToGateway(matches.AnyContext, "gateway1", mock.Anything).
 		Return(nil).
 		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
-			err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
-			require.NoError(t, err, "failed to handle gateway message")
+			// assert (not require) because this callback runs in a worker goroutine, not the test
+			// goroutine; require.NoError would call t.FailNow() which terminates the worker via
+			// runtime.Goexit(), preventing the response from ever reaching the channel and causing
+			// the test to hang / produce a spurious context-canceled error.
+			assert.NoError(t, th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp), "failed to handle gateway message")
 		}).
 		Once()
 
@@ -359,8 +362,9 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 				SendToGateway(mock.Anything, "gateway1", mock.Anything).
 				Return(nil).
 				Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
-					err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
-					require.NoError(t, err, "failed to handle gateway message")
+					// assert (not require): callback runs in a worker goroutine; require.FailNow
+					// would kill the worker via runtime.Goexit() and starve the response channel.
+					assert.NoError(t, th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp), "failed to handle gateway message")
 				}).
 				Once().
 				After(test.time)
@@ -418,8 +422,9 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 		SendToGateway(matches.AnyContext, "gateway1", mock.Anything).
 		Return(nil).
 		Run(func(ctx context.Context, gatewayID string, resp *jsonrpc.Response[json.RawMessage]) {
-			err := th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
-			require.NoError(t, err, "failed to handle gateway message")
+			// assert (not require): callback runs in a worker goroutine; require.FailNow
+			// would kill the worker via runtime.Goexit() and starve the response channel.
+			assert.NoError(t, th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp), "failed to handle gateway message")
 		}).Once()
 
 	require.NoError(t, th.compute.Start(t.Context()))
