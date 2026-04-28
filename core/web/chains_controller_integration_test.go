@@ -297,6 +297,8 @@ FinalizedBlockOffset = 50
 Name = 'primary'
 URL = 'http://solana.example'
 SendOnly = false
+Order = 100
+IsLoadBalancedRPC = false
 `,
 				}
 			},
