@@ -168,6 +168,34 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue), infoObject.Limits.MaxBlobPayloadBytes)
 }
 
+func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	instanceID := "instanceID"
+	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
+
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	cfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	require.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	validateErr := infoObject.Validate()
+	require.NoError(t, validateErr)
+}
+
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
