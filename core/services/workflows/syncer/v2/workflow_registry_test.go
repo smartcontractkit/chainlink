@@ -250,15 +250,16 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 
 		metadata := []WorkflowMetadataView{}
 		pendingEvents := map[string]*reconciliationEvent{}
-		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		events, actions, err := wr.generateReconciliationEventsWithActions(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
 		require.NoError(t, err)
 		require.Len(t, events, 1)
 		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Len(t, actions, 1)
 
 		_, draining := drainingEngine.DrainStartedAt()
 		require.False(t, draining, "generateReconciliationEvents should not mutate engine state")
 
-		wr.applyPreDispatchReconcileActions(ctx, events)
+		wr.applyPreDispatchReconcileActions(ctx, actions)
 		_, draining = drainingEngine.DrainStartedAt()
 		require.True(t, draining, "pre-dispatch actions should initiate drain for delete events")
 	})

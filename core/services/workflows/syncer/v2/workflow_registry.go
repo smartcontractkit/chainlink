@@ -117,6 +117,15 @@ type workflowRegistry struct {
 	shardingEnabled bool
 }
 
+type reconcileActionType string
+
+const reconcileActionPreDrainDelete reconcileActionType = "pre_drain_delete"
+
+type reconcileAction struct {
+	kind       reconcileActionType
+	workflowID [32]byte
+}
+
 type shardRoutingSteadyObserver interface {
 	ObserveRoutingSteady(steady bool)
 	Invalidate()
@@ -456,7 +465,19 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	head *types.Head,
 	sourceName string,
 ) ([]*reconciliationEvent, error) {
+	events, _, err := w.generateReconciliationEventsWithActions(ctx, pendingEvents, workflowMetadata, head, sourceName)
+	return events, err
+}
+
+func (w *workflowRegistry) generateReconciliationEventsWithActions(
+	ctx context.Context,
+	pendingEvents map[string]*reconciliationEvent,
+	workflowMetadata []WorkflowMetadataView,
+	head *types.Head,
+	sourceName string,
+) ([]*reconciliationEvent, []reconcileAction, error) {
 	var events []*reconciliationEvent
+	var actions []reconcileAction
 	localHead := toLocalHead(head)
 	// workflowMetadataIDs is a set of workflow IDs present in this tick's metadata
 	workflowMetadataIDs := make(map[string]struct{}, len(workflowMetadata))
@@ -567,7 +588,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 				)
 			}
 		default:
-			return nil, fmt.Errorf("invariant violation: unable to determine difference from workflow metadata (status=%d)", wfMeta.Status)
+			return nil, nil, fmt.Errorf("invariant violation: unable to determine difference from workflow metadata (status=%d)", wfMeta.Status)
 		}
 	}
 
@@ -576,6 +597,13 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	for _, engine := range sourceEngines {
 		id := engine.WorkflowID.Hex()
 		if !workflowsSeen[id] {
+			if _, isDrainable := engine.Service.(DrainableService); isDrainable {
+				actions = append(actions, reconcileAction{
+					kind:       reconcileActionPreDrainDelete,
+					workflowID: engine.WorkflowID,
+				})
+			}
+
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)
 
 			if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature == signature {
@@ -619,25 +647,18 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	}
 
 	if len(pendingEvents) != 0 {
-		return nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
+		return nil, nil, fmt.Errorf("invariant violation: some pending events were not handled in the reconcile loop: keys=%+v, len=%d", maps.Keys(pendingEvents), len(pendingEvents))
 	}
 
-	return events, nil
+	return events, actions, nil
 }
 
-func (w *workflowRegistry) applyPreDispatchReconcileActions(ctx context.Context, events []*reconciliationEvent) {
-	for _, event := range events {
-		if event.Name != WorkflowDeleted {
+func (w *workflowRegistry) applyPreDispatchReconcileActions(ctx context.Context, actions []reconcileAction) {
+	for _, action := range actions {
+		if action.kind != reconcileActionPreDrainDelete {
 			continue
 		}
-
-		deletedEvent, ok := event.Data.(WorkflowDeletedEvent)
-		if !ok {
-			w.lggr.Warnw("skipping pre-dispatch drain due to invalid event payload type", "eventID", event.id, "eventType", event.Name)
-			continue
-		}
-
-		serviceWithMetadata, exists := w.engineRegistry.Get(deletedEvent.WorkflowID)
+		serviceWithMetadata, exists := w.engineRegistry.Get(action.workflowID)
 		if !exists {
 			continue
 		}
@@ -799,7 +820,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				}
 
 				// Generate events only for this source's engines (using sourceIdentifier for engine registry lookups)
-				events, genErr := w.generateReconciliationEvents(ctx, pendingEvents, filteredWorkflowsMetadata, head, sourceIdentifier)
+				events, actions, genErr := w.generateReconciliationEventsWithActions(ctx, pendingEvents, filteredWorkflowsMetadata, head, sourceIdentifier)
 				if genErr != nil {
 					w.lggr.Errorw("Failed to generate reconciliation events for source",
 						"source", sourceName, "error", genErr)
@@ -808,7 +829,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 
-				w.applyPreDispatchReconcileActions(ctx, events)
+				w.applyPreDispatchReconcileActions(ctx, actions)
 
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
