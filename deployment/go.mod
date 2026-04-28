@@ -52,7 +52,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.10.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260427225539-5d1933a7e5aa
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20260428015924-9456bb6d8932
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260421131224-c46cbfe7bc6c
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260427132612-76b9f754a556
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260427132612-76b9f754a556
