@@ -118,17 +118,17 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 
 func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string) error {
 	if idKey == "" {
-		return fmt.Errorf("key cannot be empty")
+		return errors.New("key cannot be empty")
 	}
 	if idOwner == "" {
-		return fmt.Errorf("owner cannot be empty")
+		return errors.New("owner cannot be empty")
 	}
 	if idNamespace == "" {
-		return fmt.Errorf("namespace cannot be empty")
+		return errors.New("namespace cannot be empty")
 	}
 
 	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
-		return fmt.Errorf("key, owner and namespace must only contain alphanumeric characters")
+		return errors.New("key, owner and namespace must only contain alphanumeric characters")
 	}
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
