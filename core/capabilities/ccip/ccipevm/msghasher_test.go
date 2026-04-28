@@ -1,10 +1,8 @@
 package ccipevm
 
 import (
-	"bytes"
 	"context"
 	cryptorand "crypto/rand"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -23,29 +21,46 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/ethereum/go-ethereum/node"
-	agbinary "github.com/gagliardetto/binary"
-	solanago "github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	solanacodec "github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
+type fixedSourceChainExtraDataCodec struct {
+	gasLimit      *big.Int
+	destGasAmount uint32
+}
+
+func (f fixedSourceChainExtraDataCodec) DecodeExtraArgsToMap(ccipocr3.Bytes) (map[string]any, error) {
+	return map[string]any{
+		"gasLimit": new(big.Int).Set(f.gasLimit),
+	}, nil
+}
+
+func (f fixedSourceChainExtraDataCodec) DecodeDestExecDataToMap(ccipocr3.Bytes) (map[string]any, error) {
+	return map[string]any{
+		"destGasAmount": f.destGasAmount,
+	}, nil
+}
+
+var nonEVMTestExtraDataCodec = fixedSourceChainExtraDataCodec{
+	gasLimit:      big.NewInt(5000),
+	destGasAmount: uint32(10),
+}
+
 var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
-	chainsel.FamilyAptos:  ccipaptos.ExtraDataDecoder{},
+	chainsel.FamilyAptos:  nonEVMTestExtraDataCodec,
 	chainsel.FamilyEVM:    ExtraDataDecoder{},
-	chainsel.FamilySolana: solanacodec.NewExtraDataDecoder(),
-	chainsel.FamilySui:    ccipaptos.ExtraDataDecoder{},
+	chainsel.FamilySolana: nonEVMTestExtraDataCodec,
+	chainsel.FamilySui:    nonEVMTestExtraDataCodec,
 })
 
 // NOTE: these test cases are only EVM <-> EVM.
@@ -366,27 +381,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 	})
 
 	t.Run("solana", func(t *testing.T) {
-		key, err := solanago.NewRandomPrivateKey()
-		require.NoError(t, err)
-
-		// Borsh encoded extra args
-		ea := fee_quoter.GenericExtraArgsV2{
-			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
-			AllowOutOfOrderExecution: false,
-		}
-
-		var extraArgsbuf bytes.Buffer
-		encoder := agbinary.NewBorshEncoder(&extraArgsbuf)
-		err = ea.MarshalWithEncoder(encoder)
-		require.NoError(t, err)
-
-		destGasAmount := uint32(10)
-		destExecData := make([]byte, 4)
-		binary.LittleEndian.PutUint32(destExecData, destGasAmount)
-
-		// evmExtraArgsV2Tag from SVM on-chain contract
-		// https://github.com/smartcontractkit/chainlink-ccip/blob/1b2ee24da54bddef8f3943dc84102686f2890f87/chains/solana/contracts/programs/ccip-router/src/extra_args.rs#L9
-		evmExtraArgsV2 := hexutil.MustDecode("0x181dcf10")
+		sourceAddress := utils.RandomBytes32()
 
 		var (
 			// header fields
@@ -397,9 +392,9 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			nonce               = uint64(1)
 			// message fields
 			// sender is parsed unpadded since its emitted unpadded from SVM.
-			senderAddress = cciptypes.UnknownAddress(key.PublicKey().Bytes())
+			senderAddress = cciptypes.UnknownAddress(sourceAddress[:])
 			// onRampAddress is parsed padded because its set as a padded address in the offRamp
-			onRampAddress = key.PublicKey().Bytes()
+			onRampAddress = sourceAddress[:]
 			dataField     = "0x"
 			// receiver address is parsed padded because its emitted as padded from SVM.
 			receiverAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"))
@@ -408,14 +403,14 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			tokenAmounts    = []cciptypes.RampTokenAmount{
 				{
 					// parsed unpadded since its emitted unpadded from SVM.
-					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().Bytes()),
+					SourcePoolAddress: cciptypes.UnknownAddress(sourceAddress[:]),
 					// parsed padded because its emitted padded from SVM.
 					DestTokenAddress: cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000b8d6a6a41d5dd732aec3c438e91523b7613b963b")),
 					// extra data always abi-encoded
 					ExtraData: cciptypes.Bytes(hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000012")),
 					Amount:    cciptypes.NewBigInt(big.NewInt(100000000000000000)),
-					// dest exec data always abi-encoded
-					DestExecData: destExecData,
+					// decoded by fixedSourceChainExtraDataCodec for this cross-family hasher test
+					DestExecData: cciptypes.Bytes("solana-dest-exec-data"),
 				},
 			}
 			msg = cciptypes.Message{
@@ -431,8 +426,8 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				Sender:         senderAddress,
 				Data:           hexutil.MustDecode(dataField),
 				Receiver:       receiverAddress,
-				ExtraArgs:      append(evmExtraArgsV2, extraArgsbuf.Bytes()...),
-				FeeToken:       key.PublicKey().Bytes(),
+				ExtraArgs:      cciptypes.Bytes("solana-extra-args"),
+				FeeToken:       sourceAddress[:],
 				FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
 				FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),
 				TokenAmounts:   tokenAmounts,
