@@ -2,6 +2,7 @@ package test
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"math/big"
 	"slices"
 	"strings"
@@ -92,11 +93,16 @@ func testOCRConfig(t *testing.T, sel uint64, p2p p2pkey.KeyV2) deployment.OCRCon
 	seed := p2p.PeerID()
 	copy(seed[:], []byte(f))
 	require.NoError(t, err)
+	transmitAccount := types2.Account(gethcommon.BytesToAddress(seed[:]).Hex())
+	if f == chain_selectors.FamilyAptos {
+		transmitAccount = types2.Account(hex.EncodeToString(seed[:32]))
+	}
+
 	return deployment.OCRConfig{
 		PeerID:                    p2p.PeerID(),
 		OffchainPublicKey:         types2.OffchainPublicKey(seed),
 		OnchainPublicKey:          types2.OnchainPublicKey(seed[:32]),
-		TransmitAccount:           types2.Account(gethcommon.BytesToAddress(seed[:]).Hex()),
+		TransmitAccount:           transmitAccount,
 		ConfigEncryptionPublicKey: types2.ConfigEncryptionPublicKey(seed[:32]),
 		KeyBundleID:               "fake_orc_bundle_" + f,
 	}

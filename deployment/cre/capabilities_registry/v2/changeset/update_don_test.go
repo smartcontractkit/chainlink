@@ -94,7 +94,7 @@ func setupRegistryForUpdateDON(t *testing.T, isWorkflow, useMCMS bool) *updFixtu
 	// this tests if modifier scaffolding works in the changeset
 	// each modifier's code is not tested here
 	capWithModifierID := capabilities_registry_v2.CapabilitiesRegistryCapability{
-		CapabilityId:          "aptos:ChainSelector:123456@1.0.0",
+		CapabilityId:          "aptos:ChainSelector:743186221051783445@1.0.0",
 		ConfigurationContract: common.Address{},
 		Metadata:              []byte(`{"capabilityType": 3, "responseType": 1}`),
 	}
