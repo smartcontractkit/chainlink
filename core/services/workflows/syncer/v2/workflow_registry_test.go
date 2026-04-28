@@ -711,6 +711,117 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Empty(t, pendingEvents)
 	})
 
+	// Reproduces the pending-delete reappearance race: a WorkflowDeleted event was deferred
+	// (e.g. ErrDrainInProgress) and stored in pendingEvents; before the next deletion retry
+	// runs the workflow re-appears as Active in the metadata while its engine is still in
+	// the registry. The Active+engineFound branch must drop the stale pending entry,
+	// otherwise generateReconciliationEvents trips its end-of-loop invariant check.
+	t.Run("active workflow with running engine clears stale pending WorkflowDeleted", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		err := er.Add(wfID, "TestSource", &mockService{})
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			"test-chain-selector",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		idHex := hex.EncodeToString(wfID[:])
+		pendingEvents := map[string]*reconciliationEvent{
+			idHex: {
+				Event: Event{
+					Data: WorkflowDeletedEvent{WorkflowID: wfID, Source: "TestSource"},
+					Name: WorkflowDeleted,
+				},
+				id:        idHex,
+				signature: fmt.Sprintf("%s-%s", WorkflowDeleted, idHex),
+			},
+		}
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID: wfID,
+				Status:     WorkflowStatusActive,
+			},
+		}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Empty(t, events, "engine already matches desired Active state; no new events expected")
+		require.Empty(t, pendingEvents, "stale WorkflowDeleted pending entry must be cleared")
+	})
+
+	// Same scenario as above but the registered engine is in a draining state. The minimal
+	// fix should still clear the stale pending entry without panicking; this guards against
+	// regressions if the branch is later extended to emit a replacement WorkflowActivated.
+	t.Run("active workflow with draining engine clears stale pending WorkflowDeleted", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		ctx := testutils.Context(t)
+		workflowDonNotifier := capabilities.NewDonNotifier()
+		er := NewEngineRegistry()
+		wfID := [32]byte{1}
+		drainingEngine := &mockDrainableEngine{}
+		drainingEngine.Drain()
+		require.True(t, drainingEngine.IsDraining())
+		err := er.Add(wfID, "TestSource", drainingEngine)
+		require.NoError(t, err)
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+				return nil, nil
+			},
+			"",
+			"test-chain-selector",
+			Config{
+				QueryCount:   20,
+				SyncStrategy: SyncStrategyReconciliation,
+			},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		idHex := hex.EncodeToString(wfID[:])
+		pendingEvents := map[string]*reconciliationEvent{
+			idHex: {
+				Event: Event{
+					Data: WorkflowDeletedEvent{WorkflowID: wfID, Source: "TestSource"},
+					Name: WorkflowDeleted,
+				},
+				id:        idHex,
+				signature: fmt.Sprintf("%s-%s", WorkflowDeleted, idHex),
+			},
+		}
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID: wfID,
+				Status:     WorkflowStatusActive,
+			},
+		}
+
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Empty(t, events)
+		require.Empty(t, pendingEvents)
+	})
+
 	t.Run("pending activate events are handled when workflow metadata no longer exists", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		ctx := testutils.Context(t)

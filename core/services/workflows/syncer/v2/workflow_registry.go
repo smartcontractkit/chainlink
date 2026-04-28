@@ -510,9 +510,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 				})
 				workflowsSeen[id] = true
 			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
-			// then we don't need to action the event further. Mark as seen and continue.
+			// then we don't need to action the event further. Mark as seen and drop any stale pending event for this
+			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
+			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
 				workflowsSeen[id] = true
+				delete(pendingEvents, id)
 			}
 		case WorkflowStatusPaused:
 			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))

@@ -403,7 +403,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	}
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115: value is guarded as non-negative immediately above.
 		Config:          e.cfg.WorkflowConfig,
 	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
 	if err != nil {
@@ -850,7 +850,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 				Payload: triggerEvent.Payload,
 			},
 		},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes), //nolint:gosec // G115: value is guarded as non-negative immediately above.
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper)
 
