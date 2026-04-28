@@ -1,14 +1,10 @@
 name: Setup Sui CLI
-description: Install and cache Sui CLI using suiup (built from source via cargo — not the curl install.sh from raw.githubusercontent)
+description: Install and cache Sui CLI using suiup
 inputs:
   version:
     description: Sui CLI version to install (e.g., mainnet-v1.69.2)
     required: false
     default: mainnet-v1.69.2
-  suiup-version:
-    description: MystenLabs/suiup git tag to `cargo install` (pinned; avoids the remote install.sh script)
-    required: false
-    default: v0.0.13
   github-token:
     description: GitHub token to use for authentication
     required: true
@@ -22,7 +18,7 @@ runs:
       with:
         path: |
           ~/.local/bin/sui
-        key: ${{ runner.os }}-sui-${{ inputs.version }}-suiup-${{ inputs.suiup-version }}
+        key: ${{ runner.os }}-suiup-${{ inputs.version }}
 
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       name: Install suiup and Sui CLI
@@ -31,7 +27,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
-        cargo install --git https://github.com/MystenLabs/suiup.git --tag "${{ inputs.suiup-version }}" --locked suiup
+        cargo install --git https://github.com/Mystenlabs/suiup.git --locked
         "$HOME/.cargo/bin/suiup" install sui@${{ inputs.version }} --yes
 
     - name: Export Sui CLI to PATH
