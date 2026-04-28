@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -220,12 +219,18 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 					}
 				case <-ctx.Done():
 					break readLoop
-				default:
-					if p.CurrentPartitionIdx() > uint64(batches+1) {
-						break readLoop
-					}
 				}
-				runtime.Gosched()
+			}
+		drainLoop:
+			for {
+				select {
+				case batch := <-reads:
+					for _, id := range batch {
+						got[id.String()]++
+					}
+				default:
+					break drainLoop
+				}
 			}
 
 			require.Len(t, got, len(ids))
