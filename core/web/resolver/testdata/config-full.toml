@@ -199,21 +199,6 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 
-[Keeper]
-DefaultTransactionQueueDepth = 17
-GasPriceBufferPercent = 12
-GasTipCapBufferPercent = 43
-BaseFeeBufferPercent = 89
-MaxGracePeriod = 31
-TurnLookBack = 91
-
-[Keeper.Registry]
-CheckGasOverhead = 90
-PerformGasOverhead = 4294967295
-MaxPerformDataSize = 5000
-SyncInterval = '1h0m0s'
-SyncUpkeepQueueSize = 31
-
 [AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'

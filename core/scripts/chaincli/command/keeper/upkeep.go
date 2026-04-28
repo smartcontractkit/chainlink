@@ -9,9 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
-	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/handler"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/config"
+	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/handler"
 )
 
 // upkeepEventsCmd represents the command to run the upkeep events counter command
@@ -46,7 +45,7 @@ var upkeepHistoryCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal("failed to get 'upkeep-id' flag: ", err)
 		}
-		upkeepId, ok := keeper.ParseUpkeepId(upkeepIdStr)
+		upkeepId, ok := handler.ParseUpkeepId(upkeepIdStr)
 		if !ok {
 			log.Fatal("failed to parse upkeep-id")
 		}

@@ -470,10 +470,6 @@ func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
 	return &jobPipelineConfig{c: g.c.JobPipeline}
 }
 
-func (g *generalConfig) Keeper() config.Keeper {
-	return &keeperConfig{c: g.c.Keeper}
-}
-
 func (g *generalConfig) Log() config.Log {
 	return &logConfig{c: g.c.Log, rootDir: g.RootDir, level: g.logLevel, defaultLevel: g.logLevelDefault}
 }

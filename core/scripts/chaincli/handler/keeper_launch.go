@@ -28,8 +28,7 @@ import (
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -170,11 +169,11 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	if withdraw {
 		log.Println("Canceling upkeeps...")
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			registry, err := registry12.NewKeeperRegistry(
 				registryAddr,
 				k.client,
@@ -187,7 +186,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion_2_0:
 			registry, err := registry20.NewKeeperRegistry(
 				registryAddr,
 				k.client,
@@ -200,7 +199,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion_2_1:
 			registry, err := iregistry21.NewIKeeperRegistryMaster(
 				registryAddr,
 				k.client,
@@ -294,50 +293,13 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 
 // createKeeperJob creates a keeper job in the chainlink node by the given address
 func (k *Keeper) createKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
-	var err error
-	if k.cfg.OCR2Keepers {
-		err = k.createOCR2KeeperJob(ctx, client, registryAddr, nodeAddr)
-	} else {
-		err = k.createLegacyKeeperJob(ctx, client, registryAddr, nodeAddr)
+	if !k.cfg.OCR2Keepers {
+		return fmt.Errorf("legacy keeper jobs are no longer supported; set KEEPER_OCR2=true and configure OCR2 automation")
 	}
-	if err != nil {
+	if err := k.createOCR2KeeperJob(ctx, client, registryAddr, nodeAddr); err != nil {
 		return err
 	}
-
 	log.Println("Keeper job has been successfully created in the Chainlink node with address: ", nodeAddr)
-
-	return nil
-}
-
-// createLegacyKeeperJob creates a legacy keeper job in the chainlink node by the given address
-func (k *Keeper) createLegacyKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
-	request, err := json.Marshal(web.CreateJobRequest{
-		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			Name:            "keeper job - registry " + registryAddr,
-			ContractAddress: registryAddr,
-			FromAddress:     nodeAddr,
-			EvmChainID:      int(k.cfg.ChainID),
-		}).Toml(),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
-	if err != nil {
-		return fmt.Errorf("failed to create keeper job: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to read error response body: %w", err)
-		}
-
-		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
-	}
-
 	return nil
 }
 
@@ -373,7 +335,7 @@ func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient,
 
 	// Correctly assign contract version in OCR job spec.
 	contractVersion := "v2.0"
-	if k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+	if k.cfg.RegistryVersion == config.RegistryVersion_2_1 {
 		contractVersion = "v2.1"
 	}
 

@@ -35,7 +35,6 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // Keeper is the keepers commands handler
@@ -101,7 +100,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 // DeployRegistry deploys a new keeper registry.
 func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
 	if verify {
-		if k.cfg.RegistryVersion != keeper.RegistryVersion_2_1 && k.cfg.RegistryVersion != keeper.RegistryVersion_2_0 {
+		if k.cfg.RegistryVersion != config.RegistryVersion_2_1 && k.cfg.RegistryVersion != config.RegistryVersion_2_0 {
 			log.Fatal("keeper registry verification is only supported for version 2.0 and 2.1")
 		}
 		if k.cfg.ExplorerAPIKey == "" || k.cfg.ExplorerAPIKey == "<explorer-api-key>" || k.cfg.NetworkName == "" || k.cfg.NetworkName == "<network-name>" {
@@ -121,13 +120,13 @@ func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
 	}
 
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
+	case config.RegistryVersion_1_1:
 		k.deployRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
+	case config.RegistryVersion_1_2:
 		k.deployRegistry12(ctx)
-	case keeper.RegistryVersion_2_0:
+	case config.RegistryVersion_2_0:
 		k.deployRegistry20(ctx, verify)
-	case keeper.RegistryVersion_2_1:
+	case config.RegistryVersion_2_1:
 		k.deployRegistry21(ctx, verify)
 	default:
 		panic("unsupported registry version")
@@ -150,7 +149,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 
 		// Get existing keeper registry
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			registryAddr, keeperRegistry11 = k.getRegistry11(ctx)
 			count, err := keeperRegistry11.GetUpkeepCount(&callOpts)
 			if err != nil {
@@ -158,7 +157,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = count.Int64()
 			deployer = &v11KeeperDeployer{keeperRegistry11}
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			registryAddr, keeperRegistry12 = k.getRegistry12(ctx)
 			state, err := keeperRegistry12.GetState(&callOpts)
 			if err != nil {
@@ -166,7 +165,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v12KeeperDeployer{keeperRegistry12}
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.getRegistry20(ctx)
 			state, err := keeperRegistry20.GetState(&callOpts)
 			if err != nil {
@@ -174,7 +173,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion_2_1:
 			registryAddr, keeperRegistry21 = k.getRegistry21(ctx)
 			state, err := keeperRegistry21.GetState(&callOpts)
 			if err != nil {
@@ -188,16 +187,16 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 	} else {
 		// Deploy keeper registry
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			registryAddr, keeperRegistry11 = k.deployRegistry11(ctx)
 			deployer = &v11KeeperDeployer{keeperRegistry11}
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			registryAddr, keeperRegistry12 = k.deployRegistry12(ctx)
 			deployer = &v12KeeperDeployer{keeperRegistry12}
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion_2_0:
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx, true)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion_2_1:
 			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx, false)
 			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
@@ -408,13 +407,13 @@ func (k *Keeper) deployRegistry11(ctx context.Context) (common.Address, *registr
 func (k *Keeper) UpdateRegistry(ctx context.Context) {
 	var registryAddr common.Address
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
+	case config.RegistryVersion_1_1:
 		registryAddr, _ = k.getRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
+	case config.RegistryVersion_1_2:
 		registryAddr, _ = k.getRegistry12(ctx)
-	case keeper.RegistryVersion_2_0:
+	case config.RegistryVersion_2_0:
 		registryAddr, _ = k.getRegistry20(ctx)
-	case keeper.RegistryVersion_2_1:
+	case config.RegistryVersion_2_1:
 		registryAddr, _ = k.getRegistry21(ctx)
 	default:
 		panic("unexpected registry address")
@@ -654,19 +653,19 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	{
 		var err error
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			panic("not supported 1.1 registry")
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			upkeepGetter, err = registry12.NewKeeperRegistry(
 				registryAddr,
 				k.client,
 			)
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion_2_0:
 			upkeepGetter, err = registry20.NewKeeperRegistry(
 				registryAddr,
 				k.client,
 			)
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion_2_1:
 			upkeepGetter, err = iregistry21.NewIKeeperRegistryMaster(
 				registryAddr,
 				k.client,
@@ -702,7 +701,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	}
 
 	// set administrative offchain config for mercury upkeeps
-	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == config.RegistryVersion_2_1 {
 		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
 		if err != nil {
 			log.Fatalf("cannot create registry 2.1: %v", err)

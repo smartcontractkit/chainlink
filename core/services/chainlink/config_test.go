@@ -95,9 +95,6 @@ var (
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: toml.Keeper{
-				GasPriceBufferPercent: ptr[uint16](10),
-			},
 			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
@@ -585,21 +582,6 @@ func TestConfig_Marshal(t *testing.T) {
 		Limits: toml.Limits{
 			Global:   ptr(int32(200)),
 			PerOwner: ptr(int32(200)),
-		},
-	}
-	full.Keeper = toml.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
-		Registry: toml.KeeperRegistry{
-			CheckGasOverhead:    ptr[uint32](90),
-			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        commoncfg.MustNewDuration(time.Hour),
-			SyncUpkeepQueueSize: ptr[uint32](31),
-			MaxPerformDataSize:  ptr[uint32](5000),
 		},
 	}
 	full.AutoPprof = toml.AutoPprof{
@@ -1193,21 +1175,6 @@ DefaultBootstrappers = ['12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw@fo
 DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
-`},
-		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
-DefaultTransactionQueueDepth = 17
-GasPriceBufferPercent = 12
-GasTipCapBufferPercent = 43
-BaseFeeBufferPercent = 89
-MaxGracePeriod = 31
-TurnLookBack = 91
-
-[Keeper.Registry]
-CheckGasOverhead = 90
-PerformGasOverhead = 4294967295
-MaxPerformDataSize = 5000
-SyncInterval = '1h0m0s'
-SyncUpkeepQueueSize = 31
 `},
 		{"AutoPprof", Config{Core: toml.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true

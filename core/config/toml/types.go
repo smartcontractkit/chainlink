@@ -52,7 +52,6 @@ type Core struct {
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
 	P2P                  P2P                  `toml:",omitempty"`
-	Keeper               Keeper               `toml:",omitempty"`
 	AutoPprof            AutoPprof            `toml:",omitempty"`
 	Pyroscope            Pyroscope            `toml:",omitempty"`
 	Sentry               Sentry               `toml:",omitempty"`
@@ -97,7 +96,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
-	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
 	c.Workflows.setFrom(&f.Workflows)
@@ -1612,66 +1610,6 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 	}
 	if v := f.ListenAddresses; v != nil {
 		p.ListenAddresses = v
-	}
-}
-
-type Keeper struct {
-	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint16
-	GasTipCapBufferPercent       *uint16
-	BaseFeeBufferPercent         *uint16
-	MaxGracePeriod               *int64
-	TurnLookBack                 *int64
-
-	Registry KeeperRegistry `toml:",omitempty"`
-}
-
-func (k *Keeper) setFrom(f *Keeper) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		k.DefaultTransactionQueueDepth = v
-	}
-	if v := f.GasPriceBufferPercent; v != nil {
-		k.GasPriceBufferPercent = v
-	}
-	if v := f.GasTipCapBufferPercent; v != nil {
-		k.GasTipCapBufferPercent = v
-	}
-	if v := f.BaseFeeBufferPercent; v != nil {
-		k.BaseFeeBufferPercent = v
-	}
-	if v := f.MaxGracePeriod; v != nil {
-		k.MaxGracePeriod = v
-	}
-	if v := f.TurnLookBack; v != nil {
-		k.TurnLookBack = v
-	}
-
-	k.Registry.setFrom(&f.Registry)
-}
-
-type KeeperRegistry struct {
-	CheckGasOverhead    *uint32
-	PerformGasOverhead  *uint32
-	MaxPerformDataSize  *uint32
-	SyncInterval        *commonconfig.Duration
-	SyncUpkeepQueueSize *uint32
-}
-
-func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
-	if v := f.CheckGasOverhead; v != nil {
-		k.CheckGasOverhead = v
-	}
-	if v := f.PerformGasOverhead; v != nil {
-		k.PerformGasOverhead = v
-	}
-	if v := f.MaxPerformDataSize; v != nil {
-		k.MaxPerformDataSize = v
-	}
-	if v := f.SyncInterval; v != nil {
-		k.SyncInterval = v
-	}
-	if v := f.SyncUpkeepQueueSize; v != nil {
-		k.SyncUpkeepQueueSize = v
 	}
 }
 

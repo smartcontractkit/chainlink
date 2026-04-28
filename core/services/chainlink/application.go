@@ -67,7 +67,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
@@ -562,14 +561,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				legacyEVMChains,
-				mailMon),
-			job.Keeper: keeper.NewDelegate(
-				cfg,
-				opts.DS,
-				jobORM,
-				pipelineRunner,
-				globalLogger,
 				legacyEVMChains,
 				mailMon),
 			job.VRF: vrf.NewDelegate(

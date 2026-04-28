@@ -20,7 +20,7 @@ import (
 
 	registry11 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 
 const (
@@ -31,8 +31,6 @@ const (
 var (
 	checkUpkeepArguments1 abi.Arguments
 	checkUpkeepArguments2 abi.Arguments
-	registry11ABI         = keeper.Registry1_1ABI
-	registry12ABI         = keeper.Registry1_2ABI
 )
 
 type result struct {
@@ -65,9 +63,9 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 	// var keeperRegistry20 *registry20.KeeperRegistry
 
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
+	case config.RegistryVersion_1_1:
 		_, keeperRegistry11 = k.getRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
+	case config.RegistryVersion_1_2:
 		_, keeperRegistry12 = k.getRegistry12(ctx)
 	default:
 		panic("unsupported registry version")
@@ -91,7 +89,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		var lastKeeper common.Address
 
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			config, err2 := keeperRegistry11.GetConfig(callOpts)
 			if err2 != nil {
 				log.Fatal("failed to fetch registry config: ", err2)
@@ -109,7 +107,7 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 			}
 			lastKeeper = upkeep.LastKeeper
 
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			state, err2 := keeperRegistry12.GetState(callOpts)
 			if err2 != nil {
 				log.Fatal("failed to fetch registry state: ", err2)
@@ -133,14 +131,14 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		}
 
 		// least significant 32 bits of upkeep id
-		lhs := keeper.LeastSignificant32(upkeepId)
+		lhs := LeastSignificant32(upkeepId)
 
 		// least significant 32 bits of the turn block hash
 		turnBinaryPtr, ok := math.ParseBig256(string([]byte(turnBinary)[len(turnBinary)-32:]))
 		if !ok {
 			log.Fatal("failed to parse turn binary ", turnBinary)
 		}
-		rhs := keeper.LeastSignificant32(turnBinaryPtr)
+		rhs := LeastSignificant32(turnBinaryPtr)
 
 		// bitwise XOR
 		turn := lhs ^ rhs
@@ -152,12 +150,12 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		}
 
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
+		case config.RegistryVersion_1_1:
 			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 			if err2 != nil {
 				log.Fatal("failed to pack checkUpkeep: ", err2)
 			}
-		case keeper.RegistryVersion_1_2:
+		case config.RegistryVersion_1_2:
 			payload, err2 = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 			if err2 != nil {
 				log.Fatal("failed to pack checkUpkeep: ", err2)
@@ -201,7 +199,7 @@ func (k *Keeper) batchProcess(ctx context.Context, reqs []rpc.BatchElem, from ui
 
 	log.Println("Parsing batch call response")
 	var parsedResults []result
-	isVersion12 := k.cfg.RegistryVersion == keeper.RegistryVersion_1_2
+	isVersion12 := k.cfg.RegistryVersion == config.RegistryVersion_1_2
 	for i, req := range reqs {
 		if req.Error != nil {
 			parsedResults = append(parsedResults, result{

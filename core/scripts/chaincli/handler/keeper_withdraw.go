@@ -12,14 +12,15 @@ import (
 
 	registry11 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
+
+	"github.com/smartcontractkit/chainlink/v2/core/scripts/chaincli/config"
 )
 
 // Withdraw takes a keeper registry address, cancels all upkeeps and withdraws the funds
 func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 	registryAddr := common.HexToAddress(hexAddr)
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
+	case config.RegistryVersion_1_1:
 		keeperRegistry11, err := registry11.NewKeeperRegistry(
 			registryAddr,
 			k.client,
@@ -37,7 +38,7 @@ func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 		if err = k.cancelAndWithdrawUpkeeps(ctx, upkeepCount, keeperRegistry11); err != nil {
 			log.Fatal("Failed to cancel upkeeps: ", err)
 		}
-	case keeper.RegistryVersion_1_2:
+	case config.RegistryVersion_1_2:
 		keeperRegistry12, err := registry12.NewKeeperRegistry(
 			registryAddr,
 			k.client,
@@ -52,7 +53,7 @@ func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 		if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, keeperRegistry12); err != nil {
 			log.Fatal("Failed to cancel upkeeps: ", err)
 		}
-	case keeper.RegistryVersion_2_0:
+	case config.RegistryVersion_2_0:
 		keeperRegistry20, err := registry20.NewKeeperRegistry(
 			registryAddr,
 			k.client,
