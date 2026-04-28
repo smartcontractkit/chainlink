@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"go.uber.org/zap/zaptest/observer"
 
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
@@ -60,6 +61,12 @@ func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
 func NewRandomEVMChainID() *big.Int {
 	id := mrand.Int63n(math.MaxInt32) + 10000
 	return big.NewInt(id)
+}
+
+var start = atomic.NewInt64(4_242_000)
+
+func NextEVMChainID() *big.Int {
+	return big.NewInt(start.Add(1))
 }
 
 func randomBytes(n int) []byte {

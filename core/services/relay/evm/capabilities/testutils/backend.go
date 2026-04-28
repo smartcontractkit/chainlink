@@ -12,7 +12,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 // Test harness with EVM backend and chainlink core services like
@@ -43,8 +43,6 @@ type EVMBackendTH struct {
 	HeadTracker logpoller.HeadTracker
 	LogPoller   logpoller.LogPoller
 }
-
-var startID = atomic.NewInt64(1000)
 
 // Test harness to create a simulated backend for testing a LOOPCapability
 func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
@@ -66,7 +64,7 @@ func NewEVMBackendTH(t *testing.T) *EVMBackendTH {
 		ownerAddress: {Balance: assets.Ether(100000).ToInt()},
 	}
 
-	chainID := big.NewInt(startID.Add(1))
+	chainID := coretestutils.NextEVMChainID()
 	backend := simulated.NewBackend(genesisData)
 
 	h, err := backend.Client().HeaderByNumber(testutils.Context(t), nil)

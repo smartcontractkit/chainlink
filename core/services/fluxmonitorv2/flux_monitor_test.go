@@ -107,6 +107,7 @@ type testMocks struct {
 	keyStore          *fmmocks.KeyStoreInterface
 	contractSubmitter *fmmocks.ContractSubmitter
 	flags             *fmmocks.Flags
+	chainID           *big.Int
 }
 
 func setupMocks(t *testing.T) *testMocks {
@@ -146,6 +147,7 @@ type setupOptions struct {
 	hibernationPollPeriod time.Duration
 	flags                 *fmmocks.Flags
 	orm                   fluxmonitorv2.ORM
+	chainID               *big.Int
 }
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
@@ -160,12 +162,14 @@ func setup(t *testing.T, ds sqlutil.DataSource, optionFns ...func(*setupOptions)
 		hibernationPollPeriod: fluxmonitorv2.DefaultHibernationPollPeriod,
 		flags:                 tm.flags,
 		orm:                   tm.orm,
+		chainID:               tm.chainID,
 	}
 
 	for _, optionFn := range optionFns {
 		optionFn(&options)
 	}
 
+	tm.chainID = options.chainID
 	tm.flags = options.flags
 
 	lggr := logger.TestLogger(t)
@@ -206,7 +210,7 @@ func setup(t *testing.T, ds sqlutil.DataSource, optionFns ...func(*setupOptions)
 		tm.fluxAggregator,
 		tm.logBroadcaster,
 		lggr,
-		testutils.FixtureChainID,
+		options.chainID,
 	)
 	require.NoError(t, err)
 
@@ -217,6 +221,12 @@ func setup(t *testing.T, ds sqlutil.DataSource, optionFns ...func(*setupOptions)
 func disablePollTicker(disabled bool) func(*setupOptions) {
 	return func(opts *setupOptions) {
 		opts.pollTickerDisabled = disabled
+	}
+}
+
+func withChainID(chainID *big.Int) func(*setupOptions) {
+	return func(opts *setupOptions) {
+		opts.chainID = chainID
 	}
 }
 
@@ -275,10 +285,11 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
+func setupStoreWithKey(t *testing.T, chainID *big.Int) (*sqlx.DB, common.Address) {
 	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore)
+	sqlChainID := sqlutil.New(chainID)
+	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore, *sqlChainID)
 
 	return db, nodeAddr
 }
@@ -344,7 +355,8 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		},
 	}
 
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 
 	const reportableRoundID = 2
 	var (
@@ -357,9 +369,9 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			fm, tm := setup(t, db)
+			fm, tm := setup(t, db, withChainID(chainID))
 
-			tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+			tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 			tm.logBroadcaster.On("IsConnected").Return(tc.connected).Once()
 
 			// Setup Answers
@@ -451,7 +463,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 								"databaseID":    int32(0),
 								"externalJobID": uuid.UUID{},
 								"name":          "",
-								"evmChainID":    testutils.FixtureChainID.String(),
+								"evmChainID":    tm.chainID.String(),
 							},
 						},
 					), mock.Anything).
@@ -502,16 +514,17 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	t.Parallel()
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	var (
 		roundState = flux_aggregator_wrapper.OracleRoundState{}
 	)
 
-	fm, tm := setup(t, db)
+	fm, tm := setup(t, db, withChainID(chainID))
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 	tm.logBroadcaster.On("IsConnected").Return(true).Once()
 
 	tm.jobORM.
@@ -534,13 +547,15 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	t.Parallel()
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
 		db,
 		disableIdleTimer(true),
 		disablePollTicker(true),
+		withChainID(chainID),
 	)
 
 	const (
@@ -564,7 +579,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	readyToFillQueue := cltest.NewAwaiter()
 	logsAwaiter := cltest.NewAwaiter()
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 	tm.orm.On("WithDataSource", mock.Anything).Return(fluxmonitorv2.ORM(tm.orm))
 
 	tm.fluxAggregator.On("Address").Return(common.Address{})
@@ -746,7 +761,8 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 		{"idleDuration > 0", false, 2 * time.Second, true},
 	}
 
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	for _, tc := range testCases {
@@ -757,9 +773,9 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				orm = newORM(t, db, nil)
 			)
 
-			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
+			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm), withChainID(chainID))
 
-			tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+			tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 			const fetchedAnswer = 100
 			answerBigInt := big.NewInt(fetchedAnswer)
@@ -827,7 +843,8 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
@@ -836,9 +853,10 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		disableIdleTimer(true),
 		setHibernationTickerPeriod(time.Second),
 		setHibernationState(t, true),
+		withChainID(chainID),
 	)
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -933,7 +951,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 		setFlags(flags),
 	)
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -1033,16 +1051,18 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	fm, tm := setup(t,
 		db,
 		disablePollTicker(true),
 		setIdleTimerPeriod(2*time.Second),
+		withChainID(chainID),
 	)
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -1137,17 +1157,18 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 
 	var (
 		oracles = []common.Address{nodeAddr, testutils.NewAddress()}
 		orm     = newORM(t, db, nil)
 	)
 
-	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm), withChainID(chainID))
 
 	tm.keyStore.
-		On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).
+		On("EnabledKeysForChain", mock.Anything, tm.chainID).
 		Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).
 		Twice() // Once called from the test, once during start
 
@@ -1185,7 +1206,8 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	tests := []struct {
@@ -1204,9 +1226,9 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			orm := newORM(t, db, nil)
 
-			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm), withChainID(chainID))
 
-			tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+			tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
@@ -1246,7 +1268,8 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewWithT(t)
 
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	almostExpired := time.Now().
@@ -1272,10 +1295,11 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				db,
 				disablePollTicker(true),
 				withORM(orm),
+				withChainID(chainID),
 			)
 			initialPollOccurred := make(chan struct{}, 1)
 
-			tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+			tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 			tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 			tm.fluxAggregator.On("Address").Return(common.Address{})
@@ -1323,13 +1347,14 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewWithT(t)
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 	orm := newORM(t, db, nil)
 
-	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm), withChainID(chainID))
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer)
@@ -1443,13 +1468,15 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	t.Parallel()
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
-		db, nodeAddr := setupStoreWithKey(t)
+		chainID := testutils.NextEVMChainID()
+		db, nodeAddr := setupStoreWithKey(t, chainID)
 		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 		fm, tm := setup(t,
 			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
+			withChainID(chainID),
 		)
 
 		var (
@@ -1464,7 +1491,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 
 		run := &pipeline.Run{ID: 1}
 
-		tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+		tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 		tm.orm.On("WithDataSource", mock.Anything).Return(fluxmonitorv2.ORM(tm.orm))
 
@@ -1528,7 +1555,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
+		}, log.NewLogBroadcast(types.Log{}, *tm.chainID, nil))
 
 		// Mocks initiated by polling
 		// Now force the node to try to poll and ensure it does not respond this time
@@ -1561,12 +1588,14 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
-		db, nodeAddr := setupStoreWithKey(t)
+		chainID := testutils.NextEVMChainID()
+		db, nodeAddr := setupStoreWithKey(t, chainID)
 		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 		fm, tm := setup(t,
 			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
+			withChainID(chainID),
 		)
 
 		var (
@@ -1580,7 +1609,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		run := &pipeline.Run{ID: 1}
-		tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+		tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 		tm.orm.On("WithDataSource", mock.Anything).Return(fluxmonitorv2.ORM(tm.orm))
 
@@ -1654,16 +1683,18 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(roundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
+		}, log.NewLogBroadcast(types.Log{}, *tm.chainID, nil))
 	})
 
 	t.Run("when poll ticker fires, then an older NewRound log arrives, but does submit on a log arrival after a reorg", func(t *testing.T) {
-		db, nodeAddr := setupStoreWithKey(t)
+		chainID := testutils.NextEVMChainID()
+		db, nodeAddr := setupStoreWithKey(t, chainID)
 		oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 		fm, tm := setup(t,
 			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
+			withChainID(chainID),
 		)
 
 		var (
@@ -1677,7 +1708,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			answer       = 100
 		)
 		run := &pipeline.Run{ID: 1}
-		tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
+		tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 		tm.orm.On("WithDataSource", mock.Anything).Return(fluxmonitorv2.ORM(tm.orm))
 
@@ -1751,7 +1782,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(olderRoundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
+		}, log.NewLogBroadcast(types.Log{}, *tm.chainID, nil))
 
 		// Simulate a reorg - fire the same NewRound log again, which should result in a submission this time
 		tm.orm.On("MostRecentFluxMonitorRoundID", mock.Anything, contractAddress).Return(uint32(roundID), nil)
@@ -1809,7 +1840,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(olderRoundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
+		}, log.NewLogBroadcast(types.Log{}, *tm.chainID, nil))
 	})
 }
 
@@ -1820,15 +1851,16 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
 
-	db, nodeAddr := setupStoreWithKey(t)
+	chainID := testutils.NextEVMChainID()
+	db, nodeAddr := setupStoreWithKey(t, chainID)
 	oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 
 	// a setup with a random delay being zero
 	_, _ = setup(t, db, enableDrumbeatTicker("@every 10s", 0))
 
-	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second), withChainID(chainID))
 
-	tm.keyStore.On("EnabledKeysForChain", mock.Anything, testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil)
+	tm.keyStore.On("EnabledKeysForChain", mock.Anything, tm.chainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil)
 	tm.orm.On("WithDataSource", mock.Anything).Return(fluxmonitorv2.ORM(tm.orm))
 
 	const fetchedAnswer = 100
@@ -1883,7 +1915,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 						"databaseID":    int32(0),
 						"externalJobID": uuid.UUID{},
 						"name":          "",
-						"evmChainID":    testutils.FixtureChainID.String(),
+						"evmChainID":    tm.chainID.String(),
 					},
 				},
 			), mock.Anything).
