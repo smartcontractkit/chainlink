@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/config"
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/handler"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/handler"
 )
 
 // RevertReasonCmd takes in a failed tx hash and tries to give you the reason

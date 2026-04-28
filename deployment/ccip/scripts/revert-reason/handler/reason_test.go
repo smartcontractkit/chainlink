@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/config"
 )
 
 func Test_RevertReasonFromTx(t *testing.T) {

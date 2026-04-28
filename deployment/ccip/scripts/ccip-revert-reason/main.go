@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/handler"
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/secrets"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/handler"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/secrets"
 )
 
 var (

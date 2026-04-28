@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/handler"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/handler"
 )
 
 func TestRevertReason(t *testing.T) {

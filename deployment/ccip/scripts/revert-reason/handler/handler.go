@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/smartcontractkit/chainlink/core/scripts/ccip/revert-reason/config"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/scripts/revert-reason/config"
 )
 
 // BaseHandler is the common handler with a common logic
