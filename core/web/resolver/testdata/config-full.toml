@@ -638,7 +638,6 @@ TxAcceptanceState = 3
 [Solana.MultiNode]
 Enabled = false
 PollFailureThreshold = 5
-PollSuccessThreshold = 0
 PollInterval = '1s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
