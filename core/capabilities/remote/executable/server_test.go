@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -150,6 +151,75 @@ func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 		}
 	}
 	closeServices(t, srvcs)
+}
+
+func Test_Server_Receive_LogsPayloadDiffForSameMessageIDDifferentPayloads(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr, observedLogs := logger.TestObserved(t, zapcore.WarnLevel)
+
+	capabilityPeer := NewP2PPeerID(t)
+	workflowPeer := NewP2PPeerID(t)
+	broker := newTestAsyncMessageBroker(t, 100)
+	dispatcher := broker.NewDispatcherForNode(capabilityPeer)
+
+	capDonInfo := commoncap.DON{
+		ID:      1,
+		Members: []p2ptypes.PeerID{capabilityPeer},
+		F:       0,
+	}
+	capInfo := commoncap.CapabilityInfo{
+		ID:             "cap_id@1.0.0",
+		CapabilityType: commoncap.CapabilityTypeTarget,
+		Description:    "Remote Target",
+		DON:            &capDonInfo,
+	}
+	workflowDONs := map[uint32]commoncap.DON{
+		2: {
+			ID:      2,
+			Members: []p2ptypes.PeerID{workflowPeer},
+			F:       1,
+		},
+	}
+
+	srv := executable.NewServer(capInfo.ID, "", capabilityPeer, dispatcher, lggr)
+	require.NoError(t, srv.SetConfig(&commoncap.RemoteExecutableConfig{
+		RequestTimeout:            10 * time.Second,
+		ServerMaxParallelRequests: 1,
+	}, &TestCapability{}, capInfo, capDonInfo, workflowDONs, nil))
+	require.NoError(t, srv.Start(ctx))
+	t.Cleanup(func() { require.NoError(t, srv.Close()) })
+
+	payloadA := marshalTestCapabilityRequest(t, "payload-a")
+	payloadB := marshalTestCapabilityRequest(t, "payload-b")
+
+	msg := &remotetypes.MessageBody{
+		CapabilityId:    capInfo.ID,
+		CapabilityDonId: capDonInfo.ID,
+		CallerDonId:     2,
+		Method:          remotetypes.MethodExecute,
+		Payload:         payloadA,
+		MessageId:       []byte("Execute:payload-diff"),
+		Sender:          workflowPeer[:],
+		Receiver:        capabilityPeer[:],
+	}
+	srv.Receive(ctx, msg)
+
+	msgWithDifferentPayload := *msg
+	msgWithDifferentPayload.Payload = payloadB
+	srv.Receive(ctx, &msgWithDifferentPayload)
+
+	logs := observedLogs.FilterMessage("received messages with the same id and different payloads").All()
+	require.Len(t, logs, 1)
+
+	fields := logs[0].ContextMap()
+	assert.Equal(t, "Execute:payload-diff", fields["messageID"])
+	payloadDiff, ok := fields["payloadDiff"].(string)
+	require.True(t, ok)
+	assert.Contains(t, payloadDiff, "--- previous_payload")
+	assert.Contains(t, payloadDiff, "+++ current_payload")
+	assert.Contains(t, payloadDiff, "payload-a")
+	assert.Contains(t, payloadDiff, "payload-b")
+	assert.Equal(t, false, fields["payloadDiffTruncated"])
 }
 
 func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
@@ -391,6 +461,20 @@ func closeServices(t *testing.T, srvcs []services.Service) {
 	for _, srv := range srvcs {
 		require.NoError(t, srv.Close())
 	}
+}
+
+func marshalTestCapabilityRequest(t *testing.T, executeValue string) []byte {
+	inputs, err := values.NewMap(map[string]any{"executeValue1": executeValue})
+	require.NoError(t, err)
+	payload, err := pb.MarshalCapabilityRequest(commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          workflowID1,
+			WorkflowExecutionID: workflowExecutionID1,
+		},
+		Inputs: inputs,
+	})
+	require.NoError(t, err)
+	return payload
 }
 
 type serverTestClient struct {

@@ -39,6 +39,7 @@ type server struct {
 
 	// Used to detect messages with the same message id but different payloads
 	messageIDToRequestIDsCount map[string]map[string]int
+	messageIDToPayloads        map[string]map[string][]byte
 
 	receiveLock sync.Mutex
 	stopCh      services.StopChan
@@ -82,6 +83,7 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 		lggr:                       logger.With(logger.Named(lggr, "ExecutableCapabilityServer"), "capabilityID", capabilityID, "capMethodName", methodName),
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
+		messageIDToPayloads:        map[string]map[string][]byte{},
 		stopCh:                     make(services.StopChan),
 	}
 }
@@ -233,6 +235,7 @@ func (r *server) expireRequests() {
 		if executeReq.request.Evictable(commoncap.DefaultExecutableRequestTimeout) {
 			delete(r.requestIDToRequest, requestID)
 			delete(r.messageIDToRequestIDsCount, executeReq.messageID)
+			delete(r.messageIDToPayloads, executeReq.messageID)
 		}
 	}
 }
@@ -260,6 +263,12 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
+	callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
+	if !ok {
+		r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
+		return
+	}
+
 	msgHash, err := cfg.hasher.Hash(msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
@@ -277,21 +286,34 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	} else {
 		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
+	if payloads, ok := r.messageIDToPayloads[messageID]; ok {
+		if _, exists := payloads[requestID]; !exists {
+			payloads[requestID] = append([]byte(nil), msg.Payload...)
+		}
+	} else {
+		r.messageIDToPayloads[messageID] = map[string][]byte{requestID: append([]byte(nil), msg.Payload...)}
+	}
 
 	requestIDs := r.messageIDToRequestIDsCount[messageID]
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		comparedRequestID, comparedPayload, ok := r.payloadForDifferentRequestID(messageID, requestID)
+		if ok {
+			payloadDiff, payloadDiffTruncated := diffPayloads(comparedPayload, msg.Payload)
+			r.lggr.Warnw("received messages with the same id and different payloads",
+				"messageID", messageID,
+				"lenRequestIDs", len(requestIDs),
+				"currentRequestID", requestID,
+				"comparedRequestID", comparedRequestID,
+				"payloadDiff", payloadDiff,
+				"payloadDiffTruncated", payloadDiffTruncated)
+		} else {
+			r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		}
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
-		callingDon, ok := cfg.workflowDONs[msg.CallerDonId]
-		if !ok {
-			r.lggr.Errorw("received request from unregistered don", "donId", msg.CallerDonId)
-			return
-		}
-
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
 			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
 		if ierr != nil {
@@ -315,6 +337,15 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}); executeTaskErr != nil {
 		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
 	}
+}
+
+func (r *server) payloadForDifferentRequestID(messageID, requestID string) (string, []byte, bool) {
+	for otherRequestID, payload := range r.messageIDToPayloads[messageID] {
+		if otherRequestID != requestID {
+			return otherRequestID, payload, true
+		}
+	}
+	return "", nil, false
 }
 
 func GetMessageID(msg *types.MessageBody) (string, error) {
