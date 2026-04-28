@@ -300,18 +300,19 @@ func TestComputeFetch(t *testing.T) {
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
 
-	// because we are using ms precision and test overhead can result in variance, we use a range of 400ms
-	// to apply assertions.
+	// Because metering uses wall-clock ms (compute.go executeWithModule), SpendValue includes WASM
+	// init, fetch, and scheduling—not only the mock delay. All rows use +800ms slack on top of the
+	// simulated delay to accommodate CPU contention on busy CI runners.
 	tests := []struct {
 		time               time.Duration
 		expectedLowerLimit uint64
 		expectedUpperLimit uint64
 	}{
-		{time.Duration(0), 0, 400},
-		{time.Second, 1000, 1400},
-		{2 * time.Second, 2000, 2400},
-		{2_500 * time.Millisecond, 2500, 2900},
-		{3 * time.Second, 3000, 3400},
+		{time.Duration(0), 0, 800},
+		{time.Second, 1000, 1800},
+		{2 * time.Second, 2000, 2800},
+		{2_500 * time.Millisecond, 2500, 3300},
+		{3 * time.Second, 3000, 3800},
 	}
 
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
