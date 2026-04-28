@@ -104,6 +104,10 @@ type eventHandler struct {
 	shardingEnabled         bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
+
+	metrics        *metrics
+	drainStartedMu sync.Mutex
+	drainStartedAt map[string]time.Time
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -253,6 +257,7 @@ func NewEventHandler(
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
 		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
+		drainStartedAt:         make(map[string]time.Time),
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
@@ -265,6 +270,31 @@ func NewEventHandler(
 	}.NewServiceEngine(lggr)
 
 	return eh, nil
+}
+
+func (h *eventHandler) SetMetrics(m *metrics) {
+	h.metrics = m
+}
+
+func (h *eventHandler) markDrainStarted(workflowID string, start time.Time) {
+	h.drainStartedMu.Lock()
+	defer h.drainStartedMu.Unlock()
+	if h.drainStartedAt == nil {
+		h.drainStartedAt = make(map[string]time.Time)
+	}
+	if _, exists := h.drainStartedAt[workflowID]; !exists {
+		h.drainStartedAt[workflowID] = start
+	}
+}
+
+func (h *eventHandler) popDrainStarted(workflowID string) (time.Time, bool) {
+	h.drainStartedMu.Lock()
+	defer h.drainStartedMu.Unlock()
+	start, exists := h.drainStartedAt[workflowID]
+	if exists {
+		delete(h.drainStartedAt, workflowID)
+	}
+	return start, exists
 }
 
 func (h *eventHandler) close() error {
@@ -708,17 +738,30 @@ func (h *eventHandler) workflowDeletedEvent(
 	// closed.
 	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
 	// prior steps fail.
+	workflowID := payload.WorkflowID.Hex()
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
+	drainTracked := false
 	if ok {
 		if drainable, isDrainable := e.Service.(DrainableService); isDrainable {
 			if !drainable.IsDraining() {
 				drainable.Drain()
-				h.lggr.Infow("initiated drain for workflow engine", "workflowID", payload.WorkflowID.Hex())
+				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
+				h.markDrainStarted(workflowID, time.Now())
+				drainTracked = true
+				if h.metrics != nil {
+					h.metrics.incrementDrainStarted(ctx)
+				}
+			} else {
+				h.markDrainStarted(workflowID, time.Now())
+				drainTracked = true
 			}
 
 			if active := drainable.ActiveExecutions(); active > 0 {
+				if h.metrics != nil {
+					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
+				}
 				h.lggr.Infow("workflow deletion deferred: active executions still running",
-					"workflowID", payload.WorkflowID.Hex(),
+					"workflowID", workflowID,
 					"activeExecutions", active)
 				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
 			}
@@ -737,7 +780,17 @@ func (h *eventHandler) workflowDeletedEvent(
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	if drainTracked {
+		startedAt, exists := h.popDrainStarted(workflowID)
+		if exists && h.metrics != nil {
+			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
+		}
+	}
+	return nil
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the

@@ -133,6 +133,10 @@ type evtHandler interface {
 	Handle(ctx context.Context, event Event) error
 }
 
+type metricsAwareHandler interface {
+	SetMetrics(*metrics)
+}
+
 type donNotifier interface {
 	WaitForDon(ctx context.Context) (capabilities.DON, error)
 }
@@ -323,6 +327,10 @@ func NewWorkflowRegistry(
 		opt(wr)
 	}
 
+	if mh, ok := handler.(metricsAwareHandler); ok {
+		mh.SetMetrics(m)
+	}
+
 	lggr.Infow("Initialized workflow registry with multi-source support",
 		"sourceCount", len(wr.workflowSources),
 		"hasContractSource", addr != "")
@@ -450,7 +458,7 @@ func toLocalHead(head *types.Head) Head {
 // It only considers engines from the specified source when determining deletions. This ensures that when a source
 // fails to fetch, we don't incorrectly delete engines from other sources.
 func (w *workflowRegistry) generateReconciliationEvents(
-	_ context.Context,
+	ctx context.Context,
 	pendingEvents map[string]*reconciliationEvent,
 	workflowMetadata []WorkflowMetadataView,
 	head *types.Head,
@@ -578,6 +586,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 		if !workflowsSeen[id] {
 			if drainable, isDrainable := engine.Service.(DrainableService); isDrainable && !drainable.IsDraining() {
 				drainable.Drain()
+				w.metrics.incrementDrainStarted(ctx)
 			}
 
 			signature := fmt.Sprintf("%s-%s", WorkflowDeleted, id)

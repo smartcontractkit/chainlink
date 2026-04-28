@@ -17,6 +17,10 @@ type metrics struct {
 	runningWorkflows  metric.Int64Gauge
 	drainingWorkflows metric.Int64Gauge
 	completedSyncs    metric.Int64Counter
+	drainStarted      metric.Int64Counter
+	drainCompleted    metric.Int64Counter
+	drainDuration     metric.Int64Histogram
+	deleteDeferred    metric.Int64Counter
 
 	// Per-source metrics for multi-source observability
 	sourceHealth        metric.Int64Gauge     // 1=healthy, 0=unhealthy per source
@@ -51,6 +55,21 @@ func (m *metrics) recordDrainingWorkflows(ctx context.Context, count int) {
 
 func (m *metrics) incrementCompletedSyncs(ctx context.Context) {
 	m.completedSyncs.Add(ctx, 1)
+}
+
+func (m *metrics) incrementDrainStarted(ctx context.Context) {
+	m.drainStarted.Add(ctx, 1)
+}
+
+func (m *metrics) recordDrainCompleted(ctx context.Context, duration time.Duration) {
+	m.drainCompleted.Add(ctx, 1)
+	m.drainDuration.Record(ctx, duration.Milliseconds())
+}
+
+func (m *metrics) incrementDeleteDeferred(ctx context.Context, reason string) {
+	m.deleteDeferred.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("reason", reason),
+	))
 }
 
 // recordSourceFetch records metrics for a source fetch operation.
@@ -110,6 +129,26 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	drainStarted, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_drain_started_total")
+	if err != nil {
+		return nil, err
+	}
+
+	drainCompleted, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_drain_completed_total")
+	if err != nil {
+		return nil, err
+	}
+
+	drainDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_drain_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	deleteDeferred, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_delete_deferred_total")
+	if err != nil {
+		return nil, err
+	}
+
 	// Per-source metrics
 	sourceHealth, err := beholder.GetMeter().Int64Gauge("platform_workflow_registry_syncer_source_health")
 	if err != nil {
@@ -152,6 +191,10 @@ func newMetrics() (*metrics, error) {
 		runningWorkflows:          runningWorkflows,
 		drainingWorkflows:         drainingWorkflows,
 		completedSyncs:            completedSyncs,
+		drainStarted:              drainStarted,
+		drainCompleted:            drainCompleted,
+		drainDuration:             drainDuration,
+		deleteDeferred:            deleteDeferred,
 		sourceHealth:              sourceHealth,
 		workflowsPerSource:        workflowsPerSource,
 		sourceFetchDuration:       sourceFetchDuration,
