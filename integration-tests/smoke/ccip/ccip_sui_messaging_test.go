@@ -443,7 +443,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 }
 
 func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 
 	fx := prepareEVM2SuiMessagingTest(t)
 	var nonce uint64
