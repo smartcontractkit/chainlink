@@ -73,7 +73,6 @@
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/ccip-tests/ @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip

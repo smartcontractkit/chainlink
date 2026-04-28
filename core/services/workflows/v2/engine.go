@@ -18,6 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
@@ -231,6 +232,8 @@ func (e *Engine) start(ctx context.Context) error {
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
 	loggerLabels[platform.KeyOrganizationID] = e.orgID
 	e.loggerLabels.Store(&loggerLabels)
+
+	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
 
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
 	e.srvcEng.GoCtx(ctx, e.heartbeatLoop)
@@ -559,6 +562,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						timestamp:    e.cfg.Clock.Now(),
 						event:        event,
 					}); err != nil {
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueueDroppedCounter(ctx)
 						var errFull limits.ErrorQueueFull
 						if errors.As(err, &errFull) {
 							// queue full, drop the event
@@ -569,6 +573,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
 					e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 				}
 			}
@@ -589,6 +594,8 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
+		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
 			e.logger().Errorw("Failed to get trigger event queue time limit", "err", err)
@@ -596,9 +603,12 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		}
 		if eventAge > triggerEventMaxAge {
 			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
+			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
 			continue
 		}
+		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
+		triggerMetricLabels.RecordExecutionSemaphoreWaitSeconds(ctx, e.cfg.Clock.Now().Sub(semWaitStart).Seconds())
 		if err != nil {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
@@ -775,6 +785,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	startTime := e.cfg.Clock.Now()
+	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerQueueToExecutionStartSeconds(ctx, startTime.Sub(wrappedTriggerEvent.timestamp).Seconds())
 	executionLogger.Infow("Workflow execution starting ...")
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
@@ -818,6 +829,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
+	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
