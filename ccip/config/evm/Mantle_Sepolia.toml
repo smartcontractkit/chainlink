@@ -12,15 +12,13 @@ HistoryDepth = 1250
 
 [GasEstimator]
 PriceMax = '120 gwei'
-# Limit values are high as Mantle's GasPrice is in native token (MNT) instead of ETH. Their proprietary TokenRatio parameter is used to adjust fees
-LimitDefault = 80000000000
-LimitMax = 100000000000
+# covers only L2 costs https://docs.mantle.xyz/network/system-information/fee-mechanism/fee-model-handbook-after-arsia
+LimitDefault = 500_000
 BumpMin = '100 wei'
-BumpPercent = 20
 BumpThreshold = 60
 EIP1559DynamicFees = true
 FeeCapDefault = '120 gwei'
-# Mantle reccomends setting Priority Fee to 0 in their docs linked here: https://docs-v2.mantle.xyz/devs/concepts/tx-fee/eip-1559#application-of-eip-1559-in-mantle-v2-tectonic
+# Mantle recommends setting Priority Fee to 0 in their docs linked here: https://docs-v2.mantle.xyz/devs/concepts/tx-fee/eip-1559#application-of-eip-1559-in-mantle-v2-tectonic
 TipCapDefault = '0 wei'
 TipCapMin = '0 wei'
 
