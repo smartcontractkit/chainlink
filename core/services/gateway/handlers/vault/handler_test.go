@@ -132,7 +132,7 @@ type mockCapabilitiesRegistry struct {
 var owner = "test_owner"
 
 func (m *mockCapabilitiesRegistry) DONsForCapability(_ context.Context, _ string) ([]capabilities.DONWithNodes, error) {
-	members := []p2ptypes.PeerID{}
+	members := make([]p2ptypes.PeerID, 0, len(m.Nodes))
 	for _, n := range m.Nodes {
 		members = append(members, *n.PeerID)
 	}

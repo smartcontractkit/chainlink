@@ -314,7 +314,7 @@ func NewCapability(
 	orgResolver orgresolver.OrgResolver,
 	limitsFactory limits.Factory,
 ) (*Capability, error) {
-	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
 	}

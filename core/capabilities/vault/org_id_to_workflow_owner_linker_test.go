@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 )
 
 var _ orgresolver.OrgResolver = (*testOrgResolver)(nil)
@@ -166,7 +167,9 @@ func TestCapability_CreateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.
 	captured := respondWithCapturedPayload[*vaultcommon.CreateSecretsRequest](t, store, request.RequestId)
 	_, err := capability.CreateSecrets(t.Context(), request)
 	require.NoError(t, err)
-	payload := <-captured
+	result := <-captured
+	require.NoError(t, result.err)
+	payload := result.payload
 
 	assert.Equal(t, orgID, payload.OrgId)
 	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
@@ -197,7 +200,9 @@ func TestCapability_UpdateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.
 	captured := respondWithCapturedPayload[*vaultcommon.UpdateSecretsRequest](t, store, request.RequestId)
 	_, err := capability.UpdateSecrets(t.Context(), request)
 	require.NoError(t, err)
-	payload := <-captured
+	result := <-captured
+	require.NoError(t, result.err)
+	payload := result.payload
 
 	assert.Equal(t, orgID, payload.OrgId)
 	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
@@ -309,10 +314,15 @@ func newCapabilityWithOrgIDEncryptedSecret(t *testing.T, orgID string) (string, 
 	return encryptedSecret, capability, store
 }
 
-func respondWithCapturedPayload[T proto.Message](t *testing.T, store *requests.Store[*vaulttypes.Request], requestID string) <-chan T {
+type capturedPayload[T proto.Message] struct {
+	payload T
+	err     error
+}
+
+func respondWithCapturedPayload[T proto.Message](t *testing.T, store *requests.Store[*vaulttypes.Request], requestID string) <-chan capturedPayload[T] {
 	t.Helper()
 
-	captured := make(chan T, 1)
+	captured := make(chan capturedPayload[T], 1)
 	go func() {
 		for {
 			select {
@@ -325,8 +335,19 @@ func respondWithCapturedPayload[T proto.Message](t *testing.T, store *requests.S
 				}
 
 				payload, ok := reqs[0].Payload.(T)
-				require.True(t, ok)
-				captured <- proto.Clone(payload).(T)
+				if !ok {
+					captured <- capturedPayload[T]{err: fmt.Errorf("unexpected payload type %T", reqs[0].Payload)}
+					return
+				}
+
+				clonedMessage := proto.Clone(payload)
+				cloned, ok := clonedMessage.(T)
+				if !ok {
+					captured <- capturedPayload[T]{err: fmt.Errorf("unexpected cloned payload type %T", clonedMessage)}
+					return
+				}
+
+				captured <- capturedPayload[T]{payload: cloned}
 				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: []byte("ok")})
 				return
 			}

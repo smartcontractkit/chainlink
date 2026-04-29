@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -622,9 +623,12 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 	}
 	validationRequest := createSecretsRequest
 	if createSecretsRequest.OrgId != "" {
-		validationRequestCopy := *createSecretsRequest
-		validationRequestCopy.WorkflowOwner = ""
-		validationRequest = &validationRequestCopy
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(createSecretsRequest).(*vaultcommon.CreateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
 	}
 	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if err != nil {
@@ -674,9 +678,12 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 	}
 	validationRequest := updateSecretsRequest
 	if updateSecretsRequest.OrgId != "" {
-		validationRequestCopy := *updateSecretsRequest
-		validationRequestCopy.WorkflowOwner = ""
-		validationRequest = &validationRequestCopy
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(updateSecretsRequest).(*vaultcommon.UpdateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
 	}
 	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if vaultCapErr != nil {
