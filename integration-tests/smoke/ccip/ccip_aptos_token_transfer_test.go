@@ -774,8 +774,7 @@ func Test_CCIP_TokenTransfer_BnM_Aptos2EVM(t *testing.T) {
 	// Sequential waits (ConfirmMultipleCommits, ConfirmExecWithSeqNrsForAll, WaitForTokenBalances)
 	// can exceed default context timeout. Allow up to 10 minutes for all confirmations.
 	rootCtx := t.Context()
-	var cancel context.CancelFunc
-	ctx, cancel = context.WithTimeout(rootCtx, 10*time.Minute)
+	ctx, cancel := context.WithTimeout(rootCtx, 10*time.Minute)
 	defer cancel()
 
 	lggr := logger.TestLogger(t)
