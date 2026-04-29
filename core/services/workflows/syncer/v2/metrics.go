@@ -32,6 +32,9 @@ type metrics struct {
 	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
 	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
 	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
+
+	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
+	moduleStoreDuration metric.Int64Histogram
 }
 
 func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
@@ -100,6 +103,15 @@ func (m *metrics) recordReconcileBatch(ctx context.Context, source string, dispa
 func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, count int) {
 	m.reconcileEventsBackoff.Add(ctx, int64(count), metric.WithAttributes(
 		attribute.String("source", source),
+	))
+}
+
+func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, success bool) {
+	if m == nil {
+		return
+	}
+	m.moduleStoreDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("success", strconv.FormatBool(success)),
 	))
 }
 
@@ -258,6 +270,11 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	moduleStoreDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
 	return &metrics{
 		handleDuration:            handleDuration,
 		fetchedWorkflows:          fetchedWorkflows,
@@ -275,5 +292,6 @@ func newMetrics() (*metrics, error) {
 		reconcileEventsDispatched: reconcileEventsDispatched,
 		reconcileDuration:         reconcileDuration,
 		reconcileEventsBackoff:    reconcileEventsBackoff,
+		moduleStoreDuration:       moduleStoreDuration,
 	}, nil
 }
