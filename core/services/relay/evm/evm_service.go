@@ -61,12 +61,7 @@ func (e *evmService) FilterLogs(ctx context.Context, request evm.FilterLogsReque
 		return nil, err
 	}
 
-	logs := make([]*evm.Log, 0, len(rawLogs))
-	for _, l := range rawLogs {
-		logs = append(logs, convertGethLog(&l))
-	}
-
-	return &evm.FilterLogsReply{Logs: logs}, nil
+	return &evm.FilterLogsReply{Logs: convertGethLogs(rawLogs)}, nil
 }
 
 func (e *evmService) BalanceAt(ctx context.Context, request evm.BalanceAtRequest) (*evm.BalanceAtReply, error) {
@@ -524,11 +519,10 @@ func toEthMsg(msg evm.CallMsg) ethereum.CallMsg {
 	}
 }
 
-func convertGethLogs(logs []*gethtypes.Log) []*evm.Log {
+func convertGethLogs(logs []gethtypes.Log) []*evm.Log {
 	ret := make([]*evm.Log, 0, len(logs))
-
-	for _, l := range logs {
-		ret = append(ret, convertGethLog(l))
+	for i := range logs {
+		ret = append(ret, convertGethLog(&logs[i]))
 	}
 
 	return ret
@@ -554,24 +548,7 @@ func convertLPLogs(logs []logpoller.Log) []*evm.Log {
 }
 
 func convertGethLog(log *gethtypes.Log) *evm.Log {
-	topics := hashesToArrays(log.Topics)
-
-	var eventSig [32]byte
-	if len(log.Topics) > 0 {
-		eventSig = log.Topics[0]
-	}
-
-	return &evm.Log{
-		LogIndex:    uint32(log.Index),
-		BlockHash:   log.BlockHash,
-		BlockNumber: new(big.Int).SetUint64(log.BlockNumber),
-		Topics:      topics,
-		EventSig:    eventSig,
-		Address:     log.Address,
-		TxHash:      log.TxHash,
-		Data:        log.Data,
-		Removed:     log.Removed,
-	}
+	return convertLog(types.FromGethLog(log))
 }
 
 func convertLog(log *types.Log) *evm.Log {
