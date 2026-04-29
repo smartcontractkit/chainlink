@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
@@ -242,7 +243,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		}
 
 		// For each user session row, update role to match state of user map from upstream source
-		queryWhenClause := ""
+		var queryWhenClause strings.Builder
 		emailValues := []any{}
 		// Prepare CASE WHEN query statement with parameterized argument $n placeholders and matching role based on index
 		for email, user := range upstreamUserStateMap {
@@ -253,20 +254,20 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 				continue
 			}
 			emailValues = append(emailValues, email)
-			queryWhenClause += fmt.Sprintf("WHEN user_email = $%d THEN '%s' ", len(emailValues), user.Role)
+			fmt.Fprintf(&queryWhenClause, "WHEN user_email = $%d THEN '%s' ", len(emailValues), user.Role)
 		}
 
 		// If there are remaining user entries to update
 		if len(emailValues) != 0 {
 			// Set new role state for all rows in single Exec
-			query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", queryWhenClause)
+			query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", &queryWhenClause)
 			_, err = tx.ExecContext(ctx, query, emailValues...)
 			if err != nil {
 				return err
 			}
 
 			// Update role of API tokens as well
-			query = fmt.Sprintf("UPDATE ldap_user_api_tokens SET user_role = CASE %s ELSE user_role END", queryWhenClause)
+			query = fmt.Sprintf("UPDATE ldap_user_api_tokens SET user_role = CASE %s ELSE user_role END", &queryWhenClause)
 			_, err = tx.ExecContext(ctx, query, emailValues...)
 			if err != nil {
 				return err

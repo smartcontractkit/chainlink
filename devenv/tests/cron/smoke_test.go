@@ -1,14 +1,12 @@
 package cron
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	de "github.com/smartcontractkit/chainlink/devenv"
 	"github.com/smartcontractkit/chainlink/devenv/products"
@@ -22,8 +20,8 @@ func TestSmoke(t *testing.T) {
 	pdConfig, err := products.LoadOutput[cron.Configurator](outputFile)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 
 	cls, err := clclient.New(in.NodeSets[0].Out.CLNodes)

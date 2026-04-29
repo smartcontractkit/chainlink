@@ -204,11 +204,11 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	}
 
 	vp := &vault.GetSecretsRequest{
-		Requests:      make([]*vault.SecretRequest, 0),
-		WorkflowOwner: s.workflowOwner, // Always set for label validation
+		Requests: make([]*vault.SecretRequest, 0),
 	}
 	if orgIDGateEnabled {
 		vp.OrgId = s.orgID
+		vp.WorkflowOwner = s.workflowOwner
 	}
 
 	owner, err := normalizeOwner(s.workflowOwner)
@@ -238,7 +238,7 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys)
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata)
 	lggr.Debug("fetching secrets...")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{

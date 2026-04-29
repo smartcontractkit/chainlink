@@ -199,7 +199,7 @@ func (r *RelayerFactory) NewSolana(ks, ksCSA coretypes.Keystore, config SolanaFa
 			if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayID] = relay.NewServerAdapter(solana.NewRelayer(lggr, chain, r.CapabilitiesRegistry))
+			solanaRelayers[relayID] = relay.NewServerAdapter(solana.NewRelayer(lggr, chain, r.CapabilitiesRegistry, ks))
 		}
 	}
 	return solanaRelayers, nil

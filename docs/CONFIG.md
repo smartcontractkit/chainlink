@@ -21,7 +21,7 @@ HTTPURL = 'https://foo.bar' # Required
 ## Global
 ```toml
 InsecureFastScrypt = false # Default
-InsecurePPROFHeap = false # Default
+InsecurePPROFHeap = true # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
@@ -37,9 +37,10 @@ InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params i
 ### InsecurePPROFHeap
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
 ```toml
-InsecurePPROFHeap = false # Default
+InsecurePPROFHeap = true # Default
 ```
 InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
+Deprecated: no effect. Always enabled.
 
 ### RootDir
 ```toml
@@ -18906,18 +18907,21 @@ AcceptanceTimeout is the default timeout for a tranmission to be accepted on cha
 ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 ```
 ForwarderAddress is the keystone forwarder program address on chain.
+Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
 
 ### ForwarderState
 ```toml
 ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5' # Example
 ```
 ForwarderState is the keystone forwarder program state account on chain.
+Deprecated: ignored at runtime; use capability config. Kept for TOML compatibility.
 
 ### FromAddress
 ```toml
 FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e' # Example
 ```
 FromAddress is Address of the transmitter key to use for workflow writes.
+Deprecated: ignored at runtime; use capability / transmitter config. Kept for TOML compatibility.
 
 ### GasLimitDefault
 ```toml

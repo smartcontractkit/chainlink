@@ -1,5 +1,21 @@
 # Changelog Chainlink Core
 
+## 2.44.0
+
+### Minor Changes
+
+- [#22043](https://github.com/smartcontractkit/chainlink/pull/22043) [`6c93c02`](https://github.com/smartcontractkit/chainlink/commit/6c93c029a545e4c1ab9c884ef5e96399b010db1b) - Wire confidential relay service into CRE startup #added
+
+- [#22014](https://github.com/smartcontractkit/chainlink/pull/22014) [`877e469`](https://github.com/smartcontractkit/chainlink/commit/877e46974b2b3453a650dd35846f2972a0262bd9) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22044](https://github.com/smartcontractkit/chainlink/pull/22044) [`de6ecbc`](https://github.com/smartcontractkit/chainlink/commit/de6ecbc8a15c06800706710c1f59cc970cafb631) - Support HTTP URLs in file fetcher for local confidential workflow testing, add system-test instrumentation #changed
+
+- [#22084](https://github.com/smartcontractkit/chainlink/pull/22084) [`290a3e1`](https://github.com/smartcontractkit/chainlink/commit/290a3e1f46b6bdb2648f1ffeec3e43472a0b9203) - Deprecate InsecurePPROFHeap setting. Remove limitation.
+
+- [#22045](https://github.com/smartcontractkit/chainlink/pull/22045) [`bd5e9a8`](https://github.com/smartcontractkit/chainlink/commit/bd5e9a85f258fa69638ef0986c235d1155d7fa98) - Remove unused BinaryURLResolver from ConfidentialModule (PRIV-389 credentials sidecar)
+
 ## 2.43.0
 
 ### Minor Changes

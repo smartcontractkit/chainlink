@@ -1,5 +1,5 @@
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
@@ -804,7 +804,7 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 100
+LogPollerSlotsBatchSize = 1000
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'
@@ -869,7 +869,7 @@ ComputeUnitLimitDefault = 200000
 EstimateComputeUnitLimit = false
 LogPollerStartingLookback = '24h0m0s'
 LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 100
+LogPollerSlotsBatchSize = 1000
 
 [Solana.Workflow]
 AcceptanceTimeout = '45s'

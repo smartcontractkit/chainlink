@@ -12,10 +12,13 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -279,9 +282,9 @@ func TestConfigureCache(t *testing.T) {
 		// deploy mcms
 		mcmsState, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolanaV2(env, ds, chain,
 			commontypes.MCMSWithTimelockConfigV2{
-				Canceller:        proposalutils.SingleGroupMCMSV2(t),
-				Proposer:         proposalutils.SingleGroupMCMSV2(t),
-				Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 				TimelockMinDelay: big.NewInt(0),
 			},
 		)

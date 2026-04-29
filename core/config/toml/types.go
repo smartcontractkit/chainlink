@@ -36,7 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool
+	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
