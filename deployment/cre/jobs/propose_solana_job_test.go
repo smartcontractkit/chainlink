@@ -5,27 +5,50 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	jobspkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 )
 
-// Valid base58 Solana pubkeys (32 bytes) for tests — capability config unmarshaling expects base58.
 const (
+	testSolSolanaFwdQualifier = "test-solana-fwd-qualifier"
 	testSolanaForwarderProgram = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 	testSolanaForwarderState   = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-	testSolanaTransmitter      = "So11111111111111111111111111111111111111112"
+	testSolanaTransmitter       = "So11111111111111111111111111111111111111112"
+	testSolanaForwarderVersion  = "1.0.0"
 )
+
+func seedSolanaForwarderAddresses(t *testing.T, ds *datastore.MemoryDataStore, chainSel uint64, qualifier, programAddr, stateAddr string) {
+	t.Helper()
+	v := semver.MustParse(testSolanaForwarderVersion)
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: chainSel,
+		Type:          jobspkg.SolanaForwarderProgramType,
+		Version:       v,
+		Qualifier:     qualifier,
+		Address:       programAddr,
+	}))
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: chainSel,
+		Type:          jobspkg.SolanaForwarderStateType,
+		Version:       v,
+		Qualifier:     qualifier,
+		Address:       stateAddr,
+	}))
+}
 
 func minimalSolanaCapInput(nodeID string) jobs.SolanaCapabilityInput {
 	return jobs.SolanaCapabilityInput{
@@ -37,14 +60,14 @@ func minimalSolanaCapInput(nodeID string) jobs.SolanaCapabilityInput {
 
 func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 	return jobs.ProposeSolanaJobSpecInput{
-		Environment:         "test",
-		Zone:                test.Zone,
-		Domain:              "cre",
-		DONName:             test.DONName,
-		ChainSelector:       solSel,
-		DeltaStage:          10 * time.Second,
-		CREForwarderAddress: testSolanaForwarderProgram,
-		CREForwarderState:   testSolanaForwarderState,
+		Environment:           "test",
+		Zone:                  test.Zone,
+		Domain:                "cre",
+		DONName:               test.DONName,
+		ChainSelector:         solSel,
+		DeltaStage:            10 * time.Second,
+		ForwardersQualifier:   testSolSolanaFwdQualifier,
+		ForwarderVersion:      testSolanaForwarderVersion,
 		SolanaCapabilityInputs: []jobs.SolanaCapabilityInput{
 			minimalSolanaCapInput("peer-1"),
 		},
@@ -60,8 +83,10 @@ func deepCloneSolanaInput(in jobs.ProposeSolanaJobSpecInput) jobs.ProposeSolanaJ
 }
 
 func TestProposeSolanaJobSpec_VerifyPreconditions_success(t *testing.T) {
-	var env cldf.Environment
 	solSel := chainsel.SOLANA_DEVNET.Selector
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	env := cldf.Environment{DataStore: ds.Seal()}
 
 	in := freshSolanaBase(solSel)
 	in.SolanaCapabilityInputs = []jobs.SolanaCapabilityInput{
@@ -74,8 +99,10 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_success(t *testing.T) {
 }
 
 func TestProposeSolanaJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
-	var env cldf.Environment
 	solSel := chainsel.SOLANA_DEVNET.Selector
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	env := cldf.Environment{DataStore: ds.Seal()}
 	base := freshSolanaBase(solSel)
 
 	cases := []struct {
@@ -95,8 +122,7 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 			in.SolanaCapabilityInputs[0].OverrideDefaultCfg.Transmitter = ""
 		}, "transmitter is required"},
 		{"missing delta stage", func(in *jobs.ProposeSolanaJobSpecInput) { in.DeltaStage = 0 }, "deltaStage"},
-		{"missing cre forwarder address", func(in *jobs.ProposeSolanaJobSpecInput) { in.CREForwarderAddress = "" }, "creForwarderAddress is required"},
-		{"missing cre forwarder state", func(in *jobs.ProposeSolanaJobSpecInput) { in.CREForwarderState = "" }, "creForwarderState is required"},
+		{"missing forwarder qualifier", func(in *jobs.ProposeSolanaJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
 		{"wrong chain family", func(in *jobs.ProposeSolanaJobSpecInput) {
 			in.ChainSelector = chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector
 		}, "expected \"solana\""},
@@ -113,9 +139,22 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 	}
 }
 
-func TestProposeSolanaJobSpec_VerifyPreconditions_overrideMismatches(t *testing.T) {
-	var env cldf.Environment
+func TestProposeSolanaJobSpec_VerifyPreconditions_missingDatastore(t *testing.T) {
 	solSel := chainsel.SOLANA_DEVNET.Selector
+	ds := datastore.NewMemoryDataStore()
+	env := cldf.Environment{DataStore: ds.Seal()}
+	in := freshSolanaBase(solSel)
+
+	err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get Solana forwarder program")
+}
+
+func TestProposeSolanaJobSpec_VerifyPreconditions_overrideMismatches(t *testing.T) {
+	solSel := chainsel.SOLANA_DEVNET.Selector
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
+	env := cldf.Environment{DataStore: ds.Seal()}
 	base := freshSolanaBase(solSel)
 
 	t.Run("chainID mismatch when provided", func(t *testing.T) {
@@ -154,7 +193,10 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 	testEnv := test.SetupEnvV2(t, false)
 	solSel := chainsel.SOLANA_DEVNET.Selector
 
+	ds := datastore.NewMemoryDataStore()
+	seedSolanaForwarderAddresses(t, ds, solSel, testSolSolanaFwdQualifier, testSolanaForwarderProgram, testSolanaForwarderState)
 	env := testEnv.Env
+	env.DataStore = ds.Seal()
 
 	nodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 	require.NoError(t, err)
@@ -189,8 +231,8 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 		DONName:                test.DONName,
 		ChainSelector:          solSel,
 		DeltaStage:             time.Second,
-		CREForwarderAddress:    testSolanaForwarderProgram,
-		CREForwarderState:      testSolanaForwarderState,
+		ForwardersQualifier:    testSolSolanaFwdQualifier,
+		ForwarderVersion:       testSolanaForwarderVersion,
 		SolanaCapabilityInputs: solanaCapInputs,
 	}
 

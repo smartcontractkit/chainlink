@@ -43,8 +43,10 @@ type ProposeSolanaJobSpecInput struct {
 	ChainSelector uint64        `json:"chainSelector" yaml:"chainSelector"`
 	DeltaStage    time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
-	CREForwarderAddress string `json:"creForwarderAddress" yaml:"creForwarderAddress"`
-	CREForwarderState   string `json:"creForwarderState" yaml:"creForwarderState"`
+	// ForwardersQualifier selects Solana forwarder program + state in the datastore (SolanaForwarder / SolanaForwarderState).
+	ForwardersQualifier string `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	// ForwarderVersion is the semver of the deployed forwarder (e.g. from solana_forwarders_deploy). Defaults to 1.0.0 when empty.
+	ForwarderVersion string `json:"forwarderVersion,omitempty" yaml:"forwarderVersion,omitempty"`
 
 	SolanaCapabilityInputs []SolanaCapabilityInput `json:"solanaCapabilityInputs" yaml:"solanaCapabilityInputs"`
 }
@@ -73,7 +75,7 @@ func validateSolanaJobCommonFields(environment, domain, zone, donName string, ch
 	return nil
 }
 
-func (u ProposeSolanaJobSpec) VerifyPreconditions(_ cldf.Environment, input ProposeSolanaJobSpecInput) error {
+func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input ProposeSolanaJobSpecInput) error {
 	if len(input.SolanaCapabilityInputs) == 0 {
 		return errors.New("at least one solana capability input is required")
 	}
@@ -89,11 +91,8 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(_ cldf.Environment, input Prop
 	if err := validateSolanaJobCommonFields(input.Environment, input.Domain, input.Zone, input.DONName, input.ChainSelector, input.DeltaStage); err != nil {
 		return err
 	}
-	if input.CREForwarderAddress == "" {
-		return errors.New("creForwarderAddress is required")
-	}
-	if input.CREForwarderState == "" {
-		return errors.New("creForwarderState is required")
+	if input.ForwardersQualifier == "" {
+		return errors.New("cre forwarder qualifier is required")
 	}
 
 	family, err := chainselectors.GetSelectorFamily(input.ChainSelector)
@@ -102,6 +101,11 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(_ cldf.Environment, input Prop
 	}
 	if family != chainselectors.FamilySolana {
 		return fmt.Errorf("chain selector %d belongs to family %q, expected %q", input.ChainSelector, family, chainselectors.FamilySolana)
+	}
+
+	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier, input.ForwarderVersion)
+	if err != nil {
+		return err
 	}
 
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
@@ -121,10 +125,10 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(_ cldf.Environment, input Prop
 		if err := validateOverrideNetwork(ov.Network, solanaNetwork, solIn.NodeID); err != nil {
 			return err
 		}
-		if err := validateOverrideForwarder(ov.CREForwarderAddress, input.CREForwarderAddress, solIn.NodeID); err != nil {
+		if err := validateOverrideForwarder(ov.CREForwarderAddress, programAddr, solIn.NodeID); err != nil {
 			return err
 		}
-		if err := validateOverrideForwarder(ov.CREForwarderState, input.CREForwarderState, solIn.NodeID); err != nil {
+		if err := validateOverrideForwarder(ov.CREForwarderState, stateAddr, solIn.NodeID); err != nil {
 			return err
 		}
 	}
@@ -143,6 +147,11 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
+	programAddr, stateAddr, err := resolveSolanaForwarderAddresses(e, input.ChainSelector, input.ForwardersQualifier, input.ForwarderVersion)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+
 	jobName := fmt.Sprintf("solana-cap-v2-%s-%s", chainName, input.Zone)
 	job := pkg.StandardCapabilityJob{
 		JobName:               jobName,
@@ -158,10 +167,10 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 
 		cfg := solIn.OverrideDefaultCfg
 		if cfg.CREForwarderAddress == "" {
-			cfg.CREForwarderAddress = input.CREForwarderAddress
+			cfg.CREForwarderAddress = programAddr
 		}
 		if cfg.CREForwarderState == "" {
-			cfg.CREForwarderState = input.CREForwarderState
+			cfg.CREForwarderState = stateAddr
 		}
 		if cfg.Transmitter == "" {
 			cfg.Transmitter = solIn.Transmitter
@@ -172,7 +181,6 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		if solIn.OverrideDefaultCfg.DeltaStage != 0 {
 			cfg.DeltaStage = solIn.OverrideDefaultCfg.DeltaStage
 		}
-		cfg.IsLocal = false // always false for this job
 
 		enc, err := json.Marshal(cfg)
 		if err != nil {
