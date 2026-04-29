@@ -29,9 +29,6 @@ BlockchainTimeout = '5s'
 [P2P]
 IncomingMessageBufferSize = 999
 
-[Keeper]
-GasPriceBufferPercent = 10
-
 [AutoPprof]
 CPUProfileRate = 7
 

@@ -63,7 +63,9 @@ type EngineMetrics struct {
 
 	triggerEventEnqueuedCounter         metric.Int64Counter
 	triggerEventEnqueueDroppedCounter   metric.Int64Counter
+	triggerEventDequeueDroppedCounter   metric.Int64Counter
 	triggerEventExpiredCounter          metric.Int64Counter
+	triggerExecutionDeduplicatedCounter metric.Int64Counter
 	triggerEventQueueWaitSeconds        metric.Float64Histogram
 	triggerQueueToExecutionStartSeconds metric.Float64Histogram
 	triggerPayloadBytes                 metric.Int64Histogram
@@ -301,12 +303,28 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register trigger event enqueue dropped counter: %w", err)
 	}
 
+	em.triggerEventDequeueDroppedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_event_dequeue_dropped_total",
+		metric.WithDescription("Trigger events dropped after dequeue before execution (e.g. engine draining)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger event dequeue dropped counter: %w", err)
+	}
+
 	em.triggerEventExpiredCounter, err = beholder.GetMeter().Int64Counter(
 		"platform_engine_trigger_event_expired_total",
 		metric.WithDescription("Trigger events dropped for exceeding max queue wait time"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger event expired counter: %w", err)
+	}
+
+	em.triggerExecutionDeduplicatedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_trigger_execution_deduplicated_total",
+		metric.WithDescription("Trigger events skipped because execution ID already exists"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register trigger execution deduplicated counter: %w", err)
 	}
 
 	em.triggerEventQueueWaitSeconds, err = beholder.GetMeter().Float64Histogram(
@@ -626,9 +644,19 @@ func (c WorkflowsMetricLabeler) IncrementTriggerEventEnqueueDroppedCounter(ctx c
 	c.em.triggerEventEnqueueDroppedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c WorkflowsMetricLabeler) IncrementTriggerEventDequeueDroppedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerEventDequeueDroppedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) IncrementTriggerEventExpiredCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerEventExpiredCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementTriggerExecutionDeduplicatedCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.triggerExecutionDeduplicatedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) RecordTriggerEventQueueWaitSeconds(ctx context.Context, waitSeconds float64) {

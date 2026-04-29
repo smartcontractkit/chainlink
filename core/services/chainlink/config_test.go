@@ -95,9 +95,6 @@ var (
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: toml.Keeper{
-				GasPriceBufferPercent: ptr[uint16](10),
-			},
 			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
@@ -587,21 +584,6 @@ func TestConfig_Marshal(t *testing.T) {
 			PerOwner: ptr(int32(200)),
 		},
 	}
-	full.Keeper = toml.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
-		Registry: toml.KeeperRegistry{
-			CheckGasOverhead:    ptr[uint32](90),
-			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        commoncfg.MustNewDuration(time.Hour),
-			SyncUpkeepQueueSize: ptr[uint32](31),
-			MaxPerformDataSize:  ptr[uint32](5000),
-		},
-	}
 	full.AutoPprof = toml.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
@@ -773,6 +755,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:         ptr[uint32](17),
 				LogPollInterval:              &minute,
 				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPollerSkipEmptyBlocks:     ptr(false),
 				LogPrunePageSize:             ptr[uint32](0),
 				BackupLogPollerBlockDelay:    ptr[uint64](532),
 				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
@@ -816,6 +799,7 @@ func TestConfig_Marshal(t *testing.T) {
 
 				NodePool: evmcfg.NodePool{
 					PollFailureThreshold:           ptr[uint32](5),
+					PollSuccessThreshold:           ptr[uint32](0),
 					PollInterval:                   &minute,
 					SelectionMode:                  &selectionMode,
 					SyncThreshold:                  ptr[uint32](13),
@@ -1201,21 +1185,6 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
-DefaultTransactionQueueDepth = 17
-GasPriceBufferPercent = 12
-GasTipCapBufferPercent = 43
-BaseFeeBufferPercent = 89
-MaxGracePeriod = 31
-TurnLookBack = 91
-
-[Keeper.Registry]
-CheckGasOverhead = 90
-PerformGasOverhead = 4294967295
-MaxPerformDataSize = 5000
-SyncInterval = '1h0m0s'
-SyncUpkeepQueueSize = 31
-`},
 		{"AutoPprof", Config{Core: toml.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
@@ -1256,6 +1225,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 532
@@ -1346,6 +1316,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13

@@ -41,8 +41,8 @@ go run . env setup
 go run . env start
 go run . env stop
 go run . env restart
-go run . workflow deploy
-go run . workflow delete
+go run . env workflow deploy
+go run . env workflow delete
 go run . topology list
 go run . topology show
 go run . topology generate

@@ -684,42 +684,6 @@ RegistryBasedLaunchAllowlist = [] # Default
 # proxyMode = 'gateway' # Example
 # allowedPorts = '443,8443' # Example
 
-[Keeper]
-# **ADVANCED**
-# DefaultTransactionQueueDepth controls the queue size for `DropOldestStrategy` in Keeper. Set to 0 to use `SendEvery` strategy instead.
-DefaultTransactionQueueDepth = 1 # Default
-# **ADVANCED**
-# GasPriceBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in legacy mode (EIP-1559 off).
-GasPriceBufferPercent = 20 # Default
-# **ADVANCED**
-# GasTipCapBufferPercent specifies the percentage to add to the gas price used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
-GasTipCapBufferPercent = 20 # Default
-# **ADVANCED**
-# BaseFeeBufferPercent specifies the percentage to add to the base fee used for checking whether to perform an upkeep. Applies only in EIP-1559 mode.
-BaseFeeBufferPercent = 20 # Default
-# **ADVANCED**
-# MaxGracePeriod is the maximum number of blocks that a keeper will wait after performing an upkeep before it resumes checking that upkeep
-MaxGracePeriod = 100 # Default
-# TurnLookBack is the number of blocks in the past to look back when getting a block for a turn.
-TurnLookBack = 1_000 # Default
-
-[Keeper.Registry]
-# **ADVANCED**
-# CheckGasOverhead is the amount of extra gas to provide checkUpkeep() calls to account for the gas consumed by the keeper registry.
-CheckGasOverhead = 200_000 # Default
-# **ADVANCED**
-# PerformGasOverhead is the amount of extra gas to provide performUpkeep() calls to account for the gas consumed by the keeper registry
-PerformGasOverhead = 300_000 # Default
-# **ADVANCED**
-# SyncInterval is the interval in which the RegistrySynchronizer performs a full sync of the keeper registry contract it is tracking.
-SyncInterval = '30m' # Default
-# **ADVANCED**
-# MaxPerformDataSize is the max size of perform data.
-MaxPerformDataSize = 5_000 # Default
-# **ADVANCED**
-# SyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel.
-SyncUpkeepQueueSize = 10 # Default
-
 # The Chainlink node is equipped with an internal "nurse" service that can perform automatic `pprof` profiling when the certain resource thresholds are exceeded, such as memory and goroutine count. These profiles are saved to disk to facilitate fine-grained debugging of performance-related issues. In general, if you notice that your node has begun to accumulate profiles, forward them to the Chainlink team.
 #
 # To learn more about these profiles, read the [Profiling Go programs with pprof](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/) guide.

@@ -45,7 +45,6 @@ type AppConfig interface {
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
-	Keeper() Keeper
 	Log() Log
 	Mercury() Mercury
 	OCR() OCR
