@@ -35,7 +35,7 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 	msg := msgs[0]
 	require.Equal(t, events.SchemaJobSpec, msg.Attrs["beholder_data_schema"])
 	require.Equal(t, events.BeholderDomain, msg.Attrs["beholder_domain"])
-	require.Equal(t, events.EventSource, msg.Attrs["source"])
+	require.NotContains(t, msg.Attrs, "source")
 
 	var decoded events.JobSpecEvent
 	require.NoError(t, proto.Unmarshal(msg.Body, &decoded))
