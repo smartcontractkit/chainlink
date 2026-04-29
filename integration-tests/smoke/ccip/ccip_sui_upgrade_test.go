@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
@@ -401,7 +400,7 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+	// tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
@@ -565,10 +564,11 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 
 	// compile packages
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
-		"ccip":        state.SuiChains[sourceChain].CCIPAddress,
-		"ccip_onramp": "0x0", // old onRamp address
-		"mcms":        state.SuiChains[sourceChain].MCMSPackageID,
-		"mcms_owner":  "0x1",
+		"ccip":              state.SuiChains[sourceChain].CCIPMockV2PackageId,
+		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,
+		"ccip_onramp":       "0x0", // old onRamp address
+		"mcms":              state.SuiChains[sourceChain].MCMSPackageID,
+		"mcms_owner":        "0x1",
 
 		"latest_ccip_pkg":     state.SuiChains[sourceChain].CCIPMockV2PackageId,
 		"original_onramp_pkg": state.SuiChains[sourceChain].OnRampAddress,
