@@ -298,8 +298,7 @@ func (v *EthereumKeeperRegistry) SetMigrationPermissions(_ common.Address, _ uin
 	return errors.New("migration of upkeeps from keeper registry 1.2 is no longer supported")
 }
 
-func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
-	_ = registrarAddr
+func (v *EthereumKeeperRegistry) SetRegistrar(_ string) error {
 	if v.version == RegistryVersion_2_0 {
 		// we short circuit and exit, so we don't create a new txs messing up the nonce before exiting
 		return errors.New("please use set config")
@@ -421,8 +420,7 @@ func (v *EthereumKeeperRegistry) getUpkeepInfo23(opts *bind.CallOpts, id *big.In
 	}, nil
 }
 
-func (v *EthereumKeeperRegistry) GetKeeperInfo(ctx context.Context, keeperAddr string) (*KeeperInfo, error) {
-	_, _ = ctx, keeperAddr
+func (v *EthereumKeeperRegistry) GetKeeperInfo(_ context.Context, _ string) (*KeeperInfo, error) {
 	return nil, errors.New("not supported")
 }
 

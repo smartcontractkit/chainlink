@@ -7,13 +7,15 @@ DROP INDEX IF EXISTS idx_jobs_unique_keeper_spec_id;
 
 ALTER TABLE jobs DROP CONSTRAINT IF EXISTS jobs_keeper_spec_id_fkey;
 
+-- chk_specs still references keeper_spec_id from prior migrations; drop it before the column.
+ALTER TABLE jobs DROP CONSTRAINT IF EXISTS chk_specs;
+
 ALTER TABLE jobs DROP COLUMN IF EXISTS keeper_spec_id;
 
 DROP TABLE IF EXISTS upkeep_registrations;
 DROP TABLE IF EXISTS keeper_registries;
 DROP TABLE IF EXISTS keeper_specs;
 
-ALTER TABLE jobs DROP CONSTRAINT IF EXISTS chk_specs;
 ALTER TABLE jobs ADD CONSTRAINT chk_specs CHECK (
       num_nonnulls(
         ocr_oracle_spec_id, ocr2_oracle_spec_id,

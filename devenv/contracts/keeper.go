@@ -29,12 +29,14 @@ type AbigenLog interface {
 
 type KeeperRegistryVersion int32
 
+// Numeric values 4-7 match the historical enum (after removed 1.x variants); do not renumber.
+//
 //nolint:revive // we want to use underscores
 const (
-	RegistryVersion_2_0 KeeperRegistryVersion = 4
-	RegistryVersion_2_1 KeeperRegistryVersion = 5
-	RegistryVersion_2_2 KeeperRegistryVersion = 6
-	RegistryVersion_2_3 KeeperRegistryVersion = 7
+	RegistryVersion_2_0 KeeperRegistryVersion = iota + 4
+	RegistryVersion_2_1
+	RegistryVersion_2_2
+	RegistryVersion_2_3
 )
 
 func (k KeeperRegistryVersion) String() string {
