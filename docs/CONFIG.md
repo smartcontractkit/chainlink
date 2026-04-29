@@ -8465,6 +8465,7 @@ AcceptanceTimeout = '30s'
 AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
+ChainType = 'pharos'
 FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = false
