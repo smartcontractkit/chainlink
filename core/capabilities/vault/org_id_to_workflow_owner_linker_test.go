@@ -10,6 +10,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -19,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 )
 
 var _ orgresolver.OrgResolver = (*testOrgResolver)(nil)
@@ -138,6 +141,68 @@ func TestCapability_ListSecretIdentifiers_GateClosedLeavesFieldsUntouched(t *tes
 	assert.Empty(t, resolver.calledWith)
 }
 
+func TestCapability_CreateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.T) {
+	t.Parallel()
+
+	orgID := "org-123"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encryptedSecret, capability, store := newCapabilityWithOrgIDEncryptedSecret(t, orgID)
+
+	request := &vaultcommon.CreateSecretsRequest{
+		RequestId:     "request-create",
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "secret",
+					Namespace: "main",
+					Owner:     workflowOwner,
+				},
+				EncryptedValue: encryptedSecret,
+			},
+		},
+	}
+
+	captured := respondWithCapturedPayload[*vaultcommon.CreateSecretsRequest](t, store, request.RequestId)
+	_, err := capability.CreateSecrets(t.Context(), request)
+	require.NoError(t, err)
+	payload := <-captured
+
+	assert.Equal(t, orgID, payload.OrgId)
+	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
+}
+
+func TestCapability_UpdateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.T) {
+	t.Parallel()
+
+	orgID := "org-123"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encryptedSecret, capability, store := newCapabilityWithOrgIDEncryptedSecret(t, orgID)
+
+	request := &vaultcommon.UpdateSecretsRequest{
+		RequestId:     "request-update",
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "secret",
+					Namespace: "main",
+					Owner:     workflowOwner,
+				},
+				EncryptedValue: encryptedSecret,
+			},
+		},
+	}
+
+	captured := respondWithCapturedPayload[*vaultcommon.UpdateSecretsRequest](t, store, request.RequestId)
+	_, err := capability.UpdateSecrets(t.Context(), request)
+	require.NoError(t, err)
+	payload := <-captured
+
+	assert.Equal(t, orgID, payload.OrgId)
+	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
+}
+
 func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMissing(t *testing.T) {
 	t.Parallel()
 
@@ -218,6 +283,57 @@ func captureListRequest(t *testing.T, requestID string, resolver orgresolver.Org
 	require.True(t, capturedOK)
 
 	return capturedPayload
+}
+
+func newCapabilityWithOrgIDEncryptedSecret(t *testing.T, orgID string) (string, *Capability, *requests.Store[*vaulttypes.Request]) {
+	t.Helper()
+
+	_, pk, _, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-value", pk, orgID)
+	require.NoError(t, err)
+
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lpk := NewLazyPublicKey()
+	lpk.Set(pk)
+
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, &testOrgResolver{orgID: orgID}, newVaultOrgIDAsSecretOwnerLimitsFactory(t, true))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	return encryptedSecret, capability, store
+}
+
+func respondWithCapturedPayload[T proto.Message](t *testing.T, store *requests.Store[*vaulttypes.Request], requestID string) <-chan T {
+	t.Helper()
+
+	captured := make(chan T, 1)
+	go func() {
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+
+				payload, ok := reqs[0].Payload.(T)
+				require.True(t, ok)
+				captured <- proto.Clone(payload).(T)
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: []byte("ok")})
+				return
+			}
+		}
+	}()
+
+	return captured
 }
 
 func newVaultOrgIDAsSecretOwnerLimitsFactory(t *testing.T, enabled bool) limits.Factory {

@@ -169,33 +169,33 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request)
-	if err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
-		return nil, err
-	}
 	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
 	if err != nil {
 		return nil, err
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	if err != nil {
+		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request)
-	if err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
-		return nil, err
-	}
 	resolvedIdentity, err := s.resolveRequestIdentity(ctx, request.OrgId, request.WorkflowOwner)
 	if err != nil {
 		return nil, err
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	if err != nil {
+		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
