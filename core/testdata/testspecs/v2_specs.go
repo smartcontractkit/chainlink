@@ -291,6 +291,8 @@ func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string 
 	return fmt.Sprintf(WebhookSpecNoBodyTemplate, u, fetchBridge, submitBridge)
 }
 
+// VRFSpecParams configures GenerateVRFSpec. VRF v1 pipelines are no longer supported;
+// generated specs always use a vrfv2 or vrfv2plus observation source.
 type VRFSpecParams struct {
 	JobID                         string
 	Name                          string
@@ -308,7 +310,6 @@ type VRFSpecParams struct {
 	EVMChainID                    string
 	RequestedConfsDelay           int
 	RequestTimeout                time.Duration
-	V2                            bool
 	ChunkSize                     int
 	BackoffInitialDelay           time.Duration
 	BackoffMaxDelay               time.Duration
@@ -378,54 +379,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	observationSource := fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-            data="$(encode_tx)"
-            minConfirmations="0"
-            from="$(jobSpec.from)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
-            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
-decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress, coordinatorAddress)
-	if params.V2 {
-		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"
-]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"
-]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	}
+	var observationSource string
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
@@ -453,6 +407,32 @@ simulate_fulfillment    [type=ethcall
 						 block="latest"
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	} else {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {

@@ -79,20 +79,20 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 		return jb, fmt.Errorf("gasLanePrice must be positive, given: %s", spec.GasLanePrice.String())
 	}
 
-	var foundVRFTask bool
+	var foundVRFV2 bool
 	for _, t := range jb.Pipeline.Tasks {
-		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
-			foundVRFTask = true
-		}
-
-		if t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
+		switch t.Type() {
+		case pipeline.TaskTypeVRF:
+			return jb, errors.New(`VRF v1 is no longer supported: replace pipeline task [type=vrf] with [type=vrfv2] or [type=vrfv2plus] and use a V2/V2Plus coordinator`)
+		case pipeline.TaskTypeVRFV2, pipeline.TaskTypeVRFV2Plus:
+			foundVRFV2 = true
 			if len(spec.FromAddresses) == 0 {
 				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length")
 			}
 		}
 	}
-	if !foundVRFTask {
-		return jb, errors.Wrapf(ErrKeyNotSet, "invalid pipeline, expected a vrf task")
+	if !foundVRFV2 {
+		return jb, errors.Wrapf(ErrKeyNotSet, "invalid pipeline, expected a vrfv2 or vrfv2plus task")
 	}
 
 	jb.VRFSpec = &spec

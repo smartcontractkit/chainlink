@@ -2,6 +2,7 @@ package nodeclient
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"text/template"
 	"time"
@@ -779,9 +780,13 @@ decode_log->vrf->estimate_gas->simulate`
 	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
-// VRFTxPipelineSpec VRF request with tx callback
+// VRFTxPipelineSpec builds a VRF v2-style observation source. The name is legacy;
+// callers must set FromAddress and should use a VRFCoordinatorV2 deployment.
 type VRFTxPipelineSpec struct {
-	Address string
+	Address               string
+	EstimateGasMultiplier float64
+	FromAddress           string
+	SimulationBlock       *string
 }
 
 // Type returns the type of the pipeline
@@ -791,24 +796,19 @@ func (d *VRFTxPipelineSpec) Type() string {
 
 // String representation of the pipeline
 func (d *VRFTxPipelineSpec) String() (string, error) {
-	sourceString := `
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="{{.Address}}"
-            data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx`
-	return MarshallTemplate(d, "VRF pipeline template", sourceString)
+	if d.FromAddress == "" {
+		return "", errors.New("VRFTxPipelineSpec.FromAddress is required: VRF v1 was removed; use a V2 coordinator and set FromAddress to the job transmitter")
+	}
+	mult := d.EstimateGasMultiplier
+	if mult == 0 {
+		mult = 1.1
+	}
+	return (&VRFV2TxPipelineSpec{
+		Address:               d.Address,
+		EstimateGasMultiplier: mult,
+		FromAddress:           d.FromAddress,
+		SimulationBlock:       d.SimulationBlock,
+	}).String()
 }
 
 // DirectRequestTxPipelineSpec oracle request with tx callback
@@ -1279,13 +1279,14 @@ observationSource = """
 
 // VRFJobSpec represents a VRF job
 type VRFJobSpec struct {
-	Name                     string `toml:"name"`
-	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
-	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
-	EVMChainID               string `toml:"evmChainID"`
-	ExternalJobID            string `toml:"externalJobID"`
-	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
-	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
+	Name                     string   `toml:"name"`
+	CoordinatorAddress       string   `toml:"coordinatorAddress"`
+	PublicKey                string   `toml:"publicKey"`
+	FromAddresses            []string `toml:"fromAddresses"`
+	EVMChainID               string   `toml:"evmChainID"`
+	ExternalJobID            string   `toml:"externalJobID"`
+	ObservationSource        string   `toml:"observationSource"`
+	MinIncomingConfirmations int      `toml:"minIncomingConfirmations"`
 }
 
 // Type returns the type of the job
@@ -1302,6 +1303,7 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
 evmChainID               = "{{.EVMChainID}}"
 externalJobID            = "{{.ExternalJobID}}"
+fromAddresses            = [{{range $i, $a := .FromAddresses}}{{if $i}}, {{end}}"{{$a}}"{{end}}]
 observationSource = """
 {{.ObservationSource}}
 """

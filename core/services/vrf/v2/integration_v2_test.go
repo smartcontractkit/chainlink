@@ -83,7 +83,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
@@ -604,7 +603,6 @@ func createVRFJobs(
 			FromAddresses:            keyStrs,
 			BackoffInitialDelay:      10 * time.Millisecond,
 			BackoffMaxDelay:          time.Second,
-			V2:                       true,
 			GasLanePrice:             gasLanePrices[i],
 			VRFOwnerAddress:          vrfOwnerString,
 			EVMChainID:               testutils.SimulatedChainID.String(),
@@ -2119,7 +2117,7 @@ func TestFulfillmentCost(t *testing.T) {
 	})
 }
 
-func TestStartingCountsV1(t *testing.T) {
+func TestStartingResponseCountsV2FromTxStore(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, nil)
 
 	ctx := t.Context()
@@ -2148,14 +2146,7 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
-	listenerV1 := &v1.Listener{
-		Chain: chain,
-	}
 	listenerV2 := v22.MakeTestListenerV2(chain)
-	var counts map[[32]byte]uint64
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
-	require.NoError(t, err)
-	assert.Empty(t, counts)
 	err = ks.Unlock(ctx, testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
@@ -2305,13 +2296,6 @@ func TestStartingCountsV1(t *testing.T) {
 		_, err = txStore.InsertReceipt(ctx, &receipts[i])
 		require.NoError(t, err)
 	}
-
-	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
-	require.NoError(t, err)
-	assert.Len(t, counts, 3)
-	assert.Equal(t, uint64(1), counts[evmutils.PadByteToHash(0x10)])
-	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x11)])
-	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x12)])
 
 	countsV2, err := listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
 	require.NoError(t, err)

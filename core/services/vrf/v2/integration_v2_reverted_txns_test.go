@@ -445,7 +445,6 @@ func createVRFJobsNew(
 			FromAddresses:                keyStrs,
 			BackoffInitialDelay:          10 * time.Millisecond,
 			BackoffMaxDelay:              time.Second,
-			V2:                           true,
 			GasLanePrice:                 gasLanePrices[i],
 			VRFOwnerAddress:              uni.vrfOwnerAddressNew.Hex(),
 			CustomRevertsPipelineEnabled: true,

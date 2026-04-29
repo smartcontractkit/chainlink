@@ -400,7 +400,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 	case TaskTypeDivide:
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		return nil, pkgerrors.New(`pipeline task type "vrf" (VRF v1) is no longer supported; use "vrfv2" or "vrfv2plus"`)
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2Plus:

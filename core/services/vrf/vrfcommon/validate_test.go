@@ -31,23 +31,31 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
+fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -72,21 +80,28 @@ minIncomingConfirmations = 10
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -108,7 +123,7 @@ backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 observationSource = """
 decode_log   [type=ethabidecodelog
-				abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+				abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 				data="$(jobRun.logData)"
 				topics="$(jobRun.logTopics)"]
 vrf          [type=vrfv2
@@ -116,13 +131,20 @@ vrf          [type=vrfv2
 				requestBlockHash="$(jobRun.logBlockHash)"
 				requestBlockNumber="$(jobRun.logBlockNumber)"
 				topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-				abi="fulfillRandomnessRequest(bytes proof)"
-				data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-			txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 			`,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -139,21 +161,28 @@ minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -170,23 +199,31 @@ minIncomingConfirmations = 10
 publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -203,23 +240,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -237,23 +282,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -271,23 +324,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -304,23 +365,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -339,23 +408,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -374,23 +451,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -409,23 +494,31 @@ decode_log->vrf->encode_tx->submit_tx
 			publicKey = "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 			coordinatorAddress = "0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
 			externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+			fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 			observationSource = """
 			decode_log   [type=ethabidecodelog
-						  abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+						  abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
 						  data="$(jobRun.logData)"
 						  topics="$(jobRun.logTopics)"]
-			vrf          [type=vrf
+			vrf          [type=vrfv2
 						  publicKey="$(jobSpec.publicKey)"
 						  requestBlockHash="$(jobRun.logBlockHash)"
 						  requestBlockNumber="$(jobRun.logBlockNumber)"
 						  topics="$(jobRun.logTopics)"]
-			encode_tx    [type=ethabiencode
-						  abi="fulfillRandomnessRequest(bytes proof)"
-						  data="{\\"proof\\": $(vrf)}"]
-			submit_tx  [type=ethtx to="%s"
-						data="$(encode_tx)"
-						txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-			decode_log->vrf->encode_tx->submit_tx
+			estimate_gas [type=estimategaslimit
+			              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+			              multiplier="1.1"
+			              data="$(vrf.output)"
+			]
+			simulate [type=ethcall
+			          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  gas="$(estimate_gas)"
+					  gasPrice="$(jobSpec.maxGasPrice)"
+					  extractRevertReason=true
+					  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+					  data="$(vrf.output)"
+			]
+			decode_log->vrf->estimate_gas->simulate
 			"""
 			`,
 			assertion: func(t *testing.T, os job.Job, err error) {
@@ -445,23 +538,31 @@ requestTimeout = "168h" # 7 days
 chunkSize = 25
 backoffInitialDelay = "1h"
 backoffMaxDelay = "30m"
+fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -481,23 +582,31 @@ chunkSize = 25
 backoffInitialDelay = "1m"
 backoffMaxDelay = "2h"
 gasLanePrice = "200 gwei"
+fromAddresses = ["0xB3b7874F13387D44a3398D298B075B7A3505D8d4"]
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -528,21 +637,28 @@ backoffMaxDelay = "2h"
 gasLanePrice = "-200"
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -564,21 +680,28 @@ backoffMaxDelay = "2h"
 gasLanePrice = "0 gwei"
 observationSource = """
 decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
+vrf          [type=vrfv2
 			  publicKey="$(jobSpec.publicKey)"
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-			data="$(encode_tx)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->submit_tx
+estimate_gas [type=estimategaslimit
+              to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="0xB3b7874F13387D44a3398D298B075B7A3505D8d4"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {

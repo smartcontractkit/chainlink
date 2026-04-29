@@ -1700,7 +1700,6 @@ func testMaliciousConsumer(
 		MinIncomingConfirmations: incomingConfs,
 		GasLanePrice:             assets.GWei(1),
 		PublicKey:                vrfkey.PublicKey.String(),
-		V2:                       true,
 		EVMChainID:               testutils.SimulatedChainID.String(),
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
@@ -1865,7 +1864,6 @@ func testReplayOldRequestsOnStartUp(
 		FromAddresses:            []string{sendingKey.Address.String()},
 		BackoffInitialDelay:      10 * time.Millisecond,
 		BackoffMaxDelay:          time.Second,
-		V2:                       true,
 		GasLanePrice:             gasLanePriceWei,
 		VRFOwnerAddress:          vrfOwnerString,
 		EVMChainID:               testutils.SimulatedChainID.String(),

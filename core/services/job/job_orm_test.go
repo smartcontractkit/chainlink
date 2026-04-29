@@ -415,7 +415,13 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		key, err := keyStore.VRF().Create(ctx)
 		require.NoError(t, err)
 		pk := key.PublicKey
-		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
+		require.NoError(t, keyStore.Unlock(ctx, testutils.Password))
+		ethK, err := keyStore.Eth().Create(ctx, testutils.FixtureChainID)
+		require.NoError(t, err)
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			PublicKey:     pk.String(),
+			FromAddresses: []string{ethK.Address.Hex()},
+		}).Toml())
 		require.NoError(t, err)
 
 		err = jobORM.CreateJob(ctx, &jb)
@@ -578,7 +584,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
-	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
+	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestTimeout: 1 * time.Hour,
+		FromAddresses:  fromAddresses,
+	}).Toml())
 	require.NoError(t, err)
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)

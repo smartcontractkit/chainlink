@@ -209,6 +209,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
+		FromAddresses:       []string{k.Address.Hex()},
 	}).Toml())
 	require.NoError(t, err)
 	txstore := txmgr.NewTxStore(db, lggr)
@@ -289,6 +290,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
+		FromAddresses:       []string{k.Address.Hex()},
 	}).Toml())
 	require.NoError(t, err)
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
@@ -360,8 +362,12 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 	chainID := testutils.SimulatedChainID
 	subID := new(big.Int).SetUint64(1)
 
+	k, err := ks.Eth().Create(testutils.Context(t), chainID)
+	require.NoError(t, err)
+
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
+		FromAddresses:       []string{k.Address.Hex()},
 	}).Toml())
 	require.NoError(t, err)
 	txstore := txmgr.NewTxStore(db, logger.TestLogger(t))
@@ -382,6 +388,7 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 func TestListener_GetConfirmedAt(t *testing.T) {
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
+		FromAddresses:       []string{"0xB3b7874F13387D44a3398D298B075B7A3505D8d4"},
 	}).Toml())
 	require.NoError(t, err)
 
@@ -406,6 +413,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 100 confirmations
 	j, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 0,
+		FromAddresses:       []string{"0xB3b7874F13387D44a3398D298B075B7A3505D8d4"},
 	}).Toml())
 	require.NoError(t, err)
 	listener.job = j

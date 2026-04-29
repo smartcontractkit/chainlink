@@ -334,8 +334,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "vrf",
 			tomlTemplate: func(_ string) string {
 				return testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-					PublicKey:  pks[0].PublicKey.String(),
-					EVMChainID: cltest.FixtureChainID.String(),
+					PublicKey:     pks[0].PublicKey.String(),
+					EVMChainID:    cltest.FixtureChainID.String(),
+					FromAddresses: []string{"0xB3b7874F13387D44a3398D298B075B7A3505D8d4"},
 				}).Toml()
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {

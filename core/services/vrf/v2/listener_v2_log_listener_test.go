@@ -122,9 +122,12 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	// Log Poller Listener
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
+	k, err := ks.Eth().Create(ctx, chainID)
+	require.NoError(t, err)
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 		EVMChainID:          chainID.String(),
+		FromAddresses:       []string{k.Address.Hex()},
 	}).Toml())
 	require.NoError(t, err)
 
@@ -799,6 +802,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *sqlutil.Big) {
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 		EVMChainID:          chainID.String(),
+		FromAddresses:       []string{"0xB3b7874F13387D44a3398D298B075B7A3505D8d4"},
 	}).Toml())
 	require.NoError(t, err)
 	chain := evmmocks.NewChain(t)
