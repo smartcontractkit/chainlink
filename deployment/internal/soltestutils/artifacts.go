@@ -1,24 +1,36 @@
 package soltestutils
 
 import (
+	"context"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
+	"time"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
+// Cross-process coordination (multiple `go test` invocations sharing the same
+// programs_cache directory) is out of scope. singleflight deduplicates concurrent
+// callers within a single test binary; separate processes should use isolated
+// cache directories or an external file lock.
 var (
-	// onceCCIP is used to ensure that the program artifacts from the chainlink-ccip repository are only downloaded once.
-	onceCCIP = &sync.Once{}
-	// onceSolana is used to ensure that the program artifacts from the chainlink-solana repository are only downloaded once.
-	onceSolana = &sync.Once{}
+	dlGroup singleflight.Group
+	dlMu    sync.RWMutex
+	dlDone  = map[string]bool{}
 )
 
-// downloadFunc is a function type for downloading program artifacts
+const (
+	ccipKey   = "ccip"
+	solanaKey = "solana"
+)
+
+// downloadFunc is a function type for downloading program artifacts.
 type downloadFunc func(t *testing.T) string
 
 // downloadChainlinkSolanaProgramArtifacts downloads the Chainlink Solana program artifacts.
@@ -27,14 +39,10 @@ type downloadFunc func(t *testing.T) string
 // this is called "CCIP" program artifacts).
 func downloadChainlinkSolanaProgramArtifacts(t *testing.T) string {
 	t.Helper()
-
 	cachePath := programsCachePath()
-
-	onceSolana.Do(func() {
-		err := solutils.DownloadChainlinkSolanaProgramArtifacts(t.Context(), cachePath, "", nil)
-		require.NoError(t, err)
+	doDownload(t, solanaKey, func(ctx context.Context) error {
+		return solutils.DownloadChainlinkSolanaProgramArtifacts(ctx, cachePath, "", nil)
 	})
-
 	return cachePath
 }
 
@@ -45,15 +53,57 @@ func downloadChainlinkSolanaProgramArtifacts(t *testing.T) string {
 // this is called "CCIP" program artifacts).
 func downloadChainlinkCCIPProgramArtifacts(t *testing.T) string {
 	t.Helper()
-
 	cachePath := programsCachePath()
+	doDownload(t, ccipKey, func(ctx context.Context) error {
+		return solutils.DownloadChainlinkCCIPProgramArtifacts(ctx, cachePath, "", nil)
+	})
+	return cachePath
+}
 
-	onceCCIP.Do(func() {
-		err := solutils.DownloadChainlinkCCIPProgramArtifacts(t.Context(), cachePath, "", nil)
-		require.NoError(t, err)
+// doDownload runs fn at most once per key per process via singleflight.
+//
+// The singleflight closure deliberately does NOT capture t or t.Context(): the
+// winning goroutine may outlive the test that triggered it, so it uses a bounded
+// background context. Each caller inspects the returned error against its own live
+// t and calls t.Fatalf in its own goroutine — never inside the closure.
+func doDownload(t *testing.T, key string, fn func(ctx context.Context) error) {
+	t.Helper()
+
+	dlMu.RLock()
+	already := dlDone[key]
+	dlMu.RUnlock()
+	if already {
+		return
+	}
+
+	_, err, _ := dlGroup.Do(key, func() (interface{}, error) {
+		// Re-check under the write lock in case another caller completed while we waited.
+		dlMu.RLock()
+		if dlDone[key] {
+			dlMu.RUnlock()
+			return nil, nil
+		}
+		dlMu.RUnlock()
+
+		// Use a bounded background context — never tied to *testing.T so the download
+		// is not cancelled if the winning goroutine's test finishes first.
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+
+		if err := fn(ctx); err != nil {
+			return nil, err
+		}
+
+		// Mark success inside the closure, under the write lock, before returning nil
+		// so all waiting callers observe the completed state atomically.
+		dlMu.Lock()
+		dlDone[key] = true
+		dlMu.Unlock()
+		return nil, nil
 	})
 
-	return cachePath
+	// Each caller handles the error against its own live *testing.T.
+	require.NoError(t, err)
 }
 
 // programsCachePath returns the path to the cache directory for the program artifacts.

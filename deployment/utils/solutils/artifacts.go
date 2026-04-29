@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -91,44 +93,91 @@ func DownloadChainlinkSolanaProgramArtifacts(ctx context.Context, targetDir stri
 }
 
 // downloadProgramArtifacts downloads and extracts program artifacts from a GitHub release URL.
-//
-// This internal function handles the HTTP download of a tar.gz archive and extracts all
-// regular files to the target directory. It creates parent directories as needed and
-// logs each extracted file if a logger is provided.
-//
-// The function performs the following steps:
-//  1. Downloads the tar.gz archive from the provided URL
-//  2. Decompresses the gzip stream
-//  3. Extracts each regular file from the tar archive
-//  4. Creates necessary parent directories
-//  5. Writes files to the target directory using only the base filename
-//
-// Parameters:
-//   - ctx: Context for cancellation and timeout control
-//   - url: Full URL to the tar.gz release asset
-//   - targetDir: Directory where extracted files will be stored
-//   - lggr: Logger for progress information. Can be nil to disable logging
-//
-// Returns an error if the download fails, decompression fails, or file extraction fails.
+// It retries up to 5 times with exponential backoff on transient errors (5xx, network failures).
+// 4xx responses are returned immediately as unrecoverable. Extraction happens into a sibling
+// temp directory and is atomically promoted via os.Rename only on full success.
 func downloadProgramArtifacts(ctx context.Context, url string, targetDir string, lggr logger.Logger) error {
-	// Download the artifact
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	const requestTimeout = 5 * time.Minute
+
+	parentDir := filepath.Dir(targetDir)
+	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+		return fmt.Errorf("creating parent dir %q: %w", parentDir, err)
+	}
+
+	client := &http.Client{Timeout: requestTimeout}
+
+	// tmpDir is reset on each attempt so partial extraction never bleeds into the next.
+	var tmpDir string
+
+	err := retry.Do(
+		func() error {
+			// Clean up any partial extraction from the previous attempt.
+			if tmpDir != "" {
+				_ = os.RemoveAll(tmpDir)
+			}
+			var mkErr error
+			tmpDir, mkErr = os.MkdirTemp(parentDir, ".artifacts-tmp-*")
+			if mkErr != nil {
+				return retry.Unrecoverable(fmt.Errorf("creating temp dir: %w", mkErr))
+			}
+
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+			if reqErr != nil {
+				return retry.Unrecoverable(reqErr)
+			}
+
+			res, doErr := client.Do(req)
+			if doErr != nil {
+				return doErr
+			}
+			defer func() {
+				_, _ = io.Copy(io.Discard, res.Body)
+				_ = res.Body.Close()
+			}()
+
+			if res.StatusCode >= 400 && res.StatusCode < 500 {
+				// 4xx: artifact doesn't exist or auth failed — retrying won't help.
+				return retry.Unrecoverable(fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = %q)", res.StatusCode, url))
+			}
+			if res.StatusCode != http.StatusOK {
+				// 5xx or other — retryable.
+				return fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = %q)", res.StatusCode, url)
+			}
+
+			return extractTarGz(res.Body, tmpDir, lggr)
+		},
+		retry.Attempts(5),
+		retry.Delay(500*time.Millisecond),
+		retry.DelayType(retry.BackOffDelay),
+		retry.MaxDelay(8*time.Second),
+		retry.Context(ctx),
+		retry.OnRetry(func(n uint, err error) {
+			if lggr != nil {
+				lggr.Infof("Artifact download attempt %d failed (%v), retrying", n+1, err)
+			}
+		}),
+	)
+
 	if err != nil {
+		_ = os.RemoveAll(tmpDir)
 		return err
 	}
 
-	res, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
+	// Atomically promote tmpDir to targetDir (temp dir is a sibling, same filesystem).
+	if err := os.RemoveAll(targetDir); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return fmt.Errorf("removing existing target dir %q: %w", targetDir, err)
 	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = '%s')", res.StatusCode, url)
+	if err := os.Rename(tmpDir, targetDir); err != nil {
+		_ = os.RemoveAll(tmpDir)
+		return fmt.Errorf("promoting artifacts dir %q -> %q: %w", tmpDir, targetDir, err)
 	}
+	return nil
+}
 
-	// Extract the artifact to the target directory
-	gzipReader, err := gzip.NewReader(res.Body)
+// extractTarGz decompresses a gzipped tar stream and writes regular files into outDir.
+func extractTarGz(r io.Reader, outDir string, lggr logger.Logger) error {
+	gzipReader, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}
@@ -136,10 +185,11 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 
 	tarReader := tar.NewReader(gzipReader)
 
-	// Protection against decompression bombs
+	// Protection against decompression bombs.
 	const (
-		maxFiles     = 1000              // Maximum number of files to extract
-		maxTotalSize = 500 * 1024 * 1024 // Maximum total extraction size (500MB)
+		maxFiles     = 1000
+		maxTotalSize = 500 * 1024 * 1024 // 500MB
+		maxFileSize  = 100 * 1024 * 1024 // 100MB per file
 	)
 	var (
 		fileCount int
@@ -148,32 +198,26 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 
 	for {
 		header, err := tarReader.Next()
-		// End of tar archive
 		if errors.Is(err, io.EOF) {
 			break
 		}
-
 		if err != nil {
 			return err
 		}
 
-		// Skip non-regular files
 		if header.Typeflag != tar.TypeReg {
 			continue
 		}
 
-		// Check limits to prevent decompression bombs
 		fileCount++
 		if fileCount > maxFiles {
 			return fmt.Errorf("archive contains too many files (limit: %d)", maxFiles)
 		}
-
 		if totalSize+header.Size > maxTotalSize {
 			return fmt.Errorf("archive total size exceeds limit (limit: %d bytes)", maxTotalSize)
 		}
 
-		// Copy the file to the target directory
-		outPath := filepath.Join(targetDir, filepath.Base(header.Name))
+		outPath := filepath.Join(outDir, filepath.Base(header.Name))
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
 			return err
 		}
@@ -183,23 +227,16 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 			return err
 		}
 
-		// Limit individual file size to 100MB to prevent decompression bombs
-		const maxFileSize = 100 * 1024 * 1024 // 100MB
-		limitedReader := io.LimitReader(tarReader, maxFileSize)
-		bytesWritten, err := io.Copy(outFile, limitedReader)
+		bytesWritten, err := io.Copy(outFile, io.LimitReader(tarReader, maxFileSize))
+		outFile.Close()
 		if err != nil {
-			outFile.Close()
 			return err
 		}
-
-		// Update total size counter
 		totalSize += bytesWritten
 
 		if lggr != nil {
-			lggr.Infof("Extracted Solana chainlink-solana artifact: %s", outPath)
+			lggr.Infof("Extracted Solana artifact: %s", outPath)
 		}
-
-		outFile.Close()
 	}
 
 	return nil
