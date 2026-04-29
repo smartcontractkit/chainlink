@@ -921,7 +921,7 @@ Enabled = false # Default
 PollingInterval = "1h" # Default
 # EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
 EnabledOCR2PluginTypes = ["median"] # Default
-# EmitNonOCR2Jobs emits telemetry for non-OCR2 job types (OCR1, Flux Monitor, Keeper).
+# EmitNonOCR2Jobs emits telemetry for supported non-OCR2 job types.
 EmitNonOCR2Jobs = false # Default
 
 [CRE]

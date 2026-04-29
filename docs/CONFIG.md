@@ -2600,7 +2600,7 @@ EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
 ```toml
 EmitNonOCR2Jobs = false # Default
 ```
-EmitNonOCR2Jobs emits telemetry for non-OCR2 job types (OCR1, Flux Monitor, Keeper).
+EmitNonOCR2Jobs emits telemetry for supported non-OCR2 job types.
 
 ## CRE
 ```toml

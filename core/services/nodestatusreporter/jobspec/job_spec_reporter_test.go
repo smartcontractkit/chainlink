@@ -93,13 +93,13 @@ func makeNonMedianOCR2Job() job.Job {
 	jb := makeMedianJob()
 	jb.ID = 2
 	jb.ExternalJobID = uuid.New()
-	jb.Name = null.StringFrom("test-keeper-job")
+	jb.Name = null.StringFrom("test-functions-job")
 	jb.OCR2OracleSpec = &job.OCR2OracleSpec{
 		ID:                     2,
 		ContractID:             "0xabcdef1234567890",
 		Relay:                  "evm",
 		ChainID:                "1",
-		PluginType:             commontypes.OCR2PluginType("ocr2keeper"),
+		PluginType:             commontypes.Functions,
 		RelayConfig:            job.JSONConfig{"chainID": "1"},
 		PluginConfig:           job.JSONConfig{},
 		OnchainSigningStrategy: job.JSONConfig{},
@@ -267,7 +267,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
 
 	require.NotNil(t, ev.Ocr2OracleSpec)
-	assert.Equal(t, "ocr2keeper", ev.Ocr2OracleSpec.PluginType)
+	assert.Equal(t, "functions", ev.Ocr2OracleSpec.PluginType)
 	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.RelayConfigJson)
 }
