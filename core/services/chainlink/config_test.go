@@ -701,6 +701,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:         ptr[uint32](17),
 				LogPollInterval:              &minute,
 				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPollerSkipEmptyBlocks:     ptr(false),
 				LogPrunePageSize:             ptr[uint32](0),
 				BackupLogPollerBlockDelay:    ptr[uint64](532),
 				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
@@ -744,6 +745,7 @@ func TestConfig_Marshal(t *testing.T) {
 
 				NodePool: evmcfg.NodePool{
 					PollFailureThreshold:           ptr[uint32](5),
+					PollSuccessThreshold:           ptr[uint32](0),
 					PollInterval:                   &minute,
 					SelectionMode:                  &selectionMode,
 					SyncThreshold:                  ptr[uint32](13),
@@ -1114,6 +1116,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 532
@@ -1204,6 +1207,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
