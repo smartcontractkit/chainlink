@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 )
 
@@ -28,9 +30,11 @@ type SolanaOverrideDefaultCfg struct {
 	DeltaStage          time.Duration `json:"deltaStage,omitempty" yaml:"deltaStage,omitempty"`
 }
 
+// SolanaCapabilityInput configures one worker node. Transmitter may be omitted when the job
+// distributor already lists an OCR2 chain config for chainSelector (same idea as EVM nodeAddress).
 type SolanaCapabilityInput struct {
 	NodeID             string                   `json:"nodeID" yaml:"nodeID"`
-	Transmitter        string                   `json:"transmitter" yaml:"transmitter"`
+	Transmitter        string                   `json:"transmitter,omitempty" yaml:"transmitter,omitempty"`
 	OverrideDefaultCfg SolanaOverrideDefaultCfg `json:"overrideDefaultCfg" yaml:"overrideDefaultCfg"`
 }
 
@@ -52,6 +56,36 @@ type ProposeSolanaJobSpecInput struct {
 }
 
 type ProposeSolanaJobSpec struct{}
+
+// resolveSolanaTransmitter returns overrideDefaultCfg.transmitter if set, else top-level transmitter,
+// else the node's transmit account for this chain from the job distributor (same pattern as EVM nodeAddress).
+func resolveSolanaTransmitter(e cldf.Environment, nodeID string, chainSelector uint64, inputLevel, override string) (string, error) {
+	if s := strings.TrimSpace(override); s != "" {
+		return s, nil
+	}
+	if s := strings.TrimSpace(inputLevel); s != "" {
+		return s, nil
+	}
+	if e.Offchain == nil {
+		return "", errors.New("offchain client is required to resolve Solana transmitter from the job distributor (set transmitter / overrideDefaultCfg.transmitter or configure the Solana chain on the node in JD)")
+	}
+	nodeInfos, err := deployment.NodeInfo([]string{nodeID}, e.Offchain)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node info for node %s: %w", nodeID, err)
+	}
+	if len(nodeInfos) == 0 {
+		return "", fmt.Errorf("no node info for node %s", nodeID)
+	}
+	solOCR, ok := nodeInfos[0].OCRConfigForChainSelector(chainSelector)
+	if !ok {
+		return "", fmt.Errorf("no OCR2 chain config for Solana (chain selector %d) for node %s in job distributor; set transmitter in YAML or register this Solana chain on the node", chainSelector, nodeID)
+	}
+	tx := strings.TrimSpace(string(solOCR.TransmitAccount))
+	if tx == "" {
+		return "", fmt.Errorf("empty transmit account for node %s and chain selector %d in job distributor", nodeID, chainSelector)
+	}
+	return tx, nil
+}
 
 func validateSolanaJobCommonFields(environment, domain, zone, donName string, chainSelector uint64, deltaStage time.Duration) error {
 	if environment == "" {
@@ -83,8 +117,8 @@ func (u ProposeSolanaJobSpec) VerifyPreconditions(e cldf.Environment, input Prop
 		if solIn.NodeID == "" {
 			return fmt.Errorf("nodeID is required for solana capability input at index %d", i)
 		}
-		if solIn.Transmitter == "" && solIn.OverrideDefaultCfg.Transmitter == "" {
-			return fmt.Errorf("transmitter is required for solana capability input at index %d (set transmitter or overrideDefaultCfg.transmitter)", i)
+		if _, err := resolveSolanaTransmitter(e, solIn.NodeID, input.ChainSelector, solIn.Transmitter, solIn.OverrideDefaultCfg.Transmitter); err != nil {
+			return fmt.Errorf("solana capability input at index %d: %w", i, err)
 		}
 	}
 
@@ -172,9 +206,11 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		if cfg.CREForwarderState == "" {
 			cfg.CREForwarderState = stateAddr
 		}
-		if cfg.Transmitter == "" {
-			cfg.Transmitter = solIn.Transmitter
+		tx, err := resolveSolanaTransmitter(e, solIn.NodeID, input.ChainSelector, solIn.Transmitter, solIn.OverrideDefaultCfg.Transmitter)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("node %s: %w", solIn.NodeID, err)
 		}
+		cfg.Transmitter = tx
 		cfg.ChainID = chainIDStr
 		cfg.Network = solanaNetwork
 		cfg.DeltaStage = input.DeltaStage

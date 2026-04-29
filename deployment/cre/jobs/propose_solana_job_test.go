@@ -24,11 +24,11 @@ import (
 )
 
 const (
-	testSolSolanaFwdQualifier = "test-solana-fwd-qualifier"
+	testSolSolanaFwdQualifier  = "test-solana-fwd-qualifier"
 	testSolanaForwarderProgram = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
 	testSolanaForwarderState   = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-	testSolanaTransmitter       = "So11111111111111111111111111111111111111112"
-	testSolanaForwarderVersion  = "1.0.0"
+	testSolanaTransmitter      = "So11111111111111111111111111111111111111112"
+	testSolanaForwarderVersion = "1.0.0"
 )
 
 func seedSolanaForwarderAddresses(t *testing.T, ds *datastore.MemoryDataStore, chainSel uint64, qualifier, programAddr, stateAddr string) {
@@ -50,26 +50,26 @@ func seedSolanaForwarderAddresses(t *testing.T, ds *datastore.MemoryDataStore, c
 	}))
 }
 
-func minimalSolanaCapInput(nodeID string) jobs.SolanaCapabilityInput {
+func solanaCapInput(nodeID, transmitter string) jobs.SolanaCapabilityInput {
 	return jobs.SolanaCapabilityInput{
 		NodeID:             nodeID,
-		Transmitter:        testSolanaTransmitter,
+		Transmitter:        transmitter,
 		OverrideDefaultCfg: jobs.SolanaOverrideDefaultCfg{},
 	}
 }
 
 func freshSolanaBase(solSel uint64) jobs.ProposeSolanaJobSpecInput {
 	return jobs.ProposeSolanaJobSpecInput{
-		Environment:           "test",
-		Zone:                  test.Zone,
-		Domain:                "cre",
-		DONName:               test.DONName,
-		ChainSelector:         solSel,
-		DeltaStage:            10 * time.Second,
-		ForwardersQualifier:   testSolSolanaFwdQualifier,
-		ForwarderVersion:      testSolanaForwarderVersion,
+		Environment:         "test",
+		Zone:                test.Zone,
+		Domain:              "cre",
+		DONName:             test.DONName,
+		ChainSelector:       solSel,
+		DeltaStage:          10 * time.Second,
+		ForwardersQualifier: testSolSolanaFwdQualifier,
+		ForwarderVersion:    testSolanaForwarderVersion,
 		SolanaCapabilityInputs: []jobs.SolanaCapabilityInput{
-			minimalSolanaCapInput("peer-1"),
+			solanaCapInput("peer-1", testSolanaTransmitter),
 		},
 	}
 }
@@ -90,8 +90,8 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_success(t *testing.T) {
 
 	in := freshSolanaBase(solSel)
 	in.SolanaCapabilityInputs = []jobs.SolanaCapabilityInput{
-		minimalSolanaCapInput("peer-1"),
-		minimalSolanaCapInput("peer-2"),
+		solanaCapInput("peer-1", testSolanaTransmitter),
+		solanaCapInput("peer-2", testSolanaTransmitter),
 	}
 
 	err := jobs.ProposeSolanaJobSpec{}.VerifyPreconditions(env, in)
@@ -117,10 +117,10 @@ func TestProposeSolanaJobSpec_VerifyPreconditions_requiredFields(t *testing.T) {
 		{"missing chain selector", func(in *jobs.ProposeSolanaJobSpecInput) { in.ChainSelector = 0 }, "chain selector is required"},
 		{"missing solana inputs", func(in *jobs.ProposeSolanaJobSpecInput) { in.SolanaCapabilityInputs = nil }, "at least one solana capability input is required"},
 		{"missing node id", func(in *jobs.ProposeSolanaJobSpecInput) { in.SolanaCapabilityInputs[0].NodeID = "" }, "nodeID is required for solana capability input"},
-		{"missing transmitter", func(in *jobs.ProposeSolanaJobSpecInput) {
+		{"missing transmitter without JD", func(in *jobs.ProposeSolanaJobSpecInput) {
 			in.SolanaCapabilityInputs[0].Transmitter = ""
 			in.SolanaCapabilityInputs[0].OverrideDefaultCfg.Transmitter = ""
-		}, "transmitter is required"},
+		}, "offchain client is required"},
 		{"missing delta stage", func(in *jobs.ProposeSolanaJobSpecInput) { in.DeltaStage = 0 }, "deltaStage"},
 		{"missing forwarder qualifier", func(in *jobs.ProposeSolanaJobSpecInput) { in.ForwardersQualifier = "" }, "cre forwarder qualifier is required"},
 		{"wrong chain family", func(in *jobs.ProposeSolanaJobSpecInput) {
@@ -208,7 +208,7 @@ func setupSolanaJobTest(t *testing.T) solanaJobTestSetup {
 			continue
 		}
 		mockGetter.JobApprovers[n.Id] = &tenv.MockJobApprover{}
-		solanaCapInputs = append(solanaCapInputs, minimalSolanaCapInput(n.Id))
+		solanaCapInputs = append(solanaCapInputs, solanaCapInput(n.Id, ""))
 	}
 
 	client := tenv.NewJobServiceClient(mockGetter)
