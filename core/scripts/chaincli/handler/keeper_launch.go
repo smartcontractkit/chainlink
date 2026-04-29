@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -24,9 +25,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
@@ -167,7 +168,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	if withdraw {
 		log.Println("Canceling upkeeps...")
 		switch k.cfg.RegistryVersion {
-		case config.RegistryVersion_2_0:
+		case config.RegistryVersion2_0:
 			registry, err := registry20.NewKeeperRegistry(
 				registryAddr,
 				k.client,
@@ -180,7 +181,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
-		case config.RegistryVersion_2_1:
+		case config.RegistryVersion2_1:
 			registry, err := iregistry21.NewIKeeperRegistryMaster(
 				registryAddr,
 				k.client,
@@ -239,7 +240,7 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 // createKeeperJob creates a keeper job in the chainlink node by the given address
 func (k *Keeper) createKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	if !k.cfg.OCR2Keepers {
-		return fmt.Errorf("legacy keeper jobs are no longer supported; set KEEPER_OCR2=true and configure OCR2 automation")
+		return errors.New("legacy keeper jobs are no longer supported; set KEEPER_OCR2=true and configure OCR2 automation")
 	}
 	if err := k.createOCR2KeeperJob(ctx, client, registryAddr, nodeAddr); err != nil {
 		return err
@@ -280,7 +281,7 @@ func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient,
 
 	// Correctly assign contract version in OCR job spec.
 	contractVersion := "v2.0"
-	if k.cfg.RegistryVersion == config.RegistryVersion_2_1 {
+	if k.cfg.RegistryVersion == config.RegistryVersion2_1 {
 		contractVersion = "v2.1"
 	}
 

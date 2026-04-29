@@ -16,7 +16,7 @@ import (
 func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 	registryAddr := common.HexToAddress(hexAddr)
 	switch k.cfg.RegistryVersion {
-	case config.RegistryVersion_2_0:
+	case config.RegistryVersion2_0:
 		keeperRegistry20, err := registry20.NewKeeperRegistry(
 			registryAddr,
 			k.client,

@@ -19,15 +19,15 @@ func LeastSignificant32(num *big.Int) uint64 {
 	return big.NewInt(0).And(num, max32).Uint64()
 }
 
-// ParseUpkeepId parses the upkeep id input string to a big int pointer.
-func ParseUpkeepId(upkeepIdStr string) (*big.Int, bool) {
-	if strings.HasPrefix(upkeepIdStr, upkeepPrefix) {
-		upkeepIdStr = zeroPrefix + upkeepIdStr[len(upkeepPrefix):]
+// ParseUpkeepID parses the upkeep id input string to a big int pointer.
+func ParseUpkeepID(upkeepIDStr string) (*big.Int, bool) {
+	if strings.HasPrefix(upkeepIDStr, upkeepPrefix) {
+		upkeepIDStr = zeroPrefix + upkeepIDStr[len(upkeepPrefix):]
 	}
 
-	upkeepId, ok := ethmath.ParseBig256(upkeepIdStr)
+	upkeepID, ok := ethmath.ParseBig256(upkeepIDStr)
 	if !ok {
-		return ethmath.ParseBig256(zeroPrefix + upkeepIdStr)
+		return ethmath.ParseBig256(zeroPrefix + upkeepIDStr)
 	}
-	return upkeepId, ok
+	return upkeepID, ok
 }

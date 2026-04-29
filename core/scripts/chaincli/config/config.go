@@ -128,7 +128,7 @@ func New() *Config {
 // Validate validates the given config
 func (c *Config) Validate() error {
 	// OCR2Keeper job could be ran only with the registry 2.0
-	if c.OCR2Keepers && c.RegistryVersion < RegistryVersion_2_0 {
+	if c.OCR2Keepers && c.RegistryVersion < RegistryVersion2_0 {
 		return fmt.Errorf("ocr2keeper job could be ran only with the registry 2.0, but %s specified", c.RegistryVersion)
 	}
 
