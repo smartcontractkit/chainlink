@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260407161350-a86b1969da65"
+      gitRef: "v0.0.0-20260424112027-f932111b88ac"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -35,7 +35,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.1.2-0.20260421131224-c46cbfe7bc6c"
+      gitRef: "v1.1.2-0.20260428015924-9456bb6d8932"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
