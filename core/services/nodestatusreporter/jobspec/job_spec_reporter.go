@@ -195,7 +195,7 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 		}
 		event.Ocr2OracleSpec = ocr2Info
 		event.ContractAddress = jb.OCR2OracleSpec.ContractID
-		event.ChainId = jb.OCR2OracleSpec.ChainID
+		event.ChainId = ocr2ChainID(jb.OCR2OracleSpec)
 	}
 
 	if jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil {
@@ -258,10 +258,23 @@ func extractBridgeNames(p pipeline.Pipeline) []string {
 	return names
 }
 
+func ocr2ChainID(spec *job.OCR2OracleSpec) string {
+	if spec == nil {
+		return ""
+	}
+	if spec.ChainID != "" {
+		return spec.ChainID
+	}
+	relayID, err := spec.RelayID()
+	if err != nil {
+		return ""
+	}
+	return relayID.ChainID
+}
+
 // evmRelayConfig mirrors the EVM relay config JSON so we can surface its fields
 // in OCR2EVMRelayConfig without depending on the EVM module.
 type evmRelayConfig struct {
-	ChainID                 string   `json:"chainID"`
 	FromBlock               uint64   `json:"fromBlock"`
 	EffectiveTransmitterID  string   `json:"effectiveTransmitterID"`
 	EnableDualTransmission  bool     `json:"enableDualTransmission"`
@@ -315,7 +328,7 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	}
 
 	if spec.Relay == "evm" {
-		evmCfg, err := buildEVMRelayConfig(relayConfigRaw)
+		evmCfg, err := buildEVMRelayConfig(relayConfigRaw, ocr2ChainID(spec))
 		if err != nil {
 			return nil, fmt.Errorf("building EVM relay config: %w", err)
 		}
@@ -380,14 +393,14 @@ func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo
 }
 
 // buildEVMRelayConfig decodes the EVM relay config JSON into OCR2EVMRelayConfig.
-func buildEVMRelayConfig(relayConfigJSON []byte) (*events.OCR2EVMRelayConfig, error) {
+func buildEVMRelayConfig(relayConfigJSON []byte, chainID string) (*events.OCR2EVMRelayConfig, error) {
 	var cfg evmRelayConfig
 	if err := json.Unmarshal(relayConfigJSON, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling EVM relay config: %w", err)
 	}
 
 	return &events.OCR2EVMRelayConfig{
-		ChainId:                 cfg.ChainID,
+		ChainId:                 chainID,
 		FromBlock:               cfg.FromBlock,
 		EffectiveTransmitterId:  cfg.EffectiveTransmitterID,
 		EnableDualTransmission:  cfg.EnableDualTransmission,

@@ -228,6 +228,29 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	assert.Nil(t, ev.Ocr1OracleSpec)
 }
 
+func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+
+	jb := makeMedianJob()
+	jb.OCR2OracleSpec.ChainID = ""
+	jb.OCR2OracleSpec.RelayConfig["chainID"] = int64(11155111)
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
+	require.NoError(t, err)
+
+	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	require.Len(t, msgs, 1)
+
+	var ev events.JobSpecEvent
+	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+
+	assert.Equal(t, "11155111", ev.ChainId)
+	require.NotNil(t, ev.Ocr2OracleSpec)
+	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
+	assert.Equal(t, "11155111", ev.Ocr2OracleSpec.EvmRelayConfig.ChainId)
+}
+
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
