@@ -811,7 +811,7 @@ func TestEVMService_GetTransactionReceipt(t *testing.T) {
 
 	result, err := relayer.GetTransactionReceipt(ctx, evm.GeTransactionReceiptRequest{Hash: txHash})
 	require.NoError(t, err)
-	require.Equal(t, txHash, result.TxHash)
+	require.Equal(t, evm.Hash(txHash), result.TxHash)
 	require.Equal(t, l1Fee, result.L1Fee)
 }
 
