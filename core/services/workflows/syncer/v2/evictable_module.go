@@ -280,6 +280,9 @@ type ModuleLRU struct {
 var (
 	defaultIdleTimeout  = 10 * time.Minute
 	defaultScanInterval = 30 * time.Second
+
+	// reapMemorySavedHook receives savedBytes immediately before recordMemorySaved; tests observe real reap metric inputs.
+	reapMemorySavedHook func(int64)
 )
 
 func NewModuleLRU(clock clockwork.Clock, opts ...func(*ModuleLRU)) *ModuleLRU {
@@ -407,6 +410,9 @@ func (lru *ModuleLRU) reap() {
 		}
 	}
 	lru.metrics.recordLoaded(context.Background(), loaded)
+	if reapMemorySavedHook != nil {
+		reapMemorySavedHook(savedBytes)
+	}
 	lru.metrics.recordMemorySaved(context.Background(), savedBytes)
 }
 

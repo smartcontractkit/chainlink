@@ -846,3 +846,56 @@ func TestLRU_MemorySavedMetric(t *testing.T) {
 	assert.False(t, m1.IsLoaded())
 	assert.False(t, m2.IsLoaded())
 }
+
+func TestLRU_ReapMemorySavedBytesNotCumulative(t *testing.T) {
+	prevHook := reapMemorySavedHook
+	var observed []int64
+	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }
+	t.Cleanup(func() { reapMemorySavedHook = prevHook })
+
+	cm, err := NewCacheMetrics()
+	require.NoError(t, err)
+
+	clock := clockwork.NewFakeClock()
+	reapTicker := make(chan time.Time, 1)
+	onReaped := make(chan struct{}, 1)
+
+	store, storeErr := artifacts.NewFileModuleStore(t.TempDir(), false)
+	require.NoError(t, storeErr)
+
+	em := newLRUModule(t, store, "wf-repeat")
+	em.lastUsed.Store(clock.Now().UnixNano())
+	want := em.BinarySize()
+
+	lru := NewModuleLRU(clock,
+		WithIdleTimeout(5*time.Minute),
+		WithReapTicker(reapTicker),
+		WithOnReaped(onReaped),
+		WithCacheMetrics(cm),
+	)
+	lru.Register("wf-repeat", em)
+	lru.Start()
+	defer lru.Close()
+
+	clock.Advance(6 * time.Minute)
+	reapTicker <- clock.Now()
+	<-onReaped
+	require.False(t, em.IsLoaded())
+
+	reapTicker <- clock.Now()
+	<-onReaped
+	require.Equal(t, []int64{want, want}, observed, "idle snapshot must not grow on repeated reap")
+
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.NoError(t, err)
+	em.lastUsed.Store(clock.Now().UnixNano())
+
+	reapTicker <- clock.Now()
+	<-onReaped
+	require.True(t, em.IsLoaded())
+
+	em.Evict()
+	reapTicker <- clock.Now()
+	<-onReaped
+	require.Equal(t, []int64{want, want, 0, want}, observed)
+}
