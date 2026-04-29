@@ -172,7 +172,7 @@ func (u ProposeSolanaJobSpec) Apply(e cldf.Environment, input ProposeSolanaJobSp
 		if solIn.OverrideDefaultCfg.DeltaStage != 0 {
 			cfg.DeltaStage = solIn.OverrideDefaultCfg.DeltaStage
 		}
-		cfg.IsLocal = false //always false for this job
+		cfg.IsLocal = false // always false for this job
 
 		enc, err := json.Marshal(cfg)
 		if err != nil {
