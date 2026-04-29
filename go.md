@@ -599,9 +599,6 @@ flowchart LR
 	click go-sumtype2 href "https://github.com/smartcontractkit/go-sumtype2"
 	grpc-proxy
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
-	job-distributor --> chainlink-protos/job-distributor
-	job-distributor --> chainlink-protos/orchestrator
-	click job-distributor href "https://github.com/smartcontractkit/job-distributor"
 	libocr --> go-sumtype2
 	click libocr href "https://github.com/smartcontractkit/libocr"
 	mcms --> chainlink-ccip/chains/solana
