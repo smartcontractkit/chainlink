@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
+	retry "github.com/avast/retry-go/v4"
 	"golang.org/x/mod/modfile"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -110,25 +112,53 @@ func DownloadChainlinkSolanaProgramArtifacts(ctx context.Context, targetDir stri
 //   - lggr: Logger for progress information. Can be nil to disable logging
 //
 // Returns an error if the download fails, decompression fails, or file extraction fails.
+// downloadRetryDelay is the base delay between download retry attempts.
+// Overridable in tests to avoid slow test runs.
+var downloadRetryDelay = time.Second
+
 func downloadProgramArtifacts(ctx context.Context, url string, targetDir string, lggr logger.Logger) error {
-	// Download the artifact
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	var body io.ReadCloser
+	err := retry.Do(
+		func() error {
+			req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+			if err != nil {
+				return retry.Unrecoverable(err)
+			}
+			res, err := (&http.Client{}).Do(req)
+			if err != nil {
+				// Network-level errors are not retried.
+				return retry.Unrecoverable(err)
+			}
+			if res.StatusCode == http.StatusOK {
+				body = res.Body
+				return nil
+			}
+			res.Body.Close()
+			if res.StatusCode < 500 {
+				// 4xx and other non-transient errors are not retried.
+				return retry.Unrecoverable(fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = '%s')", res.StatusCode, url))
+			}
+			// 5xx: return retryable error.
+			return fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = '%s')", res.StatusCode, url)
+		},
+		retry.Attempts(5),
+		retry.Delay(downloadRetryDelay),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Context(ctx),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(n uint, err error) {
+			if lggr != nil {
+				lggr.Infof("Download attempt %d failed (%v), retrying (url = '%s')", n+1, err, url)
+			}
+		}),
+	)
 	if err != nil {
 		return err
 	}
-
-	res, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed with status %d - could not download tar.gz release artifact (url = '%s')", res.StatusCode, url)
-	}
+	defer body.Close()
 
 	// Extract the artifact to the target directory
-	gzipReader, err := gzip.NewReader(res.Body)
+	gzipReader, err := gzip.NewReader(body)
 	if err != nil {
 		return err
 	}

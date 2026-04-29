@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,6 +16,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
+
+func TestMain(m *testing.M) {
+	downloadRetryDelay = 0 // skip backoff waits in tests
+	os.Exit(m.Run())
+}
 
 func TestDownloadProgramArtifacts(t *testing.T) {
 	tests := []struct {
@@ -76,7 +82,7 @@ func TestDownloadProgramArtifacts(t *testing.T) {
 			wantErr: "download failed with status 404",
 		},
 		{
-			name: "server returns 500",
+			name: "server always returns 500 — fails after all retries",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
@@ -157,6 +163,32 @@ func TestDownloadProgramArtifacts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDownloadProgramArtifacts_RetriesOn5xxThenSucceeds(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if attempts.Add(1) < 3 {
+			w.WriteHeader(http.StatusBadGateway) // 502 — first two attempts fail
+			return
+		}
+		// Third attempt succeeds with a valid tar.gz
+		w.Header().Set("Content-Type", "application/gzip")
+		gzWriter := gzip.NewWriter(w)
+		tarWriter := tar.NewWriter(gzWriter)
+		content := "binary content"
+		_ = tarWriter.WriteHeader(&tar.Header{Name: "program.so", Size: int64(len(content)), Typeflag: tar.TypeReg})
+		_, _ = tarWriter.Write([]byte(content))
+		tarWriter.Close()
+		gzWriter.Close()
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	err := downloadProgramArtifacts(t.Context(), server.URL, tempDir, logger.Test(t))
+	require.NoError(t, err)
+	assert.FileExists(t, filepath.Join(tempDir, "program.so"))
+	assert.Equal(t, int32(3), attempts.Load(), "expected exactly 3 attempts (2 failures + 1 success)")
 }
 
 func TestDownloadProgramArtifacts_ContextCancellation(t *testing.T) {
