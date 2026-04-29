@@ -1630,8 +1630,8 @@ github.com/smartcontractkit/chainlink-data-streams v0.1.13 h1:YOmt545DW6U0SyaqBf
 github.com/smartcontractkit/chainlink-data-streams v0.1.13/go.mod h1:00aL7OK0BJdF9gn/4t4f/pctUu2VLwwfA8G/tl9rCrM=
 github.com/smartcontractkit/chainlink-deployments-framework v0.98.0 h1:Ov/KOEtubOHXX8oa9UtARhHmkQNCOIjWNt+Zi0AuzHM=
 github.com/smartcontractkit/chainlink-deployments-framework v0.98.0/go.mod h1:24dwRW1PYolrlxSth///ddG3auGqR+50xaJiXfUHhkg=
-github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260428190740-c93c6a8098ec h1:lrFmKT9DdUVxSapwSzFzCw3eBizgBNW+TDUd+tZ4u5o=
-github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260428190740-c93c6a8098ec/go.mod h1:lhxIJe+Qy8duvf20q4D8ewfJzwHfvxK/s4s0exG1zEQ=
+github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429105543-a6c5f7317faf h1:PYY+k/s+Dep61NNVsZ0euq/Y/8bC83vcapFOmWHOSek=
+github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429105543-a6c5f7317faf/go.mod h1:lhxIJe+Qy8duvf20q4D8ewfJzwHfvxK/s4s0exG1zEQ=
 github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 h1:QJiXTG9CmaQAuMRn5JGi+Jhji7fSkehVnKpjc8oNJJY=
 github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501/go.mod h1:4cT1BeNF8DAn6In9zr3LayVCv1KzFeuxT7zcuNkfIb0=
 github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828 h1:BmsFk/TSHL6dPPR86GTqgSrUXLSINNFC6cfpFRrQX+4=
