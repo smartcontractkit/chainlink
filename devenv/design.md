@@ -166,7 +166,6 @@ sequenceDiagram
 | Flux Monitor   | `flux`           | `products/flux/`          | 5     | LINK, FluxAggregator                               |
 | OCR2           | `ocr2`           | `products/ocr2/`          | 5     | LINK, OCR2Aggregator                               |
 | Automation     | `automation`     | `products/automation/`    | 5     | LINK, Registry (2.0-2.3), Registrar, Upkeeps       |
-| Keepers        | `keepers`        | `products/keepers/`       | 5     | LINK, KeeperRegistry (1.1-1.3), Registrar, Upkeeps |
 | VRF            | `vrf`            | `products/vrf/`           | 1     | LINK, BlockHashStore, VRFCoordinator, VRFConsumer  |
 
 ### Adding a New Product

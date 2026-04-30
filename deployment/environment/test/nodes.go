@@ -97,6 +97,10 @@ func testOCRConfig(t *testing.T, sel uint64, p2p p2pkey.KeyV2) deployment.OCRCon
 	if f == chain_selectors.FamilyAptos {
 		transmitAccount = types2.Account(hex.EncodeToString(seed[:32]))
 	}
+	if f == chain_selectors.FamilySolana {
+		// JD stores Solana account addresses as base58; must be valid for chain capability config parsing.
+		transmitAccount = types2.Account("So11111111111111111111111111111111111111112")
+	}
 
 	return deployment.OCRConfig{
 		PeerID:                    p2p.PeerID(),

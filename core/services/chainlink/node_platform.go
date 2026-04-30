@@ -34,7 +34,6 @@ const (
 	nodeSubmitterFieldTransmitterID                      = "transmitterID"
 	nodeSubmitterFieldRelayConfigSendingKeys             = "relayConfig.sendingKeys"
 	nodeSubmitterFieldDualTransmissionTransmitterAddress = "relayConfig.dualTransmission.transmitterAddress"
-	nodeSubmitterFieldFromAddress                        = "fromAddress"
 	nodeSubmitterFieldFromAddresses                      = "fromAddresses"
 	nodeSubmitterFieldOracleFactoryTransmitterID         = "oracle_factory.transmitter_id"
 	nodeSubmitterFieldObservationSourceETHTxFrom         = "observationSource.ethtx.from"
@@ -274,7 +273,6 @@ func nodeSubmitterAddressesFromJobs(jobs []job.Job) []*commonv1.NodeSubmitterAdd
 	for _, jb := range jobs {
 		addOCRSubmitterAddress(bySource, jb)
 		addOCR2SubmitterAddresses(bySource, jb)
-		addKeeperSubmitterAddress(bySource, jb)
 		addVRFSubmitterAddresses(bySource, jb)
 		addBlockhashStoreSubmitterAddresses(bySource, jb)
 		addBlockHeaderFeederSubmitterAddresses(bySource, jb)
@@ -330,14 +328,6 @@ func ocr2ChainID(spec *job.OCR2OracleSpec) string {
 		return chainID
 	}
 	return jsonConfigString(spec.RelayConfig, "chainID")
-}
-
-func addKeeperSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
-	spec := jb.KeeperSpec
-	if spec == nil || spec.EVMChainID == nil {
-		return
-	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.Keeper), "", nodeSubmitterFieldFromAddress, spec.FromAddress.String())
 }
 
 func addVRFSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
@@ -457,8 +447,6 @@ func jobEVMChainID(jb job.Job) string {
 		return jb.FluxMonitorSpec.EVMChainID.String()
 	case jb.OCROracleSpec != nil && jb.OCROracleSpec.EVMChainID != nil:
 		return jb.OCROracleSpec.EVMChainID.String()
-	case jb.KeeperSpec != nil && jb.KeeperSpec.EVMChainID != nil:
-		return jb.KeeperSpec.EVMChainID.String()
 	case jb.VRFSpec != nil && jb.VRFSpec.EVMChainID != nil:
 		return jb.VRFSpec.EVMChainID.String()
 	case jb.BlockhashStoreSpec != nil && jb.BlockhashStoreSpec.EVMChainID != nil:

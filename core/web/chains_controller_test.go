@@ -1,24 +1,18 @@
 package web_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/rand"
 
 	"github.com/smartcontractkit/quarantine"
 
-	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -225,169 +219,6 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	client := app.NewHTTPClient(nil)
 
 	return &TestEVMChainsController{
-		app:    app,
-		client: client,
-	}
-}
-
-func Test_SolanaChainsController_Show(t *testing.T) {
-	t.Parallel()
-
-	const validID = "Chainlink-12"
-
-	testCases := []struct {
-		name           string
-		inputID        string
-		wantStatusCode int
-		want           func(t *testing.T, app *cltest.TestApplication) *commonTypes.ChainStatus
-	}{
-		{
-			inputID: validID,
-			name:    "success",
-			want: func(t *testing.T, app *cltest.TestApplication) *commonTypes.ChainStatus {
-				wc := &config.TOMLConfig{
-					ChainID: ptr(validID),
-					Chain: config.Chain{
-						SkipPreflight: ptr(false),
-						TxTimeout:     commoncfg.MustNewDuration(time.Hour),
-					},
-				}
-				wc.SetDefaults()
-				cfgStr, err := wc.TOMLString()
-				require.NoError(t, err)
-				return &commonTypes.ChainStatus{
-					ID:      validID,
-					Enabled: true,
-					Config:  cfgStr,
-				}
-			},
-			wantStatusCode: http.StatusOK,
-		},
-		{
-			inputID: "234",
-			name:    "not found",
-			want: func(t *testing.T, app *cltest.TestApplication) *commonTypes.ChainStatus {
-				return nil
-			},
-			wantStatusCode: http.StatusBadRequest,
-		},
-	}
-
-	for _, testCase := range testCases {
-		tc := testCase
-
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			controller := setupSolanaChainsControllerTestV2(t, &config.TOMLConfig{
-				ChainID: ptr(validID),
-				Chain: config.Chain{
-					SkipPreflight: ptr(false),
-					TxTimeout:     commoncfg.MustNewDuration(time.Hour),
-				},
-			})
-
-			wantedResult := tc.want(t, controller.app)
-			resp, cleanup := controller.client.Get(
-				"/v2/chains/solana/" + tc.inputID,
-			)
-			t.Cleanup(cleanup)
-			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
-
-			if wantedResult != nil {
-				resource1 := presenters.ChainResource{}
-				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
-				require.NoError(t, err)
-
-				assert.Equal(t, wantedResult.ID, resource1.ID)
-				assert.Equal(t, wantedResult.Enabled, resource1.Enabled)
-				assert.Equal(t, wantedResult.Config, resource1.Config)
-			}
-		})
-	}
-}
-
-func Test_SolanaChainsController_Index(t *testing.T) {
-	t.Parallel()
-
-	chainA := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestA-%d", rand.Int31n(999999))),
-		Chain: config.Chain{
-			TxTimeout: commoncfg.MustNewDuration(time.Hour),
-		},
-	}
-	chainB := &config.TOMLConfig{
-		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
-		Chain: config.Chain{
-			SkipPreflight: ptr(false),
-		},
-	}
-	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
-
-	badResp, cleanup := controller.client.Get("/v2/chains/solana?size=asd")
-	t.Cleanup(cleanup)
-	require.Equal(t, http.StatusUnprocessableEntity, badResp.StatusCode)
-
-	resp, cleanup := controller.client.Get("/v2/chains/solana?size=1")
-	t.Cleanup(cleanup)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body := cltest.ParseResponseBody(t, resp)
-
-	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
-	require.NoError(t, err)
-	require.Equal(t, 2, metaCount)
-
-	var links jsonapi.Links
-
-	chains := []presenters.ChainResource{}
-	err = web.ParsePaginatedResponse(body, &chains, &links)
-	require.NoError(t, err)
-	assert.NotEmpty(t, links["next"].Href)
-	assert.Empty(t, links["prev"].Href)
-
-	assert.Len(t, links, 1)
-	assert.Equal(t, *chainA.ChainID, chains[0].ID)
-	tomlA, err := chainA.TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, tomlA, chains[0].Config)
-
-	resp, cleanup = controller.client.Get(links["next"].Href)
-	t.Cleanup(cleanup)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	chains = []presenters.ChainResource{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
-	require.NoError(t, err)
-	assert.Empty(t, links["next"].Href)
-	assert.NotEmpty(t, links["prev"].Href)
-
-	assert.Len(t, links, 1)
-	assert.Equal(t, *chainB.ChainID, chains[0].ID)
-	tomlB, err := chainB.TOMLString()
-	require.NoError(t, err)
-	assert.Equal(t, tomlB, chains[0].Config)
-}
-
-type TestSolanaChainsController struct {
-	app    *cltest.TestApplication
-	client cltest.HTTPClientCleaner
-}
-
-func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*config.TOMLConfig) *TestSolanaChainsController {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
-	}
-	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = cfgs
-		c.EVM = nil
-	})
-	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start(testutils.Context(t)))
-
-	client := app.NewHTTPClient(nil)
-
-	return &TestSolanaChainsController{
 		app:    app,
 		client: client,
 	}

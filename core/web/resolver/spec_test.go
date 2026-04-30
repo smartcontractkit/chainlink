@@ -298,66 +298,6 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func TestResolver_KeeperSpec(t *testing.T) {
-	var (
-		id          = int32(1)
-		fromAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	)
-	contractAddress, err := evmtypes.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
-	require.NoError(t, err)
-
-	testCases := []GQLTestCase{
-		{
-			name:          "keeper spec",
-			authenticated: true,
-			before: func(ctx context.Context, f *gqlTestFramework) {
-				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", mock.Anything, id).Return(job.Job{
-					Type: job.Keeper,
-					KeeperSpec: &job.KeeperSpec{
-						ContractAddress: contractAddress,
-						CreatedAt:       f.Timestamp(),
-						EVMChainID:      sqlutil.NewI(42),
-						FromAddress:     evmtypes.EIP55AddressFromAddress(fromAddress),
-					},
-				}, nil)
-			},
-			query: `
-				query GetJob {
-					job(id: "1") {
-						... on Job {
-							spec {
-								__typename
-								... on KeeperSpec {
-									contractAddress
-									createdAt
-									evmChainID
-									fromAddress
-								}
-							}
-						}
-					}
-				}
-			`,
-			result: `
-				{
-					"job": {
-						"spec": {
-							"__typename": "KeeperSpec",
-							"contractAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
-							"createdAt": "2021-01-01T00:00:00Z",
-							"evmChainID": "42",
-							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
-						}
-					}
-				}
-			`,
-		},
-	}
-
-	RunGQLTests(t, testCases)
-}
-
 func TestResolver_OCRSpec(t *testing.T) {
 	var (
 		id = int32(1)

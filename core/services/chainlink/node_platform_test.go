@@ -163,13 +163,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 					},
 				},
 				{
-					Type: job.Keeper,
-					KeeperSpec: &job.KeeperSpec{
-						FromAddress: eip55Address("0x5555555555555555555555555555555555555555"),
-						EVMChainID:  sqlutil.NewI(3),
-					},
-				},
-				{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
 						FromAddresses: []evmtypes.EIP55Address{
@@ -266,12 +259,6 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 			PluginType: "median",
 			FieldPath:  "transmitterID",
 			Addresses:  []string{"0x1111111111111111111111111111111111111111"},
-		},
-		{
-			ChainID:   "3",
-			JobType:   "keeper",
-			FieldPath: "fromAddress",
-			Addresses: []string{"0x5555555555555555555555555555555555555555"},
 		},
 		{
 			ChainID:   "4",
