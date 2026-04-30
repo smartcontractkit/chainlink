@@ -33,6 +33,7 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 	require.Len(t, msgs, 1)
 
 	msg := msgs[0]
+	require.Equal(t, "test-job-id", msg.Attrs["partitionkey"])
 	require.Equal(t, events.SchemaJobSpec, msg.Attrs["beholder_data_schema"])
 	require.Equal(t, events.BeholderDomain, msg.Attrs["beholder_domain"])
 	require.NotContains(t, msg.Attrs, "source")

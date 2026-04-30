@@ -21,6 +21,7 @@ func EmitJobSpecEvent(ctx context.Context, emitter beholder.Emitter, event *JobS
 	}
 
 	err = emitter.Emit(ctx, eventBytes,
+		"partitionkey", event.ExternalJobId,
 		"beholder_data_schema", SchemaJobSpec,
 		"beholder_domain", BeholderDomain,
 		"beholder_entity", fmt.Sprintf("%s.%s", ProtoPkg, JobSpecEventEntity),
