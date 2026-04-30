@@ -875,7 +875,7 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 
 	err := userRequest.SendResponse(resp)
 	if err != nil {
-		h.lggr.Errorw("error sending response to user", "requestID", userRequest.req.ID, "error", err)
+		h.lggr.Infow("failed to send response to user", "requestID", userRequest.req.ID, "reason", err)
 		return err
 	}
 
