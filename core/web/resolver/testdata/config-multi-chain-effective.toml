@@ -1,5 +1,5 @@
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'
 
@@ -193,21 +193,6 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
-[Keeper]
-DefaultTransactionQueueDepth = 1
-GasPriceBufferPercent = 10
-GasTipCapBufferPercent = 20
-BaseFeeBufferPercent = 20
-MaxGracePeriod = 100
-TurnLookBack = 1000
-
-[Keeper.Registry]
-CheckGasOverhead = 200000
-PerformGasOverhead = 300000
-MaxPerformDataSize = 5000
-SyncInterval = '30m0s'
-SyncUpkeepQueueSize = 10
-
 [AutoPprof]
 Enabled = false
 ProfileRoot = ''
@@ -385,6 +370,9 @@ URL = ''
 URL = ''
 TLSEnabled = true
 
+[CRE.ConfidentialRelay]
+Enabled = false
+
 [Billing]
 URL = 'localhost:4319'
 TLSEnabled = true
@@ -420,6 +408,7 @@ SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -492,6 +481,7 @@ PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -543,6 +533,7 @@ SafeTagSupported = true
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -615,6 +606,7 @@ PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
@@ -661,6 +653,7 @@ SafeTagSupported = true
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -732,6 +725,7 @@ PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
@@ -765,129 +759,3 @@ AcceptanceTimeout = '30s'
 [[EVM.Nodes]]
 Name = 'bar'
 WSURL = 'wss://web.socket/test/bar'
-
-[[Solana]]
-ChainID = 'mainnet'
-Enabled = true
-BlockTime = '500ms'
-BalancePollPeriod = '5s'
-ConfirmPollPeriod = '500ms'
-OCR2CachePollPeriod = '1s'
-OCR2CacheTTL = '1m0s'
-TxTimeout = '1m0s'
-TxRetryTimeout = '10s'
-TxConfirmTimeout = '30s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-SkipPreflight = true
-Commitment = 'confirmed'
-MaxRetries = 12
-FeeEstimatorMode = 'fixed'
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 0
-ComputeUnitPriceDefault = 0
-FeeBumpPeriod = '3s'
-BlockHistoryPollPeriod = '5s'
-BlockHistorySize = 1
-BlockHistoryBatchLoadSize = 20
-ComputeUnitLimitDefault = 200000
-EstimateComputeUnitLimit = false
-LogPollerStartingLookback = '24h0m0s'
-LogPollerCPIEventsEnabled = true
-
-[Solana.Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '11111111111111111111111111111111'
-ForwarderState = '11111111111111111111111111111111'
-FromAddress = '11111111111111111111111111111111'
-GasLimitDefault = 300000
-Local = false
-PollPeriod = '3s'
-TxAcceptanceState = 3
-
-[Solana.MultiNode]
-Enabled = false
-PollFailureThreshold = 5
-PollInterval = '1s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-NodeIsSyncingEnabled = false
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '5s'
-FinalizedBlockPollInterval = '1s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
-NodeNoNewHeadsThreshold = '1m0s'
-NoNewFinalizedHeadsThreshold = '1m0s'
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 0
-
-[[Solana.Nodes]]
-Name = 'primary'
-URL = 'http://mainnet.solana.com'
-SendOnly = false
-
-[[Solana]]
-ChainID = 'testnet'
-Enabled = true
-BlockTime = '500ms'
-BalancePollPeriod = '5s'
-ConfirmPollPeriod = '500ms'
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1m0s'
-TxTimeout = '1m0s'
-TxRetryTimeout = '10s'
-TxConfirmTimeout = '30s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-SkipPreflight = true
-Commitment = 'confirmed'
-MaxRetries = 0
-FeeEstimatorMode = 'fixed'
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 0
-ComputeUnitPriceDefault = 0
-FeeBumpPeriod = '3s'
-BlockHistoryPollPeriod = '5s'
-BlockHistorySize = 1
-BlockHistoryBatchLoadSize = 20
-ComputeUnitLimitDefault = 200000
-EstimateComputeUnitLimit = false
-LogPollerStartingLookback = '24h0m0s'
-LogPollerCPIEventsEnabled = true
-
-[Solana.Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '11111111111111111111111111111111'
-ForwarderState = '11111111111111111111111111111111'
-FromAddress = '11111111111111111111111111111111'
-GasLimitDefault = 300000
-Local = false
-PollPeriod = '3s'
-TxAcceptanceState = 3
-
-[Solana.MultiNode]
-Enabled = false
-PollFailureThreshold = 5
-PollInterval = '1s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-NodeIsSyncingEnabled = false
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '5s'
-FinalizedBlockPollInterval = '1s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
-NodeNoNewHeadsThreshold = '1m0s'
-NoNewFinalizedHeadsThreshold = '1m0s'
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 0
-
-[[Solana.Nodes]]
-Name = 'secondary'
-URL = 'http://testnet.solana.com'
-SendOnly = false

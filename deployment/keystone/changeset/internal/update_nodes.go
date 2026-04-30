@@ -11,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -19,7 +21,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type NodeUpdate struct {
@@ -126,7 +127,7 @@ func UpdateNodes(lggr logger.Logger, req *UpdateNodesRequest) (*UpdateNodesRespo
 			return nil, fmt.Errorf("failed to confirm UpdateNodes confirm transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		transaction, err := proposalutils.TransactionForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+		transaction, err := cldfproposalutils.TransactionForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
 		if err != nil {
 			return nil, err
 		}

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -52,6 +53,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+
+	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -182,7 +186,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -199,7 +203,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 						cli.BoolFlag{
 							Name:  "force",
-							Usage: "set to true to force the reset by dropping any existing connections to the database",
+							Usage: "legacy flag (ignored for drop); reset uses DROP DATABASE ... WITH (FORCE) (PostgreSQL 13+)",
 						},
 					},
 				},
@@ -288,6 +292,41 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 				},
 			},
 		},
+		initCCVCommand(s),
+	}
+}
+
+type ccvLoggerAdapter struct {
+	logger.Logger
+}
+
+func (a ccvLoggerAdapter) Errorw(msg string, keysAndValues ...any) {
+	a.Logger.Errorw(msg, keysAndValues...)
+}
+
+func initCCVCommand(s *Shell) cli.Command {
+	getDeps := func() chainstatuses.Deps {
+		adapter := ccvLoggerAdapter{Logger: s.Logger}
+		store := chainstatus.NewPostgresChainStatusStore(s.DS, adapter)
+		return chainstatuses.Deps{Logger: adapter, Store: store}
+	}
+	chainStatusesSub := cli.Command{
+		Name:   "chain-statuses",
+		Usage:  "List, enable, disable, or set finalized block height for CCV chain statuses. Shut down the node before enable/disable/set-finalized-height; changes take effect on next start.",
+		Before: s.BeforeNode,
+		After:  s.AfterNode,
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "password, p",
+				Usage: "text file holding the password for the node's account (for one-off runs when the node is not started)",
+			},
+		},
+		Subcommands: chainstatuses.InitCCVChainStatusesCommandsWithFactory(getDeps),
+	}
+	return cli.Command{
+		Name:        "ccv",
+		Usage:       "CCV (Cross-Chain Verification) commands",
+		Subcommands: []cli.Command{chainStatusesSub},
 	}
 }
 
@@ -356,18 +395,18 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
-	var shutdownStartTime time.Time
+	var shutdownStartTime atomic.Value // time.Time
 	defer func() {
 		close(cleanExit)
-		if !shutdownStartTime.IsZero() {
-			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		if val := shutdownStartTime.Load(); val != nil {
+			log.Printf("Graceful shutdown time: %s", time.Since(val.(time.Time)))
 		}
 	}()
 
 	go shutdown.HandleShutdown(func(sig string) {
 		lggr.Infof("Shutting down due to %s signal received...", sig)
 
-		shutdownStartTime = time.Now()
+		shutdownStartTime.Store(time.Now())
 		cancelRootCtx()
 
 		select {
@@ -514,6 +553,19 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.AptosEnabled() {
+		for _, k := range s.Config.ImportedAptosKeys().List() {
+			lggr.Debug("Importing aptos key")
+			_, err2 := app.GetKeyStore().Aptos().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Aptos key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(fmt.Errorf("error importing aptos key: %w", err2))
+			}
+			lggr.Debugf("Imported aptos key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
 		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure aptos key: %w", err2)
@@ -1190,8 +1242,10 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		}
 		lggr.Debug("Closed DB")
 
-		if err := s.CloseLogger(); err != nil {
-			log.Printf("Failed to close Logger: %v", err)
+		if s.CloseLogger != nil {
+			if err := s.CloseLogger(); err != nil {
+				log.Printf("Failed to close Logger: %v", err)
+			}
 		}
 	})
 }

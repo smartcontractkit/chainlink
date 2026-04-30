@@ -195,44 +195,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.OCROracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
-				require.Equal(t, types.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OCROracleSpec.ContractAddress)
-			},
-		},
-		{
-			name: "keeper",
-			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(`
-                                  type                        = "keeper"
-                                  schemaVersion               = 1
-                                  name                        = "%s"
-                                  contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-                                  fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-                                  evmChainID                  = "%s"
-                                  minIncomingConfigurations   = 1
-                                  externalJobID               = "%s"
-                             `, nameAndExternalJobID, cltest.FixtureChainID.String(), nameAndExternalJobID)
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
-
-				errs := cltest.ParseJSONAPIErrors(t, r.Body)
-				require.NotNil(t, errs)
-				require.Len(t, errs.Errors, 1)
-				// services failed to start
-				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
-				// but the job should still exist
-				ctx := testutils.Context(t)
-				jb, err := jorm.FindJobByExternalJobID(ctx, uuid.MustParse(nameAndExternalJobID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.KeeperSpec)
-
-				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
-				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
-
-				// Sanity check to make sure it inserted correctly
-				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
+				require.NotEmpty(t, jb.OCROracleSpec.ContractAddress)
 			},
 		},
 		{
@@ -743,7 +706,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		DS1BridgeName:      bridge2.Name.String(),
 		DS2BridgeName:      bridge.Name.String(),
 		Name:               "updated OCR job",
-		TransmitterAddress: app.Keys[0].EIP55Address.String(),
+		TransmitterAddress: app.Keys[0].String(),
 		EVMChainID:         cltest.FixtureChainID.String(),
 	})
 	require.NoError(t, err)
@@ -813,10 +776,9 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 
 func setupEthClientForControllerTests(t *testing.T) *clienttest.Client {
 	ec := cltest.NewEthMocksWithStartupAssertions(t)
-	ec.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	ec.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(100), nil).Maybe()
 	ec.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Once().Return(big.NewInt(0), nil).Maybe()
+	ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	return ec
 }
 

@@ -15,10 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	solanatesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/testing"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
@@ -28,16 +27,14 @@ func TestShell_SolanaSendSol(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanatesting.SetupLocalSolNode(t)
-	node := solcfg.Node{
-		Name: ptr(t.Name()),
-		URL:  config.MustParseURL(url),
+	chain := chainlink.RawConfig{
+		"ChainID": chainID,
+		"Enabled": true,
+		"Nodes": []any{
+			map[string]any{"Name": t.Name(), "URL": url},
+		},
 	}
-	cfg := solcfg.TOMLConfig{
-		ChainID: &chainID,
-		Nodes:   solcfg.Nodes{&node},
-		Enabled: ptr(true),
-	}
-	app := solanaStartNewApplication(t, &cfg)
+	app := solanaStartNewApplication(t, chain)
 	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
 	to, err := solanago.NewRandomPrivateKey()
@@ -64,7 +61,6 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		{amount: "0", expErr: "amount must be greater than zero"},
 		{amount: "asdf", expErr: "invalid amount:"},
 	} {
-		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
 			startBal, err := balance(from.PublicKey(), url)
 			require.NoError(t, err)
@@ -86,7 +82,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 			}
 
 			// Check CLI output
-			require.Greater(t, len(r.Renders), 0)
+			require.NotEmpty(t, r.Renders)
 			renderer := r.Renders[len(r.Renders)-1]
 			renderedMsg := renderer.(*cmd.SolanaMsgPresenter)
 			t.Logf("%+v\n", renderedMsg)

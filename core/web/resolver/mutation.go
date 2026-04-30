@@ -36,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -950,7 +949,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
+	if !utils.CheckPasswordHash(args.Input.OldPassword, string(dbUser.HashedPassword)) {
 		r.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]any{"user": dbUser.Email})
 
 		return NewUpdatePasswordPayload(nil, map[string]string{
@@ -1093,8 +1092,6 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
 		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
-	case job.Keeper:
-		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
 	case job.Cron:

@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -76,9 +78,9 @@ func GetMockChainContractParams(t *testing.T, chainSelector uint64) config.Chain
 
 func getMockMCMSConfig(t *testing.T) types.MCMSWithTimelockConfigV2 {
 	return types.MCMSWithTimelockConfigV2{
-		Canceller:        proposalutils.SingleGroupMCMSV2(t),
-		Proposer:         proposalutils.SingleGroupMCMSV2(t),
-		Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+		Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+		Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+		Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 		TimelockMinDelay: big.NewInt(1),
 	}
 }

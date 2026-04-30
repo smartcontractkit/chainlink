@@ -4,24 +4,24 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"slices"
+	"maps"
+	"runtime"
 	"strconv"
 	"text/template"
 	"time"
 
 	"dario.cat/mergo"
-	solanago "github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	solchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -52,7 +53,8 @@ const (
 		"transmitter":"{{.NodeAddress}}",
 		"isLocal":{{.IsLocal}},
 		"chainId":"{{.ChainID}}",
-		"network":"{{.Network}}"
+		"network":"{{.Network}}",
+		"deltaStage":{{printf "%d" .DeltaStage}}
 	}`
 	deltaStage     = 14*time.Second + 2*time.Second // finalization time + 2 seconds delta
 	requestTimeout = 30 * time.Second
@@ -72,39 +74,31 @@ func (s *Solana) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
 	don *cre.DonMetadata,
-	topology *cre.Topology,
+	_ *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
 	// 1. Deploy forwarders to solana blockchains
 	solChain := extractSolanaFromEnv(creEnv)
-	programID, state, fErr := deployForwarder(testLogger, creEnv, solChain)
-	if fErr != nil {
+	if _, _, fErr := deployForwarder(testLogger, creEnv, solChain); fErr != nil {
 		return nil, errors.Wrapf(fErr, "failed to deploy forwarder for solana")
 	}
-	input := input{
-		ForwarderAddress: *programID,
-		ForwarderState:   *state,
-	}
-	// 2. Patch nodes TOML config to include workflow From Address
+	input := input{}
+	// 2. Patch nodes TOML config to include Solana workflow forwarder settings
 	cfgErr := patchNodeTOML(creEnv, don, input, solChain.ChainSelector())
 	if cfgErr != nil {
 		return nil, errors.Wrapf(cfgErr, "failed to update node configs for solana")
 	}
 
-	// 3. Patch wf nodes TOML config to enable solana relayer
-	for _, ns := range topology.NodeSets() {
-		if slices.Contains(ns.DONTypes, "workflow") {
-			for _, spec := range ns.NodeSpecs {
-				fmt.Println("test config override:", spec.Node.TestConfigOverrides)
-			}
-		}
-	}
-	// 4. Register Solana capability & its methods with Keystone
+	// 3. Register Solana capability & its methods with Keystone
 	capabilities := registerSolanaCapability(solChain.ChainSelector())
+	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
+	for _, capability := range capabilities {
+		capabilityToExtraSignerFamilies[capability.Capability.LabelledName] = []string{chainselectors.FamilySolana}
+	}
 
 	return &cre.PreEnvStartupOutput{
-		DONCapabilityWithConfig: capabilities,
-		ExtraSignerFamilies:     []string{chainselectors.FamilySolana},
+		DONCapabilityWithConfig:         capabilities,
+		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}, nil
 }
 
@@ -141,7 +135,6 @@ func createJobs(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	specs := make(map[string][]string)
 	solChain := extractSolanaFromEnv(creEnv)
 
 	var nodeSet cre.NodeSetWithCapabilityConfigs
@@ -174,106 +167,129 @@ func createJobs(
 		return errors.Wrapf(chErr, "failed to get Solana chain ID from selector %d", solChain.ChainSelector())
 	}
 
-	for _, workerNode := range workerNodes {
-		key, ok := workerNode.Keys.Solana[chainID]
-		if !ok {
-			return fmt.Errorf("failed to get solana key (chainID %s, node index %d)", chainID, workerNode.Index)
-		}
+	solChainID, err := solChain.GenesisHash(ctx)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get sol genesis hash")
+	}
+	version := creEnv.ContractVersions[cre_sol.ForwarderContract.String()]
+	creForwarderKey := datastore.NewAddressRefKey(
+		solChain.ChainSelector(),
+		cre_sol.ForwarderContract,
+		version,
+		cre_sol.DefaultForwarderQualifier,
+	)
+	creForwarderStateKey := datastore.NewAddressRefKey(
+		solChain.ChainSelector(),
+		cre_sol.ForwarderState,
+		version,
+		cre_sol.DefaultForwarderQualifier,
+	)
+	creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get CRE Forwarder address")
+	}
+	creForwarderStateAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderStateKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get CRE Forwarder State address")
+	}
+	tmpl, err := template.New("solConfig").Parse(configTemplate)
+	if err != nil {
+		return errors.Wrapf(err, "failed to parse %s config template", flag)
+	}
 
-		version := creEnv.ContractVersions[cre_sol.ForwarderContract.String()]
-
-		creForwarderKey := datastore.NewAddressRefKey(
-			solChain.ChainSelector(),
-			cre_sol.ForwarderContract,
-			version,
-			cre_sol.DefaultForwarderQualifier,
-		)
-		creForwarderStateKey := datastore.NewAddressRefKey(
-			solChain.ChainSelector(),
-			cre_sol.ForwarderState,
-			version,
-			cre_sol.DefaultForwarderQualifier,
-		)
-		creForwarderAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
-		if err != nil {
-			return errors.Wrap(err, "failed to get CRE Forwarder address")
-		}
-		creForwarderStateAddress, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderStateKey)
-		if err != nil {
-			return errors.Wrap(err, "failed to get CRE Forwarder State address")
-		}
-
-		nodeAddress := key.PublicAddress.String()
-		tmpl, err := template.New("solConfig").Parse(configTemplate)
-		if err != nil {
-			return errors.Wrapf(err, "failed to parse %s config template", flag)
-		}
-
-		solChainID, err := solChain.SolClient.GetGenesisHash(ctx)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get sol genesis hash")
-		}
-		runtimeFallbacks := map[string]any{
-			"CREForwarderAddress": creForwarderAddress.Address,
-			"CREForwarderState":   creForwarderStateAddress.Address,
-			"NodeAddress":         nodeAddress,
-			"IsLocal":             true,
-			"Network":             "solana",
-			"ChainID":             solChainID.String(),
-		}
-
-		templateData, aErr := credon.ApplyRuntimeValues(config.Values, runtimeFallbacks)
-		if aErr != nil {
-			return errors.Wrap(aErr, "failed to apply runtime values")
-		}
-
-		var configBuffer bytes.Buffer
-		if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-			return errors.Wrapf(err, "failed to execute %s config template", flag)
-		}
-
-		configStr := configBuffer.String()
-		if err := credon.ValidateTemplateSubstitution(configStr, flag); err != nil {
-			return errors.Wrapf(err, "%s template validation failed", flag)
-		}
-
-		workerInput := cre_jobs.ProposeJobSpecInput{
-			Domain:      offchain.ProductLabel,
-			Environment: cre.EnvironmentName,
-			DONName:     don.Name,
-			JobName:     "sol-v2-worker-" + chainID,
-			ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-			DONFilters: []offchain.TargetDONFilter{
-				{Key: offchain.FilterKeyDONName, Value: don.Name},
-				{Key: "p2p_id", Value: workerNode.Keys.PeerID()}, // required since each node requires a different config (it contains its own from address)
-			},
-			Template: job_types.Solana,
-			Inputs: job_types.JobSpecInput{
-				"command": command,
-				"config":  configStr,
-			},
-		}
-
-		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-		if workerVerErr != nil {
-			return fmt.Errorf("precondition verification failed for Solana v2 worker job: %w", workerVerErr)
-		}
-
-		workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
-		if workerErr != nil {
-			return fmt.Errorf("failed to propose Solana v2 worker job spec: %w", workerErr)
-		}
-
-		for _, r := range workerReport.Reports {
-			out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+	results := make([]map[string][]string, len(workerNodes))
+	group, groupCtx := errgroup.WithContext(ctx)
+	group.SetLimit(min(len(workerNodes), runtime.GOMAXPROCS(0)))
+	for i, workerNode := range workerNodes {
+		group.Go(func() error {
+			key, ok := workerNode.Keys.Solana[chainID]
 			if !ok {
-				return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+				return fmt.Errorf("failed to get solana key (chainID %s, node index %d)", chainID, workerNode.Index)
 			}
-			mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-			if mErr != nil {
-				return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+
+			nodeAddress := key.PublicAddress.String()
+			runtimeFallbacks := map[string]any{
+				"CREForwarderAddress": creForwarderAddress.Address,
+				"CREForwarderState":   creForwarderStateAddress.Address,
+				"NodeAddress":         nodeAddress,
+				"IsLocal":             true,
+				"Network":             "solana",
+				"ChainID":             solChainID,
+				"DeltaStage":          deltaStage,
 			}
-		}
+
+			templateData, aErr := credon.ApplyRuntimeValues(maps.Clone(config.Values), runtimeFallbacks)
+			if aErr != nil {
+				return errors.Wrap(aErr, "failed to apply runtime values")
+			}
+
+			var configBuffer bytes.Buffer
+			if executeErr := tmpl.Execute(&configBuffer, templateData); executeErr != nil {
+				return errors.Wrapf(executeErr, "failed to execute %s config template", flag)
+			}
+
+			configStr := configBuffer.String()
+			if validateErr := credon.ValidateTemplateSubstitution(configStr, flag); validateErr != nil {
+				return errors.Wrapf(validateErr, "%s template validation failed", flag)
+			}
+
+			workerInput := cre_jobs.ProposeJobSpecInput{
+				Domain:      offchain.ProductLabel,
+				Environment: cre.EnvironmentName,
+				DONName:     don.Name,
+				JobName:     "sol-v2-worker-" + chainID,
+				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
+				DONFilters: []offchain.TargetDONFilter{
+					{Key: offchain.FilterKeyDONName, Value: don.Name},
+					{Key: "p2p_id", Value: workerNode.Keys.PeerID()}, // required since each node requires a different config (it contains its own from address)
+				},
+				Template: job_types.Solana,
+				Inputs: job_types.JobSpecInput{
+					"command": command,
+					"config":  configStr,
+				},
+			}
+
+			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
+			if workerVerErr != nil {
+				return fmt.Errorf("precondition verification failed for Solana v2 worker job: %w", workerVerErr)
+			}
+
+			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
+			if workerErr != nil {
+				return fmt.Errorf("failed to propose Solana v2 worker job spec: %w", workerErr)
+			}
+
+			specs := make(map[string][]string)
+			for _, r := range workerReport.Reports {
+				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+				if !ok {
+					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+				}
+				mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
+				if mErr != nil {
+					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
+				}
+			}
+
+			select {
+			case <-groupCtx.Done():
+				return groupCtx.Err()
+			default:
+			}
+
+			results[i] = specs
+			return nil
+		})
+	}
+
+	if wErr := group.Wait(); wErr != nil {
+		return wErr
+	}
+
+	specs, mErr := jobhelpers.MergeSpecsByIndex(results)
+	if mErr != nil {
+		return mErr
 	}
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
@@ -407,17 +423,10 @@ func deployForwarder(testLogger zerolog.Logger, creEnv *cre.Environment, solChai
 }
 
 func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, currentConfig string, capabilityConfig cre.CapabilityConfig) (*string, error) {
-	key, ok := workerNode.Keys.Solana[chainID]
-	if !ok {
+	if _, ok := workerNode.Keys.Solana[chainID]; !ok {
 		return nil, errors.Errorf("missing Solana key for chainID %s on node index %d", chainID, workerNode.Index)
 	}
-	data.FromAddress = key.PublicAddress
-
-	runtimeValues := map[string]any{
-		"FromAddress":      data.FromAddress.String(),
-		"ForwarderAddress": data.ForwarderAddress,
-		"ForwarderState":   data.ForwarderState,
-	}
+	runtimeValues := map[string]any{}
 
 	var mErr error
 	data.WorkflowConfig, mErr = credon.ApplyRuntimeValues(capabilityConfig.Values, runtimeValues)
@@ -435,11 +444,9 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 		return nil, fmt.Errorf("only 1 Solana chain is supported, but found %d for node at index %d", len(typedConfig.Solana), workerNode.Index)
 	}
 
-	if typedConfig.Solana[0].ChainID == nil {
-		return nil, fmt.Errorf("solana chainID is nil for node at index %d", workerNode.Index)
+	if typedConfig.Solana[0].ChainID() == "" {
+		return nil, fmt.Errorf("solana chainID is empty for node at index %d", workerNode.Index)
 	}
-
-	var solCfg solcfg.WorkflowConfig
 
 	// Execute template with chain's workflow configuration
 	tmpl, err := template.New("solanaWorkflowConfig").Parse(solWorkflowConfigTemplate)
@@ -457,12 +464,13 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
-	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)
+	var solWorkflow map[string]any
+	unmarshallErr = toml.Unmarshal([]byte(configStr), &solWorkflow)
 	if unmarshallErr != nil {
 		return nil, errors.Wrap(unmarshallErr, "failed to unmarshal Solana.Workflow config")
 	}
 
-	typedConfig.Solana[0].Workflow = solCfg
+	typedConfig.Solana[0]["Workflow"] = solWorkflow
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {
@@ -473,18 +481,11 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 }
 
 type input struct {
-	ChainSelector    uint64
-	FromAddress      solanago.PublicKey
-	ForwarderAddress string
-	ForwarderState   string
-	HasWrite         bool
-	WorkflowConfig   map[string]any // Configuration for Solana.Workflow section
+	HasWrite       bool
+	WorkflowConfig map[string]any // Configuration for Solana.Workflow section
 }
 
 const solWorkflowConfigTemplate = `
-		ForwarderAddress = '{{.ForwarderAddress}}'
-		FromAddress      = '{{.FromAddress}}'
-		ForwarderState   = '{{.ForwarderState}}'
 		PollPeriod = '{{.PollPeriod}}'
 		AcceptanceTimeout = '{{.AcceptanceTimeout}}'
 		TxAcceptanceState = {{printf "%d" .TxAcceptanceState}}

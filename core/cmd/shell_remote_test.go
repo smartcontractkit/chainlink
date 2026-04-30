@@ -21,11 +21,10 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/freeport"
-	"github.com/smartcontractkit/quarantine"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -123,13 +122,6 @@ func TestShell_ReplayBlocks(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
-
-		solCfg := &config.TOMLConfig{
-			ChainID: ptr("devnet"),
-			Enabled: ptr(true),
-		}
-		solCfg.SetDefaults()
-		c.Solana = config.TOMLConfigs{solCfg}
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -144,10 +136,6 @@ func TestShell_ReplayBlocks(t *testing.T) {
 
 	require.NoError(t, set.Set("chain-id", testutils.FixtureChainID.String()))
 	c = cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ReplayFromBlock(c))
-
-	require.NoError(t, set.Set("chain-id", "devnet"))
-	require.NoError(t, set.Set("family", "solana"))
 	assert.NoError(t, client.ReplayFromBlock(c))
 }
 
@@ -479,7 +467,6 @@ func TestShell_ChangePassword(t *testing.T) {
 }
 
 func TestShell_Profile(t *testing.T) {
-	quarantine.Flaky(t, "DX-1796")
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -549,9 +536,11 @@ func TestShell_ConfigV2(t *testing.T) {
 }
 
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
-	t.Parallel()
+	// Serial: full app + OCR + synchronous pipeline run; avoid parallel scheduling
+	// starving the test deadline and keep bridge traffic on local httptest only.
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
 		c.EVM[0].Enabled = ptr(true)
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V2.Enabled = ptr(true)
@@ -565,11 +554,18 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
+	// Local mock adapters only: TriggerPipelineRun executes the observation pipeline synchronously.
+	mockDS1 := cltest.NewHTTPMockServer(t, 200, "POST", `{"one":{"two": 10}}`)
+	mockDS2 := cltest.NewHTTPMockServer(t, 200, "POST", `{"three":{"four": 20}}`)
+	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockDS1.URL})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockDS2.URL})
 
 	var jb job.Job
-	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		DS1BridgeName: bridge.Name.String(),
+		DS2BridgeName: bridge2.Name.String(),
+		EVMChainID:    testutils.FixtureChainID.String(),
+	})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec

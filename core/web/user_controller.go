@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -222,7 +222,7 @@ func (u *UserController) UpdatePassword(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to update password"))
 		return
 	}
-	if !utils.CheckPasswordHash(request.OldPassword, user.HashedPassword) {
+	if !utils.CheckPasswordHash(request.OldPassword, string(user.HashedPassword)) {
 		u.App.GetAuditLogger().Audit(audit.PasswordResetAttemptFailedMismatch, map[string]any{"user": user.Email})
 		jsonAPIError(c, http.StatusConflict, errors.New("old password does not match"))
 		return

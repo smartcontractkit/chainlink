@@ -18,22 +18,20 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
+	mcmsnew_zksync "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm/zksync"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-
-	mcmsnew_zksync "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm/zksync"
 )
 
 // DeployMCMSOption is a function that modifies a TypeAndVersion before or after deployment.
@@ -353,7 +351,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	} else {
 		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address().String())
 	}
-	timelockContracts := &proposalutils.MCMSWithTimelockContracts{
+	timelockContracts := &cldfproposalutils.MCMSWithTimelockContracts{
 		BypasserMcm:  bypasser,
 		ProposerMcm:  proposer,
 		CancellerMcm: canceller,
@@ -403,7 +401,7 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 func GrantRolesForTimelock(
 	env cldf.Environment,
 	chain cldf_evm.Chain,
-	timelockContracts *proposalutils.MCMSWithTimelockContracts,
+	timelockContracts *cldfproposalutils.MCMSWithTimelockContracts,
 	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
 	gasBoostConfig *commontypes.GasBoostConfig,
 ) (operations.SequenceReport[seqs.SeqGrantRolesTimelockInput, map[uint64][]opsutils.EVMCallOutput], error) {

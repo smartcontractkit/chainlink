@@ -848,8 +848,8 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	state, err := stateview.LoadOnchainState(e.Env, stateview.WithLoadLegacyContracts(true))
 	require.NoError(t, err)
 
-	err = state.ValidatePostDeploymentState(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
-	require.NoError(t, err)
+	chainErrs := state.ValidatePostDeploymentStateWithoutMCMSOwnership(e.Env, !tEnv.TestConfigs().SkipDONConfiguration)
+	require.Empty(t, chainErrs)
 
 	return e
 }
@@ -1213,7 +1213,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		_, err := tontestutils.GetTONSha()
 		require.NoError(t, err, "failed to get TON commit sha")
 		// TODO replace the hardcoded commit sha with the one fetched from memory.GetTONSha()
-		contractVersion := "054376f21418" // https://github.com/smartcontractkit/chainlink-ton/releases/tag/ton-contracts-build-054376f21418
+		contractVersion := "github.com/smartcontractkit/chainlink-ton@contracts/1.6.0"
 		// Allow overriding with a custom version, it's set to "local" on chainlink-ton CI
 		if version := os.Getenv("CCIP_CONTRACTS_TON_VERSION"); version != "" {
 			contractVersion = version

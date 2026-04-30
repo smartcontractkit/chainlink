@@ -13,14 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient/simulated"
-	"github.com/hashicorp/consul/sdk/freeport"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -37,11 +38,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	sollptesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/logpoller/testing"
 	tonlptesting "github.com/smartcontractkit/chainlink-ton/pkg/logpoller/store/postgres/testing"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -436,7 +435,7 @@ func NewNode(
 		}
 		c.EVM = evmConfigs
 
-		var solConfigs solcfg.TOMLConfigs
+		var solConfigs chainlink.RawConfigs
 		for chainID, chain := range nodecfg.BlockChains.SolanaChains() {
 			solanaChainID, err := chainsel.GetChainIDFromSelector(chainID)
 			if err != nil {
@@ -821,39 +820,22 @@ func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
 	}
 }
 
-func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) *solcfg.TOMLConfig {
-	var chainConfig solcfg.Chain
-
-	// CCIP requires a non-zero execution fee estimate
-	computeUnitPriceDefault := uint64(100)
-	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
-	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
-	chainConfig.TxRetentionTimeout = txRetentionTimeout
-	skip := true
-	chainConfig.SkipPreflight = &skip
-
-	url, err := config.ParseURL(chain.URL)
-	if err != nil {
-		panic(err)
-	}
-
-	cfg := &solcfg.TOMLConfig{
-		ChainID: &chainID,
-		Enabled: pointer.To(true),
-		Chain:   chainConfig,
-		MultiNode: mnCfg.MultiNodeConfig{
-			MultiNode: mnCfg.MultiNode{
-				VerifyChainID: pointer.To(false),
-			},
+func createSolanaChainConfig(chainID string, chain cldf_solana.Chain) chainlink.RawConfig {
+	return chainlink.RawConfig{
+		"ChainID":                 chainID,
+		"Enabled":                 true,
+		"ComputeUnitPriceDefault": uint64(100),
+		"TxRetentionTimeout":      "10m0s",
+		"SkipPreflight":           true,
+		"MultiNode": map[string]any{
+			"VerifyChainID": false,
 		},
-		Nodes: []*solcfg.Node{{
-			Name:     pointer.To("primary"),
-			URL:      url,
-			SendOnly: false,
+		"Nodes": []map[string]any{{
+			"Name":     "primary",
+			"URL":      chain.URL,
+			"SendOnly": false,
 		}},
 	}
-	cfg.SetDefaults()
-	return cfg
 }
 
 func setupJD(t *testing.T, app chainlink.Application) {

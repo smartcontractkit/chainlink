@@ -10,9 +10,11 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
-	solanachangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -77,7 +79,7 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	var batches []types.BatchOperation
-	inspectors, err := proposalutils.McmsInspectors(e)
+	inspectors, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspectors: %w", err)
 	}
@@ -98,8 +100,7 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 		proposerID := mcmssolanasdk.ContractAddress(mcmState.McmProgram, mcmssolanasdk.PDASeed(mcmState.ProposerMcmSeed))
 		timelocks[chainSelector] = timelockID
 		proposers[chainSelector] = proposerID
-		ixs, err := solanachangeset.FundFromAddressIxs(
-			solChain,
+		ixs, err := cldchangesetssolana.FundFromAddressIxs(
 			timelockSignerPDA,
 			[]solana.PublicKey{cfgAmounts.To},
 			cfgAmounts.Amount)

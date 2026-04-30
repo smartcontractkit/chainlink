@@ -209,6 +209,15 @@
     },
     {
       "type": "checks",
+      "id": "NodePlatformBuildInfo",
+      "attributes": {
+        "name": "NodePlatformBuildInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "PipelineORM",
       "attributes": {
         "name": "PipelineORM",
@@ -239,42 +248,6 @@
       "id": "RetirementReportCache",
       "attributes": {
         "name": "RetirementReportCache",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Solana.Bar.Chain",
-      "attributes": {
-        "name": "Solana.Bar.Chain",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Solana.Bar.Chain.BalanceMonitor",
-      "attributes": {
-        "name": "Solana.Bar.Chain.BalanceMonitor",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Solana.Bar.Chain.Txm",
-      "attributes": {
-        "name": "Solana.Bar.Chain.Txm",
-        "status": "passing",
-        "output": ""
-      }
-    },
-    {
-      "type": "checks",
-      "id": "Solana.Bar.Relayer",
-      "attributes": {
-        "name": "Solana.Bar.Relayer",
         "status": "passing",
         "output": ""
       }

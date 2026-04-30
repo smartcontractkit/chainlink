@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -66,7 +68,11 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			state, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			qualifier := ""
+			if cfg.ProposalConfig != nil {
+				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
+			}
+			state, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return err
 			}
@@ -199,7 +205,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	var batches []mcmstypes.BatchOperation
 	timelockAddressesPerChain := map[uint64]string{}
 	proposerMcmsPerChain := map[uint64]string{}
-	inspectorPerChain, err := proposalutils.McmsInspectors(e)
+	inspectorPerChain, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -213,7 +219,11 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 		switch family {
 		case chain_selectors.FamilyEVM:
 			chain := e.BlockChains.EVMChains()[chainSelector]
-			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			qualifier := ""
+			if cfg.ProposalConfig != nil {
+				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
+			}
+			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

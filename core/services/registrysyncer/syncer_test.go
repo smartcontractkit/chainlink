@@ -23,8 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/smartcontractkit/quarantine"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -42,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
-	captestutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 )
 
 var writeChainCapability = kcr_v1.CapabilitiesRegistryCapability{
@@ -376,7 +373,6 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_DBIntegration(t *testing.T) {
-	quarantine.Flaky(t, "DX-1925")
 	ctx := testutils.Context(t)
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
@@ -475,14 +471,15 @@ func TestSyncer_DBIntegration(t *testing.T) {
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)
-	require.NoError(t, syncer.Start(ctx))
-	t.Cleanup(func() {
-		syncerORM.Cleanup()
-		require.NoError(t, syncer.Close())
-	})
 
 	l := &launcher{}
 	syncer.AddListener(l)
+
+	require.NoError(t, syncer.Start(ctx))
+	t.Cleanup(func() {
+		require.NoError(t, syncer.Close())
+		syncerORM.Cleanup()
+	})
 
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool
 	timeout := time.After(testutils.WaitTimeout(t))
@@ -589,16 +586,6 @@ func TestSyncer_LocalNode(t *testing.T) {
 		CapabilityDONs:      []capabilities.DON{don},
 	}
 	assert.Equal(t, expectedNode, node)
-}
-
-// Add this helper struct to implement the ContractReaderFactory interface
-type testContractReaderFactory struct {
-	backendTH *captestutils.EVMBackendTH
-	t         *testing.T
-}
-
-func (f *testContractReaderFactory) NewContractReader(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-	return f.backendTH.NewContractReader(ctx, f.t, bytes)
 }
 
 func newTestSyncer(

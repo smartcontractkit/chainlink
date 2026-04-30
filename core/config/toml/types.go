@@ -36,7 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool
+	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -52,7 +52,6 @@ type Core struct {
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
 	P2P                  P2P                  `toml:",omitempty"`
-	Keeper               Keeper               `toml:",omitempty"`
 	AutoPprof            AutoPprof            `toml:",omitempty"`
 	Pyroscope            Pyroscope            `toml:",omitempty"`
 	Sentry               Sentry               `toml:",omitempty"`
@@ -97,7 +96,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
-	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
 	c.Workflows.setFrom(&f.Workflows)
@@ -146,6 +144,7 @@ type Secrets struct {
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
+	Aptos      AptosKeys                `toml:",omitempty"` // choose Aptos as the TOML field name to align with relayer config convention
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
@@ -161,6 +160,16 @@ type SolKeys struct {
 type SolKey struct {
 	JSON     *models.Secret
 	ID       *string
+	Password *models.Secret
+}
+
+type AptosKeys struct {
+	Keys []*AptosKey
+}
+
+type AptosKey struct {
+	JSON     *models.Secret
+	ID       *uint64
 	Password *models.Secret
 }
 
@@ -240,6 +249,85 @@ func (e *SolKey) ValidateConfig() (err error) {
 		_, err2 := chain_selectors.SolanaNameFromChainId(*e.ID)
 		if err2 != nil {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "ChainID", Value: e.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
+}
+
+func (a *AptosKeys) SetFrom(f *AptosKeys) error {
+	err := a.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	a.Keys = make([]*AptosKey, len(f.Keys))
+	copy(a.Keys, f.Keys)
+	return nil
+}
+
+func (a *AptosKeys) validateMerge(f *AptosKeys) (err error) {
+	have := make(map[uint64]struct{})
+	if a != nil && f != nil {
+		for _, aptosKey := range a.Keys {
+			have[*aptosKey.ID] = struct{}{}
+		}
+		for _, aptosKey := range f.Keys {
+			if _, ok := have[*aptosKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: fmt.Sprintf("AptosKeys: %d", *aptosKey.ID)})
+			}
+		}
+	}
+	return err
+}
+
+func (a *AptosKeys) ValidateConfig() (err error) {
+	for i, aptosKey := range a.Keys {
+		if err2 := aptosKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("AptosKeys[%d]", i), Value: aptosKey, Msg: "invalid AptosKey"})
+		}
+	}
+	return err
+}
+
+func (p *AptosKey) SetFrom(f *AptosKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.ID; v != nil {
+		p.ID = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+
+func (p *AptosKey) validateMerge(f *AptosKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "ID"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *AptosKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) || (p.Password != nil) != (p.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "AptosKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	if p.ID != nil {
+		if _, ok := chain_selectors.AptosChainIdToChainSelector()[*p.ID]; !ok {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ID", Value: p.ID, Msg: "invalid chain id"})
 		}
 	}
 	return err
@@ -1525,66 +1613,6 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 	}
 }
 
-type Keeper struct {
-	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint16
-	GasTipCapBufferPercent       *uint16
-	BaseFeeBufferPercent         *uint16
-	MaxGracePeriod               *int64
-	TurnLookBack                 *int64
-
-	Registry KeeperRegistry `toml:",omitempty"`
-}
-
-func (k *Keeper) setFrom(f *Keeper) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		k.DefaultTransactionQueueDepth = v
-	}
-	if v := f.GasPriceBufferPercent; v != nil {
-		k.GasPriceBufferPercent = v
-	}
-	if v := f.GasTipCapBufferPercent; v != nil {
-		k.GasTipCapBufferPercent = v
-	}
-	if v := f.BaseFeeBufferPercent; v != nil {
-		k.BaseFeeBufferPercent = v
-	}
-	if v := f.MaxGracePeriod; v != nil {
-		k.MaxGracePeriod = v
-	}
-	if v := f.TurnLookBack; v != nil {
-		k.TurnLookBack = v
-	}
-
-	k.Registry.setFrom(&f.Registry)
-}
-
-type KeeperRegistry struct {
-	CheckGasOverhead    *uint32
-	PerformGasOverhead  *uint32
-	MaxPerformDataSize  *uint32
-	SyncInterval        *commonconfig.Duration
-	SyncUpkeepQueueSize *uint32
-}
-
-func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
-	if v := f.CheckGasOverhead; v != nil {
-		k.CheckGasOverhead = v
-	}
-	if v := f.PerformGasOverhead; v != nil {
-		k.PerformGasOverhead = v
-	}
-	if v := f.MaxPerformDataSize; v != nil {
-		k.MaxPerformDataSize = v
-	}
-	if v := f.SyncInterval; v != nil {
-		k.SyncInterval = v
-	}
-	if v := f.SyncUpkeepQueueSize; v != nil {
-		k.SyncUpkeepQueueSize = v
-	}
-}
-
 type AutoPprof struct {
 	Enabled              *bool
 	ProfileRoot          *string
@@ -1895,12 +1923,20 @@ type CreConfig struct {
 	// Requires [Tracing].Enabled = true for traces to be exported (trace export is gated by
 	// Tracing.Enabled in initGlobals; Telemetry.Enabled is optional—traces work with or without it).
 	// WARNING: This is not suitable for production use due to performance overhead.
-	DebugMode *bool `toml:",omitempty"`
+	DebugMode         *bool                    `toml:",omitempty"`
+	ConfidentialRelay *ConfidentialRelayConfig `toml:",omitempty"`
 }
 
 // WorkflowFetcherConfig holds the configuration for fetching workflow files
 type WorkflowFetcherConfig struct {
 	URL *string `toml:",omitempty"`
+}
+
+// ConfidentialRelayConfig holds the configuration for the confidential relay handler.
+// When Enabled is true, the node participates in the confidential relay DON,
+// validating enclave attestations and proxying capability requests.
+type ConfidentialRelayConfig struct {
+	Enabled *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -1955,6 +1991,15 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 
 	if f.DebugMode != nil {
 		c.DebugMode = f.DebugMode
+	}
+
+	if f.ConfidentialRelay != nil {
+		if c.ConfidentialRelay == nil {
+			c.ConfidentialRelay = &ConfidentialRelayConfig{}
+		}
+		if v := f.ConfidentialRelay.Enabled; v != nil {
+			c.ConfidentialRelay.Enabled = v
+		}
 	}
 }
 

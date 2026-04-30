@@ -7,7 +7,7 @@ Spin up observability stack in case you need performance tests:
 obs up -f
 ```
 
-To run any test, open two terminals and setup corresponding commands, `envcmd` and `testcmd` fields from [here](https://github.com/smartcontractkit/chainlink/blob/develop/.github/workflows/devenv-nightly.yml#L45):
+To run any test, open two terminals and setup corresponding commands, `envcmd` and `testcmd` fields from [devenv-nightly](/.github/workflows/devenv-nightly.yml):
 ```bash
 $envcmd (from devenv dir)
 $testcmd (from tests/$product dir, for example "tests/automation")

@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/cron"
 	"github.com/smartcontractkit/chainlink/devenv/products/directrequest"
 	"github.com/smartcontractkit/chainlink/devenv/products/flux"
-	"github.com/smartcontractkit/chainlink/devenv/products/keepers"
 	"github.com/smartcontractkit/chainlink/devenv/products/ocr2"
+	"github.com/smartcontractkit/chainlink/devenv/products/vrf"
+	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2"
 	"github.com/smartcontractkit/chainlink/devenv/products/vrfv2plus"
 )
 
@@ -47,10 +48,12 @@ func newProduct(name string) (Product, error) {
 		return ocr2.NewConfigurator(), nil
 	case "automation":
 		return automation.NewConfigurator(), nil
-	case "keepers":
-		return keepers.NewConfigurator(), nil
+	case "vrf":
+		return vrf.NewConfigurator(), nil
 	case "vrfv2_plus":
 		return vrfv2plus.NewConfigurator(), nil
+	case "vrfv2":
+		return vrfv2.NewConfigurator(), nil
 
 	default:
 		return nil, fmt.Errorf("unknown product type: %s", name)

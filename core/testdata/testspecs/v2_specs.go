@@ -144,7 +144,7 @@ answer1 [type=median index=0];
 schemaVersion = 1
 name = "%s"
 relay = "evm"
-contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+contractID = "%s"
 p2pv2Bootstrappers = []
 transmitterID = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 pluginType         = "median"
@@ -284,46 +284,11 @@ func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
 }
 
 func GetOCR2EVMSpecMinimal() string {
-	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.FixtureChainID.String())
+	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New(), testutils.NewAddress().Hex(), testutils.FixtureChainID.String())
 }
 
 func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string {
 	return fmt.Sprintf(WebhookSpecNoBodyTemplate, u, fetchBridge, submitBridge)
-}
-
-type KeeperSpecParams struct {
-	Name              string
-	ContractAddress   string
-	FromAddress       string
-	EvmChainID        int
-	ObservationSource string
-}
-
-type KeeperSpec struct {
-	KeeperSpecParams
-	toml string
-}
-
-func (os KeeperSpec) Toml() string {
-	return os.toml
-}
-
-func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
-	template := `
-type            		 	= "keeper"
-schemaVersion   		 	= 1
-name            		 	= "%s"
-contractAddress 		 	= "%s"
-fromAddress     		 	= "%s"
-evmChainID      		 	= %d
-externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
-observationSource = """%s"""
-`
-	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
-	return KeeperSpec{
-		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, escapedObvSource),
-	}
 }
 
 type VRFSpecParams struct {
@@ -587,7 +552,7 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.TransmitterAddress != "" {
 		transmitterAddress = params.TransmitterAddress
 	}
-	contractAddress := "0x613a38AC1659769640aaE063C651F48E0250454C"
+	contractAddress := testutils.NewAddress().Hex()
 	if params.ContractAddress != "" {
 		contractAddress = params.ContractAddress
 	}
@@ -608,7 +573,46 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.EVMChainID != "" {
 		evmChainID = params.EVMChainID
 	}
-	template := `
+
+	// When both bridge names are supplied by the caller, use bridges for both observation
+	// paths so tests that execute the pipeline do not depend on external HTTP (chain.link).
+	explicitBridgeDataSources := params.DS1BridgeName != "" && params.DS2BridgeName != ""
+	var observationBlock string
+	if explicitBridgeDataSources {
+		observationBlock = fmt.Sprintf(`    // data source 1
+    ds1          [type=bridge name="%s"];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+
+    // data source 2
+    ds2          [type=bridge name="%s"];
+    ds2_parse    [type=jsonparse path="three,four"];
+    ds2_multiply [type=multiply times=4.56];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name="%s" index=1];`, ds1BridgeName, ds2BridgeName, ds2BridgeName)
+	} else {
+		observationBlock = fmt.Sprintf(`    // data source 1
+    ds1          [type=bridge name="%s"];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+
+    // data source 2
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
+    ds2_parse    [type=jsonparse path="three,four"];
+    ds2_multiply [type=multiply times=4.56];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name="%s" index=1];`, ds1BridgeName, ds2BridgeName)
+	}
+
+	header := `
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
@@ -627,21 +631,7 @@ contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
-    // data source 1
-    ds1          [type=bridge name="%s"];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-
-    // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
-    ds2_parse    [type=jsonparse path="three,four"];
-    ds2_multiply [type=multiply times=4.56];
-
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
-    ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-    answer1 [type=median                      index=0];
-    answer2 [type=bridge name="%s" index=1];
+%s
 """
 `
 	return OCRSpec{OCRSpecParams: OCRSpecParams{
@@ -650,7 +640,7 @@ observationSource = """
 		TransmitterAddress: transmitterAddress,
 		DS1BridgeName:      ds1BridgeName,
 		DS2BridgeName:      ds2BridgeName,
-	}, toml: fmt.Sprintf(template, name, contractAddress, evmChainID, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
+	}, toml: fmt.Sprintf(header, name, contractAddress, evmChainID, jobID, transmitterAddress, observationBlock)}
 }
 
 type WebhookSpecParams struct {

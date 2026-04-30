@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -16,6 +18,7 @@ import (
 
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
 func TestDeleteCCIPJobs(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11030")
 	e, _, tenv := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
 	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -32,7 +35,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	// run delete JobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			commonChangesets.DeleteJobChangeset,
+			jdchangesets.DeleteJobsChangeset,
 			jobIDs,
 		),
 	)
@@ -68,7 +71,7 @@ func TestRevokeJobs(t *testing.T) {
 	// run RevokeJobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			commonChangesets.RevokeJobsChangeset,
+			jdchangesets.RevokeJobsChangeset,
 			jobIDs,
 		),
 	)

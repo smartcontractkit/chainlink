@@ -349,6 +349,14 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 	return multiErr
 }
 
+func EmitUserMetric(ctx context.Context, labels map[string]string, metric *eventsv2.WorkflowUserMetric) error {
+	metric.CreInfo = buildCREMetadataV2(labels)
+	metric.Workflow = buildWorkflowKeyV2(labels)
+	metric.Timestamp = time.Now().Format(time.RFC3339)
+
+	return emitProtoMessage(ctx, metric)
+}
+
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
 // Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
@@ -438,6 +446,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
 		entity = "workflows.v2." + WorkflowUserLog
+	case *eventsv2.WorkflowUserMetric:
+		schema = SchemaUserMetricV2
+		entity = "workflows.v2." + WorkflowUserMetric
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated

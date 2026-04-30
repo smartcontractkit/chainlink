@@ -11,6 +11,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -49,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -447,7 +448,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -455,7 +456,7 @@ func UpdateOnRampDynamicConfigChangeset(e cldf.Environment, cfg UpdateOnRampDyna
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -604,7 +605,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := proposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := cldfproposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -612,7 +613,7 @@ func UpdateOnRampAllowListChangeset(e cldf.Environment, cfg UpdateOnRampAllowLis
 			batches = append(batches, batchOperation)
 
 			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address().Hex()
-			inspectors[srcSel], err = proposalutils.McmsInspectorForChain(e, srcSel)
+			inspectors[srcSel], err = cldfproposalutils.McmsInspectorForChain(e, srcSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", srcSel, err)
 			}
@@ -701,7 +702,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OnRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -709,7 +710,7 @@ func WithdrawOnRampFeeTokensChangeset(e cldf.Environment, cfg WithdrawOnRampFeeT
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -1519,7 +1520,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := proposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := cldfproposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1527,7 +1528,7 @@ func SetOCR3OffRampChangeset(e cldf.Environment, cfg SetOCR3OffRampConfig) (cldf
 			batches = append(batches, batchOperation)
 
 			timelocks[remote] = state.Chains[remote].Timelock.Address().Hex()
-			inspectors[remote], err = proposalutils.McmsInspectorForChain(e, remote)
+			inspectors[remote], err = cldfproposalutils.McmsInspectorForChain(e, remote)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", remote, err)
 			}
@@ -1638,7 +1639,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 				return cldf.ChangesetOutput{}, err
 			}
 
-			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
+			batchOperation, err := cldfproposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
 				big.NewInt(0), string(shared.OffRamp), []string{})
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
@@ -1646,7 +1647,7 @@ func UpdateDynamicConfigOffRampChangeset(e cldf.Environment, cfg UpdateDynamicCo
 			batches = append(batches, batchOperation)
 
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			inspectors[chainSel], err = cldfproposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
 			}
@@ -1738,40 +1739,13 @@ func isOCR3ConfigSetOnOffRamp(
 
 // DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
 // with the config enabled/disabled based on the configEnabled flag.
+// Fee values are set based on the destination chain type:
+//   - Any → Ethereum:    NetworkFee=50, TokenFee=150
+//   - Any → Solana:      NetworkFee=10, TokenFee=35
+//   - Any → other:       NetworkFee=10, TokenFee=25
+//   - Ethereum -> any:   NetworkFee=50, TokenFee=50 ( Source-chain-dependent override that must be applied by the caller)
 func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
-	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
-	if len(destChainSelector) > 0 {
-		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
-		switch destFamily {
-		case chain_selectors.FamilySolana:
-			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
-		case chain_selectors.FamilyAptos:
-			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
-		case chain_selectors.FamilyTon:
-			familySelector, _ = hex.DecodeString(TVMFamilySelector) // ton
-		case chain_selectors.FamilySui:
-			familySelector, _ = hex.DecodeString(SuiFamilySelector) // Sui
-		}
-	}
-	return fee_quoter.FeeQuoterDestChainConfig{
-		IsEnabled:                         configEnabled,
-		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      30_000,
-		MaxPerMsgGasLimit:                 3_000_000,
-		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           25,
-		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
-		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
-		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
-		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    16,
-		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       90_000,
-		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                10,
-		ChainFamilySelector:               [4]byte(familySelector),
-	}
+	return ccipops.DefaultFeeQuoterDestChainConfig(configEnabled, destChainSelector...)
 }
 
 type ApplyFeeTokensUpdatesConfig struct {
@@ -1989,14 +1963,14 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e cldf.Environment, cfg UpdateToken
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			op, err := proposalutils.BatchOperationForChain(
+			op, err := cldfproposalutils.BatchOperationForChain(
 				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), shared.FeeQuoter.String(), nil)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
-			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
+			inspector, err := cldfproposalutils.McmsInspectorForChain(e, chainSel)
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("error getting inspector for chain %d: %w", chainSel, err)
 			}

@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"math/big"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -109,10 +110,16 @@ type workflowRegistry struct {
 	hooks Hooks
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardRoutingSteady      shardRoutingSteadyObserver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+}
+
+type shardRoutingSteadyObserver interface {
+	ObserveRoutingSteady(steady bool)
+	Invalidate()
 }
 
 type Hooks struct {
@@ -244,6 +251,12 @@ func WithShardEnabled(shardingEnabled bool) Option {
 func WithShardID(shardID uint32) Option {
 	return func(wr *workflowRegistry) {
 		wr.myShardID = shardID
+	}
+}
+
+func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardRoutingSteady = signal
 	}
 }
 
@@ -437,7 +450,7 @@ func toLocalHead(head *types.Head) Head {
 // It only considers engines from the specified source when determining deletions. This ensures that when a source
 // fails to fetch, we don't incorrectly delete engines from other sources.
 func (w *workflowRegistry) generateReconciliationEvents(
-	_ context.Context,
+	ctx context.Context,
 	pendingEvents map[string]*reconciliationEvent,
 	workflowMetadata []WorkflowMetadataView,
 	head *types.Head,
@@ -445,14 +458,14 @@ func (w *workflowRegistry) generateReconciliationEvents(
 ) ([]*reconciliationEvent, error) {
 	var events []*reconciliationEvent
 	localHead := toLocalHead(head)
-	// workflowMetadataMap is only used for lookups; disregard when reading the state machine.
-	workflowMetadataMap := make(map[string]WorkflowMetadataView)
+	// workflowMetadataIDs is a set of workflow IDs present in this tick's metadata
+	workflowMetadataIDs := make(map[string]struct{}, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
-		workflowMetadataMap[wfMeta.WorkflowID.Hex()] = wfMeta
+		workflowMetadataIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
 	}
 
-	// Keep track of which of the engines in the engineRegistry have been touched
-	workflowsSeen := map[string]bool{}
+	// Keep track of which of the engines in the engineRegistry have been touched.
+	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
 		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
@@ -497,9 +510,12 @@ func (w *workflowRegistry) generateReconciliationEvents(
 				})
 				workflowsSeen[id] = true
 			// if the workflow is active, the workflow engine is in the engine registry, and the metadata has not changed
-			// then we don't need to action the event further. Mark as seen and continue.
+			// then we don't need to action the event further. Mark as seen and drop any stale pending event for this
+			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
+			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
 				workflowsSeen[id] = true
+				delete(pendingEvents, id)
 			}
 		case WorkflowStatusPaused:
 			signature := fmt.Sprintf("%s-%s-%s", WorkflowPaused, id, toSpecStatus(wfMeta.Status))
@@ -596,7 +612,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	// the workflow no longer exists in this source's metadata
 	for id, event := range pendingEvents {
 		if event.Name == WorkflowActivated {
-			if _, ok := workflowMetadataMap[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
+			if _, ok := workflowMetadataIDs[event.Data.(WorkflowActivatedEvent).WorkflowID.Hex()]; !ok {
 				delete(pendingEvents, id)
 			}
 		}
@@ -607,6 +623,34 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	}
 
 	return events, nil
+}
+
+func (w *workflowRegistry) applyPreDispatchReconcileActions(ctx context.Context, events []*reconciliationEvent) {
+	for _, event := range events {
+		if event.Name != WorkflowDeleted {
+			continue
+		}
+
+		deletedEvent, ok := event.Data.(WorkflowDeletedEvent)
+		if !ok {
+			w.lggr.Warnw("skipping pre-dispatch drain due to invalid event payload type", "eventID", event.id, "eventType", event.Name)
+			continue
+		}
+
+		serviceWithMetadata, exists := w.engineRegistry.Get(deletedEvent.WorkflowID)
+		if !exists {
+			continue
+		}
+
+		drainable, isDrainable := serviceWithMetadata.Service.(DrainableService)
+		if !isDrainable {
+			continue
+		}
+
+		if started := drainable.Drain(); started {
+			w.metrics.incrementDrainStarted(ctx)
+		}
+	}
 }
 
 func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
@@ -664,7 +708,13 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	}
 	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
 	if err != nil {
+		if w.shardRoutingSteady != nil {
+			w.shardRoutingSteady.Invalidate()
+		}
 		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
+	}
+	if w.shardRoutingSteady != nil {
+		w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
@@ -758,6 +808,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 				w.lggr.Debugw("Generated events for source", "source", sourceName, "num", len(events))
 
+				w.applyPreDispatchReconcileActions(ctx, events)
+
 				// Clear pending events after successful reconciliation
 				pendingEventsBySource[sourceIdentifier] = make(map[string]*reconciliationEvent)
 
@@ -818,6 +870,12 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				}
 				wg.Wait()
 
+				// prompt the GC to reclaim transient allocations from event handling
+				// that would otherwise be delayed because the dominant CGo/wasmtime memory is invisible to the Go GC
+				if dispatched > 0 {
+					runtime.GC()
+				}
+
 				batchDuration := time.Since(batchStart)
 				w.metrics.recordReconcileBatch(ctx, sourceName, dispatched, batchDuration)
 				if backoffCount > 0 {
@@ -839,6 +897,17 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 
 			runningWorkflows := w.engineRegistry.GetAll()
 			w.metrics.recordRunningWorkflows(ctx, len(runningWorkflows))
+			drainingWorkflows := 0
+			for _, workflow := range runningWorkflows {
+				drainable, isDrainable := workflow.Service.(DrainableService)
+				if !isDrainable {
+					continue
+				}
+				if _, draining := drainable.DrainStartedAt(); draining {
+					drainingWorkflows++
+				}
+			}
+			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
 			w.metrics.incrementCompletedSyncs(ctx)
 		}
 	}

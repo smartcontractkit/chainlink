@@ -14,8 +14,10 @@ import (
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -27,25 +29,55 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+// errRemoteCapabilityExecuteError preserves the legacy "TRANSPORT : ErrorMsg" string from the
+// remote executable client while wrapping a deserialized caperrors.Error so callers can
+// errors.As into caperrors.Error after RPC (see capability_executor metrics).
+type errRemoteCapabilityExecuteError struct {
+	s    string
+	wrap caperrors.Error
+}
+
+func (e *errRemoteCapabilityExecuteError) Error() string { return e.s }
+
+func (e *errRemoteCapabilityExecuteError) Unwrap() error { return e.wrap }
+
+func newRemoteCapabilityExecuteError(transportErr types.Error, errMsg string) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    fmt.Sprintf("%s : %s", transportErr, errMsg),
+		wrap: caperrors.DeserializeErrorFromString(errMsg),
+	}
+}
+
+func newRemoteCapabilityExecuteErrorWithMessage(display string, errMsg string) error {
+	return &errRemoteCapabilityExecuteError{
+		s:    display,
+		wrap: caperrors.DeserializeErrorFromString(errMsg),
+	}
+}
+
 type clientResponse struct {
 	Result []byte
 	Err    error
 }
 
 type ClientRequest struct {
-	id                string
-	cancelFn          context.CancelFunc
-	responseCh        chan clientResponse
-	createdAt         time.Time
-	responseIDCount   map[[32]byte]int
-	meteringResponses map[[32]byte][]commoncap.MeteringNodeDetail
-	errorCount        map[string]int
-	totalErrorCount   int
-	responseReceived  map[p2ptypes.PeerID]bool
-	lggr              logger.Logger
+	id                       string
+	cancelFn                 context.CancelFunc
+	responseCh               chan clientResponse
+	createdAt                time.Time
+	responseIDCount          map[[32]byte]int
+	meteringResponses        map[[32]byte][]commoncap.MeteringNodeDetail
+	errorCount               map[string]int
+	totalErrorCount          int
+	payloadNotAvailableCount int
+	responseReceived         map[p2ptypes.PeerID]bool
+	lggr                     logger.Logger
+	signers                  [][]byte
+	workflowExecutionID      string
+	referenceID              string
 
-	requiredIdenticalResponses int
-	remoteNodeCount            int
+	requiredResponseConfirmations int
+	remoteNodeCount               int
 
 	requestTimeout time.Duration
 
@@ -58,6 +90,7 @@ type ClientRequest struct {
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+	signers [][]byte,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -87,7 +120,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
 }
 
 var defaultDelayMargin = 10 * time.Second
@@ -95,6 +128,7 @@ var defaultDelayMargin = 10 * time.Second
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
 	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	signers [][]byte,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -187,19 +221,22 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 	}
 
 	return &ClientRequest{
-		id:                         requestID,
-		cancelFn:                   cancelFn,
-		createdAt:                  time.Now(),
-		requestTimeout:             requestTimeout,
-		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
-		remoteNodeCount:            len(remoteCapabilityDonInfo.Members),
-		responseIDCount:            make(map[[32]byte]int),
-		meteringResponses:          make(map[[32]byte][]commoncap.MeteringNodeDetail),
-		errorCount:                 make(map[string]int),
-		responseReceived:           responseReceived,
-		responseCh:                 make(chan clientResponse, 1),
-		wg:                         &wg,
-		lggr:                       lggr,
+		id:                            requestID,
+		cancelFn:                      cancelFn,
+		createdAt:                     time.Now(),
+		requestTimeout:                requestTimeout,
+		requiredResponseConfirmations: int(remoteCapabilityDonInfo.F + 1),
+		remoteNodeCount:               len(remoteCapabilityDonInfo.Members),
+		responseIDCount:               make(map[[32]byte]int),
+		meteringResponses:             make(map[[32]byte][]commoncap.MeteringNodeDetail),
+		errorCount:                    make(map[string]int),
+		responseReceived:              responseReceived,
+		responseCh:                    make(chan clientResponse, 1),
+		wg:                            &wg,
+		lggr:                          lggr,
+		signers:                       signers,
+		workflowExecutionID:           workflowExecutionID,
+		referenceID:                   stepRef,
 	}, nil
 }
 
@@ -301,29 +338,32 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.responseReceived[sender] = true
 
 	if msg.Error == types.Error_OK {
+		resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal capability response: %w", err)
+		}
+
 		// metering reports per node are aggregated into a single array of values. for any single node message, the
 		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
 		// is marshalled without the metering value to get the hash. each node could have a different metering value
 		// which would result in different hashes. removing the metering detail allows for direct comparison of results.
-		responseID, metadata, err := c.getMessageHashAndMetadata(msg)
+		responseID, err := c.getMessageHash(resp)
 		if err != nil {
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
 
-		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+		lggr := logger.With(c.lggr, "responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredResponseConfirmations, "peer", sender)
 
 		nodeReports, exists := c.meteringResponses[responseID]
 		if !exists {
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
 		}
 
-		if len(metadata.Metering) == 1 {
-			rpt := metadata.Metering[0]
-			rpt.Peer2PeerID = sender.String()
-
-			nodeReports = append(nodeReports, rpt)
+		rpt, err := commoncap.ExtractMeteringFromMetadata(sender, resp.Metadata)
+		if err != nil {
+			lggr.Warnw("invalid metering detail", "err", err)
 		} else {
-			lggr.Warnw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
+			nodeReports = append(nodeReports, rpt)
 		}
 
 		c.responseIDCount[responseID]++
@@ -333,7 +373,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			lggr.Warnw("received multiple unique responses for the same request", "count for responseID", len(c.responseIDCount))
 		}
 
-		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
+		if c.responseIDCount[responseID] == c.requiredResponseConfirmations || c.hasValidAttestation(resp) {
 			payload, err := c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: nodeReports})
 			if err != nil {
 				return fmt.Errorf("failed to encode payload with metadata: %w", err)
@@ -343,19 +383,85 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
+		if commoncap.ErrResponsePayloadNotAvailable.Is(errors.New(msg.ErrorMsg)) {
+			c.payloadNotAvailableCount++
+			if c.payloadNotAvailableCount == c.remoteNodeCount-c.requiredResponseConfirmations+1 {
+				// return an error to indicate unexpected state, but do not send an error as we might still receive a response with valid attestation.
+				return fmt.Errorf("unexpected state: received %d payload not available responses, while max allowed is %d. This means a bug in the code, please investigate",
+					c.payloadNotAvailableCount, c.remoteNodeCount-c.requiredResponseConfirmations)
+			}
+			return nil
+		}
+
 		c.errorCount[msg.ErrorMsg]++
 		c.totalErrorCount++
 
 		if len(c.errorCount) > 1 {
-			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
+			c.lggr.Warnw("received multiple different errors for the same request", "numDifferentErrors", len(c.errorCount))
 		}
 
-		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
-			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
-		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredIdenticalResponses+1 {
-			c.sendResponse(clientResponse{Err: fmt.Errorf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg)})
+		if c.errorCount[msg.ErrorMsg] == c.requiredResponseConfirmations {
+			c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteError(msg.Error, msg.ErrorMsg)})
+		} else if c.totalErrorCount == c.remoteNodeCount-c.requiredResponseConfirmations+1 {
+			c.sendResponse(clientResponse{Err: newRemoteCapabilityExecuteErrorWithMessage(
+				fmt.Sprintf("received %d errors, last error %s : %s", c.totalErrorCount, msg.Error, msg.ErrorMsg),
+				msg.ErrorMsg,
+			)})
 		}
 	}
+	return nil
+}
+
+func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
+	if resp.OCRAttestation == nil {
+		return false
+	}
+
+	err := c.verifyAttestation(resp)
+	if err != nil {
+		c.lggr.Errorw("Attestation is present, but not valid. This is most likely a bug and requires investigation - falling back to identical responses verification", "error", err)
+		return false
+	}
+
+	return true
+}
+
+func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse) error {
+	attestation := resp.OCRAttestation
+	if attestation == nil {
+		return errors.New("attestation is missing")
+	}
+
+	if len(attestation.Sigs) < c.requiredResponseConfirmations {
+		return fmt.Errorf("not enough signatures: got %d, need at least %d", len(attestation.Sigs), c.requiredResponseConfirmations)
+	}
+
+	if len(c.signers) < c.requiredResponseConfirmations {
+		return fmt.Errorf("number of configured OCR signers is less than required confirmations: got %d, need at least %d", len(c.signers), c.requiredResponseConfirmations)
+	}
+
+	reportData, err := commoncap.ResponseToReportData(c.workflowExecutionID, c.referenceID, resp.Payload.Value, resp.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to convert response to report data: %w", err)
+	}
+	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData[:])
+	signed := make([]bool, len(c.signers))
+	for _, sig := range attestation.Sigs {
+		if int(sig.Signer) >= len(c.signers) {
+			return fmt.Errorf("invalid signer index: %d", sig.Signer)
+		}
+
+		if signed[sig.Signer] {
+			return fmt.Errorf("duplicate signature from signer index: %d", sig.Signer)
+		}
+
+		if !ocr2key.EvmVerifyBlob(c.signers[sig.Signer], sigData, sig.Signature) {
+			return fmt.Errorf("invalid signature from signer index: %d", sig.Signer)
+		}
+
+		signed[sig.Signer] = true
+	}
+
 	return nil
 }
 
@@ -370,23 +476,17 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 	c.lggr.Debugw("received OK response")
 }
 
-func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {
-	var metadata commoncap.ResponseMetadata
-
-	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+func (c *ClientRequest) getMessageHash(msg commoncap.CapabilityResponse) ([32]byte, error) {
+	// clear metadata to ensure it doesn't affect the hash, as different nodes might have different metadata (e.g. different metering values)
+	// since msg is passed as value, this won't affect the original message
+	msg.Metadata = commoncap.ResponseMetadata{}
+	msg.OCRAttestation = nil
+	payload, err := pb.MarshalCapabilityResponse(msg)
 	if err != nil {
-		return [32]byte{}, metadata, err
+		return [32]byte{}, err
 	}
 
-	metadata = resp.Metadata
-	resp.Metadata = commoncap.ResponseMetadata{}
-
-	payload, err := pb.MarshalCapabilityResponse(resp)
-	if err != nil {
-		return [32]byte{}, metadata, err
-	}
-
-	return sha256.Sum256(payload), metadata, nil
+	return sha256.Sum256(payload), nil
 }
 
 func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metadata commoncap.ResponseMetadata) ([]byte, error) {

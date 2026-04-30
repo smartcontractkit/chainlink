@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -407,6 +410,43 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 		resp := fmt.Sprintf(`{"result": %s}`, val)
 		_, err = res.Write([]byte(resp))
 		require.NoError(t, err)
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name: bridges.BridgeName(bridgeName),
+		URL:  models.WebURL(*u),
+	}))
+
+	return bridgeName
+}
+
+// createSingleDecimalCountingBridge is like createSingleDecimalBridge but increments callCount on each bridge request.
+func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM, callCount *atomic.Uint64) (bridgeName string) {
+	ctx := testutils.Context(t)
+	wantBody := map[string]any{"data": map[string]any{"data": "foo"}}
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		callCount.Add(1)
+		b, err := io.ReadAll(req.Body)
+		if err != nil {
+			http.Error(res, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var gotBody any
+		if err := json.Unmarshal(b, &gotBody); err != nil {
+			http.Error(res, "invalid json", http.StatusBadRequest)
+			return
+		}
+		if !reflect.DeepEqual(gotBody, wantBody) {
+			http.Error(res, "unexpected request body", http.StatusBadRequest)
+			return
+		}
+
+		res.WriteHeader(http.StatusOK)
+		val := p.String()
+		resp := fmt.Sprintf(`{"result": %s}`, val)
+		_, _ = res.Write([]byte(resp))
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)

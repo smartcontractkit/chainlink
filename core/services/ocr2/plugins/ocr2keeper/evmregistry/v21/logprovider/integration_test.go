@@ -59,10 +59,10 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	n := 10
 
 	backend.Commit()
-	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	lp.PollAndSaveLogs(ctx, 1, false) // Ensure log poller has a latest block
 
 	ids, addrs, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
-	lp.PollAndSaveLogs(ctx, int64(n))
+	lp.PollAndSaveLogs(ctx, int64(n), false)
 
 	go func() {
 		if err := logProvider.Start(ctx); err != nil {
@@ -70,7 +70,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			t.Fail()
 		}
 	}()
-	defer logProvider.Close()
+	defer logProvider.Close() // runs before cancel (LIFO); stops provider goroutines
 
 	logsRounds := 10
 
@@ -145,9 +145,9 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
-	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	lp.PollAndSaveLogs(ctx, 1, false) // Ensure log poller has a latest block
 	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
-	lp.PollAndSaveLogs(ctx, int64(5))
+	lp.PollAndSaveLogs(ctx, int64(5), false)
 	require.Len(t, contracts, 1)
 	require.Len(t, addrs, 1)
 
@@ -200,8 +200,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	quarantine.Flaky(t, "DX-1766")
-	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
 	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -223,7 +222,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	n := 10
 
 	backend.Commit()
-	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	lp.PollAndSaveLogs(ctx, 1, false) // Ensure log poller has a latest block
 	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
@@ -279,7 +278,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	backend.Commit()
-	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	lp.PollAndSaveLogs(ctx, 1, false) // Ensure log poller has a latest block
 
 	n := 10
 	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
@@ -337,19 +336,24 @@ func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.
 		allPayloads = append(allPayloads, logs...)
 		rounds--
 	}
+	if len(allPayloads) < n && ctx.Err() != nil {
+		require.FailNowf(t, "collectPayloads", "context done with %d/%d payloads: %v", len(allPayloads), n, ctx.Err())
+	}
 	return allPayloads
 }
 
 // waitLogProvider waits until the provider reaches the given partition
-func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition int) {
+func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition uint64) {
 	t.Logf("waiting for log provider to reach partition %d", partition)
 	for ctx.Err() == nil {
 		currentPartition := logProvider.CurrentPartitionIdx()
-		if currentPartition > uint64(partition) { // make sure we went over all items
+		if currentPartition > partition { // make sure we went over all items
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(testutils.TestInterval)
 	}
+	require.Greater(t, logProvider.CurrentPartitionIdx(), partition,
+		"timed out waiting for log provider to pass partition %d", partition)
 }
 
 // waitLogPoller waits until the log poller is familiar with the given block
@@ -360,12 +364,15 @@ func waitLogPoller(ctx context.Context, t *testing.T, commit func() common.Hash,
 	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
+		if err := ctx.Err(); err != nil {
+			require.FailNowf(t, "waitLogPoller", "context done before poller reached block %d: %v", latestBlock, err)
+		}
 		latestPolled, lberr := lp.LatestBlock(ctx)
 		require.NoError(t, lberr)
 		if latestPolled.BlockNumber >= latestBlock {
 			break
 		}
-		lp.PollAndSaveLogs(ctx, latestBlock)
+		lp.PollAndSaveLogs(ctx, latestBlock, false)
 	}
 }
 
@@ -374,7 +381,7 @@ func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethCl
 		b, err := ethClient.BlockByHash(ctx, blockHash)
 		require.NoError(t, err)
 		bn := b.Number()
-		lp.PollAndSaveLogs(ctx, bn.Int64())
+		lp.PollAndSaveLogs(ctx, bn.Int64(), false)
 	}
 }
 

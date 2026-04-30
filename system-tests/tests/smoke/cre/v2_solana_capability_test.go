@@ -14,14 +14,16 @@ import (
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
+	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	df_sol "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -75,11 +77,27 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	workflowConfig.WFOwner = s.WFOwner
 	const workflowFileLocation = "./solana/solwrite/main.go"
 
-	t_helpers.CompileAndDeployWorkflow(t,
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	workflowID := t_helpers.CompileAndDeployWorkflow(t,
 		tenv, testLogger, workflowName, &workflowConfig,
 		workflowFileLocation)
 
 	waitForFeedUpdate(t, solChain.SolClient, &s)
+
+	// Emitted from solwrite/main.go after a successful solana.WriteReport (user log via WASM runtime.Logger).
+	const successfulExecutionUserLog = "Submitted report on-chain"
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh,
+		t_helpers.WorkflowEngineInitErrorLog, successfulExecutionUserLog,
+		2*time.Minute,
+		t_helpers.WithUserLogWorkflowID(workflowID))
 }
 
 func getSolChain(t *testing.T, ds datastore.DataStore, s *setup, bcs []blockchains.Blockchain) *solana.Blockchain {
@@ -114,7 +132,7 @@ func dataIDtoBytes(dataID string) ([16]byte, error) {
 }
 
 func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
-	tt := time.NewTicker(time.Second * 5)
+	tt := time.NewTicker(time.Second * 2)
 	defer tt.Stop()
 	ctx, cancel := context.WithTimeout(t.Context(), time.Minute*4)
 	defer cancel()

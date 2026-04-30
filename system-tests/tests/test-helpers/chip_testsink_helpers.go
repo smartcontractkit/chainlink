@@ -3,9 +3,9 @@ package helpers
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -19,16 +19,286 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
 )
 
 const testSinkStartupTimeout = 10 * time.Second
+const relativePathToRepoRoot = "../../../../"
+
+type ChipSink interface {
+	Shutdown(ctx context.Context)
+}
+
+type registeredChipSink struct {
+	server       *chiptestsink.Server
+	subscriberID string
+	relativePath string
+}
+
+func (s *registeredChipSink) Shutdown(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	if err := chiprouter.UnregisterSubscriber(ctx, s.subscriberID); err != nil && !os.IsNotExist(err) {
+		framework.L.Warn().Msgf("failed to unregister chip sink subscriber: %s", err)
+	}
+	if s.server != nil {
+		s.server.Shutdown(ctx)
+	}
+}
+
+// StartChannelDrainers starts one goroutine per channel and drains messages until stop is called
+// or the channel is closed. This is useful during teardown to avoid producer goroutines blocking
+// on full channels while infrastructure is shutting down.
+func StartChannelDrainers[T any](channels ...<-chan T) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
+	for _, ch := range channels {
+		if ch == nil {
+			continue
+		}
+
+		wg.Add(1)
+		go func(ch <-chan T) {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case _, ok := <-ch:
+					if !ok {
+						return
+					}
+				}
+			}
+		}(ch)
+	}
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
+
+// CloseChannels closes all non-nil channels in order.
+func CloseChannels[T any](channels ...chan T) {
+	for _, ch := range channels {
+		if ch != nil {
+			close(ch)
+		}
+	}
+}
+
+// collectChannels flattens channel arguments and slices/arrays of channels into a single list.
+func collectChannels(args ...any) []reflect.Value {
+	channels := make([]reflect.Value, 0, len(args))
+	for _, arg := range args {
+		v := reflect.ValueOf(arg)
+		if !v.IsValid() {
+			continue
+		}
+
+		switch v.Kind() {
+		case reflect.Chan:
+			channels = append(channels, v)
+		case reflect.Slice, reflect.Array:
+			for i := 0; i < v.Len(); i++ {
+				elem := v.Index(i)
+				if elem.IsValid() && elem.Kind() == reflect.Chan {
+					channels = append(channels, elem)
+				}
+			}
+		default:
+			framework.L.Warn().Msgf("unsupported arg to ShutdownChipSinkWithDrain: %T", arg)
+		}
+	}
+	return channels
+}
+
+// startReflectChannelDrainers drains channels until they are closed or stop() is called.
+func startReflectChannelDrainers(channels []reflect.Value) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	doneCh := reflect.ValueOf(ctx.Done())
+
+	for _, ch := range channels {
+		if !ch.IsValid() || ch.Kind() != reflect.Chan || ch.IsNil() {
+			continue
+		}
+
+		wg.Add(1)
+		go func(ch reflect.Value) {
+			defer wg.Done()
+			cases := []reflect.SelectCase{
+				{Dir: reflect.SelectRecv, Chan: ch},
+				{Dir: reflect.SelectRecv, Chan: doneCh},
+			}
+			for {
+				chosen, _, ok := reflect.Select(cases)
+				if chosen == 1 {
+					return
+				}
+				if !ok {
+					return
+				}
+			}
+		}(ch)
+	}
+
+	return func() {
+		cancel()
+		wg.Wait()
+	}
+}
+
+func closeReflectChannels(channels []reflect.Value) {
+	for _, ch := range channels {
+		if !ch.IsValid() || ch.Kind() != reflect.Chan || ch.IsNil() {
+			continue
+		}
+		// Only close channels that have send capability.
+		if ch.Type().ChanDir()&reflect.SendDir == 0 {
+			continue
+		}
+		func(ch reflect.Value) {
+			defer func() { _ = recover() }()
+			ch.Close()
+		}(ch)
+	}
+}
+
+// ShutdownChipSinkWithDrain performs a safer sink teardown for tests.
+// It starts background drainers for provided channels, shuts down the sink,
+// stops drainers, and then closes channels.
+func ShutdownChipSinkWithDrain(
+	shutdownCtx context.Context,
+	sink ChipSink,
+	channels ...any,
+) {
+	flattenedChannels := collectChannels(channels...)
+	stopDrainers := startReflectChannelDrainers(flattenedChannels)
+
+	if sink != nil {
+		sink.Shutdown(shutdownCtx)
+	}
+
+	stopDrainers()
+	closeReflectChannels(flattenedChannels)
+}
+
+type baseMessageWatchCfg struct {
+	workflowID string
+	labelEq    map[string]string
+	labelIn    map[string]map[string]struct{}
+	labelHas   map[string]string
+}
+
+type userLogWatchCfg struct {
+	workflowID string
+}
+
+// BaseMessageWatchOpt customizes base message watchers.
+type BaseMessageWatchOpt func(*baseMessageWatchCfg)
+
+// UserLogWatchOpt customizes user log watchers.
+type UserLogWatchOpt func(*userLogWatchCfg)
+
+// WithBaseMessageWorkflowID filters base messages to a specific workflow ID.
+func WithBaseMessageWorkflowID(workflowID string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		cfg.workflowID = normalizeWorkflowID(workflowID)
+	}
+}
+
+// WithBaseMessageLabelEquals requires a base message label to be exactly equal to value.
+func WithBaseMessageLabelEquals(key, value string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" {
+			return
+		}
+		if cfg.labelEq == nil {
+			cfg.labelEq = make(map[string]string)
+		}
+		cfg.labelEq[k] = strings.TrimSpace(value)
+	}
+}
+
+// WithBaseMessageLabelIn requires a base message label to match one of the allowed values.
+func WithBaseMessageLabelIn(key string, allowedValues ...string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" || len(allowedValues) == 0 {
+			return
+		}
+		if cfg.labelIn == nil {
+			cfg.labelIn = make(map[string]map[string]struct{})
+		}
+		values := make(map[string]struct{}, len(allowedValues))
+		for _, v := range allowedValues {
+			values[strings.TrimSpace(v)] = struct{}{}
+		}
+		cfg.labelIn[k] = values
+	}
+}
+
+// WithBaseMessageLabelContains requires a base message label to contain the provided substring.
+func WithBaseMessageLabelContains(key, substring string) BaseMessageWatchOpt {
+	return func(cfg *baseMessageWatchCfg) {
+		k := strings.TrimSpace(key)
+		if k == "" {
+			return
+		}
+		if cfg.labelHas == nil {
+			cfg.labelHas = make(map[string]string)
+		}
+		cfg.labelHas[k] = strings.TrimSpace(substring)
+	}
+}
+
+// WithUserLogWorkflowID filters user logs to a specific workflow ID.
+func WithUserLogWorkflowID(workflowID string) UserLogWatchOpt {
+	return func(cfg *userLogWatchCfg) {
+		cfg.workflowID = normalizeWorkflowID(workflowID)
+	}
+}
+
+func safeSendUserLogs(ch chan *workflowevents.UserLogs, msg *workflowevents.UserLogs) {
+	// In fanout mode, tests may close their log channels immediately after
+	// unsubscribing during cleanup. An in-flight publish can race with that close,
+	// which would panic on send. We recover to treat delivery as best-effort.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
+func safeSendBaseMessage(ch chan *commonevents.BaseMessage, msg *commonevents.BaseMessage) {
+	// Same race as safeSendUserLogs; avoid panic on send to closed channel.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
+
+func safeSendProtoMessage(ch chan proto.Message, msg proto.Message) {
+	// Same race as safeSendUserLogs; avoid panic on send to closed channel.
+	defer func() { _ = recover() }()
+	if ch == nil {
+		return
+	}
+	ch <- msg
+}
 
 // WaitForUserLog monitors workflow user logs until one contains needle or the context ends.
 func WaitForUserLog(
@@ -36,14 +306,27 @@ func WaitForUserLog(
 	testLogger zerolog.Logger,
 	publishCh <-chan *workflowevents.UserLogs,
 	needle string,
+	opts ...UserLogWatchOpt,
 ) (*workflowevents.LogLine, error) {
+	cfg := userLogWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Cause(ctx)
 		case logs := <-publishCh:
+			if logs == nil {
+				continue
+			}
+			if cfg.workflowID != "" && !userLogsHasWorkflowID(logs, cfg.workflowID) {
+				continue
+			}
 			for _, line := range logs.LogLines {
 				if strings.Contains(line.Message, needle) {
+					testLogger.Info().Str("expected_log", needle).Str("actual_log", strings.TrimSpace(line.Message)).Msg("Found expected user log")
 					return line, nil
 				}
 
@@ -64,15 +347,36 @@ func FailOnBaseMessage(
 	testLogger zerolog.Logger,
 	publishCh <-chan *commonevents.BaseMessage,
 	needle string,
+	opts ...BaseMessageWatchOpt,
 ) {
 	t.Helper()
+	cfg := baseMessageWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-publishCh:
+		case msg, ok := <-publishCh:
+			// Channel can be closed during cleanup; closed or nil messages should exit.
+			if !ok || msg == nil {
+				return
+			}
+			if cfg.workflowID != "" && !baseMessageHasWorkflowID(msg, cfg.workflowID) {
+				continue
+			}
 			if strings.Contains(msg.Msg, needle) {
+				ok, reason := baseMessageMatchesLabelFilters(msg, cfg)
+				if !ok {
+					testLogger.Warn().
+						Str("expected_log", needle).
+						Str("found_message", strings.TrimSpace(msg.Msg)).
+						Str("filter_reason", reason).
+						Msg("[soft assertion] Ignoring poison BaseMessage because source labels do not match")
+					continue
+				}
 				testLogger.Error().
 					Str("expected_log", needle).
 					Str("found_message", strings.TrimSpace(msg.Msg)).
@@ -96,7 +400,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 				return &chippb.PublishResponse{}, nil
 			}
 
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -106,7 +410,7 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 		default:
 			// ignore
@@ -116,6 +420,31 @@ func GetPublishFn(testLogger zerolog.Logger, userLogsCh chan *workflowevents.Use
 	}
 
 	return publishFn
+}
+
+// GetWorkflowV2LifecyclePublishFn returns a CHiP publish handler that demuxes workflow lifecycle v2 events.
+func GetWorkflowV2LifecyclePublishFn(testLogger zerolog.Logger, workflowEventCh chan proto.Message) chiptestsink.PublishFn {
+	return func(ctx context.Context, event *pb.CloudEvent) (*chippb.PublishResponse, error) {
+		var typedMsg proto.Message
+		switch event.Type {
+		case "workflows.v2.WorkflowActivated":
+			typedMsg = &workfloweventsv2.WorkflowActivated{}
+		case "workflows.v2.WorkflowPaused":
+			typedMsg = &workfloweventsv2.WorkflowPaused{}
+		case "workflows.v2.WorkflowDeleted":
+			typedMsg = &workfloweventsv2.WorkflowDeleted{}
+		default:
+			return &chippb.PublishResponse{}, nil
+		}
+
+		if err := proto.Unmarshal(event.GetProtoData().GetValue(), typedMsg); err != nil {
+			testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
+			return &chippb.PublishResponse{}, nil
+		}
+
+		safeSendProtoMessage(workflowEventCh, typedMsg)
+		return &chippb.PublishResponse{}, nil
+	}
 }
 
 // GetLoggingPublishFn returns a CHiP publish handler that demuxes events into the provided channels and saves all events to a file.
@@ -249,7 +578,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			userLogsCh <- typedMsg
+			safeSendUserLogs(userLogsCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		case "BaseMessage":
@@ -258,7 +587,7 @@ func GetLoggingPublishFn(
 				testLogger.Error().Err(err).Str("ce_type", event.Type).Msg("Failed to unmarshal protobuf; skipping")
 				return &chippb.PublishResponse{}, nil
 			}
-			baseMessageCh <- typedMsg
+			safeSendBaseMessage(baseMessageCh, typedMsg)
 			return &chippb.PublishResponse{}, nil
 
 		default:
@@ -269,23 +598,18 @@ func GetLoggingPublishFn(
 	}
 }
 
-// StartChipTestSink boots the CHiP test sink and waits until it is accepting traffic.
-func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) *chiptestsink.Server {
-	grpcListenAddr := ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT
-	if !isPortAvailable(grpcListenAddr) {
-		t.Fatalf(`failed to start ChIP Ingress Test Sink. Port %s is already taken. Most probably an instance of ChIP Ingress is already running.
-If you want to use both together start ChIP Ingress on a different port with '--grpc-port' flag
-and make sure that the sink is pointing to correct upstream endpoint ('localhost:<grpc-port>' in most cases)`, chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
-	}
-
+// StartChipTestSink boots a per-test CHiP sink on an ephemeral port and registers it with the
+// shared chip ingress router, which owns the default ingress port.
+func StartChipTestSink(t *testing.T, publishFn chiptestsink.PublishFn) ChipSink {
 	startCh := make(chan struct{}, 1)
-	server, err := chiptestsink.NewServer(chiptestsink.Config{
+	addrCh := make(chan string, 1)
+	server, sErr := chiptestsink.NewServer(chiptestsink.Config{
 		PublishFunc: publishFn,
-		GRPCListen:  grpcListenAddr,
-		Started:     startCh, // signals that server is indeed listening on the GRPC port
-		// UpstreamEndpoint: "localhost:50052", // uncomment to forward events to ChIP, remember to start ChIP on a different port config.DefaultChipIngressPort (=50051)
+		GRPCListen:  "0.0.0.0:0",
+		Started:     startCh,
+		ActualAddr:  addrCh,
 	})
-	require.NoError(t, err, "failed to create new test sink server")
+	require.NoError(t, sErr, "failed to create new test sink server")
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -300,17 +624,24 @@ and make sure that the sink is pointing to correct upstream endpoint ('localhost
 		require.FailNow(t, "timeout waiting for test sink server to start")
 	}
 
-	return server
-}
-
-func isPortAvailable(addr string) bool {
-	lc := net.ListenConfig{}
-	l, err := lc.Listen(context.Background(), "tcp", addr)
-	if err != nil {
-		return false // already in use or permission denied
+	var actualAddr string
+	select {
+	case actualAddr = <-addrCh:
+	case <-time.After(testSinkStartupTimeout):
+		server.Shutdown(t.Context())
+		require.FailNow(t, "timeout waiting for test sink listen address")
 	}
-	_ = l.Close()
-	return true
+
+	require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
+
+	subscriberID, err := chiprouter.RegisterSubscriber(t.Context(), t.Name(), actualAddr)
+	require.NoError(t, err, "failed to register test sink with chip ingress router")
+
+	return &registeredChipSink{
+		server:       server,
+		subscriberID: subscriberID,
+		relativePath: relativePathToRepoRoot,
+	}
 }
 
 // WatchWorkflowLogs enforces that the expected log appears before timeout and that poison logs abort the test.
@@ -321,19 +652,29 @@ func WatchWorkflowLogs(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	failingBeholderLog string,
 	expectedBeholderLog string,
-	timeout time.Duration) {
+	timeout time.Duration,
+	opts ...UserLogWatchOpt,
+) {
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected user log message"))
 	defer cancelFn()
 
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
 	defer cancelCauseFn(nil)
+	userCfg := userLogWatchCfg{}
+	for _, opt := range opts {
+		opt(&userCfg)
+	}
 
 	if failingBeholderLog != "" {
 		go func() {
+			if userCfg.workflowID != "" {
+				FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog, WithBaseMessageWorkflowID(userCfg.workflowID))
+				return
+			}
 			FailOnBaseMessage(cancelCtx, cancelCauseFn, t, testLogger, baseMessageCh, failingBeholderLog)
 		}()
 	}
-	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog)
+	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog, opts...)
 	require.NoError(t, err, "failed to find expected user log message")
 }
 
@@ -343,13 +684,34 @@ func WaitForBaseMessage(
 	testLogger zerolog.Logger,
 	publishCh <-chan *commonevents.BaseMessage,
 	needle string,
+	opts ...BaseMessageWatchOpt,
 ) (*commonevents.BaseMessage, error) {
+	cfg := baseMessageWatchCfg{}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return nil, context.Cause(ctx)
 		case msg := <-publishCh:
+			if msg == nil {
+				continue
+			}
+			if cfg.workflowID != "" && !baseMessageHasWorkflowID(msg, cfg.workflowID) {
+				continue
+			}
 			if strings.Contains(msg.Msg, needle) {
+				ok, reason := baseMessageMatchesLabelFilters(msg, cfg)
+				if !ok {
+					testLogger.Warn().
+						Str("expected_log", needle).
+						Str("found_message", strings.TrimSpace(msg.Msg)).
+						Str("filter_reason", reason).
+						Msg("[soft assertion] Received BaseMessage with expected message, but source labels do not match")
+					continue
+				}
 				return msg, nil
 			}
 			if strings.Contains(msg.Msg, "heartbeat") {
@@ -370,14 +732,84 @@ func WatchBaseMessages(
 	baseMessageCh <-chan *commonevents.BaseMessage,
 	expectedMessage string,
 	timeout time.Duration,
+	opts ...BaseMessageWatchOpt,
 ) *commonevents.BaseMessage {
 	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected base message"))
 	defer cancelFn()
 
-	msg, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage)
+	msg, err := WaitForBaseMessage(ctx, testLogger, baseMessageCh, expectedMessage, opts...)
 	require.NoError(t, err, "failed to find expected base message")
+	testLogger.Info().Msgf("Found expected base message: %s", expectedMessage)
 
 	return msg
+}
+
+func normalizeWorkflowID(workflowID string) string {
+	return strings.TrimPrefix(strings.ToLower(strings.TrimSpace(workflowID)), "0x")
+}
+
+func baseMessageHasWorkflowID(msg *commonevents.BaseMessage, workflowID string) bool {
+	if msg == nil || workflowID == "" {
+		return false
+	}
+
+	for _, key := range []string{"workflowID", "workflow_id", "workflowId"} {
+		if value, ok := msg.Labels[key]; ok && normalizeWorkflowID(value) == workflowID {
+			return true
+		}
+	}
+
+	// Some messages carry workflow id only inside the "err" label payload.
+	if errLabel, ok := msg.Labels["err"]; ok && strings.Contains(strings.ToLower(errLabel), workflowID) {
+		return true
+	}
+
+	return false
+}
+
+func baseMessageMatchesLabelFilters(msg *commonevents.BaseMessage, cfg baseMessageWatchCfg) (bool, string) {
+	if msg == nil {
+		return false, "base message is nil"
+	}
+
+	for key, expected := range cfg.labelEq {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if actual != expected {
+			return false, "label " + key + " value mismatch"
+		}
+	}
+
+	for key, allowedSet := range cfg.labelIn {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if _, ok := allowedSet[actual]; !ok {
+			return false, "label " + key + " not in allowed values"
+		}
+	}
+
+	for key, needle := range cfg.labelHas {
+		actual, ok := msg.Labels[key]
+		if !ok {
+			return false, "missing label " + key
+		}
+		if !strings.Contains(actual, needle) {
+			return false, "label " + key + " does not contain expected substring"
+		}
+	}
+
+	return true, ""
+}
+
+func userLogsHasWorkflowID(logs *workflowevents.UserLogs, workflowID string) bool {
+	if logs == nil || logs.M == nil || workflowID == "" {
+		return false
+	}
+	return normalizeWorkflowID(logs.M.WorkflowID) == workflowID
 }
 
 // IgnoreUserLogs drains user log traffic so publishers never block when tests do not care about logs.

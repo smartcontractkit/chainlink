@@ -3,6 +3,7 @@ package remote_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -105,9 +106,9 @@ func TestSanitizeLogString(t *testing.T) {
 	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
 	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
 
-	longString := ""
+	var longString strings.Builder
 	for range 100 {
-		longString += "aa-aa-aa-"
+		longString.WriteString("aa-aa-aa-")
 	}
-	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
+	require.Equal(t, longString.String()[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString.String()))
 }

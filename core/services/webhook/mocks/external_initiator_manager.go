@@ -6,7 +6,6 @@ import (
 	context "context"
 
 	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
