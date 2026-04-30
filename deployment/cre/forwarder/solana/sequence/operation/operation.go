@@ -98,16 +98,16 @@ type (
 
 func initForwarder(b operations.Bundle, deps Deps, in InitForwarderInput) (InitForwarderOutput, error) {
 	var out InitForwarderOutput
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.SetProgramID(in.ProgramID)
-	}
+	// anchor-go bakes a default program id; deploy uses the keystone_forwarder keypair, which can differ.
+	// NewInitializeInstruction uses this package var as the program id, so it must match deploy output.
+	ks_forwarder.ProgramID = in.ProgramID
 
 	stateKey, err := solana.NewRandomPrivateKey()
 	if err != nil {
 		return out, fmt.Errorf("failed to create random keys: %w", err)
 	}
 
-	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), deps.Chain.DeployerKey.PublicKey(), solana.SystemProgramID).ValidateAndBuild()
+	instruction, err := ks_forwarder.NewInitializeInstruction(stateKey.PublicKey(), deps.Chain.DeployerKey.PublicKey(), solana.SystemProgramID)
 	if err != nil {
 		return out, fmt.Errorf("failed to build and validate initialize instruction %w", err)
 	}
@@ -179,10 +179,8 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInput) (ConfigureForwarderOutput, error) {
 	var out ConfigureForwarderOutput
 
-	var instructions *ks_forwarder.Instruction
-	if ks_forwarder.ProgramID.IsZero() {
-		ks_forwarder.SetProgramID(in.ProgramID)
-	}
+	var instructions solana.Instruction
+	ks_forwarder.ProgramID = in.ProgramID
 
 	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
 
@@ -210,7 +208,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			configPDA,
 			owner,
 			solana.SystemProgramID,
-		).ValidateAndBuild()
+		)
 		if err != nil {
 			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
 		}
@@ -223,7 +221,7 @@ func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInp
 			in.ForwarderState,
 			configPDA,
 			owner,
-		).ValidateAndBuild()
+		)
 		if err != nil {
 			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
 		}

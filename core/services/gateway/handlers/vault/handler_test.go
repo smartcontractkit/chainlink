@@ -61,10 +61,8 @@ func setupHandler(t *testing.T) (handlers.Handler, *common.Callback, *mocks.DON,
 
 	clock := clockwork.NewFakeClock()
 	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
-	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
-	require.NoError(t, err)
-	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, jwtBasedAuth, lggr)
-	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, lggr, clock, limitsFactory)
+	authorizer := vaultcap.NewAuthorizer(&stubAllowListBasedAuth{clock: clock}, nil, lggr)
+	handler, err := newHandlerWithAuthorizer(methodConfig, donConfig, don, nil, authorizer, nil, lggr, clock, limitsFactory)
 	require.NoError(t, err)
 	handler.aggregator = &mockAggregator{}
 	cb := common.NewCallback()
@@ -77,6 +75,15 @@ type stubAllowListBasedAuth struct {
 
 func (s *stubAllowListBasedAuth) AuthorizeRequest(_ context.Context, req jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
 	return vaultcap.NewAuthResult("", owner, "digest-"+req.ID, s.clock.Now().Add(time.Minute).Unix()), nil
+}
+
+type stubAuthorizer struct {
+	result *vaultcap.AuthResult
+	err    error
+}
+
+func (s *stubAuthorizer) AuthorizeRequest(_ context.Context, _ jsonrpc.Request[json.RawMessage]) (*vaultcap.AuthResult, error) {
+	return s.result, s.err
 }
 
 type mockAggregator struct {
@@ -217,6 +224,79 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		err = h.HandleNodeMessage(t.Context(), &response, NodeOne.Address)
 		require.NoError(t, err)
 		wg.Wait()
+	})
+
+	t.Run("overwrites request identity fields after authorization", func(t *testing.T) {
+		lggr := logger.Test(t)
+		don := mocks.NewDON(t)
+		donConfig := &config.DONConfig{
+			DonId:   "test_don_id",
+			Members: []config.NodeConfig{NodeOne},
+		}
+		handlerConfig := Config{
+			RequestTimeoutSec: 30,
+			NodeRateLimiter: ratelimit.RateLimiterConfig{
+				GlobalRPS:      100,
+				GlobalBurst:    100,
+				PerSenderRPS:   10,
+				PerSenderBurst: 10,
+			},
+		}
+		methodConfig, err := json.Marshal(handlerConfig)
+		require.NoError(t, err)
+
+		clock := clockwork.NewFakeClock()
+		limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter}
+		h, err := newHandlerWithAuthorizer(
+			methodConfig,
+			donConfig,
+			don,
+			nil,
+			&stubAuthorizer{result: vaultcap.NewAuthResult("org-1", "0xworkflow", "digest-1", clock.Now().Add(time.Minute).Unix())},
+			nil,
+			lggr,
+			clock,
+			limitsFactory,
+		)
+		require.NoError(t, err)
+
+		forgedCreateSecretsRequest := &vaultcommon.CreateSecretsRequest{
+			RequestId:     "test_request_id",
+			OrgId:         "forged-org",
+			WorkflowOwner: "0xforged",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{
+					Id: &vaultcommon.SecretIdentifier{
+						Key:   "test_id",
+						Owner: "org-1",
+					},
+					EncryptedValue: "abc123",
+				},
+			},
+		}
+		requestParams, err := json.Marshal(forgedCreateSecretsRequest)
+		require.NoError(t, err)
+
+		var forwarded jsonrpc.Request[json.RawMessage]
+		don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			forwarded = *args.Get(2).(*jsonrpc.Request[json.RawMessage])
+		}).Return(nil)
+
+		req := jsonrpc.Request[json.RawMessage]{
+			ID:     "1",
+			Method: vaulttypes.MethodSecretsCreate,
+			Params: (*json.RawMessage)(&requestParams),
+		}
+
+		err = h.HandleJSONRPCUserMessage(t.Context(), req, common.NewCallback())
+		require.NoError(t, err)
+
+		require.NotNil(t, forwarded.Params)
+		var forwardedCreateRequest vaultcommon.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*forwarded.Params, &forwardedCreateRequest))
+		require.Equal(t, "org-1", forwardedCreateRequest.OrgId)
+		require.Equal(t, "0xworkflow", forwardedCreateRequest.WorkflowOwner)
+		require.Equal(t, "org-1"+vaulttypes.RequestIDSeparator+"1", forwardedCreateRequest.RequestId)
 	})
 
 	t.Run("nil EncryptedSecrets inside CreateSecrets body", func(t *testing.T) {

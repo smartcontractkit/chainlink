@@ -107,7 +107,7 @@ func generateDetails(js gjson.Result) string {
 	var details strings.Builder
 
 	for _, v := range keys {
-		details.WriteString(fmt.Sprintf("%s=%v ", green(sanitized(v)), sanitized(data[v].String())))
+		fmt.Fprintf(&details, "%s=%v ", green(sanitized(v)), sanitized(data[v].String()))
 	}
 
 	return details.String()
@@ -137,7 +137,7 @@ type sanitized string
 // String replaces control characters with Go escape sequences, except for newlines and tabs.
 // See strconv.QuoteRune.
 func (s sanitized) String() string {
-	var out string
+	var out strings.Builder
 	for _, r := range s {
 		switch r {
 		case '\n', '\r', '\t':
@@ -146,11 +146,11 @@ func (s sanitized) String() string {
 			// escape others
 			if unicode.IsControl(r) {
 				q := strconv.QuoteRune(r)
-				out += q[1 : len(q)-1] // trim quotes
+				out.WriteString(q[1 : len(q)-1]) // trim quotes
 				continue
 			}
 		}
-		out += string(r)
+		out.WriteRune(r)
 	}
-	return out
+	return out.String()
 }

@@ -236,7 +236,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "create accepts ciphertext at the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateCreateSecretsRequest(nil, &vaultcommon.CreateSecretsRequest{
+				return validator.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -248,7 +248,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "create rejects ciphertext above the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateCreateSecretsRequest(nil, &vaultcommon.CreateSecretsRequest{
+				return validator.ValidateCreateSecretsRequest(t.Context(), nil, &vaultcommon.CreateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -261,7 +261,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "update accepts ciphertext at the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateUpdateSecretsRequest(nil, &vaultcommon.UpdateSecretsRequest{
+				return validator.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -273,7 +273,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		{
 			name: "update rejects ciphertext above the limit",
 			call: func(t *testing.T, validator *RequestValidator, value string) error {
-				return validator.ValidateUpdateSecretsRequest(nil, &vaultcommon.UpdateSecretsRequest{
+				return validator.ValidateUpdateSecretsRequest(t.Context(), nil, &vaultcommon.UpdateSecretsRequest{
 					RequestId: "request-id",
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
@@ -297,4 +297,61 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 			require.ErrorContains(t, err, tt.errSubstr)
 		})
 	}
+}
+
+func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrgLabels(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
+	)
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
+
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
+		RequestId:     "request-id",
+		OrgId:         orgID,
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "key",
+					Namespace: "namespace",
+					Owner:     orgID,
+				},
+				EncryptedValue: encrypted,
+			},
+		},
+	})
+
+	require.NoError(t, err)
+}
+
+func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerForLegacyRequests(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
+	)
+
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encrypted := encryptWithEthAddressLabel(t, pk, workflowOwner)
+
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
+		RequestId: "request-id",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "key",
+					Namespace: "namespace",
+					Owner:     workflowOwner,
+				},
+				EncryptedValue: encrypted,
+			},
+		},
+	})
+
+	require.NoError(t, err)
 }

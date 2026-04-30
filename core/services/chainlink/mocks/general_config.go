@@ -7,7 +7,6 @@ import (
 
 	uuid "github.com/google/uuid"
 	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	mock "github.com/stretchr/testify/mock"
@@ -1202,51 +1201,6 @@ func (_c *GeneralConfig_InsecureFastScrypt_Call) RunAndReturn(run func() bool) *
 	return _c
 }
 
-// InsecurePPROFHeap provides a mock function with no fields
-func (_m *GeneralConfig) InsecurePPROFHeap() bool {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for InsecurePPROFHeap")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// GeneralConfig_InsecurePPROFHeap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsecurePPROFHeap'
-type GeneralConfig_InsecurePPROFHeap_Call struct {
-	*mock.Call
-}
-
-// InsecurePPROFHeap is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) InsecurePPROFHeap() *GeneralConfig_InsecurePPROFHeap_Call {
-	return &GeneralConfig_InsecurePPROFHeap_Call{Call: _e.mock.On("InsecurePPROFHeap")}
-}
-
-func (_c *GeneralConfig_InsecurePPROFHeap_Call) Run(run func()) *GeneralConfig_InsecurePPROFHeap_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_InsecurePPROFHeap_Call) Return(_a0 bool) *GeneralConfig_InsecurePPROFHeap_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_InsecurePPROFHeap_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecurePPROFHeap_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // JobDistributor provides a mock function with no fields
 func (_m *GeneralConfig) JobDistributor() config.JobDistributor {
 	ret := _m.Called()
@@ -1337,53 +1291,6 @@ func (_c *GeneralConfig_JobPipeline_Call) Return(_a0 config.JobPipeline) *Genera
 }
 
 func (_c *GeneralConfig_JobPipeline_Call) RunAndReturn(run func() config.JobPipeline) *GeneralConfig_JobPipeline_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// Keeper provides a mock function with no fields
-func (_m *GeneralConfig) Keeper() config.Keeper {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for Keeper")
-	}
-
-	var r0 config.Keeper
-	if rf, ok := ret.Get(0).(func() config.Keeper); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Keeper)
-		}
-	}
-
-	return r0
-}
-
-// GeneralConfig_Keeper_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Keeper'
-type GeneralConfig_Keeper_Call struct {
-	*mock.Call
-}
-
-// Keeper is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) Keeper() *GeneralConfig_Keeper_Call {
-	return &GeneralConfig_Keeper_Call{Call: _e.mock.On("Keeper")}
-}
-
-func (_c *GeneralConfig_Keeper_Call) Run(run func()) *GeneralConfig_Keeper_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *GeneralConfig_Keeper_Call) Return(_a0 config.Keeper) *GeneralConfig_Keeper_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *GeneralConfig_Keeper_Call) RunAndReturn(run func() config.Keeper) *GeneralConfig_Keeper_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2143,19 +2050,19 @@ func (_c *GeneralConfig_ShutdownGracePeriod_Call) RunAndReturn(run func() time.D
 }
 
 // SolanaConfigs provides a mock function with no fields
-func (_m *GeneralConfig) SolanaConfigs() solanaconfig.TOMLConfigs {
+func (_m *GeneralConfig) SolanaConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for SolanaConfigs")
 	}
 
-	var r0 solanaconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() solanaconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(solanaconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -2179,12 +2086,12 @@ func (_c *GeneralConfig_SolanaConfigs_Call) Run(run func()) *GeneralConfig_Solan
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -18,57 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-// KeepersObservationSource is the same for all keeper jobs and it is not persisted in DB
-const KeepersObservationSource = `
-    encode_check_upkeep_tx      [type=ethabiencode
-                                 abi="checkUpkeep(uint256 id, address from)"
-                                 data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.effectiveKeeperAddress)}"]
-    check_upkeep_tx             [type=ethcall
-                                 failEarly=true
-                                 extractRevertReason=true
-                                 evmChainID="$(jobSpec.evmChainID)"
-                                 contract="$(jobSpec.contractAddress)"
-                                 gasUnlimited=true
-                                 gasPrice="$(jobSpec.gasPrice)"
-                                 gasTipCap="$(jobSpec.gasTipCap)"
-                                 gasFeeCap="$(jobSpec.gasFeeCap)"
-                                 data="$(encode_check_upkeep_tx)"]
-    decode_check_upkeep_tx      [type=ethabidecode
-                                 abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
-    calculate_perform_data_len  [type=length
-                                 input="$(decode_check_upkeep_tx.performData)"]
-    perform_data_lessthan_limit [type=lessthan
-                                 left="$(calculate_perform_data_len)"
-                                 right="$(jobSpec.maxPerformDataSize)"]
-    check_perform_data_limit    [type=conditional
-                                 failEarly=true
-                                 data="$(perform_data_lessthan_limit)"]
-    encode_perform_upkeep_tx    [type=ethabiencode
-                                 abi="performUpkeep(uint256 id, bytes calldata performData)"
-                                 data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
-    simulate_perform_upkeep_tx  [type=ethcall
-                                 extractRevertReason=true
-                                 evmChainID="$(jobSpec.evmChainID)"
-                                 contract="$(jobSpec.contractAddress)"
-                                 from="$(jobSpec.effectiveKeeperAddress)"
-                                 gasUnlimited=true
-                                 data="$(encode_perform_upkeep_tx)"]
-    decode_check_perform_tx     [type=ethabidecode
-                                 abi="bool success"]
-    check_success            	[type=conditional
-                                 failEarly=true
-                                 data="$(decode_check_perform_tx.success)"]
-    perform_upkeep_tx        	[type=ethtx
-                                 minConfirmations=0
-                                 to="$(jobSpec.contractAddress)"
-                                 from="[$(jobSpec.fromAddress)]"
-                                 evmChainID="$(jobSpec.evmChainID)"
-                                 data="$(encode_perform_upkeep_tx)"
-                                 gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                                 txMeta="{\"jobID\":$(jobSpec.jobID),\"upkeepID\":$(jobSpec.prettyID)}"]
-    encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> calculate_perform_data_len -> perform_data_lessthan_limit -> check_perform_data_limit -> encode_perform_upkeep_tx -> simulate_perform_upkeep_tx -> decode_check_perform_tx -> check_success -> perform_upkeep_tx
-`
-
 type CreateDataSource interface {
 	GetContext(ctx context.Context, dest any, query string, args ...any) error
 }
@@ -655,9 +604,6 @@ func loadAssociations(ctx context.Context, ds sqlutil.DataSource, runs []*Run) e
 		return errors.Wrap(err, "failed to postload pipeline_specs for runs")
 	}
 	for _, spec := range specs {
-		if spec.JobType == "keeper" {
-			spec.DotDagSource = KeepersObservationSource
-		}
 		pipelineSpecIDM[spec.ID] = spec
 	}
 

@@ -5,6 +5,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -14,11 +16,10 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_GetContractSet(t *testing.T) {
@@ -68,7 +69,7 @@ func Test_GetContractSet(t *testing.T) {
 				ContractSets: map[uint64]ContractSet{
 					chain.Selector: {
 						MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
-							MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
+							MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{},
 						},
 						CapabilitiesRegistry: func() *kcr.CapabilitiesRegistry {
 							cr, err := kcr.NewCapabilitiesRegistry(common.HexToAddress("0xabc"), nil)
@@ -116,7 +117,7 @@ func Test_GetContractSet(t *testing.T) {
 				ContractSets: map[uint64]ContractSet{
 					chain.Selector: {
 						MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
-							MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
+							MCMSWithTimelockContracts: &cldfproposalutils.MCMSWithTimelockContracts{},
 						},
 						CapabilitiesRegistry: func() *kcr.CapabilitiesRegistry {
 							cr, err := kcr.NewCapabilitiesRegistry(common.HexToAddress("0x123"), nil)

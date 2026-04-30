@@ -32,10 +32,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -171,16 +173,27 @@ func (s *Services) newSubservices(
 		}
 		s.GatewayConnectorWrapper = gatewayConnectorWrapper
 		srvs = append(srvs, gatewayConnectorWrapper)
+
+		if cfg.CRE().ConfidentialRelay().Enabled() {
+			relayService := confidentialrelay.NewService(
+				gatewayConnectorWrapper,
+				opts.CapabilitiesRegistry,
+				lggr,
+				opts.LimitsFactory,
+			)
+			srvs = append(srvs, relayService)
+		}
 	}
 
 	if cfg.CRE().Linking().URL() != "" {
 		lggr.Debugw("Creating OrgResolver")
-		orgResolver, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
+		inner, ierr := newOrgResolver(cfg, capCfg, opts, lggr)
 		if ierr != nil {
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
-		s.OrgResolver = orgResolver
-		srvs = append(srvs, orgResolver)
+		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
+		s.OrgResolver = fallbackResolver
+		srvs = append(srvs, fallbackResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -490,7 +503,7 @@ func (w *dispatcherWrapper) newSubservices(
 	capCfg := cfg.Capabilities()
 
 	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
-		opts.CapabilitiesRegistry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
 		return nil, nil
 	}
 
@@ -533,6 +546,17 @@ func (w *dispatcherWrapper) newSubservices(
 	w.dispatcher = remoteDispatcher
 	subs = append(subs, remoteDispatcher)
 	return subs, nil
+}
+
+func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
+	registry := &capabilities.TestMetadataRegistry{}
+	if localCfg != nil && localCfg.GetCapabilityConfig(capStreams.MockTriggerCapabilityID) != nil {
+		// The mock streams trigger emits 2F+1 signatures, so the synthetic local
+		// workflow DON needs to advertise F=1 only for that opt-in compatibility path.
+		registry.WorkflowDONF = 1
+	}
+
+	return registry
 }
 
 // newDispatcherWrapper creates a new dispatcherWrapper service with peer wrappers if peering is enabled

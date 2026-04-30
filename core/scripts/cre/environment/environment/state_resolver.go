@@ -160,6 +160,45 @@ func (r *LocalCREStateResolver) WorkflowRegistryOutput() (*cre.WorkflowRegistryO
 	return &out, nil
 }
 
+// WorkflowDONNodeInfo returns the shared PostgreSQL port and worker node count for the
+// workflow DON as recorded in the local CRE state file. These values are used by
+// waitForVaultConfigPropagation to poll each node's registry_syncer_states table.
+func (r *LocalCREStateResolver) WorkflowDONNodeInfo() (dbPort int, nodeCount int, err error) {
+	if r.cfg.Infra == nil {
+		return 0, 0, errors.New("infra section is missing from local CRE state file")
+	}
+	if r.cfg.Infra.IsKubernetes() {
+		return 0, 0, errors.New("direct DB polling is not supported for Kubernetes provider; vault config propagation requires a static wait on Kubernetes")
+	}
+
+	donMeta, err := r.WorkflowDONMetadata()
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to get workflow DON metadata")
+	}
+
+	// Find the NodeSet whose name matches the workflow DON name.
+	var nodeSet *cre.NodeSet
+	for _, ns := range r.cfg.NodeSets {
+		if ns.Name == donMeta.Name {
+			nodeSet = ns
+			break
+		}
+	}
+	if nodeSet == nil {
+		return 0, 0, fmt.Errorf("no nodeset found for workflow DON %q in local CRE state", donMeta.Name)
+	}
+	if nodeSet.DbInput == nil {
+		return 0, 0, fmt.Errorf("nodeset %q has no DbInput in local CRE state", donMeta.Name)
+	}
+
+	workers, err := donMeta.Workers()
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "failed to get workflow DON workers")
+	}
+
+	return nodeSet.DbInput.Port, len(workers), nil
+}
+
 func semverFromFlag(version string) (*semver.Version, error) {
 	parsed, err := semver.NewVersion(version)
 	if err != nil {

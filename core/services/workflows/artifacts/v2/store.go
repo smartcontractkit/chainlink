@@ -198,7 +198,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 	req := ghcapabilities.Request{
 		URL:              binaryURL,
 		Method:           http.MethodGet,
-		MaxResponseBytes: safeUint32(uint64(maxBinarySize)), //nolint:gosec // G115
+		MaxResponseBytes: safeUint32(uint64(maxBinarySize)),
 		WorkflowID:       workflowID,
 	}
 	binary, err = h.fetchFn(ctx, messageID(binaryURL, workflowID), req)
@@ -241,7 +241,7 @@ func (h *Store) FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryUR
 		req := ghcapabilities.Request{
 			URL:              configURL,
 			Method:           http.MethodGet,
-			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)), //nolint:gosec // G115
+			MaxResponseBytes: safeUint32(uint64(maxResponseBytes)),
 			WorkflowID:       workflowID,
 		}
 

@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -266,7 +265,6 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
-			InsecurePPROFHeap: ptr.Ptr(false), // Set to true to enable v2/debug/pprof/heap endpoint
 			Feature: coretoml.Feature{
 				LogPoller: ptr.Ptr(true),
 			},
@@ -855,20 +853,20 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 	*existingConfig = append(*existingConfig, &cfg)
 }
 
-func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain) {
+func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solanaChain) {
 	for _, existingSol := range *existingConfig {
-		if existingSol.ChainID != nil && *existingSol.ChainID == solChain.ChainID {
+		if existingSol.ChainID() == solChain.ChainID {
 			return
 		}
 	}
 
-	*existingConfig = append(*existingConfig, &solcfg.TOMLConfig{
-		Enabled: ptr.Ptr(true),
-		ChainID: ptr.Ptr(solChain.ChainID),
-		Nodes: []*solcfg.Node{
+	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
+		"Enabled": true,
+		"ChainID": solChain.ChainID,
+		"Nodes": []map[string]any{
 			{
-				Name: &solChain.Name,
-				URL:  commonconfig.MustParseURL(solChain.NodeURL),
+				"Name": solChain.Name,
+				"URL":  solChain.NodeURL,
 			},
 		},
 	})
