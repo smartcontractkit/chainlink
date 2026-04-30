@@ -491,6 +491,7 @@ func TestEvictable_ReloadFailure(t *testing.T) {
 func newLRUModule(t *testing.T, store artifacts.SerialisedModuleStore, wfID string) *EvictableModule {
 	t.Helper()
 	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).Return(&sdkpb.ExecutionResult{}, nil).Maybe()
 	inner.EXPECT().Close().Maybe()
 	require.NoError(t, store.StoreModule(wfID, []byte("binary"), ""))
 	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
