@@ -763,11 +763,18 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			errSubstr: "secret ID must have key set at index",
 		},
 		{
-			name: "invalid chars in identifier",
+			name: "key with invalid characters (hyphen) is rejected",
 			requests: []*vaultcommon.SecretRequest{
 				{Id: validID("key-invalid", "owner1", "main")},
 			},
-			errSubstr: "invalid secret identifier at index 0",
+			errSubstr: "must only contain alphanumeric characters",
+		},
+		{
+			name: "key with invalid characters (slash) is rejected",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key/name", "owner1", "main")},
+			},
+			errSubstr: "must only contain alphanumeric characters",
 		},
 		{
 			name: "invalid chars in owner",
@@ -792,6 +799,30 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			errSubstr: "invalid secret identifier at index 1",
 		},
 		{
+			name: "empty owner at second index",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("key2", "", "main")},
+			},
+			errSubstr: "invalid secret identifier at index 1",
+		},
+		{
+			name: "nil id at second index",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key1", "owner1", "main")},
+				{Id: nil},
+			},
+			errSubstr: "secret ID must have id set at index 1",
+		},
+		{
+			name: "empty key at second index",
+			requests: []*vaultcommon.SecretRequest{
+				{Id: validID("key1", "owner1", "main")},
+				{Id: validID("", "owner1", "main")},
+			},
+			errSubstr: "secret ID must have key set at index 1",
+		},
+		{
 			name: "empty namespace is rejected",
 			requests: []*vaultcommon.SecretRequest{
 				{Id: validID("mykey", "owner1", "")},
@@ -811,6 +842,50 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			require.ErrorContains(t, err, tt.errSubstr)
 		})
 	}
+}
+
+func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
+	const ownerLimit = 6 * pkgconfig.Byte
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(ownerLimit),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+	)
+
+	// First item is within the owner length limit; second item exceeds it.
+	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner1", Namespace: "main"}},   // 6 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner12", Namespace: "main"}}, // 7 bytes
+		},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid secret identifier at index 1")
+	require.ErrorContains(t, err, "owner exceeds maximum length")
+}
+
+func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
+	const keyLimit = 5 * pkgconfig.Byte
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(keyLimit),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+	)
+
+	// First item is within the key length limit; second item exceeds it.
+	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: &vaultcommon.SecretIdentifier{Key: "abcde", Owner: "owner1", Namespace: "main"}},   // 5 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "abcdef", Owner: "owner1", Namespace: "main"}}, // 6 bytes
+		},
+	})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid secret identifier at index 1")
+	require.ErrorContains(t, err, "key exceeds maximum length")
 }
 
 func TestValidateGetSecretsRequest_OwnerSpecificKeyLimit(t *testing.T) {

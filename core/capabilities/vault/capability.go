@@ -126,10 +126,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
 	}
 
-	// Validate the request: we only check that the request contains at least one secret request.
-	// All other validations are done in the plugin and subject to consensus.
-	if len(r.Requests) == 0 {
-		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
+	err = s.ValidateGetSecretsRequest(ctx, r)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not validate get secrets request: %w", err)
 	}
 
 	for idx, req := range r.Requests {

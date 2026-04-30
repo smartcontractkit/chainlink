@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -39,7 +40,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
@@ -137,7 +138,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	referenceID := "0"
 
@@ -220,6 +221,157 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	err = resp.Payload.UnmarshalTo(typedResponse)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
+}
+
+func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
+	workflowOwner := "0x1111111111111111111111111111111111111111"
+	workflowID := "wf-id"
+	execID := "exec-id"
+	refID := "ref-id"
+
+	newCapability := func(t *testing.T) *Capability {
+		t.Helper()
+		lggr := logger.TestLogger(t)
+		clock := clockwork.NewFakeClock()
+		expiry := 10 * time.Second
+		store := requests.NewStore[*vaulttypes.Request]()
+		handler := requests.NewHandler(lggr, store, clock, expiry)
+		reg := coreCapabilities.NewRegistry(lggr)
+		lf := limits.Factory{Settings: cresettings.DefaultGetter}
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+		require.NoError(t, err)
+		servicetest.Run(t, capability)
+		return capability
+	}
+
+	t.Run("rejects batch when request count reaches MaxBatchSize", func(t *testing.T) {
+		capability := newCapability(t)
+		reqs := make([]*vault.SecretRequest, vaulttypes.MaxBatchSize)
+		for i := range reqs {
+			reqs[i] = &vault.SecretRequest{
+				Id: &vault.SecretIdentifier{
+					Key:       fmt.Sprintf("key%d", i),
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"k"},
+			}
+		}
+		gsr := &vault.GetSecretsRequest{WorkflowOwner: workflowOwner, Requests: reqs}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "request batch size exceeds maximum of")
+	})
+
+	t.Run("rejects key with invalid characters on a later batched item", func(t *testing.T) {
+		capability := newCapability(t)
+		gsr := &vault.GetSecretsRequest{
+			WorkflowOwner: workflowOwner,
+			Requests: []*vault.SecretRequest{
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "Foo",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "bad-key",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+			},
+		}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "invalid secret identifier at index 1")
+		require.ErrorContains(t, err, "must only contain alphanumeric characters")
+	})
+
+	t.Run("rejects key that exceeds configured max length on a later batched item", func(t *testing.T) {
+		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultIdentifierKeySizeLimit":"3b"}}`))
+		require.NoError(t, err)
+		lf := limits.Factory{Settings: getter}
+
+		lggr := logger.TestLogger(t)
+		clock := clockwork.NewFakeClock()
+		expiry := 10 * time.Second
+		store := requests.NewStore[*vaulttypes.Request]()
+		handler := requests.NewHandler(lggr, store, clock, expiry)
+		reg := coreCapabilities.NewRegistry(lggr)
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, nil, lf)
+		require.NoError(t, err)
+		servicetest.Run(t, capability)
+
+		gsr := &vault.GetSecretsRequest{
+			WorkflowOwner: workflowOwner,
+			Requests: []*vault.SecretRequest{
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "abc",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "abcd",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+			},
+		}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "invalid secret identifier at index 1")
+		require.ErrorContains(t, err, "key exceeds maximum length")
+	})
 }
 
 func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
@@ -662,7 +814,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
@@ -737,7 +889,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
