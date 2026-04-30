@@ -338,7 +338,7 @@ func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
 						Id: &vault.SecretIdentifier{
 							Key:       "Foo",
 							Namespace: "Bar",
-							Owner:     normalizedOwner,
+							Owner:     "org-123",
 						},
 						Result: &vault.SecretResponse_Error{Error: "not found"},
 					},
@@ -364,7 +364,7 @@ func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
 		workflowEncryptionKey,
 	)
 
-	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
 		Requests: []*sdkpb.SecretRequest{
 			{
 				Id:        "Foo",
@@ -376,6 +376,58 @@ func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {
 	require.NotNil(t, capturedReq)
 	assert.Equal(t, "org-123", capturedReq.OrgId)
 	assert.Equal(t, owner, capturedReq.WorkflowOwner)
+	assert.Equal(t, normalizedOwner, capturedReq.Requests[0].Id.Owner)
+	require.Len(t, resp, 1)
+	require.NotNil(t, resp[0].GetError())
+	assert.Contains(t, resp[0].GetError().Error, "not found")
+	assert.NotContains(t, resp[0].GetError().Error, "could not find response")
+}
+
+func TestSecretsFetcher_RequiresOrgIDWhenGateEnabled(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	mc := vaultMock.Vault{
+		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			require.Fail(t, "vault should not be called when org ID is missing")
+			return nil, nil
+		},
+	}
+	err = reg.Add(t.Context(), mc)
+	require.NoError(t, err)
+
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewUpperBoundLimiter[int](5),
+		testVaultOrgIDAsSecretOwnerGate(t, true),
+		"",
+		"1234567890abcdef1234567890abcdef12345678",
+		"workflowName",
+		"workflowID",
+		"workflowExecID",
+		workflowEncryptionKey,
+	)
+
+	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+		Requests: []*sdkpb.SecretRequest{
+			{
+				Id:        "Foo",
+				Namespace: "Bar",
+			},
+		},
+	})
+	require.ErrorContains(t, err, "org_id is required when VaultOrgIdAsSecretOwnerEnabled is enabled")
 }
 
 func TestSecretsFetcher_OmitsOrgIDAndWorkflowOwnerWhenGateDisabled(t *testing.T) {

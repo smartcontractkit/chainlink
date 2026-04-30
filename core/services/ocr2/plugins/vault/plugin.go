@@ -390,7 +390,7 @@ func (r *ReportingPlugin) orgIDAsSecretOwnerEnabled(ctx context.Context) bool {
 	return r.cfg.OrgIDAsSecretOwnerEnabled.AllowErr(ctx) == nil
 }
 
-// canonicalResponseID rewrites successful CRUD responses to the canonical owner identity.
+// canonicalResponseID rewrites Vault responses to the canonical owner identity.
 //
 // When VaultOrgIdAsSecretOwnerEnabled is on, requests may still arrive keyed by
 // workflow owner for backwards compatibility with existing clients and allowlist-based
@@ -655,7 +655,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, reader ReadKVSt
 			logUserErrorAware(r.lggr, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
 			errorMsg := userFacingError(ierr, "failed to handle get secret request")
 			resps = append(resps, &vaultcommon.SecretResponse{
-				Id: secretRequest.Id,
+				Id: r.canonicalResponseID(ctx, secretRequest.Id, tp.OrgId),
 				Result: &vaultcommon.SecretResponse_Error{
 					Error: errorMsg,
 				},
@@ -760,7 +760,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}
 
 	return &vaultcommon.SecretResponse{
-		Id: id,
+		Id: r.canonicalResponseID(ctx, id, orgID),
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
 				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
@@ -1303,27 +1303,27 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 	// we should have max 1 share per observation per encrypted key
 	req, resp := o.GetGetSecretsRequest(), o.GetGetSecretsResponse()
 	reqMap := map[string]*vaultcommon.SecretRequest{}
-	for _, r := range req.Requests {
-		if r.Id == nil {
+	for _, secretRequest := range req.Requests {
+		if secretRequest.Id == nil {
 			return errors.New("GetSecrets request contains nil secret identifier")
 		}
-		key := vaulttypes.KeyFor(r.Id)
+		key := vaulttypes.KeyFor(r.canonicalResponseID(ctx, secretRequest.Id, req.OrgId))
 		if _, ok := reqMap[key]; ok {
 			return fmt.Errorf("duplicate request found for item %s", key)
 		}
-		reqMap[key] = r
+		reqMap[key] = secretRequest
 	}
 
 	respMap := map[string]*vaultcommon.SecretResponse{}
-	for _, r := range resp.Responses {
-		if r.Id == nil {
+	for _, secretResponse := range resp.Responses {
+		if secretResponse.Id == nil {
 			return errors.New("GetSecrets response contains nil secret identifier")
 		}
-		key := vaulttypes.KeyFor(r.Id)
+		key := vaulttypes.KeyFor(secretResponse.Id)
 		if _, ok := respMap[key]; ok {
 			return fmt.Errorf("duplicate response found for item %s", key)
 		}
-		respMap[key] = r
+		respMap[key] = secretResponse
 	}
 
 	if len(reqMap) != len(respMap) {
@@ -1331,7 +1331,8 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 	}
 
 	for _, rq := range reqMap {
-		key := vaulttypes.KeyFor(rq.Id)
+		responseID := r.canonicalResponseID(ctx, rq.Id, req.OrgId)
+		key := vaulttypes.KeyFor(responseID)
 		rsp, ok := respMap[key]
 		if !ok {
 			return fmt.Errorf("missing response for request with id %s", key)
@@ -1344,7 +1345,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 				return errors.New("observation must contain a share per encryption key provided")
 			}
 
-			innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rq.Id.Owner})
+			innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: responseID.Owner})
 			for _, ds := range decryptionShares {
 				if len(ds.Shares) != 1 {
 					return errors.New("observation must have exactly 1 share per encryption key")

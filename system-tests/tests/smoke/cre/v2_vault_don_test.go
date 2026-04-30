@@ -87,7 +87,7 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		var orgIDLabelSecretID string
 		var orgIDLabelCreateValue string
 		if orgIDAsSecretOwnerEnabled {
-			orgIDLabelSecretID = secretID + "-org-id-label"
+			orgIDLabelSecretID = secretID + "orgidlabel"
 			orgIDLabelCreateValue = "secret-basic-create-org-id-label"
 			orgIDLabelCreateEnc, orgErr := vaultutils.EncryptSecretWithOrgID(orgIDLabelCreateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, orgErr)

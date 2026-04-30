@@ -192,6 +192,9 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	if err != nil {
 		return nil, fmt.Errorf("failed to evaluate vault org_id gate: %w", err)
 	}
+	if orgIDGateEnabled && s.orgID == "" {
+		return nil, errors.New("org_id is required when VaultOrgIdAsSecretOwnerEnabled is enabled")
+	}
 	metadata := capabilities.RequestMetadata{
 		WorkflowID:          s.workflowID,
 		WorkflowOwner:       s.workflowOwner,
@@ -214,6 +217,10 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 	owner, err := normalizeOwner(s.workflowOwner)
 	if err != nil {
 		return nil, fmt.Errorf("could not normalize workflowOwner: %w", err)
+	}
+	responseOwner := owner
+	if orgIDGateEnabled {
+		responseOwner = s.orgID
 	}
 
 	logKeys := make([]string, 0, len(request.Requests))
@@ -273,15 +280,15 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		if namespace == "" {
 			namespace = vaulttypes.DefaultNamespace
 		}
-		key := keyFor(owner, namespace, r.Id)
+		key := keyFor(responseOwner, namespace, r.Id)
 		resp, ok := m[key]
 		if !ok {
 			errorMessage := "could not find response for the request: " + key
-			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, owner, errorMessage)
+			errorResponse := s.wrapErrorResponse(lggr, r.Id, namespace, responseOwner, errorMessage)
 			sdkResp = append(sdkResp, &errorResponse)
 			continue
 		}
-		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, owner, namespace, cfg, resp)
+		response := s.getSecretForSingleRequest(logger.With(lggr, "key", key), r.Id, responseOwner, namespace, cfg, resp)
 		sdkResp = append(sdkResp, &response)
 	}
 	return sdkResp, nil

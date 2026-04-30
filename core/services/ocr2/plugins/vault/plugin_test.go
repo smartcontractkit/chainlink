@@ -1082,6 +1082,8 @@ func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *t
 	require.Len(t, obs.Observations, 1)
 	batchResp := obs.Observations[0].GetGetSecretsResponse()
 	require.Len(t, batchResp.Responses, 1)
+	require.NotNil(t, batchResp.Responses[0].GetId())
+	assert.Equal(t, orgID, batchResp.Responses[0].GetId().GetOwner())
 	assert.Empty(t, batchResp.Responses[0].GetError())
 }
 
@@ -6840,6 +6842,64 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		bf,
 	)
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
+}
+
+func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 1, pk, shares[0], 1, 1024, 30, 30, 30, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+	r := &ReportingPlugin{
+		lggr:    lggr,
+		metrics: newTestMetrics(t),
+		cfg:     cfg,
+	}
+
+	workflowOwner := "workflowowner"
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	secretID := &vaultcommon.SecretIdentifier{
+		Owner:     workflowOwner,
+		Namespace: "main",
+		Key:       "secret",
+	}
+	responseID := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: secretID.Namespace,
+		Key:       secretID.Key,
+	}
+
+	obs := &vaultcommon.Observation{
+		Id:          "request-1",
+		RequestType: vaultcommon.RequestType_GET_SECRETS,
+		Request: &vaultcommon.Observation_GetSecretsRequest{
+			GetSecretsRequest: &vaultcommon.GetSecretsRequest{
+				Requests: []*vaultcommon.SecretRequest{
+					{Id: secretID},
+				},
+				OrgId:         orgID,
+				WorkflowOwner: workflowOwner,
+			},
+		},
+		Response: &vaultcommon.Observation_GetSecretsResponse{
+			GetSecretsResponse: &vaultcommon.GetSecretsResponse{
+				Responses: []*vaultcommon.SecretResponse{
+					{
+						Id: responseID,
+						Result: &vaultcommon.SecretResponse_Error{
+							Error: "not found",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, r.validateObservation(t.Context(), obs))
+
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(false)
+	require.ErrorContains(t, r.validateObservation(t.Context(), obs), "missing response for request with id workflowowner::main::secret")
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
