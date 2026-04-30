@@ -48,7 +48,6 @@ const (
 	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
 	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
 	Gateway                 Type = (Type)(pipeline.GatewayJobType)
-	Keeper                  Type = (Type)(pipeline.KeeperJobType)
 	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
 	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
 	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
@@ -92,7 +91,6 @@ var (
 		DirectRequest:           true,
 		FluxMonitor:             true,
 		Gateway:                 false,
-		Keeper:                  false, // observationSource is injected in the upkeep executor
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
 		OffchainReporting2:      false, // bootstrap jobs do not require it
@@ -115,7 +113,6 @@ var (
 		DirectRequest:           true,
 		FluxMonitor:             false,
 		Gateway:                 false,
-		Keeper:                  true,
 		LegacyGasStationServer:  false,
 		LegacyGasStationSidecar: false,
 		OffchainReporting2:      false,
@@ -138,7 +135,6 @@ var (
 		DirectRequest:           1,
 		FluxMonitor:             1,
 		Gateway:                 1,
-		Keeper:                  1,
 		LegacyGasStationServer:  1,
 		LegacyGasStationSidecar: 1,
 		OffchainReporting2:      1,
@@ -165,8 +161,6 @@ type Job struct {
 	DirectRequestSpec             *DirectRequestSpec
 	FluxMonitorSpecID             *int32
 	FluxMonitorSpec               *FluxMonitorSpec
-	KeeperSpecID                  *int32
-	KeeperSpec                    *KeeperSpec
 	VRFSpecID                     *int32
 	VRFSpec                       *VRFSpec
 	WebhookSpecID                 *int32
@@ -557,16 +551,6 @@ type FluxMonitorSpec struct {
 	EVMChainID          *sqlutil.Big `toml:"evmChainID"`
 	CreatedAt           time.Time    `toml:"-"`
 	UpdatedAt           time.Time    `toml:"-"`
-}
-
-type KeeperSpec struct {
-	ID                       int32                 `toml:"-"`
-	ContractAddress          evmtypes.EIP55Address `toml:"contractAddress"`
-	MinIncomingConfirmations *uint32               `toml:"minIncomingConfirmations"`
-	FromAddress              evmtypes.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *sqlutil.Big          `toml:"evmChainID"`
-	CreatedAt                time.Time             `toml:"-"`
-	UpdatedAt                time.Time             `toml:"-"`
 }
 
 type VRFSpec struct {

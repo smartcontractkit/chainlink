@@ -1,5 +1,5 @@
 name: CI Core
-run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
+run-name: CI Core
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
@@ -289,7 +289,7 @@ jobs:
             os: runs-on=${{ github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
-          - cmd: go_core_ccip_deployment_tests
+          - cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"

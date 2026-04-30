@@ -88,6 +88,10 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+
+	draining         atomic.Bool
+	activeExecutions atomic.Int32
+	drainStartedAtNs atomic.Int64
 }
 
 type triggerCapability struct {
@@ -146,6 +150,31 @@ func (e *Engine) setLogger(lggr logger.SugaredLogger) {
 	e.lggrMu.Lock()
 	defer e.lggrMu.Unlock()
 	e.lggr = lggr
+}
+
+// Drain marks the engine as draining and prevents new executions from starting.
+// In-flight executions continue to run to completion.
+// It returns true only on the first transition to draining.
+func (e *Engine) Drain() bool {
+	started := e.draining.CompareAndSwap(false, true)
+	if started {
+		e.drainStartedAtNs.CompareAndSwap(0, time.Now().UnixNano())
+	}
+	e.srvcEng.SetHealthCond("draining", errors.New("engine is draining, pending deletion"))
+	return started
+}
+
+func (e *Engine) ActiveExecutions() int32 {
+	return e.activeExecutions.Load()
+}
+
+func (e *Engine) DrainStartedAt() (time.Time, bool) {
+	ns := e.drainStartedAtNs.Load()
+	if ns == 0 {
+		return time.Time{}, false
+	}
+
+	return time.Unix(0, ns), true
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
@@ -556,6 +585,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 						continue
 					}
+					if e.draining.Load() {
+						e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
+						e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueueDroppedCounter(ctx)
+						e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
+						continue
+					}
 					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
 						triggerCapID: triggerID,
 						triggerIndex: idx,
@@ -591,10 +626,16 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		if err != nil {
 			return
 		}
-		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		eventID := queueHead.event.Event.ID
-		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
+		if e.draining.Load() {
+			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
+			e.cfg.Hooks.OnTriggerEventDropped(queueHead.triggerCapID, eventID, "draining")
+			e.logger().Infow("Engine is draining, stopping trigger handling loop", "eventID", eventID, "triggerID", queueHead.triggerCapID)
+			return
+		}
+		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
+		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
 		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
 		if err != nil {
@@ -613,9 +654,11 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			e.logger().Errorw("Failed to acquire executions semaphore", "err", err)
 			continue
 		}
+		e.activeExecutions.Add(1)
 		e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
+			defer e.activeExecutions.Add(-1)
 			creCtx := contexts.CREValue(ctx)
 			// Tracer is no-op if DebugMode is false
 			ctx, span := e.tracer.Start(ctx, "workflow_execution",
@@ -682,6 +725,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if addErr != nil {
 		if errors.Is(addErr, store.ErrDuplicateExecution) {
 			lggr.Infow("Skipping duplicate execution", "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementTriggerExecutionDeduplicatedCounter(ctx)
 			e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementWorkflowTriggerEventErrorCounter(ctx)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
 			err = e.ackTriggerEvent(ctx, registrationID, &triggerEvent)

@@ -16,7 +16,7 @@ go install gotest.tools/gotestsum@v1.13.0
 PATH=$PATH:$(go env GOPATH)/bin
 export PATH
 
-echo "Running go_core_ccip_deployment_tests for event: $GITHUB_EVENT_NAME"
+echo "Running go_core_deployment_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
 if [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
