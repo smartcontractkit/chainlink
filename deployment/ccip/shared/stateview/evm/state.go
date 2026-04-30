@@ -84,7 +84,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6_1"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	v1_1 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
@@ -93,8 +92,8 @@ import (
 // on a chain. If a binding is nil, it means there is no such contract on the chain.
 type CCIPChainState struct {
 	evmstate.MCMSWithTimelockState
-	state.LinkTokenState
-	state.StaticLinkTokenState
+	evmstate.LinkTokenState
+	evmstate.StaticLinkTokenState
 	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface

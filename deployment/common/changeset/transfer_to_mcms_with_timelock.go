@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -58,7 +58,7 @@ func LoadOwnableContract(addr common.Address, client bind.ContractBackend) (comm
 // Returns the address if found in either source (similar to cldf.SearchAddressBook)
 func searchContractInBothSources(e cldf.Environment, chainSelector uint64, contractType cldf.ContractType, qualifier string) (string, error) {
 	// Use the merged address loading from the EVM state function
-	addressesChain, err := state.AddressesForChain(e, chainSelector, qualifier)
+	addressesChain, err := evmstate.AddressesForChain(e, chainSelector, qualifier)
 	if err != nil {
 		return "", fmt.Errorf("failed to load addresses: %w", err)
 	}
@@ -263,7 +263,7 @@ func (cfg RenounceTimelockDeployerConfig) Validate(e cldf.Environment) error {
 	}
 
 	// MCMS should already exists
-	contracts, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
+	contracts, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
 	if err != nil {
 		return err
 	}
@@ -285,7 +285,7 @@ func RenounceTimelockDeployer(e cldf.Environment, cfg RenounceTimelockDeployerCo
 		return cldf.ChangesetOutput{}, err
 	}
 
-	contracts, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
+	contracts, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{cfg.ChainSel}, cfg.Qualifier)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}

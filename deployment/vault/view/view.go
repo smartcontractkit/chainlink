@@ -6,8 +6,8 @@ import (
 	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -67,7 +67,7 @@ func GenerateVaultView(e cldf.Environment, chainSelectors []uint64) (*VaultView,
 	}
 	view.WhitelistedAddresses = addresses
 
-	mcmsStates, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
+	mcmsStates, err := evmstate.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
 	if err != nil {
 		e.Logger.Warnf("Failed to load MCMS state (this may be expected if MCMS is not deployed): %v", err)
 	} else {

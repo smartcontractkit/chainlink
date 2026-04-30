@@ -991,7 +991,7 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 }
 
 func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
-	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
+	mcmsStateWithQualifier, err := evmstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
 	if err != nil {
 		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
 	}
@@ -1085,18 +1085,18 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 	}
 
 	var state evm.CCIPChainState
-	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commonstate.MaybeLoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := evmstate.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
