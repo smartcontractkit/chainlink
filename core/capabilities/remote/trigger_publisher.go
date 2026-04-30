@@ -299,7 +299,7 @@ func (p *triggerPublisher) Receive(_ context.Context, msg *types.MessageBody) {
 			var capErr caperrors.Error
 			if errors.As(err, &capErr) && capErr.Origin() == caperrors.OriginUser {
 				p.registrations[key] = &pubRegState{registrationErr: err}
-				p.lggr.Errorw("trigger registration failed with user error; will not retry",
+				p.lggr.Debugw("trigger registration failed with user error; will not retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", err)
 			} else {
 				p.lggr.Errorw("trigger registration failed with system error; will retry",
