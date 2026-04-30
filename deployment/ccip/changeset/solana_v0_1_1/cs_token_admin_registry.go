@@ -30,7 +30,7 @@ var _ cldf.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleT
 // use this changeset to upgrade token admin registry from v0.1.0 to v0.1.1
 var _ cldf.ChangeSet[UpgradeTokenAdminRegistryConfig] = UpgradeTokenAdminRegistry
 
-// use this changeset to set pool on token admin registry
+// use these changesets to set or remove a pool on the token admin registry
 var _ cldf.ChangeSet[SetPoolConfig] = SetPool
 var _ cldf.ChangeSet[RemovePoolConfig] = RemovePool
 
