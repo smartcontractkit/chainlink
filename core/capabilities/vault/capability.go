@@ -175,6 +175,10 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	if err := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); err != nil {
+		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, err.Error())
+		return nil, err
+	}
 	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
@@ -191,6 +195,10 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	if err := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); err != nil {
+		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, err.Error())
+		return nil, err
+	}
 	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false)
 	if err != nil {
 		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
@@ -212,6 +220,10 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	if err := validateSecretIdentifierOwnersMatchResolvedIdentity(request.Ids, resolvedIdentity); err != nil {
+		s.lggr.Debugf("Request: [%s] failed identity owner checks: %s", request.String(), err.Error())
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -239,6 +251,10 @@ func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultco
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
+	if err := validateOwnerMatchesResolvedIdentity("owner", request.Owner, resolvedIdentity); err != nil {
+		s.lggr.Debugf("Request: [%s] failed identity owner checks: %s", request.String(), err.Error())
+		return nil, err
+	}
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
@@ -265,6 +281,47 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 
 func normalizeOwner(owner string) string {
 	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
+}
+
+func validateEncryptedSecretOwnersMatchResolvedIdentity(encryptedSecrets []*vaultcommon.EncryptedSecret, resolvedIdentity LinkedVaultRequestIdentity) error {
+	for idx, encryptedSecret := range encryptedSecrets {
+		if encryptedSecret == nil || encryptedSecret.Id == nil {
+			continue
+		}
+		if err := validateOwnerMatchesResolvedIdentity(fmt.Sprintf("encrypted secret owner at index %d", idx), encryptedSecret.Id.Owner, resolvedIdentity); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateSecretIdentifierOwnersMatchResolvedIdentity(ids []*vaultcommon.SecretIdentifier, resolvedIdentity LinkedVaultRequestIdentity) error {
+	for idx, id := range ids {
+		if id == nil {
+			continue
+		}
+		if err := validateOwnerMatchesResolvedIdentity(fmt.Sprintf("secret identifier owner at index %d", idx), id.Owner, resolvedIdentity); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateOwnerMatchesResolvedIdentity(field string, owner string, resolvedIdentity LinkedVaultRequestIdentity) error {
+	if resolvedIdentity.WorkflowOwner == "" && resolvedIdentity.OrgID == "" {
+		return nil
+	}
+
+	if resolvedIdentity.WorkflowOwner != "" && normalizeOwner(owner) == normalizeOwner(resolvedIdentity.WorkflowOwner) {
+		return nil
+	}
+	if resolvedIdentity.OrgID != "" && owner == resolvedIdentity.OrgID {
+		return nil
+	}
+
+	return fmt.Errorf("%s %q must match resolved workflow owner %q or org_id %q", field, owner, resolvedIdentity.WorkflowOwner, resolvedIdentity.OrgID)
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {

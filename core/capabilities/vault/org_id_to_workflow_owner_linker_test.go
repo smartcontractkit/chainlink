@@ -70,12 +70,13 @@ func TestCapability_ListSecretIdentifiers_OrgIDOnlySkipsResolver(t *testing.T) {
 	resolver := &testOrgResolver{orgID: "unexpected"}
 	payload := captureListRequest(t, "request-2", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId: "request-2",
-		Owner:     "0xabc123",
+		Owner:     "org-999",
 		Namespace: "ns",
 		OrgId:     "org-999",
 	})
 
 	require.NotNil(t, payload)
+	assert.Equal(t, "org-999", payload.Owner)
 	assert.Equal(t, "org-999", payload.OrgId)
 	assert.Empty(t, payload.WorkflowOwner)
 	assert.Empty(t, resolver.calledWith)
@@ -87,13 +88,14 @@ func TestCapability_ListSecretIdentifiers_VerifiesWorkflowOwnerAgainstOrgID(t *t
 	resolver := &testOrgResolver{orgID: "org-999"}
 	payload := captureListRequest(t, "request-verify", resolver, true, &vaultcommon.ListSecretIdentifiersRequest{
 		RequestId:     "request-verify",
-		Owner:         "0xabc123",
+		Owner:         "trusted-owner",
 		Namespace:     "ns",
 		OrgId:         "org-999",
 		WorkflowOwner: "trusted-owner",
 	})
 
 	require.NotNil(t, payload)
+	assert.Equal(t, "trusted-owner", payload.Owner)
 	assert.Equal(t, "org-999", payload.OrgId)
 	assert.Equal(t, "trusted-owner", payload.WorkflowOwner)
 	assert.Equal(t, []string{"trusted-owner"}, resolver.calledWith)
@@ -206,6 +208,133 @@ func TestCapability_UpdateSecrets_ResolvesOrgIDBeforeLabelValidation(t *testing.
 
 	assert.Equal(t, orgID, payload.OrgId)
 	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
+}
+
+func TestCapability_CreateSecrets_AllowsResolvedOrgIDOwner(t *testing.T) {
+	t.Parallel()
+
+	orgID := "org-123"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encryptedSecret, capability, store := newCapabilityWithOrgIDEncryptedSecret(t, orgID)
+
+	request := &vaultcommon.CreateSecretsRequest{
+		RequestId:     "request-create-org-owner",
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "secret",
+					Namespace: "main",
+					Owner:     orgID,
+				},
+				EncryptedValue: encryptedSecret,
+			},
+		},
+	}
+
+	captured := respondWithCapturedPayload[*vaultcommon.CreateSecretsRequest](t, store, request.RequestId)
+	_, err := capability.CreateSecrets(t.Context(), request)
+	require.NoError(t, err)
+	result := <-captured
+	require.NoError(t, result.err)
+	payload := result.payload
+
+	assert.Equal(t, orgID, payload.OrgId)
+	assert.Equal(t, workflowOwner, payload.WorkflowOwner)
+	assert.Equal(t, orgID, payload.EncryptedSecrets[0].Id.Owner)
+}
+
+func TestCapability_RejectsOwnersOutsideResolvedIdentity(t *testing.T) {
+	t.Parallel()
+
+	orgID := "org-123"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encryptedSecret, capability, store := newCapabilityWithOrgIDEncryptedSecret(t, orgID)
+
+	tests := []struct {
+		name      string
+		requestID string
+		call      func() (*vaulttypes.Response, error)
+	}{
+		{
+			name:      "create",
+			requestID: "request-create-owner-mismatch",
+			call: func() (*vaulttypes.Response, error) {
+				return capability.CreateSecrets(t.Context(), &vaultcommon.CreateSecretsRequest{
+					RequestId:     "request-create-owner-mismatch",
+					WorkflowOwner: workflowOwner,
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+						{
+							Id: &vaultcommon.SecretIdentifier{
+								Key:       "secret",
+								Namespace: "main",
+								Owner:     "otherowner",
+							},
+							EncryptedValue: encryptedSecret,
+						},
+					},
+				})
+			},
+		},
+		{
+			name:      "update",
+			requestID: "request-update-owner-mismatch",
+			call: func() (*vaulttypes.Response, error) {
+				return capability.UpdateSecrets(t.Context(), &vaultcommon.UpdateSecretsRequest{
+					RequestId:     "request-update-owner-mismatch",
+					WorkflowOwner: workflowOwner,
+					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+						{
+							Id: &vaultcommon.SecretIdentifier{
+								Key:       "secret",
+								Namespace: "main",
+								Owner:     "otherowner",
+							},
+							EncryptedValue: encryptedSecret,
+						},
+					},
+				})
+			},
+		},
+		{
+			name:      "delete",
+			requestID: "request-delete-owner-mismatch",
+			call: func() (*vaulttypes.Response, error) {
+				return capability.DeleteSecrets(t.Context(), &vaultcommon.DeleteSecretsRequest{
+					RequestId:     "request-delete-owner-mismatch",
+					WorkflowOwner: workflowOwner,
+					Ids: []*vaultcommon.SecretIdentifier{
+						{
+							Key:       "secret",
+							Namespace: "main",
+							Owner:     "otherowner",
+						},
+					},
+				})
+			},
+		},
+		{
+			name:      "list",
+			requestID: "request-list-owner-mismatch",
+			call: func() (*vaulttypes.Response, error) {
+				return capability.ListSecretIdentifiers(t.Context(), &vaultcommon.ListSecretIdentifiersRequest{
+					RequestId:     "request-list-owner-mismatch",
+					Owner:         "otherowner",
+					Namespace:     "main",
+					WorkflowOwner: workflowOwner,
+				})
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.call()
+			require.ErrorContains(t, err, "must match resolved workflow owner")
+			assert.Empty(t, store.GetByIDs([]string{tc.requestID}))
+		})
+	}
 }
 
 func TestCapability_ListSecretIdentifiers_RejectsMissingWorkflowOwnerWhenOrgIDMissing(t *testing.T) {
