@@ -78,7 +78,6 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-grpc-source.toml"),
-		"--with-contracts-version", "v2",
 	)
 
 	// Step 3: Run lifecycle test
@@ -98,7 +97,7 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 //  2. Run test: go test -timeout 15m -run "^Test_CRE_GRPCSource_AuthRejection$"
 func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
 	// Set up test environment
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-contracts-version", "v2")
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	// Execute auth rejection test
 	ExecuteGRPCSourceAuthRejectionTest(t, testEnv)

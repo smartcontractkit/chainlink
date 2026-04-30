@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +31,6 @@ import (
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
 	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
@@ -43,7 +41,6 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-const PoRWFV1Location = "../../../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/main.go"
 const PoRWFV2Location = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
 
 // WorkflowTestConfig holds per-test workflow configuration for PoR tests.
@@ -91,7 +88,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 	}
 
 	writeableChains := t_helpers.GetWritableChainsFromSavedEnvironmentState(t, testEnv)
-	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' and 'write-evm' capabilities are enabled for)")
+	require.Len(t, cfg.FeedIDs, len(writeableChains), "a number of writeable chains must match the number of feed IDs (check what chains 'evm' capability is enabled for)")
 
 	/*
 		DEPLOY DATA FEEDS CACHE + READ BALANCES CONTRACTS ON ALL CHAINS (except read-only ones)
@@ -157,15 +154,13 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		writeTargetName := corevm.GenerateWriteTargetName(chainID)
 		testLogger.Info().Msgf("Generated WriteTargetName for chain %d (%s): %s", chainID, chainFamily, writeTargetName)
 
-		workflowConfig := portypes.WorkflowConfig{
-			ChainFamily:   chainFamily,
-			ChainID:       strconv.FormatUint(chainID, 10),
+		workflowConfig := porV2types.WorkflowConfig{
 			ChainSelector: chainSelector,
-			BalanceReaderConfig: portypes.BalanceReaderConfig{
+			BalanceReaderConfig: porV2types.BalanceReaderConfig{
 				BalanceReaderAddress: readBalancesAddress.Hex(),
 				AddressesToRead:      addressesToRead,
 			},
-			ComputeConfig: portypes.ComputeConfig{
+			ComputeConfig: porV2types.ComputeConfig{
 				FeedID:                feedID,
 				URL:                   priceProvider.URL(),
 				DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),

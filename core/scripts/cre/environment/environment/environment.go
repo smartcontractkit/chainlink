@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -214,7 +213,6 @@ func startCmd() *cobra.Command {
 		withExampleFlag          bool
 		exampleWorkflowTimeout   time.Duration
 		withPluginsDockerImage   string
-		withContractsVersion     string
 		doSetup                  bool
 		cleanupOnFailure         bool
 		cleanupWait              time.Duration
@@ -322,11 +320,9 @@ func startCmd() *cobra.Command {
 				os.Exit(1)
 			}()
 
-			withV2Registries := withContractsVersion == "v2"
 			envDependencies := cre.NewEnvironmentDependencies(
 				flags.NewDefaultCapabilityFlagsProvider(),
-				cre.NewContractVersionsProvider(envconfig.DefaultContractSet(withV2Registries)),
-				cre.NewCLIFlagsProvider(withV2Registries),
+				cre.NewContractVersionsProvider(envconfig.DefaultContractSet()),
 			)
 
 			if err := in.Validate(envDependencies); err != nil {
@@ -501,7 +497,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, semver.MustParse(withContractsVersion))
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, envconfig.WorkflowRegistryV2Semver)
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
@@ -536,9 +532,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
-	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
-	cmd.Flags().StringVar(&withContractsVersion, "with-contracts-version", "v2", "Version of workflow and capabilities registry contracts to use (v1 or v2)")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
 
@@ -845,7 +839,6 @@ func StartCLIEnvironment(
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
 		ContractVersions:        env.ContractVersions(),
-		WithV2Registries:        env.WithV2Registries(),
 		JdInput:                 in.JD,
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,

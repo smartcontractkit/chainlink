@@ -21,7 +21,6 @@ import (
 
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -87,23 +86,12 @@ func (o *EVM) PreEnvStartup(
 		}
 	}
 
-	// update node configs to include evm v2 configuration
-	workerNodes, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
-	}
-	for _, workerNode := range workerNodes {
-		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		currentConfigPtr := ptr.Ptr(currentConfig)
-		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *currentConfigPtr
-	}
-
-	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
-
 	enabledChainIDs, err := don.MustNodeSet().GetEnabledChainIDsForCapability(flag)
 	if err != nil {
 		return nil, fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
+
+	capabilities := []keystone_changeset.DONCapabilityWithConfig{}
 
 	for _, chainID := range enabledChainIDs {
 		selector, selectorErr := chainselectors.SelectorFromChainId(chainID)
@@ -157,11 +145,10 @@ func (o *EVM) PostEnvStartup(
 		return jobsErr
 	}
 
-	// configure EVM forwarders
-	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
+	// configure EVM forwarders for DONs that run consensus (v2)
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapabilityV2)
 
-	// for now we end up configuring forwarders twice, if the same chain has both evm v1 and v2 capabilities enabled
-	// it doesn't create any issues, but ideally we wouldn't do that
+	// Forwarders may be configured when multiple DONs share chains with EVM capability; duplicate configuration is harmless.
 	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons.DonsWithFlag(flag))
 	if len(chainsWithEVMCapability) > 0 {
 		evmChainsWithForwarders := make([]uint64, 0)

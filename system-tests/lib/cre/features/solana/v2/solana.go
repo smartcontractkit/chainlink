@@ -117,7 +117,7 @@ func (s *Solana) PostEnvStartup(
 	}
 
 	// 3. Configure Forwarders
-	consensusDons := dons.DonsWithFlags(cre.ConsensusCapability, cre.ConsensusCapabilityV2)
+	consensusDons := dons.DonsWithFlags(cre.ConsensusCapabilityV2)
 	for _, don := range consensusDons {
 		err := configureForwarders(ctx, testLogger, don, dons, creEnv)
 		if err != nil {

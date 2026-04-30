@@ -46,7 +46,6 @@ func capabilitySwapCmd() *cobra.Command {
 	var (
 		capabilityFlag string
 		binaryPath     string
-		forceFlag      bool
 	)
 
 	cmd := &cobra.Command{
@@ -75,7 +74,7 @@ func capabilitySwapCmd() *cobra.Command {
 				}
 			}()
 
-			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath, forceFlag)
+			swapErr = swapCapability(cmd.Context(), capabilityFlag, binaryPath)
 
 			return swapErr
 		},
@@ -83,14 +82,13 @@ func capabilitySwapCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&capabilityFlag, "name", "n", "", "Name of the capability to swap (need to mach the value of capability flag used in the environment TOML config)")
 	cmd.Flags().StringVarP(&binaryPath, "binary", "b", "", "Location of the binary to swap on the host machine")
-	cmd.Flags().BoolVarP(&forceFlag, "force", "f", true, "Force removal of Docker containers. Set to false to enable graceful shutdown of the containers (be mindful that it will take longer to remove the them)")
 	_ = cmd.MarkFlagRequired("binary")
 	_ = cmd.MarkFlagRequired("name")
 
 	return cmd
 }
 
-func swapCapability(ctx context.Context, capabilityFlag, binaryPath string, forceFlag bool) error {
+func swapCapability(ctx context.Context, capabilityFlag, binaryPath string) error {
 	swappableapabilities := flags.NewSwappableCapabilityFlagsProvider()
 	if !slices.Contains(swappableapabilities.SupportedCapabilityFlags(), capabilityFlag) {
 		return fmt.Errorf("capability %s cannot be hot-reloaded. Supported capabilities: %s", capabilityFlag, strings.Join(swappableapabilities.SupportedCapabilityFlags(), ", "))

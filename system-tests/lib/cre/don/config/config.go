@@ -243,7 +243,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 		configOverrides[nodeIdx] = string(marshalledConfig)
 	}
 
-	// execute capability-provided functions that transform the node config (currently: write-evm, write-solana)
+	// execute capability-provided functions that transform the node config (currently: write-solana)
 	// these functions must return whole node configs after transforming them, instead of just returning configuration parts
 	// that need to be merged into the existing config
 	for _, transformer := range nodeConfigTransformers {

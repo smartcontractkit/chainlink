@@ -29,15 +29,14 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	workflow_registry_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
+
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
 const (
@@ -123,85 +122,77 @@ func RegisterWithContract(
 		return "", errors.Wrap(err, "failed to generate workflow ID")
 	}
 
-	// Register workflow based on version
-	switch version.Major() {
-	case 2:
-		if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
-			return "", err
-		}
-	default:
-		if err := registerWorkflowV1(sc, workflowRegistryAddr, donID, workflowName, workflowID, binaryURLToUse, configURLToUse, secretsURLToUse); err != nil {
-			return "", err
-		}
+	if version == nil || version.Major() != 2 {
+		return "", fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
+	}
+
+	// Register workflow (v2)
+	if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
+		return "", err
 	}
 
 	return workflowID, nil
 }
 
 func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
-	switch version.Major() {
-	case 2:
-		validity := time.Now().UTC().Add(time.Hour * 24)
-		validityTimestamp := big.NewInt(validity.Unix())
-		defaultOrgID := 22
-		nonce := uuid.New().String()
-		workflowOwner := sc.MustGetRootKeyAddress().Hex()
-		data := fmt.Sprintf("%s%d%s", workflowOwner, defaultOrgID, nonce)
-		hash := sha256.Sum256([]byte(data))
-		ownershipProof := hex.EncodeToString(hash[:])
-		linkRequestType := uint8(0)
+	if version == nil || version.Major() != 2 {
+		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
+	}
 
-		registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
-		if err != nil {
-			return err
-		}
+	validity := time.Now().UTC().Add(time.Hour * 24)
+	validityTimestamp := big.NewInt(validity.Unix())
+	defaultOrgID := 22
+	nonce := uuid.New().String()
+	workflowOwner := sc.MustGetRootKeyAddress().Hex()
+	data := fmt.Sprintf("%s%d%s", workflowOwner, defaultOrgID, nonce)
+	hash := sha256.Sum256([]byte(data))
+	ownershipProof := hex.EncodeToString(hash[:])
+	linkRequestType := uint8(0)
 
-		version, versionErr := registry.TypeAndVersion(sc.NewCallOpts())
-		if versionErr != nil {
-			return versionErr
-		}
-
-		messageDigest, err := PreparePayloadForSigning(
-			OwnershipProofSignaturePayload{
-				RequestType:              linkRequestType,
-				WorkflowOwnerAddress:     common.HexToAddress(workflowOwner),
-				ChainID:                  strconv.FormatInt(sc.ChainID, 10),
-				WorkflowRegistryContract: workflowRegistryAddr,
-				Version:                  version,
-				ValidityTimestamp:        validity,
-				OwnershipProofHash:       common.HexToHash(ownershipProof),
-			})
-		if err != nil {
-			return fmt.Errorf("failed to prepare payload for signing: %w", err)
-		}
-
-		signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
-		if err != nil {
-			return fmt.Errorf("failed to sign ownership proof: %w", err)
-		}
-
-		signature[64] += 27
-
-		_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
+	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+	if err != nil {
 		return err
-	default:
-		return errors.New("invalid version for linking owner")
 	}
+
+	typeAndVersion, typeVerErr := registry.TypeAndVersion(sc.NewCallOpts())
+	if typeVerErr != nil {
+		return typeVerErr
+	}
+
+	messageDigest, err := PreparePayloadForSigning(
+		OwnershipProofSignaturePayload{
+			RequestType:              linkRequestType,
+			WorkflowOwnerAddress:     common.HexToAddress(workflowOwner),
+			ChainID:                  strconv.FormatInt(sc.ChainID, 10),
+			WorkflowRegistryContract: workflowRegistryAddr,
+			Version:                  typeAndVersion,
+			ValidityTimestamp:        validity,
+			OwnershipProofHash:       common.HexToHash(ownershipProof),
+		})
+	if err != nil {
+		return fmt.Errorf("failed to prepare payload for signing: %w", err)
+	}
+
+	signature, err := crypto.Sign(messageDigest, sc.MustGetRootPrivateKey())
+	if err != nil {
+		return fmt.Errorf("failed to sign ownership proof: %w", err)
+	}
+
+	signature[64] += 27
+
+	_, err = sc.Decode(registry.LinkOwner(sc.NewTXOpts(), validityTimestamp, common.HexToHash(ownershipProof), signature))
+	return err
 }
 
-// GetWorkflowNames retrieves all workflow names for the given registry contract.
-// It supports both v1 and v2 workflow registry versions.
+// GetWorkflowNames retrieves all workflow names for the given registry contract (v2 only).
 func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
-	switch version.Major() {
-	case 2:
-		return getWorkflowNamesV2(sc, workflowRegistryAddr, version)
-	default:
-		return getWorkflowNamesV1(sc, workflowRegistryAddr)
+	if version == nil || version.Major() != 2 {
+		return nil, fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
+	return getWorkflowNamesV2(sc, workflowRegistryAddr, version)
 }
 
-// DeleteWithContract removes a workflow from the workflow registry contract.
-// It supports both v1 and v2 workflow registry versions.
+// DeleteWithContract removes a workflow from the workflow registry contract (v2 only).
 func DeleteWithContract(
 	ctx context.Context,
 	sc *seth.Client,
@@ -209,23 +200,18 @@ func DeleteWithContract(
 	version *semver.Version,
 	workflowName string,
 ) error {
-	switch version.Major() {
-	case 2:
-		return deleteWorkflowV2(ctx, sc, workflowRegistryAddr, version, workflowName)
-	default:
-		return deleteWorkflowV1(ctx, sc, workflowRegistryAddr, workflowName)
+	if version == nil || version.Major() != 2 {
+		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
+	return deleteWorkflowV2(ctx, sc, workflowRegistryAddr, version, workflowName)
 }
 
-// DeleteAllWithContract removes all workflows owned by the caller from the workflow registry contract.
-// It supports both v1 and v2 workflow registry versions.
+// DeleteAllWithContract removes all workflows owned by the caller from the workflow registry contract (v2 only).
 func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
-	switch version.Major() {
-	case 2:
-		return deleteAllWorkflowsV2(ctx, sc, workflowRegistryAddr, version)
-	default:
-		return deleteAllWorkflowsV1(ctx, sc, workflowRegistryAddr)
+	if version == nil || version.Major() != 2 {
+		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
+	return deleteAllWorkflowsV2(ctx, sc, workflowRegistryAddr, version)
 }
 
 // RemoveWorkflowArtifactsFromLocalEnv removes workflow artifact files from the local filesystem.
@@ -292,32 +278,6 @@ func registerWorkflowV2(
 	return nil
 }
 
-// registerWorkflowV1 handles workflow registration for v1 registry contracts
-func registerWorkflowV1(sc *seth.Client, workflowRegistryAddr common.Address, donID uint64,
-	workflowName, workflowID, binaryURL, configURL, secretsURL string) error {
-	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
-	if err != nil {
-		return err
-	}
-
-	// Register workflow
-	_, err = sc.Decode(registry.RegisterWorkflow(
-		sc.NewTXOpts(),
-		workflowName,
-		[32]byte(common.Hex2Bytes(workflowID)),
-		libc.MustSafeUint32FromUint64(donID),
-		defaultWorkflowStatus,
-		binaryURL,
-		configURL,
-		secretsURL,
-	))
-	if err != nil {
-		return errors.Wrap(err, "failed to register workflow")
-	}
-
-	return nil
-}
-
 // deleteAllWorkflowsV2 removes all workflows for v2 registry contracts.
 func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
 	// Create registry instance once for all operations
@@ -347,43 +307,6 @@ func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAd
 	return nil
 }
 
-// deleteAllWorkflowsV1 removes all workflows for v1 registry contracts.
-func deleteAllWorkflowsV1(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address) error {
-	// Create registry instance once for all operations
-	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
-	if err != nil {
-		return err
-	}
-
-	// Get list of workflows to delete using the same registry instance
-	workflows, err := getWorkflowListWithRegistryV1(registry, sc)
-	if err != nil {
-		return err
-	}
-
-	// Delete each workflow using the same registry instance
-	for _, workflow := range workflows {
-		workflowHashKey := computeHashKey(sc.MustGetRootKeyAddress(), workflow.WorkflowName)
-		if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflowHashKey)); err != nil {
-			return errors.Wrapf(err, errDeleteWorkflow, workflow.WorkflowName)
-		}
-	}
-
-	return nil
-}
-
-// computeHashKey generates a Keccak256 hash from owner address and workflow name.
-// This is used for v1 workflow registry contract operations.
-func computeHashKey(owner common.Address, workflowName string) [32]byte {
-	ownerBytes := owner.Bytes()
-	nameBytes := []byte(workflowName)
-	data := make([]byte, len(ownerBytes)+len(nameBytes))
-	copy(data, ownerBytes)
-	copy(data[len(ownerBytes):], nameBytes)
-
-	return crypto.Keccak256Hash(data)
-}
-
 // deleteWorkflowV2 handles workflow deletion for v2 registry contracts.
 func deleteWorkflowV2(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version, workflowName string,
 ) error {
@@ -407,23 +330,6 @@ func deleteWorkflowV2(ctx context.Context, sc *seth.Client, workflowRegistryAddr
 	// Delete workflow using the same registry instance
 	if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflowID)); err != nil {
 		return errors.Wrapf(err, "failed to delete workflow %q (ID: %x)", workflowName, workflowID)
-	}
-
-	return nil
-}
-
-// deleteWorkflowV1 handles workflow deletion for v1 registry contracts.
-func deleteWorkflowV1(ctx context.Context, sc *seth.Client,
-	workflowRegistryAddr common.Address, workflowName string,
-) error {
-	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
-	if err != nil {
-		return err
-	}
-
-	workflowHashKey := computeHashKey(sc.MustGetRootKeyAddress(), workflowName)
-	if _, err := sc.Decode(registry.DeleteWorkflow(sc.NewTXOpts(), workflowHashKey)); err != nil {
-		return errors.Wrapf(err, "failed to delete workflow %q", workflowName)
 	}
 
 	return nil
@@ -479,24 +385,6 @@ func getRegistryV2Instance(sc *seth.Client, workflowRegistryAddr common.Address,
 	return registry, nil
 }
 
-// createRegistryV1Instance creates a new v1 workflow registry instance.
-func createRegistryV1Instance(sc *seth.Client, workflowRegistryAddr common.Address) (*workflow_registry_wrapper.WorkflowRegistry, error) {
-	registry, err := workflow_registry_wrapper.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
-	if err != nil {
-		return nil, errors.Wrap(err, errCreateRegistryInstance)
-	}
-
-	// add contract ABI to Seth, so that it can decode transaction errors
-	abi, aErr := workflow_registry_wrapper.WorkflowRegistryMetaData.GetAbi()
-	if aErr != nil {
-		return nil, fmt.Errorf("failed to get WorkflowRegistryV1 ABI: %w", aErr)
-	}
-
-	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV1", *abi)
-
-	return registry, nil
-}
-
 // getWorkflowListWithRegistryV2 retrieves the full workflow list using an existing v2 registry instance.
 func getWorkflowListWithRegistryV2(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
 	workflows, err := registry.GetWorkflowListByOwner(
@@ -525,46 +413,6 @@ func getWorkflowListV2(sc *seth.Client, workflowRegistryAddr common.Address, ver
 // getWorkflowNamesV2 retrieves all workflow names for v2 registry contracts.
 func getWorkflowNamesV2(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
 	workflows, err := getWorkflowListV2(sc, workflowRegistryAddr, version)
-	if err != nil {
-		return nil, err
-	}
-
-	workflowNames := make([]string, 0, len(workflows))
-	for _, workflow := range workflows {
-		workflowNames = append(workflowNames, workflow.WorkflowName)
-	}
-
-	return workflowNames, nil
-}
-
-// getWorkflowListWithRegistryV1 retrieves the full workflow list using an existing v1 registry instance.
-func getWorkflowListWithRegistryV1(registry *workflow_registry_wrapper.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper.WorkflowRegistryWorkflowMetadata, error) {
-	workflows, err := registry.GetWorkflowMetadataListByOwner(
-		sc.NewCallOpts(),
-		sc.MustGetRootKeyAddress(),
-		big.NewInt(0),
-		big.NewInt(defaultWorkflowQueryLimit),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, errGetWorkflowMetadataList)
-	}
-
-	return workflows, nil
-}
-
-// getWorkflowListV1 retrieves the full workflow list for v1 registry contracts.
-func getWorkflowListV1(sc *seth.Client, workflowRegistryAddr common.Address) ([]workflow_registry_wrapper.WorkflowRegistryWorkflowMetadata, error) {
-	registry, err := createRegistryV1Instance(sc, workflowRegistryAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	return getWorkflowListWithRegistryV1(registry, sc)
-}
-
-// getWorkflowNamesV1 retrieves all workflow names for v1 registry contracts.
-func getWorkflowNamesV1(sc *seth.Client, workflowRegistryAddr common.Address) ([]string, error) {
-	workflows, err := getWorkflowListV1(sc, workflowRegistryAddr)
 	if err != nil {
 		return nil, err
 	}

@@ -59,7 +59,6 @@ type SetupInput struct {
 	JdInput                *jd.Input
 	Provider               infra.Provider
 	ContractVersions       map[cre.ContractType]*semver.Version
-	WithV2Registries       bool
 	OCR3Config             *keystone_changeset.OracleConfig
 	DONTimeConfig          *keystone_changeset.OracleConfig
 	VaultOCR3Config        *keystone_changeset.OracleConfig
@@ -113,6 +112,12 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
+	contractVersions := input.ContractVersions
+	if contractVersions == nil {
+		contractVersions = cre.NewContractVersionsProvider(config.DefaultContractSet()).ContractVersions()
+		input.ContractVersions = contractVersions
+	}
+
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
@@ -155,8 +160,7 @@ func SetupTestEnvironment(
 		crecontracts.DeployKeystoneContractsInput{
 			CldfEnvironment:  newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
 			CtfBlockchains:   deployedBlockchains.Outputs,
-			ContractVersions: input.ContractVersions,
-			WithV2Registries: input.WithV2Registries,
+			ContractVersions: contractVersions,
 		},
 	)
 	if deployErr != nil {
@@ -352,14 +356,13 @@ func SetupTestEnvironment(
 			""),
 		),
 		NodeSets:                        input.NodeSets,
-		WithV2Registries:                input.WithV2Registries,
 		DONCapabilityWithConfigs:        make(map[uint64][]keystone_changeset.DONCapabilityWithConfig),
 		CapabilityToOCR3Config:          capabilityToOCR3Config,
 		CapabilityToExtraSignerFamilies: capabilityToExtraSignerFamilies,
 	}
 
 	for _, capability := range input.Capabilities {
-		configFn := capability.CapabilityRegistryV1ConfigFn()
+		configFn := capability.CapabilityRegistryV2ConfigFn()
 		capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, configFn)
 	}
 	capRegInput.CapabilityRegistryConfigFns = append(capRegInput.CapabilityRegistryConfigFns, input.CapabilitiesContractFactoryFunctions...)
@@ -371,7 +374,7 @@ func SetupTestEnvironment(
 	}
 
 	// Resolve actual contract donIDs and apply to topology, dons, and NodeSets
-	if err := crecontracts.ResolveAndApplyContractDonIDs(capReg, dons, topology, input.NodeSets, input.WithV2Registries); err != nil {
+	if err := crecontracts.ResolveAndApplyContractDonIDs(capReg, dons, topology, input.NodeSets); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to resolve and apply contract donIDs")
 	}
 	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
@@ -393,23 +396,8 @@ func SetupTestEnvironment(
 	}
 
 	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// we currently have no way of checking if filters were registered in Kubernetes mode
-		// as we don't have a way to get its database connection string
-		if !input.Provider.IsDocker() {
-			return nil
-		}
-
-		fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Waiting for Workflow Registry filters registration\n\n"))
-		defer fmt.Print(libformat.PurpleText("\n---> [BACKGROUND] Finished waiting for Workflow Registry filters registration\n\n"))
-
-		// this operation can always safely run in the background, since it doesn't change on-chain state, it only reads data from databases
-		switch wfRegVersion.Major() {
-		case 2:
-			// There are no filters registered with the V2 WF Registry Syncer
-			return nil
-		default:
-			return workflow.WaitForAllNodesToHaveExpectedFiltersRegistered(ctx, singleFileLogger, testLogger, deployedBlockchains.RegistryChain().ChainID(), dons, updatedNodeSets)
-		}
+		// V2 workflow registry syncer does not register LogPoller filters on workflow DON DBs.
+		return nil
 	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))

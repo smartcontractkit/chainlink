@@ -22,8 +22,17 @@ var (
 	errClient  error
 )
 
+const relativePathToRepoRoot = "../../../../"
+
 func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 	clientOnce.Do(func() {
+		if os.Getenv("CTF_CONFIGS") == "" {
+			setErr := os.Setenv("CTF_CONFIGS", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
+			if setErr != nil {
+				errClient = pkgerrors.Wrap(setErr, "failed to set CTF_CONFIGS environment variable")
+				return
+			}
+		}
 		in := &envconfig.Config{}
 		err := in.Load(os.Getenv("CTF_CONFIGS"))
 		if err != nil {
@@ -36,11 +45,6 @@ func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 			return
 		}
 
-		// st, err := envconfig.LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot)
-		// if err != nil {
-		// 	errClient = err
-		// 	return
-		// }
 		clientInst, errClient = ctfchiprouterclient.New(ctx, in.ChipRouter.Out.ExternalAdminURL, in.ChipRouter.Out.ExternalGRPCURL)
 	})
 

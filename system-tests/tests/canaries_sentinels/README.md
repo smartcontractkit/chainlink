@@ -97,7 +97,7 @@ from the `core/scripts/cre/environment` directory:
      -c ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/config.yaml
    ```
 
-If you need legacy registries for troubleshooting, pass `--with-contracts-version v1` explicitly.
+Local CRE uses v2 workflow and capabilities registry contracts only.
 
 ## Monitoring and Alerting
 

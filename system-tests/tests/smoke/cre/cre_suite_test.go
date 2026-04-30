@@ -18,70 +18,11 @@ import (
 // should go to a `regression` package
 /////////////////////////////////////
 
-var v1RegistriesFlags = []string{"--with-contracts-version", "v1"}
-
 var (
 	parallelEnabled = t_helpers.ParallelEnabled()
 	// topology is used in test names
 	topology = os.Getenv("TOPOLOGY_NAME")
 )
-
-/*
-To execute tests locally start the local CRE first:
-Inside `core/scripts/cre/environment` directory
- 1. Ensure the necessary capabilities (i.e. readcontract, http-trigger, http-action) are listed in the environment configuration
- 2. Identify the appropriate topology that you want to test
- 3. Stop and clear any existing environment: `go run . env stop -a`
- 4. Run: `CTF_CONFIGS=<path-to-your-topology-config> go run . env start && ./bin/ctf obs up` to start env + observability
- 5. Optionally run blockscout `./bin/ctf bs up`
- 6. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_V2"`.
-*/
-func Test_CRE_V1_Proof_Of_Reserve(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v1RegistriesFlags...)
-	// WARNING: currently we can't run these tests in parallel, because each test rebuilds environment structs and that includes
-	// logging into CL node with GraphQL API, which allows only 1 session per user at a time.
-
-	// requires `readcontract`, `cron`
-	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
-	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
-}
-
-func Test_CRE_V1_Tron(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-tron.toml"), v1RegistriesFlags...)
-
-	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV1", PoRWFV1Location)
-	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, false)
-}
-
-/*
-// TODO: Move Billing tests to v2 Registries
-func Test_CRE_V1_Billing_EVM_Write(t *testing.T) {
-	quarantine.Flaky(t, "DX-1911")
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-
-	require.NoError(
-		t,
-		startBillingStackIfIsNotRunning(t, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath, testEnv),
-		"failed to start Billing stack",
-	)
-
-	priceProvider, porWfCfg := BeforePoRTest(t, testEnv, "por-workflowV2-billing", PoRWFV2Location)
-	porWfCfg.FeedIDs = []string{porWfCfg.FeedIDs[0]}
-	ExecutePoRTest(t, testEnv, priceProvider, porWfCfg, true)
-}
-*/
-
-func Test_CRE_V1_Billing_Cron_Beholder(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), v1RegistriesFlags...)
-
-	require.NoError(
-		t,
-		startBillingStackIfIsNotRunning(t, testEnv.TestConfig.RelativePathToRepoRoot, testEnv.TestConfig.EnvironmentDirPath, testEnv),
-		"failed to start Billing stack",
-	)
-
-	ExecuteBillingTest(t, testEnv)
-}
 
 //////////// V2 TESTS /////////////
 /*

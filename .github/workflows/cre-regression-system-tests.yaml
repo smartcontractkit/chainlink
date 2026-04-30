@@ -86,8 +86,7 @@ jobs:
             | to_entries
             | map({
                 test_name: .value,
-                test_id: .key,
-                cre_version: (if (.value | test("V1")) then "v1" else "v2" end)
+                test_id: .key
               })
           ')
 
@@ -188,34 +187,27 @@ jobs:
           echo "$resolved_image"
           echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
-      - name: Start local CRE${{ matrix.tests.cre_version }}
+      - name: Start local CRE
         shell: bash
         id: start-local-cre
         env:
           CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
-          CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
         run: |
           cd core/scripts/cre/environment
 
-          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
-          if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-contracts-version v1
-          else
-            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start
-          fi
+          echo "Starting local CRE for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
+          go run . env start
 
           exit_code=$?
           if [ $exit_code -ne 0 ]; then
-            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
+            echo "Error: failed to start local CRE, exit code $exit_code"
             exit $exit_code
           fi
 
-      - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
+      - name: Run CRE Regression system tests
         id: run-regression-tests
         shell: bash
         working-directory: system-tests/tests

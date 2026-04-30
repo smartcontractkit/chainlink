@@ -9,8 +9,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
 
-replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based
-
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based => ../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron => ../../core/scripts/cre/environment/examples/workflows/v2/cron
@@ -75,7 +73,6 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.3
-	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron v0.0.0-20251008094352-f74459c46e8c
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
