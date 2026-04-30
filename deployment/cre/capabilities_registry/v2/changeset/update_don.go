@@ -8,11 +8,11 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
@@ -35,6 +35,12 @@ type UpdateDONInput struct {
 	NewDonName string `json:"newDonName" yaml:"newDonName"`
 
 	CapabilityConfigs []contracts.CapabilityConfig `json:"capabilityConfigs" yaml:"capabilityConfigs"` // if Config subfield is nil, a default config is used
+
+	// MergeCapabilityConfigsWithOnChain when true merges the provided capability configs with
+	// existing on-chain configs for the DON. Capabilities present in CapabilityConfigs override
+	// on-chain entries with the same ID; capabilities only on-chain are preserved as-is.
+	// When false (default), the provided configs fully replace the DON's capability list.
+	MergeCapabilityConfigsWithOnChain bool `json:"mergeCapabilityConfigsWithOnChain" yaml:"mergeCapabilityConfigsWithOnChain"`
 
 	// Force indicates whether to force the update even if we cannot validate that all forwarder contracts are ready to accept the new configure version.
 	// This is very dangerous, and could break the whole platform if the forwarders are not ready. Be very careful with this option.
@@ -171,15 +177,16 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 			CapabilitiesRegistry: capReg,
 		},
 		contracts.UpdateDONInput{
-			ChainSelector:     config.RegistryChainSel,
-			P2PIDs:            p2pIDs,
-			CapabilityConfigs: config.CapabilityConfigs,
-			DonName:           config.DONName,
-			NewDonName:        config.NewDonName,
-			F:                 don.F,
-			IsPrivate:         !don.IsPublic,
-			Force:             config.Force,
-			MCMSConfig:        config.MCMSConfig,
+			ChainSelector:                     config.RegistryChainSel,
+			P2PIDs:                            p2pIDs,
+			CapabilityConfigs:                 config.CapabilityConfigs,
+			MergeCapabilityConfigsWithOnChain: config.MergeCapabilityConfigsWithOnChain,
+			DonName:                           config.DONName,
+			NewDonName:                        config.NewDonName,
+			F:                                 don.F,
+			IsPrivate:                         !don.IsPublic,
+			Force:                             config.Force,
+			MCMSConfig:                        config.MCMSConfig,
 		},
 	)
 	if err != nil {

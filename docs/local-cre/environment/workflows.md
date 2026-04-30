@@ -14,25 +14,25 @@ Local CRE includes CLI helpers for compiling, deploying, deleting, and testing w
 Deploy a workflow:
 
 ```bash
-go run . workflow deploy -w ./path/to/workflow/main.go --compile -n my_workflow_name
+go run . env workflow deploy -w ./path/to/workflow/main.go --compile -n my_workflow_name
 ```
 
 Delete a workflow from the registry:
 
 ```bash
-go run . workflow delete -n my_workflow_name
+go run . env workflow delete -n my_workflow_name
 ```
 
 Delete all workflows from the registry:
 
 ```bash
-go run . workflow delete-all
+go run . env workflow delete-all
 ```
 
 Run the proof-of-reserve example verifier:
 
 ```bash
-go run . workflow run-por-example
+go run . env workflow run-por-example
 ```
 
 ## Deploy Flags
@@ -109,7 +109,7 @@ For lower-level control:
 1. start the environment
 2. compile a workflow or reuse an existing `.br.b64`
 3. provide config and optional secrets
-4. deploy through `workflow deploy`
+4. deploy through `env workflow deploy`
 5. inspect the registry and workflow containers if verification fails
 
 For test-specific deployment behavior, see [Workflows in Tests](../system-tests/workflows-in-tests.md).

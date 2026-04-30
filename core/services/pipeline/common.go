@@ -37,7 +37,6 @@ const (
 	DirectRequestJobType           string = "directrequest"
 	FluxMonitorJobType             string = "fluxmonitor"
 	GatewayJobType                 string = "gateway"
-	KeeperJobType                  string = "keeper"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
 	OffchainReporting2JobType      string = "offchainreporting2"
@@ -539,8 +538,6 @@ func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32
 		jobTypeGasLimit = jt.OCR()
 	case OffchainReporting2JobType:
 		jobTypeGasLimit = jt.OCR2()
-	case KeeperJobType:
-		jobTypeGasLimit = jt.Keeper()
 	case VRFJobType:
 		jobTypeGasLimit = jt.VRF()
 	}

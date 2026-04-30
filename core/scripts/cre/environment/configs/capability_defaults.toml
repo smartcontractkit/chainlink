@@ -122,6 +122,7 @@
   TxAcceptanceState = 2
   PollPeriod = "2s"
   AcceptanceTimeout = "30s"
+
   # Runtime values below are typically filled at runtime, but may be overridden
   # FromAddress = "0x0000000000000000000000000000000000000000"
   # ForwarderAddress = "0x0000000000000000000000000000000000000000"
