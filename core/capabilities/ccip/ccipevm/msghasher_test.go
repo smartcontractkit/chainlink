@@ -630,7 +630,7 @@ func FuzzMessageHasher(f *testing.F) {
 		data []byte,
 		receiver []byte,
 		extraArgs []byte,
-	// Fuzzed token amount fields
+		// Fuzzed token amount fields
 		tokenSourcePoolAddress []byte,
 		tokenDestTokenAddress []byte,
 		tokenExtraData []byte,
