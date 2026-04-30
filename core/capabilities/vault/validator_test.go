@@ -857,7 +857,7 @@ func TestValidateGetSecretsRequest_OwnerLengthPerBatchItem(t *testing.T) {
 	// First item is within the owner length limit; second item exceeds it.
 	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
-			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner1", Namespace: "main"}},   // 6 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner1", Namespace: "main"}},  // 6 bytes
 			{Id: &vaultcommon.SecretIdentifier{Key: "mykey", Owner: "owner12", Namespace: "main"}}, // 7 bytes
 		},
 	})
@@ -879,7 +879,7 @@ func TestValidateGetSecretsRequest_KeyLengthPerBatchItem(t *testing.T) {
 	// First item is within the key length limit; second item exceeds it.
 	err := validator.ValidateGetSecretsRequest(t.Context(), &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
-			{Id: &vaultcommon.SecretIdentifier{Key: "abcde", Owner: "owner1", Namespace: "main"}},   // 5 bytes
+			{Id: &vaultcommon.SecretIdentifier{Key: "abcde", Owner: "owner1", Namespace: "main"}},  // 5 bytes
 			{Id: &vaultcommon.SecretIdentifier{Key: "abcdef", Owner: "owner1", Namespace: "main"}}, // 6 bytes
 		},
 	})
