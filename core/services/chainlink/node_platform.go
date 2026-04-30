@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -29,6 +28,7 @@ const (
 	nodePlatformJobInfoEntity   = "common.v1.NodeJobInfo"
 	nodePlatformDataSchema      = "/node-platform/common/v1"
 	nodePlatformBeat            = 3 * time.Minute
+	nodePlatformJobInfoPageSize = 1000
 
 	nodeSubmitterFieldTransmitterAddress                 = "transmitterAddress"
 	nodeSubmitterFieldTransmitterID                      = "transmitterID"
@@ -252,13 +252,23 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 		return nil
 	}
 
-	jobs, _, err := s.opts.JobReader.FindJobs(ctx, 0, math.MaxInt)
-	if err != nil {
-		s.eng.Warnw("failed to resolve node-platform submitter addresses", "err", err)
-		return nil
+	bySource := make(map[nodeSubmitterAddressKey]map[string]struct{})
+	for offset := 0; ; {
+		jobs, count, err := s.opts.JobReader.FindJobs(ctx, offset, nodePlatformJobInfoPageSize)
+		if err != nil {
+			s.eng.Warnw("failed to resolve node-platform submitter addresses", "offset", offset, "limit", nodePlatformJobInfoPageSize, "err", err)
+			return nil
+		}
+
+		addNodeSubmitterAddressesFromJobs(bySource, jobs)
+
+		offset += len(jobs)
+		if len(jobs) == 0 || offset >= count || len(jobs) < nodePlatformJobInfoPageSize {
+			break
+		}
 	}
 
-	return nodeSubmitterAddressesFromJobs(jobs)
+	return sortedNodeSubmitterAddresses(bySource)
 }
 
 type nodeSubmitterAddressKey struct {
@@ -270,6 +280,11 @@ type nodeSubmitterAddressKey struct {
 
 func nodeSubmitterAddressesFromJobs(jobs []job.Job) []*commonv1.NodeSubmitterAddress {
 	bySource := make(map[nodeSubmitterAddressKey]map[string]struct{})
+	addNodeSubmitterAddressesFromJobs(bySource, jobs)
+	return sortedNodeSubmitterAddresses(bySource)
+}
+
+func addNodeSubmitterAddressesFromJobs(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jobs []job.Job) {
 	for _, jb := range jobs {
 		addOCRSubmitterAddress(bySource, jb)
 		addOCR2SubmitterAddresses(bySource, jb)
@@ -280,7 +295,6 @@ func nodeSubmitterAddressesFromJobs(jobs []job.Job) []*commonv1.NodeSubmitterAdd
 		addStandardCapabilitiesSubmitterAddress(bySource, jb)
 		addPipelineETHTxSubmitterAddresses(bySource, jb)
 	}
-	return sortedNodeSubmitterAddresses(bySource)
 }
 
 func addOCRSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {

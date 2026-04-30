@@ -33,8 +33,20 @@ type fakeNodePlatformJobReader struct {
 	err  error
 }
 
-func (f fakeNodePlatformJobReader) FindJobs(context.Context, int, int) ([]job.Job, int, error) {
-	return f.jobs, len(f.jobs), f.err
+func (f fakeNodePlatformJobReader) FindJobs(_ context.Context, offset, limit int) ([]job.Job, int, error) {
+	if f.err != nil {
+		return nil, 0, f.err
+	}
+
+	if offset >= len(f.jobs) {
+		return nil, len(f.jobs), nil
+	}
+
+	end := offset + limit
+	if end > len(f.jobs) {
+		end = len(f.jobs)
+	}
+	return f.jobs[offset:end], len(f.jobs), nil
 }
 
 type submitterAddress struct {
@@ -303,6 +315,53 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 			},
 		},
 	}, nodeSubmitterAddresses(payload.SubmitterAddresses))
+}
+
+func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
+	obs := beholdertest.NewObserver(t)
+
+	jobs := make([]job.Job, 1001)
+	jobs[1000] = job.Job{
+		Type: job.DirectRequest,
+		DirectRequestSpec: &job.DirectRequestSpec{
+			EVMChainID: sqlutil.NewI(10),
+		},
+		Pipeline: pipeline.Pipeline{Tasks: []pipeline.Task{
+			&pipeline.ETHTxTask{
+				From: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+		}},
+	}
+
+	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
+		Beat:         10 * time.Millisecond,
+		Lggr:         logger.TestLogger(t),
+		CSAPublicKey: "csa-public-key",
+		JobReader: fakeNodePlatformJobReader{
+			jobs: jobs,
+		},
+	}))
+
+	require.Eventually(t, func() bool {
+		msgs := obs.Messages(t, beholder.AttrKeyEntity, "common.v1.NodeJobInfo")
+		for _, msg := range msgs {
+			var payload commonv1.NodeJobInfo
+			if proto.Unmarshal(msg.Body, &payload) != nil {
+				continue
+			}
+
+			for _, submitterAddress := range payload.SubmitterAddresses {
+				if submitterAddress.ChainId == "10" &&
+					submitterAddress.JobType == "directrequest" &&
+					submitterAddress.FieldPath == "observationSource.ethtx.from" &&
+					len(submitterAddress.Addresses) == 1 &&
+					submitterAddress.Addresses[0] == "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+					return true
+				}
+			}
+		}
+		return false
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestNodePlatformBuildInfo_ResolvesCSAKeyOnStart(t *testing.T) {
