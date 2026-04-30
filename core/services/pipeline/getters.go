@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	stderrors "errors"
 	"strings"
 	"time"
 
@@ -132,6 +134,15 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 		jd.UseNumber()
 		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
+		}
+		// Reject inputs that the decoder only partially consumed. Without
+		// this check, json.Decoder happily reads "0" out of an Ethereum
+		// address like "0x..." (since "0" is itself a complete JSON number)
+		// and returns int64(0), with the trailing characters silently
+		// discarded. The next getter (e.g. NonemptyString) never gets a
+		// chance to handle the literal address. See issue #21768.
+		if _, err := jd.Token(); !stderrors.Is(err, io.EOF) {
+			return nil, errors.Wrapf(ErrBadInput, "trailing data after JSON value; js: %s", string(replaced))
 		}
 		reinterpreted, err := jsonserializable.ReinterpretJSONNumbers(val)
 		if err != nil {
