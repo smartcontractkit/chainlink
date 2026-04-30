@@ -335,7 +335,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
 	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
 	for addr, tv := range addressesToDelete {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))

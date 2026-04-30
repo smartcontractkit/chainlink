@@ -4,9 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"

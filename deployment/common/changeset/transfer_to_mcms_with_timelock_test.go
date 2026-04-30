@@ -164,7 +164,7 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	require.True(t, rt.State().Proposals[0].IsExecuted)
 
 	// We expect now that the link token is owned by the MCMS timelock.
-	addrsDatastore, err := evmstate.LoadAddressesFromDataStore(rt.State().DataStore, selector, "")
+	addrsDatastore, err := evmstate.LoadAddressesFromDataStore(rt.State().DataStore, selector, "") //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
 	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addrsDatastore)
 	require.NoError(t, err)
