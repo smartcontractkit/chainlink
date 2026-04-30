@@ -323,6 +323,7 @@ func buildLoadTestPayload(targetSize int) []byte {
 
 // TestChipIngressExternalPing is a smoke test: verifies gRPC connectivity when CHIP_INGRESS_TEST_ADDR is set.
 func TestChipIngressExternalPing(t *testing.T) {
+	t.Skip("Local Testing Only")
 	if !externalChipConfigured() {
 		t.Skipf("set %s to dial a real Chip Ingress (e.g. 127.0.0.1:50051)", envChipIngressTestAddr)
 	}
@@ -346,6 +347,7 @@ func TestChipIngressExternalPing(t *testing.T) {
 // With the in-process mock, each Publish RPC sleeps sustainedThroughputMockPublishLatency
 // (const); pipeline logs should show ~that much in immediate Publish p50/p99/mean.
 func TestFullStack_SustainedThroughput(t *testing.T) {
+	t.Skip("Local Testing Only")
 	// Must use non-txdb Postgres: txdb is a single transaction; any SQL error
 	// aborts it and all follow-up queries fail with SQLSTATE 25P02 under concurrent
 	// purge/retransmit/mark-delivered (DurableEmitter background loops).
@@ -665,6 +667,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 //	./bin/ctf obs up
 //	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 go test ./core/services/beholder/ -run TestFullStack_ChipOutage -v -count=1 -timeout 20m
 func TestFullStack_ChipOutage(t *testing.T) {
+	t.Skip("Local Testing Only")
 	skipIfExternalChip(t, "inject Unavailable errors on mock server")
 
 	db := directDB(t)
@@ -960,6 +963,7 @@ type drainRunResult struct {
 //
 //	CHIP_INGRESS_TEST_ADDR=127.0.0.1:50051 go test ./core/services/beholder/ -run TestFullStack_BacklogDrain -v -count=1 -timeout 30m
 func TestFullStack_BacklogDrain(t *testing.T) {
+	t.Skip("Local Testing Only")
 	db := directDB(t)
 
 	ctx := testutils.Context(t)
@@ -1221,6 +1225,7 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 // publish). This tests whether the async design keeps Emit() fast even
 // when gRPC is slow.
 func TestFullStack_SlowChip(t *testing.T) {
+	t.Skip("Local Testing Only")
 	skipIfExternalChip(t, "inject publish latency on mock server")
 
 	db := directDB(t)
@@ -1272,6 +1277,7 @@ func TestFullStack_SlowChip(t *testing.T) {
 // Benchmark_FullStack_EmitThroughput benchmarks the Emit() path with real Postgres
 // and a fast mock gRPC server. This gives the upper bound of events/sec.
 func Benchmark_FullStack_EmitThroughput(b *testing.B) {
+	b.Skip("Local Testing Only")
 	db := directDB(b)
 	_, client := startChipIngressOrMock(b)
 	store := beholdersvc.NewPgDurableEventStore(db)
@@ -1296,6 +1302,7 @@ func Benchmark_FullStack_EmitThroughput(b *testing.B) {
 // Benchmark_FullStack_EmitPayloadSizes benchmarks Emit throughput at
 // different payload sizes to understand the DB I/O impact.
 func Benchmark_FullStack_EmitPayloadSizes(b *testing.B) {
+	b.Skip("Local Testing Only")
 	sizes := []int{64, 256, 1024, 4096}
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("%dB", size), func(b *testing.B) {
@@ -1870,6 +1877,7 @@ func runRateLimitedEmit(
 // the throughput ceiling. Each level gets its own DurableEmitter to avoid
 // carry-over. Measures achieved rate, Emit() latency, and queue depth.
 func TestTPS_RampUp(t *testing.T) {
+	t.Skip("Local Testing Only")
 	levels := []int{100, 500, 1000, 2000}
 	testStart := time.Now()
 
@@ -1978,6 +1986,7 @@ func TestTPS_RampUp(t *testing.T) {
 // the pipeline keeps up: deletes match inserts, queue stays bounded, and
 // Emit() latency stays low.
 func TestTPS_Sustained1k(t *testing.T) {
+	t.Skip("Local Testing Only")
 	testStart := time.Now()
 	t.Logf("TestTPS_Sustained1k: provisioning DB + Chip server + emitter...")
 
@@ -2065,6 +2074,7 @@ func TestTPS_Sustained1k(t *testing.T) {
 // TestTPS_1k_WithChipOutage runs at 1000 TPS, takes Chip down mid-test,
 // and verifies events accumulate safely then drain on recovery.
 func TestTPS_1k_WithChipOutage(t *testing.T) {
+	t.Skip("Local testing only")
 	skipIfExternalChip(t, "inject Unavailable errors on mock server")
 
 	testStart := time.Now()
@@ -2170,6 +2180,7 @@ func TestTPS_1k_WithChipOutage(t *testing.T) {
 // TestTPS_PayloadSizeScaling tests 1k TPS at different payload sizes to
 // understand how billing record size affects throughput.
 func TestTPS_PayloadSizeScaling(t *testing.T) {
+	t.Skip("Local testing only")
 	testStart := time.Now()
 	sizes := []struct {
 		name string

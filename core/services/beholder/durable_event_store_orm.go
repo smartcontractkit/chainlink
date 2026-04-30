@@ -151,7 +151,7 @@ func (s *PgDurableEventStore) DeleteExpired(ctx context.Context, ttl time.Durati
 	const q = `
 WITH deleted AS (
     DELETE FROM ` + chipDurableEventsTable + `
-    WHERE created_at < now() - $1::interval
+    WHERE created_at <= now() - $1::interval
     RETURNING id
 )
 SELECT count(*) FROM deleted`
