@@ -278,12 +278,6 @@ type nodeSubmitterAddressKey struct {
 	fieldPath  string
 }
 
-func nodeSubmitterAddressesFromJobs(jobs []job.Job) []*commonv1.NodeSubmitterAddress {
-	bySource := make(map[nodeSubmitterAddressKey]map[string]struct{})
-	addNodeSubmitterAddressesFromJobs(bySource, jobs)
-	return sortedNodeSubmitterAddresses(bySource)
-}
-
 func addNodeSubmitterAddressesFromJobs(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jobs []job.Job) {
 	for _, jb := range jobs {
 		addOCRSubmitterAddress(bySource, jb)
