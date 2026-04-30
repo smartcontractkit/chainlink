@@ -607,13 +607,6 @@ func executeVaultAllowListSecretsCreateTest(t *testing.T, encryptedSecret, secre
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
-func executeVaultAllowListSecretsCreateTestExpectOwners(t *testing.T, encryptedSecret, secretID, requestOwner string, expectedResponseOwners []string, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) string {
-	t.Helper()
-
-	auth := newAllowlistVaultRequestAuth(requestOwner, sethClient, wfRegistryContract)
-	return executeVaultSecretsCreateWithAuthExpectOwners(t, auth, encryptedSecret, secretID, expectedResponseOwners, gatewayURL, namespaces)
-}
-
 func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *vault.TestJWTIssuer, encryptedSecret, secretID, orgID, workflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
