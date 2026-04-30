@@ -6,7 +6,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/ccip/codec"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -27,7 +26,7 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 		ChainRW:                    ChainRWProvider{},
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
-		CCIPProviderSupported:      env.SolanaPlugin.Cmd.Get() != "",
+		CCIPProviderSupported:      true,
 	}
 }
 

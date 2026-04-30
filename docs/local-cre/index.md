@@ -16,6 +16,7 @@ Use this doc set when you need to:
 - deploy or debug workflows
 - run or extend CRE smoke tests
 - understand how the test helpers interact with a running Local CRE environment
+- reuse repo-local agent guidance for Local CRE under `docs/local-cre/agent-skills/local-cre-e2e/`
 
 ## Start Here
 

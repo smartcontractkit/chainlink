@@ -7,8 +7,9 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -80,28 +81,28 @@ func (f FundMCMSignersChangeset) Apply(e cldf.Environment, config FundMCMSignerC
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
 
-		err = FundFromDeployerKey(
+		err = cldchangesetssolana.FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
 			cfgAmounts.Timelock)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
 		}
-		err = FundFromDeployerKey(
+		err = cldchangesetssolana.FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
 			cfgAmounts.ProposeMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector, err)
 		}
-		err = FundFromDeployerKey(
+		err = cldchangesetssolana.FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
 			cfgAmounts.CancellerMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS canceller on chain %d: %w", chainSelector, err)
 		}
-		err = FundFromDeployerKey(
+		err = cldchangesetssolana.FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
 			cfgAmounts.BypasserMCM)

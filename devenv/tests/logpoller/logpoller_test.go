@@ -27,6 +27,13 @@ import (
 	"github.com/smartcontractkit/chainlink/devenv/products/automation"
 )
 
+var ignoredSlowQueryLog = products.NewAllowedLogMessage(
+	"SLOW SQL QUERY",
+	"It is expected, because we are pausing the Postgres container",
+	zapcore.DPanicLevel,
+	products.WarnAboutAllowedMsgs_No,
+)
+
 // consistency test with no network disruptions with approximate emission of 1500-1600 logs per second for ~110-120 seconds
 // 6 filters are registered
 
@@ -45,7 +52,7 @@ func TestLogPoller(t *testing.T) {
 			MaxEmitWaitTimeMs: 600,
 		},
 	}
-	executePollerTest(t, cfg)
+	executePollerTest(t, cfg, ignoredSlowQueryLog)
 }
 
 // consistency test that registers filters after events were emitted and then triggers replay via API
@@ -69,7 +76,7 @@ func TestLogPollerReplay(t *testing.T) {
 			MaxEmitWaitTimeMs: 600,
 		},
 	}
-	executeLogPollerReplay(t, cfg, "5m")
+	executeLogPollerReplay(t, cfg, "5m", ignoredSlowQueryLog)
 }
 
 // TODO: adjust these values to what we are/can really run, they seem to be outdated
@@ -93,7 +100,7 @@ func XTestLogPollerHeavyLoad(t *testing.T) {
 		},
 	}
 
-	executePollerTest(t, cfg)
+	executePollerTest(t, cfg, ignoredSlowQueryLog)
 }
 
 // consistency test that introduces random disruptions by pausing Chainlink containers for random interval of 5-20 seconds
@@ -120,7 +127,7 @@ func TestLogPollerChaosChainlinkNodes(t *testing.T) {
 		},
 	}
 
-	executePollerTest(t, cfg)
+	executePollerTest(t, cfg, ignoredSlowQueryLog)
 }
 
 // consistency test that introduces random disruptions by pausing Postgres container for random interval of 5-20 seconds
@@ -147,12 +154,7 @@ func TestLogPollerChaosPostgres(t *testing.T) {
 		},
 	}
 
-	executePollerTest(t, cfg, products.NewAllowedLogMessage(
-		"SLOW SQL QUERY",
-		"It is expected, because we are pausing the Postgres container",
-		zapcore.DPanicLevel,
-		products.WarnAboutAllowedMsgs_No,
-	))
+	executePollerTest(t, cfg, ignoredSlowQueryLog)
 }
 
 func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products.AllowedLogMessage) {
@@ -311,7 +313,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	waitUntilNodesHaveTheSameLogsAsEvm(l, nil, t, allNodesLogCountMatches, lpTestEnv, cfg, startBlock, endBlock, "5m")
 }
 
-func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string) {
+func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string, allowedLogMessages ...products.AllowedLogMessage) {
 	outputFile := "../../env-out.toml"
 	in, err := de.LoadOutput[de.Cfg](outputFile)
 	require.NoError(t, err)
@@ -326,7 +328,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	l := framework.L
 	ctx := t.Context()
 	t.Cleanup(func() {
-		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings())
+		cleanupErr := products.CleanupContainerLogs(products.DefaultSettings(allowedLogMessages...))
 		require.NoError(t, cleanupErr, "failed to process cleanup container logs")
 	})
 

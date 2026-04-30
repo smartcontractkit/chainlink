@@ -298,3 +298,60 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrgLabels(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
+	)
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
+
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
+		RequestId:     "request-id",
+		OrgId:         orgID,
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "key",
+					Namespace: "namespace",
+					Owner:     orgID,
+				},
+				EncryptedValue: encrypted,
+			},
+		},
+	})
+
+	require.NoError(t, err)
+}
+
+func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerForLegacyRequests(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
+	)
+
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encrypted := encryptWithEthAddressLabel(t, pk, workflowOwner)
+
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, &vaultcommon.CreateSecretsRequest{
+		RequestId: "request-id",
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "key",
+					Namespace: "namespace",
+					Owner:     workflowOwner,
+				},
+				EncryptedValue: encrypted,
+			},
+		},
+	})
+
+	require.NoError(t, err)
+}

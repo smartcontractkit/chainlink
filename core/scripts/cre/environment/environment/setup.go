@@ -51,6 +51,7 @@ func init() {
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+	SetupCmd.Flags().BoolVarP(&config.Build, "build", "b", false, "Build images locally instead of pulling from ECR (useful on Apple Silicon)")
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
@@ -135,6 +136,7 @@ const (
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
 	ConfigPath string
+	Build      bool // when true, images are built locally instead of pulled from ECR
 }
 
 type BuildConfig struct {
@@ -267,6 +269,13 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		}()
 	}
 
+	// When building on a non-amd64 host, override the TARGETOS/TARGETARCH build
+	// args so the Go binary is compiled for the correct architecture. Many
+	// Dockerfiles in this project declare `ARG TARGETARCH=amd64` which defaults
+	// to amd64 regardless of --platform. Passing --build-arg makes the cache key
+	// differ from the amd64 entry, forcing a fresh compilation.
+	overrideArch := runtime.GOARCH != "amd64"
+
 	// Save current directory and change to working directory
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -289,10 +298,20 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	args := []string{"build", "--platform", "linux/" + runtime.GOARCH}
+	if overrideArch {
+		// Override TARGETOS/TARGETARCH build args so Dockerfiles with
+		// `ARG TARGETARCH=amd64` compile the correct binary. This also changes
+		// the cache key, causing Docker to recompile instead of reusing an
+		// amd64-cached layer.
+		args = append(args, "--build-arg", "TARGETOS=linux", "--build-arg", "TARGETARCH="+runtime.GOARCH)
+	}
+	args = append(args, "-t", c.LocalImage, "-f", c.Dockerfile)
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}
+	// Context must be the final positional argument.
+	args = append(args, c.DockerCtx)
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
@@ -393,7 +412,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = PullOption // Default to Pull
+		var input = defaultOption // default controlled by the caller (PullOption or BuildOption)
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -515,12 +534,17 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
+	defaultOption := PullOption
+	if config.Build {
+		defaultOption = BuildOption
+	}
+
 	jdConfig := ImageConfig{
 		BuildConfig: cfg.JobDistributor.BuildConfig,
 		PullConfig:  cfg.JobDistributor.PullConfig,
 	}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 		return
@@ -534,7 +558,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Chip Router image")
 			return
@@ -551,7 +575,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
 			return
@@ -568,7 +592,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
 			return

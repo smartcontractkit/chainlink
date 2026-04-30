@@ -23,16 +23,16 @@ type RequestValidator struct {
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets)
 }
 
 func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.EncryptedSecrets)
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets)
 }
 
-// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests
-// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet
-func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+// validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests.
+// It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet.
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, orgID string, workflowOwner string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -66,7 +66,11 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		if err := r.validateCiphertextSize(ctx, req.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
-		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, req.Id.Owner, "")
+		expectedWorkflowOwner := workflowOwner
+		if expectedWorkflowOwner == "" && orgID == "" {
+			expectedWorkflowOwner = req.Id.Owner
+		}
+		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, expectedWorkflowOwner, orgID)
 		if err != nil {
 			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
 		}
