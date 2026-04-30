@@ -106,12 +106,11 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 
 			addressesRefs := deps.Env.DataStore.Addresses().Filter(filters...)
 			if len(addressesRefs) == 0 {
-				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d", chain.Selector)
+				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: no KeystoneForwarder contract found for chain selector %d and qualifier %q", chain.Selector, input.Qualifier)
 			}
 
 			if len(addressesRefs) > 1 {
-				deps.Env.Logger.Warnf(
-					"Found %d forwarder contracts for a chain. Config will be applied to all of them.", len(addressesRefs))
+				return ConfigureSeqOutput{}, fmt.Errorf("configure-forwarders-seq failed: expected one KeystoneForwarder contract for chain selector %d and qualifier %q, found %d", chain.Selector, input.Qualifier, len(addressesRefs))
 			}
 
 			var mcmsContracts *changesetstate.MCMSWithTimelockState

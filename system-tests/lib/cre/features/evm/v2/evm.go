@@ -152,8 +152,8 @@ func (o *EVM) PostEnvStartup(
 	chainsWithEVMCapability := chainsWithEVMCapability(creEnv.Blockchains, dons.DonsWithFlag(flag))
 	if len(chainsWithEVMCapability) > 0 {
 		evmChainsWithForwarders := make([]uint64, 0)
-		for chainID := range chainsWithEVMCapability {
-			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainID))
+		for _, chainSelector := range chainsWithEVMCapability {
+			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainSelector))
 		}
 		for _, don := range consensusDons {
 			config, confErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)

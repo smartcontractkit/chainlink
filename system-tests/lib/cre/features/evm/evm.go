@@ -3,6 +3,7 @@ package evm
 import (
 	"fmt"
 	"slices"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
@@ -10,6 +11,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -65,27 +67,57 @@ func ConfigureEVMForwarders(testLogger zerolog.Logger, cldfEnv *cldf.Environment
 		NodeIDs: ocr3DON.KeystoneDONConfig().NodeIDs,
 	}
 
-	chainsWithForwarders := make(map[uint64]struct{})
+	if len(chainSelectors) == 0 {
+		for _, chain := range cldfEnv.BlockChains.EVMChains() {
+			chainSelectors = append(chainSelectors, chain.Selector)
+		}
+	}
+
+	chainsByQualifier := make(map[string]map[uint64]struct{})
 	for _, selector := range chainSelectors {
-		chainsWithForwarders[selector] = struct{}{}
+		refs := cldfEnv.DataStore.Addresses().Filter(
+			datastore.AddressRefByChainSelector(selector),
+			datastore.AddressRefByType(datastore.ContractType(keystone_changeset.KeystoneForwarder.String())),
+		)
+		if len(refs) == 0 {
+			return nil, fmt.Errorf("failed to resolve deployed forwarder for chain selector %d", selector)
+		}
+
+		for _, ref := range refs {
+			if chainsByQualifier[ref.Qualifier] == nil {
+				chainsByQualifier[ref.Qualifier] = make(map[uint64]struct{})
+			}
+			chainsByQualifier[ref.Qualifier][selector] = struct{}{}
+		}
 	}
 
-	fout, err3 := operations.ExecuteSequence(
-		cldfEnv.OperationsBundle,
-		forwarder.ConfigureSeq,
-		forwarder.ConfigureSeqDeps{
-			Env: cldfEnv,
-		},
-		forwarder.ConfigureSeqInput{
-			DON:    forwarderCfg,
-			Chains: chainsWithForwarders,
-		},
-	)
-	if err3 != nil {
-		return nil, errors.Wrap(err3, "failed to configure forwarders")
+	qualifiers := make([]string, 0, len(chainsByQualifier))
+	for qualifier := range chainsByQualifier {
+		qualifiers = append(qualifiers, qualifier)
+	}
+	sort.Strings(qualifiers)
+
+	var configuredConfig forwarder.Config
+	for _, qualifier := range qualifiers {
+		fout, err := operations.ExecuteSequence(
+			cldfEnv.OperationsBundle,
+			forwarder.ConfigureSeq,
+			forwarder.ConfigureSeqDeps{
+				Env: cldfEnv,
+			},
+			forwarder.ConfigureSeqInput{
+				DON:       forwarderCfg,
+				Qualifier: qualifier,
+				Chains:    chainsByQualifier[qualifier],
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to configure forwarders with qualifier %q", qualifier)
+		}
+		configuredConfig = fout.Output.Config
 	}
 
-	return &fout.Output.Config, nil
+	return &configuredConfig, nil
 }
 
 func ChainsWithForwarders(blockchains []blockchains.Blockchain, nodeSets []cre.NodeSetWithCapabilityConfigs) map[string][]uint64 {
