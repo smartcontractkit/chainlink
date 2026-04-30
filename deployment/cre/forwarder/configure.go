@@ -99,9 +99,8 @@ var ConfigureSeq = operations.NewSequence[ConfigureSeqInput, ConfigureSeqOutput,
 
 			filters := []datastore.FilterFunc[datastore.AddressRefKey, datastore.AddressRef]{
 				datastore.AddressRefByChainSelector(chain.Selector),
-				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder))}
-			if input.Qualifier != "" {
-				filters = append(filters, datastore.AddressRefByQualifier(input.Qualifier))
+				datastore.AddressRefByType(datastore.ContractType(contracts.KeystoneForwarder)),
+				datastore.AddressRefByQualifier(input.Qualifier),
 			}
 
 			addressesRefs := deps.Env.DataStore.Addresses().Filter(filters...)
