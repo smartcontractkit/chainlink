@@ -588,5 +588,5 @@ func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeA
 }
 
 func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // will be refactored once usages are removed
+	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // this will be refactored once usages are removed
 }
