@@ -175,9 +175,9 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
-	if err := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, err.Error())
-		return nil, err
+	if ownerErr := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); ownerErr != nil {
+		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, ownerErr.Error())
+		return nil, ownerErr
 	}
 	err = s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false)
 	if err != nil {
@@ -195,9 +195,9 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 	}
 	request.OrgId = resolvedIdentity.OrgID
 	request.WorkflowOwner = resolvedIdentity.WorkflowOwner
-	if err := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, err.Error())
-		return nil, err
+	if ownerErr := validateEncryptedSecretOwnersMatchResolvedIdentity(request.EncryptedSecrets, resolvedIdentity); ownerErr != nil {
+		s.lggr.Debugf("RequestId: [%s] failed identity owner checks: %s", request.RequestId, ownerErr.Error())
+		return nil, ownerErr
 	}
 	err = s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false)
 	if err != nil {

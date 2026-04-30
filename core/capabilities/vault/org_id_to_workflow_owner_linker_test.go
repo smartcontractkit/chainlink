@@ -328,7 +328,6 @@ func TestCapability_RejectsOwnersOutsideResolvedIdentity(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := tc.call()
 			require.ErrorContains(t, err, "must match resolved workflow owner")
