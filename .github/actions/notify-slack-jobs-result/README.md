@@ -32,9 +32,6 @@ jobs:
     if: always()
     steps:
       - uses: ./.github/actions/notify-slack-jobs-result
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
         with:
           status: ${{ needs.tests.result }}
           job_name: "Smoke tests"
