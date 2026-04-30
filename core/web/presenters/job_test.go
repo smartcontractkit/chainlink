@@ -120,7 +120,6 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"gasLimit": 1000,
 						"forwardingAllowed": false,
-						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
@@ -202,7 +201,6 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
 						"directRequestSpec": null,
-						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
@@ -294,7 +292,6 @@ func TestJob(t *testing.T) {
 						"gasLimit": 123,
 						"forwardingAllowed": true,
 						"directRequestSpec": null,
-						"keeperSpec": null,
                         "cronSpec": null,
                         "vrfSpec": null,
 						"webhookSpec": null,
@@ -312,75 +309,6 @@ func TestJob(t *testing.T) {
 					}
 				}
 			}`, contractAddress, ocrKeyBundleID, transmitterAddress),
-		},
-		{
-			name: "keeper spec",
-			job: job.Job{
-				ID: 1,
-				KeeperSpec: &job.KeeperSpec{
-					ContractAddress: contractAddress,
-					FromAddress:     fromAddress,
-					CreatedAt:       timestamp,
-					UpdatedAt:       timestamp,
-					EVMChainID:      evmChainID,
-				},
-				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
-				PipelineSpec: &pipeline.Spec{
-					ID:           1,
-					DotDagSource: "",
-				},
-				Type:            job.Keeper,
-				SchemaVersion:   1,
-				Name:            null.StringFrom("test"),
-				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
-			},
-			want: fmt.Sprintf(`
-			{
-				"data":{
-					"type":"jobs",
-					"id":"1",
-					"attributes":{
-						"name": "test",
-						"schemaVersion": 1,
-						"type": "keeper",
-						"maxTaskDuration": "1m0s",
-					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
-						"pipelineSpec": {
-							"id": 1,
-							"dotDagSource": "",
-							"jobID": 0
-						},
-						"keeperSpec": {
-							"contractAddress": "%s",
-							"fromAddress": "%s",
-							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z",
-							"evmChainID": "42"
-						},
-						"fluxMonitorSpec": null,
-						"gasLimit": null,
-						"forwardingAllowed": false,
-						"directRequestSpec": null,
-						"cronSpec": null,
-						"webhookSpec": null,
-						"workflowSpec": null,
-						"offChainReportingOracleSpec": null,
-						"offChainReporting2OracleSpec": null,
-                        "cronSpec": null,
-                        "vrfSpec": null,
-						"blockhashStoreSpec": null,
-						"blockHeaderFeederSpec": null,
-						"bootstrapSpec": null,
-						"gatewaySpec": null,
-						"standardCapabilitiesSpec": null,
-						"ccipSpec": null,
-						"creSettingsSpec": null,
-						"ccvCommitteeVerifierSpec": null,
-						"ccvExecutorSpec": null,
-						"errors": []
-					}
-				}
-			}`, contractAddress, fromAddress),
 		},
 		{
 			name: "cron spec",
@@ -428,7 +356,6 @@ func TestJob(t *testing.T) {
 						"gasLimit": null,
 						"forwardingAllowed": false,
                         "directRequestSpec": null,
-                        "keeperSpec": null,
                         "offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
 						"vrfSpec": null,
@@ -491,7 +418,6 @@ func TestJob(t *testing.T) {
 						"gasLimit": null,
 						"forwardingAllowed": false,
 						"directRequestSpec": null,
-						"keeperSpec": null,
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
@@ -558,7 +484,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": {
 							"batchCoordinatorAddress": "%s",
 							"batchFulfillmentEnabled": true,
@@ -648,7 +573,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -734,7 +658,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -810,7 +733,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -880,7 +802,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -948,7 +869,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": {
@@ -1014,7 +934,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -1080,7 +999,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -1147,7 +1065,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -1211,7 +1128,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -1281,7 +1197,6 @@ func TestJob(t *testing.T) {
 						"cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"offChainReporting2OracleSpec": null,
-						"keeperSpec": null,
 						"vrfSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
@@ -1307,19 +1222,18 @@ func TestJob(t *testing.T) {
 			name: "with errors",
 			job: job.Job{
 				ID: 1,
-				KeeperSpec: &job.KeeperSpec{
-					ContractAddress: contractAddress,
-					FromAddress:     fromAddress,
-					CreatedAt:       timestamp,
-					UpdatedAt:       timestamp,
-					EVMChainID:      evmChainID,
+				CronSpec: &job.CronSpec{
+					CronSchedule: cronSchedule,
+					CreatedAt:    timestamp,
+					UpdatedAt:    timestamp,
+					EVMChainID:   evmChainID,
 				},
 				ExternalJobID: uuid.MustParse("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
 					DotDagSource: "",
 				},
-				Type:            job.Keeper,
+				Type:            job.Cron,
 				SchemaVersion:   1,
 				Name:            null.StringFrom("test"),
 				MaxTaskDuration: sqlutil.Interval(1 * time.Minute),
@@ -1342,7 +1256,7 @@ func TestJob(t *testing.T) {
 					"attributes":{
 						"name": "test",
 						"schemaVersion": 1,
-						"type": "keeper",
+						"type": "cron",
 						"maxTaskDuration": "1m0s",
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
@@ -1350,9 +1264,8 @@ func TestJob(t *testing.T) {
 							"dotDagSource": "",
 							"jobID": 0
 						},
-						"keeperSpec": {
-							"contractAddress": "%s",
-							"fromAddress": "%s",
+						"cronSpec": {
+							"schedule": "%s",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z",
 							"evmChainID": "42"
@@ -1362,7 +1275,6 @@ func TestJob(t *testing.T) {
 						"forwardingAllowed": false,
 						"creSettingsSpec": null,
 						"directRequestSpec": null,
-						"cronSpec": null,
 						"webhookSpec": null,
 						"workflowSpec": null,
 						"offChainReportingOracleSpec": null,
@@ -1385,7 +1297,7 @@ func TestJob(t *testing.T) {
 						}]
 					}
 				}
-			}`, contractAddress, fromAddress),
+			}`, cronSchedule),
 		},
 	}
 

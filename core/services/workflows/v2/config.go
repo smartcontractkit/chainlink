@@ -379,6 +379,7 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
+	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
@@ -454,6 +455,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+	}
+	if h.OnTriggerEventDropped == nil {
+		h.OnTriggerEventDropped = func(triggerID, eventID, reason string) {}
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}

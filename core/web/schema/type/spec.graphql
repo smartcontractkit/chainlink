@@ -1,7 +1,6 @@
 union JobSpec =
     CronSpec |
     DirectRequestSpec |
-    KeeperSpec |
     FluxMonitorSpec |
     OCRSpec |
     OCR2Spec |
@@ -47,13 +46,6 @@ type FluxMonitorSpec {
     pollTimerDisabled: Boolean!
     pollTimerPeriod: String!
     threshold: Float!
-}
-
-type KeeperSpec {
-    contractAddress: String!
-    createdAt: Time!
-    evmChainID: String
-    fromAddress: String
 }
 
 type OCRSpec {

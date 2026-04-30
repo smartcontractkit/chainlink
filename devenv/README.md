@@ -67,7 +67,6 @@ Each row maps to a CI matrix entry in [devenv-nightly.yml](../.github/workflows/
 | VRF            | `cl u env.toml,products/vrf/basic.toml`                                        | `go test -v -timeout 10m -run TestVRFBasic\|TestVRFJobReplacement` | `vrf`           |
 | Automation 2.0 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_0`                    | `automation`    |
 | Automation 2.1 | `cl u env.toml,products/automation/basic.toml`                                 | `go test -v -timeout 30m -run TestRegistry_2_1`                    | `automation`    |
-| Keepers        | `cl u env.toml,products/keepers/basic.toml`                                    | `go test -v -timeout 1h -run TestKeeperBasic`                      | `keepers`       |
 | OCR2 Smoke     | `cl u env.toml,products/ocr2/basic.toml`                                       | `go test -v -run TestSmoke`                                        | `ocr2`          |
 | OCR2 Soak      | `cl u env.toml,products/ocr2/basic.toml,products/ocr2/soak.toml; cl obs up -f` | `go test -v -timeout 4h -run TestOCR2Soak/clean`                   | `ocr2`          |
 

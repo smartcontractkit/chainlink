@@ -1,5 +1,30 @@
 # Changelog Chainlink Core
 
+## 2.45.0
+
+### Minor Changes
+
+- [#22189](https://github.com/smartcontractkit/chainlink/pull/22189) [`ffeabb1`](https://github.com/smartcontractkit/chainlink/commit/ffeabb1c0dec911e190427132303509b8cc3b975) - Node operators can now specify in `PollSuccessThreshold` how many successful polls in a row must an unreachable RPC pass to become Alive again, on EVM chains. #added #nops
+
+- [#22234](https://github.com/smartcontractkit/chainlink/pull/22234) [`2a52a99`](https://github.com/smartcontractkit/chainlink/commit/2a52a992df57d88d85e2d6d6aad393950af0944a) - Support for SVR multiplexing #added
+
+- [#22234](https://github.com/smartcontractkit/chainlink/pull/22234) [`2a52a99`](https://github.com/smartcontractkit/chainlink/commit/2a52a992df57d88d85e2d6d6aad393950af0944a) - Emit beholder message for Atlas userOp #added
+
+- [#22234](https://github.com/smartcontractkit/chainlink/pull/22234) [`2a52a99`](https://github.com/smartcontractkit/chainlink/commit/2a52a992df57d88d85e2d6d6aad393950af0944a) - Send dualBroadcastParams in TxMessage #added
+
+- [#22121](https://github.com/smartcontractkit/chainlink/pull/22121) [`545bf76`](https://github.com/smartcontractkit/chainlink/commit/545bf769716690d69bda55e5e5934af525edca50) - Minor bump to start next version
+
+- [#22189](https://github.com/smartcontractkit/chainlink/pull/22189) [`ffeabb1`](https://github.com/smartcontractkit/chainlink/commit/ffeabb1c0dec911e190427132303509b8cc3b975) - RPCs that sustain polling error rates above 50% will now eventually be marked as unreachable, in addition to previous behaviour of `PollFailureThreshold` failures in a row. #updated #nops
+
+### Patch Changes
+
+- [#21828](https://github.com/smartcontractkit/chainlink/pull/21828) [`43a6f27`](https://github.com/smartcontractkit/chainlink/commit/43a6f2748d47fb6ec96a64505dfa66f1c302100b) - #internal
+  Forward-port the Aptos mock streams trigger compatibility path onto `develop` behind explicit local capability opt-in.
+
+- [#22234](https://github.com/smartcontractkit/chainlink/pull/22234) [`2a52a99`](https://github.com/smartcontractkit/chainlink/commit/2a52a992df57d88d85e2d6d6aad393950af0944a) - Fix overactive logging of submitted transactions #fixed
+
+- [#22190](https://github.com/smartcontractkit/chainlink/pull/22190) [`74fd310`](https://github.com/smartcontractkit/chainlink/commit/74fd3100248a5906d1157c1ac5f954905b58b7ff) - #internal adds metrics related to triggers and their queues
+
 ## 2.44.0
 
 ### Minor Changes
