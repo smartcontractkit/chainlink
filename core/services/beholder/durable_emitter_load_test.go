@@ -323,7 +323,7 @@ func buildLoadTestPayload(targetSize int) []byte {
 
 // TestChipIngressExternalPing is a smoke test: verifies gRPC connectivity when CHIP_INGRESS_TEST_ADDR is set.
 func TestChipIngressExternalPing(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	if !externalChipConfigured() {
 		t.Skipf("set %s to dial a real Chip Ingress (e.g. 127.0.0.1:50051)", envChipIngressTestAddr)
 	}
@@ -344,10 +344,10 @@ func TestChipIngressExternalPing(t *testing.T) {
 // many minutes at 100k events. Run with -short for a 10k-event run (~tens of s).
 // Spurious retransmits happen if RetransmitAfter is shorter than tail
 // MarkDelivered latency under load; we use a generous RetransmitAfter here.
-// With the in-process mock, each Publish RPC sleeps sustainedThroughputMockPublishLatency
-// (const); pipeline logs should show ~that much in immediate Publish p50/p99/mean.
+// With the in-process mock, each PublishBatch RPC sleeps sustainedThroughputMockPublishLatency
+// (const); pipeline logs should show ~that much in PublishBatch (batch publish loop) p50/p99/mean.
 func TestFullStack_SustainedThroughput(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	// Must use non-txdb Postgres: txdb is a single transaction; any SQL error
 	// aborts it and all follow-up queries fail with SQLSTATE 25P02 under concurrent
 	// purge/retransmit/mark-delivered (DurableEmitter background loops).
@@ -364,7 +364,6 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
-	cfg.QuietMode = true
 	cfg.RetransmitInterval = 30 * time.Second
 	cfg.RetransmitAfter = 5 * time.Minute
 	cfg.RetransmitBatchSize = 50000 // Shouldn't matter since all go thorugh first time
@@ -414,8 +413,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 		beholder.SetClient(bc)
 		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
 		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-			PollInterval:       1 * time.Second,
-			RecordProcessStats: true,
+			PollInterval: 1 * time.Second,
 		}
 		t.Logf("OTel metrics enabled → %s (1s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
 	}
@@ -511,7 +509,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	insP99 := durMs(pipe.emitIns.percentile(0.99))
 	insMean := durMs(pipe.emitIns.mean())
 
-	// Batch publish loop stats (primary delivery path when PublishBatchSize > 0).
+	// Batch publish loop stats (primary durable delivery path; PublishBatchSize is always >= 1).
 	bpN := pipe.batchLoopPub.count()
 	bpP50 := durMs(pipe.batchLoopPub.percentile(0.50))
 	bpP99 := durMs(pipe.batchLoopPub.percentile(0.99))
@@ -523,7 +521,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	bpEvents := pipe.batchLoopPubEvents.Load()
 	bmEvents := pipe.batchLoopMarkEvents.Load()
 
-	// Legacy per-event stats (only populated when PublishBatchSize == 0).
+	// Best-effort unary stats (OnImmediatePublish / MarkDelivered hooks): non-persist emits only.
 	pubN := pipe.immPub.count()
 	pubErrs := pipe.immPubErr.Load()
 	pubP50 := durMs(pipe.immPub.percentile(0.50))
@@ -549,15 +547,11 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	}
 
 	target := chipIngressTargetDescription(srv)
-	batchMode := cfg.PublishBatchSize > 0
-	batchLabel := "disabled (per-event goroutines)"
-	if batchMode {
-		workers := cfg.PublishBatchWorkers
-		if workers <= 0 {
-			workers = 1
-		}
-		batchLabel = fmt.Sprintf("%d events/batch, %d workers", cfg.PublishBatchSize, workers)
+	workers := cfg.PublishBatchWorkers
+	if workers <= 0 {
+		workers = 1
 	}
+	batchLabel := fmt.Sprintf("%d events/batch, %d workers", cfg.PublishBatchSize, workers)
 
 	rateLabel := "unlimited (fire-hose)"
 	if targetRate > 0 {
@@ -568,7 +562,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	t.Logf("║              SUSTAINED THROUGHPUT TEST RESULTS                      ║")
 	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
 	t.Logf("║ Target:      %-55s ║", target)
-	t.Logf("║ Batch mode:  %-55s ║", batchLabel)
+	t.Logf("║ Batch:       %-55s ║", batchLabel)
 	t.Logf("║ Target rate: %-55s ║", rateLabel)
 	t.Logf("╠══════════════════════════════════════════════════════════════════════╣")
 	t.Logf("║ EMIT (DB insert, batched gRPC)                                     ║")
@@ -589,19 +583,19 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 	t.Logf("║ PIPELINE LATENCY (hooks)                                           ║")
 	t.Logf("║                        %-10s %-10s %-10s %-10s ║", "n", "p50 (ms)", "p99 (ms)", "mean (ms)")
 	t.Logf("║   Emit (INSERT):       %-10d %-10.2f %-10.2f %-10.2f ║", insN, insP50, insP99, insMean)
-	if batchMode {
-		avgBatchSize := float64(0)
-		if bpN > 0 {
-			avgBatchSize = float64(bpEvents) / float64(bpN)
-		}
-		t.Logf("║   PublishBatch (gRPC): %-10d %-10.2f %-10.2f %-10.2f ║", bpN, bpP50, bpP99, bpMean)
-		t.Logf("║     └ events published:%-49d ║", bpEvents)
-		t.Logf("║     └ avg batch size:  %-49s ║", fmt.Sprintf("%.1f events/batch (configured: %d)", avgBatchSize, cfg.PublishBatchSize))
-		t.Logf("║   MarkDeliveredBatch:  %-10d %-10.2f %-10.2f %-10.2f ║", bmN, bmP50, bmP99, bmMean)
-		t.Logf("║     └ events marked:   %-49d ║", bmEvents)
-	} else {
+	avgBatchSize := float64(0)
+	if bpN > 0 {
+		avgBatchSize = float64(bpEvents) / float64(bpN)
+	}
+	t.Logf("║   PublishBatch (gRPC): %-10d %-10.2f %-10.2f %-10.2f ║", bpN, bpP50, bpP99, bpMean)
+	t.Logf("║     └ events published:%-49d ║", bpEvents)
+	t.Logf("║     └ avg batch size:  %-49s ║", fmt.Sprintf("%.1f events/batch (configured: %d)", avgBatchSize, cfg.PublishBatchSize))
+	t.Logf("║   MarkDeliveredBatch:  %-10d %-10.2f %-10.2f %-10.2f ║", bmN, bmP50, bmP99, bmMean)
+	t.Logf("║     └ events marked:   %-49d ║", bmEvents)
+	if pubN > 0 || delN > 0 {
+		t.Logf("║   Publish/Mark unary (best-effort non-persist hooks):                 ║")
 		t.Logf("║   Publish (gRPC):      %-10d %-10.2f %-10.2f %-10.2f ║", pubN, pubP50, pubP99, pubMean)
-		t.Logf("║   MarkDelivered:       %-10d %-10.2f %-10.2f %-10.2f ║", delN, delP50, delP99, delMean)
+		t.Logf("║   MarkDelivered hook:  %-10d %-10.2f %-10.2f %-10.2f ║", delN, delP50, delP99, delMean)
 	}
 	if pipe.batchPub.count() > 0 {
 		t.Logf("║   Retransmit:          %-10d %-10.2f %-10s %-10.2f ║",
@@ -667,7 +661,7 @@ func TestFullStack_SustainedThroughput(t *testing.T) {
 //	./bin/ctf obs up
 //	OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 go test ./core/services/beholder/ -run TestFullStack_ChipOutage -v -count=1 -timeout 20m
 func TestFullStack_ChipOutage(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	skipIfExternalChip(t, "inject Unavailable errors on mock server")
 
 	db := directDB(t)
@@ -679,7 +673,6 @@ func TestFullStack_ChipOutage(t *testing.T) {
 
 	pipe := &pipelineDeliveryStats{}
 	cfg := beholder.DefaultDurableEmitterConfig()
-	cfg.QuietMode = true
 	cfg.RetransmitInterval = 200 * time.Millisecond
 	cfg.RetransmitAfter = 500 * time.Millisecond
 	cfg.RetransmitBatchSize = 200
@@ -710,8 +703,7 @@ func TestFullStack_ChipOutage(t *testing.T) {
 		beholder.SetClient(bc)
 		t.Cleanup(func() { beholder.SetClient(beholder.NewNoopClient()) })
 		cfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-			PollInterval:       1 * time.Second,
-			RecordProcessStats: true,
+			PollInterval: 1 * time.Second,
 		}
 		t.Logf("OTel metrics enabled → %s (1s push interval, Grafana: http://localhost:3000)", otlpEndpoint)
 	}
@@ -963,7 +955,7 @@ type drainRunResult struct {
 //
 //	CHIP_INGRESS_TEST_ADDR=127.0.0.1:50051 go test ./core/services/beholder/ -run TestFullStack_BacklogDrain -v -count=1 -timeout 30m
 func TestFullStack_BacklogDrain(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	db := directDB(t)
 
 	ctx := testutils.Context(t)
@@ -1056,7 +1048,6 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 			phase2Stats := &pipelineDeliveryStats{}
 
 			cfg := beholder.DefaultDurableEmitterConfig()
-			cfg.QuietMode = true
 			cfg.RetransmitInterval = 100 * time.Millisecond
 			cfg.RetransmitAfter = 0 // all pending rows are eligible immediately
 			cfg.RetransmitBatchSize = rc.retransmitBatchSize
@@ -1225,7 +1216,7 @@ func TestFullStack_BacklogDrain(t *testing.T) {
 // publish). This tests whether the async design keeps Emit() fast even
 // when gRPC is slow.
 func TestFullStack_SlowChip(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	skipIfExternalChip(t, "inject publish latency on mock server")
 
 	db := directDB(t)
@@ -1277,7 +1268,7 @@ func TestFullStack_SlowChip(t *testing.T) {
 // Benchmark_FullStack_EmitThroughput benchmarks the Emit() path with real Postgres
 // and a fast mock gRPC server. This gives the upper bound of events/sec.
 func Benchmark_FullStack_EmitThroughput(b *testing.B) {
-	b.Skip("Local Testing Only")
+	b.Skip("Local testing only")
 	db := directDB(b)
 	_, client := startChipIngressOrMock(b)
 	store := beholdersvc.NewPgDurableEventStore(db)
@@ -1302,7 +1293,7 @@ func Benchmark_FullStack_EmitThroughput(b *testing.B) {
 // Benchmark_FullStack_EmitPayloadSizes benchmarks Emit throughput at
 // different payload sizes to understand the DB I/O impact.
 func Benchmark_FullStack_EmitPayloadSizes(b *testing.B) {
-	b.Skip("Local Testing Only")
+	b.Skip("Local testing only")
 	sizes := []int{64, 256, 1024, 4096}
 	for _, size := range sizes {
 		b.Run(fmt.Sprintf("%dB", size), func(b *testing.B) {
@@ -1498,8 +1489,8 @@ func (s *emitLatencyStats) sum() time.Duration {
 	return t
 }
 
-// pipelineDeliveryStats aggregates DurableEmitterHooks samples to compare
-// Emit (DB Insert) vs Chip Publish vs store MarkDelivered cost.
+// pipelineDeliveryStats aggregates DurableEmitterHooks samples: insert vs batch PublishBatch
+// vs best-effort unary (OnImmediatePublish) when applicable.
 type pipelineDeliveryStats struct {
 	emitIns                            emitLatencyStats // store.Insert latency (blocks the Emit caller)
 	immPub, immDel, batchPub, batchDel emitLatencyStats
@@ -1517,15 +1508,6 @@ func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 	return &beholder.DurableEmitterHooks{
 		OnEmitInsert: func(d time.Duration, _ error) {
 			p.emitIns.record(d)
-		},
-		OnImmediatePublish: func(d time.Duration, err error) {
-			if err != nil {
-				p.immPubErr.Add(1)
-			}
-			p.immPub.record(d)
-		},
-		OnImmediateDelete: func(d time.Duration, _ error) {
-			p.immDel.record(d)
 		},
 		OnBatchPublish: func(d time.Duration, batchSize int, err error) {
 			if err != nil {
@@ -1626,18 +1608,18 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 	t.Helper()
 	ipN := pipe.immPub.count()
 	idN := pipe.immDel.count()
-	t.Logf("Pipeline — immediate Publish: n=%d errs=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
+	t.Logf("Pipeline — best-effort unary Publish (non-persist): n=%d errs=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
 		ipN, pipe.immPubErr.Load(),
 		durMs(pipe.immPub.percentile(0.50)), durMs(pipe.immPub.percentile(0.99)),
 		durMs(pipe.immPub.mean()), durMs(pipe.immPub.sum()))
-	t.Logf("Pipeline — immediate MarkDelivered: n=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
+	t.Logf("Pipeline — OnImmediateDelete hook (unused in current emitter): n=%d p50=%.3f ms p99=%.3f ms mean=%.3f ms Σ=%.1f ms",
 		idN,
 		durMs(pipe.immDel.percentile(0.50)), durMs(pipe.immDel.percentile(0.99)),
 		durMs(pipe.immDel.mean()), durMs(pipe.immDel.sum()))
 
 	bpN := pipe.batchPub.count()
 	if bpN > 0 {
-		t.Logf("Pipeline — retransmit Publish (serial): rpcs=%d rpc_errs=%d evt_errs=%d p50=%.3f ms mean=%.3f ms | retransmit_mark_delivered_hooks=%d mean_loop=%.3f ms",
+		t.Logf("Pipeline — OnRetransmitBatchPublish (legacy hook; not used with batch retransmit): rpcs=%d rpc_errs=%d evt_errs=%d p50=%.3f ms mean=%.3f ms | retransmit_mark_delivered_hooks=%d mean_loop=%.3f ms",
 			bpN, pipe.batchPubErr.Load(), pipe.batchPubEventErrs.Load(),
 			durMs(pipe.batchPub.percentile(0.50)), durMs(pipe.batchPub.mean()),
 			pipe.batchDel.count(), durMs(pipe.batchDel.mean()))
@@ -1651,10 +1633,10 @@ func logPipelineDeliverySummary(t *testing.T, pipe *pipelineDeliveryStats) {
 		case dm > 3*pm && dm > 0.5:
 			t.Logf("Bottleneck hint: MarkDelivered mean %.3f ms ≫ Publish mean %.3f ms — likely Postgres UPDATE bound", dm, pm)
 		default:
-			t.Logf("Bottleneck hint: Publish %.3f ms vs MarkDelivered %.3f ms comparable (per successful immediate delivery)", pm, dm)
+			t.Logf("Bottleneck hint: unary Publish %.3f ms vs hook MarkDelivered %.3f ms comparable (best-effort path only)", pm, dm)
 		}
 	} else {
-		t.Logf("Bottleneck hint: few completed immediate deliveries in window (pub=%d del=%d); extend duration or check async backlog", ipN, idN)
+		t.Logf("Bottleneck hint: few best-effort unary samples (pub=%d del=%d); durable path uses OnBatchPublish — see batch-loop stats above", ipN, idN)
 	}
 }
 
@@ -1877,7 +1859,7 @@ func runRateLimitedEmit(
 // the throughput ceiling. Each level gets its own DurableEmitter to avoid
 // carry-over. Measures achieved rate, Emit() latency, and queue depth.
 func TestTPS_RampUp(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	levels := []int{100, 500, 1000, 2000}
 	testStart := time.Now()
 
@@ -1986,7 +1968,7 @@ func TestTPS_RampUp(t *testing.T) {
 // the pipeline keeps up: deletes match inserts, queue stays bounded, and
 // Emit() latency stays low.
 func TestTPS_Sustained1k(t *testing.T) {
-	t.Skip("Local Testing Only")
+	t.Skip("Local testing only")
 	testStart := time.Now()
 	t.Logf("TestTPS_Sustained1k: provisioning DB + Chip server + emitter...")
 

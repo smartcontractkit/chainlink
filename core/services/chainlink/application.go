@@ -1273,7 +1273,7 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 // setupDurableEmitter replaces the global beholder emitter with a DurableEmitter
 // backed by Postgres. Events are persisted before async gRPC delivery, surviving
 // node restarts and chip ingress outages.
-func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, telem config.Telemetry) error {
+func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger.SugaredLogger, _ config.Telemetry) error {
 	client := beholder.GetClient()
 	if client == nil {
 		return fmt.Errorf("beholder client not initialized")
@@ -1286,10 +1286,6 @@ func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger
 
 	pgStore := beholdersvc.NewPgDurableEventStore(ds)
 	durableCfg := beholder.DefaultDurableEmitterConfig()
-	durableCfg.Metrics = &beholder.DurableEmitterMetricsConfig{
-		RecordProcessStats: true,
-	}
-	durableCfg.PersistCloudEventSources = telem.DurableEmitterPersistSources()
 	durableEmitter, err := beholder.NewDurableEmitter(pgStore, chipClient, durableCfg, lggr)
 	if err != nil {
 		return fmt.Errorf("failed to create durable emitter: %w", err)
@@ -1306,15 +1302,7 @@ func setupDurableEmitter(ctx context.Context, ds sqlutil.DataSource, lggr logger
 	durableEmitter.Start(ctx)
 	client.Emitter = dualEmitter
 
-	switch {
-	case durableCfg.PersistCloudEventSources == nil:
-		lggr.Infow("Durable emitter enabled — every CloudEvent source may be persisted (no source filter)")
-	case len(durableCfg.PersistCloudEventSources) == 0:
-		lggr.Infow("Durable emitter enabled — durable persistence disabled for all sources (best-effort Chip publish only)")
-	default:
-		lggr.Infow("Durable emitter enabled — durable persistence restricted by CloudEvent source",
-			"PersistCloudEventSources", durableCfg.PersistCloudEventSources)
-	}
+	lggr.Infow("Durable emitter enabled — all CloudEvent sources use the durable Chip queue")
 	return nil
 }
 

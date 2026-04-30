@@ -2763,7 +2763,6 @@ type Telemetry struct {
 	ChipIngressEndpoint           *string
 	ChipIngressInsecureConnection *bool
 	DurableEmitterEnabled         *bool
-	DurableEmitterPersistSources  []string `toml:",omitempty"`
 	HeartbeatInterval             *commonconfig.Duration
 	LogLevel                      *string
 	LogStreamingEnabled           *bool
@@ -2810,9 +2809,6 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
-	}
-	if f.DurableEmitterPersistSources != nil {
-		b.DurableEmitterPersistSources = f.DurableEmitterPersistSources
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v

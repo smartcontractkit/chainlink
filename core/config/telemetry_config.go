@@ -19,9 +19,6 @@ type Telemetry interface {
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
 	DurableEmitterEnabled() bool
-	// DurableEmitterPersistSources lists CloudEvent Source values (beholder_domain) that may be
-	// written to the durable Chip queue. See chainlink telemetry config for defaults and wildcards.
-	DurableEmitterPersistSources() []string
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level

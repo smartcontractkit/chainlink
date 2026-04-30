@@ -3,8 +3,6 @@ package chainlink
 import (
 	"fmt"
 	"maps"
-	"slices"
-	"strings"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -15,12 +13,6 @@ import (
 )
 
 var _ config.Telemetry = (*telemetryConfig)(nil)
-
-// Default CloudEvent sources allowed in the durable Chip queue when [Telemetry.DurableEmitterPersistSources]
-// is unset. Align with topics/schemas configured for Chip in each environment; extend via TOML when needed.
-var defaultDurableEmitterPersistSources = []string{
-	"platform", "node-platform", "chip-demo", "data-feeds", "cre",
-}
 
 const defaultHeartbeatInterval = 1 * time.Second
 
@@ -113,18 +105,6 @@ func (b *telemetryConfig) DurableEmitterEnabled() bool {
 		return false
 	}
 	return *b.s.DurableEmitterEnabled
-}
-
-func (b *telemetryConfig) DurableEmitterPersistSources() []string {
-	if b.s.DurableEmitterPersistSources == nil {
-		return slices.Clone(defaultDurableEmitterPersistSources)
-	}
-	for _, s := range b.s.DurableEmitterPersistSources {
-		if strings.TrimSpace(s) == "*" {
-			return nil
-		}
-	}
-	return slices.Clone(b.s.DurableEmitterPersistSources)
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {

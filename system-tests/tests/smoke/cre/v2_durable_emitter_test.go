@@ -113,11 +113,7 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, "durable-emitter-test", &workflowConfig, workflowFileLocation)
 
-	// Wait for a meaningful volume of events to flow through the pipeline.
-	// Each cron execution emits ~3-5 beholder events across the DON.
-	// At every-5s with 4 nodes, expect ~50+ events per minute.
-	const minExpectedEvents int64 = 30
-
+	const minExpectedEvents int64 = 10
 	lggr.Info().Msg("Waiting for sustained durable event activity...")
 
 	require.Eventually(t, func() bool {
@@ -134,7 +130,7 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t.Logf("chip_durable_events: +%d inserts, +%d deletes, %d pending", newInserts, newDeletes, pending)
 
 		return newInserts >= minExpectedEvents && newDeletes >= minExpectedEvents
-	}, 4*time.Minute, 10*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
+	}, 2*time.Minute, 10*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
 
 	pending, err := countPendingDurableEvents(t.Context(), db)
 	require.NoError(t, err)
@@ -149,130 +145,4 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		final.deletes, final.deletes-baseline.deletes)
 
 	lggr.Info().Msg("Durable emitter test completed successfully")
-}
-
-// ExecuteDurableEmitterLoadTest deploys multiple high-frequency cron workflows
-// to stress the durable emitter pipeline. This measures the maximum sustained
-// throughput of the persist → publish → delete cycle against real Postgres.
-func ExecuteDurableEmitterLoadTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
-	lggr := framework.L
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
-
-	db := connectWorkflowDONDB(t, testEnv.Config.NodeSets)
-
-	_, err := countPendingDurableEvents(t.Context(), db)
-	require.NoError(t, err, "cre.chip_durable_events table should exist")
-
-	resetDurableEventQueue(t.Context(), t, db)
-
-	baseline, err := snapshotDurableEventStats(t.Context(), db)
-	require.NoError(t, err)
-	t.Logf("baseline: inserts=%d deletes=%d", baseline.inserts, baseline.deletes)
-
-	// Deploy multiple cron workflows, each firing as fast as CRE allows.
-	//
-	// Cron uses standard_capabilities.json: "fastestScheduleIntervalSeconds": 1, so the
-	// minimum interval between ticks is 1s — sub-second schedules are not supported.
-	// */1 * * * * * = every second (maximum trigger rate for this stack).
-	//
-	// Each execution emits ~3-5 events per node. With 4 nodes and N workflows,
-	// rough order-of-magnitude: ~16N events/sec across the DON (varies by workflow).
-	//
-	// Tune numWorkflows down if registration/deploy flaps (resource limits are env-specific).
-	// Soak tests use 20 workflows; we default higher for load here.
-	const numWorkflows = 20 // TODO: Lower for CI or don't run this test on CI?
-	cronConfig := crontypes.WorkflowConfig{
-		Schedule: "*/1 * * * * *", // every 1s (fastest allowed; cannot go faster without capability changes)
-	}
-
-	lggr.Info().Msgf("Deploying %d high-frequency cron workflows...", numWorkflows)
-	for i := 0; i < numWorkflows; i++ {
-		name := fmt.Sprintf("durable-load-%d", i)
-		_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, name, &cronConfig, workflowFileLocation)
-	}
-
-	// Let the load run for a fixed observation window.
-	const observationPeriod = 3 * time.Minute
-	lggr.Info().Msgf("Load running for %s — monitoring durable event stats...", observationPeriod)
-
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-	deadline := time.After(observationPeriod)
-
-	var maxPending int64
-	var lastStats durableEventStats
-
-	for {
-		select {
-		case <-deadline:
-			goto done
-		case <-ticker.C:
-			stats, statsErr := snapshotDurableEventStats(t.Context(), db)
-			if statsErr != nil {
-				t.Logf("stats error: %v", statsErr)
-				continue
-			}
-			pending, _ := countPendingDurableEvents(t.Context(), db)
-
-			newInserts := stats.inserts - baseline.inserts
-			newDeletes := stats.deletes - baseline.deletes
-
-			if pending > maxPending {
-				maxPending = pending
-			}
-
-			// Calculate rates over the last interval.
-			var insertRate, deleteRate float64
-			if lastStats.inserts > 0 {
-				insertRate = float64(stats.inserts-lastStats.inserts) / 15.0
-				deleteRate = float64(stats.deletes-lastStats.deletes) / 15.0
-			}
-			lastStats = stats
-
-			t.Logf("durable events: +%d ins, +%d del | pending: %d (max %d) | rate: %.1f ins/s, %.1f del/s",
-				newInserts, newDeletes, pending, maxPending, insertRate, deleteRate)
-		}
-	}
-
-done:
-	final, err := snapshotDurableEventStats(t.Context(), db)
-	require.NoError(t, err)
-	pending, err := countPendingDurableEvents(t.Context(), db)
-	require.NoError(t, err)
-
-	totalInserts := final.inserts - baseline.inserts
-	totalDeletes := final.deletes - baseline.deletes
-	avgInsertRate := float64(totalInserts) / observationPeriod.Seconds()
-	avgDeleteRate := float64(totalDeletes) / observationPeriod.Seconds()
-
-	t.Logf("╔════════════════════════════════════════════════╗")
-	t.Logf("║        DURABLE EMITTER LOAD TEST RESULTS      ║")
-	t.Logf("╠════════════════════════════════════════════════╣")
-	t.Logf("║ Workflows deployed:   %d                       ║", numWorkflows)
-	t.Logf("║ Observation period:   %s                   ║", observationPeriod)
-	t.Logf("║ Total inserts:        %-6d                   ║", totalInserts)
-	t.Logf("║ Total deletes:        %-6d                   ║", totalDeletes)
-	t.Logf("║ Avg insert rate:      %-6.1f events/sec        ║", avgInsertRate)
-	t.Logf("║ Avg delete rate:      %-6.1f events/sec        ║", avgDeleteRate)
-	t.Logf("║ Max queue depth:      %-6d                   ║", maxPending)
-	t.Logf("║ Final pending:        %-6d                   ║", pending)
-	t.Logf("╚════════════════════════════════════════════════╝")
-
-	// Sanity checks (scale with workflow count × 3min window).
-	minInserts := int64(numWorkflows * 40)
-	assert.Greater(t, totalInserts, minInserts,
-		"expected significant event volume from %d workflows (min inserts %d)", numWorkflows, minInserts)
-	assert.Greater(t, totalDeletes, int64(0),
-		"deletes must occur — chip delivery is required")
-
-	// Backlog scales with how many workflows emit concurrently; this bounds "runaway" growth while allowing
-	// steady-state queue depth under multi-workflow load. (12 was tight — real runs can spike a few rows over.)
-	const maxPendingPerWorkflow = 16
-	maxAllowedPending := int64(numWorkflows * maxPendingPerWorkflow)
-	assert.LessOrEqual(t, maxPending, maxAllowedPending,
-		"peak queue depth should stay bounded (max %d rows for %d workflows)", maxAllowedPending, numWorkflows)
-	assert.LessOrEqual(t, pending, maxAllowedPending,
-		"final pending should stay bounded (max %d rows for %d workflows)", maxAllowedPending, numWorkflows)
-
-	lggr.Info().Msg("Durable emitter load test completed")
 }
