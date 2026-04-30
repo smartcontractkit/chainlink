@@ -886,24 +886,14 @@ func (h *eventHandler) createModule(
 	binary []byte,
 	binaryUrl string,
 ) (host.ModuleV2, *host.ModuleConfig, string, error) {
-	// TODO rtiniaonv use the right value here, get it from module?
-	// Workflow string was used before...?
 	decodedBinary := binary
 
 	binaryHash := v2.ComputeBinaryHash(decodedBinary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential := v2.NewConfidentialModule(
-		h.capRegistry,
-		binaryUrl,
-		binaryHash,
-		workflowID, owner, name.String(), tag,
-		nil,
-		confLggr,
-	)
+	confidential := v2.NewConfidentialModule(h.capRegistry, binaryUrl, binaryHash, workflowID, owner, name.String(), tag, confLggr)
 
-	// TODO rtinianov regions...?
-	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: generichost.NewTeeProvider(sdkpb.TeeType_TEE_TYPE_AWS_NITRO, []string{})}
+	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: generichost.NewTeeProvider(sdkpb.TeeType_TEE_TYPE_AWS_NITRO, confidential.GetRegions)}
 
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)

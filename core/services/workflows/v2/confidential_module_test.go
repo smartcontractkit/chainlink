@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -86,32 +87,6 @@ func TestParseWorkflowAttributes(t *testing.T) {
 	})
 }
 
-func TestIsConfidential(t *testing.T) {
-	t.Run("returns true for confidential", func(t *testing.T) {
-		ok, err := IsConfidential([]byte(`{"confidential":true}`))
-		require.NoError(t, err)
-		assert.True(t, ok)
-	})
-
-	t.Run("returns false for non-confidential", func(t *testing.T) {
-		ok, err := IsConfidential([]byte(`{"confidential":false}`))
-		require.NoError(t, err)
-		assert.False(t, ok)
-	})
-
-	t.Run("returns false for empty data", func(t *testing.T) {
-		ok, err := IsConfidential(nil)
-		require.NoError(t, err)
-		assert.False(t, ok)
-	})
-
-	t.Run("returns error for malformed JSON", func(t *testing.T) {
-		_, err := IsConfidential([]byte(`broken`))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse workflow attributes")
-	})
-}
-
 func TestComputeBinaryHash(t *testing.T) {
 	binary := []byte("hello world")
 	hash := ComputeBinaryHash(binary)
@@ -172,10 +147,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			"owner-abc",
 			"my-workflow",
 			"v1",
-			[]SecretIdentifier{
-				{Key: "API_KEY"},
-				{Key: "SIGNING_KEY", Namespace: "custom-ns"},
-			},
 			lggr,
 		)
 
@@ -188,49 +159,12 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "enclave-output", val.GetStringValue())
 	})
 
-	t.Run("default namespace is main", func(t *testing.T) {
-		capReg := regmocks.NewCapabilitiesRegistry(t)
-		execCap := capmocks.NewExecutableCapability(t)
-
-		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
-			Return(execCap, nil).Once()
-
-		// Capture the request to inspect proto secrets.
-		var capturedReq capabilities.CapabilityRequest
-		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
-			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
-				capturedReq = req
-			}).
-			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
-
-		mod := NewConfidentialModule(
-			capReg,
-			"https://example.com/binary.wasm",
-			[]byte("hash"),
-			"wf-1", "owner", "name", "tag",
-			[]SecretIdentifier{{Key: "SECRET_A"}}, // no namespace
-			lggr,
-		)
-
-		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-1"})
-		require.NoError(t, err)
-
-		// Unmarshal the captured request payload and verify namespace defaulted to "main".
-		var confReq confworkflowtypes.ConfidentialWorkflowRequest
-		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
-		require.Len(t, confReq.VaultDonSecrets, 1)
-		assert.Equal(t, "SECRET_A", confReq.VaultDonSecrets[0].Key)
-		assert.Equal(t, "main", confReq.VaultDonSecrets[0].GetNamespace())
-	})
-
 	t.Run("GetExecutable error", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
 
-		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
-		)
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -246,9 +180,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
-		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
-		)
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -264,9 +196,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
-		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
-		)
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
 		require.Error(t, err)
@@ -288,25 +218,11 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
 
 		binaryHash := ComputeBinaryHash([]byte("some-binary"))
-		mod := NewConfidentialModule(
-			capReg,
-			"https://example.com/wasm",
-			binaryHash,
-			"wf-abc",
-			"0xowner",
-			"my-workflow",
-			"v2",
-			[]SecretIdentifier{
-				{Key: "K1", Namespace: "ns1"},
-				{Key: "K2"},
-			},
-			lggr,
-		)
+		mod := NewConfidentialModule(capReg, "https://example.com/wasm", binaryHash, "wf-abc", "0xowner", "my-workflow", "v2", lggr)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-xyz"})
 		require.NoError(t, err)
 
-		// Verify metadata.
 		assert.Equal(t, "Execute", capturedReq.Method)
 		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
 		assert.Equal(t, "wf-abc", capturedReq.Metadata.WorkflowID)
@@ -315,7 +231,6 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "v2", capturedReq.Metadata.WorkflowTag)
 		assert.Equal(t, "exec-xyz", capturedReq.Metadata.WorkflowExecutionID)
 
-		// Verify payload contents.
 		var confReq confworkflowtypes.ConfidentialWorkflowRequest
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
 
@@ -323,17 +238,116 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "https://example.com/wasm", confReq.Execution.BinaryUrl)
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
-		// Verify the serialized ExecuteRequest round-trips.
 		var roundTripped sdkpb.ExecuteRequest
 		require.NoError(t, proto.Unmarshal(confReq.Execution.ExecuteRequest, &roundTripped))
 		assert.Equal(t, execReq.GetConfig(), roundTripped.GetConfig())
+	})
+}
 
-		// Verify secrets.
-		require.Len(t, confReq.VaultDonSecrets, 2)
-		assert.Equal(t, "K1", confReq.VaultDonSecrets[0].Key)
-		assert.Equal(t, "ns1", confReq.VaultDonSecrets[0].GetNamespace())
-		assert.Equal(t, "K2", confReq.VaultDonSecrets[1].Key)
-		assert.Equal(t, "main", confReq.VaultDonSecrets[1].GetNamespace())
+func TestConfidentialModule_GetRegions(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Nop()
+
+	buildRespPayload := func(t *testing.T, regions []string) *anypb.Any {
+		t.Helper()
+		payload, err := anypb.New(&confworkflowtypes.GetRegionsResponse{Regions: regions})
+		require.NoError(t, err)
+		return payload
+	}
+
+	t.Run("success", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
+			return req.Method == "GetRegions" &&
+				req.CapabilityId == confidentialWorkflowsCapabilityID &&
+				req.Metadata.WorkflowExecutionID == ""
+		})).Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []string{"us-east-1", "eu-west-1"})}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "https://example.com/binary.wasm", []byte("fakehash"), "wf-123", "owner-abc", "my-workflow", "v1", lggr)
+
+		regions := mod.GetRegions(ctx)
+		assert.Equal(t, []string{"us-east-1", "eu-west-1"}, regions)
+	})
+
+	t.Run("empty regions response", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		assert.Empty(t, mod.GetRegions(ctx))
+	})
+
+	t.Run("GetExecutable error returns empty", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(nil, errors.New("capability not found")).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		assert.Empty(t, mod.GetRegions(ctx))
+	})
+
+	t.Run("capability Execute error returns empty", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		assert.Empty(t, mod.GetRegions(ctx))
+	})
+
+	t.Run("nil payload returns empty", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		assert.Empty(t, mod.GetRegions(ctx))
+	})
+
+	t.Run("request fields are correct", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
+		_ = mod.GetRegions(ctx)
+
+		assert.Equal(t, "GetRegions", capturedReq.Method)
+		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
+		assert.Equal(t, "wf-xyz", capturedReq.Metadata.WorkflowID)
+		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)
+		assert.Equal(t, "my-workflow", capturedReq.Metadata.WorkflowName)
+		assert.Equal(t, "v3", capturedReq.Metadata.WorkflowTag)
+		assert.Equal(t, "", capturedReq.Metadata.WorkflowExecutionID)
+
+		var emptyMsg emptypb.Empty
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&emptyMsg))
 	})
 }
 
