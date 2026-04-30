@@ -15,7 +15,6 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
-	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 )
 
@@ -60,6 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -487,7 +487,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260430164318-364942c6bf7d // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260430121715-dc59c36857e7 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260428205619-2db1389501a1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc // indirect
