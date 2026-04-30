@@ -137,14 +137,14 @@ func newFeedsORMWithoutProposal(t *testing.T, jb job.Job) *feedsmocks.ORM {
 	return feedsORM
 }
 
-func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) events.JobSpecEvent {
+func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) *events.JobSpecEvent {
 	t.Helper()
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Len(t, msgs, 1)
 
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+	ev := new(events.JobSpecEvent)
+	require.NoError(t, proto.Unmarshal(msgs[0].Body, ev))
 	return ev
 }
 
