@@ -4,15 +4,6 @@ Composite action that posts a short Slack message for **one** job’s conclusion
 
 Use it from a **follow-up job** that `needs` the job you care about and runs with `if: always()` so failures still notify.
 
-## Environment
-
-Set on the **job** or **step** that invokes this action (not as action inputs):
-
-| Variable | Required | Purpose |
-|----------|----------|---------|
-| `SLACK_BOT_TOKEN` | Yes | Bot token with `chat:write` (and channel access). |
-| `SLACK_CHANNEL_ID` | Yes | Channel ID for `chat.postMessage`. |
-
 ## Inputs
 
 | Input | Required | Description |
@@ -21,6 +12,8 @@ Set on the **job** or **step** that invokes this action (not as action inputs):
 | `job_name` | Yes | Label shown in the Slack header. |
 | `run_url` | Yes | URL to the workflow run. E.g. `format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id)`. |
 | `slack_thread_ts` | No | If set, the message is posted in that thread; if empty, it posts to the channel. |
+| `slack_bot_token` | Yes | Bot token with `chat:write` (and channel access). |
+| `slack_channel_id` | Yes | Channel ID for `chat.postMessage`. |
 
 Status is mapped to emoji: success ✅, failure ❌, cancelled ⚠️, skipped ⏭️, unknown ❔.
 
@@ -47,6 +40,8 @@ jobs:
           job_name: "Smoke tests"
           run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
           slack_thread_ts: ${{ inputs.slack_thread_ts }} # optional
+          slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
+          slack_channel_id: ${{ secrets.SLACK_CHANNEL_ID }}
 ```
 
 Implementation detail: the action builds a Block Kit payload with `jq` and sends it via [`slackapi/slack-github-action`](https://github.com/slackapi/slack-github-action) (`chat.postMessage`).

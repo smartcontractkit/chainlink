@@ -123,15 +123,14 @@ jobs:
         steps:
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
-              env:
-                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
-                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
               with:
                   status: ${{ needs.df1-compat.result }}
                   job_name: "Data Feeds v1 Upgrade Test"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-compat-notify:
         runs-on: ubuntu-latest
@@ -140,15 +139,14 @@ jobs:
         steps:
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
-              env:
-                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
-                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
               with:
                   status: ${{ needs.cre-compat.result }}
                   job_name: "CRE Upgrade Test"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     legacy-system-tests-notify:
         runs-on: ubuntu-latest
@@ -157,15 +155,14 @@ jobs:
         steps:
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
-              env:
-                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
-                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
               with:
                   status: ${{ needs.legacy-system-tests.result }}
                   job_name: "Legacy Smoke Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-smoke-tests-notify:
         runs-on: ubuntu-latest
@@ -174,15 +171,14 @@ jobs:
         steps:
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
-              env:
-                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
-                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
               with:
                   status: ${{ needs.cre-smoke-tests.result }}
                   job_name: "CRE Smoke Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
 
     cre-regression-tests-notify:
         runs-on: ubuntu-latest
@@ -191,12 +187,11 @@ jobs:
         steps:
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
-              env:
-                  SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
-                  SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
               with:
                   status: ${{ needs.cre-regression-tests.result }}
                   job_name: "CRE Regression Tests"
                   run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url,
                       github.repository, github.run_id) }}
                   slack_thread_ts: ${{ github.event.client_payload.slack_thread_ts }}
+                  slack_channel_id: ${{ secrets.SLACK_CHANNEL_RELEASE_NOTIFICATIONS }}
+                  slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}

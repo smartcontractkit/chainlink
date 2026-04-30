@@ -1,7 +1,6 @@
 name: Notify Slack Jobs Result
 description: Posts a compact Slack notification for a workflow job result
-  (status, job name, link to run). Set SLACK_BOT_TOKEN and SLACK_CHANNEL_ID in
-  the job or workflow env for the step that invokes this action.
+  (status, job name, link to run, slack_channel_id and slack_bot_token).
 inputs:
   status:
     description: "Job conclusion, e.g. success, failure, cancelled, skipped
@@ -19,25 +18,16 @@ inputs:
     description: "Optional Slack thread timestamp to reply in a thread"
     required: false
     default: ""
+  slack_channel_id:
+    description: "Slack channel ID to post to"
+    required: true
+  slack_bot_token:
+    description: "Slack bot token to use for posting"
+    required: true
 
 runs:
   using: composite
   steps:
-    - name: Validate Slack env
-      shell: bash
-      run: |
-        set -eo pipefail
-        missing=0
-        if [ -z "${SLACK_CHANNEL_ID:-}" ]; then
-          echo "::error::SLACK_CHANNEL_ID is not set. Set it in the job or workflow env for this action."
-          missing=1
-        fi
-        if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
-          echo "::error::SLACK_BOT_TOKEN is not set. Set it in the job or workflow env for this action."
-          missing=1
-        fi
-        exit "$missing"
-
     - name: Build Slack payload
       id: slack-payload
       shell: bash
@@ -46,6 +36,7 @@ runs:
         JOB_NAME: ${{ inputs.job_name }}
         RUN_URL: ${{ inputs.run_url }}
         THREAD_TS: ${{ inputs.slack_thread_ts }}
+        SLACK_CHANNEL_ID: ${{ inputs.slack_channel_id }}
       run: |
         set -euo pipefail
 
@@ -98,5 +89,5 @@ runs:
       with:
         errors: "true"
         method: chat.postMessage
-        token: ${{ env.SLACK_BOT_TOKEN }}
+        token: ${{ inputs.slack_bot_token }}
         payload-file-path: ${{ steps.slack-payload.outputs.file }}
