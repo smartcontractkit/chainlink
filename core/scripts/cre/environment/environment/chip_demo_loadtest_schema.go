@@ -7,9 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
 	chipingresspb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 // chipDemoLoadTestProto is the raw .proto for schema subject chip-demo-pb.DemoClientPayload.

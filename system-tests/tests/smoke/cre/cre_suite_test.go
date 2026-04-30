@@ -297,16 +297,9 @@ func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
-// TODO: Add tests to suite
-func Test_CRE_V2_DurableEmitter_Simple(t *testing.T) {
+func Test_CRE_V2_DurableEmitter(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)
-}
-
-// TODO: Add tests to suite
-func Test_CRE_V2_DurableEmitter_Load(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
-	ExecuteDurableEmitterLoadTest(t, testEnv)
 }
 
 func Test_CRE_V2_Sharding(t *testing.T) {
