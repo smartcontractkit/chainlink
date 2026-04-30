@@ -316,7 +316,16 @@ func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger
 }
 
 func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {
-	bt, err := t.orm.FindBridge(ctx, bridges.BridgeName(name))
+	// Bridge names are stored case-folded (see bridges.ParseBridgeName).
+	// Casting the raw spec value to BridgeName here would skip that
+	// normalization, so a job spec referencing a bridge with mixed-case
+	// (e.g. "OpenWeatherMap") would never match the lower-cased row in the
+	// DB. Parse it through the same path used at create-time instead.
+	bridgeName, err := bridges.ParseBridgeName(string(name))
+	if err != nil {
+		return URLParam{}, errors.Wrapf(err, "invalid bridge name '%s'", name)
+	}
+	bt, err := t.orm.FindBridge(ctx, bridgeName)
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

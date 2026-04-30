@@ -82,8 +82,17 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		return nil, err
 	}
 
+	// Normalize the bridge name (lower-cases + validates the character set)
+	// using the same parser the JSON-API uses on POST /v2/bridge_types.
+	// A raw BridgeName cast here would store the request name as-is, so a
+	// caller passing "OpenWeatherMap" via GraphQL would persist mixed case
+	// while every read path looks up the lower-cased form, producing 404s.
+	bridgeName, err := bridges.ParseBridgeName(string(args.Input.Name))
+	if err != nil {
+		return nil, err
+	}
 	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.BridgeName(args.Input.Name),
+		Name:                   bridgeName,
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
