@@ -214,11 +214,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
 	}
 
-	pluginServices, err := common.GetPluginServices(d.lggr, d.capabilityConfig.ExternalRegistry().RelayID().Network)
-	if err != nil {
-		return nil, err
-	}
-
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
 	// of other bootstrap oracles. however, plugin oracles, at least initially,
@@ -240,7 +235,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			pluginServices.AddrCodec,
 			p2pID,
 		)
 	} else {
@@ -251,7 +245,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			pluginServices.AddrCodec,
+			allRelayers,
+			transmitterKeys,
 		)
 	}
 

@@ -76,7 +76,6 @@ type pluginOracleCreator struct {
 	homeChainReader       ccipreaderpkg.HomeChain
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
-	addressCodec          ccipcommon.AddressCodec
 	p2pID                 p2pkey.KeyV2
 }
 
@@ -95,7 +94,6 @@ func NewPluginOracleCreator(
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
-	addressCodec ccipcommon.AddressCodec,
 	p2pID p2pkey.KeyV2,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
@@ -113,7 +111,6 @@ func NewPluginOracleCreator(
 		bootstrapperLocators:  bootstrapperLocators,
 		homeChainReader:       homeChainReader,
 		homeChainSelector:     homeChainSelector,
-		addressCodec:          addressCodec,
 		p2pID:                 p2pID,
 	}
 }
@@ -147,10 +144,27 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to create CCIPProviders: %w", err)
 	}
 
-	// Populate extraDataCodecRegistry with codecs from CCIPProviders
-	err = i.populateCodecRegistriesWithProviderCodecs(ccipProviders)
+	// Populate codec registries with codecs from CCIPProviders.
+	err = i.populateCodecRegistriesWithProviderCodecs(&pluginServices, ccipProviders)
 	if err != nil {
-		return nil, fmt.Errorf("failed to populate extraDataCodecRegistry with codecs from CCIPProviders: %w", err)
+		return nil, fmt.Errorf("failed to populate codec registries with codecs from CCIPProviders: %w", err)
+	}
+
+	// if CCIP provider is supported, inject the codecs from the provider into the plugin config.
+	if destProvider := ccipProviders[config.Config.ChainSelector]; destProvider != nil {
+		destProviderCodec := destProvider.Codec()
+		if destProviderCodec.CommitPluginCodec == nil {
+			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no commit plugin codec", config.Config.ChainSelector)
+		}
+		if destProviderCodec.ExecutePluginCodec == nil {
+			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no execute plugin codec", config.Config.ChainSelector)
+		}
+		if destProviderCodec.MessageHasher == nil {
+			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no message hasher", config.Config.ChainSelector)
+		}
+		pluginServices.PluginConfig.CommitPluginCodec = destProviderCodec.CommitPluginCodec
+		pluginServices.PluginConfig.ExecutePluginCodec = destProviderCodec.ExecutePluginCodec
+		pluginServices.PluginConfig.MessageHasher = destProviderCodec.MessageHasher
 	}
 
 	destChainID, err := chainsel.GetChainIDFromSelector(chainSelector)
@@ -159,7 +173,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker, err := ocrimpls.NewConfigTracker(config, i.addressCodec)
+	configTracker, err := ocrimpls.NewConfigTracker(config, pluginServices.AddrCodec)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config tracker: %w, %d", err, chainSelector)
 	}
@@ -188,7 +202,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		"maxDurationShouldTransmitAcceptedReport", publicConfig.MaxDurationShouldTransmitAcceptedReport,
 	)
 
-	offrampAddrStr, err := i.addressCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
+	offrampAddrStr, err := pluginServices.AddrCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert offramp address to string using address codec: %w", err)
 	}
@@ -369,7 +383,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:                  ccipreaderpkg.OCR3ConfigWithMeta(config),
 				CommitCodec:                pluginConfig.CommitPluginCodec,
 				MsgHasher:                  pluginConfig.MessageHasher,
-				AddrCodec:                  i.addressCodec,
+				AddrCodec:                  &pluginServices.AddrCodec,
 				HomeChainReader:            i.homeChainReader,
 				HomeChainSelector:          i.homeChainSelector,
 				ChainAccessors:             chainAccessors,
@@ -445,7 +459,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:                  ccipreaderpkg.OCR3ConfigWithMeta(config),
 				ExecCodec:                  pluginConfig.ExecutePluginCodec,
 				MsgHasher:                  pluginConfig.MessageHasher,
-				AddrCodec:                  i.addressCodec,
+				AddrCodec:                  &pluginServices.AddrCodec,
 				HomeChainReader:            i.homeChainReader,
 				TokenDataEncoder:           pluginConfig.TokenDataEncoder,
 				EstimateProvider:           pluginConfig.GasEstimateProvider,
@@ -597,7 +611,7 @@ func (i *pluginOracleCreator) getChainAccessorsAndContractTransmittersFromProvid
 				chainSelector,
 				extendedReaders[chainSelector],
 				chainWriters[chainSelector],
-				pluginServices.AddrCodec,
+				&pluginServices.AddrCodec,
 			)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to create default chain accessor for relay ID %s: %w", relayID, err)
@@ -612,6 +626,7 @@ func (i *pluginOracleCreator) getChainAccessorsAndContractTransmittersFromProvid
 }
 
 func (i *pluginOracleCreator) populateCodecRegistriesWithProviderCodecs(
+	ps *ccipcommon.PluginServices,
 	ccipProviders map[cciptypes.ChainSelector]types.CCIPProvider,
 ) error {
 	edcr := ccipcommon.GetExtraDataCodecRegistry()
@@ -620,6 +635,13 @@ func (i *pluginOracleCreator) populateCodecRegistriesWithProviderCodecs(
 		chainFamily, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 		if err != nil {
 			return fmt.Errorf("failed to get chain family from chain selector %d: %w", chainSelector, err)
+		}
+
+		// Provider-backed relayers bootstrap their codecs through CCIPProvider.
+		if codec.ChainSpecificAddressCodec != nil {
+			ps.AddrCodec.RegisterCodec(chainFamily, codec.ChainSpecificAddressCodec)
+		} else {
+			i.lggr.Warnw("CCIPProvider codec has no ChainSpecificAddressCodec", "chainSelector", chainSelector)
 		}
 
 		sourceChainExtraDataCodec := codec.SourceChainExtraDataCodec
