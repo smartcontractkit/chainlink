@@ -137,6 +137,17 @@ func newFeedsORMWithoutProposal(t *testing.T, jb job.Job) *feedsmocks.ORM {
 	return feedsORM
 }
 
+func requireSingleJobSpecEvent(t *testing.T, observer beholdertest.Observer) events.JobSpecEvent {
+	t.Helper()
+
+	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	require.Len(t, msgs, 1)
+
+	var ev events.JobSpecEvent
+	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+	return ev
+}
+
 func TestShouldEmit_DefaultConfig(t *testing.T) {
 	beholdertest.NewObserver(t)
 	svc := newTestReporter(t, defaultConfig(), nil)
@@ -201,12 +212,7 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, jb.ExternalJobID.String(), ev.ExternalJobId)
 	assert.Equal(t, jb.ID, ev.InternalJobId)
 	assert.Equal(t, "test-median-job", ev.Name)
@@ -239,12 +245,7 @@ func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, "11155111", ev.ChainId)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
@@ -260,12 +261,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_CREATE)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
+	ev := requireSingleJobSpecEvent(t, observer)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	assert.Equal(t, "functions", ev.Ocr2OracleSpec.PluginType)
 	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
@@ -281,12 +277,7 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, "vrf", ev.JobType)
 	assert.Nil(t, ev.Ocr2OracleSpec)
 }
@@ -298,11 +289,7 @@ func TestOnJobStarted_EmitsCreate(t *testing.T) {
 	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.OnJobStarted(context.Background(), jb)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_CREATE, ev.EmissionTrigger)
 }
 
@@ -313,11 +300,7 @@ func TestOnJobStopped_EmitsDelete(t *testing.T) {
 	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
 	svc.OnJobStopped(context.Background(), jb)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_DELETE, ev.EmissionTrigger)
 }
 
@@ -359,12 +342,7 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, int64(7), ev.FeedsManagerId)
 	assert.Equal(t, prop.RemoteUUID.String(), ev.RemoteUuid)
 	assert.Equal(t, int32(3), ev.SpecVersion)
@@ -380,22 +358,15 @@ func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
 	}
 	svc := newTestReporter(t, cfg, nil)
 
-	jb := makeOCR1Job()
+	jb := makeOCR1Job(t)
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.NoError(t, err)
 
-	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
-	require.Len(t, msgs, 1)
-
-	var ev events.JobSpecEvent
-	require.NoError(t, proto.Unmarshal(msgs[0].Body, &ev))
-
-	// top-level contract identity
+	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, "0x9d9305445F404E925563d5D5EcC65C815Ec1655b", ev.ContractAddress)
 	assert.Equal(t, "11155111", ev.ChainId)
 	assert.Equal(t, "offchainreporting", ev.JobType)
 
-	// OCR1 sub-message
 	require.NotNil(t, ev.Ocr1OracleSpec)
 	ocr1 := ev.Ocr1OracleSpec
 	assert.Equal(t, int32(99), ocr1.SpecId)
@@ -415,15 +386,14 @@ func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
 	assert.Equal(t, "2026-01-01T00:00:00Z", ocr1.SpecCreatedAt)
 	assert.Equal(t, "2026-02-01T00:00:00Z", ocr1.SpecUpdatedAt)
 
-	// OCR2 sub-message absent for OCR1 jobs
 	assert.Nil(t, ev.Ocr2OracleSpec)
 }
 
-func makeOCR1Job() job.Job {
+func makeOCR1Job(t *testing.T) job.Job {
+	t.Helper()
+
 	keyHash, err := corekeys.Sha256HashFromHex("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20")
-	if err != nil {
-		panic(err)
-	}
+	require.NoError(t, err)
 	transmitter := evmtypes.MustEIP55Address("0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B")
 	specCreatedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	specUpdatedAt := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -130,13 +131,7 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 	if len(allowed) == 0 {
 		return true
 	}
-	pt := string(j.OCR2OracleSpec.PluginType)
-	for _, a := range allowed {
-		if a == pt {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowed, string(j.OCR2OracleSpec.PluginType))
 }
 
 // EmitForJob builds and emits a JobSpecEvent for the given job and trigger.

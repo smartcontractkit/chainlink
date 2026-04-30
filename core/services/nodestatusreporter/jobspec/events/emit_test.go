@@ -14,7 +14,6 @@ import (
 )
 
 func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
-	// NewObserver installs the global beholder client; GetEmitter returns the one to emit through.
 	observer := beholdertest.NewObserver(t)
 	emitter := beholder.GetEmitter()
 
