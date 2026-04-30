@@ -1,6 +1,6 @@
-# xDai currently uses AuRa (like Parity) consensus so finality rules will be similar to parity
+# Gnosis Chain (formerly xDai) uses AuRa consensus, which has its own finality rules.
 # See: https://www.poa.network/for-users/whitepaper/poadao-v1/proof-of-authority
-# NOTE: xDai is planning to move to Honeybadger BFT which might have different finality guarantees
+# NOTE: Gnosis is planning to move to Honeybadger BFT which might have different finality guarantees
 # https://www.xdaichain.com/for-validators/consensus/honeybadger-bft-consensus
 # For worst case re-org depth on AuRa, assume 2n+2 (see: https://github.com/poanetwork/wiki/wiki/Aura-Consensus-Protocol-Audit)
 # With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)

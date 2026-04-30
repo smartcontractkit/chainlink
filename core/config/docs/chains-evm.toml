@@ -139,7 +139,7 @@ Enabled = true # Default
 ForwardersEnabled = false # Default
 # MaxInFlight controls how many transactions are allowed to be "in-flight" i.e. broadcast but unconfirmed at any one time. You can consider this a form of transaction throttling.
 #
-# The default is set conservatively at 16 because this is a pessimistic minimum that both geth and parity will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
+# The default is set conservatively at 16 because this is a pessimistic minimum that geth will hold without evicting local transactions. If your node is falling behind and you need higher throughput, you can increase this setting, but you MUST make sure that your ETH node is configured properly otherwise you can get nonce gapped and your node will get stuck.
 #
 # 0 value disables the limit. Use with caution.
 MaxInFlight = 16 # Default
