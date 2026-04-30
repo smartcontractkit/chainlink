@@ -726,19 +726,21 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold:           ptr[uint32](5),
-					PollSuccessThreshold:           ptr[uint32](0),
-					PollInterval:                   &minute,
-					SelectionMode:                  &selectionMode,
-					SyncThreshold:                  ptr[uint32](13),
-					LeaseDuration:                  &zeroSeconds,
-					NodeIsSyncingEnabled:           ptr(true),
-					FinalizedBlockPollInterval:     &second,
-					EnforceRepeatableRead:          ptr(true),
-					DeathDeclarationDelay:          &minute,
-					VerifyChainID:                  ptr(true),
-					NewHeadsPollInterval:           &zeroSeconds,
-					ExternalRequestMaxResponseSize: ptr[uint32](10),
+					PollFailureThreshold:                ptr[uint32](5),
+					PollSuccessThreshold:                ptr[uint32](0),
+					PollInterval:                        &minute,
+					SelectionMode:                       &selectionMode,
+					SyncThreshold:                       ptr[uint32](13),
+					LeaseDuration:                       &zeroSeconds,
+					NodeIsSyncingEnabled:                ptr(true),
+					FinalizedBlockPollInterval:          &second,
+					HistoricalBalanceCheckAddress:       ptr(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
+					EnforceRepeatableRead:               ptr(true),
+					DeathDeclarationDelay:               &minute,
+					VerifyChainID:                       ptr(true),
+					NewHeadsPollInterval:                &zeroSeconds,
+					ExternalRequestMaxResponseSize:      ptr[uint32](10),
+					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
 						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
@@ -756,6 +758,7 @@ func TestConfig_Marshal(t *testing.T) {
 						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
 						TooManyResults:                    ptr[string]("(: |^)too many results"),
 						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
+						FinalizedStateUnavailable:         ptr[string]("(: |^)missing trie node"),
 					},
 				},
 				OCR: evmcfg.OCR{
@@ -1181,6 +1184,8 @@ SyncThreshold = 13
 LeaseDuration = '0s'
 NodeIsSyncingEnabled = true
 FinalizedBlockPollInterval = '1s'
+HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
+FinalizedStateCheckFailureThreshold = 0
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
@@ -1204,6 +1209,7 @@ Fatal = '(: |^)fatal'
 ServiceUnavailable = '(: |^)service unavailable'
 TooManyResults = '(: |^)too many results'
 MissingBlocks = '(: |^)missing blocks'
+FinalizedStateUnavailable = '(: |^)missing trie node'
 
 [EVM.OCR]
 ContractConfirmations = 11
