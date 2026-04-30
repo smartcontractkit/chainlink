@@ -1,13 +1,15 @@
 package common_test
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
 
 	sel "github.com/smartcontractkit/chain-selectors"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/require"
+
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -39,7 +41,7 @@ func TestAddressCodec_RegisterCodec(t *testing.T) {
 	addressCodec.RegisterCodec(sel.FamilyEVM, testAddressCodec{})
 	require.True(t, addressCodec.HasCodec(sel.FamilyEVM))
 
-	selector := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+	selector := ccipocr3common.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 
 	address, err := addressCodec.AddressBytesToString([]byte{0x01}, selector)
 	require.NoError(t, err)
@@ -51,7 +53,7 @@ func TestAddressCodec_RegisterCodec(t *testing.T) {
 
 	addressBytes, err := addressCodec.AddressStringToBytes("hello", selector)
 	require.NoError(t, err)
-	require.Equal(t, cciptypes.UnknownAddress("hello"), addressBytes)
+	require.Equal(t, ccipocr3common.UnknownAddress("hello"), addressBytes)
 
 	oracleAddress, err := addressCodec.OracleIDAsAddressBytes(7, selector)
 	require.NoError(t, err)
@@ -61,7 +63,7 @@ func TestAddressCodec_RegisterCodec(t *testing.T) {
 func TestAddressCodec_ConcurrentAccessThroughCopies(t *testing.T) {
 	t.Parallel()
 
-	selector := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+	selector := ccipocr3common.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
 		sel.FamilyEVM: testAddressCodec{},
 	})
@@ -84,7 +86,7 @@ func TestAddressCodec_ConcurrentAccessThroughCopies(t *testing.T) {
 
 			for i := 0; i < iterations; i++ {
 				if !addressCodecCopy.HasCodec(sel.FamilyEVM) {
-					errCh <- fmt.Errorf("expected EVM codec to be registered")
+					errCh <- errors.New("expected EVM codec to be registered")
 					return
 				}
 
