@@ -824,6 +824,10 @@ func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) {
 	assert.Equal(t, int32(1), factoryCalls.Load())
 	assert.Equal(t, int32(1), cs.getModuleCalls.Load())
 	require.NotNil(t, em.weakInner.Value(), "weak L2 must be populated after disk reload")
+	// Hold a strong reference to the weak holder so GC cannot reclaim it
+	// between Evict and the second Execute.
+	holder := em.weakInner.Value()
+	require.NotNil(t, holder)
 
 	// Second cycle: strong-drop only; weak holder stays alive, so L2 hits.
 	em.Evict()
@@ -831,6 +835,7 @@ func TestEvictable_WeakRefPopulatedAfterReload(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), factoryCalls.Load(), "second reload must use weak L2, not factory")
 	assert.Equal(t, int32(1), cs.getModuleCalls.Load(), "second reload must not touch disk")
+	runtime.KeepAlive(holder)
 }
 
 // TestEvictable_WeakRefClearedOnForceEvict proves that forceEvictForTest (the
