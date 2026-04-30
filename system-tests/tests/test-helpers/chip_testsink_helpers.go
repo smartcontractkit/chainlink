@@ -655,7 +655,7 @@ func WatchWorkflowLogs(
 	timeout time.Duration,
 	opts ...UserLogWatchOpt,
 ) {
-	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.New("failed to find expected user log message"))
+	ctx, cancelFn := context.WithTimeoutCause(t.Context(), timeout, errors.Errorf("failed to find expected user log message: %s", expectedBeholderLog))
 	defer cancelFn()
 
 	cancelCtx, cancelCauseFn := context.WithCancelCause(ctx)
@@ -675,7 +675,7 @@ func WatchWorkflowLogs(
 		}()
 	}
 	_, err := WaitForUserLog(cancelCtx, testLogger, userLogsCh, expectedBeholderLog, opts...)
-	require.NoError(t, err, "failed to find expected user log message")
+	require.NoError(t, err, "failed to find expected user log message: %s", expectedBeholderLog)
 }
 
 // WaitForBaseMessage blocks until the base message channel emits a message containing needle.
