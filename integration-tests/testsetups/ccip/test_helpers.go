@@ -100,7 +100,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	blockChains, err := devenv.NewChains(lggr, envConfig.Chains)
+	blockChains, err := devenv.NewChains(ctx, lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.Env)
 	require.NoError(t, err)

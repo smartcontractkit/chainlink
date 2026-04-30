@@ -48,7 +48,6 @@
 /core/scripts/vrf*/ @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper/ @smartcontractkit/dev-services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Chainlink Functions
@@ -73,7 +72,6 @@
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/ccip-tests/ @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip

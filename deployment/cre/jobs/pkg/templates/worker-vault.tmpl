@@ -16,3 +16,8 @@ chainID = "{{ .ChainID }}"
 requestExpiryDuration = "{{ .VaultRequestExpiryDuration }}"
 [pluginConfig.dkg]
 dkgContractID = "{{ .DKGContractAddress }}"
+{{- if .Auth0 }}
+[pluginConfig.auth0]
+issuerURL = "{{ .Auth0.IssuerURL }}"
+audience = "{{ .Auth0.Audience }}"
+{{- end }}

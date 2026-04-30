@@ -242,12 +242,11 @@ func TestSelectGasLimit(t *testing.T) {
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(999))
 		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
-			DR:     ptr(uint32(100)),
-			VRF:    ptr(uint32(101)),
-			FM:     ptr(uint32(102)),
-			OCR:    ptr(uint32(103)),
-			Keeper: ptr(uint32(104)),
-			OCR2:   ptr(uint32(105)),
+			DR:   ptr(uint32(100)),
+			VRF:  ptr(uint32(101)),
+			FM:   ptr(uint32(102)),
+			OCR:  ptr(uint32(103)),
+			OCR2: ptr(uint32(105)),
 		}
 	})
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
@@ -281,11 +280,6 @@ func TestSelectGasLimit(t *testing.T) {
 	t.Run("flux monitor specific gas limit", func(t *testing.T) {
 		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.FluxMonitorJobType, nil)
 		assert.Equal(t, uint64(102), gasLimit)
-	})
-
-	t.Run("keeper specific gas limit", func(t *testing.T) {
-		gasLimit := pipeline.SelectGasLimit(cfg.EVM().GasEstimator(), pipeline.KeeperJobType, nil)
-		assert.Equal(t, uint64(104), gasLimit)
 	})
 
 	t.Run("fallback to default gas limit", func(t *testing.T) {

@@ -3,8 +3,11 @@ package vault
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"dario.cat/mergo"
@@ -20,6 +23,7 @@ import (
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -55,6 +59,10 @@ const (
 
 type Vault struct{}
 
+type runtimeConfig struct {
+	Auth0 *cre.GatewayServiceAuth0Config `json:"auth0"`
+}
+
 func (o *Vault) Flag() cre.CapabilityFlag {
 	return flag
 }
@@ -66,6 +74,11 @@ func (o *Vault) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
+	auth0Config, cfgErr := resolveRuntimeConfig(don.MustNodeSet())
+	if cfgErr != nil {
+		return nil, errors.Wrap(cfgErr, "failed to resolve vault runtime config")
+	}
+
 	// use registry chain, because that is the chain we used when generating gateway connector part of node config (check below)
 	registryChainID, chErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if chErr != nil {
@@ -78,6 +91,11 @@ func (o *Vault) PreEnvStartup(
 	if hErr != nil {
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
+	if auth0Config.Auth0 != nil {
+		if err := applyGatewayAuth0Config(topology, don.Name, auth0Config.Auth0); err != nil {
+			return nil, errors.Wrapf(err, "failed to apply auth0 gateway config for don %s", don.Name)
+		}
+	}
 
 	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
 	if cErr != nil {
@@ -86,19 +104,21 @@ func (o *Vault) PreEnvStartup(
 
 	workflowRegistryAddress := contracts.MustGetAddressFromDataStore(creEnv.CldfEnvironment.DataStore, creEnv.RegistryChainSelector, keystone_changeset.WorkflowRegistry.String(), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 
-	// enable workflow registry syncer in node's TOML config
-	workerNodes, wErr := don.Workers()
-	if wErr != nil {
-		return nil, errors.Wrap(wErr, "failed to find worker nodes")
+	donsToConfigure := []*cre.DonMetadata{don}
+	workflowDONs, wfErr := topology.DonsMetadata.WorkflowDONs()
+	if wfErr == nil {
+		for _, workflowDON := range workflowDONs {
+			if workflowDON.ID == don.ID {
+				continue
+			}
+			donsToConfigure = append(donsToConfigure, workflowDON)
+		}
 	}
 
-	for _, workerNode := range workerNodes {
-		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
-		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
-		if uErr != nil {
-			return nil, errors.Wrapf(uErr, "failed to update node config for node index %d", workerNode.Index)
+	for _, donToConfigure := range donsToConfigure {
+		if err := configureWorkersNodeConfig(donToConfigure, registryChainID, common.HexToAddress(workflowRegistryAddress), creEnv.ContractVersions[keystone_changeset.WorkflowRegistry.String()]); err != nil {
+			return nil, err
 		}
-		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
 	}
 
 	capabilities := []keystone_changeset.DONCapabilityWithConfig{{
@@ -133,6 +153,10 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 		SyncStrategy:    ptr.Ptr("reconciliation"),
 		ContractVersion: ptr.Ptr(wfRegVersion.String()),
 	}
+	typedConfig.CRE.Linking = &coretoml.LinkingConfig{
+		URL:        ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":18124"),
+		TLSEnabled: ptr.Ptr(false),
+	}
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {
@@ -140,6 +164,24 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, currentConfig string, regist
 	}
 
 	return ptr.Ptr(string(stringifiedConfig)), nil
+}
+
+func configureWorkersNodeConfig(don *cre.DonMetadata, registryChainID uint64, workflowRegistryAddress common.Address, wfRegVersion *semver.Version) error {
+	workerNodes, wErr := don.Workers()
+	if wErr != nil {
+		return errors.Wrapf(wErr, "failed to find worker nodes for don %s", don.Name)
+	}
+
+	for _, workerNode := range workerNodes {
+		currentConfig := don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides
+		updatedConfig, uErr := updateNodeConfig(workerNode, currentConfig, registryChainID, workflowRegistryAddress, wfRegVersion)
+		if uErr != nil {
+			return errors.Wrapf(uErr, "failed to update node config for don %s node index %d", don.Name, workerNode.Index)
+		}
+		don.MustNodeSet().NodeSpecs[workerNode.Index].Node.TestConfigOverrides = *updatedConfig
+	}
+
+	return nil
 }
 
 func (o *Vault) PostEnvStartup(
@@ -254,6 +296,15 @@ func createJobs(
 	don *cre.Don,
 	dons *cre.Dons,
 ) error {
+	auth0Config := &runtimeConfig{}
+	if capConfig, ok := don.GetCapabilityConfig(flag); ok {
+		var err error
+		auth0Config, err = decodeRuntimeConfig(capConfig.Values)
+		if err != nil {
+			return fmt.Errorf("failed to resolve vault runtime config: %w", err)
+		}
+	}
+
 	bootstrap, isBootstrap := dons.Bootstrap()
 	if !isBootstrap {
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
@@ -284,6 +335,9 @@ func createJobs(
 			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},
 	}
+	if auth0Config.Auth0 != nil {
+		workerInput.Inputs["auth0"] = auth0Config.Auth0
+	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
 	if workerVerErr != nil {
@@ -312,6 +366,61 @@ func createJobs(
 	}
 
 	return nil
+}
+
+func resolveRuntimeConfig(nodeSet *cre.NodeSet) (*runtimeConfig, error) {
+	if nodeSet == nil {
+		return &runtimeConfig{}, nil
+	}
+
+	capConfig, ok := nodeSet.GetCapabilityConfig(flag)
+	if !ok || len(capConfig.Values) == 0 {
+		return &runtimeConfig{}, nil
+	}
+
+	return decodeRuntimeConfig(capConfig.Values)
+}
+
+func decodeRuntimeConfig(values map[string]any) (*runtimeConfig, error) {
+	if len(values) == 0 {
+		return &runtimeConfig{}, nil
+	}
+
+	b, err := json.Marshal(values)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal vault capability values: %w", err)
+	}
+
+	cfg := &runtimeConfig{}
+	if err := json.Unmarshal(b, cfg); err != nil {
+		return nil, fmt.Errorf("failed to decode vault capability values: %w", err)
+	}
+
+	return cfg, nil
+}
+
+func applyGatewayAuth0Config(topology *cre.Topology, donName string, auth0 *cre.GatewayServiceAuth0Config) error {
+	if topology == nil || auth0 == nil {
+		return nil
+	}
+
+	for idx := range topology.GatewayServiceConfigs {
+		svc := &topology.GatewayServiceConfigs[idx]
+		if svc.ServiceName != pkg.ServiceNameVault || !slices.Contains(svc.DONs, donName) {
+			continue
+		}
+		if svc.Auth0 != nil && (svc.Auth0.IssuerURL != auth0.IssuerURL || svc.Auth0.Audience != auth0.Audience) {
+			return fmt.Errorf("vault gateway service %q already has conflicting auth0 config", svc.ServiceName)
+		}
+
+		svc.Auth0 = &cre.GatewayServiceAuth0Config{
+			IssuerURL: auth0.IssuerURL,
+			Audience:  auth0.Audience,
+		}
+		return nil
+	}
+
+	return fmt.Errorf("vault gateway service config not found for DON %s", donName)
 }
 
 func deployVaultContracts(testLogger zerolog.Logger, qualifier string, registryChainSelector uint64, env *cldf.Environment, contractVersions map[cre.ContractType]*semver.Version) (*common.Address, *common.Address, error) {
