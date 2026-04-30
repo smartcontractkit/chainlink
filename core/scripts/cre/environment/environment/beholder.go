@@ -289,10 +289,6 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			if routerErr := chiprouter.EnsureStarted(cmd.Context()); routerErr != nil {
-				return errors.Wrap(routerErr, "failed to ensure chip ingress router is running. Please make sure that local CRE environment is started and that the chip ingress router is running")
-			}
-
 			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
@@ -780,10 +776,6 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	fmt.Println()
 	framework.L.Info().Msgf("Red Panda Console URL: %s", out.RedPanda.ConsoleExternalURL)
 
-	if err := registerBeholderWithRouter(cmdContext, port); err != nil {
-		return errors.Wrap(err, "failed to register Beholder with chip ingress router")
-	}
-
 	topicsErr := chipingressset.CreateTopics(cmdContext, out.RedPanda.KafkaExternalURL, in.Kafka.Topics)
 	if topicsErr != nil {
 		return errors.Wrap(topicsErr, "failed to create topics")
@@ -794,6 +786,13 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	for _, topic := range in.Kafka.Topics {
 		framework.L.Info().Msgf("Topic URL: %s", fmt.Sprintf("%s/topics/%s", out.RedPanda.ConsoleExternalURL, topic))
 	}
+
+	if routerErr := chiprouter.EnsureStarted(cmdContext); routerErr == nil {
+		if err := registerBeholderWithRouter(cmdContext, port); err != nil {
+			return errors.Wrap(err, "failed to register Beholder with chip ingress router")
+		}
+	}
+
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
