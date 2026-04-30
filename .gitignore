@@ -60,7 +60,6 @@ core/services/job/testdata/wasm/testmodule.wasm
 core/services/job/testdata/wasm/testmodule.br
 temp-repo
 diagnose-*/
-!.agents/skills/diagnose-tests/
 
 # DB state
 ./db/
