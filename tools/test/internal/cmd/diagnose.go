@@ -70,6 +70,9 @@ func validateDiagnoseConfig(conf *config.App) error {
 	if conf.ParallelIterations < 1 {
 		return errors.New("--parallel-iterations must be >= 1")
 	}
+	if conf.ParallelIterations > conf.Iterations {
+		return errors.New("--parallel-iterations must be <= --iterations")
+	}
 	if conf.ParallelIterations > 1 && conf.DatabaseURL != "" {
 		return errors.New("--parallel-iterations > 1 cannot be used with --database-url")
 	}

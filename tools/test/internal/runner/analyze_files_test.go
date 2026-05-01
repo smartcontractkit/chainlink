@@ -119,6 +119,18 @@ func TestWriteLogFilesTruncatesLongFilenames(t *testing.T) {
 	assert.Equal(t, "boom\n", string(b))
 }
 
+func TestDiagnoseLogFilenameLongIterationStaysWithinLimit(t *testing.T) {
+	t.Parallel()
+
+	name := diagnoseLogFilenameForIter(
+		"github.com/foo/bar",
+		"TestIntegration/"+strings.Repeat("very_long_subtest_name/", 20),
+		strings.Repeat("1234567890", 10),
+	)
+
+	assert.LessOrEqual(t, len(filepath.Base(name)), maxDiagnoseLogFilenameBytes)
+}
+
 func TestWriteLogFilesNoLogsForNonFlaggedTests(t *testing.T) {
 	t.Parallel()
 
