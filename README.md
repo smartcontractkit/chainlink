@@ -239,7 +239,7 @@ go test ./...
 #### Notes
 
 - The `parallel` flag can be used to limit CPU usage, for running tests in the background (`-parallel=4`) - the default is `GOMAXPROCS`
-- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interferring with one another (`-p=1`)
+- The `p` flag can be used to limit the number of _packages_ tested concurrently, if they are interfering with one another (`-p=1`)
 - The `-short` flag skips tests which depend on the database, for quickly spot checking simpler tests in around one minute
 
 #### Race Detector
@@ -270,6 +270,15 @@ go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 ```
 
 https://go.dev/doc/fuzz/
+
+#### New Flow
+
+There's a new, simpler flow for running tests at [tools/test](./tools/test/README.md). It also includes a `diagnose` command, and an [AI skill](./tools/test/.agents/skills/chainlink-test-diagnosis/SKILL.md) for diagnosing and fixing unstable or slow tests.
+
+```sh
+# From the /chainlink root
+go -C tools/test run . -h # Command help
+```
 
 ### Go Modules
 
