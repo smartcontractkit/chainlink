@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
@@ -48,6 +49,44 @@ func testVaultOrgIDAsSecretOwnerGate(t *testing.T, enabled bool) limits.GateLimi
 	gate, err := limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: logger.TestLogger(t)}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
 	require.NoError(t, err)
 	return gate
+}
+
+type metadataCapturingVault struct {
+	metadata capabilities.RequestMetadata
+	response *vault.GetSecretsResponse
+}
+
+func (m *metadataCapturingVault) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return capabilities.CapabilityInfo{
+		ID:             vault.CapabilityID,
+		CapabilityType: capabilities.CapabilityTypeAction,
+		IsLocal:        true,
+	}, nil
+}
+
+func (m *metadataCapturingVault) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	vr := &vault.GetSecretsRequest{}
+	if err := req.Payload.UnmarshalTo(vr); err != nil {
+		return capabilities.CapabilityResponse{}, errors.New("received unexpected payload: want *vault.GetSecretsRequest")
+	}
+	if req.Method != vault.MethodGetSecrets {
+		return capabilities.CapabilityResponse{}, errors.New("received unexpected method: want vault.MethodGetSecrets")
+	}
+	m.metadata = req.Metadata
+
+	anyvresp, err := anypb.New(m.response)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+	return capabilities.CapabilityResponse{Payload: anyvresp}, nil
+}
+
+func (m *metadataCapturingVault) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
+	return errors.New("not used")
+}
+
+func (m *metadataCapturingVault) UnregisterFromWorkflow(ctx context.Context, request capabilities.UnregisterFromWorkflowRequest) error {
+	return errors.New("not used")
 }
 
 func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
@@ -310,6 +349,87 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 		},
 	})
 	require.ErrorContains(t, err, "could not authorize the request")
+}
+
+func TestSecretsFetcher_WorkflowIDMetadataFollowsOrgIDGate(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		gateEnabled    bool
+		wantWorkflowID string
+		wantOrgID      string
+	}{
+		{
+			name:        "gate disabled",
+			gateEnabled: false,
+		},
+		{
+			name:           "gate enabled",
+			gateEnabled:    true,
+			wantWorkflowID: "workflowID",
+			wantOrgID:      "org-123",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+			reg := coreCap.NewRegistry(lggr)
+			peer := coreCap.RandomUTF8BytesWord()
+
+			workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+			_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
+			require.NoError(t, err)
+			vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+			require.NoError(t, err)
+			reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+			owner := "1234567890abcdef1234567890abcdef12345678"
+			normalizedOwner, err := normalizeOwner(owner)
+			require.NoError(t, err)
+
+			capture := &metadataCapturingVault{
+				response: &vault.GetSecretsResponse{
+					Responses: []*vault.SecretResponse{
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "Foo",
+								Namespace: "Bar",
+								Owner:     normalizedOwner,
+							},
+							Result: &vault.SecretResponse_Error{Error: "not found"},
+						},
+					},
+				},
+			}
+			err = reg.Add(t.Context(), capture)
+			require.NoError(t, err)
+
+			sf := NewSecretsFetcher(
+				MetricsLabelerTest(t),
+				reg,
+				lggr,
+				limits.WorkflowResourcePoolLimiter[int](5),
+				limits.NewUpperBoundLimiter[int](5),
+				testVaultOrgIDAsSecretOwnerGate(t, tc.gateEnabled),
+				"org-123",
+				owner,
+				"workflowName",
+				"workflowID",
+				"workflowExecID",
+				workflowEncryptionKey,
+			)
+
+			_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+				Requests: []*sdkpb.SecretRequest{
+					{
+						Id:        "Foo",
+						Namespace: "Bar",
+					},
+				},
+			})
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantWorkflowID, capture.metadata.WorkflowID)
+			assert.Equal(t, tc.wantOrgID, capture.metadata.OrgID)
+		})
+	}
 }
 
 func TestSecretsFetcher_ForwardsOrgIDAndWorkflowOwner(t *testing.T) {

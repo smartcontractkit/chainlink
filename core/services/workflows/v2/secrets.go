@@ -196,13 +196,15 @@ func (s *secretsFetcher) getSecretsForBatch(ctx context.Context, request *sdkpb.
 		return nil, errors.New("org_id is required when VaultOrgIdAsSecretOwnerEnabled is enabled")
 	}
 	metadata := capabilities.RequestMetadata{
-		WorkflowID:          s.workflowID,
 		WorkflowOwner:       s.workflowOwner,
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
 		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
 	}
 	if orgIDGateEnabled {
+		// WorkflowID is under this gate because the previous release skipped
+		// setting workflowID on SecretsFetcher entirely.
+		metadata.WorkflowID = s.workflowID
 		metadata.OrgID = s.orgID
 	}
 
