@@ -78,7 +78,8 @@ func TestRenderDiagnoseProgressLine_smoke(t *testing.T) {
 	p := newDiagnoseProgress(10)
 	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
 	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
-	require.Contains(t, b.String(), "iter 1/3")
+	require.Contains(t, b.String(), "1/3")
+	require.NotContains(t, b.String(), "iter 1/3")
 	require.Contains(t, b.String(), "1/10 10%")
 	require.Contains(t, b.String(), "✅")
 	require.NotContains(t, b.String(), "█")
@@ -93,10 +94,30 @@ func TestRenderDiagnoseProgressLine_inProgressShowsHourglass(t *testing.T) {
 	require.NotContains(t, b.String(), "✅")
 }
 
-func TestRenderDiagnoseProgressLine_notTTY(t *testing.T) {
+func TestRenderDiagnoseProgressLine_notLiveInline(t *testing.T) {
 	var b strings.Builder
 	p := newDiagnoseProgress(10)
 	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
 	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, false)
 	require.Empty(t, b.String())
+}
+
+func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
+	var b strings.Builder
+	p := newParallelDiagnoseProgress(10)
+	iterProg := newDiagnoseProgress(5)
+	iterProg.onTestJSONLine([]byte(`{"Action":"run","Package":"github.com/smartcontractkit/chainlink/v2/core/bridges","Test":"TestBridge"}`))
+	p.start(2, 5)
+	p.update(2, iterProg)
+	p.finish(0)
+
+	renderParallelDiagnoseProgressLine(&b, p, 3*time.Second, true)
+
+	got := b.String()
+	require.Contains(t, got, "done 1/10")
+	require.Contains(t, got, "active 1")
+	require.Contains(t, got, "iter 3")
+	require.Contains(t, got, "0/5 0%")
+	require.Contains(t, got, "core/bridges")
+	require.Contains(t, got, "⌛")
 }

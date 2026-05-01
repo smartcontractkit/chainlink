@@ -32,7 +32,7 @@ go run . diagnose --iterations 5 -- ./core/...
 
 ### AI Skill
 
-Use the [/diagnose-tests](/.agents/skills/diagnose-tests/SKILL.md) ai skill with your favorite agent to run a `diagnose` loop.
+Use the [chainlink-test-diagnosis](./.agents/skills/chainlink-test-diagnosis/SKILL.md) skill with your favorite agent to find, diagnose, and fix flaky, slow, and otherwise unstable tests.
 
 ## Why not just `go test`?
 

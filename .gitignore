@@ -34,7 +34,8 @@ operator_ui/install
 .devenv
 event_dump.ndjson
 .cursor/
-.claude/
+.claude/*
+!/tools/test/.claude/skills/
 
 # neovim
 .nvim.lua

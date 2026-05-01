@@ -83,12 +83,78 @@ type diagnoseProgress struct {
 	total      int               // -1 when denominator is unknown (go list failed or empty)
 }
 
+type parallelDiagnoseProgress struct {
+	mu              sync.Mutex
+	renderMu        sync.Mutex
+	totalIterations int
+	completed       int
+	active          map[int]parallelIterationProgress
+}
+
+type parallelIterationProgress struct {
+	completed int
+	total     int
+	lastPkg   string
+	outcome   string
+}
+
 func newDiagnoseProgress(totalPackages int) *diagnoseProgress {
 	return &diagnoseProgress{
 		done:       make(map[string]struct{}),
 		pkgOutcome: make(map[string]string),
 		total:      totalPackages,
 	}
+}
+
+func newParallelDiagnoseProgress(totalIterations int) *parallelDiagnoseProgress {
+	return &parallelDiagnoseProgress{
+		totalIterations: totalIterations,
+		active:          make(map[int]parallelIterationProgress),
+	}
+}
+
+func (p *parallelDiagnoseProgress) start(iteration, totalPackages int) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.active[iteration] = parallelIterationProgress{total: totalPackages}
+}
+
+func (p *parallelDiagnoseProgress) update(iteration int, prog *diagnoseProgress) {
+	if p == nil || prog == nil {
+		return
+	}
+	completed, total, lastPkg, outcome := prog.snapshot()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.active[iteration] = parallelIterationProgress{
+		completed: completed,
+		total:     total,
+		lastPkg:   lastPkg,
+		outcome:   outcome,
+	}
+}
+
+func (p *parallelDiagnoseProgress) finish(iteration int) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.active, iteration)
+	p.completed++
+}
+
+func (p *parallelDiagnoseProgress) withRenderLock(fn func()) {
+	if p == nil {
+		fn()
+		return
+	}
+	p.renderMu.Lock()
+	defer p.renderMu.Unlock()
+	fn()
 }
 
 // onTestJSONLine updates state from one JSONL line. Returns true if the number
@@ -154,24 +220,16 @@ func packageOutcomeMark(action, displayPkg string) string {
 	}
 }
 
-// renderDiagnoseProgressLine writes one status line to w.
-func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *diagnoseProgress, isTTY bool) {
-	if !isTTY {
-		return // no-op when not a TTY (ai output doesn't need this)
+// renderDiagnoseProgressLine writes one status line to w when liveInline is true
+// (TTY stderr in human mode). Otherwise it is a no-op so logs are not spammed.
+func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *diagnoseProgress, liveInline bool) {
+	if !liveInline {
+		return
 	}
 	completed, total, lastPkg, outcome := prog.snapshot()
 
-	meta := fmt.Sprintf("iter %d/%d", iteration, iterations)
-	var countStr string
-	if total < 0 {
-		countStr = fmt.Sprintf("%d/?", completed)
-	} else {
-		pct := 0
-		if total > 0 {
-			pct = completed * 100 / total
-		}
-		countStr = fmt.Sprintf("%d/%d %d%%", completed, total, pct)
-	}
+	meta := fmt.Sprintf("%d/%d", iteration, iterations)
+	countStr := packageProgressCount(completed, total)
 
 	const pkgMaxChars = 42
 	displayPkg := shortenChainlinkImportPath(lastPkg)
@@ -189,6 +247,51 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed 
 	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
+}
+
+func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgress, elapsed time.Duration, liveInline bool) {
+	if !liveInline || prog == nil {
+		return
+	}
+	completed, totalIterations, activeCount, iteration, current := prog.snapshot()
+	line := termstyle.Label.Render(fmt.Sprintf("done %d/%d", completed, totalIterations)) + "  " +
+		termstyle.Accent.Render(fmt.Sprintf("active %d", activeCount))
+	if activeCount > 0 {
+		line += "  " + termstyle.Label.Render(fmt.Sprintf("iter %d", iteration+1)) + "  " +
+			termstyle.Accent.Render(packageProgressCount(current.completed, current.total))
+		displayPkg := shortenChainlinkImportPath(current.lastPkg)
+		if displayPkg != "" {
+			mark := packageOutcomeMark(current.outcome, displayPkg)
+			line += "  " + termstyle.Muted.Render(ellipsizeRight(displayPkg, 42)+mark)
+		}
+	}
+	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
+	fmt.Fprint(w, "\r\033[K")
+	fmt.Fprint(w, line)
+}
+
+func (p *parallelDiagnoseProgress) snapshot() (completed, totalIterations, activeCount, iteration int, current parallelIterationProgress) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	iteration = -1
+	for i, prog := range p.active {
+		if iteration == -1 || i < iteration {
+			iteration = i
+			current = prog
+		}
+	}
+	return p.completed, p.totalIterations, len(p.active), iteration, current
+}
+
+func packageProgressCount(completed, total int) string {
+	if total < 0 {
+		return fmt.Sprintf("%d/?", completed)
+	}
+	pct := 0
+	if total > 0 {
+		pct = completed * 100 / total
+	}
+	return fmt.Sprintf("%d/%d %d%%", completed, total, pct)
 }
 
 func ellipsizeRight(s string, maxLen int) string {

@@ -89,11 +89,15 @@ func diagnoseConfigDirPartPhase(conf *config.App, goTestArgs []string, phase int
 	dropSlow := phase >= 1
 	dropShuffle := phase >= 2
 	dropFF := phase >= 3
-	shortHash := phase >= 4
+	dropParallel := phase >= 4
+	shortHash := phase >= 5
 
 	var parts []string
 	if conf.Iterations > 0 {
 		parts = append(parts, fmt.Sprintf("it%d", conf.Iterations))
+	}
+	if !dropParallel && conf.ParallelIterations > 1 {
+		parts = append(parts, fmt.Sprintf("p%d", conf.ParallelIterations))
 	}
 	hStr := hash8
 	if shortHash {

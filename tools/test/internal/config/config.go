@@ -17,14 +17,15 @@ import (
 const DefaultPostgresVersion = "16"
 
 type App struct {
-	DatabaseURL     string        `mapstructure:"database_url"`
-	PostgresVersion string        `mapstructure:"postgres_version"`
-	RepoRoot        string        `mapstructure:"repo_root"`
-	AIOutput        bool          `mapstructure:"ai_output"`
-	Iterations      int           `mapstructure:"iterations"`
-	SlowThreshold   time.Duration `mapstructure:"slow_threshold"`
-	FailFast        bool          `mapstructure:"fail_fast"`
-	Shuffle         bool          `mapstructure:"shuffle_seed"`
+	DatabaseURL        string        `mapstructure:"database_url"`
+	PostgresVersion    string        `mapstructure:"postgres_version"`
+	RepoRoot           string        `mapstructure:"repo_root"`
+	AIOutput           bool          `mapstructure:"ai_output"`
+	Iterations         int           `mapstructure:"iterations"`
+	ParallelIterations int           `mapstructure:"parallel_iterations"`
+	SlowThreshold      time.Duration `mapstructure:"slow_threshold"`
+	FailFast           bool          `mapstructure:"fail_fast"`
+	Shuffle            bool          `mapstructure:"shuffle_seed"`
 }
 
 // Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.
@@ -38,6 +39,7 @@ func Load(cmd *cobra.Command) (*App, error) {
 	// Enable sparse output when stdout is not a TTY (e.g. redirected or CI).
 	v.SetDefault("ai_output", !term.IsTerminal(os.Stdout.Fd()))
 	v.SetDefault("iterations", 1)
+	v.SetDefault("parallel_iterations", 1)
 	v.SetDefault("slow_threshold", 30*time.Second)
 	v.SetDefault("fail_fast", false)
 	repoRoot, err := repo.RootFromWd()

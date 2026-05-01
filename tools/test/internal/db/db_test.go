@@ -2,14 +2,20 @@ package db
 
 import (
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 )
 
 func TestDumpDiagnosticsNilHandle(t *testing.T) {
@@ -34,7 +40,7 @@ func TestEnsureDatabaseURLSetsCLDatabaseURL(t *testing.T) {
 		PostgresVersion: "15",
 		DatabaseURL:     want,
 		AIOutput:        true,
-	})
+	}, output.New(true, io.Discard, io.Discard, output.SkipFD))
 	require.NoError(t, err)
 	require.NotNil(t, h)
 	assert.Equal(t, want, os.Getenv("CL_DATABASE_URL"))
@@ -46,7 +52,7 @@ func TestEnsureDatabaseURLConflictsWithEnv(t *testing.T) {
 		PostgresVersion: "15",
 		DatabaseURL:     "postgres://other/db",
 		AIOutput:        true,
-	})
+	}, output.New(true, io.Discard, io.Discard, output.SkipFD))
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "CL_DATABASE_URL")
 }
@@ -56,7 +62,101 @@ func TestEnsureRequiresPostgresVersion(t *testing.T) {
 	_, err := Ensure(context.Background(), &config.App{
 		PostgresVersion: "",
 		AIOutput:        true,
-	})
+	}, output.New(true, io.Discard, io.Discard, output.SkipFD))
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "postgres version is required")
+}
+
+func TestHandleEnvIncludesConnectionString(t *testing.T) {
+	t.Parallel()
+	h := &Handle{connStr: "postgres://worker/db"}
+	assert.Equal(t, []string{"CL_DATABASE_URL=postgres://worker/db"}, h.Env())
+}
+
+func TestEnsurePoolRejectsExternalDatabaseWhenParallel(t *testing.T) {
+	t.Parallel()
+	_, err := EnsurePool(context.Background(), &config.App{
+		PostgresVersion:    "15",
+		DatabaseURL:        "postgres://example/db",
+		ParallelIterations: 2,
+		AIOutput:           true,
+	}, output.New(true, io.Discard, io.Discard, output.SkipFD), 2)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "--parallel-iterations > 1 cannot be used with --database-url")
+}
+
+func TestEnsurePoolCreatesSingleExternalDatabaseHandle(t *testing.T) {
+	t.Setenv("CL_DATABASE_URL", "")
+	pool, err := EnsurePool(context.Background(), &config.App{
+		PostgresVersion:    "15",
+		DatabaseURL:        "postgres://example/db",
+		ParallelIterations: 1,
+		AIOutput:           true,
+	}, output.New(true, io.Discard, io.Discard, output.SkipFD), 1)
+	require.NoError(t, err)
+	require.Len(t, pool.Handles(), 1)
+	assert.Equal(t, []string{"CL_DATABASE_URL=postgres://example/db"}, pool.Handles()[0].Env())
+	assert.Equal(t, "postgres://example/db", os.Getenv("CL_DATABASE_URL"))
+}
+
+func TestEnsurePoolWithFactoryStartsHandlesConcurrently(t *testing.T) {
+	t.Parallel()
+	const size = 3
+	var active int32
+	var maxActive int32
+	pool, err := ensurePoolWithFactory(context.Background(), size, func(context.Context, int) (*Handle, error) {
+		nowActive := atomic.AddInt32(&active, 1)
+		for {
+			seen := atomic.LoadInt32(&maxActive)
+			if nowActive <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, nowActive) {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+		atomic.AddInt32(&active, -1)
+		return &Handle{connStr: "postgres://worker/db"}, nil
+	})
+
+	require.NoError(t, err)
+	require.Len(t, pool.Handles(), size)
+	assert.Equal(t, int32(size), atomic.LoadInt32(&maxActive))
+}
+
+func TestEnsurePoolWithOutputPrintsOneAggregateSetupLine(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr strings.Builder
+	out := output.New(false, &stdout, &stderr, output.SkipFD)
+
+	_, err := ensurePoolWithOutput(context.Background(), out, 3, func(context.Context, int) (*Handle, error) {
+		return &Handle{connStr: "postgres://worker/db"}, nil
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, stdout.String())
+	assert.Equal(t, 1, strings.Count(stderr.String(), "Setting up 3 Postgres"))
+	assert.NotContains(t, stderr.String(), "Setting up Postgres...Setting up Postgres")
+	assert.Contains(t, stderr.String(), "Setup 3 Postgres")
+}
+
+func TestCleanupPoolHandlesRunsConcurrentlyAndJoinsErrors(t *testing.T) {
+	t.Parallel()
+	const size = 3
+	var active int32
+	var maxActive int32
+	errBoom := errors.New("boom")
+	err := cleanupPoolHandles(make([]*Handle, size), func(_ *Handle) error {
+		nowActive := atomic.AddInt32(&active, 1)
+		for {
+			seen := atomic.LoadInt32(&maxActive)
+			if nowActive <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, nowActive) {
+				break
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+		atomic.AddInt32(&active, -1)
+		return errBoom
+	})
+
+	require.ErrorIs(t, err, errBoom)
+	assert.Equal(t, int32(size), atomic.LoadInt32(&maxActive))
 }

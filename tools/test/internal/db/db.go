@@ -9,15 +9,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
-
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
 // Handle owns the ephemeral Postgres used for a run. When the user supplied
@@ -25,6 +27,20 @@ import (
 type Handle struct {
 	container *postgres.PostgresContainer
 	conf      *config.App
+	out       *output.Printer
+	connStr   string
+}
+
+// Resource is the runner-facing view of one prepared test database.
+type Resource struct {
+	Env             []string
+	Reset           func(context.Context) error
+	DumpDiagnostics func(context.Context, string, int) error
+}
+
+// Pool owns the database handles used by a command.
+type Pool struct {
+	handles []*Handle
 }
 
 // Ensure configures CL_DATABASE_URL for child test processes. If --database-url
@@ -33,45 +49,54 @@ type Handle struct {
 // container, sets CL_DATABASE_URL to its connection string, runs preparetest
 // --force, and snapshots the prepared state so Reset can restore it between
 // diagnose iterations.
-func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
+func Ensure(ctx context.Context, conf *config.App, out *output.Printer) (h *Handle, err error) {
+	return ensure(ctx, conf, out, true)
+}
+
+func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGlobalDatabaseURL bool) (h *Handle, err error) {
+	if out == nil {
+		out = output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD)
+	}
 	start := time.Now()
 
 	if conf.PostgresVersion == "" {
-		return &Handle{conf: conf}, errors.New("postgres version is required")
+		return &Handle{conf: conf, out: out}, errors.New("postgres version is required")
 	}
 
 	if conf.DatabaseURL != "" {
 		if existing := os.Getenv("CL_DATABASE_URL"); existing != "" && existing != conf.DatabaseURL {
-			return &Handle{conf: conf}, errors.New("CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
+			return &Handle{conf: conf, out: out}, errors.New("CL_DATABASE_URL is already set to a different value than --database-url (refusing to override)")
 		}
-		if err = os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
-			return &Handle{conf: conf}, fmt.Errorf("set CL_DATABASE_URL: %w", err)
+		if setGlobalDatabaseURL {
+			if err = os.Setenv("CL_DATABASE_URL", conf.DatabaseURL); err != nil {
+				return &Handle{conf: conf, out: out}, fmt.Errorf("set CL_DATABASE_URL: %w", err)
+			}
 		}
-		if !conf.AIOutput {
-			fmt.Fprintln(os.Stdout,
-				termstyle.Muted.Render("Skipping database setup, using provided database URL: ")+
+		out.IfHuman(func() {
+			out.HumanStdout(
+				termstyle.Muted.Render("Skipping database setup, using provided database URL: ") +
 					termstyle.Label.Render(conf.DatabaseURL))
-		}
-		return &Handle{conf: conf}, nil
+		})
+		return &Handle{conf: conf, out: out, connStr: conf.DatabaseURL}, nil
 	}
 	// Intentional: Ryuk is disabled because this harness always tears down via
 	// Handle.Cleanup(); Ryuk can conflict with that lifecycle in some setups.
 	if err = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
-		return &Handle{conf: conf}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
+		return &Handle{conf: conf, out: out}, fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", err)
 	}
 
 	// Progress on stderr, same escape and TTY rules as diagnoseIteration /
 	// renderDiagnoseProgressLine (runner).
 	setupPartial := false
-	if !conf.AIOutput {
-		fmt.Fprint(os.Stderr, termstyle.Label.Render("Setting up Postgres..."))
+	out.IfHuman(func() {
+		out.HumanFprint(termstyle.Label.Render("Setting up Postgres..."))
 		setupPartial = true
-	}
+	})
 	abortSetupPartial := func() {
 		if !setupPartial {
 			return
 		}
-		fmt.Fprint(os.Stderr, "\r\033[K\n")
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
 		setupPartial = false
 	}
 	defer func() {
@@ -92,27 +117,30 @@ func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 				WithStartupTimeout(60*time.Second)),
 	)
 	if err != nil {
-		return &Handle{conf: conf}, fmt.Errorf("postgres testcontainer: %w", err)
+		return &Handle{conf: conf, out: out}, fmt.Errorf("postgres testcontainer: %w", err)
 	}
 
-	h = &Handle{container: c, conf: conf}
+	h = &Handle{container: c, conf: conf, out: out}
 
 	// Build the connection string for CL tests to use
 	connStr, err := c.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		return h, errors.Join(fmt.Errorf("connection string: %w", err), h.Cleanup())
 	}
+	h.connStr = connStr
 
-	// Set the connection string for CL tests to use
-	if err := os.Setenv("CL_DATABASE_URL", connStr); err != nil {
-		return h, errors.Join(err, h.Cleanup())
+	if setGlobalDatabaseURL {
+		// Set the connection string for CL tests to use.
+		if err := os.Setenv("CL_DATABASE_URL", connStr); err != nil {
+			return h, errors.Join(err, h.Cleanup())
+		}
 	}
 
 	// Run preparetest --force to set up the database for tests
 	prepareOutput := bytes.NewBuffer(nil)
 	prep := exec.CommandContext(ctx, "go", "run", "./core/store/cmd/preparetest", "--force")
 	prep.Dir = conf.RepoRoot
-	prep.Env = os.Environ()
+	prep.Env = appendEnvOverrides(os.Environ(), h.Env())
 	prep.Stdout = prepareOutput
 	prep.Stderr = prepareOutput
 	if err := prep.Run(); err != nil {
@@ -124,16 +152,205 @@ func Ensure(ctx context.Context, conf *config.App) (h *Handle, err error) {
 		return h, errors.Join(fmt.Errorf("snapshot prepared database: %w", err), h.Cleanup())
 	}
 
-	if !conf.AIOutput {
-		fmt.Fprint(os.Stderr, "\r\033[K")
-		fmt.Fprintln(os.Stderr,
-			termstyle.Label.Render("Setup Postgres")+" "+
-				termstyle.OK.Render("✅")+" "+
+	out.IfHuman(func() {
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K")
+		out.HumanStderr(
+			termstyle.Label.Render("Setup Postgres") + " " +
+				termstyle.OK.Render("✅") + " " +
 				termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
 		setupPartial = false
-	}
+	})
 
 	return h, nil
+}
+
+// EnsurePool creates the prepared databases needed by diagnose. Parallel
+// diagnose uses one ephemeral Postgres per worker; external database URLs are
+// only allowed for serial runs because the harness cannot isolate or reset them.
+func EnsurePool(ctx context.Context, conf *config.App, out *output.Printer, size int) (*Pool, error) {
+	if size < 1 {
+		return nil, errors.New("database pool size must be >= 1")
+	}
+	if size > 1 && conf.DatabaseURL != "" {
+		return nil, errors.New("--parallel-iterations > 1 cannot be used with --database-url")
+	}
+	factoryOut := out
+	if size > 1 {
+		factoryOut = output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD)
+	}
+	factory := func(ctx context.Context, _ int) (*Handle, error) {
+		return ensure(ctx, conf, factoryOut, size == 1)
+	}
+	if size > 1 {
+		return ensurePoolWithOutput(ctx, out, size, factory)
+	}
+	return ensurePoolWithFactory(ctx, size, factory)
+}
+
+type ensureHandleFactory func(context.Context, int) (*Handle, error)
+
+func ensurePoolWithFactory(ctx context.Context, size int, factory ensureHandleFactory) (*Pool, error) {
+	if size < 1 {
+		return nil, errors.New("database pool size must be >= 1")
+	}
+	poolCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	handles := make([]*Handle, size)
+	var wg sync.WaitGroup
+	errs := make(chan error, size)
+	for i := range size {
+
+		wg.Go(func() {
+			h, err := factory(poolCtx, i)
+			if err != nil {
+				cancel()
+				errs <- err
+				return
+			}
+			handles[i] = h
+		})
+	}
+	wg.Wait()
+	close(errs)
+	var err error
+	for e := range errs {
+		err = errors.Join(err, e)
+	}
+	pool := &Pool{handles: handles}
+	if err != nil {
+		return pool, errors.Join(err, pool.Cleanup())
+	}
+	for _, h := range handles {
+		if h == nil {
+			return pool, errors.Join(errors.New("database pool factory returned nil handle"), pool.Cleanup())
+		}
+	}
+	return pool, nil
+}
+
+func ensurePoolWithOutput(ctx context.Context, out *output.Printer, size int, factory ensureHandleFactory) (pool *Pool, err error) {
+	start := time.Now()
+	setupPartial := false
+	if out != nil {
+		out.IfHuman(func() {
+			out.HumanFprint(termstyle.Label.Render(fmt.Sprintf("Setting up %d Postgres...", size)))
+			setupPartial = true
+		})
+	}
+	abortSetupPartial := func() {
+		if !setupPartial || out == nil {
+			return
+		}
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
+		setupPartial = false
+	}
+	defer func() {
+		if err != nil {
+			abortSetupPartial()
+		}
+	}()
+	pool, err = ensurePoolWithFactory(ctx, size, factory)
+	if err != nil {
+		return pool, err
+	}
+	if out != nil {
+		out.IfHuman(func() {
+			_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K")
+			out.HumanStderr(
+				termstyle.Label.Render(fmt.Sprintf("Setup %d Postgres", size)) + " " +
+					termstyle.OK.Render("✅") + " " +
+					termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
+			setupPartial = false
+		})
+	}
+	return pool, nil
+}
+
+// Handles returns the underlying handles for tests and low-level callers.
+func (p *Pool) Handles() []*Handle {
+	if p == nil {
+		return nil
+	}
+	return p.handles
+}
+
+// Resources returns the runner-facing DB resources.
+func (p *Pool) Resources() []Resource {
+	if p == nil {
+		return nil
+	}
+	resources := make([]Resource, 0, len(p.handles))
+	for _, h := range p.handles {
+
+		resources = append(resources, Resource{
+			Env:             h.Env(),
+			Reset:           h.Reset,
+			DumpDiagnostics: h.DumpDiagnostics,
+		})
+	}
+	return resources
+}
+
+// Cleanup tears down every database handle in the pool.
+func (p *Pool) Cleanup() error {
+	if p == nil {
+		return nil
+	}
+	return cleanupPoolHandles(p.handles, func(h *Handle) error {
+		return h.Cleanup()
+	})
+}
+
+func cleanupPoolHandles(handles []*Handle, cleanup func(*Handle) error) error {
+	if len(handles) == 0 {
+		return nil
+	}
+	errs := make(chan error, len(handles))
+	var wg sync.WaitGroup
+	for _, h := range handles {
+
+		wg.Go(func() {
+			errs <- cleanup(h)
+		})
+	}
+	wg.Wait()
+	close(errs)
+	var err error
+	for e := range errs {
+		err = errors.Join(err, e)
+	}
+	return err
+}
+
+// Env returns environment overrides for child test processes using this handle.
+func (h *Handle) Env() []string {
+	if h == nil || h.connStr == "" {
+		return nil
+	}
+	return []string{"CL_DATABASE_URL=" + h.connStr}
+}
+
+func appendEnvOverrides(base, overrides []string) []string {
+	if len(overrides) == 0 {
+		return base
+	}
+	keys := make(map[string]struct{}, len(overrides))
+	for _, item := range overrides {
+		if key, _, ok := strings.Cut(item, "="); ok {
+			keys[key] = struct{}{}
+		}
+	}
+	env := make([]string, 0, len(base)+len(overrides))
+	for _, item := range base {
+		key, _, ok := strings.Cut(item, "=")
+		if ok {
+			if _, replace := keys[key]; replace {
+				continue
+			}
+		}
+		env = append(env, item)
+	}
+	return append(env, overrides...)
 }
 
 // Reset restores the database to its freshly-prepared snapshot. No-op when the
@@ -237,19 +454,25 @@ func (h *Handle) Cleanup() error {
 	if h == nil || h.container == nil {
 		return nil
 	}
-	if !h.conf.AIOutput {
-		fmt.Fprint(os.Stderr, termstyle.Label.Render("Tearing down postgres..."))
+	if h.out != nil {
+		h.out.IfHuman(func() {
+			h.out.HumanFprint(termstyle.Label.Render("Tearing down postgres..."))
+		})
 	}
 	termCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := h.container.Terminate(termCtx); err != nil {
-		if !h.conf.AIOutput {
-			fmt.Fprintln(os.Stderr, " "+termstyle.Bad.Render("❌"))
+		if h.out != nil {
+			h.out.IfHuman(func() {
+				h.out.HumanStderr(" " + termstyle.Bad.Render("❌"))
+			})
 		}
 		return fmt.Errorf("error terminating postgres container, you need to terminate it manually: %w", err)
 	}
-	if !h.conf.AIOutput {
-		fmt.Fprintln(os.Stderr, " "+termstyle.OK.Render("✅"))
+	if h.out != nil {
+		h.out.IfHuman(func() {
+			h.out.HumanStderr(" " + termstyle.OK.Render("✅"))
+		})
 	}
 	return nil
 }

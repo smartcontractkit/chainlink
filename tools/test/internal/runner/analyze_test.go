@@ -80,6 +80,52 @@ func TestAnalyzePackageLevelFailureIterationSummary(t *testing.T) {
 	assert.Empty(t, rep.Failures[0].Test)
 }
 
+func TestDigestIterationJSONL(t *testing.T) {
+	t.Parallel()
+
+	t.Run("pass no slow", func(t *testing.T) {
+		t.Parallel()
+		iter := `{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}` + "\n"
+		d, err := DigestIterationJSONL(strings.NewReader(iter), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "pass", d.Result)
+		assert.Equal(t, 0, d.FailTests)
+		assert.Equal(t, 0, d.SlowTests)
+		assert.Equal(t, 0, d.TimeoutTests)
+	})
+
+	t.Run("slow test", func(t *testing.T) {
+		t.Parallel()
+		slowJSON := `{"Action":"run","Package":"pkg/a","Test":"TestSlow"}
+{"Action":"pass","Package":"pkg/a","Test":"TestSlow","Elapsed":45.0}
+`
+		d, err := DigestIterationJSONL(strings.NewReader(slowJSON), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, 1, d.SlowTests)
+		assert.Equal(t, "pass", d.Result)
+	})
+
+	t.Run("package fail", func(t *testing.T) {
+		t.Parallel()
+		failJSON := `{"Action":"fail","Package":"pkg/build","Elapsed":0.0}` + "\n"
+		d, err := DigestIterationJSONL(strings.NewReader(failJSON), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "fail", d.Result)
+		assert.Equal(t, 1, d.FailTests)
+	})
+
+	t.Run("timeout", func(t *testing.T) {
+		t.Parallel()
+		toJSON := `{"Action":"output","Package":"pkg/hang","Output":"panic: test timed out after 2m0s\n"}
+{"Action":"fail","Package":"pkg/hang","Elapsed":120.0}
+`
+		d, err := DigestIterationJSONL(strings.NewReader(toJSON), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, "timeout", d.Result)
+		assert.GreaterOrEqual(t, d.TimeoutTests, 1)
+	})
+}
+
 func TestAnalyze(t *testing.T) {
 	t.Parallel()
 
@@ -255,12 +301,23 @@ func TestAnalyze(t *testing.T) {
 			rep, _, err := Analyze(readers(tc.iterations...), tc.slowThreshold)
 			require.NoError(t, err)
 			assert.Equal(t, len(tc.iterations), rep.Iterations)
-			assert.Equal(t, tc.wantFlakes, rep.Flakes, "flakes")
-			assert.Equal(t, tc.wantFailures, rep.Failures, "failures")
-			assert.Equal(t, tc.wantTimeouts, rep.Timeouts, "timeouts")
-			assert.Equal(t, tc.wantSlow, rep.Slow, "slow")
+			assert.Equal(t, tc.wantFlakes, publicTestEntries(rep.Flakes), "flakes")
+			assert.Equal(t, tc.wantFailures, publicTestEntries(rep.Failures), "failures")
+			assert.Equal(t, tc.wantTimeouts, publicTestEntries(rep.Timeouts), "timeouts")
+			assert.Equal(t, tc.wantSlow, publicTestEntries(rep.Slow), "slow")
 		})
 	}
+}
+
+func publicTestEntries(entries []TestEntry) []TestEntry {
+	out := append([]TestEntry(nil), entries...)
+	for i := range out {
+		out[i].Logs = nil
+		out[i].FailIters = nil
+		out[i].TimeoutIters = nil
+		out[i].SlowIters = nil
+	}
+	return out
 }
 
 func TestAnalyzeCapturesLogsForFailures(t *testing.T) {
@@ -472,6 +529,16 @@ func TestAnalyzeIterationSummaries(t *testing.T) {
 			},
 			want: []IterationSummary{
 				{Index: 0, Result: "fail", FailingTests: []string{"TestA", "TestB"}},
+			},
+		},
+		{
+			name: "package fail summary suppressed when tests fail",
+			iterations: []string{
+				`{"Action":"fail","Package":"p","Test":"TestA","Elapsed":0.1}` + "\n" +
+					`{"Action":"fail","Package":"p","Elapsed":0.1}` + "\n",
+			},
+			want: []IterationSummary{
+				{Index: 0, Result: "fail", FailingTests: []string{"TestA"}},
 			},
 		},
 	}

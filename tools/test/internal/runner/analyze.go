@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
+
+const maxDiagnoseLogFilenameBytes = 240
 
 // timeoutPanic appears in go test -json output when the test binary's
 // -timeout fires. It may be attached to a running test or to the package.
@@ -38,32 +41,44 @@ type testKey struct {
 }
 
 type aggregate struct {
-	passes       int
-	fails        int
-	skips        int
-	maxElapsed   time.Duration
-	timedOut     bool
-	iterations   map[int]struct{}
-	failedIters  map[int]bool
-	timeoutIters map[int]bool
-	skipIters    map[int]bool
-	outputs      map[int]*strings.Builder
-	elapseds     []time.Duration
+	passes        int
+	fails         int
+	skips         int
+	maxElapsed    time.Duration
+	timedOut      bool
+	iterations    map[int]struct{}
+	failedIters   map[int]bool
+	timeoutIters  map[int]bool
+	skipIters     map[int]bool
+	outputs       map[int]*strings.Builder
+	elapseds      []time.Duration
+	elapsedByIter map[int]time.Duration
+}
+
+// ProblemLog points to log files for iterations where this entry actually had
+// the reported problem. Path uses "{iter}" as the iteration placeholder.
+type ProblemLog struct {
+	Type  string `json:"type"`
+	Iters string `json:"iters"`
+	Path  string `json:"path"`
 }
 
 // TestEntry is a single row in the analysis report.
 type TestEntry struct {
-	Package    string        `json:"package"`
-	Test       string        `json:"test,omitempty"`
-	Runs       int           `json:"runs"`
-	Successes  int           `json:"successes"`
-	Fails      int           `json:"fails"`
-	Skips      int           `json:"skips"`
-	Timeouts   int           `json:"timeouts"`
-	MinElapsed time.Duration `json:"min_elapsed"`
-	MaxElapsed time.Duration `json:"max_elapsed"`
-	P50Elapsed time.Duration `json:"p50_elapsed"`
-	LogFiles   []string      `json:"log_files,omitempty"`
+	Package      string        `json:"package"`
+	Test         string        `json:"test,omitempty"`
+	Runs         int           `json:"runs"`
+	Successes    int           `json:"successes"`
+	Fails        int           `json:"fails"`
+	Skips        int           `json:"skips"`
+	Timeouts     int           `json:"timeouts"`
+	MinElapsed   time.Duration `json:"min_elapsed"`
+	MaxElapsed   time.Duration `json:"max_elapsed"`
+	P50Elapsed   time.Duration `json:"p50_elapsed"`
+	Logs         []ProblemLog  `json:"logs,omitempty"`
+	FailIters    []int         `json:"-"`
+	TimeoutIters []int         `json:"-"`
+	SlowIters    []int         `json:"-"`
 }
 
 // IterationSummary captures high-level stats for a single diagnose iteration.
@@ -95,100 +110,115 @@ type LogMap map[testKey]map[int]string
 // Analyze reads per-iteration test2json streams and classifies tests.
 // Malformed lines are silently skipped (go test can interleave non-JSON).
 func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogMap, error) {
-	aggs := map[testKey]*aggregate{}
-	newAgg := func() *aggregate {
-		return &aggregate{
-			iterations:   map[int]struct{}{},
-			failedIters:  map[int]bool{},
-			timeoutIters: map[int]bool{},
-			skipIters:    map[int]bool{},
-			outputs:      map[int]*strings.Builder{},
-		}
-	}
-
+	aggs := make(map[testKey]*aggregate)
 	for i, r := range iterations {
-		// Line-based scan + per-line Unmarshal: go test -json can interleave
-		// non-JSON output (stderr warnings, build errors); streaming decoder
-		// can't recover from those. Skip unparsable lines silently.
-		scanner := bufio.NewScanner(r)
-		for scanner.Scan() {
-			line := scanner.Bytes()
-			if len(line) == 0 || line[0] != '{' {
-				continue
-			}
-			var ev TestEvent
-			if err := json.Unmarshal(line, &ev); err != nil {
-				continue
-			}
-			key := testKey{Package: ev.Package, Test: ev.Test}
-			a := aggs[key]
-			if a == nil {
-				a = newAgg()
-				aggs[key] = a
-			}
-			switch ev.Action {
-			case "pass":
-				a.passes++
-				a.iterations[i] = struct{}{}
-				d := seconds(ev.Elapsed)
-				a.elapseds = append(a.elapseds, d)
-				if d > a.maxElapsed {
-					a.maxElapsed = d
-				}
-			case "fail":
-				a.fails++
-				a.iterations[i] = struct{}{}
-				a.failedIters[i] = true
-				d := seconds(ev.Elapsed)
-				a.elapseds = append(a.elapseds, d)
-				if d > a.maxElapsed {
-					a.maxElapsed = d
-				}
-			case "skip":
-				a.skips++
-				a.iterations[i] = struct{}{}
-				a.skipIters[i] = true
-				d := seconds(ev.Elapsed)
-				a.elapseds = append(a.elapseds, d)
-			case "output":
-				if strings.Contains(ev.Output, timeoutPanic) {
-					a.timedOut = true
-					a.iterations[i] = struct{}{}
-					a.timeoutIters[i] = true
-				}
-				buf := a.outputs[i]
-				if buf == nil {
-					buf = &strings.Builder{}
-					a.outputs[i] = buf
-				}
-				buf.WriteString(ev.Output)
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			return nil, nil, fmt.Errorf("reading iteration %d: %w", i, err)
+		if err := scanIterationJSONL(r, i, aggs); err != nil {
+			return nil, nil, err
 		}
 	}
+	reattributeTimeouts(aggs, newAggregate)
+	rep, logs := buildReportFromAggs(aggs, len(iterations), slowThreshold)
+	return rep, logs, nil
+}
 
-	reattributeTimeouts(aggs, newAgg)
+func newAggregate() *aggregate {
+	return &aggregate{
+		iterations:    map[int]struct{}{},
+		failedIters:   map[int]bool{},
+		timeoutIters:  map[int]bool{},
+		skipIters:     map[int]bool{},
+		outputs:       map[int]*strings.Builder{},
+		elapsedByIter: map[int]time.Duration{},
+	}
+}
 
+func (a *aggregate) recordElapsed(iterIdx int, d time.Duration) {
+	a.elapseds = append(a.elapseds, d)
+	a.elapsedByIter[iterIdx] = d
+	if d > a.maxElapsed {
+		a.maxElapsed = d
+	}
+}
+
+// scanIterationJSONL merges one iteration's JSONL stream into aggs at iterIdx.
+func scanIterationJSONL(r io.Reader, iterIdx int, aggs map[testKey]*aggregate) error {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 || line[0] != '{' {
+			continue
+		}
+		var ev TestEvent
+		if err := json.Unmarshal(line, &ev); err != nil {
+			continue
+		}
+		key := testKey{Package: ev.Package, Test: ev.Test}
+		a := aggs[key]
+		if a == nil {
+			a = newAggregate()
+			aggs[key] = a
+		}
+		switch ev.Action {
+		case "pass":
+			a.passes++
+			a.iterations[iterIdx] = struct{}{}
+			d := seconds(ev.Elapsed)
+			a.recordElapsed(iterIdx, d)
+		case "fail":
+			a.fails++
+			a.iterations[iterIdx] = struct{}{}
+			a.failedIters[iterIdx] = true
+			d := seconds(ev.Elapsed)
+			a.recordElapsed(iterIdx, d)
+		case "skip":
+			a.skips++
+			a.iterations[iterIdx] = struct{}{}
+			a.skipIters[iterIdx] = true
+			d := seconds(ev.Elapsed)
+			a.recordElapsed(iterIdx, d)
+		case "output":
+			if strings.Contains(ev.Output, timeoutPanic) {
+				a.timedOut = true
+				a.iterations[iterIdx] = struct{}{}
+				a.timeoutIters[iterIdx] = true
+			}
+			buf := a.outputs[iterIdx]
+			if buf == nil {
+				buf = &strings.Builder{}
+				a.outputs[iterIdx] = buf
+			}
+			buf.WriteString(ev.Output)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("reading iteration %d: %w", iterIdx, err)
+	}
+	return nil
+}
+
+// buildReportFromAggs produces Report and LogMap from merged aggregates (after reattributeTimeouts).
+func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThreshold time.Duration) (*Report, LogMap) {
 	rep := &Report{
-		Iterations:    len(iterations),
+		Iterations:    numIterations,
 		SlowThreshold: slowThreshold,
 	}
 
 	for key, a := range aggs {
 		minE, p50 := stats(a.elapseds)
 		base := TestEntry{
-			Package:    key.Package,
-			Test:       key.Test,
-			Runs:       len(a.iterations),
-			Successes:  a.passes,
-			Fails:      a.fails,
-			Skips:      a.skips,
-			Timeouts:   len(a.timeoutIters),
-			MinElapsed: minE,
-			MaxElapsed: a.maxElapsed,
-			P50Elapsed: p50,
+			Package:      key.Package,
+			Test:         key.Test,
+			Runs:         len(a.iterations),
+			Successes:    a.passes,
+			Fails:        a.fails,
+			Skips:        a.skips,
+			Timeouts:     len(a.timeoutIters),
+			MinElapsed:   minE,
+			MaxElapsed:   a.maxElapsed,
+			P50Elapsed:   p50,
+			FailIters:    sortedBoolMapKeys(a.failedIters),
+			TimeoutIters: sortedBoolMapKeys(a.timeoutIters),
+			SlowIters:    slowIterations(a.elapsedByIter, slowThreshold),
 		}
 		switch {
 		case a.timedOut:
@@ -217,9 +247,20 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 	sortEntries(rep.Timeouts)
 	sortEntries(rep.Slow)
 
-	// Build per-iteration summaries from aggregated failure/timeout data.
-	iterFails := make(map[int][]string, len(iterations))
-	iterTimedOut := make(map[int]bool, len(iterations))
+	iterFails := make(map[int][]string, numIterations)
+	iterTimedOut := make(map[int]bool, numIterations)
+	iterPkgHasTestFail := make(map[int]map[string]bool, numIterations)
+	for key, a := range aggs {
+		if key.Test == "" {
+			continue
+		}
+		for i := range a.failedIters {
+			if iterPkgHasTestFail[i] == nil {
+				iterPkgHasTestFail[i] = make(map[string]bool)
+			}
+			iterPkgHasTestFail[i][key.Package] = true
+		}
+	}
 	for key, a := range aggs {
 		for i := range a.timeoutIters {
 			iterTimedOut[i] = true
@@ -229,11 +270,14 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 			failName = key.Package
 		}
 		for i := range a.failedIters {
+			if key.Test == "" && iterPkgHasTestFail[i][key.Package] {
+				continue
+			}
 			iterFails[i] = append(iterFails[i], failName)
 		}
 	}
-	summaries := make([]IterationSummary, len(iterations))
-	for i := range iterations {
+	summaries := make([]IterationSummary, numIterations)
+	for i := 0; i < numIterations; i++ {
 		s := IterationSummary{Index: i}
 		switch {
 		case iterTimedOut[i]:
@@ -250,7 +294,41 @@ func Analyze(iterations []io.Reader, slowThreshold time.Duration) (*Report, LogM
 	rep.IterationSummaries = summaries
 
 	logs := buildLogMap(aggs)
-	return rep, logs, nil
+	return rep, logs
+}
+
+// IterationDigest summarizes one iteration JSONL log for per-iteration CLI output.
+// Counts match a single-iteration Analyze (same rules as the final report).
+type IterationDigest struct {
+	Result       string // pass, fail, timeout
+	FailTests    int    // len(IterationSummaries[0].FailingTests)
+	SlowTests    int    // tests over slow threshold
+	TimeoutTests int    // len(Timeouts) for this iteration
+}
+
+// DigestIterationJSONL parses one `go test -json` stream and returns counts for progress UI.
+// It uses the same scan + report pipeline as Analyze for one iteration (no redundant Analyze wrapper).
+func DigestIterationJSONL(r io.Reader, slowThreshold time.Duration) (IterationDigest, error) {
+	aggs := make(map[testKey]*aggregate)
+	if err := scanIterationJSONL(r, 0, aggs); err != nil {
+		return IterationDigest{}, err
+	}
+	reattributeTimeouts(aggs, newAggregate)
+	rep, _ := buildReportFromAggs(aggs, 1, slowThreshold)
+	return iterationDigestFromReport(rep), nil
+}
+
+func iterationDigestFromReport(rep *Report) IterationDigest {
+	if rep.Iterations == 0 {
+		return IterationDigest{Result: "pass"}
+	}
+	s := rep.IterationSummaries[0]
+	return IterationDigest{
+		Result:       s.Result,
+		FailTests:    len(s.FailingTests),
+		SlowTests:    len(rep.Slow),
+		TimeoutTests: len(rep.Timeouts),
+	}
 }
 
 // AnalyzeResults opens every `iteration-*.log.jsonl` file in resultsDir, in
@@ -291,10 +369,8 @@ func WriteReport(resultsDir string, rep *Report) error {
 }
 
 // WriteLogFiles writes per-test per-iteration log files under <resultsDir>/logs/
-// for flagged tests and populates each flagged TestEntry's LogFiles slice with
-// paths relative to resultsDir. One file is written for each iteration that has
-// any captured output in logs (including iterations that passed but produced stderr
-// or other output captured into the aggregate).
+// for flagged tests and populates each flagged TestEntry's Logs slice with a
+// compact problem-kind, iteration-range, and path pattern.
 func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 	if rep == nil {
 		return nil
@@ -303,42 +379,92 @@ func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 	if err := os.MkdirAll(logsDir, 0700); err != nil {
 		return err
 	}
-	groups := [][]TestEntry{rep.Flakes, rep.Failures, rep.Timeouts, rep.Slow}
-	for gi, group := range groups {
-		for ei, entry := range group {
+	groups := []struct {
+		entries *[]TestEntry
+		kind    string
+		iters   func(TestEntry) []int
+	}{
+		{entries: &rep.Flakes, kind: "fail", iters: func(e TestEntry) []int { return e.FailIters }},
+		{entries: &rep.Failures, kind: "fail", iters: func(e TestEntry) []int { return e.FailIters }},
+		{entries: &rep.Timeouts, kind: "timeout", iters: func(e TestEntry) []int { return e.TimeoutIters }},
+		{entries: &rep.Slow, kind: "slow", iters: func(e TestEntry) []int { return e.SlowIters }},
+	}
+	for _, group := range groups {
+		for ei, entry := range *group.entries {
 			key := testKey{Package: entry.Package, Test: entry.Test}
 			m, ok := logs[key]
 			if !ok || len(m) == 0 {
 				continue
 			}
-			iterations := make([]int, 0, len(m))
-			for it, out := range m {
-				if out != "" {
-					iterations = append(iterations, it)
-				}
-			}
-			sort.Ints(iterations)
-			paths := make([]string, 0, len(iterations))
+			iterations := group.iters(entry)
+			written := make([]int, 0, len(iterations))
 			for _, it := range iterations {
 				out := m[it]
-				name := fmt.Sprintf("%s__%s__iter-%d.log",
-					sanitize(shortPackage(entry.Package)), sanitize(entry.Test), it)
+				if out == "" {
+					continue
+				}
+				name := diagnoseLogFilename(entry.Package, entry.Test, it)
 				abs := filepath.Join(logsDir, name)
 				if err := os.WriteFile(abs, []byte(out), 0600); err != nil {
 					return err
 				}
-				paths = append(paths, filepath.Join("logs", name))
+				written = append(written, it)
 			}
-			if len(paths) > 0 {
-				groups[gi][ei].LogFiles = paths
+			if len(written) > 0 {
+				(*group.entries)[ei].Logs = append((*group.entries)[ei].Logs, ProblemLog{
+					Type:  group.kind,
+					Iters: compactIterations(written),
+					Path:  filepath.Join("logs", diagnoseLogFilenamePattern(entry.Package, entry.Test)),
+				})
 			}
 		}
 	}
-	rep.Flakes = groups[0]
-	rep.Failures = groups[1]
-	rep.Timeouts = groups[2]
-	rep.Slow = groups[3]
 	return nil
+}
+
+func diagnoseLogFilename(pkg, test string, iteration int) string {
+	return diagnoseLogFilenameForIter(pkg, test, strconv.Itoa(iteration))
+}
+
+func diagnoseLogFilenamePattern(pkg, test string) string {
+	return diagnoseLogFilenameForIter(pkg, test, "{iter}")
+}
+
+func diagnoseLogFilenameForIter(pkg, test string, iteration string) string {
+	base := fmt.Sprintf("%s__%s", sanitize(shortPackage(pkg)), sanitize(test))
+	suffix := fmt.Sprintf("__iter-%s.log", iteration)
+	name := base + suffix
+	if len(name) <= maxDiagnoseLogFilenameBytes {
+		return name
+	}
+	sum := sha256.Sum256([]byte(base))
+	hash := fmt.Sprintf("__%x", sum[:4])
+	patternSuffix := "__iter-{iter}.log"
+	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-len(patternSuffix)) + hash + suffix
+}
+
+func compactIterations(iters []int) string {
+	if len(iters) == 0 {
+		return ""
+	}
+	sorted := append([]int(nil), iters...)
+	sort.Ints(sorted)
+	var parts []string
+	for i := 0; i < len(sorted); {
+		start := sorted[i]
+		end := start
+		i++
+		for i < len(sorted) && sorted[i] == end+1 {
+			end = sorted[i]
+			i++
+		}
+		if start == end {
+			parts = append(parts, strconv.Itoa(start))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d-%d", start, end))
+		}
+	}
+	return strings.Join(parts, ",")
 }
 
 // WriteCSV writes a human-readable CSV of every flagged test
@@ -754,6 +880,29 @@ func buildLogMap(aggs map[testKey]*aggregate) LogMap {
 		}
 	}
 	return out
+}
+
+func sortedBoolMapKeys(m map[int]bool) []int {
+	keys := make([]int, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	return keys
+}
+
+func slowIterations(elapsedByIter map[int]time.Duration, threshold time.Duration) []int {
+	if threshold <= 0 {
+		return nil
+	}
+	var iters []int
+	for iter, elapsed := range elapsedByIter {
+		if elapsed > threshold {
+			iters = append(iters, iter)
+		}
+	}
+	sort.Ints(iters)
+	return iters
 }
 
 // stats computes min and p50 from a sample of durations.

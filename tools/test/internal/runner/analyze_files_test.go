@@ -25,20 +25,19 @@ func TestWriteLogFiles(t *testing.T) {
 
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
-	// log_files path sanitization + existence
-	require.Len(t, rep.Failures[0].LogFiles, 1)
-	rel := rep.Failures[0].LogFiles[0]
-	assert.Equal(t, "logs/foo_bar__TestFail__iter-0.log", rel)
-	b, err := os.ReadFile(filepath.Join(dir, rel))
+	require.Equal(t, []ProblemLog{
+		{Type: "fail", Iters: "0", Path: "logs/foo_bar__TestFail__iter-{iter}.log"},
+	}, rep.Failures[0].Logs)
+	b, err := os.ReadFile(filepath.Join(dir, "logs/foo_bar__TestFail__iter-0.log"))
 	require.NoError(t, err)
 	assert.Equal(t, "boom\n", string(b))
 }
 
-func TestWriteLogFilesWritesEachIterationWithOutput(t *testing.T) {
+func TestWriteLogFilesWritesOnlyProblemIterations(t *testing.T) {
 	t.Parallel()
 
-	// Iter 0 fails with output, iter 1 passes with output — both iterations
-	// have captured output, so both get a log file for this flagged flake.
+	// Iter 0 fails with output, iter 1 passes with output. Only the failing
+	// iteration should be materialized and referenced.
 	iters := []string{
 		`{"Action":"output","Package":"p","Test":"T","Output":"fail-log\n"}
 {"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}
@@ -54,19 +53,69 @@ func TestWriteLogFilesWritesEachIterationWithOutput(t *testing.T) {
 
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
-	require.Len(t, rep.Flakes[0].LogFiles, 2)
-	// Iteration order in report must be stable (sorted by iteration index).
-	assert.Equal(t,
-		[]string{"logs/p__T__iter-0.log", "logs/p__T__iter-1.log"},
-		rep.Flakes[0].LogFiles)
+	assert.Equal(t, []ProblemLog{
+		{Type: "fail", Iters: "0", Path: "logs/p__T__iter-{iter}.log"},
+	}, rep.Flakes[0].Logs)
 
 	b0, err := os.ReadFile(filepath.Join(dir, "logs/p__T__iter-0.log"))
 	require.NoError(t, err)
 	assert.Equal(t, "fail-log\n", string(b0))
 
-	b1, err := os.ReadFile(filepath.Join(dir, "logs/p__T__iter-1.log"))
+	_, err = os.Stat(filepath.Join(dir, "logs/p__T__iter-1.log"))
+	require.ErrorIs(t, err, os.ErrNotExist)
+}
+
+func TestWriteLogFilesCompressesSlowIterations(t *testing.T) {
+	t.Parallel()
+
+	iters := []string{
+		`{"Action":"output","Package":"p","Test":"T","Output":"slow-0\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":31.0}
+`,
+		`{"Action":"output","Package":"p","Test":"T","Output":"slow-1\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":32.0}
+`,
+		`{"Action":"output","Package":"p","Test":"T","Output":"ok\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}
+`,
+		`{"Action":"output","Package":"p","Test":"T","Output":"slow-3\n"}
+{"Action":"pass","Package":"p","Test":"T","Elapsed":33.0}
+`,
+	}
+	dir := t.TempDir()
+	rep, logs, err := Analyze(readers(iters...), 30*time.Second)
 	require.NoError(t, err)
-	assert.Equal(t, "ok-log\n", string(b1))
+	require.Len(t, rep.Slow, 1)
+
+	require.NoError(t, WriteLogFiles(dir, rep, logs))
+
+	assert.Equal(t, []ProblemLog{
+		{Type: "slow", Iters: "0-1,3", Path: "logs/p__T__iter-{iter}.log"},
+	}, rep.Slow[0].Logs)
+}
+
+func TestWriteLogFilesTruncatesLongFilenames(t *testing.T) {
+	t.Parallel()
+
+	longTest := "TestIntegration/" + strings.Repeat("very_long_subtest_name/", 20)
+	iter := `{"Action":"output","Package":"github.com/foo/bar","Test":"` + longTest + `","Output":"boom\n"}
+{"Action":"fail","Package":"github.com/foo/bar","Test":"` + longTest + `","Elapsed":0.1}
+`
+	dir := t.TempDir()
+	rep, logs, err := Analyze(readers(iter), 30*time.Second)
+	require.NoError(t, err)
+	require.Len(t, rep.Failures, 1)
+
+	require.NoError(t, WriteLogFiles(dir, rep, logs))
+
+	require.Len(t, rep.Failures[0].Logs, 1)
+	pattern := rep.Failures[0].Logs[0].Path
+	assert.LessOrEqual(t, len(filepath.Base(pattern)), 255)
+	assert.Contains(t, filepath.Base(pattern), "TestIntegration")
+	rel := strings.Replace(pattern, "{iter}", "0", 1)
+	b, err := os.ReadFile(filepath.Join(dir, rel))
+	require.NoError(t, err)
+	assert.Equal(t, "boom\n", string(b))
 }
 
 func TestWriteLogFilesNoLogsForNonFlaggedTests(t *testing.T) {
