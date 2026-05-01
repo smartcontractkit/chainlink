@@ -267,6 +267,7 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
+	t.Skipf("Skipping due to flakiness, see https://github.com/smartcontractkit/chainlink/issues/18031")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
