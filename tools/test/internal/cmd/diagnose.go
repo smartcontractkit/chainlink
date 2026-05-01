@@ -32,11 +32,11 @@ go -C tools/test run . diagnose --iterations 10 -- ./core/...`,
 		}
 		out := output.NewFromApp(conf)
 
-		if err := validateDiagnoseConfig(conf); err != nil {
+		if err = validateDiagnoseConfig(conf); err != nil {
 			return err
 		}
 
-		if err := runner.WarnDiagnoseGoTestCount(out.WarnWriter(), args); err != nil {
+		if err = runner.WarnDiagnoseGoTestCount(out.WarnWriter(), args); err != nil {
 			return err
 		}
 

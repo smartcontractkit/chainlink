@@ -258,7 +258,6 @@ func (p *Pool) Resources() []Resource {
 	}
 	resources := make([]Resource, 0, len(p.handles))
 	for _, h := range p.handles {
-
 		resources = append(resources, Resource{
 			Env:             h.Env(),
 			Reset:           h.Reset,

@@ -94,4 +94,3 @@ func TestEnsurePoolCreatesSingleExternalDatabaseHandle(t *testing.T) {
 	assert.Equal(t, []string{"CL_DATABASE_URL=postgres://example/db"}, pool.Handles()[0].Env())
 	assert.Equal(t, "postgres://example/db", os.Getenv("CL_DATABASE_URL"))
 }
-
