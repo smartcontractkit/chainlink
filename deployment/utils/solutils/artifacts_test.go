@@ -188,6 +188,74 @@ func TestDownloadProgramArtifacts_InvalidURL(t *testing.T) {
 	require.ErrorContains(t, err, "dial tcp: lookup invalid-url: no such host")
 }
 
+func TestDownloadProgramArtifacts_RejectsPathTraversal(t *testing.T) {
+	tests := []struct {
+		name      string
+		entryName string
+		// wantReject is true when the extractor is expected to refuse the entry
+		// outright. When false the entry is benign once directory components are
+		// stripped (e.g. "../foo.so" collapses to "foo.so") and we only verify no
+		// file escapes targetDir.
+		wantReject bool
+	}{
+		{name: "parent_only", entryName: "..", wantReject: true},
+		{name: "current_then_parent", entryName: "./..", wantReject: true},
+		{name: "single_traversal", entryName: "../escape.so", wantReject: false},
+		{name: "deep_traversal", entryName: "../../etc/passwd", wantReject: false},
+		{name: "absolute_path_leak", entryName: "/etc/passwd", wantReject: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/gzip")
+
+				gzWriter := gzip.NewWriter(w)
+				defer gzWriter.Close()
+
+				tarWriter := tar.NewWriter(gzWriter)
+				defer tarWriter.Close()
+
+				content := "malicious payload"
+				header := &tar.Header{
+					Name:     tt.entryName,
+					Size:     int64(len(content)),
+					Typeflag: tar.TypeReg,
+				}
+
+				err := tarWriter.WriteHeader(header)
+				if err != nil {
+					t.Errorf("Failed to write tar header: %v", err)
+					return
+				}
+				_, err = tarWriter.Write([]byte(content))
+				if err != nil {
+					t.Errorf("Failed to write tar content: %v", err)
+					return
+				}
+			}))
+			defer server.Close()
+
+			tempDir := t.TempDir()
+			parentDir := filepath.Dir(tempDir)
+			parentBefore, err := os.ReadDir(parentDir)
+			require.NoError(t, err)
+
+			err = downloadProgramArtifacts(t.Context(), server.URL, tempDir, logger.Test(t))
+
+			if tt.wantReject {
+				require.Error(t, err, "extraction must reject %q", tt.entryName)
+			}
+
+			// Defense-in-depth: regardless of accept/reject, nothing must be
+			// written outside tempDir.
+			parentAfter, err := os.ReadDir(parentDir)
+			require.NoError(t, err)
+			assert.Equal(t, len(parentBefore), len(parentAfter), "parent directory of tempDir must be untouched")
+		})
+	}
+}
+
 func TestDownloadProgramArtifacts_NonExistentTargetDir(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/gzip")

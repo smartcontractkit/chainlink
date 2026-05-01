@@ -172,8 +172,31 @@ func downloadProgramArtifacts(ctx context.Context, url string, targetDir string,
 			return fmt.Errorf("archive total size exceeds limit (limit: %d bytes)", maxTotalSize)
 		}
 
-		// Copy the file to the target directory
-		outPath := filepath.Join(targetDir, filepath.Base(header.Name))
+		// Copy the file to the target directory.
+		//
+		// Defense against Zip Slip / path traversal: archive entries can carry
+		// names like "../../etc/passwd" or absolute paths. We strip directory
+		// components with filepath.Base, reject obviously dangerous names, and
+		// verify the resolved absolute path remains under targetDir.
+		cleanedName := filepath.Base(filepath.Clean(header.Name))
+		if cleanedName == "." || cleanedName == ".." || cleanedName == string(filepath.Separator) || cleanedName == "" {
+			return fmt.Errorf("archive contains entry with invalid name: %q", header.Name)
+		}
+		outPath := filepath.Join(targetDir, cleanedName)
+
+		absTarget, err := filepath.Abs(targetDir)
+		if err != nil {
+			return err
+		}
+		absOut, err := filepath.Abs(outPath)
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(absTarget, absOut)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("archive entry %q would extract outside target directory", header.Name)
+		}
+
 		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
 			return err
 		}
