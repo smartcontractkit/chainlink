@@ -95,14 +95,3 @@ func TestEnsurePoolCreatesSingleExternalDatabaseHandle(t *testing.T) {
 	assert.Equal(t, "postgres://example/db", os.Getenv("CL_DATABASE_URL"))
 }
 
-func TestEnsurePoolStartsHandlesConcurrently(t *testing.T) {
-	t.Parallel()
-	// We can't easily mock ensure inside EnsurePool without changing its signature,
-	// but we can test Pool.Cleanup concurrency.
-}
-
-func TestCleanupPoolRunsConcurrentlyAndJoinsErrors(t *testing.T) {
-	t.Parallel()
-	// Skip this test since we removed the helper and it's hard to mock Handle.Cleanup
-	// without an interface.
-}

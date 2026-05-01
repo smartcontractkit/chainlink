@@ -32,7 +32,9 @@ const (
 
 func syncSkills() error {
 	// 1. Wipe destination to prevent stale skills
-	os.RemoveAll(skillsDst)
+	if err := os.RemoveAll(skillsDst); err != nil {
+		return fmt.Errorf("failed to remove destination directory %q: %w", skillsDst, err)
+	}
 
 	// 2. Walk source and copy
 	err := filepath.Walk(skillsSrc, func(path string, info os.FileInfo, err error) error {
@@ -41,7 +43,10 @@ func syncSkills() error {
 		}
 
 		// Calculate relative path to mirror structure
-		rel, _ := filepath.Rel(skillsSrc, path)
+		rel, err := filepath.Rel(skillsSrc, path)
+		if err != nil {
+			return fmt.Errorf("failed to calculate relative path for %q: %w", path, err)
+		}
 		targetPath := filepath.Join(skillsDst, rel)
 
 		if info.IsDir() {
@@ -67,10 +72,10 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
 	_, err = io.Copy(out, in)
 	if err != nil {
+		out.Close()
 		return err
 	}
-	return err
+	return out.Close()
 }

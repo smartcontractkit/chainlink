@@ -112,7 +112,7 @@ diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/
 ├── report.json
 ├── report.csv
 └── logs/
-    └── <short-pkg>_<test>_iter-<n>.log
+    └── <short-pkg>_<test>__iter-<n>.log
 ```
 </output_layout>
 </diagnose_cli>
@@ -148,7 +148,7 @@ jq '.' <resultsDir>/report.json
 - `runs`, `successes`, `fails`, `skips`, `timeouts`
 - `min_elapsed`, `max_elapsed`, `p50_elapsed` (nanoseconds)
 - `iterations` (indexes test ran in)
-- `log_files` (paths relative to resultsDir)
+- `logs` (array of problem logs with `type`, `iters`, and `path` pattern relative to resultsDir)
 </test_entry_fields>
 
 Top-level buckets: `flakes` (mixed pass/fail), `failures` (always failed), `timeouts` (hit `-timeout`), `slow` (exceeded `--slow-threshold`).
@@ -158,7 +158,7 @@ CSV = same data, worst-first, human-skimmable.
 When many tests are flagged, pick one before diagnosing.
 1. Show user top-N from CSV.
 2. Ask which to focus on.
-3. Read that test's `log_files`.
+3. Read that test's `logs` paths, replacing `{iter}` with the specific iteration you want to inspect.
 
 ```sh
 ls <resultsDir>/logs | grep <sanitized-test-name>
@@ -227,7 +227,7 @@ Heavy parallelism plus single Postgres can starve connections and cause spurious
 
 <F name="timeout">
 For `timeouts` bucket:
-- Open `<resultsDir>/logs/<...>_iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
+- Open `<resultsDir>/logs/<...>__iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
 - Look for chan receive, `sync.WaitGroup.Wait`, `testutils.WaitTimeout` blocking forever.
 - Check service dependencies (Postgres, local server, mock clock) for wrong state.
 </F>
