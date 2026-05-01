@@ -59,6 +59,7 @@ func init() {
 	diagnoseCmd.Flags().Int("parallel-iterations", 1, "maximum number of diagnose iterations to run concurrently; each worker uses its own ephemeral Postgres")
 	diagnoseCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
 	diagnoseCmd.Flags().Bool("fail-fast", false, "stop this diagnose run immediately if any iteration fails")
+	diagnoseCmd.Flags().StringSlice("fail-fast-on", nil, `stop this diagnose run immediately when an iteration matches one or more categories: "failure", "timeout", "slow", or "any"`)
 	diagnoseCmd.Flags().Bool("shuffle-seed", false, "randomize test order each iteration; a unique seed is generated per iteration and recorded in report.json for reproduction")
 }
 
@@ -69,8 +70,16 @@ func validateDiagnoseConfig(conf *config.App) error {
 	if conf.ParallelIterations < 1 {
 		return errors.New("--parallel-iterations must be >= 1")
 	}
+	if conf.ParallelIterations > conf.Iterations {
+		return errors.New("--parallel-iterations must be <= --iterations")
+	}
 	if conf.ParallelIterations > 1 && conf.DatabaseURL != "" {
 		return errors.New("--parallel-iterations > 1 cannot be used with --database-url")
 	}
+	failFastOn, err := config.NormalizeFailFastOn(conf.FailFastOn)
+	if err != nil {
+		return err
+	}
+	conf.FailFastOn = failFastOn
 	return nil
 }

@@ -397,13 +397,14 @@ func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 				continue
 			}
 			iterations := group.iters(entry)
+			budgetIteration := longestIterationString(iterations)
 			written := make([]int, 0, len(iterations))
 			for _, it := range iterations {
 				out := m[it]
 				if out == "" {
 					continue
 				}
-				name := diagnoseLogFilename(entry.Package, entry.Test, it)
+				name := diagnoseLogFilenameForIterWithBudget(entry.Package, entry.Test, strconv.Itoa(it), budgetIteration)
 				abs := filepath.Join(logsDir, name)
 				if err := os.WriteFile(abs, []byte(out), 0600); err != nil {
 					return err
@@ -414,7 +415,7 @@ func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 				(*group.entries)[ei].Logs = append((*group.entries)[ei].Logs, ProblemLog{
 					Type:  group.kind,
 					Iters: compactIterations(written),
-					Path:  filepath.Join("logs", diagnoseLogFilenamePattern(entry.Package, entry.Test)),
+					Path:  filepath.Join("logs", diagnoseLogFilenameForIterWithBudget(entry.Package, entry.Test, "{iter}", budgetIteration)),
 				})
 			}
 		}
@@ -422,15 +423,22 @@ func WriteLogFiles(resultsDir string, rep *Report, logs LogMap) error {
 	return nil
 }
 
-func diagnoseLogFilename(pkg, test string, iteration int) string {
-	return diagnoseLogFilenameForIter(pkg, test, strconv.Itoa(iteration))
-}
-
-func diagnoseLogFilenamePattern(pkg, test string) string {
-	return diagnoseLogFilenameForIter(pkg, test, "{iter}")
+func longestIterationString(iterations []int) string {
+	longest := "{iter}"
+	for _, it := range iterations {
+		s := strconv.Itoa(it)
+		if len(s) > len(longest) {
+			longest = s
+		}
+	}
+	return longest
 }
 
 func diagnoseLogFilenameForIter(pkg, test string, iteration string) string {
+	return diagnoseLogFilenameForIterWithBudget(pkg, test, iteration, iteration)
+}
+
+func diagnoseLogFilenameForIterWithBudget(pkg, test string, iteration string, budgetIteration string) string {
 	var parts []string
 	if p := sanitize(shortPackage(pkg)); p != "" {
 		parts = append(parts, p)
@@ -449,8 +457,8 @@ func diagnoseLogFilenameForIter(pkg, test string, iteration string) string {
 	}
 	sum := sha256.Sum256([]byte(base))
 	hash := fmt.Sprintf("_%x", sum[:4])
-	patternSuffix := "_iter-{iter}.log"
-	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-len(patternSuffix)) + hash + suffix
+	budgetSuffix := fmt.Sprintf("_iter-%s.log", budgetIteration)
+	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-len(budgetSuffix)) + hash + suffix
 }
 
 func compactIterations(iters []int) string {

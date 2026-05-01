@@ -31,10 +31,11 @@ type diagnoseRunHooks struct {
 }
 
 type diagnoseRunState struct {
-	completed     int
-	failedFast    bool
-	iterDurations []time.Duration
-	shuffleSeeds  map[int]int64
+	completed        int
+	failedFast       bool
+	failedFastReason string
+	iterDurations    []time.Duration
+	shuffleSeeds     map[int]int64
 }
 
 // GoTest runs `go test` with the given args (repo root as working directory).
@@ -100,7 +101,11 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	if state.failedFast && !out.AIOutput() {
-		out.HumanStderr(termstyle.Accent.Render("--fail-fast set, stopping early"))
+		msg := "--fail-fast set, stopping early"
+		if state.failedFastReason != "" {
+			msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+		}
+		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
 	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
@@ -188,6 +193,7 @@ type diagnoseIterationResult struct {
 	fatalErr   error
 	dumpErr    error
 	failedFast bool
+	failReason string
 }
 
 func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resources []diagnoseIterationResource, hooks diagnoseRunHooks) (diagnoseRunState, error) {
@@ -276,7 +282,8 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 				if resource.DumpDiagnostics != nil {
 					dumpErr = resource.DumpDiagnostics(runCtx, resultsDir, iteration)
 				}
-				failedFast := iterErr != nil && conf.FailFast && runCtx.Err() == nil
+				failedFast, failReason := shouldFailFastIteration(conf, resultsDir, iteration, iterErr)
+				failedFast = failedFast && runCtx.Err() == nil
 				if failedFast {
 					cancel()
 				}
@@ -288,6 +295,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 					iterErr:    iterErr,
 					dumpErr:    dumpErr,
 					failedFast: failedFast,
+					failReason: failReason,
 				}:
 				case <-runCtx.Done():
 					if failedFast {
@@ -298,6 +306,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 							iterErr:    iterErr,
 							dumpErr:    dumpErr,
 							failedFast: true,
+							failReason: failReason,
 						}
 					}
 					return
@@ -349,9 +358,59 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 		}
 		if result.failedFast {
 			state.failedFast = true
+			if state.failedFastReason == "" {
+				state.failedFastReason = result.failReason
+			}
 		}
 	}
 	return state, firstErr
+}
+
+func shouldFailFastIteration(conf *config.App, resultsDir string, iteration int, iterErr error) (bool, string) {
+	if conf == nil {
+		return false, ""
+	}
+	if iterErr != nil && conf.FailFast {
+		return true, "failure"
+	}
+	if len(conf.FailFastOn) == 0 {
+		return false, ""
+	}
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
+	f, err := os.Open(jsonPath)
+	if err != nil {
+		return false, ""
+	}
+	defer f.Close()
+	d, err := DigestIterationJSONL(f, conf.SlowThreshold)
+	if err != nil {
+		return false, ""
+	}
+	return failFastDigestMatch(d, conf.FailFastOn)
+}
+
+func failFastDigestMatch(d IterationDigest, categories []string) (bool, string) {
+	for _, category := range categories {
+		switch strings.ToLower(strings.TrimSpace(category)) {
+		case config.FailFastOnAny:
+			if d.Result == "fail" || d.Result == "timeout" || d.SlowTests > 0 {
+				return true, config.FailFastOnAny
+			}
+		case config.FailFastOnFailure:
+			if d.Result == "fail" && d.FailTests > 0 {
+				return true, config.FailFastOnFailure
+			}
+		case config.FailFastOnTimeout:
+			if d.Result == "timeout" || d.TimeoutTests > 0 {
+				return true, config.FailFastOnTimeout
+			}
+		case config.FailFastOnSlow:
+			if d.SlowTests > 0 {
+				return true, config.FailFastOnSlow
+			}
+		}
+	}
+	return false, ""
 }
 
 // goTestFlagsBeforeArgs returns the portion of argv that belongs to `go test`

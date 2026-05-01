@@ -107,6 +107,11 @@ func diagnoseConfigDirPartPhase(conf *config.App, goTestArgs []string, phase int
 	if !dropFF && conf.FailFast {
 		parts = append(parts, "ff")
 	}
+	if !dropFF && len(conf.FailFastOn) > 0 {
+		if failFastOn, err := config.NormalizeFailFastOn(conf.FailFastOn); err == nil && len(failFastOn) > 0 {
+			parts = append(parts, "ffon"+strings.Join(failFastOn, "_"))
+		}
+	}
 	if !dropShuffle && conf.Shuffle {
 		parts = append(parts, "shuffle")
 	}
