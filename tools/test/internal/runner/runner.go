@@ -563,29 +563,6 @@ func (sw *syncedWriter) Write(p []byte) (int, error) {
 	return sw.w.Write(p)
 }
 
-func appendEnvOverrides(base, overrides []string) []string {
-	if len(overrides) == 0 {
-		return base
-	}
-	keys := make(map[string]struct{}, len(overrides))
-	for _, item := range overrides {
-		if key, _, ok := strings.Cut(item, "="); ok {
-			keys[key] = struct{}{}
-		}
-	}
-	env := make([]string, 0, len(base)+len(overrides))
-	for _, item := range base {
-		key, _, ok := strings.Cut(item, "=")
-		if ok {
-			if _, replace := keys[key]; replace {
-				continue
-			}
-		}
-		env = append(env, item)
-	}
-	return append(env, overrides...)
-}
-
 func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
@@ -602,7 +579,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = conf.RepoRoot
 	cmd.Stdin = os.Stdin
-	cmd.Env = appendEnvOverrides(os.Environ(), env)
+	cmd.Env = append(os.Environ(), env...)
 	// Soft-cancel on ctx cancellation so `go test -json` gets a chance to flush
 	// its final events before we escalate to SIGKILL after WaitDelay.
 	cmd.Cancel = func() error { return cmd.Process.Signal(os.Interrupt) }

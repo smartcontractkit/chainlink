@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -140,7 +139,7 @@ func ensure(ctx context.Context, conf *config.App, out *output.Printer, setGloba
 	prepareOutput := bytes.NewBuffer(nil)
 	prep := exec.CommandContext(ctx, "go", "run", "./core/store/cmd/preparetest", "--force")
 	prep.Dir = conf.RepoRoot
-	prep.Env = appendEnvOverrides(os.Environ(), h.Env())
+	prep.Env = append(os.Environ(), h.Env()...)
 	prep.Stdout = prepareOutput
 	prep.Stderr = prepareOutput
 	if err := prep.Run(); err != nil {
@@ -174,34 +173,30 @@ func EnsurePool(ctx context.Context, conf *config.App, out *output.Printer, size
 	if size > 1 && conf.DatabaseURL != "" {
 		return nil, errors.New("--parallel-iterations > 1 cannot be used with --database-url")
 	}
-	factoryOut := out
-	if size > 1 {
-		factoryOut = output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD)
-	}
-	factory := func(ctx context.Context, _ int) (*Handle, error) {
-		return ensure(ctx, conf, factoryOut, size == 1)
-	}
-	if size > 1 {
-		return ensurePoolWithOutput(ctx, out, size, factory)
-	}
-	return ensurePoolWithFactory(ctx, size, factory)
-}
 
-type ensureHandleFactory func(context.Context, int) (*Handle, error)
-
-func ensurePoolWithFactory(ctx context.Context, size int, factory ensureHandleFactory) (*Pool, error) {
-	if size < 1 {
-		return nil, errors.New("database pool size must be >= 1")
+	start := time.Now()
+	setupPartial := false
+	if size > 1 && out != nil {
+		out.IfHuman(func() {
+			out.HumanFprint(termstyle.Label.Render(fmt.Sprintf("Setting up %d Postgres...", size)))
+			setupPartial = true
+		})
 	}
+
 	poolCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	handles := make([]*Handle, size)
-	var wg sync.WaitGroup
-	errs := make(chan error, size)
-	for i := range size {
 
+	handles := make([]*Handle, size)
+	errs := make(chan error, size)
+	var wg sync.WaitGroup
+
+	for i := range size {
 		wg.Go(func() {
-			h, err := factory(poolCtx, i)
+			workerOut := out
+			if size > 1 {
+				workerOut = output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD)
+			}
+			h, err := ensure(poolCtx, conf, workerOut, size == 1)
 			if err != nil {
 				cancel()
 				errs <- err
@@ -212,57 +207,39 @@ func ensurePoolWithFactory(ctx context.Context, size int, factory ensureHandleFa
 	}
 	wg.Wait()
 	close(errs)
+
 	var err error
 	for e := range errs {
 		err = errors.Join(err, e)
 	}
+
 	pool := &Pool{handles: handles}
 	if err != nil {
+		if setupPartial && out != nil {
+			_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
+		}
 		return pool, errors.Join(err, pool.Cleanup())
 	}
+
 	for _, h := range handles {
 		if h == nil {
+			if setupPartial && out != nil {
+				_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
+			}
 			return pool, errors.Join(errors.New("database pool factory returned nil handle"), pool.Cleanup())
 		}
 	}
-	return pool, nil
-}
 
-func ensurePoolWithOutput(ctx context.Context, out *output.Printer, size int, factory ensureHandleFactory) (pool *Pool, err error) {
-	start := time.Now()
-	setupPartial := false
-	if out != nil {
-		out.IfHuman(func() {
-			out.HumanFprint(termstyle.Label.Render(fmt.Sprintf("Setting up %d Postgres...", size)))
-			setupPartial = true
-		})
-	}
-	abortSetupPartial := func() {
-		if !setupPartial || out == nil {
-			return
-		}
-		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
-		setupPartial = false
-	}
-	defer func() {
-		if err != nil {
-			abortSetupPartial()
-		}
-	}()
-	pool, err = ensurePoolWithFactory(ctx, size, factory)
-	if err != nil {
-		return pool, err
-	}
-	if out != nil {
+	if setupPartial && out != nil {
 		out.IfHuman(func() {
 			_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K")
 			out.HumanStderr(
 				termstyle.Label.Render(fmt.Sprintf("Setup %d Postgres", size)) + " " +
 					termstyle.OK.Render("✅") + " " +
 					termstyle.Muted.Render(fmt.Sprintf("(%s)", time.Since(start).Round(time.Millisecond))))
-			setupPartial = false
 		})
 	}
+
 	return pool, nil
 }
 
@@ -293,24 +270,14 @@ func (p *Pool) Resources() []Resource {
 
 // Cleanup tears down every database handle in the pool.
 func (p *Pool) Cleanup() error {
-	if p == nil {
+	if p == nil || len(p.handles) == 0 {
 		return nil
 	}
-	return cleanupPoolHandles(p.handles, func(h *Handle) error {
-		return h.Cleanup()
-	})
-}
-
-func cleanupPoolHandles(handles []*Handle, cleanup func(*Handle) error) error {
-	if len(handles) == 0 {
-		return nil
-	}
-	errs := make(chan error, len(handles))
+	errs := make(chan error, len(p.handles))
 	var wg sync.WaitGroup
-	for _, h := range handles {
-
+	for _, h := range p.handles {
 		wg.Go(func() {
-			errs <- cleanup(h)
+			errs <- h.Cleanup()
 		})
 	}
 	wg.Wait()
@@ -328,29 +295,6 @@ func (h *Handle) Env() []string {
 		return nil
 	}
 	return []string{"CL_DATABASE_URL=" + h.connStr}
-}
-
-func appendEnvOverrides(base, overrides []string) []string {
-	if len(overrides) == 0 {
-		return base
-	}
-	keys := make(map[string]struct{}, len(overrides))
-	for _, item := range overrides {
-		if key, _, ok := strings.Cut(item, "="); ok {
-			keys[key] = struct{}{}
-		}
-	}
-	env := make([]string, 0, len(base)+len(overrides))
-	for _, item := range base {
-		key, _, ok := strings.Cut(item, "=")
-		if ok {
-			if _, replace := keys[key]; replace {
-				continue
-			}
-		}
-		env = append(env, item)
-	}
-	return append(env, overrides...)
 }
 
 // Reset restores the database to its freshly-prepared snapshot. No-op when the

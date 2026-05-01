@@ -4,7 +4,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -14,12 +13,7 @@ import (
 )
 
 func main() {
-	// Only use this for go generate to sync the skills to the .claude/skills directory.
-	syncFlag := flag.Bool("sync-skills", false, "Internal use for go generate")
-	flag.Parse()
-
-	// 2. If the flag is hit, run the logic and EXIT
-	if *syncFlag {
+	if len(os.Args) > 1 && os.Args[1] == "--sync-skills" {
 		if err := syncSkills(); err != nil {
 			fmt.Fprintf(os.Stderr, "error syncing skills: %v\n", err)
 			os.Exit(1)

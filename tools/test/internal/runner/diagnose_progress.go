@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -29,9 +30,7 @@ func packagePatternsFromEnd(args []string) []string {
 		}
 		pkgs = append(pkgs, args[i])
 	}
-	for i, j := 0, len(pkgs)-1; i < j; i, j = i+1, j-1 {
-		pkgs[i], pkgs[j] = pkgs[j], pkgs[i]
-	}
+	slices.Reverse(pkgs)
 	return pkgs
 }
 
