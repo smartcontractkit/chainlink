@@ -112,7 +112,7 @@ diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/
 ├── report.json
 ├── report.csv
 └── logs/
-    └── <short-pkg>_<test>__iter-<n>.log
+    └── <short-pkg>_<test>_iter-<n>.log
 ```
 </output_layout>
 </diagnose_cli>
@@ -227,7 +227,7 @@ Heavy parallelism plus single Postgres can starve connections and cause spurious
 
 <F name="timeout">
 For `timeouts` bucket:
-- Open `<resultsDir>/logs/<...>__iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
+- Open `<resultsDir>/logs/<...>_iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
 - Look for chan receive, `sync.WaitGroup.Wait`, `testutils.WaitTimeout` blocking forever.
 - Check service dependencies (Postgres, local server, mock clock) for wrong state.
 </F>

@@ -112,7 +112,7 @@ diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/
 ├── report.json
 ├── report.csv
 └── logs/
-    └── <short-pkg>_<test>__iter-<n>.log
+    └── <short-pkg>_<test>_iter-<n>.log
 ```
 </output_layout>
 </diagnose_cli>
@@ -227,7 +227,7 @@ Heavy parallelism plus single Postgres can starve connections and cause spurious
 
 <F name="timeout">
 For `timeouts` bucket:
-- Open `<resultsDir>/logs/<...>__iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
+- Open `<resultsDir>/logs/<...>_iter-N.log`. `panic: test timed out` includes `running tests:` with active tests at timeout. Analyzer re-attributes; raw log still has goroutine stacks.
 - Look for chan receive, `sync.WaitGroup.Wait`, `testutils.WaitTimeout` blocking forever.
 - Check service dependencies (Postgres, local server, mock clock) for wrong state.
 </F>
@@ -246,7 +246,7 @@ For `slow` bucket:
 Lead with hypothesis. Pick one fix archetype:
 - Missing cleanup: add `t.Cleanup(func() { ... })` for rows, connections, singletons.
 - Global state: move to per-test constructor, or guard and reset in `TestMain`.
-- Timing assumption: replace sleeps with `gomega.Eventually`, `testutils.AssertEventually`, channel sync.
+- Timing assumption: replace sleeps with `require.eventually`, channel sync.
 - Race: narrow shared field, use `sync.Mutex` / `atomic.*`, or redesign sharing.
 - DB contention: use separate schema/user per test; package-level `sync.Mutex` on affected tables only as last resort.
 - Dead flake on dead code: delete test. See `tools/test/fixing-flaky-tests.md` section 8.

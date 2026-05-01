@@ -219,7 +219,7 @@ func TestSanitize(t *testing.T) {
 		{"TestFoo/sub case", "TestFoo_sub_case"},
 		{"TestName", "TestName"},
 		{"a:b:c", "a_b_c"},
-		{"", "_"},
+		{"", ""},
 		{"abc-123.go", "abc-123.go"},
 	}
 	for _, tc := range tests {

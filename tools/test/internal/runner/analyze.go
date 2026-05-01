@@ -431,7 +431,17 @@ func diagnoseLogFilenamePattern(pkg, test string) string {
 }
 
 func diagnoseLogFilenameForIter(pkg, test string, iteration string) string {
-	base := fmt.Sprintf("%s_%s", sanitize(shortPackage(pkg)), sanitize(test))
+	var parts []string
+	if p := sanitize(shortPackage(pkg)); p != "" {
+		parts = append(parts, p)
+	}
+	if t := sanitize(test); t != "" {
+		parts = append(parts, t)
+	}
+	base := strings.Join(parts, "_")
+	if base == "" {
+		base = "test"
+	}
 	suffix := fmt.Sprintf("_iter-%s.log", iteration)
 	name := base + suffix
 	if len(name) <= maxDiagnoseLogFilenameBytes {
@@ -942,7 +952,7 @@ func shortPackage(pkg string) string {
 // Replaces path separators and other hostile characters with '_'.
 func sanitize(s string) string {
 	if s == "" {
-		return "_"
+		return ""
 	}
 	var b strings.Builder
 	b.Grow(len(s))
