@@ -308,8 +308,15 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		})
 	})
 
-	t.Run("jwt_rejected_when_workflow_owner_missing", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "missing workflow_owner in authorization_details")
+	t.Run("jwt_without_workflow_owner_uses_org_id_identity", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtorgonly")
+		encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-org-only", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+
+		orgOnlyJWTAuth := newJWTVaultRequestAuth(issuer, orgID, "")
+		executeVaultSecretsCreateWithAuth(t, orgOnlyJWTAuth, encryptedSecret, secretID, orgID, gwURL, []string{"main"})
+		executeVaultSecretsListWithAuth(t, orgOnlyJWTAuth, []string{secretID}, orgID, gwURL, "main")
+		executeVaultSecretsDeleteWithAuth(t, orgOnlyJWTAuth, secretID, orgID, gwURL, []string{"main"})
 	})
 
 	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {
