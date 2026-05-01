@@ -7,7 +7,6 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainSelectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldfSolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -81,6 +80,7 @@ func deployTokenAndMint(t *testing.T, tenv cldf.Environment, solChain uint64, wa
 // remote chain setup
 func TestAddRemoteChainWithMcms(t *testing.T) {
 	t.Parallel()
+	skipInCI(t)
 	doTestAddRemoteChain(t, true)
 }
 
@@ -643,8 +643,8 @@ func doTestBilling(t *testing.T, mcms bool) {
 }
 
 func TestBillingWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1723")
 	t.Parallel()
+	skipInCI(t)
 	doTestBilling(t, true)
 }
 
@@ -655,8 +655,8 @@ func TestBillingWithoutMcms(t *testing.T) {
 }
 
 func TestSetTokenAuthority(t *testing.T) {
-	quarantine.Flaky(t, "DX-1778")
 	t.Parallel()
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	solChain := tenv.Env.BlockChains.ListChainSelectors(cldfChain.WithFamily(chainSelectors.FamilySolana))[0]
 	state, err := stateview.LoadOnchainStateSolana(tenv.Env)
@@ -877,8 +877,8 @@ func doTestTokenAdminRegistry(t *testing.T, mcms bool) {
 }
 
 func TestTokenAdminRegistryWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1720")
 	t.Parallel()
+	skipInCI(t)
 	doTestTokenAdminRegistry(t, true)
 }
 
@@ -988,8 +988,8 @@ func doTestPoolLookupTable(t *testing.T, e cldf.Environment, mcms bool, tokenMet
 }
 
 func TestPoolLookupTableWithMcms(t *testing.T) {
-	quarantine.Flaky(t, "DX-1753")
 	t.Parallel()
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	doTestPoolLookupTable(t, tenv.Env, true, shared.CLLMetadata)
 }
@@ -1010,8 +1010,8 @@ func TestDeployCCIPContracts(t *testing.T) {
 
 // ocr3 test
 func TestSetOcr3Active(t *testing.T) {
-	quarantine.Flaky(t, "DX-1775")
 	t.Parallel()
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithNumOfNodes(16),
 		testhelpers.WithNumOfBootstrapNodes(3),
@@ -1040,8 +1040,8 @@ func TestSetOcr3Active(t *testing.T) {
 }
 
 func TestSetOcr3Candidate(t *testing.T) {
-	quarantine.Flaky(t, "DX-1771")
 	t.Parallel()
+	skipInCI(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(ccipChangesetSolana.SolanaContractV0_1_1))
 	var err error

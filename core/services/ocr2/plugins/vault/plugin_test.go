@@ -168,6 +168,34 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue), infoObject.Limits.MaxBlobPayloadBytes)
 }
 
+func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	instanceID := "instanceID"
+	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
+
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	cfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	require.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	validateErr := infoObject.Validate()
+	require.NoError(t, validateErr)
+}
+
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -7968,6 +7996,89 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		for _, item := range result {
 			assert.Equal(t, []byte("handle"), item)
 		}
+	})
+
+	t.Run("does not exceed max concurrent broadcasts", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
+		ids := make([]string, len(payloads))
+		for i := range payloads {
+			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
+			ids[i] = fmt.Sprintf("req-%d", i)
+		}
+
+		var active atomic.Int32
+		var maxActive atomic.Int32
+		started := make(chan struct{}, len(payloads))
+		release := make(chan struct{})
+		released := atomic.Bool{}
+		releaseBroadcasts := func() {
+			if released.CompareAndSwap(false, true) {
+				close(release)
+			}
+		}
+		defer releaseBroadcasts()
+
+		fetcher := &ctxCallbackBlobFetcher{fn: func(ctx context.Context, _ []byte) error {
+			current := active.Add(1)
+			defer active.Add(-1)
+
+			for {
+				maxSeen := maxActive.Load()
+				if current <= maxSeen || maxActive.CompareAndSwap(maxSeen, current) {
+					break
+				}
+			}
+
+			started <- struct{}{}
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}}
+
+		type broadcastResult struct {
+			payloads [][]byte
+			err      error
+		}
+		done := make(chan broadcastResult, 1)
+		go func() {
+			result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+			done <- broadcastResult{payloads: result, err: err}
+		}()
+
+		for i := 0; i < maxConcurrentBlobBroadcasts; i++ {
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatalf("timed out waiting for broadcast %d to start", i+1)
+			}
+		}
+
+		assert.Never(t, func() bool {
+			return maxActive.Load() > int32(maxConcurrentBlobBroadcasts)
+		}, 100*time.Millisecond, 10*time.Millisecond)
+
+		releaseBroadcasts()
+
+		select {
+		case result := <-done:
+			require.NoError(t, result.err)
+			assert.Len(t, result.payloads, len(payloads))
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcasts to complete")
+		}
+		assert.LessOrEqual(t, maxActive.Load(), int32(maxConcurrentBlobBroadcasts))
 	})
 
 	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {

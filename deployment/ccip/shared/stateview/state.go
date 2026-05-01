@@ -416,6 +416,10 @@ func (c CCIPOnChainState) AptosMCMSStateByChain() map[uint64]aptos.AccountAddres
 	return mcmsByChain
 }
 
+func (c CCIPOnChainState) TONMCMSStateByChain(e cldf.Environment) (map[uint64]tonstate.MCMSChainState, error) {
+	return tonstate.LoadMCMSOnChainState(e)
+}
+
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
