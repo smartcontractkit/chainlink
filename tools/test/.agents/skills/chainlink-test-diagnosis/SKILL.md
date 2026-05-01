@@ -52,7 +52,7 @@ Failed to reset database:unable to drop postgres database: failed to connect to 
 
 Run from the chainlink repository root. Use `go -C tools/test ...`. Equivalent Make targets: `make new_test_diagnose ARGS='...'`, `make new_test ARGS='...'`, `make new_gotestsum ARGS='...'`.
 
-Harness-only flags before `--`: `--iterations`, `--parallel-iterations`, `--slow-threshold`, `--fail-fast`, `--shuffle-seed`.
+Harness-only flags before `--`: `--iterations`, `--parallel-iterations`, `--slow-threshold`, `--fail-fast`, `--fail-fast-on`, `--shuffle-seed`.
 Everything after `--` passes to `go test`: `-timeout`, `-race`, `-run`, package patterns.
 Put package patterns last.
 
@@ -61,6 +61,9 @@ Put package patterns last.
 go -C tools/test run . diagnose -h
 # Example: harness flags, then --, then go test flags and packages
 go -C tools/test run . diagnose --iterations <N> --parallel-iterations <N> --slow-threshold <duration> --fail-fast --ai-output -- --timeout <duration> --run '<regex>' --race ./path/to/package/...
+# Stop only when the hunted signal appears
+go -C tools/test run . diagnose --iterations <N> --fail-fast-on=timeout -- --timeout <duration> ./path/to/package/...
+go -C tools/test run . diagnose --iterations <N> --fail-fast-on=slow --slow-threshold <duration> -- ./path/to/package/...
 ```
 
 <semantics>
@@ -68,12 +71,14 @@ go -C tools/test run . diagnose --iterations <N> --parallel-iterations <N> --slo
 - `diagnose` adds `-count=1` unless `go test` sets `-count` greater than 1. Use diagnose `--iterations` for repetition.
 - `--shuffle-seed` adds random `-shuffle=<seed>` per iteration and records seeds in `report.json`.
 - `--parallel-iterations <N>` runs up to N diagnose iterations at once. Each worker gets its own ephemeral Postgres and writes a distinct `iteration-<n>.log.jsonl`. It is rejected with `--database-url`.
+- `--fail-fast` stops after any failed iteration, preserving old behavior.
+- `--fail-fast-on=<categories>` stops only when an iteration matches comma-separated categories: `failure`, `timeout`, `slow`, or `any`. Use it when the hypothesis is specific. Do not use `slow` unless `--slow-threshold` is set intentionally.
 </semantics>
 
 <defaults>
 - Flake hunt: `--iterations 25`, `--timeout 10m` in go test, single package.
-- Timeout hunt: `--iterations 5`, short `--timeout` in go test.
-- Slow hunt: `--iterations 3`, `--slow-threshold 5s` on diagnose.
+- Timeout hunt: `--iterations 5 --fail-fast-on=timeout`, short `--timeout` in go test.
+- Slow hunt: `--iterations 3 --fail-fast-on=slow`, `--slow-threshold 5s` on diagnose.
 - One-test isolation: `--iterations 100`, `--run '^TestName$' ./path` after `--`.
 - Fast narrow rerun: `--iterations 100 --parallel-iterations 4`, single non-intensive test only.
 </defaults>
@@ -102,7 +107,7 @@ Under repo root.
 `diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/`
 
 - `<targetSlug>`: from trailing package patterns. Leading `./` stripped, `/...` becomes `_allpkgs`, bare `...` becomes `allpkgs`, `/` becomes `_`.
-- `<config>`: `it<N>`, optional `p<N>` when `--parallel-iterations > 1`, `h` + 8-hex hash of the full go test argument list, optional `ff`, `shuffle`, and optional `slow<duration>` when `--slow-threshold` differs from default. Long basenames shorten slug and drop optional tokens.
+- `<config>`: `it<N>`, optional `p<N>` when `--parallel-iterations > 1`, `h` + 8-hex hash of the full go test argument list, optional `ff`, optional `ffon<categories>` for `--fail-fast-on`, `shuffle`, and optional `slow<duration>` when `--slow-threshold` differs from default. Long basenames shorten slug and drop optional tokens.
 
 Inner layout:
 
