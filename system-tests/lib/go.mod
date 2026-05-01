@@ -31,12 +31,12 @@ require (
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/sethvargo/go-retry v0.3.0
 	github.com/smartcontractkit/chain-selectors v1.0.98
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260424112027-f932111b88ac
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260430175646-295a7f9a1500
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260428192532-b1f4aebef94a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260429111145-3667714e0b37
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.98.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429123911-44d13c62c6e1
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429160308-91a892a60171
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
@@ -55,7 +55,7 @@ require (
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/ratelimit v0.3.1
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.20.0
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11

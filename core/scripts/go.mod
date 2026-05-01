@@ -15,7 +15,6 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20251021194914-c0e3fec1a97c
-	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.32.0
 )
 
@@ -46,11 +45,11 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.98
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260428205619-2db1389501a1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260428192532-b1f4aebef94a
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260429111145-3667714e0b37
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.13
 	github.com/smartcontractkit/chainlink-deployments-framework v0.98.0
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429123911-44d13c62c6e1
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260429160308-91a892a60171
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
@@ -60,6 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -69,7 +69,7 @@ require (
 	github.com/umbracle/ethgo v0.1.3
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.17
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.36.0
 	google.golang.org/protobuf v1.36.11
@@ -487,7 +487,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260424112027-f932111b88ac // indirect
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260430175646-295a7f9a1500 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260428205619-2db1389501a1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/ccv/chains/evm v0.0.0-20260408145530-22e2d05695cd // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc // indirect

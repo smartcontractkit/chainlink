@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	ccipTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -62,7 +63,33 @@ func (tc *TimelockConfig) MCMBasedOnActionSolana(s state.MCMSWithTimelockStateSo
 	}
 }
 
-func (tc *TimelockConfig) MCMBasedOnAction(s evmstate.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
+func (tc *TimelockConfig) MCMBasedOnActionTON(s *tonstate.MCMSSuiteState) (string, error) {
+	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
+	if tc.MCMSAction == "" {
+		tc.MCMSAction = types.TimelockActionSchedule
+	}
+	switch tc.MCMSAction {
+	case types.TimelockActionSchedule:
+		if s.Proposer == nil {
+			return "", errors.New("missing TON proposer")
+		}
+		return s.Proposer.String(), nil
+	case types.TimelockActionCancel:
+		if s.Canceller == nil {
+			return "", errors.New("missing TON canceller")
+		}
+		return s.Canceller.String(), nil
+	case types.TimelockActionBypass:
+		if s.Bypasser == nil {
+			return "", errors.New("missing TON bypasser")
+		}
+		return s.Bypasser.String(), nil
+	default:
+		return "", errors.New("invalid MCMS action")
+	}
+}
+
+func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
 	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
 	if tc.MCMSAction == "" {
 		tc.MCMSAction = types.TimelockActionSchedule
@@ -432,6 +459,7 @@ type MCMSStates struct {
 	MCMSEVMState    map[uint64]evmstate.MCMSWithTimelockState
 	MCMSSolanaState map[uint64]state.MCMSWithTimelockStateSolana
 	MCMSAptosState  map[uint64]aptos.AccountAddress
+	MCMSTONState    map[uint64]tonstate.MCMSChainState
 }
 
 // AggregateProposalsV2 aggregates multiple MCMS proposals into a single proposal by combining their operations, and
@@ -519,6 +547,27 @@ func AggregateProposalsV2(
 			}
 			timelocks[chainSel] = aptosMCMSAddress.StringLong()
 			mcmsPerChain[chainSel] = aptosMCMSAddress.StringLong()
+		case chain_selectors.FamilyTon:
+			tonMCMS, exists := mcmsTimelockStates.MCMSTONState[chainSel]
+			if !exists {
+				return nil, fmt.Errorf("missing MCMS state for TON chain %d", chainSel)
+			}
+			qualifier := mcmsConfig.TimelockQualifierPerChain[chainSel]
+			// Get the default qualifier suite (or iterate ByQualifier)
+			suite, ok := tonMCMS.ByQualifier[qualifier] // default qualifier?
+			if !ok || suite == nil {
+				return nil, fmt.Errorf("missing TON timelock for chain %d qualifier %q", chainSel, qualifier)
+			}
+			if suite.Timelock == nil {
+				return nil, fmt.Errorf("missing TON timelock address for chain %d", chainSel)
+			}
+			timelocks[chainSel] = suite.Timelock.String()
+			// Select MCMS address based on action
+			mcmsAddr, err := mcmsConfig.MCMBasedOnActionTON(suite)
+			if err != nil {
+				return nil, err
+			}
+			mcmsPerChain[chainSel] = mcmsAddr
 		}
 	}
 

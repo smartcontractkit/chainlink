@@ -43,6 +43,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const (
+	blobBroadcastTimeout        = 2 * time.Second
+	maxConcurrentBlobBroadcasts = 10
+)
+
 var (
 	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
@@ -578,11 +583,12 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 // broadcastBlobPayloads broadcasts each payload as a blob in parallel to reduce
 // Observation() latency (shortening this phase helps the OCR round finish within
 // DeltaProgress). Each call is given a 2-second timeout so that a single slow
-// broadcast cannot stall the entire batch. Individual broadcast failures are logged
-// and skipped rather than aborting the entire observation, so that one problematic
-// payload does not prevent the remaining items from being observed. Context
-// cancellation/deadline errors on the parent context are propagated immediately so
-// that expired rounds fail fast.
+// broadcast cannot stall the entire batch. No more than 10 broadcasts are allowed
+// in flight at a time. Individual broadcast failures are logged and skipped rather
+// than aborting the entire observation, so that one problematic payload does not
+// prevent the remaining items from being observed. Context cancellation/deadline
+// errors on the parent context are propagated immediately so that expired rounds
+// fail fast.
 func (r *ReportingPlugin) broadcastBlobPayloads(
 	ctx context.Context,
 	fetcher ocr3_1types.BlobBroadcastFetcher,
@@ -597,11 +603,12 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 		r.lggr.Debugw("observation blob broadcast finished", "seqNr", seqNr, "blobCount", len(payloads), "elapsed", time.Since(start))
 	}()
 
-	const perBlobTimeout = 2 * time.Second
 	var g errgroup.Group
+	g.SetLimit(maxConcurrentBlobBroadcasts)
 	for i, payload := range payloads {
+		requestID := requestIDs[i]
 		g.Go(func() error {
-			broadcastCtx, cancel := context.WithTimeout(ctx, perBlobTimeout)
+			broadcastCtx, cancel := context.WithTimeout(ctx, blobBroadcastTimeout)
 			defer cancel()
 
 			blobHandle, err := fetcher.BroadcastBlob(broadcastCtx, payload, ocr3_1types.BlobExpirationHintSequenceNumber{SeqNr: seqNr + 2})
@@ -611,7 +618,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 				}
 				r.lggr.Warnw("failed to broadcast pending queue item as blob, skipping",
 					"seqNr", seqNr,
-					"requestID", requestIDs[i],
+					"requestID", requestID,
 					"err", err)
 				return nil
 			}
@@ -620,7 +627,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			if err != nil {
 				r.lggr.Warnw("failed to marshal blob handle, skipping",
 					"seqNr", seqNr,
-					"requestID", requestIDs[i],
+					"requestID", requestID,
 					"err", err)
 				return nil
 			}
