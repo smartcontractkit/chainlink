@@ -7,13 +7,13 @@ import (
 
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type FeeQuoterView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	AuthorizedCallers                       []string                                 `json:"authorizedCallers,omitempty"`
 	FeeTokensConfig                         []FeeTokenConfig                         `json:"feeTokensConfig,omitempty"`
 	StaticConfig                            FeeQuoterStaticConfig                    `json:"staticConfig"`
@@ -69,7 +69,7 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router, testRouter 
 	for _, ac := range authorizedCallers {
 		fq.AuthorizedCallers = append(fq.AuthorizedCallers, ac.Hex())
 	}
-	fq.ContractMetaData, err = types.NewContractMetaData(fqContract, fqContract.Address())
+	fq.ContractMetaData, err = commoncldchangesets.NewContractMetaData(fqContract, fqContract.Address())
 	if err != nil {
 		return FeeQuoterView{}, fmt.Errorf("metadata error for FeeQuoter: %w", err)
 	}

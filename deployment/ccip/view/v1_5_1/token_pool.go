@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
 	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type TokenPoolContract interface {
@@ -106,7 +106,7 @@ type PoolView struct {
 }
 
 type TokenPoolView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	Token              common.Address               `json:"token"`
 	TokenPriceFeed     common.Address               `json:"tokenPriceFeed"`
 	RemoteChainConfigs map[uint64]RemoteChainConfig `json:"remoteChainConfigs"`
@@ -190,7 +190,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 	}
 
 	return TokenPoolView{
-		ContractMetaData: types.ContractMetaData{
+		ContractMetaData: commoncldchangesets.ContractMetaData{
 			TypeAndVersion: typeAndVersion,
 			Address:        pool.Address(),
 			Owner:          owner,
