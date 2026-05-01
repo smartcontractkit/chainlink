@@ -264,7 +264,7 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		jwt.WithIssuedAt(),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w. Expected Issuer: %s, Actual Issuer: %s", ErrInvalidToken, err, v.issuerURL, unverified.Claims.(jwt.MapClaims)["iss"])
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
