@@ -1,18 +1,26 @@
 package colortest
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func init() {
+func requireANSIColor(t *testing.T) {
+	t.Helper()
 	logger.InitColor(true)
+	if !strings.Contains(color.New(color.FgRed).Sprint("x"), "\x1b[31m") {
+		t.Skip("ANSI color output is disabled in this terminal")
+	}
 }
 
 func TestPrettyConsole_Write(t *testing.T) {
+	requireANSIColor(t)
+
 	tests := []struct {
 		name      string
 		input     string
