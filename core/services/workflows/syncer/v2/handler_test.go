@@ -17,7 +17,11 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
 	"github.com/stretchr/testify/assert"
@@ -673,12 +677,11 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 		trigger := &captureTrigger{CapabilityInfo: commoncap.MustNewCapabilityInfo("basic-test-trigger@1.0.0", commoncap.CapabilityTypeCombined, "test trigger"), t: t, shouldRun: true}
 		require.NoError(t, registry.Add(ctx, trigger))
 
-		executeRequest, err := proto.Marshal(&sdk.ExecuteRequest{
+		executeRequest := &sdk.ExecuteRequest{
 			Config:          config,
 			Request:         &sdk.ExecuteRequest_Subscribe{Subscribe: &emptypb.Empty{}},
 			MaxResponseSize: 100000,
-		})
-		require.NoError(t, err)
+		}
 
 		confidential := &confidentialCap{
 			CapabilityInfo: commoncap.MustNewCapabilityInfo("confidential-workflows@1.0.0-alpha", commoncap.CapabilityTypeCombined, "test confidential cap"),
@@ -693,7 +696,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			},
 		}
 
-		require.NoError(t, registry.Add(ctx, confidential))
+		require.NoError(t, registry.Add(ctx, server.NewClientServer(confidential)))
 		limiters, err := v2.NewLimiters(lf, nil)
 		require.NoError(t, err)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -1411,15 +1414,15 @@ func (t *captureTrigger) UnregisterTrigger(_ context.Context, _ commoncap.Trigge
 	return nil
 }
 
-func (t *captureTrigger) RegisterToWorkflow(ctx context.Context, request commoncap.RegisterToWorkflowRequest) error {
-	panic("not implemented for this test")
+func (t *captureTrigger) RegisterToWorkflow(_ context.Context, _ commoncap.RegisterToWorkflowRequest) error {
+	return nil
 }
 
-func (t *captureTrigger) UnregisterFromWorkflow(ctx context.Context, request commoncap.UnregisterFromWorkflowRequest) error {
-	panic("not implemented for this test")
+func (t *captureTrigger) UnregisterFromWorkflow(_ context.Context, _ commoncap.UnregisterFromWorkflowRequest) error {
+	return nil
 }
 
-func (t *captureTrigger) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+func (t *captureTrigger) Execute(_ context.Context, _ commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
 	panic("not implemented for this test")
 }
 
@@ -1430,27 +1433,13 @@ type confidentialCap struct {
 	expected *confworkflowtypes.WorkflowExecution
 }
 
-var _ commoncap.ExecutableAndTriggerCapability = &confidentialCap{}
-
-func (c *confidentialCap) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
-	return nil, fmt.Errorf("not a trigger")
-}
-func (c *confidentialCap) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
-	return nil
-}
-func (c *confidentialCap) AckEvent(_ context.Context, _ string, _ string, _ string) error {
-	return nil
-}
-
-func (c *confidentialCap) Execute(_ context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
-	input := &confworkflowtypes.ConfidentialWorkflowRequest{}
-	require.NoError(c.t, request.Payload.UnmarshalTo(input))
-	assert.True(c.t, proto.Equal(c.expected, input.Execution), "WorkflowExecution mismatch")
+func (c *confidentialCap) Execute(_ context.Context, _ commoncap.RequestMetadata, input *confworkflowtypes.ConfidentialWorkflowRequest) (*commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse], caperrors.Error) {
+	assert.True(c.t, proto.Equal(c.expected, input), "WorkflowExecution mismatch")
 	c.trigger.ran = true
 
 	triggerPayload, err := anypb.New(&basictrigger.Config{Name: "test", Number: 0})
 	require.NoError(c.t, err)
-	marshalled, err := proto.Marshal(&sdk.ExecutionResult{
+	execResult := &sdk.ExecutionResult{
 		Result: &sdk.ExecutionResult_TriggerSubscriptions{
 			TriggerSubscriptions: &sdk.TriggerSubscriptionRequest{
 				Subscriptions: []*sdk.TriggerSubscription{
@@ -1462,19 +1451,45 @@ func (c *confidentialCap) Execute(_ context.Context, request commoncap.Capabilit
 				},
 			},
 		},
-	})
-	require.NoError(c.t, err)
+	}
 
-	respPayload, err := anypb.New(&confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: marshalled})
-	require.NoError(c.t, err)
-
-	return commoncap.CapabilityResponse{Payload: respPayload}, nil
+	return &commoncap.ResponseAndMetadata[*confworkflowtypes.ConfidentialWorkflowResponse]{
+		Response: &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: execResult},
+	}, nil
 }
 
-func (c *confidentialCap) RegisterToWorkflow(_ context.Context, _ commoncap.RegisterToWorkflowRequest) error {
+func (c *confidentialCap) ProvidedTees(_ context.Context, _ commoncap.RequestMetadata, _ *emptypb.Empty) (*commoncap.ResponseAndMetadata[*confworkflowtypes.ProvidedTeesResponse], caperrors.Error) {
+	return &commoncap.ResponseAndMetadata[*confworkflowtypes.ProvidedTeesResponse]{
+		Response: &confworkflowtypes.ProvidedTeesResponse{Tee: []*sdk.TeeTypeAndRegions{{Type: sdk.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-west-2"}}}},
+	}, nil
+}
+
+func (c *confidentialCap) Start(_ context.Context) error {
 	return nil
 }
 
-func (c *confidentialCap) UnregisterFromWorkflow(_ context.Context, _ commoncap.UnregisterFromWorkflowRequest) error {
+func (c *confidentialCap) Close() error {
 	return nil
 }
+
+func (c *confidentialCap) HealthReport() map[string]error {
+	return map[string]error{}
+}
+
+func (c *confidentialCap) Name() string {
+	return "confidential workflow"
+}
+
+func (c *confidentialCap) Description() string {
+	return "confidential workflow"
+}
+
+func (c *confidentialCap) Ready() error {
+	return nil
+}
+
+func (c *confidentialCap) Initialise(_ context.Context, _ core.StandardCapabilitiesDependencies) error {
+	return nil
+}
+
+var _ server.ClientCapability = &confidentialCap{}

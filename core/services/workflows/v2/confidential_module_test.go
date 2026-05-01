@@ -10,14 +10,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
@@ -113,13 +112,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		},
 	}
 
-	// Serialize the result into a ConfidentialWorkflowResponse, as the capability would.
-	resultBytes, err := proto.Marshal(expectedResult)
-	require.NoError(t, err)
-
-	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{
-		ExecutionResult: resultBytes,
-	}
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
 	respPayload, err := anypb.New(confResp)
 	require.NoError(t, err)
 
@@ -238,24 +231,30 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, "https://example.com/wasm", confReq.Execution.BinaryUrl)
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
-		var roundTripped sdkpb.ExecuteRequest
-		require.NoError(t, proto.Unmarshal(confReq.Execution.ExecuteRequest, &roundTripped))
-		assert.Equal(t, execReq.GetConfig(), roundTripped.GetConfig())
+		assert.Equal(t, execReq.GetConfig(), confReq.Execution.ExecuteRequest.GetConfig())
 	})
 }
 
-func TestConfidentialModule_GetRegions(t *testing.T) {
+func TestConfidentialModule_Tee(t *testing.T) {
 	ctx := context.Background()
 	lggr := logger.Nop()
 
-	buildRespPayload := func(t *testing.T, regions []string) *anypb.Any {
+	buildRespPayload := func(t *testing.T, tees []*sdkpb.TeeTypeAndRegions) *anypb.Any {
 		t.Helper()
-		payload, err := anypb.New(&confworkflowtypes.GetRegionsResponse{Regions: regions})
+		payload, err := anypb.New(&confworkflowtypes.ProvidedTeesResponse{Tee: tees})
 		require.NoError(t, err)
 		return payload
 	}
 
-	t.Run("success", func(t *testing.T) {
+	anyRegionsTee := func(regions ...string) *sdkpb.Tee {
+		return &sdkpb.Tee{
+			Item: &sdkpb.Tee_AnyRegions{
+				AnyRegions: &sdkpb.Regions{Regions: regions},
+			},
+		}
+	}
+
+	t.Run("matching region returns true", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -265,15 +264,31 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 			return req.Method == "GetRegions" &&
 				req.CapabilityId == confidentialWorkflowsCapabilityID &&
 				req.Metadata.WorkflowExecutionID == ""
-		})).Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []string{"us-east-1", "eu-west-1"})}, nil).Once()
+		})).Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
+			{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1", "eu-west-1"}},
+		})}, nil).Once()
 
 		mod := NewConfidentialModule(capReg, "https://example.com/binary.wasm", []byte("fakehash"), "wf-123", "owner-abc", "my-workflow", "v1", lggr)
 
-		regions := mod.GetRegions(ctx)
-		assert.Equal(t, []string{"us-east-1", "eu-west-1"}, regions)
+		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
-	t.Run("empty regions response", func(t *testing.T) {
+	t.Run("non-matching region returns false", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
+				{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
+			})}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("ap-southeast-1")))
+	})
+
+	t.Run("empty tees response returns false", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -283,19 +298,19 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
 
 		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
-		assert.Empty(t, mod.GetRegions(ctx))
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
-	t.Run("GetExecutable error returns empty", func(t *testing.T) {
+	t.Run("GetExecutable error returns false", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(nil, errors.New("capability not found")).Once()
 
 		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
-		assert.Empty(t, mod.GetRegions(ctx))
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
-	t.Run("capability Execute error returns empty", func(t *testing.T) {
+	t.Run("capability Execute error returns false", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -305,10 +320,10 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
-		assert.Empty(t, mod.GetRegions(ctx))
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
-	t.Run("nil payload returns empty", func(t *testing.T) {
+	t.Run("nil payload returns false", func(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
@@ -318,7 +333,7 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
 		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
-		assert.Empty(t, mod.GetRegions(ctx))
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
 	t.Run("request fields are correct", func(t *testing.T) {
@@ -336,7 +351,7 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
 
 		mod := NewConfidentialModule(capReg, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
-		_ = mod.GetRegions(ctx)
+		_ = mod.Tee(ctx, anyRegionsTee("us-east-1"))
 
 		assert.Equal(t, "GetRegions", capturedReq.Method)
 		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
@@ -348,6 +363,108 @@ func TestConfidentialModule_GetRegions(t *testing.T) {
 
 		var emptyMsg emptypb.Empty
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&emptyMsg))
+	})
+
+	t.Run("caches provider across calls", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
+				{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
+			})}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+
+		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
+		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("eu-west-1")))
+	})
+}
+
+func TestConfidentialModule_SetRequirements(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Nop()
+
+	execReq := &sdkpb.ExecuteRequest{
+		Config: []byte("test-config"),
+	}
+
+	expectedResult := &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_Value{
+			Value: valuespb.NewStringValue("enclave-output"),
+		},
+	}
+
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	respPayload, err := anypb.New(confResp)
+	require.NoError(t, err)
+
+	t.Run("requirements forwarded in execute", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+
+		requirements := &sdkpb.Requirements{
+			Tee: &sdkpb.Tee{
+				Item: &sdkpb.Tee_AnyRegions{
+					AnyRegions: &sdkpb.Regions{Regions: []string{"us-east-1"}},
+				},
+			},
+		}
+		mod.SetRequirements("exec-789", requirements)
+
+		result, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
+		require.NotNil(t, confReq.Execution.Requirements)
+		assert.NotNil(t, confReq.Execution.Requirements.Tee)
+	})
+
+	t.Run("requirements consumed after execute", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Times(2)
+
+		var secondReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				secondReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod.SetRequirements("exec-789", &sdkpb.Requirements{})
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		_, err = mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, secondReq.Payload.UnmarshalTo(&confReq))
+		assert.Nil(t, confReq.Execution.Requirements)
 	})
 }
 

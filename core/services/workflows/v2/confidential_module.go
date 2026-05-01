@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -15,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
@@ -60,9 +61,12 @@ type ConfidentialModule struct {
 	workflowName  string
 	workflowTag   string
 	lggr          logger.Logger
+	requirements  sync.Map
+	infoOnce      sync.Once
+	provider      func(tee *sdkpb.Tee) bool
 }
 
-var _ host.ModuleV2 = (*ConfidentialModule)(nil)
+var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 
 func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
 	return &ConfidentialModule{
@@ -86,9 +90,10 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
-	execReqBytes, err := proto.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal ExecuteRequest: %w", err)
+	var requirements *sdkpb.Requirements
+	rawRequirements, loaded := m.requirements.LoadAndDelete(helper.GetWorkflowExecutionID())
+	if loaded {
+		requirements = rawRequirements.(*sdkpb.Requirements)
 	}
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
@@ -96,35 +101,43 @@ func (m *ConfidentialModule) Execute(
 			WorkflowId:     m.workflowID,
 			BinaryUrl:      m.binaryURL,
 			BinaryHash:     m.binaryHash,
-			ExecuteRequest: execReqBytes,
+			ExecuteRequest: request,
 			Owner:          m.workflowOwner,
 			ExecutionId:    helper.GetWorkflowExecutionID(),
 			OrgId:          contexts.CREValue(ctx).Org,
+			Requirements:   requirements,
 		},
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
-	if err = doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
 		return nil, err
 	}
 
-	var result sdkpb.ExecutionResult
-	if err := proto.Unmarshal(capOutput.ExecutionResult, &result); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal ExecutionResult: %w", err)
-	}
-
-	return &result, nil
+	return capOutput.ExecutionResult, nil
 }
 
-func (m *ConfidentialModule) GetRegions(ctx context.Context) []string {
-	capOutput := &confworkflowtypes.GetRegionsResponse{}
+func (m *ConfidentialModule) SetRequirements(executionId string, requirements *sdkpb.Requirements) {
+	m.requirements.Store(executionId, requirements)
+}
+
+func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
+	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "GetRegions", &emptypb.Empty{}, capOutput); err != nil {
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
-		return []string{}
+		return []*sdkpb.TeeTypeAndRegions{}
 	}
 
-	return capOutput.Regions
+	return capOutput.Tee
+}
+
+func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
+	m.infoOnce.Do(func() {
+		m.provider = host.NewProviderFromSelection(m.providedTees(ctx))
+	})
+
+	return m.provider(tee)
 }
 
 func doRequest[I, O proto.Message](
@@ -144,10 +157,13 @@ func doRequest[I, O proto.Message](
 		return fmt.Errorf("failed to get confidential-workflows capability: %w", err)
 	}
 
+	config, _ := anypb.New(&emptypb.Empty{})
+
 	capReq := capabilities.CapabilityRequest{
-		Payload:      payload,
-		Method:       method,
-		CapabilityId: confidentialWorkflowsCapabilityID,
+		Payload:       payload,
+		ConfigPayload: config,
+		Method:        method,
+		CapabilityId:  confidentialWorkflowsCapabilityID,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:          m.workflowID,
 			WorkflowOwner:       m.workflowOwner,

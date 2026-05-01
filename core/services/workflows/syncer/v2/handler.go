@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -893,7 +892,7 @@ func (h *eventHandler) createModule(
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	confidential := v2.NewConfidentialModule(h.capRegistry, binaryUrl, binaryHash, workflowID, owner, name.String(), tag, confLggr)
 
-	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: generichost.NewTeeProvider(sdkpb.TeeType_TEE_TYPE_AWS_NITRO, confidential.GetRegions)}
+	confidentialRequirementsHandler := generichost.RequirementsHandler{Tee: confidential.Tee}
 
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
