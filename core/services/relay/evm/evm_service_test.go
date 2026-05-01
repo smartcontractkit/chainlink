@@ -27,6 +27,7 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	fwtxmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
@@ -787,6 +788,53 @@ func TestEVMService_CallContract(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEVMService_GetTransactionReceipt(t *testing.T) {
+	ctx := t.Context()
+	mocks, relayer := setupMocksAndRelayer(t)
+
+	txHash := common.HexToHash("0xabcd")
+	l1Fee := big.NewInt(5000)
+	evmReceipt := &types.Receipt{
+		TxHash:            txHash,
+		Status:            1,
+		GasUsed:           21000,
+		BlockNumber:       big.NewInt(100),
+		EffectiveGasPrice: big.NewInt(1e9),
+		L1Fee:             l1Fee,
+	}
+
+	mocks.EvmClient.EXPECT().TransactionReceiptWithOpts(
+		ctx, txHash, types.TransactionReceiptOpts{},
+	).Return(evmReceipt, nil).Once()
+
+	result, err := relayer.GetTransactionReceipt(ctx, evm.GeTransactionReceiptRequest{Hash: txHash})
+	require.NoError(t, err)
+	require.Equal(t, evm.Hash(txHash), result.TxHash)
+	require.Equal(t, l1Fee, result.L1Fee)
+}
+
+func TestEVMService_CalculateTransactionFee(t *testing.T) {
+	ctx := t.Context()
+	mocks, relayer := setupMocksAndRelayer(t)
+
+	gasInfo := evm.ReceiptGasInfo{
+		GasUsed:           21000,
+		EffectiveGasPrice: big.NewInt(1e9),
+		L1Fee:             big.NewInt(5000),
+	}
+	expectedFee := big.NewInt(21000*1e9 + 5000)
+
+	mocks.TxManager.EXPECT().CalculateFee(fwtxmgr.FeeParts{
+		GasUsed:           gasInfo.GasUsed,
+		EffectiveGasPrice: gasInfo.EffectiveGasPrice,
+		L1Fee:             gasInfo.L1Fee,
+	}).Return(expectedFee).Once()
+
+	result, err := relayer.CalculateTransactionFee(ctx, gasInfo)
+	require.NoError(t, err)
+	require.Equal(t, expectedFee, result.TransactionFee)
 }
 
 func NewChainReceipt(txHash common.Hash, status uint64, t *testing.T) txmgr.ChainReceipt {
