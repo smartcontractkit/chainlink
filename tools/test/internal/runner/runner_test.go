@@ -292,6 +292,15 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 				"-ff-shuffle-slow45s-20240601123045",
 		},
 		{
+			name: "fail-fast-on categories included",
+			conf: &config.App{
+				Iterations: 2,
+				FailFastOn: []string{"timeout", "slow"},
+			},
+			goTestArgs: []string{"./pkg"},
+			want:       diagnoseResultsNamePrefix + "pkg-it2-h" + testArgHash8([]string{"./pkg"}) + "-ffontimeout_slow-20240601123045",
+		},
+		{
 			name: "default slow threshold omitted",
 			conf: &config.App{
 				Iterations:    3,
@@ -542,4 +551,86 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, state.failedFast)
 	assert.LessOrEqual(t, len(started), conf.ParallelIterations)
+}
+
+func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		failFastOn    []string
+		iterationJSON string
+		iterErr       error
+		wantCompleted int
+		wantFailed    bool
+	}{
+		{
+			name:          "timeout stops on timeout",
+			failFastOn:    []string{"timeout"},
+			iterationJSON: `{"Action":"output","Package":"p","Test":"TestHang","Output":"panic: test timed out after 5s\n"}` + "\n" + `{"Action":"fail","Package":"p","Test":"TestHang","Elapsed":5}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "timeout ignores plain failure",
+			failFastOn:    []string{"timeout"},
+			iterationJSON: `{"Action":"fail","Package":"p","Test":"TestFail","Elapsed":0.01}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 3,
+		},
+		{
+			name:          "slow stops on passing slow test",
+			failFastOn:    []string{"slow"},
+			iterationJSON: `{"Action":"pass","Package":"p","Test":"TestSlow","Elapsed":45}`,
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "failure stops on plain failure",
+			failFastOn:    []string{"failure"},
+			iterationJSON: `{"Action":"fail","Package":"p","Test":"TestFail","Elapsed":0.01}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "any stops on slow",
+			failFastOn:    []string{"any"},
+			iterationJSON: `{"Action":"pass","Package":"p","Test":"TestSlow","Elapsed":45}`,
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			resultsDir := t.TempDir()
+			conf := &config.App{
+				RepoRoot:      t.TempDir(),
+				AIOutput:      true,
+				Iterations:    3,
+				SlowThreshold: 30 * time.Second,
+				FailFastOn:    tc.failFastOn,
+			}
+			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
+			hooks := diagnoseRunHooks{
+				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress) error {
+					return os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
+				},
+			}
+			if tc.iterErr != nil {
+				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress) error {
+					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
+					return tc.iterErr
+				}
+			}
+
+			state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}}, hooks)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantCompleted, state.completed)
+			assert.Equal(t, tc.wantFailed, state.failedFast)
+		})
+	}
 }

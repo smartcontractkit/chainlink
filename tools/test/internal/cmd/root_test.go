@@ -69,6 +69,11 @@ func TestValidateDiagnoseConfigParallelIterations(t *testing.T) {
 			conf:    &config.App{Iterations: 10, ParallelIterations: 2, DatabaseURL: "postgres://example/db"},
 			wantErr: "--parallel-iterations > 1 cannot be used with --database-url",
 		},
+		{
+			name:    "invalid fail fast category",
+			conf:    &config.App{Iterations: 1, ParallelIterations: 1, FailFastOn: []string{"timeout", "banana"}},
+			wantErr: `--fail-fast-on must contain only "any", "failure", "timeout", or "slow"; got "banana"`,
+		},
 	}
 
 	for _, tc := range tests {

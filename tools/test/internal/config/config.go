@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -25,7 +26,46 @@ type App struct {
 	ParallelIterations int           `mapstructure:"parallel_iterations"`
 	SlowThreshold      time.Duration `mapstructure:"slow_threshold"`
 	FailFast           bool          `mapstructure:"fail_fast"`
+	FailFastOn         []string      `mapstructure:"fail_fast_on"`
 	Shuffle            bool          `mapstructure:"shuffle_seed"`
+}
+
+const (
+	FailFastOnAny     = "any"
+	FailFastOnFailure = "failure"
+	FailFastOnTimeout = "timeout"
+	FailFastOnSlow    = "slow"
+)
+
+var validFailFastOn = map[string]struct{}{
+	FailFastOnAny:     {},
+	FailFastOnFailure: {},
+	FailFastOnTimeout: {},
+	FailFastOnSlow:    {},
+}
+
+// NormalizeFailFastOn validates --fail-fast-on values and returns lowercase,
+// de-duplicated categories in first-seen order.
+func NormalizeFailFastOn(values []string) ([]string, error) {
+	var out []string
+	seen := make(map[string]struct{})
+	for _, value := range values {
+		for _, part := range strings.Split(value, ",") {
+			category := strings.ToLower(strings.TrimSpace(part))
+			if category == "" {
+				return nil, errors.New(`--fail-fast-on must contain only "any", "failure", "timeout", or "slow"; got ""`)
+			}
+			if _, ok := validFailFastOn[category]; !ok {
+				return nil, fmt.Errorf(`--fail-fast-on must contain only "any", "failure", "timeout", or "slow"; got %q`, category)
+			}
+			if _, ok := seen[category]; ok {
+				continue
+			}
+			seen[category] = struct{}{}
+			out = append(out, category)
+		}
+	}
+	return out, nil
 }
 
 // Load binds Viper to the active command's persistent flags and local flags, then unmarshals into App.
@@ -42,6 +82,7 @@ func Load(cmd *cobra.Command) (*App, error) {
 	v.SetDefault("parallel_iterations", 1)
 	v.SetDefault("slow_threshold", 30*time.Second)
 	v.SetDefault("fail_fast", false)
+	v.SetDefault("fail_fast_on", []string{})
 	repoRoot, err := repo.RootFromWd()
 	if err != nil {
 		return nil, err
