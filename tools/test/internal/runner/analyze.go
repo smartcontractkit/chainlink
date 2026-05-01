@@ -431,15 +431,15 @@ func diagnoseLogFilenamePattern(pkg, test string) string {
 }
 
 func diagnoseLogFilenameForIter(pkg, test string, iteration string) string {
-	base := fmt.Sprintf("%s__%s", sanitize(shortPackage(pkg)), sanitize(test))
-	suffix := fmt.Sprintf("__iter-%s.log", iteration)
+	base := fmt.Sprintf("%s_%s", sanitize(shortPackage(pkg)), sanitize(test))
+	suffix := fmt.Sprintf("_iter-%s.log", iteration)
 	name := base + suffix
 	if len(name) <= maxDiagnoseLogFilenameBytes {
 		return name
 	}
 	sum := sha256.Sum256([]byte(base))
-	hash := fmt.Sprintf("__%x", sum[:4])
-	patternSuffix := "__iter-{iter}.log"
+	hash := fmt.Sprintf("_%x", sum[:4])
+	patternSuffix := "_iter-{iter}.log"
 	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-len(patternSuffix)) + hash + suffix
 }
 

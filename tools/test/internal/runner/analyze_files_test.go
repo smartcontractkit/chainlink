@@ -26,9 +26,10 @@ func TestWriteLogFiles(t *testing.T) {
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
 	require.Equal(t, []ProblemLog{
-		{Type: "fail", Iters: "0", Path: "logs/foo_bar__TestFail__iter-{iter}.log"},
+		{Type: "fail", Iters: "0", Path: "logs/foo_bar_TestFail_iter-{iter}.log"},
 	}, rep.Failures[0].Logs)
-	b, err := os.ReadFile(filepath.Join(dir, "logs/foo_bar__TestFail__iter-0.log"))
+	rel := strings.Replace(rep.Failures[0].Logs[0].Path, "{iter}", "0", 1)
+	b, err := os.ReadFile(filepath.Join(dir, rel))
 	require.NoError(t, err)
 	assert.Equal(t, "boom\n", string(b))
 }
@@ -54,14 +55,14 @@ func TestWriteLogFilesWritesOnlyProblemIterations(t *testing.T) {
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
 	assert.Equal(t, []ProblemLog{
-		{Type: "fail", Iters: "0", Path: "logs/p__T__iter-{iter}.log"},
+		{Type: "fail", Iters: "0", Path: "logs/p_T_iter-{iter}.log"},
 	}, rep.Flakes[0].Logs)
 
-	b0, err := os.ReadFile(filepath.Join(dir, "logs/p__T__iter-0.log"))
+	b0, err := os.ReadFile(filepath.Join(dir, "logs/p_T_iter-0.log"))
 	require.NoError(t, err)
 	assert.Equal(t, "fail-log\n", string(b0))
 
-	_, err = os.Stat(filepath.Join(dir, "logs/p__T__iter-1.log"))
+	_, err = os.Stat(filepath.Join(dir, "logs/p_T_iter-1.log"))
 	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
@@ -90,7 +91,7 @@ func TestWriteLogFilesCompressesSlowIterations(t *testing.T) {
 	require.NoError(t, WriteLogFiles(dir, rep, logs))
 
 	assert.Equal(t, []ProblemLog{
-		{Type: "slow", Iters: "0-1,3", Path: "logs/p__T__iter-{iter}.log"},
+		{Type: "slow", Iters: "0-1,3", Path: "logs/p_T_iter-{iter}.log"},
 	}, rep.Slow[0].Logs)
 }
 
