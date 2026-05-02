@@ -302,13 +302,13 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			Name:                   "test-bridge-1",
 			RequestData:            []byte(`foo`),
 			ResponseData:           []byte(`bar`),
-			ResponseError:          ptr("test error"),
+			ResponseError:          new("test error"),
 			ResponseStatusCode:     200,
 			RequestStartTimestamp:  time.Unix(1, 1),
 			RequestFinishTimestamp: time.Unix(2, 1),
 			LocalCacheHit:          true,
 			SpecID:                 3,
-			StreamID:               ptr(uint32(135)),
+			StreamID:               new(uint32(135)),
 			DotID:                  "ds1",
 		}
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
@@ -355,7 +355,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			StreamValueType:       1,
 			StreamValueBinary:     []byte{0x01, 0x02, 0x03},
 			StreamValueText:       "stream value text",
-			ObservationError:      ptr("test error"),
+			ObservationError:      new("test error"),
 			ObservationTimestamp:  time.Unix(1, 1).UnixNano(),
 			ObservationFinishedAt: time.Unix(2, 1).UnixNano(),
 			SeqNr:                 42,
@@ -775,7 +775,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		receivedChannels := make([]uint32, 0, 3)
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
 			decoded := &datastreamsllo.LLOReportTelemetry{}
@@ -795,4 +795,5 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	})
 }
 
-func ptr[T any](t T) *T { return &t }
+//go:fix inline
+func ptr[T any](t T) *T { return new(t) }

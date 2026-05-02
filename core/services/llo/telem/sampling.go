@@ -87,9 +87,7 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		t := time.NewTicker(s.prunePeriod)
 		defer t.Stop()
 
@@ -101,7 +99,7 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 				return
 			}
 		}
-	}()
+	})
 }
 
 // pruneStorage removes all records which are older than a predefined period (s.prunePeriod).

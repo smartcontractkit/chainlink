@@ -227,9 +227,7 @@ func (t *telemeter) start(_ context.Context) error {
 		for {
 			select {
 			case tcc := <-t.chch:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					for {
 						select {
 						case p, ok := <-tcc.in:
@@ -242,7 +240,7 @@ func (t *telemeter) start(_ context.Context) error {
 							return
 						}
 					}
-				}()
+				})
 			case p := <-t.chTelemetryPipeline:
 				t.prepareV3PremiumLegacyTelemetry(p)
 			case rt := <-t.chOutcomeTelemetry:

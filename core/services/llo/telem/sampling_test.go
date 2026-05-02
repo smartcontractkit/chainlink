@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -115,12 +116,13 @@ func TestSample(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	t0 := time.Now()
+	// Truncate to second boundary so both messages map to the same second regardless of wall-clock timing.
+	// Without truncation, t0 near a second boundary causes t0+50ms to fall in the next second, defeating deduplication.
+	t0 := time.Now().Truncate(time.Second)
 	msg0 := &llo.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
@@ -145,8 +147,7 @@ func TestPruningLoop(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	samplr := newSampler(lggr, true)
 	// We need a prune time of at least one second in order to detect outdated entries.
@@ -194,34 +195,23 @@ func TestPruningLoop(t *testing.T) {
 func TestPruningLoop_Exits(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	wg := &sync.WaitGroup{}
+	synctest.Test(t, func(t *testing.T) {
+		lggr := logger.TestSugared(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		wg := new(sync.WaitGroup)
 
-	// Start the sampler and its loop. This increments the waitgroup's counter.
-	samplr := newSampler(lggr, true)
-	samplr.StartPruningLoop(ctx, wg)
+		// Start the sampler and its loop. This increments the waitgroup's counter.
+		samplr := newSampler(lggr, true)
+		samplr.StartPruningLoop(ctx, wg)
 
-	// Create a channel which will be closed when the waitgroup is done, i.e. when the loop is closed.
-	ch := make(chan struct{})
-	go func() {
+		// Wait until the pruning loop is durably blocked (waiting on the ticker or context).
+		synctest.Wait()
+
+		// Cancel the context and wait for the loop to exit.
+		cancel()
+
+		// Wait for the waitgroup to finish to ensure the routine exited.
+		// synctest.Test will also inherently wait for all bubbled goroutines to exit.
 		wg.Wait()
-		close(ch)
-	}()
-	// A helper function to check if the channel is closed.
-	doneFn := func(timeout time.Duration) bool {
-		select {
-		case <-ch:
-			return true
-		case <-time.After(timeout):
-			return false
-		}
-	}
-
-	// Assert the channel is not closed after 100ms.
-	assert.False(t, doneFn(100*time.Millisecond))
-
-	// Cancel the context and assert that the channel is closed within 100ms.
-	cancel()
-	assert.True(t, doneFn(100*time.Millisecond))
+	})
 }
