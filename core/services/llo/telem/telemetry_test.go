@@ -794,6 +794,3 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		}
 	})
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }

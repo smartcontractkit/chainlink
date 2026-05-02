@@ -71,7 +71,7 @@ go -C tools/test run . diagnose --iterations <N> --fail-fast-on=slow --slow-thre
 - `diagnose` adds `-count=1` unless `go test` sets `-count` greater than 1. Use diagnose `--iterations` for repetition.
 - `--shuffle-seed` adds random `-shuffle=<seed>` per iteration and records seeds in `report.json`.
 - `--parallel-iterations <N>` runs up to N diagnose iterations at once. Each worker gets its own ephemeral Postgres and writes a distinct `iteration-<n>.log.jsonl`. It is rejected with `--database-url`.
-- `--fail-fast` stops after any failed iteration, preserving old behavior.
+- `--fail-fast` stops after any failed iteration.
 - `--fail-fast-on=<categories>` stops only when an iteration matches comma-separated categories: `failure`, `timeout`, `slow`, or `any`. Use it when the hypothesis is specific. Do not use `slow` unless `--slow-threshold` is set intentionally.
 </semantics>
 
