@@ -40,7 +40,6 @@ import (
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
-	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	reportcodecv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4/reportcodec"
@@ -70,7 +69,7 @@ var (
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
-	rawReportingPluginConfig = datastreamsmercury.OffchainConfig{
+	rawReportingPluginConfig = mercury.OffchainConfig{
 		ExpirationWindow: 1,
 		BaseUSDFee:       decimal.NewFromInt(100),
 	}
@@ -302,7 +301,7 @@ func integration_MercuryV2(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
+	onchainConfig, err := (mercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -379,7 +378,7 @@ func integration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := mercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -593,7 +592,7 @@ func integration_MercuryV3(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
+	onchainConfig, err := (mercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -670,7 +669,7 @@ func integration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := mercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -892,7 +891,7 @@ func integration_MercuryV4(t *testing.T) {
 	}
 
 	// Setup config on contract
-	onchainConfig, err := (datastreamsmercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
+	onchainConfig, err := (mercury.StandardOnchainConfigCodec{}).Encode(ctx, rawOnchainConfig)
 	require.NoError(t, err)
 
 	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
@@ -969,7 +968,7 @@ func integration_MercuryV4(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := datastreamsmercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
+			expectedFee := mercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
