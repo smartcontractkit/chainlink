@@ -33,10 +33,3 @@ func (e *jobSpecReporterConfig) EnabledOCR2PluginTypes() []string {
 	}
 	return *e.c.EnabledOCR2PluginTypes
 }
-
-func (e *jobSpecReporterConfig) EmitNonOCR2Jobs() bool {
-	if e.c.EmitNonOCR2Jobs == nil {
-		return false
-	}
-	return *e.c.EmitNonOCR2Jobs
-}

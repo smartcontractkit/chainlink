@@ -3,7 +3,6 @@ syntax = "proto3";
 package job_spec.v1;
 
 import public "job_spec/v1/job_spec_event.proto";
-import public "job_spec/v1/ocr1_oracle_spec_info.proto";
 import public "job_spec/v1/ocr2_evm_relay_config.proto";
 import public "job_spec/v1/ocr2_median_plugin_config.proto";
 import public "job_spec/v1/ocr2_oracle_spec_info.proto";

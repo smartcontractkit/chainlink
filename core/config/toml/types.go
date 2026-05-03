@@ -3031,7 +3031,6 @@ type JobSpecReporter struct {
 	Enabled                *bool
 	PollingInterval        *commonconfig.Duration
 	EnabledOCR2PluginTypes *[]string
-	EmitNonOCR2Jobs        *bool
 }
 
 func (e *JobSpecReporter) setFrom(f *JobSpecReporter) {
@@ -3043,9 +3042,6 @@ func (e *JobSpecReporter) setFrom(f *JobSpecReporter) {
 	}
 	if f.EnabledOCR2PluginTypes != nil {
 		e.EnabledOCR2PluginTypes = f.EnabledOCR2PluginTypes
-	}
-	if f.EmitNonOCR2Jobs != nil {
-		e.EmitNonOCR2Jobs = f.EmitNonOCR2Jobs
 	}
 }
 
@@ -3066,11 +3062,6 @@ func (e *JobSpecReporter) ValidateConfig() error {
 	if e.EnabledOCR2PluginTypes == nil {
 		defaultTypes := []string{"median"}
 		e.EnabledOCR2PluginTypes = &defaultTypes
-	}
-
-	if e.EmitNonOCR2Jobs == nil {
-		defaultEmitNonOCR2 := false
-		e.EmitNonOCR2Jobs = &defaultEmitNonOCR2
 	}
 
 	return nil

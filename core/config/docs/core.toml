@@ -921,8 +921,6 @@ Enabled = false # Default
 PollingInterval = "1h" # Default
 # EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
 EnabledOCR2PluginTypes = ["median"] # Default
-# EmitNonOCR2Jobs emits telemetry for supported non-OCR2 job types.
-EmitNonOCR2Jobs = false # Default
 
 [CRE]
 # UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running

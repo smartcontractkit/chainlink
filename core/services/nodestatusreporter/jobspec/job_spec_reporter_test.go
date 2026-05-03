@@ -7,20 +7,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -37,20 +32,17 @@ type stubConfig struct {
 	enabled                bool
 	pollingInterval        time.Duration
 	enabledOCR2PluginTypes []string
-	emitNonOCR2Jobs        bool
 }
 
 func (s *stubConfig) Enabled() bool                    { return s.enabled }
 func (s *stubConfig) PollingInterval() time.Duration   { return s.pollingInterval }
 func (s *stubConfig) EnabledOCR2PluginTypes() []string { return s.enabledOCR2PluginTypes }
-func (s *stubConfig) EmitNonOCR2Jobs() bool            { return s.emitNonOCR2Jobs }
 
 func defaultConfig() *stubConfig {
 	return &stubConfig{
 		enabled:                true,
 		pollingInterval:        time.Hour,
 		enabledOCR2PluginTypes: []string{"median"},
-		emitNonOCR2Jobs:        false,
 	}
 }
 
@@ -79,6 +71,7 @@ func makeMedianJob() job.Job {
 			Relay:                       "evm",
 			ChainID:                     "1",
 			PluginType:                  commontypes.Median,
+			TransmitterID:               null.StringFrom("0x1111111111111111111111111111111111111111"),
 			RelayConfig:                 job.JSONConfig{"chainID": "1"},
 			PluginConfig:                job.JSONConfig{"juelsPerFeeCoinSource": `ds1 [type=http method=GET url="https://example.com"]`},
 			OnchainSigningStrategy:      job.JSONConfig{},
@@ -93,13 +86,14 @@ func makeNonMedianOCR2Job() job.Job {
 	jb := makeMedianJob()
 	jb.ID = 2
 	jb.ExternalJobID = uuid.New()
-	jb.Name = null.StringFrom("test-functions-job")
+	jb.Name = null.StringFrom("test-non-median-job")
 	jb.OCR2OracleSpec = &job.OCR2OracleSpec{
 		ID:                     2,
 		ContractID:             "0xabcdef1234567890",
 		Relay:                  "evm",
 		ChainID:                "1",
-		PluginType:             commontypes.Functions,
+		PluginType:             commontypes.Mercury,
+		TransmitterID:          null.StringFrom("0x2222222222222222222222222222222222222222"),
 		RelayConfig:            job.JSONConfig{"chainID": "1"},
 		PluginConfig:           job.JSONConfig{},
 		OnchainSigningStrategy: job.JSONConfig{},
@@ -189,17 +183,16 @@ func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	assert.False(t, svc.ShouldEmit(&vrf))
 }
 
-func TestShouldEmit_NonOCR2Enabled(t *testing.T) {
+func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
-	cfg.emitNonOCR2Jobs = true
 
 	svc := newTestReporter(t, cfg, nil)
 
 	median := makeMedianJob()
 	vrf := makeVRFJob()
 
-	assert.True(t, svc.ShouldEmit(&vrf))
+	assert.False(t, svc.ShouldEmit(&vrf))
 	assert.True(t, svc.ShouldEmit(&median))
 }
 
@@ -214,24 +207,37 @@ func TestBuildEvent_MedianJob(t *testing.T) {
 
 	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, jb.ExternalJobID.String(), ev.ExternalJobId)
-	assert.Equal(t, jb.ID, ev.InternalJobId)
 	assert.Equal(t, "test-median-job", ev.Name)
 	assert.Equal(t, "offchainreporting2", ev.JobType)
+	assert.Equal(t, jb.CreatedAt.Format(time.RFC3339Nano), ev.CreatedAt)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT, ev.EmissionTrigger)
 	assert.Equal(t, "csa-key", ev.CsaPublicKey)
 	assert.Equal(t, "1.0.0", ev.NodeVersion)
 	assert.Equal(t, "test-host", ev.Hostname)
 	assert.Equal(t, []string{"my-bridge"}, ev.BridgeNames)
-	assert.Equal(t, "0x1234567890abcdef", ev.ContractAddress)
-	assert.Equal(t, "1", ev.ChainId)
 	require.NotNil(t, ev.Ocr2OracleSpec)
+	assert.Equal(t, "0x1234567890abcdef", ev.Ocr2OracleSpec.GetContractId())
 	assert.Equal(t, "evm", ev.Ocr2OracleSpec.Relay)
 	assert.Equal(t, "median", ev.Ocr2OracleSpec.PluginType)
 	require.NotNil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
-	assert.NotEmpty(t, ev.Ocr2OracleSpec.MedianPluginConfig.JuelsPerFeeCoinSource)
+	assert.NotEmpty(t, ev.Ocr2OracleSpec.MedianPluginConfig.GetJuelsPerFeeCoinSource())
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
-	assert.Equal(t, "1", ev.Ocr2OracleSpec.EvmRelayConfig.ChainId)
-	assert.Nil(t, ev.Ocr1OracleSpec)
+	assert.Equal(t, "1", ev.Ocr2OracleSpec.EvmRelayConfig.GetChainId())
+	assert.Equal(t, "0x1111111111111111111111111111111111111111", ev.Ocr2OracleSpec.EvmRelayConfig.GetEffectiveTransmitterId())
+}
+
+func TestBuildEvent_MedianJobBridgeNamesFromPipelineSpec(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+
+	jb := makeMedianJob()
+	jb.Pipeline = pipeline.Pipeline{}
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
+	require.NoError(t, err)
+
+	ev := requireSingleJobSpecEvent(t, observer)
+	assert.Equal(t, []string{"my-bridge"}, ev.BridgeNames)
 }
 
 func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
@@ -246,10 +252,29 @@ func TestBuildEvent_MedianJobNumericRelayConfigChainID(t *testing.T) {
 	require.NoError(t, err)
 
 	ev := requireSingleJobSpecEvent(t, observer)
-	assert.Equal(t, "11155111", ev.ChainId)
 	require.NotNil(t, ev.Ocr2OracleSpec)
 	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
-	assert.Equal(t, "11155111", ev.Ocr2OracleSpec.EvmRelayConfig.ChainId)
+	assert.Equal(t, "11155111", ev.Ocr2OracleSpec.EvmRelayConfig.GetChainId())
+}
+
+func TestBuildEvent_EVMRelayConfigEmitsExplicitFalseBooleans(t *testing.T) {
+	observer := beholdertest.NewObserver(t)
+
+	jb := makeMedianJob()
+	jb.OCR2OracleSpec.RelayConfig["enableDualTransmission"] = false
+	jb.OCR2OracleSpec.RelayConfig["enableTriggerCapability"] = false
+	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
+
+	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
+	require.NoError(t, err)
+
+	ev := requireSingleJobSpecEvent(t, observer)
+	require.NotNil(t, ev.Ocr2OracleSpec)
+	require.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig)
+	assert.False(t, ev.Ocr2OracleSpec.EvmRelayConfig.GetEnableDualTransmission())
+	assert.False(t, ev.Ocr2OracleSpec.EvmRelayConfig.GetEnableTriggerCapability())
+	assert.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig.EnableDualTransmission)
+	assert.NotNil(t, ev.Ocr2OracleSpec.EvmRelayConfig.EnableTriggerCapability)
 }
 
 func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
@@ -263,7 +288,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 
 	ev := requireSingleJobSpecEvent(t, observer)
 	require.NotNil(t, ev.Ocr2OracleSpec)
-	assert.Equal(t, "functions", ev.Ocr2OracleSpec.PluginType)
+	assert.Equal(t, "mercury", ev.Ocr2OracleSpec.PluginType)
 	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.RelayConfigJson)
 }
@@ -275,11 +300,10 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 
 	jb := makeVRFJob()
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "unsupported job type")
 
-	ev := requireSingleJobSpecEvent(t, observer)
-	assert.Equal(t, "vrf", ev.JobType)
-	assert.Nil(t, ev.Ocr2OracleSpec)
+	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
+	require.Empty(t, msgs)
 }
 
 func TestOnJobStarted_EmitsCreate(t *testing.T) {
@@ -346,95 +370,7 @@ func TestBuildEvent_ProposalLifecycle(t *testing.T) {
 	assert.Equal(t, int64(7), ev.FeedsManagerId)
 	assert.Equal(t, prop.RemoteUUID.String(), ev.RemoteUuid)
 	assert.Equal(t, int32(3), ev.SpecVersion)
+	assert.Equal(t, proposedAt.Format(time.RFC3339Nano), ev.ProposedAt)
+	assert.Equal(t, approvedAt.Format(time.RFC3339Nano), ev.ApprovedAt)
 	assert.InDelta(t, approvedAt.Sub(proposedAt).Seconds(), ev.AcceptLatencySeconds, 1.0)
-}
-
-func TestBuildEvent_ContractFields_OCR1(t *testing.T) {
-	observer := beholdertest.NewObserver(t)
-	cfg := &stubConfig{
-		enabled:         true,
-		pollingInterval: time.Hour,
-		emitNonOCR2Jobs: true,
-	}
-	svc := newTestReporter(t, cfg, nil)
-
-	jb := makeOCR1Job(t)
-	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
-	require.NoError(t, err)
-
-	ev := requireSingleJobSpecEvent(t, observer)
-	assert.Equal(t, "0x9d9305445F404E925563d5D5EcC65C815Ec1655b", ev.ContractAddress)
-	assert.Equal(t, "11155111", ev.ChainId)
-	assert.Equal(t, "offchainreporting", ev.JobType)
-
-	require.NotNil(t, ev.Ocr1OracleSpec)
-	ocr1 := ev.Ocr1OracleSpec
-	assert.Equal(t, int32(99), ocr1.SpecId)
-	assert.Equal(t, []string{"12D3KooW@bootstrap:6688"}, ocr1.P2Pv2Bootstrappers)
-	assert.False(t, ocr1.IsBootstrapPeer)
-	assert.Equal(t, "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20", ocr1.OcrKeyBundleId)
-	assert.Equal(t, "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B", ocr1.TransmitterAddress)
-	assert.InDelta(t, 30.0, ocr1.ObservationTimeoutSeconds, 0.001)
-	assert.InDelta(t, 20.0, ocr1.BlockchainTimeoutSeconds, 0.001)
-	assert.InDelta(t, 120.0, ocr1.ContractConfigTrackerSubscribeIntervalSeconds, 0.001)
-	assert.InDelta(t, 60.0, ocr1.ContractConfigTrackerPollIntervalSeconds, 0.001)
-	assert.Equal(t, uint32(3), ocr1.ContractConfigConfirmations)
-	assert.InDelta(t, 10.0, ocr1.DatabaseTimeoutSeconds, 0.001)
-	assert.InDelta(t, 1.0, ocr1.ObservationGracePeriodSeconds, 0.001)
-	assert.InDelta(t, 5.0, ocr1.ContractTransmitterTransmitTimeoutSeconds, 0.001)
-	assert.True(t, ocr1.CaptureEaTelemetry)
-	assert.Equal(t, "2026-01-01T00:00:00Z", ocr1.SpecCreatedAt)
-	assert.Equal(t, "2026-02-01T00:00:00Z", ocr1.SpecUpdatedAt)
-
-	assert.Nil(t, ev.Ocr2OracleSpec)
-}
-
-func makeOCR1Job(t *testing.T) job.Job {
-	t.Helper()
-
-	keyHash, err := corekeys.Sha256HashFromHex("0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20")
-	require.NoError(t, err)
-	transmitter := evmtypes.MustEIP55Address("0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B")
-	specCreatedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	specUpdatedAt := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
-	dbTimeout := sqlutil.Interval(10 * time.Second)
-	gracePeriod := sqlutil.Interval(1 * time.Second)
-	transmitTimeout := sqlutil.Interval(5 * time.Second)
-	return job.Job{
-		ID:            4,
-		ExternalJobID: uuid.New(),
-		Name:          null.StringFrom("test-ocr1-job"),
-		Type:          job.OffchainReporting,
-		SchemaVersion: 1,
-		PipelineSpec:  &pipeline.Spec{ID: 40, DotDagSource: `ds1 [type=bridge name="bridge-gsr"]`},
-		Pipeline: pipeline.Pipeline{
-			Tasks: []pipeline.Task{
-				&pipeline.BridgeTask{
-					BaseTask: pipeline.NewBaseTask(0, "ds1", nil, nil, 0),
-					Name:     "bridge-gsr",
-				},
-			},
-		},
-		OCROracleSpec: &job.OCROracleSpec{
-			ID:                                     99,
-			ContractAddress:                        evmtypes.MustEIP55Address("0x9d9305445F404E925563d5D5EcC65C815Ec1655b"),
-			EVMChainID:                             sqlutil.NewI(11155111),
-			P2PV2Bootstrappers:                     pq.StringArray{"12D3KooW@bootstrap:6688"},
-			IsBootstrapPeer:                        false,
-			EncryptedOCRKeyBundleID:                &keyHash,
-			TransmitterAddress:                     &transmitter,
-			ObservationTimeout:                     sqlutil.Interval(30 * time.Second),
-			BlockchainTimeout:                      sqlutil.Interval(20 * time.Second),
-			ContractConfigTrackerSubscribeInterval: sqlutil.Interval(2 * time.Minute),
-			ContractConfigTrackerPollInterval:      sqlutil.Interval(1 * time.Minute),
-			ContractConfigConfirmations:            3,
-			DatabaseTimeout:                        &dbTimeout,
-			ObservationGracePeriod:                 &gracePeriod,
-			ContractTransmitterTransmitTimeout:     &transmitTimeout,
-			CaptureEATelemetry:                     true,
-			CreatedAt:                              specCreatedAt,
-			UpdatedAt:                              specUpdatedAt,
-		},
-		CreatedAt: time.Now(),
-	}
 }

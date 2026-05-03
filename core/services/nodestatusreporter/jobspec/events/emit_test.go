@@ -19,7 +19,6 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 
 	event := &events.JobSpecEvent{
 		ExternalJobId:   "test-job-id",
-		InternalJobId:   42,
 		Name:            "test-job",
 		JobType:         "offchainreporting2",
 		EmissionTrigger: events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT,
@@ -40,7 +39,6 @@ func TestEmitJobSpecEvent_RoundTrip(t *testing.T) {
 	var decoded events.JobSpecEvent
 	require.NoError(t, proto.Unmarshal(msg.Body, &decoded))
 	require.Equal(t, "test-job-id", decoded.ExternalJobId)
-	require.Equal(t, int32(42), decoded.InternalJobId)
 	require.Equal(t, "test-job", decoded.Name)
 	require.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT, decoded.EmissionTrigger)
 	require.NotEmpty(t, decoded.Timestamp)

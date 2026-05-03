@@ -441,7 +441,6 @@ IgnoreJoblessBridges = false
 Enabled = false
 PollingInterval = '1h0m0s'
 EnabledOCR2PluginTypes = ['median']
-EmitNonOCR2Jobs = false
 
 [Sharding]
 ShardingEnabled = false

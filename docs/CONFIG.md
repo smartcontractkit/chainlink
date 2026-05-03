@@ -2574,7 +2574,6 @@ IgnoreJoblessBridges skips bridges that have no associated jobs.
 Enabled = false # Default
 PollingInterval = "1h" # Default
 EnabledOCR2PluginTypes = ["median"] # Default
-EmitNonOCR2Jobs = false # Default
 ```
 JobSpecReporter holds settings for the Job Spec Reporter service, which periodically emits job spec telemetry.
 
@@ -2595,12 +2594,6 @@ PollingInterval is how often to emit a heartbeat event for each tracked job.
 EnabledOCR2PluginTypes = ["median"] # Default
 ```
 EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
-
-### EmitNonOCR2Jobs
-```toml
-EmitNonOCR2Jobs = false # Default
-```
-EmitNonOCR2Jobs emits telemetry for supported non-OCR2 job types.
 
 ## CRE
 ```toml

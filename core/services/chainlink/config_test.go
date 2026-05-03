@@ -665,7 +665,6 @@ func TestConfig_Marshal(t *testing.T) {
 		Enabled:                ptr(true),
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
-		EmitNonOCR2Jobs:        ptr(false),
 	}
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          ptr(false),

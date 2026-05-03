@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events"
-	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -125,7 +124,7 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 		return false
 	}
 	if j.Type != job.OffchainReporting2 || j.OCR2OracleSpec == nil {
-		return s.config.EmitNonOCR2Jobs()
+		return false
 	}
 	allowed := s.config.EnabledOCR2PluginTypes()
 	if len(allowed) == 0 {
@@ -136,6 +135,10 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 
 // EmitForJob builds and emits a JobSpecEvent for the given job and trigger.
 func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) error {
+	if jb.Type != job.OffchainReporting2 || jb.OCR2OracleSpec == nil {
+		return fmt.Errorf("unsupported job type %s", jb.Type)
+	}
+
 	event, err := s.buildEvent(ctx, jb, trigger)
 	if err != nil {
 		return fmt.Errorf("building event: %w", err)
@@ -150,23 +153,21 @@ func (s *Service) EmitForJob(ctx context.Context, jb job.Job, trigger events.Emi
 // buildEvent converts a job.Job into its protobuf JobSpecEvent representation.
 func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.EmissionTrigger) (*events.JobSpecEvent, error) {
 	event := &events.JobSpecEvent{
-		ExternalJobId:          jb.ExternalJobID.String(),
-		InternalJobId:          jb.ID,
-		Name:                   jb.Name.ValueOrZero(),
-		JobType:                string(jb.Type),
-		SchemaVersion:          jb.SchemaVersion,
-		ForwardingAllowed:      jb.ForwardingAllowed,
-		MaxTaskDurationSeconds: jb.MaxTaskDuration.Duration().Seconds(),
-		CreatedAt:              jb.CreatedAt.Format(time.RFC3339Nano),
-		CsaPublicKey:           s.csaPublicKey,
-		NodeVersion:            s.nodeVersion,
-		Hostname:               s.hostname,
-		EmissionTrigger:        trigger,
-		Timestamp:              time.Now().Format(time.RFC3339Nano),
+		ExternalJobId:     jb.ExternalJobID.String(),
+		Name:              jb.Name.ValueOrZero(),
+		JobType:           string(jb.Type),
+		SchemaVersion:     jb.SchemaVersion,
+		ForwardingAllowed: jb.ForwardingAllowed,
+		CreatedAt:         jb.CreatedAt.Format(time.RFC3339Nano),
+		CsaPublicKey:      s.csaPublicKey,
+		NodeVersion:       s.nodeVersion,
+		Hostname:          s.hostname,
+		EmissionTrigger:   trigger,
+		Timestamp:         time.Now().Format(time.RFC3339Nano),
 	}
 
 	if jb.GasLimit.Valid {
-		event.GasLimit = jb.GasLimit.Uint32
+		event.GasLimit = proto.Uint32(jb.GasLimit.Uint32)
 	}
 	if jb.StreamID != nil {
 		sid := *jb.StreamID
@@ -175,31 +176,22 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 
 	if jb.PipelineSpec != nil {
 		event.ObservationSource = jb.PipelineSpec.DotDagSource
-		event.PipelineSpecId = jb.PipelineSpec.ID
-		event.BridgeNames = extractBridgeNames(jb.Pipeline)
+		bridgeNames, err := extractBridgeNames(jb)
+		if err != nil {
+			return nil, fmt.Errorf("extracting bridge names: %w", err)
+		}
+		event.BridgeNames = bridgeNames
 	}
 
 	if err := s.populateProposalLifecycle(ctx, jb, event); err != nil {
 		s.eng.Warnw("Failed to populate proposal lifecycle", "jobID", jb.ID, "error", err)
 	}
 
-	if jb.Type == job.OffchainReporting2 && jb.OCR2OracleSpec != nil {
-		ocr2Info, err := buildOCR2OracleSpecInfo(jb.OCR2OracleSpec)
-		if err != nil {
-			return nil, fmt.Errorf("building OCR2OracleSpecInfo: %w", err)
-		}
-		event.Ocr2OracleSpec = ocr2Info
-		event.ContractAddress = jb.OCR2OracleSpec.ContractID
-		event.ChainId = ocr2ChainID(jb.OCR2OracleSpec)
+	ocr2Info, err := buildOCR2OracleSpecInfo(jb.OCR2OracleSpec)
+	if err != nil {
+		return nil, fmt.Errorf("building OCR2OracleSpecInfo: %w", err)
 	}
-
-	if jb.Type == job.OffchainReporting && jb.OCROracleSpec != nil {
-		event.ContractAddress = jb.OCROracleSpec.ContractAddress.String()
-		if jb.OCROracleSpec.EVMChainID != nil {
-			event.ChainId = jb.OCROracleSpec.EVMChainID.String()
-		}
-		event.Ocr1OracleSpec = buildOCR1OracleSpecInfo(jb.OCROracleSpec)
-	}
+	event.Ocr2OracleSpec = ocr2Info
 
 	return event, nil
 }
@@ -238,7 +230,20 @@ func (s *Service) populateProposalLifecycle(ctx context.Context, jb job.Job, eve
 
 // extractBridgeNames returns the names of bridge tasks in the top-level pipeline.
 // Tasks inside sub-pipelines (e.g. juelsPerFeeCoinSource) are not included.
-func extractBridgeNames(p pipeline.Pipeline) []string {
+func extractBridgeNames(jb job.Job) ([]string, error) {
+	names := extractBridgeNamesFromPipeline(jb.Pipeline)
+	if len(names) > 0 || jb.PipelineSpec == nil || jb.PipelineSpec.DotDagSource == "" {
+		return names, nil
+	}
+
+	p, err := pipeline.Parse(jb.PipelineSpec.DotDagSource)
+	if err != nil {
+		return nil, err
+	}
+	return extractBridgeNamesFromPipeline(*p), nil
+}
+
+func extractBridgeNamesFromPipeline(p pipeline.Pipeline) []string {
 	var names []string
 	for _, task := range p.Tasks {
 		if task.Type() != pipeline.TaskTypeBridge {
@@ -270,14 +275,18 @@ func ocr2ChainID(spec *job.OCR2OracleSpec) string {
 // evmRelayConfig mirrors the EVM relay config JSON so we can surface its fields
 // in OCR2EVMRelayConfig without depending on the EVM module.
 type evmRelayConfig struct {
-	FromBlock               uint64   `json:"fromBlock"`
-	EffectiveTransmitterID  string   `json:"effectiveTransmitterID"`
-	EnableDualTransmission  bool     `json:"enableDualTransmission"`
-	EnableTriggerCapability bool     `json:"enableTriggerCapability"`
-	LLODonID                uint64   `json:"lloDonID"`
-	FeedID                  string   `json:"feedID"`
+	FromBlock               *uint64  `json:"fromBlock"`
+	EffectiveTransmitterID  *string  `json:"effectiveTransmitterID"`
+	EnableDualTransmission  *bool    `json:"enableDualTransmission"`
+	EnableTriggerCapability *bool    `json:"enableTriggerCapability"`
+	LLODonID                *uint64  `json:"lloDonID"`
+	FeedID                  *string  `json:"feedID"`
 	SendingKeys             []string `json:"sendingKeys"`
-	ProviderType            string   `json:"providerType"`
+	ProviderType            *string  `json:"providerType"`
+}
+
+type medianPluginConfig struct {
+	JuelsPerFeeCoinPipeline *string `json:"juelsPerFeeCoinSource"`
 }
 
 // buildOCR2OracleSpecInfo converts an OCR2OracleSpec into the proto message.
@@ -290,40 +299,27 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	if err != nil {
 		return nil, fmt.Errorf("marshaling plugin config: %w", err)
 	}
-	onchainStrategyRaw, err := json.Marshal(spec.OnchainSigningStrategy)
-	if err != nil {
-		return nil, fmt.Errorf("marshaling onchain signing strategy: %w", err)
-	}
-
-	feedID := ""
-	if spec.FeedID != nil {
-		feedID = spec.FeedID.Hex()
-	}
-
 	info := &events.OCR2OracleSpecInfo{
-		SpecId:                                   spec.ID,
-		FeedId:                                   feedID,
-		Relay:                                    spec.Relay,
-		PluginType:                               string(spec.PluginType),
-		TransmitterId:                            spec.TransmitterID.ValueOrZero(),
-		OcrKeyBundleId:                           spec.OCRKeyBundleID.ValueOrZero(),
-		MonitoringEndpoint:                       spec.MonitoringEndpoint.ValueOrZero(),
-		P2Pv2Bootstrappers:                       spec.P2PV2Bootstrappers,
-		AllowNoBootstrappers:                     spec.AllowNoBootstrappers,
-		BlockchainTimeoutSeconds:                 spec.BlockchainTimeout.Duration().Seconds(),
-		ContractConfigTrackerPollIntervalSeconds: spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
-		ContractConfigConfirmations:              uint32(spec.ContractConfigConfirmations),
-		CaptureEaTelemetry:                       spec.CaptureEATelemetry,
-		CaptureAutomationCustomTelemetry:         spec.CaptureAutomationCustomTelemetry,
-		SpecCreatedAt:                            spec.CreatedAt.Format(time.RFC3339Nano),
-		SpecUpdatedAt:                            spec.UpdatedAt.Format(time.RFC3339Nano),
-		RelayConfigJson:                          string(relayConfigRaw),
-		PluginConfigJson:                         string(pluginConfigRaw),
-		OnchainSigningStrategyJson:               string(onchainStrategyRaw),
+		ContractId:         spec.ContractID,
+		Relay:              spec.Relay,
+		PluginType:         string(spec.PluginType),
+		CaptureEaTelemetry: spec.CaptureEATelemetry,
+		RelayConfigJson:    string(relayConfigRaw),
+		PluginConfigJson:   string(pluginConfigRaw),
+	}
+
+	if spec.FeedID != nil {
+		info.FeedId = proto.String(spec.FeedID.Hex())
+	}
+	if spec.TransmitterID.Valid {
+		info.TransmitterId = proto.String(spec.TransmitterID.String)
+	}
+	if spec.OCRKeyBundleID.Valid {
+		info.OcrKeyBundleId = proto.String(spec.OCRKeyBundleID.String)
 	}
 
 	if spec.Relay == "evm" {
-		evmCfg, err := buildEVMRelayConfig(relayConfigRaw, ocr2ChainID(spec))
+		evmCfg, err := buildEVMRelayConfig(relayConfigRaw, ocr2ChainID(spec), spec.TransmitterID.ValueOrZero())
 		if err != nil {
 			return nil, fmt.Errorf("building EVM relay config: %w", err)
 		}
@@ -341,98 +337,54 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	return info, nil
 }
 
-func buildOCR1OracleSpecInfo(spec *job.OCROracleSpec) *events.OCR1OracleSpecInfo {
-	keyBundleID := ""
-	if spec.EncryptedOCRKeyBundleID != nil {
-		keyBundleID = spec.EncryptedOCRKeyBundleID.String()
-	}
-
-	transmitterAddress := ""
-	if spec.TransmitterAddress != nil {
-		transmitterAddress = spec.TransmitterAddress.String()
-	}
-
-	var dbTimeoutSeconds float64
-	if spec.DatabaseTimeout != nil {
-		dbTimeoutSeconds = spec.DatabaseTimeout.Duration().Seconds()
-	}
-
-	var gracePeriodSeconds float64
-	if spec.ObservationGracePeriod != nil {
-		gracePeriodSeconds = spec.ObservationGracePeriod.Duration().Seconds()
-	}
-
-	var transmitTimeoutSeconds float64
-	if spec.ContractTransmitterTransmitTimeout != nil {
-		transmitTimeoutSeconds = spec.ContractTransmitterTransmitTimeout.Duration().Seconds()
-	}
-
-	return &events.OCR1OracleSpecInfo{
-		SpecId:                    spec.ID,
-		P2Pv2Bootstrappers:        spec.P2PV2Bootstrappers,
-		IsBootstrapPeer:           spec.IsBootstrapPeer,
-		OcrKeyBundleId:            keyBundleID,
-		TransmitterAddress:        transmitterAddress,
-		ObservationTimeoutSeconds: spec.ObservationTimeout.Duration().Seconds(),
-		BlockchainTimeoutSeconds:  spec.BlockchainTimeout.Duration().Seconds(),
-		ContractConfigTrackerSubscribeIntervalSeconds: spec.ContractConfigTrackerSubscribeInterval.Duration().Seconds(),
-		ContractConfigTrackerPollIntervalSeconds:      spec.ContractConfigTrackerPollInterval.Duration().Seconds(),
-		ContractConfigConfirmations:                   uint32(spec.ContractConfigConfirmations),
-		DatabaseTimeoutSeconds:                        dbTimeoutSeconds,
-		ObservationGracePeriodSeconds:                 gracePeriodSeconds,
-		ContractTransmitterTransmitTimeoutSeconds:     transmitTimeoutSeconds,
-		CaptureEaTelemetry:                            spec.CaptureEATelemetry,
-		SpecCreatedAt:                                 spec.CreatedAt.Format(time.RFC3339Nano),
-		SpecUpdatedAt:                                 spec.UpdatedAt.Format(time.RFC3339Nano),
-	}
-}
-
 // buildEVMRelayConfig decodes the EVM relay config JSON into OCR2EVMRelayConfig.
-func buildEVMRelayConfig(relayConfigJSON []byte, chainID string) (*events.OCR2EVMRelayConfig, error) {
+func buildEVMRelayConfig(relayConfigJSON []byte, chainID, transmitterID string) (*events.OCR2EVMRelayConfig, error) {
 	var cfg evmRelayConfig
 	if err := json.Unmarshal(relayConfigJSON, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling EVM relay config: %w", err)
 	}
 
-	return &events.OCR2EVMRelayConfig{
-		ChainId:                 chainID,
-		FromBlock:               cfg.FromBlock,
-		EffectiveTransmitterId:  cfg.EffectiveTransmitterID,
-		EnableDualTransmission:  cfg.EnableDualTransmission,
-		EnableTriggerCapability: cfg.EnableTriggerCapability,
-		LloDonId:                cfg.LLODonID,
-		FeedId:                  cfg.FeedID,
-		SendingKeys:             cfg.SendingKeys,
-		ProviderType:            cfg.ProviderType,
-	}, nil
+	effectiveTransmitterID := transmitterID
+	if cfg.EffectiveTransmitterID != nil {
+		effectiveTransmitterID = *cfg.EffectiveTransmitterID
+	}
+
+	evmProto := &events.OCR2EVMRelayConfig{
+		ChainId:                chainID,
+		EffectiveTransmitterId: effectiveTransmitterID,
+		SendingKeys:            cfg.SendingKeys,
+	}
+	if cfg.FromBlock != nil {
+		evmProto.FromBlock = proto.Uint64(*cfg.FromBlock)
+	}
+	if cfg.EnableDualTransmission != nil {
+		evmProto.EnableDualTransmission = proto.Bool(*cfg.EnableDualTransmission)
+	}
+	if cfg.EnableTriggerCapability != nil {
+		evmProto.EnableTriggerCapability = proto.Bool(*cfg.EnableTriggerCapability)
+	}
+	if cfg.LLODonID != nil {
+		evmProto.LloDonId = proto.Uint64(*cfg.LLODonID)
+	}
+	if cfg.FeedID != nil {
+		evmProto.FeedId = proto.String(*cfg.FeedID)
+	}
+	if cfg.ProviderType != nil {
+		evmProto.ProviderType = proto.String(*cfg.ProviderType)
+	}
+	return evmProto, nil
 }
 
 // buildMedianPluginConfig decodes the median plugin config JSON into OCR2MedianPluginConfig.
 func buildMedianPluginConfig(pluginConfigJSON []byte) (*events.OCR2MedianPluginConfig, error) {
-	var cfg medianconfig.PluginConfig
+	var cfg medianPluginConfig
 	if err := json.Unmarshal(pluginConfigJSON, &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshaling median plugin config: %w", err)
 	}
 
-	medianProto := &events.OCR2MedianPluginConfig{
-		JuelsPerFeeCoinSource:  cfg.JuelsPerFeeCoinPipeline,
-		GasPriceSubunitsSource: cfg.GasPriceSubunitsPipeline,
-	}
-
-	if cfg.JuelsPerFeeCoinCache == nil {
-		medianProto.JuelsPerFeeCoinCacheDisabled = true
-	} else {
-		medianProto.JuelsPerFeeCoinCacheDisabled = cfg.JuelsPerFeeCoinCache.Disable
-		medianProto.JuelsPerFeeCoinCacheUpdateIntervalSeconds = cfg.JuelsPerFeeCoinCache.UpdateInterval.Duration().Seconds()
-		medianProto.JuelsPerFeeCoinCacheStalenessAlertThresholdSeconds = cfg.JuelsPerFeeCoinCache.StalenessAlertThreshold.Duration().Seconds()
-	}
-
-	if cfg.DeviationFunctionDefinition != nil {
-		devFuncRaw, err := json.Marshal(cfg.DeviationFunctionDefinition)
-		if err != nil {
-			return nil, fmt.Errorf("marshaling deviation function definition: %w", err)
-		}
-		medianProto.DeviationFuncJson = string(devFuncRaw)
+	medianProto := &events.OCR2MedianPluginConfig{}
+	if cfg.JuelsPerFeeCoinPipeline != nil {
+		medianProto.JuelsPerFeeCoinSource = *cfg.JuelsPerFeeCoinPipeline
 	}
 
 	return medianProto, nil

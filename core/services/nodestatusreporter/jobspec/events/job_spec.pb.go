@@ -21,7 +21,6 @@ var (
 )
 
 type JobSpecEvent = job_specv1.JobSpecEvent
-type OCR1OracleSpecInfo = job_specv1.OCR1OracleSpecInfo
 type OCR2EVMRelayConfig = job_specv1.OCR2EVMRelayConfig
 type OCR2MedianPluginConfig = job_specv1.OCR2MedianPluginConfig
 type OCR2OracleSpecInfo = job_specv1.OCR2OracleSpecInfo
