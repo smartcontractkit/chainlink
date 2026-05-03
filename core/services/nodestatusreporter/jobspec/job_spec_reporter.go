@@ -26,6 +26,8 @@ import (
 
 const ServiceName = "JobSpecReporter"
 
+var _ job.Listener = (*Service)(nil)
+
 // Service polls active jobs and pushes their specs to Beholder, and also emits
 // on job create/delete via the job.Listener interface.
 type Service struct {
@@ -118,7 +120,6 @@ func (s *Service) pollAllJobs(ctx context.Context) {
 }
 
 // ShouldEmit reports whether the job passes the config-driven emit gate.
-// Applied to heartbeat, create, and delete events alike.
 func (s *Service) ShouldEmit(j *job.Job) bool {
 	if j == nil {
 		return false
