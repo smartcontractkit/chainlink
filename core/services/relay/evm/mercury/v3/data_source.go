@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
+	mercurytypes "github.com/smartcontractkit/chainlink-data-streams/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	v3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3"
-	mercurytypes "github.com/smartcontractkit/chainlink-evm/pkg/mercury/types"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"

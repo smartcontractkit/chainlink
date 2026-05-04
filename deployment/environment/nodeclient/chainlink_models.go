@@ -916,32 +916,6 @@ observationSource = """
 	return MarshallTemplate(f, "Flux Monitor Job", fluxMonitorTemplateString)
 }
 
-// KeeperJobSpec represents a V2 keeper spec
-type KeeperJobSpec struct {
-	Name                     string `toml:"name"`
-	ContractAddress          string `toml:"contractAddress"`
-	FromAddress              string `toml:"fromAddress"` // Hex representation of the from address
-	EVMChainID               string `toml:"evmChainID"`  // Not optional
-	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
-}
-
-// Type returns the type of the job
-func (k *KeeperJobSpec) Type() string { return "keeper" }
-
-// String representation of the job
-func (k *KeeperJobSpec) String() (string, error) {
-	keeperTemplateString := `
-type                     = "keeper"
-schemaVersion            = 1
-name                     = "{{.Name}}"
-contractAddress          = "{{.ContractAddress}}"
-fromAddress              = "{{.FromAddress}}"
-evmChainID		 		 = "{{.EVMChainID}}"
-minIncomingConfirmations = {{.MinIncomingConfirmations}}
-`
-	return MarshallTemplate(k, "Keeper Job", keeperTemplateString)
-}
-
 // OCRBootstrapJobSpec represents the spec for bootstrapping an OCR job, given to one node that then must be linked
 // back to by others by OCRTaskJobSpecs
 type OCRBootstrapJobSpec struct {
