@@ -12,9 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	relaymercuryv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
-	reportcodecv4 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v4/reportcodec"
+	reportcodecv4 "github.com/smartcontractkit/chainlink-data-streams/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"

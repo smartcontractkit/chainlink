@@ -33,10 +33,10 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	evmmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
-	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
