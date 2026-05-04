@@ -129,7 +129,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 				}
 				extraArgs.ComputeUnits = uint32(v)
 			default:
-				return out, fmt.Errorf("invalid type for ComputeUnits, expected uint32, got %T", fieldValue)
+				return out, fmt.Errorf("invalid type for ComputeUnits, expected uint32 or int64, got %T", fieldValue)
 			}
 		case "accountiswritablebitmap":
 			switch v := fieldValue.(type) {
@@ -141,7 +141,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 				}
 				extraArgs.IsWritableBitmap = uint64(v)
 			default:
-				return out, fmt.Errorf("invalid type for IsWritableBitmap, expected uint64, got %T", fieldValue)
+				return out, fmt.Errorf("invalid type for IsWritableBitmap, expected uint64 or int64, got %T", fieldValue)
 			}
 		case "accounts":
 			switch v := fieldValue.(type) {
@@ -174,7 +174,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 				}
 				accounts = a
 			default:
-				return out, fmt.Errorf("invalid type for Accounts, expected [][32]byte, got %T", fieldValue)
+				return out, fmt.Errorf("invalid type for Accounts, expected [][32]byte, [][]byte, or []interface{}, got %T", fieldValue)
 			}
 		case "tokenreceiver":
 			switch v := fieldValue.(type) {
@@ -186,7 +186,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 				}
 				tokenReceiver = solana.PublicKeyFromBytes(v)
 			default:
-				return out, fmt.Errorf("invalid type for TokenReceiver, expected [32]byte, got %T", fieldValue)
+				return out, fmt.Errorf("invalid type for TokenReceiver, expected [32]byte or []byte, got %T", fieldValue)
 			}
 		default:
 			// no error here, unneeded keys can be skipped without return errors
