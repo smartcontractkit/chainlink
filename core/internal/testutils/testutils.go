@@ -93,7 +93,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 	if d, ok := t.Deadline(); ok {
 		// 10% buffer for cleanup and scheduling delay
 		deadlineTimeout := time.Until(d) * 9 / 10
-		return max(deadlineTimeout, DefaultWaitTimeout)
+		return deadlineTimeout
 	}
 	return DefaultWaitTimeout
 }
