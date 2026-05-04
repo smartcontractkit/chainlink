@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -252,7 +254,7 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 		return nil
 	}
 
-	bySource := make(map[nodeSubmitterAddressKey]map[string]struct{})
+	builder := newNodeSubmitterAddressBuilder()
 	for offset := 0; ; {
 		jobs, count, err := s.opts.JobReader.FindJobs(ctx, offset, nodePlatformJobInfoPageSize)
 		if err != nil {
@@ -260,7 +262,7 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 			return nil
 		}
 
-		addNodeSubmitterAddressesFromJobs(bySource, jobs)
+		builder.addJobs(jobs)
 
 		offset += len(jobs)
 		if len(jobs) == 0 || offset >= count || len(jobs) < nodePlatformJobInfoPageSize {
@@ -268,7 +270,7 @@ func (s *NodePlatformJobInfoService) submitterAddresses(ctx context.Context) []*
 		}
 	}
 
-	return sortedNodeSubmitterAddresses(bySource)
+	return builder.build()
 }
 
 type nodeSubmitterAddressKey struct {
@@ -278,28 +280,36 @@ type nodeSubmitterAddressKey struct {
 	fieldPath  string
 }
 
-func addNodeSubmitterAddressesFromJobs(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jobs []job.Job) {
+type nodeSubmitterAddressBuilder struct {
+	bySource map[nodeSubmitterAddressKey]map[string]struct{}
+}
+
+func newNodeSubmitterAddressBuilder() *nodeSubmitterAddressBuilder {
+	return &nodeSubmitterAddressBuilder{bySource: make(map[nodeSubmitterAddressKey]map[string]struct{})}
+}
+
+func (b *nodeSubmitterAddressBuilder) addJobs(jobs []job.Job) {
 	for _, jb := range jobs {
-		addOCRSubmitterAddress(bySource, jb)
-		addOCR2SubmitterAddresses(bySource, jb)
-		addVRFSubmitterAddresses(bySource, jb)
-		addBlockhashStoreSubmitterAddresses(bySource, jb)
-		addBlockHeaderFeederSubmitterAddresses(bySource, jb)
-		addLegacyGasStationServerSubmitterAddresses(bySource, jb)
-		addStandardCapabilitiesSubmitterAddress(bySource, jb)
-		addPipelineETHTxSubmitterAddresses(bySource, jb)
+		b.addOCRSubmitterAddress(jb)
+		b.addOCR2SubmitterAddresses(jb)
+		b.addVRFSubmitterAddresses(jb)
+		b.addBlockhashStoreSubmitterAddresses(jb)
+		b.addBlockHeaderFeederSubmitterAddresses(jb)
+		b.addLegacyGasStationServerSubmitterAddresses(jb)
+		b.addStandardCapabilitiesSubmitterAddress(jb)
+		b.addPipelineETHTxSubmitterAddresses(jb)
 	}
 }
 
-func addOCRSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addOCRSubmitterAddress(jb job.Job) {
 	spec := jb.OCROracleSpec
 	if spec == nil || spec.TransmitterAddress == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.OffchainReporting), "", nodeSubmitterFieldTransmitterAddress, spec.TransmitterAddress.String())
+	b.add(spec.EVMChainID.String(), jobType(jb, job.OffchainReporting), "", nodeSubmitterFieldTransmitterAddress, spec.TransmitterAddress.String())
 }
 
-func addOCR2SubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addOCR2SubmitterAddresses(jb job.Job) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil || !isOnChainOCR2Plugin(spec.PluginType) {
 		return
@@ -311,12 +321,12 @@ func addOCR2SubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]s
 
 	pluginType := string(spec.PluginType)
 	if spec.TransmitterID.Valid {
-		addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldTransmitterID, spec.TransmitterID.String)
+		b.add(chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldTransmitterID, spec.TransmitterID.String)
 	}
 	if sendingKeys, err := job.SendingKeysForJob(spec); err == nil {
-		addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldRelayConfigSendingKeys, sendingKeys...)
+		b.add(chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldRelayConfigSendingKeys, sendingKeys...)
 	}
-	addNodeSubmitterAddress(bySource, chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldDualTransmissionTransmitterAddress, dualTransmissionTransmitterAddress(spec.RelayConfig))
+	b.add(chainID, jobType(jb, job.OffchainReporting2), pluginType, nodeSubmitterFieldDualTransmissionTransmitterAddress, dualTransmissionTransmitterAddress(spec.RelayConfig))
 }
 
 func isOnChainOCR2Plugin(pluginType commontypes.OCR2PluginType) bool {
@@ -338,47 +348,47 @@ func ocr2ChainID(spec *job.OCR2OracleSpec) string {
 	return jsonConfigString(spec.RelayConfig, "chainID")
 }
 
-func addVRFSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addVRFSubmitterAddresses(jb job.Job) {
 	spec := jb.VRFSpec
 	if spec == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.VRF), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+	b.add(spec.EVMChainID.String(), jobType(jb, job.VRF), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
 }
 
-func addBlockhashStoreSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addBlockhashStoreSubmitterAddresses(jb job.Job) {
 	spec := jb.BlockhashStoreSpec
 	if spec == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.BlockhashStore), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+	b.add(spec.EVMChainID.String(), jobType(jb, job.BlockhashStore), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
 }
 
-func addBlockHeaderFeederSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addBlockHeaderFeederSubmitterAddresses(jb job.Job) {
 	spec := jb.BlockHeaderFeederSpec
 	if spec == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.BlockHeaderFeeder), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+	b.add(spec.EVMChainID.String(), jobType(jb, job.BlockHeaderFeeder), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
 }
 
-func addLegacyGasStationServerSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addLegacyGasStationServerSubmitterAddresses(jb job.Job) {
 	spec := jb.LegacyGasStationServerSpec
 	if spec == nil || spec.EVMChainID == nil {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.EVMChainID.String(), jobType(jb, job.LegacyGasStationServer), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
+	b.add(spec.EVMChainID.String(), jobType(jb, job.LegacyGasStationServer), "", nodeSubmitterFieldFromAddresses, eip55AddressStrings(spec.FromAddresses)...)
 }
 
-func addStandardCapabilitiesSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addStandardCapabilitiesSubmitterAddress(jb job.Job) {
 	spec := jb.StandardCapabilitiesSpec
 	if spec == nil || !spec.OracleFactory.Enabled {
 		return
 	}
-	addNodeSubmitterAddress(bySource, spec.OracleFactory.ChainID, jobType(jb, job.StandardCapabilities), "", nodeSubmitterFieldOracleFactoryTransmitterID, spec.OracleFactory.TransmitterID)
+	b.add(spec.OracleFactory.ChainID, jobType(jb, job.StandardCapabilities), "", nodeSubmitterFieldOracleFactoryTransmitterID, spec.OracleFactory.TransmitterID)
 }
 
-func addPipelineETHTxSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}, jb job.Job) {
+func (b *nodeSubmitterAddressBuilder) addPipelineETHTxSubmitterAddresses(jb job.Job) {
 	p, ok := jobPipeline(jb)
 	if !ok {
 		return
@@ -396,7 +406,7 @@ func addPipelineETHTxSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map
 		if chainID == "" {
 			chainID = jobEVMChainID(jb)
 		}
-		addNodeSubmitterAddress(bySource, chainID, jobType(jb, ""), "", nodeSubmitterFieldObservationSourceETHTxFrom, addresses...)
+		b.add(chainID, jobType(jb, ""), "", nodeSubmitterFieldObservationSourceETHTxFrom, addresses...)
 	}
 }
 
@@ -535,7 +545,7 @@ func jobType(jb job.Job, fallback job.Type) string {
 	return fallback.String()
 }
 
-func addNodeSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]struct{}, chainID, jobType, pluginType, fieldPath string, addresses ...string) {
+func (b *nodeSubmitterAddressBuilder) add(chainID, jobType, pluginType, fieldPath string, addresses ...string) {
 	chainID = strings.TrimSpace(chainID)
 	jobType = strings.TrimSpace(jobType)
 	pluginType = strings.TrimSpace(pluginType)
@@ -549,24 +559,27 @@ func addNodeSubmitterAddress(bySource map[nodeSubmitterAddressKey]map[string]str
 		pluginType: pluginType,
 		fieldPath:  fieldPath,
 	}
+	if b.bySource == nil {
+		b.bySource = make(map[nodeSubmitterAddressKey]map[string]struct{})
+	}
 	for _, address := range addresses {
 		address = strings.TrimSpace(address)
 		if address == "" {
 			continue
 		}
-		if bySource[key] == nil {
-			bySource[key] = make(map[string]struct{})
+		if b.bySource[key] == nil {
+			b.bySource[key] = make(map[string]struct{})
 		}
-		bySource[key][address] = struct{}{}
+		b.bySource[key][address] = struct{}{}
 	}
 }
 
-func sortedNodeSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[string]struct{}) []*commonv1.NodeSubmitterAddress {
-	if len(bySource) == 0 {
+func (b *nodeSubmitterAddressBuilder) build() []*commonv1.NodeSubmitterAddress {
+	if len(b.bySource) == 0 {
 		return nil
 	}
-	keys := make([]nodeSubmitterAddressKey, 0, len(bySource))
-	for key := range bySource {
+	keys := make([]nodeSubmitterAddressKey, 0, len(b.bySource))
+	for key := range b.bySource {
 		keys = append(keys, key)
 	}
 	sort.Slice(keys, func(i, j int) bool {
@@ -584,14 +597,10 @@ func sortedNodeSubmitterAddresses(bySource map[nodeSubmitterAddressKey]map[strin
 
 	out := make([]*commonv1.NodeSubmitterAddress, 0, len(keys))
 	for _, key := range keys {
-		addresses := make([]string, 0, len(bySource[key]))
-		for address := range bySource[key] {
-			addresses = append(addresses, address)
-		}
-		sort.Strings(addresses)
-		if len(addresses) == 0 {
+		if len(b.bySource[key]) == 0 {
 			continue
 		}
+		addresses := slices.Sorted(maps.Keys(b.bySource[key]))
 		out = append(out, &commonv1.NodeSubmitterAddress{
 			ChainId:    key.chainID,
 			JobType:    key.jobType,
