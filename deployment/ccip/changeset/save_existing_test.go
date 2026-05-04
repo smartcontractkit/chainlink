@@ -52,7 +52,7 @@ func TestSaveExisting(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 2)
@@ -90,7 +90,7 @@ func TestSaveExistingAddressWithLabels(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)
@@ -130,7 +130,7 @@ func TestSaveExistingMCMSAddressWithLabels(t *testing.T) {
 
 	output, err := SaveExistingContractsChangeset(dummyEnv, ExistingContracts)
 	require.NoError(t, err)
-	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, dummyEnv.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // AddressBook is deprecated but still returned by this changeset.
 	addresses, err := dummyEnv.ExistingAddresses.Addresses()
 	require.NoError(t, err)
 	require.Len(t, addresses, 1)
