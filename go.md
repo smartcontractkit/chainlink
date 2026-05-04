@@ -504,7 +504,6 @@ flowchart LR
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests --> chainlink-testing-framework/havoc
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/cron
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
