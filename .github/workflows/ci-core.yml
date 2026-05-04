@@ -449,7 +449,7 @@ jobs:
         include: ${{ fromJson(needs.shard-matrices.outputs.core-test-matrix) }}
     name: Core Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [ filter, shard-matrices, run-frequency, core-shard-consistency ]
+    needs: [ filter, shard-matrices, run-frequency ]
     timeout-minutes: 30
     runs-on: ${{ matrix.should-run == 'true' && matrix.os || 'ubuntu-latest' }}
     permissions:
@@ -632,7 +632,7 @@ jobs:
   core-tests-integration-result:
     name: Core Tests (go_core_tests_integration)
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ core-tests ]
+    needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
     steps:
       - name: Download row status artifacts
@@ -677,7 +677,7 @@ jobs:
   core-deployment-tests-result:
     name: Core Tests (go_core_deployment_tests)
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ core-tests ]
+    needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
     steps:
       - name: Download row status artifacts
@@ -722,7 +722,7 @@ jobs:
   core-tests-result:
     name: Core Tests (go_core_tests)
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ core-tests ]
+    needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
     steps:
       - name: Download row status artifacts
