@@ -262,6 +262,7 @@ Lead with hypothesis. Pick one fix archetype:
 - Global state: move to per-test constructor, or guard and reset in `TestMain`.
 - Timing assumption: replace sleeps with `require.eventually`, channel sync.
 - Race: narrow shared field, use `sync.Mutex` / `atomic.*`, or redesign sharing.
+- Use `synctest` for tests that looks for or possibly cause deadlocks and leaked routines
 - DB contention: use separate schema/user per test; package-level `sync.Mutex` on affected tables only as last resort.
 - Dead flake on dead code: delete test. See `tools/test/fixing-flaky-tests.md` section 8.
 
