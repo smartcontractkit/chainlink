@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- [#22208](https://github.com/smartcontractkit/chainlink/pull/22208) [`b8e5aec`](https://github.com/smartcontractkit/chainlink/commit/b8e5aec903d28ed0fdd0fcc9e9ab59e710c1b43e) - Remove legacy Keepers v1 (keeper job type, node configuration, and related database tables). Node operators still using Keepers v1 must migrate to Automation v2 (OCR) before upgrading; Automation v2 is unchanged. #breaking_change #nops
+- [#22208](https://github.com/smartcontractkit/chainlink/pull/22208) [`b8e5aec`](https://github.com/smartcontractkit/chainlink/commit/b8e5aec903d28ed0fdd0fcc9e9ab59e710c1b43e) - Remove legacy Keepers v1 (keeper job type, node configuration, and related database tables). Automation v2 is unchanged. #breaking_change #nops
 
 ### Minor Changes
 
