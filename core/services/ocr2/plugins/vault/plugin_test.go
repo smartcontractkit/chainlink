@@ -168,6 +168,34 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.Equal(t, int(cresettings.Default.VaultMaxBlobPayloadSizeLimit.DefaultValue), infoObject.Limits.MaxBlobPayloadBytes)
 }
 
+func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	store := requests.NewStore[*vaulttypes.Request]()
+
+	_, orm := setupORM(t)
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	instanceID := "instanceID"
+	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
+
+	lpk := vaultcap.NewLazyPublicKey()
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err)
+
+	cfg := vaultcommon.ReportingPluginConfig{
+		DKGInstanceID: &instanceID,
+	}
+	cfgb, err := proto.Marshal(&cfg)
+	require.NoError(t, err)
+	_, info, err := rpf.NewReportingPlugin(t.Context(), ocr3types.ReportingPluginConfig{OffchainConfig: cfgb}, nil)
+	require.NoError(t, err)
+
+	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
+	require.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
+	validateErr := infoObject.Validate()
+	require.NoError(t, validateErr)
+}
+
 func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -1082,6 +1110,8 @@ func TestPlugin_Observation_GetSecretsRequest_OrgIdLabelAcceptedWhenEnabled(t *t
 	require.Len(t, obs.Observations, 1)
 	batchResp := obs.Observations[0].GetGetSecretsResponse()
 	require.Len(t, batchResp.Responses, 1)
+	require.NotNil(t, batchResp.Responses[0].GetId())
+	assert.Equal(t, orgID, batchResp.Responses[0].GetId().GetOwner())
 	assert.Empty(t, batchResp.Responses[0].GetError())
 }
 
@@ -6842,6 +6872,64 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
 }
 
+func TestPlugin_ValidateObservation_GetSecretsRequest_OrgIDResponseOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	cfg := makeReportingPluginConfig(t, 1, pk, shares[0], 1, 1024, 30, 30, 30, 10)
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(true)
+	r := &ReportingPlugin{
+		lggr:    lggr,
+		metrics: newTestMetrics(t),
+		cfg:     cfg,
+	}
+
+	workflowOwner := "workflowowner"
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	secretID := &vaultcommon.SecretIdentifier{
+		Owner:     workflowOwner,
+		Namespace: "main",
+		Key:       "secret",
+	}
+	responseID := &vaultcommon.SecretIdentifier{
+		Owner:     orgID,
+		Namespace: secretID.Namespace,
+		Key:       secretID.Key,
+	}
+
+	obs := &vaultcommon.Observation{
+		Id:          "request-1",
+		RequestType: vaultcommon.RequestType_GET_SECRETS,
+		Request: &vaultcommon.Observation_GetSecretsRequest{
+			GetSecretsRequest: &vaultcommon.GetSecretsRequest{
+				Requests: []*vaultcommon.SecretRequest{
+					{Id: secretID},
+				},
+				OrgId:         orgID,
+				WorkflowOwner: workflowOwner,
+			},
+		},
+		Response: &vaultcommon.Observation_GetSecretsResponse{
+			GetSecretsResponse: &vaultcommon.GetSecretsResponse{
+				Responses: []*vaultcommon.SecretResponse{
+					{
+						Id: responseID,
+						Result: &vaultcommon.SecretResponse_Error{
+							Error: "not found",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, r.validateObservation(t.Context(), obs))
+
+	cfg.OrgIDAsSecretOwnerEnabled = limits.NewGateLimiter(false)
+	require.ErrorContains(t, r.validateObservation(t.Context(), obs), "missing response for request with id workflowowner::main::secret")
+}
+
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	store := requests.NewStore[*vaulttypes.Request]()
@@ -7968,6 +8056,89 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		for _, item := range result {
 			assert.Equal(t, []byte("handle"), item)
 		}
+	})
+
+	t.Run("does not exceed max concurrent broadcasts", func(t *testing.T) {
+		lggr := logger.TestLogger(t)
+		r := &ReportingPlugin{
+			lggr:    lggr,
+			metrics: newTestMetrics(t),
+			marshalBlob: func(ocr3_1types.BlobHandle) ([]byte, error) {
+				return []byte("handle"), nil
+			},
+		}
+
+		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
+		ids := make([]string, len(payloads))
+		for i := range payloads {
+			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
+			ids[i] = fmt.Sprintf("req-%d", i)
+		}
+
+		var active atomic.Int32
+		var maxActive atomic.Int32
+		started := make(chan struct{}, len(payloads))
+		release := make(chan struct{})
+		released := atomic.Bool{}
+		releaseBroadcasts := func() {
+			if released.CompareAndSwap(false, true) {
+				close(release)
+			}
+		}
+		defer releaseBroadcasts()
+
+		fetcher := &ctxCallbackBlobFetcher{fn: func(ctx context.Context, _ []byte) error {
+			current := active.Add(1)
+			defer active.Add(-1)
+
+			for {
+				maxSeen := maxActive.Load()
+				if current <= maxSeen || maxActive.CompareAndSwap(maxSeen, current) {
+					break
+				}
+			}
+
+			started <- struct{}{}
+			select {
+			case <-release:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}}
+
+		type broadcastResult struct {
+			payloads [][]byte
+			err      error
+		}
+		done := make(chan broadcastResult, 1)
+		go func() {
+			result, err := r.broadcastBlobPayloads(t.Context(), fetcher, 1, payloads, ids)
+			done <- broadcastResult{payloads: result, err: err}
+		}()
+
+		for i := 0; i < maxConcurrentBlobBroadcasts; i++ {
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatalf("timed out waiting for broadcast %d to start", i+1)
+			}
+		}
+
+		assert.Never(t, func() bool {
+			return maxActive.Load() > int32(maxConcurrentBlobBroadcasts)
+		}, 100*time.Millisecond, 10*time.Millisecond)
+
+		releaseBroadcasts()
+
+		select {
+		case result := <-done:
+			require.NoError(t, result.err)
+			assert.Len(t, result.payloads, len(payloads))
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcasts to complete")
+		}
+		assert.LessOrEqual(t, maxActive.Load(), int32(maxConcurrentBlobBroadcasts))
 	})
 
 	t.Run("failed broadcast is skipped and logged", func(t *testing.T) {

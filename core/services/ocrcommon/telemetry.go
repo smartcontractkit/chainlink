@@ -19,7 +19,7 @@ import (
 	v2types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v2"
 	v3types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	v4types "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v4"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
