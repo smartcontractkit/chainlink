@@ -350,7 +350,12 @@ func restorePersistedBeholderState(relativePathToRepoRoot string, cfg *envconfig
 	if cfg == nil {
 		return nil
 	}
-	return cfg.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
+	path := envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return errors.Wrap(err, "failed to create directory for persisted Beholder state")
+	}
+	return cfg.Store(path)
 }
 
 func reconcilePersistedBeholderWithRouter(ctx context.Context, cfg *envconfig.ChipIngressConfig) error {
