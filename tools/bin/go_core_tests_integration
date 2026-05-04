@@ -7,6 +7,8 @@ OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
 EXTRA_FLAGS=""
+GO_TEST_SHARD_COUNT=${GO_TEST_SHARD_COUNT:?GO_TEST_SHARD_COUNT must be set}
+GO_TEST_SHARD_INDEX=${GO_TEST_SHARD_INDEX:?GO_TEST_SHARD_INDEX must be set}
 
 # Install gotestsum as test runner
 echo "Installing gotestsum..."
@@ -47,12 +49,25 @@ if [[ -z $INTEGRATION_TAGGED_TEST_FILES ]]; then
   exit 0
 fi
 INTEGRATION_TEST_DIRS=$(echo "$INTEGRATION_TAGGED_TEST_FILES" | xargs -n1 dirname | sort -u)
-INTEGRATION_TEST_DIRS_SPACE_DELIMITED=$(echo "$INTEGRATION_TEST_DIRS" | tr '\n' ' ')
+SHARD_PACKAGE_OUTPUT=$(printf '%s\n' "$INTEGRATION_TEST_DIRS" | go run ./tools/ci-testshard list --shard-count "$GO_TEST_SHARD_COUNT" --shard-index "$GO_TEST_SHARD_INDEX")
+if [[ $? -ne 0 ]]; then
+  exit 1
+fi
 
 echo "Using GO_TEST_FLAGS: $GO_TEST_FLAGS"
 echo "Using RERUN_FLAGS: $RERUN_FLAGS"
 echo "Using JUNIT_FLAG: $JUNIT_FLAG"
-echo "Using TEST_DIRS: $INTEGRATION_TEST_DIRS_SPACE_DELIMITED"
+echo "Using GO_TEST_SHARD_COUNT: $GO_TEST_SHARD_COUNT"
+echo "Using GO_TEST_SHARD_INDEX: $GO_TEST_SHARD_INDEX"
+echo "Available integration package count: $(printf '%s\n' "$INTEGRATION_TEST_DIRS" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+if [[ -z "$SHARD_PACKAGE_OUTPUT" ]]; then
+  echo "No packages assigned to shard ${GO_TEST_SHARD_INDEX}/${GO_TEST_SHARD_COUNT}."
+  exit 0
+fi
+mapfile -t SHARD_PACKAGES <<<"$SHARD_PACKAGE_OUTPUT"
+
+echo "Shard package count: ${#SHARD_PACKAGES[@]}"
 
 echo "Test execution results: ---------------------"
 echo ""
@@ -66,7 +81,7 @@ gotestsum \
   --jsonfile "$OUTPUT_FILE" \
   --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
-  -- --tags integration $GO_TEST_FLAGS $INTEGRATION_TEST_DIRS_SPACE_DELIMITED
+  -- --tags integration $GO_TEST_FLAGS "${SHARD_PACKAGES[@]}"
 
 EXITCODE=${PIPESTATUS[0]}
 

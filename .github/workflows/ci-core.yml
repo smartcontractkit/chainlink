@@ -260,6 +260,54 @@ jobs:
             exit 1
           fi
 
+  core-shard-consistency:
+    name: core-shard-consistency
+    needs: [filter]
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: go.mod
+          go-module-file: go.sum
+
+      - name: Download Go vendor packages
+        run: go mod download
+
+      - name: Download deployment Go vendor packages
+        run: cd deployment && go mod download
+
+      - name: Verify core test sharding
+        shell: bash
+        run: |
+          go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... \
+            | go run ./tools/ci-testshard verify --shard-count 4
+
+      - name: Verify integration test sharding
+        shell: bash
+        run: |
+          integration_tagged_test_files=$(find . -name '*_test.go' -exec grep -l '//go:build integration' {} +)
+          if [[ -z "$integration_tagged_test_files" ]]; then
+            echo "No integration-tagged tests found."
+            exit 0
+          fi
+          echo "$integration_tagged_test_files" | xargs -n1 dirname | sort -u \
+            | go run ./tools/ci-testshard verify --shard-count 4
+
+      - name: Verify deployment test sharding
+        shell: bash
+        run: |
+          (
+            cd deployment || exit 1
+            go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...
+          ) | go run ./tools/ci-testshard verify --shard-count 4
+
   core:
     env:
       # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
@@ -268,29 +316,106 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        type:
-          - cmd: go_core_tests
-            os: runs-on=${{ github.run_id }}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+        include:
+          - job-name: go_core_tests shard 0/4
+            cmd: go_core_tests
+            os: runs-on=${{ github.run_id }}-unit-0/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
+            shard-count: "4"
+            shard-index: "0"
+            logs-artifact-name: go_core_tests_logs_shard_0
 
-          - cmd: go_core_tests_integration
-            os: runs-on=${{ github.run_id }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+          - job-name: go_core_tests shard 1/4
+            cmd: go_core_tests
+            os: runs-on=${{ github.run_id }}-unit-1/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            shard-count: "4"
+            shard-index: "1"
+            logs-artifact-name: go_core_tests_logs_shard_1
+
+          - job-name: go_core_tests shard 2/4
+            cmd: go_core_tests
+            os: runs-on=${{ github.run_id }}-unit-2/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            shard-count: "4"
+            shard-index: "2"
+            logs-artifact-name: go_core_tests_logs_shard_2
+
+          - job-name: go_core_tests shard 3/4
+            cmd: go_core_tests
+            os: runs-on=${{ github.run_id }}-unit-3/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            shard-count: "4"
+            shard-index: "3"
+            logs-artifact-name: go_core_tests_logs_shard_3
+
+          - job-name: go_core_tests_integration shard 0/4
+            cmd: go_core_tests_integration
+            os: runs-on=${{ github.run_id }}-integ-0/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
             install-loopps: "true"
+            shard-count: "4"
+            shard-index: "0"
+            logs-artifact-name: go_core_tests_integration_logs_shard_0
 
-          - cmd: go_core_fuzz
+          - job-name: go_core_tests_integration shard 1/4
+            cmd: go_core_tests_integration
+            os: runs-on=${{ github.run_id }}-integ-1/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            setup-solana: "true"
+            install-loopps: "true"
+            shard-count: "4"
+            shard-index: "1"
+            logs-artifact-name: go_core_tests_integration_logs_shard_1
+
+          - job-name: go_core_tests_integration shard 2/4
+            cmd: go_core_tests_integration
+            os: runs-on=${{ github.run_id }}-integ-2/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            setup-solana: "true"
+            install-loopps: "true"
+            shard-count: "4"
+            shard-index: "2"
+            logs-artifact-name: go_core_tests_integration_logs_shard_2
+
+          - job-name: go_core_tests_integration shard 3/4
+            cmd: go_core_tests_integration
+            os: runs-on=${{ github.run_id }}-integ-3/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            trunk-auto-quarantine: "true"
+            setup-solana: "true"
+            install-loopps: "true"
+            shard-count: "4"
+            shard-index: "3"
+            logs-artifact-name: go_core_tests_integration_logs_shard_3
+
+          - job-name: go_core_fuzz
+            cmd: go_core_fuzz
             os: runs-on=${{ github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            shard-count: "1"
+            shard-index: "0"
+            logs-artifact-name: go_core_fuzz_logs
 
-          - cmd: go_core_race_tests
+          - job-name: go_core_race_tests
+            cmd: go_core_race_tests
             os: runs-on=${{ github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+            shard-count: "1"
+            shard-index: "0"
+            logs-artifact-name: go_core_race_tests_logs
 
-          - cmd: go_core_deployment_tests
-            os: runs-on=${{ github.run_id }}-deployment/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+          - job-name: go_core_deployment_tests shard 0/4
+            cmd: go_core_deployment_tests
+            os: runs-on=${{ github.run_id }}-deployment-0/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: "deployment/"
@@ -298,14 +423,59 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
+            shard-count: "4"
+            shard-index: "0"
+            logs-artifact-name: go_core_deployment_tests_logs_shard_0
 
-    name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
+          - job-name: go_core_deployment_tests shard 1/4
+            cmd: go_core_deployment_tests
+            os: runs-on=${{ github.run_id }}-deployment-1/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-aptos: "true"
+            install-loopps: "true"
+            setup-sui: "true"
+            shard-count: "4"
+            shard-index: "1"
+            logs-artifact-name: go_core_deployment_tests_logs_shard_1
+
+          - job-name: go_core_deployment_tests shard 2/4
+            cmd: go_core_deployment_tests
+            os: runs-on=${{ github.run_id }}-deployment-2/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-aptos: "true"
+            install-loopps: "true"
+            setup-sui: "true"
+            shard-count: "4"
+            shard-index: "2"
+            logs-artifact-name: go_core_deployment_tests_logs_shard_2
+
+          - job-name: go_core_deployment_tests shard 3/4
+            cmd: go_core_deployment_tests
+            os: runs-on=${{ github.run_id }}-deployment-3/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-aptos: "true"
+            install-loopps: "true"
+            setup-sui: "true"
+            shard-count: "4"
+            shard-index: "3"
+            logs-artifact-name: go_core_deployment_tests_logs_shard_3
+
+    name: Core Tests (${{ matrix.job-name }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [filter, run-frequency]
+    needs: [filter, run-frequency, core-shard-consistency]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
-    runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.should-run == 'true' && matrix.os || 'ubuntu-latest' }}
     permissions:
       id-token: write
       contents: read
@@ -317,94 +487,96 @@ jobs:
           metrics: cpu,network,memory,disk
 
       - name: Checkout the repo
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         uses: actions/checkout@v6
         with:
           persist-credentials: false
 
       - name: Setup Go
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' || matrix.type.cmd == 'go_core_race_tests' }}
-          build-cache-version: ${{ matrix.type.cmd }}
-          go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
-          go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
+          restore-build-cache-only: ${{ matrix.cmd == 'go_core_fuzz' || matrix.cmd == 'go_core_race_tests' }}
+          build-cache-version: ${{ matrix.cmd }}
+          go-version-file: ${{ matrix.go-mod-directory }}go.mod
+          go-module-file: ${{ matrix.go-mod-directory }}go.sum
 
       - name: Setup Solana
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true' }}
+        if: ${{ matrix.should-run == 'true' && matrix.setup-solana == 'true' }}
         uses: ./.github/actions/setup-solana
 
       - name: Setup Aptos
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
+        if: ${{ matrix.should-run == 'true' && matrix.setup-aptos == 'true' }}
         uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
         with:
           CLI_VERSION: 8.1.0
 
       - name: Setup Sui CLI v1.69.2
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
+        if: ${{ matrix.should-run == 'true' && matrix.setup-sui == 'true' }}
         uses: ./.github/actions/setup-sui
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           version: mainnet-v1.69.2
 
       - name: Setup wasmd
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           tmpfs: "true"
           image-tag: "16-alpine"
 
       - name: Touching core/web/assets/index.html
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Download Go vendor packages
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         run: go mod download
 
       - name: Setup DB
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         run: go run ./core/store/cmd/preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true' }}
+        if: ${{ matrix.should-run == 'true' && matrix.install-loopps == 'true' }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
-        if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
+        if: ${{ github.event.schedule != '' && matrix.should-run == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
       - name: Run tests
-        if: ${{ matrix.type.should-run == 'true' }}
+        if: ${{ matrix.should-run == 'true' }}
         timeout-minutes: 50
-        continue-on-error: ${{ matrix.type.trunk-auto-quarantine == 'true' }}
+        continue-on-error: ${{ matrix.trunk-auto-quarantine == 'true' }}
         id: run-tests
         shell: bash
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
           OUTPUT_FILE: ./output.txt
-          PRODUCE_JUNIT_XML: ${{ matrix.type.trunk-auto-quarantine }}
-          TRUNK_AUTO_QUARANTINE: ${{ matrix.type.trunk-auto-quarantine }}
+          PRODUCE_JUNIT_XML: ${{ matrix.trunk-auto-quarantine }}
+          TRUNK_AUTO_QUARANTINE: ${{ matrix.trunk-auto-quarantine }}
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           JUNIT_FILE: ${{ github.workspace }}/junit.xml
+          GO_TEST_SHARD_COUNT: ${{ matrix.shard-count }}
+          GO_TEST_SHARD_INDEX: ${{ matrix.shard-index }}
         run: |
-          GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
+          GODEBUG=goindex=0 ./tools/bin/${{ matrix.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine == 'true' && !cancelled() }}
+        if: ${{ matrix.should-run == 'true' && matrix.trunk-auto-quarantine == 'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "./junit.xml"
@@ -412,13 +584,13 @@ jobs:
           trunk-token: ${{ secrets.TRUNK_API_KEY }}
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           # when auto-quarantine is enabled, allow this to determine test failures
-          trunk-upload-only: ${{ matrix.type.trunk-auto-quarantine != 'true' }}
+          trunk-upload-only: ${{ matrix.trunk-auto-quarantine != 'true' }}
           # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
-          artifact-name: ${{ matrix.type.cmd }}_test_logs
+          artifact-name: ${{ matrix.logs-artifact-name }}
 
       - name: Print Races
         id: print-races
-        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && matrix.should-run == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_RUN_ID: ${{ github.run_id }}
@@ -435,16 +607,16 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
-        if: ${{ always() &&  matrix.type.should-run == 'true' }}
+        if: ${{ always() &&  matrix.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           print-logs: "true"
 
       - name: Store logs artifacts
-        if: ${{ always() && matrix.type.should-run == 'true' }}
+        if: ${{ always() && matrix.should-run == 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.type.cmd }}_logs
+          name: ${{ matrix.logs-artifact-name }}
           path: |
             ./output.txt
             ./output-short.txt
@@ -458,10 +630,10 @@ jobs:
       - name: Notify Slack on Race Test Failure
         if: |
           failure() &&
-          matrix.type.cmd == 'go_core_race_tests' &&
+          matrix.cmd == 'go_core_race_tests' &&
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
-          matrix.type.should-run == 'true'
+          matrix.should-run == 'true'
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -519,31 +691,28 @@ jobs:
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          # Check and assign paths for coverage/test reports in go_core_tests_logs
-          core_artifact="go_core_tests_logs"
-          if [ -d "$core_artifact" ]; then
-            echo "Found $core_artifact"
-            sonarqube_coverage_report_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
-            sonarqube_tests_report_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
-            echo "Coverage report paths: $sonarqube_coverage_report_paths"
-            echo "Tests report paths: $sonarqube_tests_report_paths"
-          else
-            echo "Did not find $core_artifact"
-            sonarqube_coverage_report_paths=""
-            sonarqube_tests_report_paths=""
-          fi
+          sonarqube_coverage_report_paths=""
+          sonarqube_tests_report_paths=""
 
-          # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
-          integration_tests_artifact="go_core_tests_integration_logs"
-          if [ -d "$integration_tests_artifact" ]; then
-            echo "Found $integration_tests_artifact"
-            integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
-            integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
+          for core_artifact in go_core_tests_logs_shard_*; do
+            if [ -d "$core_artifact" ]; then
+              echo "Found $core_artifact"
+              core_coverage_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
+              core_tests_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
+              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$core_coverage_paths"
+              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$core_tests_paths"
+            fi
+          done
 
-            # Append to existing paths if they are set, otherwise assign directly
-            sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
-            sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
-          fi
+          for integration_tests_artifact in go_core_tests_integration_logs_shard_*; do
+            if [ -d "$integration_tests_artifact" ]; then
+              echo "Found $integration_tests_artifact"
+              integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
+              integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
+              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
+              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
+            fi
+          done
 
           # Check and assign paths for coverage/test reports in go_core_scripts_tests_logs
           scripts_tests_artifact="go_core_scripts_tests_logs"
