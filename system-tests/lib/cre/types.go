@@ -61,7 +61,6 @@ const (
 	ConsensusCapabilityV2       CapabilityFlag = "consensus"
 	CronCapability              CapabilityFlag = "cron"
 	EVMCapability               CapabilityFlag = "evm"
-	LogEventTriggerCapability   CapabilityFlag = "log-event-trigger"
 	VaultCapability             CapabilityFlag = "vault"
 	HTTPTriggerCapability       CapabilityFlag = "http-trigger"
 	HTTPActionCapability        CapabilityFlag = "http-action"

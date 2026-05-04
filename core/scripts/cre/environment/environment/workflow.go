@@ -543,10 +543,6 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver) (dbPort, nodeCo
 
 func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, addressFlagName string) (string, *semver.Version, error) {
 	defaultVersion := envconfig.WorkflowRegistryV2Semver
-	switch contractType.String() {
-	case keystone_changeset.CapabilitiesRegistry.String():
-		defaultVersion = envconfig.CapabilityRegistryV2Semver
-	}
 
 	if cmd.Flags().Changed(addressFlagName) {
 		if strings.TrimSpace(explicitAddress) == "" {

@@ -9,7 +9,6 @@ import (
 	evm_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
-	log_event_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/log_event_trigger"
 	solana_v2_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 )
@@ -22,7 +21,6 @@ func New() cre.Features {
 		&evm_v2_feature.EVM{},
 		&http_actions_feature.HTTPAction{},
 		&http_trigger_feature.HTTPTrigger{},
-		&log_event_trigger_feature.LogEventTrigger{},
 		&aptos_feature.Aptos{},
 		&solana_v2_feature.Solana{},
 		&vault_feature.Vault{},

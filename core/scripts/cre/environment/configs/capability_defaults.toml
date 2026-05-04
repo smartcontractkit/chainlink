@@ -16,15 +16,6 @@
 [capability_configs.cron.values]
 #   CustomField = "value"  # Add custom fields if needed
 
-[capability_configs.log-event-trigger]
-  binary_name = "log-event-trigger"
-
-[capability_configs.log-event-trigger.values]
-  LookbackBlocks = 2000        # Default lookback blocks
-  PollPeriod = 1500            # Default poll period in milliseconds
-  NetworkFamily = "evm"        # EVM is the only supported family
-  #ChainID = 1337              # Provided dynamically for each chain
-
 [capability_configs.evm]
   # Defaults for the EVM capability
   # These are merged with per-DON chain_overrides

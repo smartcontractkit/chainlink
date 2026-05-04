@@ -34,7 +34,7 @@
   http_port_range_start = 10100
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node" }
-  capabilities = ["vault", "log-event-trigger-1337", "evm-2337"]
+  capabilities = ["vault", "evm-2337"]
 
   # Capability config overrides for this DON.
   # IMPORTANT: When you override a capability config, you must provide ALL values
@@ -43,9 +43,9 @@
   # Defaults are only used for capabilities you don't configure at all.
   [nodesets.capability_configs]
 
-    # Chain-specific log trigger override example
-    [nodesets.capability_configs.log-event-trigger-1337.values]
-       LookbackBlocks = 3000
+    # Chain-specific evm override example
+    [nodesets.capability_configs.evm-1337.values]
+       LogTriggerPollInterval = 2500000000  # 2.5s in nanoseconds
 
 # [nodesets.capability_configs.http-action]
 #    binary_name = "http_action"
