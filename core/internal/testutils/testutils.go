@@ -90,12 +90,21 @@ const DefaultWaitTimeout = 30 * time.Second
 // Especially important to use in parallel tests, as their individual execution
 // can get paused for arbitrary amounts of time.
 func WaitTimeout(t *testing.T) time.Duration {
+	return WaitTimeoutCustom(t, DefaultWaitTimeout)
+}
+
+// WaitTimeoutCustom for longer timeouts, up to the test's Deadline, or the requested timeout, whichever is shorter.
+// Use when DefaultWaitTimeout is too short for your specific test.
+func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 	if d, ok := t.Deadline(); ok {
-		// 10% buffer for cleanup and scheduling delay
-		deadlineTimeout := time.Until(d) * 9 / 10
-		return deadlineTimeout
+		// 10% buffer for cleanup
+		timeLeft := time.Until(d) * 9 / 10
+
+		// Still cap it! Even if they asked for 5m, if the test gets
+		return min(timeLeft, requested)
 	}
-	return DefaultWaitTimeout
+
+	return requested
 }
 
 // Context returns a context with the test's deadline, if available.
