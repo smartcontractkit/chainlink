@@ -158,7 +158,7 @@ func (s *MCMSWithTimelockProgramsSolana) GenerateView(
 		s.ProposerMcmSeed, s.CancellerMcmSeed, s.BypasserMcmSeed, s.TimelockProgram, s.TimelockSeed)
 }
 
-// MCMSWithTimelockStateStateSolana holds the Go bindings
+// MCMSWithTimelockStateSolana holds the Go bindings
 // for a MCMSWithTimelock contract deployment.
 // It is public for use in product specific packages.
 // Either all fields are nil or all fields are non-nil.
@@ -166,7 +166,7 @@ type MCMSWithTimelockStateSolana struct {
 	*MCMSWithTimelockProgramsSolana
 }
 
-// MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
+// MaybeLoadMCMSWithTimelockStateSolana loads the MCMSWithTimelockStateSolana state for each chain in the given environment.
 func MaybeLoadMCMSWithTimelockStateSolana(env cldf.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockStateSolana, error) {
 	result := map[uint64]*MCMSWithTimelockStateSolana{}
 	solChains := env.BlockChains.SolanaChains()
@@ -192,7 +192,7 @@ func MaybeLoadMCMSWithTimelockStateSolana(env cldf.Environment, chainSelectors [
 	return result, nil
 }
 
-// MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
+// MaybeLoadMCMSWithTimelockChainStateSolana looks for the addresses corresponding to
 // contracts deployed with DeployMCMSWithTimelock and loads them into a
 // MCMSWithTimelockStateSolana struct. If none of the contracts are found, the
 // state struct will be nil.
