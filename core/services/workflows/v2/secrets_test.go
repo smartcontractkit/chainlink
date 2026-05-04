@@ -419,6 +419,7 @@ func TestSecretsFetcher_WorkflowIDMetadataFollowsOrgIDGate(t *testing.T) {
 				"workflowID",
 				"workflowExecID",
 				workflowEncryptionKey,
+				nil,
 			)
 
 			_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
@@ -542,6 +543,7 @@ func TestSecretsFetcher_RequiresOrgIDWhenGateEnabled(t *testing.T) {
 		"workflowID",
 		"workflowExecID",
 		workflowEncryptionKey,
+		nil,
 	)
 
 	_, err = sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
@@ -1027,7 +1029,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 	require.ErrorContains(t, err, "limited: cannot use 2, limit is 1")
 }
 
-func TestSecretsFetcher_OverrideFetcherFallsBackToVaultForMissingSecrets(t *testing.T) {
+func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -1099,7 +1101,7 @@ func TestSecretsFetcher_OverrideFetcherFallsBackToVaultForMissingSecrets(t *test
 	err = reg.Add(t.Context(), mc)
 	require.NoError(t, err)
 
-	local := NewLocalSecretsFetcher(map[string]string{"local-only": "local-value"})
+	local := NewLocalSecretsFetcher(owner, map[string]string{"local-only": "local-value"})
 	sf := NewSecretsFetcher(
 		MetricsLabelerTest(t),
 		reg,
@@ -1127,14 +1129,18 @@ func TestSecretsFetcher_OverrideFetcherFallsBackToVaultForMissingSecrets(t *test
 	require.Len(t, resp, 2)
 
 	require.NotNil(t, gotVaultReq)
-	require.Len(t, gotVaultReq.Requests, 1)
-	require.Equal(t, "vault-only", gotVaultReq.Requests[0].GetId().GetKey())
+	require.Len(t, gotVaultReq.Requests, 2)
+	require.Equal(t, "local-only", gotVaultReq.Requests[0].GetId().GetKey())
 	require.Equal(t, vaulttypes.DefaultNamespace, gotVaultReq.Requests[0].GetId().GetNamespace())
 	require.Equal(t, normalizedOwner, gotVaultReq.Requests[0].GetId().GetOwner())
+	require.Equal(t, "vault-only", gotVaultReq.Requests[1].GetId().GetKey())
+	require.Equal(t, vaulttypes.DefaultNamespace, gotVaultReq.Requests[1].GetId().GetNamespace())
+	require.Equal(t, normalizedOwner, gotVaultReq.Requests[1].GetId().GetOwner())
 
 	localSecret := resp[0].GetSecret()
 	require.NotNil(t, localSecret)
 	require.Equal(t, "local-only", localSecret.GetId())
+	require.Equal(t, normalizedOwner, localSecret.GetOwner())
 	require.Equal(t, "local-value", localSecret.GetValue())
 
 	vaultSecret := resp[1].GetSecret()
@@ -1143,4 +1149,77 @@ func TestSecretsFetcher_OverrideFetcherFallsBackToVaultForMissingSecrets(t *test
 	require.Equal(t, vaulttypes.DefaultNamespace, vaultSecret.GetNamespace())
 	require.Equal(t, normalizedOwner, vaultSecret.GetOwner())
 	require.Equal(t, rawSecret, vaultSecret.GetValue())
+}
+
+func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	reg := coreCap.NewRegistry(lggr)
+	peer := coreCap.RandomUTF8BytesWord()
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+
+	f, n := 2, 3
+	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(f, n)
+	require.NoError(t, err)
+	vaultPublicKeyBytes, err := vaultPublicKey.Marshal()
+	require.NoError(t, err)
+	reg.SetLocalRegistry(CreateLocalRegistryWith1Node(t, peer, workflowEncryptionKey.PublicKey(), vaultPublicKeyBytes))
+
+	var vaultCalls int
+	mc := vaultMock.Vault{
+		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
+			vaultCalls++
+			require.Len(t, req.Requests, 2)
+			require.Equal(t, "secret-a", req.Requests[0].GetId().GetKey())
+			require.Equal(t, "secret-b", req.Requests[1].GetId().GetKey())
+			return nil, errors.New("vault capability execute failed")
+		},
+	}
+	err = reg.Add(t.Context(), mc)
+	require.NoError(t, err)
+
+	owner := "1234567890abcdef1234567890abcdef12345678"
+	normalizedLocalOwner, err := normalizeOwner(owner)
+	require.NoError(t, err)
+	local := NewLocalSecretsFetcher(owner, map[string]string{
+		"secret-a": "value-a",
+		"secret-b": "value-b",
+	})
+	sf := NewSecretsFetcher(
+		MetricsLabelerTest(t),
+		reg,
+		lggr,
+		limits.WorkflowResourcePoolLimiter[int](5),
+		limits.NewUpperBoundLimiter[int](5),
+		testVaultOrgIDAsSecretOwnerGate(t, false),
+		"",
+		owner,
+		"workflowName",
+		"workflowID",
+		"phaseID",
+		workflowEncryptionKey,
+		local,
+	)
+
+	resp, err := sf.GetSecrets(t.Context(), &sdkpb.GetSecretsRequest{
+		CallbackId: 7,
+		Requests: []*sdkpb.SecretRequest{
+			{Id: "secret-a"},
+			{Id: "secret-b"},
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, vaultCalls)
+	require.Len(t, resp, 2)
+
+	s0 := resp[0].GetSecret()
+	require.NotNil(t, s0)
+	require.Equal(t, "secret-a", s0.GetId())
+	require.Equal(t, normalizedLocalOwner, s0.GetOwner())
+	require.Equal(t, "value-a", s0.GetValue())
+
+	s1 := resp[1].GetSecret()
+	require.NotNil(t, s1)
+	require.Equal(t, "secret-b", s1.GetId())
+	require.Equal(t, normalizedLocalOwner, s1.GetOwner())
+	require.Equal(t, "value-b", s1.GetValue())
 }

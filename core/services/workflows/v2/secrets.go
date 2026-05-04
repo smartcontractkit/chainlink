@@ -54,8 +54,9 @@ type secretsFetcher struct {
 
 	metrics *monitoring.WorkflowsMetricLabeler
 
-	// overrideFetcher is an optional static map fetcher (e.g. NewLocalSecretsFetcher).
-	// When set, getSecretsForBatch tries it first before calling Vault.
+	// overrideFetcher is an optional static map fetcher.
+	// When set, Vault is called first; on whole-batch failure or per-secret SecretResponse errors,
+	// local overrides are tried for the failed request(s).
 	overrideFetcher SecretsFetcher
 }
 
@@ -161,56 +162,65 @@ func LocalSecretOverrideOwnerKey(owner string) (string, error) {
 	return owner, nil
 }
 
-// getSecretsForBatchWithLocalFallback tries all requests through overrideFetcher first;
-// any request not resolved locally falls through to vault.
+// getSecretsForBatchWithLocalFallback calls Vault first. If the batch fails entirely or any
+// SecretResponse carries an error, those request(s) are retried via overrideFetcher.
 func (s *secretsFetcher) getSecretsForBatchWithLocalFallback(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	if s.overrideFetcher == nil {
 		return s.getVaultSecretsForBatch(ctx, request)
 	}
+	// overrideFetcher is set
 	if request == nil || len(request.Requests) == 0 {
 		return nil, nil
 	}
-	overrideResp, err := s.overrideFetcher.GetSecrets(ctx, request)
+	vaultResp, err := s.getVaultSecretsForBatch(ctx, request)
 	if err != nil {
-		return nil, err
+		s.lggr.Debugw("vault secrets batch failed, trying local override fetcher for full batch", "error", err)
+		return s.overrideFetcher.GetSecrets(ctx, request)
 	}
 
-	var forVault []*sdkpb.SecretRequest
+	var forLocal []*sdkpb.SecretRequest
+	var failedIdx []int
 	for i, r := range request.Requests {
 		ns := r.Namespace
 		if ns == "" {
 			ns = vaulttypes.DefaultNamespace
 		}
 		nsID := ns + "::" + r.Id
-		if overrideResp[i].GetError() != nil {
-			s.lggr.Debugw("failed to get secret from local override fetcher, falling back to vault", "error", overrideResp[i].GetError(), "nsID", nsID)
-			forVault = append(forVault, r)
-		} else {
-			s.lggr.Debugw("secret resolved from local override fetcher", "nsID", nsID)
+		if vaultResp[i].GetError() != nil {
+			s.lggr.Debugw("vault returned error for secret, trying local override fetcher", "error", vaultResp[i].GetError(), "nsID", nsID)
+			forLocal = append(forLocal, r)
+			failedIdx = append(failedIdx, i)
 		}
 	}
-	var vaultResp []*sdkpb.SecretResponse
-	if len(forVault) > 0 {
-		vaultResp, err = s.getVaultSecretsForBatch(ctx, &sdkpb.GetSecretsRequest{
-			Requests:   forVault,
-			CallbackId: request.CallbackId,
-		})
-		if err != nil {
-			return nil, err
-		}
+	if len(forLocal) == 0 {
+		return vaultResp, nil
 	}
 
-	combinedResp := make([]*sdkpb.SecretResponse, 0, len(request.Requests))
-	vaultRespIdx := 0
-	for i := range request.Requests {
-		if overrideResp[i].GetError() == nil {
-			combinedResp = append(combinedResp, overrideResp[i])
-		} else {
-			combinedResp = append(combinedResp, vaultResp[vaultRespIdx])
-			vaultRespIdx++
-		}
+	overrideResp, err := s.overrideFetcher.GetSecrets(ctx, &sdkpb.GetSecretsRequest{
+		Requests:   forLocal,
+		CallbackId: request.CallbackId,
+	})
+	if err != nil {
+		s.lggr.Errorw("local override fetcher failed - this should never happen", "error", err)
+		return nil, err
 	}
-	return combinedResp, nil
+
+	combined := make([]*sdkpb.SecretResponse, len(vaultResp))
+	copy(combined, vaultResp)
+	for j, origIdx := range failedIdx {
+		ns := forLocal[j].Namespace
+		if ns == "" {
+			ns = vaulttypes.DefaultNamespace
+		}
+		nsID := ns + "::" + forLocal[j].Id
+		if overrideResp[j].GetError() != nil {
+			s.lggr.Debugw("local override fetcher did not resolve secret after vault error", "error", overrideResp[j].GetError(), "nsID", nsID)
+		} else {
+			s.lggr.Debugw("secret resolved from local override fetcher after vault error", "nsID", nsID)
+		}
+		combined[origIdx] = overrideResp[j]
+	}
+	return combined, nil
 }
 
 func (s *secretsFetcher) getVaultSecretsForBatch(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {

@@ -936,11 +936,11 @@ func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
 		h.lggr.Errorw("invalid workflow owner for local secret overrides", "owner", owner, "err", err)
 		return nil
 	}
-	m := h.localSecretOverrides[key]
-	if len(m) == 0 {
+	overrides := h.localSecretOverrides[key]
+	if len(overrides) == 0 {
 		return nil
 	}
-	return v2.NewLocalSecretsFetcher(m)
+	return v2.NewLocalSecretsFetcher(owner, overrides)
 }
 
 // newV2EngineConfig builds the common EngineConfig shared by both the normal

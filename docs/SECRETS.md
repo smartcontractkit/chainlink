@@ -217,7 +217,7 @@ ApiSecret is the API secret used for authenticating with the CLL Data Streams SD
 [CRE.LocalSecretOverrides]
 ```
 LocalSecretOverrides maps workflow owner to (secret id -> secret value) map.
-When non-empty, workflow secrets are served from this map first, before calling the Vault capability.
+When non-empty, overrides are used as fallback when Vault calls fail.
 
 "0000000000000000000000000000000000000000" = { "my-secret-id" = "my-plaintext-value" } # Example
 
