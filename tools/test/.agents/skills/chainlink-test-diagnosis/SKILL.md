@@ -15,14 +15,21 @@ Authoritative CLI flags and behavior: `go -C tools/test run . diagnose -h` (from
 Root-cause analysis and fixes for unstable or slow Chainlink Go tests.
 Flow:
 1. Scope target and hypothesis.
-2. Run `diagnose` on bounded target.
+2. Ask if user already has a recent `diagnose` run results. If not, run `diagnose` on bounded target.
 3. Analyze `report.json` and logs.
 4. Apply playbook. Fix. Verify with same scope.
 </purpose>
 
 <activation>
-Use for diagnosing and fixing flakes, timeouts, deadlocks, CI-only failures, and slow tests.
-Skip for deterministic first-run failures, typical test runs, known fixes, full-suite CI prep, and unrelated test work.
+- Use for diagnosing and fixing flakes, timeouts, deadlocks, CI-only failures, and slow tests.
+- Skip for deterministic first-run failures, typical test runs, known fixes, full-suite CI prep, and unrelated test work.
+- User says "fix test", "find flaky test", "speed up test", etc.
+<skip>
+Do not use this skill when:
+- User has known fix. Apply directly. Ask if they want you to verify.
+- Test fails deterministically on first run. Use normal debug, not multi-run `diagnose`.
+- User wants full-suite CI prep. Use `go -C tools/test run . run` or `go -C tools/test run . gotestsum` (or `make new_test` / `make new_gotestsum`) instead.
+</skip>
 </activation>
 
 <package_scope>
@@ -98,7 +105,9 @@ For commands expected to exceed 2 minutes:
 - Perform exactly one smoke check of terminal output to catch immediate setup failures.
 - Do not poll or wait for completion unless user explicitly asks.
 - Tell user the run is continuing in background and analysis will resume when report path appears.
-- On completion, read `report.json` first; read raw logs only for entries in `timeouts`, then `flakes`, then relevant `slow`.
+- On completion, read `report.json` using `jq`
+- Only read raw logs when necessary. Start from the last line and move up when more context needed.
+- Read logs for entries in `timeouts`, then `flakes`, then relevant `slow`.
 </long_running>
 
 <output_layout>
@@ -178,7 +187,7 @@ Match logs and stats against playbook. State hypothesis before suggesting fix.
 <playbook>
 
 <A name="isolate">
-Pass alone, fail in package: another test corrupts state. In Chainlink, suspect shared Postgres first. `diagnose` restores prepared DB snapshots between iterations, not between tests in one iteration.
+Pass alone, fail in package: another test corrupts state. `diagnose` restores prepared DB snapshots between iterations, not between tests in one iteration.
 
 ```sh
 # Many iterations: serial diagnose restores its prepared DB snapshot between iterations.
@@ -261,13 +270,16 @@ Show contextual diff. Do not describe fix abstractly.
 <restricted>
 - Do not modify the test's goal to make it pass.
 - Do not remove tests or assertions unless replacing them with better ones or deleting dead code with high confidence.
+- Do not modify package-wide/global helpers (testutils) to fix a small group of tests. Only do for wide-spread issues or no other alternative.
 </restricted>
 </fixes>
 
 <verify>
-Re-run same-scope `diagnose` after fix.
+Run lint, then re-run same-scope `diagnose` after fix, then run tests for all packages you modify to ensure you didn't break others.
 ```sh
-go -C tools/test run . diagnose --iterations <N> -- <same go test args as before>
+golangci-lint run ./<packages-you-change> --fix # lint
+go -C tools/test run . diagnose --iterations <N> -- <same go test args as before> # narrow verification of fix
+go -C tools/test run . diagnose --iterations <M> -- <all modified packages> # check other packages with smaller iterations
 ```
 Compare new `report.json` against previous. Success: target absent from `flakes`, `failures`, `timeouts`, and `slow`. If still present, undo own fix, revise hypothesis, repeat analysis.
 </verify>
@@ -281,9 +293,3 @@ Compare new `report.json` against previous. Success: target absent from `flakes`
 - Default `diagnose` scope is one package or one subtree. Never use `./core/...` without approval.
 </chainlink>
 
-<skip>
-Do not use this skill when:
-- User has known fix. Apply directly. Ask if they want you to verify.
-- Test fails deterministically on first run. Use normal debug, not multi-run `diagnose`.
-- User wants full-suite CI prep. Use `go -C tools/test run . run` or `go -C tools/test run . gotestsum` (or `make new_test` / `make new_gotestsum`).
-</skip>

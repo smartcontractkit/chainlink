@@ -84,7 +84,7 @@ func RandomizeName(n string) string {
 }
 
 // DefaultWaitTimeout is the default wait timeout. If you have a *testing.T, use WaitTimeout instead.
-const DefaultWaitTimeout = 90 * time.Second
+const DefaultWaitTimeout = 30 * time.Second
 
 // WaitTimeout returns a timeout capped by the test's Deadline, if available.
 // Especially important to use in parallel tests, as their individual execution
@@ -92,7 +92,8 @@ const DefaultWaitTimeout = 90 * time.Second
 func WaitTimeout(t *testing.T) time.Duration {
 	if d, ok := t.Deadline(); ok {
 		// 10% buffer for cleanup and scheduling delay
-		return min(time.Until(d)*9/10, DefaultWaitTimeout)
+		deadlineTimeout := time.Until(d) * 9 / 10
+		return max(deadlineTimeout, DefaultWaitTimeout)
 	}
 	return DefaultWaitTimeout
 }

@@ -229,7 +229,7 @@ func checkForForceFulfilledEvent(t *testing.T,
 	sub *vrfSub,
 	numForcedLogs int) {
 	requestID := req.requestID
-	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(nil, []*big.Int{requestID},
+	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(indexedFilterOpts(t, th.uni.backend), []*big.Int{requestID},
 		[]uint64{sub.subID}, []common.Address{th.eoaConsumerAddr})
 	require.NoError(t, err)
 	i := 0

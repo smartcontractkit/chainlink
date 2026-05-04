@@ -659,9 +659,9 @@ func requestRandomnessForWrapper(
 		numWords,
 	)
 	require.NoError(t, err)
-	uni.backend.Commit()
+	filterOpts := commitRequestAndFilterIndexBlock(t, uni.backend)
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
+	iter, err := coordinator.FilterRandomWordsRequested(filterOpts, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
@@ -669,7 +669,7 @@ func requestRandomnessForWrapper(
 		events = append(events, iter.Event())
 	}
 
-	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
+	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(filterOpts, nil)
 	require.NoError(t, err, "could not filter WrapperRequestMade events")
 
 	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
@@ -716,9 +716,9 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 		nativePayment,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	filterOpts := commitRequestAndFilterIndexBlock(t, backend)
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
+	iter, err := coordinator.FilterRandomWordsRequested(filterOpts, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
@@ -739,6 +739,30 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.Equal(t, nativePayment, event.NativePayment())
 
 	return requestID, event.Raw().BlockNumber
+}
+
+func commitRequestAndFilterIndexBlock(t *testing.T, backend types.Backend) *bind.FilterOpts {
+	ctx := testutils.Context(t)
+	block, err := backend.Client().BlockByHash(ctx, backend.Commit())
+	require.NoError(t, err)
+	end := block.NumberU64()
+	// Geth's filter index reads end+1, so mine one more block and filter only
+	// through the request block.
+	backend.Commit()
+	return &bind.FilterOpts{Start: 0, End: &end, Context: ctx}
+}
+
+func indexedFilterOpts(t *testing.T, backend types.Backend) *bind.FilterOpts {
+	ctx := testutils.Context(t)
+	header, err := backend.Client().HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	if header.Number.Sign() == 0 {
+		return &bind.FilterOpts{Start: 0, Context: ctx}
+	}
+	// Geth's filter index reads end+1; latest-1 keeps the lookup bounded to an
+	// indexed block and avoids blocking simulated-backend mining loops.
+	end := header.Number.Uint64() - 1
+	return &bind.FilterOpts{Start: 0, End: &end, Context: ctx}
 }
 
 // subscribeAndAssertSubscriptionCreatedEvent subscribes the given consumer contract
@@ -1091,7 +1115,7 @@ func testEoa(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
 
-	// Createa a new subscription.
+	// Create a new subscription.
 	subID := setupAndFundSubscriptionAndConsumer(
 		t,
 		uni,
