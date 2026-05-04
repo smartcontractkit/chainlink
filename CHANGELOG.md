@@ -2,6 +2,10 @@
 
 ## 2.45.0
 
+### Breaking Changes
+
+- [#22208](https://github.com/smartcontractkit/chainlink/pull/22208) [`b8e5aec`](https://github.com/smartcontractkit/chainlink/commit/b8e5aec903d28ed0fdd0fcc9e9ab59e710c1b43e) - Remove legacy Keepers v1 (keeper job type, node configuration, and related database tables). Automation v2 is unchanged. #breaking_change #nops
+
 ### Minor Changes
 
 - [#22189](https://github.com/smartcontractkit/chainlink/pull/22189) [`ffeabb1`](https://github.com/smartcontractkit/chainlink/commit/ffeabb1c0dec911e190427132303509b8cc3b975) - Node operators can now specify in `PollSuccessThreshold` how many successful polls in a row must an unreachable RPC pass to become Alive again, on EVM chains. #added #nops
