@@ -12,7 +12,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

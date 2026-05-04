@@ -20,7 +20,6 @@ var (
 		DirectRequest:           {},
 		FluxMonitor:             {},
 		Gateway:                 {},
-		Keeper:                  {},
 		LegacyGasStationServer:  {},
 		LegacyGasStationSidecar: {},
 		OffchainReporting2:      {},

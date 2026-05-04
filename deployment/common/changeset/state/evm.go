@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v1_0"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -392,11 +393,11 @@ type LinkTokenState struct {
 	LinkToken *link_token.LinkToken
 }
 
-func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
+func (s LinkTokenState) GenerateLinkView() (linkviewv10.LinkTokenView, error) {
 	if s.LinkToken == nil {
-		return view.LinkTokenView{}, errors.New("link token not found")
+		return linkviewv10.LinkTokenView{}, errors.New("link token not found")
 	}
-	return view.GenerateLinkTokenView(s.LinkToken)
+	return linkviewv10.GenerateLinkTokenView(s.LinkToken)
 }
 
 func MaybeLoadLinkTokenChainState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*LinkTokenState, error) {
@@ -428,11 +429,11 @@ type StaticLinkTokenState struct {
 	StaticLinkToken *link_token_interface.LinkToken
 }
 
-func (s StaticLinkTokenState) GenerateStaticLinkView() (view.StaticLinkTokenView, error) {
+func (s StaticLinkTokenState) GenerateStaticLinkView() (linkviewv10.StaticLinkTokenView, error) {
 	if s.StaticLinkToken == nil {
-		return view.StaticLinkTokenView{}, errors.New("static link token not found")
+		return linkviewv10.StaticLinkTokenView{}, errors.New("static link token not found")
 	}
-	return view.GenerateStaticLinkTokenView(s.StaticLinkToken)
+	return linkviewv10.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
 func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cldf.TypeAndVersion) (*StaticLinkTokenState, error) {

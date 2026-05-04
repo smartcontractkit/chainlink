@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -240,8 +239,6 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		jb, err = directrequest.ValidatedDirectRequestSpec(tomlString)
 	case job.FluxMonitor:
 		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), tomlString)
-	case job.Keeper:
-		jb, err = keeper.ValidatedKeeperSpec(tomlString)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(tomlString)
 	case job.Cron:

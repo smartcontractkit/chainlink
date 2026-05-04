@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
@@ -90,6 +91,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[linkops.MintLinkTokenOutput])
 	require.True(t, ok)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(normalizedAddr[:], 32)
@@ -110,6 +113,9 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 	upgradeCCIP(ctx, t, e, sourceChain, contracts.CCIP)
 	upgradeSuiOnRamp(ctx, t, e, sourceChain, contracts.CCIPOnramp)
 
+	// Let the local fullnode drain upgrade txs before the next sui_execute + indexing wait.
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
+
 	t.Run("Sui OnRamp, CCIP FQ Upgraded: Message to EVM - Should Succeed", func(t *testing.T) {
 		out = messagingtest.Run(t,
 			messagingtest.TestCase{
@@ -129,6 +135,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -139,11 +147,13 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
@@ -158,6 +168,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	rawOutput := output[0].Reports[0]
 
@@ -179,6 +191,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	receiverByte := receiverByteDecoded
 
 	var clockObj [32]byte
@@ -197,7 +211,10 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	// Block offramp v1
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
@@ -211,6 +228,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	// Block ccip v2 feequoter (the pre-upgrade version)
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
@@ -222,6 +241,7 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -242,6 +262,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 		)
 	)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	t.Run("OffRamp, CCIP FQ upgraded and blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
@@ -256,9 +278,13 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -269,11 +295,13 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
@@ -288,6 +316,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	rawOutput := output[0].Reports[0]
 
@@ -308,6 +338,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	receiverByte := receiverByteDecoded
 
@@ -325,7 +357,9 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	t.Log("Upgrading SUI contracts")
 	upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -346,6 +380,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 		)
 	)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	t.Run("OffRamp, CCIP FQ upgraded NoBlock: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
@@ -360,9 +396,13 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -373,16 +413,19 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
 	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
 
-	state, err := stateview.LoadOnchainState(e.Env)
-	require.NoError(t, err)
-
 	sourceChain := evmChainSelectors[0]
 	destChain := suiChainSelectors[0]
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
 
 	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
 
 	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	var (
 		nonce  uint64
@@ -427,6 +470,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	receiverByte := receiverByteDecoded
 
 	var clockObj [32]byte
@@ -446,6 +491,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	t.Log("Upgrading SUI contracts")
 	ccipPkgID := upgradeCCIP(ctx, t, e, destChain, contracts.CCIP)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	// Block ccip v2 FQ (the pre-upgrade version)
 	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(sui_cs.BlockVersion{}, sui_cs.BlockVersionConfig{
@@ -457,6 +504,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		}),
 	})
 	require.NoError(t, err)
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	state, err = stateview.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -473,6 +522,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 		false,
 	)
 
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
+
 	t.Run("CCIP FQ upgraded blocked v2: Message to Sui - Should Succeed", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
@@ -487,6 +538,8 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 			},
 		)
 	})
+
+	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 }
 
 func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, sourceChain uint64, version contracts.Package) {

@@ -132,10 +132,6 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.OffChainReportingSpec != nil {
 			return p.OffChainReportingSpec.CreatedAt.Format(time.RFC3339)
 		}
-	case presenters.KeeperJobSpec:
-		if p.KeeperSpec != nil {
-			return p.KeeperSpec.CreatedAt.Format(time.RFC3339)
-		}
 	case presenters.CronJobSpec:
 		if p.CronSpec != nil {
 			return p.CronSpec.CreatedAt.Format(time.RFC3339)

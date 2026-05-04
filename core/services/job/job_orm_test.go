@@ -43,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -376,7 +375,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db)
 	jobORM := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
-	korm := keeper.NewORM(db, logger.TestLogger(t))
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		ctx := testutils.Context(t)
@@ -409,23 +407,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 0)
 		cltest.AssertCount(t, db, "pipeline_specs", 0)
-		cltest.AssertCount(t, db, "jobs", 0)
-	})
-
-	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		ctx := testutils.Context(t)
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, db, korm, keyStore.Eth(), 0, 1, 20)
-		cltest.MustInsertUpkeepForRegistry(t, db, registry)
-
-		cltest.AssertCount(t, db, "keeper_specs", 1)
-		cltest.AssertCount(t, db, "keeper_registries", 1)
-		cltest.AssertCount(t, db, "upkeep_registrations", 1)
-
-		err := jobORM.DeleteJob(ctx, keeperJob.ID, keeperJob.Type)
-		require.NoError(t, err)
-		cltest.AssertCount(t, db, "keeper_specs", 0)
-		cltest.AssertCount(t, db, "keeper_registries", 0)
-		cltest.AssertCount(t, db, "upkeep_registrations", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
@@ -758,14 +739,6 @@ func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
 		jb := job.Job{
 			Type:            job.FluxMonitor,
 			FluxMonitorSpec: &job.FluxMonitorSpec{},
-		}
-		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
-	})
-
-	t.Run("evm chain id validation for keepers works", func(t *testing.T) {
-		jb := job.Job{
-			Type:       job.Keeper,
-			KeeperSpec: &job.KeeperSpec{},
 		}
 		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(testutils.Context(t), &jb).Error())
 	})

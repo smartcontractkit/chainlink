@@ -10,7 +10,6 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
@@ -37,7 +36,7 @@ type Config struct {
 
 	Cosmos RawConfigs `toml:",omitempty"`
 
-	Solana solcfg.TOMLConfigs `toml:",omitempty"`
+	Solana RawConfigs `toml:",omitempty"`
 
 	Starknet RawConfigs `toml:",omitempty"`
 
@@ -334,12 +333,7 @@ func (c *Config) setDefaults() {
 
 	c.Cosmos.SetDefaults()
 
-	for i := range c.Solana {
-		if c.Solana[i] == nil {
-			c.Solana[i] = new(solcfg.TOMLConfig)
-		}
-		c.Solana[i].SetDefaults()
-	}
+	c.Solana.SetDefaults()
 
 	c.Starknet.SetDefaults()
 
@@ -361,7 +355,7 @@ func (c *Config) SetFrom(f *Config) (err error) {
 
 	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
 	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
-	appendErr(c.Solana.SetFrom(&f.Solana), "Solana")
+	appendErr(c.Solana.SetFrom(f.Solana), "Solana")
 	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
 	appendErr(c.Tron.SetFrom(f.Tron), "Tron")

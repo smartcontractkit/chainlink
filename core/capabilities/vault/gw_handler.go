@@ -239,11 +239,6 @@ func (h *GatewayHandler) authorizeAndPrefixRequest(ctx context.Context, req *jso
 		return nil, authErr
 	}
 	authorizedOwner := authResult.AuthorizedOwner()
-	if incomingOwner != "" && normalizeOwner(incomingOwner) != normalizeOwner(authorizedOwner) {
-		prefixErr := fmt.Errorf("request owner prefix %q does not match authorized owner %q", incomingOwner, authorizedOwner)
-		h.lggr.Errorw("gateway request owner prefix mismatch", "method", req.Method, "requestID", originalRequestID, "incomingOwner", incomingOwner, "authorizedOwner", authorizedOwner, "error", prefixErr)
-		return nil, prefixErr
-	}
 
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + originalRequestID
 	h.lggr.Debugw("authorized gateway request", "method", req.Method, "requestID", req.ID, "owner", authorizedOwner, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner())
@@ -334,16 +329,9 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
-	authorizedOwner := authResult.AuthorizedOwner()
 	vaultCapRequest.RequestId = req.ID
 	if err := setAuthorizedIdentityFields(&vaultCapRequest, authResult); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
-		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(authorizedOwner) {
-			h.lggr.Debugw("create secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", authorizedOwner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, authorizedOwner, idx))
-		}
 	}
 
 	h.lggr.Debugf("Processing authorized and normalized create secrets request [%s]", vaultCapRequest.String())
@@ -364,16 +352,9 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 	if err := json.Unmarshal(*req.Params, &vaultCapRequest); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
-	authorizedOwner := authResult.AuthorizedOwner()
 	vaultCapRequest.RequestId = req.ID
 	if err := setAuthorizedIdentityFields(&vaultCapRequest, authResult); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-	for idx, encryptedSecret := range vaultCapRequest.EncryptedSecrets {
-		if encryptedSecret != nil && encryptedSecret.Id != nil && normalizeOwner(encryptedSecret.Id.Owner) != normalizeOwner(authorizedOwner) {
-			h.lggr.Debugw("update secrets request owner mismatch", "requestID", req.ID, "secretOwner", encryptedSecret.Id.Owner, "authorizedOwner", authorizedOwner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", encryptedSecret.Id.Owner, authorizedOwner, idx))
-		}
 	}
 
 	h.lggr.Debugf("Processing authorized and normalized update secrets request [%s]", vaultCapRequest.String())
@@ -394,16 +375,9 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
-	authorizedOwner := authResult.AuthorizedOwner()
 	r.RequestId = req.ID
 	if err := setAuthorizedIdentityFields(r, authResult); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-	for idx, secretID := range r.Ids {
-		if secretID != nil && normalizeOwner(secretID.Owner) != normalizeOwner(authorizedOwner) {
-			h.lggr.Debugw("delete secrets request owner mismatch", "requestID", req.ID, "secretOwner", secretID.Owner, "authorizedOwner", authorizedOwner, "index", idx)
-			return h.errorResponse(ctx, gatewayID, req, api.FatalError, fmt.Errorf("secret ID owner %q does not match authorized owner %q at index %d", secretID.Owner, authorizedOwner, idx))
-		}
 	}
 
 	h.lggr.Debugf("Processing authorized and normalized delete secrets request [%s]", r.String())

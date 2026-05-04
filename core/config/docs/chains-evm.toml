@@ -77,6 +77,9 @@ LogPollInterval = '15s' # Default
 # LogKeepBlocksDepth works in conjunction with Feature.LogPoller. Controls how many blocks the poller will keep, must be greater than FinalityDepth+1.
 LogKeepBlocksDepth = 100000 # Default
 # **ADVANCED**
+# LogPollerSkipEmptyBlocks defines if LogPoller should persist or skip blocks that do not contain logs matching any of registered filters. Setting this to true can reduce the load on the database and improve performance for fast chains.
+LogPollerSkipEmptyBlocks = false # Default
+# **ADVANCED**
 # LogPrunePageSize defines size of the page for pruning logs. Controls how many logs/blocks (at most) are deleted in a single prune tick. Default value 0 means no paging, delete everything at once.
 LogPrunePageSize = 0 # Default
 # **ADVANCED**
@@ -426,10 +429,14 @@ GasEstimator.PriceMax = '79 gwei' # Example
 #
 # In addition to these settings, `EVM.NoNewHeadsThreshold` controls how long to wait after receiving no new heads before marking the node as out-of-sync.
 [EVM.NodePool]
-# PollFailureThreshold indicates how many consecutive polls must fail in order to mark a node as unreachable.
+# PollFailureThreshold indicates how many polls must fail beyond those that succeed in order to mark a node as unreachable.
 #
 # Set to zero to disable poll checking.
 PollFailureThreshold = 5 # Default
+# PollSuccessThreshold indicates how many consecutive polls must succeed in order to mark a node as alive once it has been marked as unreachable.
+#
+# Set to zero to require no successful polls (previous behavior).
+PollSuccessThreshold = 0 # Default
 # PollInterval controls how often to poll the node to check for liveness.
 #
 # Set to zero to disable poll checking.

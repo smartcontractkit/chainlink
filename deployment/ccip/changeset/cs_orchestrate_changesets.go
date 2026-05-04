@@ -139,6 +139,11 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get EVM MCMS state by chain: %w", err)
 	}
 
+	tonMCMSState, err := state.TONMCMSStateByChain(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get TON MCMS state by chain: %w", err)
+	}
+
 	// Aggregate all Timelock proposals into 1 proposal
 	proposal, err := proposalutils.AggregateProposalsV2(
 		e,
@@ -146,6 +151,7 @@ func orchestrateChangesetsLogic(e cldf.Environment, c OrchestrateChangesetsConfi
 			MCMSEVMState:    evmMCMSState,
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
+			MCMSTONState:    tonMCMSState,
 		},
 		finalOutput.MCMSTimelockProposals,
 		c.Description,
