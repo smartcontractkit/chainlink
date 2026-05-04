@@ -258,7 +258,6 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 		return err
 	}
 
-	methodAttr := attribute.String("method", msgBody.Method)
 	var sendErr error
 	if d.cfg.SendToSharedPeer() {
 		sendErr = d.don2donSharedPeer.Send(peerID, rawMsg)
@@ -268,7 +267,9 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 		sendErr = errors.New("no peer available to send message")
 	}
 
-	ctx := context.Background()
+	ctx, cancel := d.stopCh.NewCtx()
+	defer cancel()
+	methodAttr := attribute.String("method", msgBody.Method)
 	if sendErr != nil {
 		d.metrics.sendErrorsCounter.Add(ctx, 1, metric.WithAttributes(methodAttr))
 		return sendErr

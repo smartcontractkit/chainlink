@@ -233,7 +233,7 @@ func (s *triggerSubscriber) registrationLoop() {
 							CapabilityDonId:  cfg.capDonInfo.ID,
 							CallerDonId:      cfg.localDonID,
 							Method:           types.MethodRegisterTrigger,
-							Payload:          registration.rawRequest,
+							Payload:          registration.rawRequest, // triggerID is in the raw request
 							CapabilityMethod: s.capMethodName,
 						}
 						err := s.dispatcher.Send(peerID, m)
