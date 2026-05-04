@@ -290,7 +290,7 @@ jobs:
         shell: bash
         run: |
           go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... \
-            | go run ./tools/ci-testshard verify --shard-count 4
+            | go run ./tools/ci-testshard verify --shard-count 2
 
       - name: Verify integration test sharding
         shell: bash
@@ -309,7 +309,7 @@ jobs:
           (
             cd deployment || exit 1
             go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...
-          ) | go run ./tools/ci-testshard verify --shard-count 6
+          ) | go run ./tools/ci-testshard verify --shard-count 7
 
   core-tests:
     env:
@@ -320,42 +320,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job-name: go_core_tests shard 0/4
+          - job-name: go_core_tests shard 0/2
             cmd: go_core_tests
             os: runs-on=${{ github.run_id
               }}-unit-0/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
-            shard-count: "4"
+            shard-count: "2"
             shard-index: "0"
             logs-artifact-name: go_core_tests_logs_shard_0
-          - job-name: go_core_tests shard 1/4
+          - job-name: go_core_tests shard 1/2
             cmd: go_core_tests
             os: runs-on=${{ github.run_id
               }}-unit-1/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
-            shard-count: "4"
+            shard-count: "2"
             shard-index: "1"
             logs-artifact-name: go_core_tests_logs_shard_1
-          - job-name: go_core_tests shard 2/4
-            cmd: go_core_tests
-            os: runs-on=${{ github.run_id
-              }}-unit-2/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            trunk-auto-quarantine: "true"
-            shard-count: "4"
-            shard-index: "2"
-            logs-artifact-name: go_core_tests_logs_shard_2
-          - job-name: go_core_tests shard 3/4
-            cmd: go_core_tests
-            os: runs-on=${{ github.run_id
-              }}-unit-3/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
-            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
-            trunk-auto-quarantine: "true"
-            shard-count: "4"
-            shard-index: "3"
-            logs-artifact-name: go_core_tests_logs_shard_3
     name: Core Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [ filter, run-frequency, core-shard-consistency ]
@@ -628,7 +610,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job-name: go_core_deployment_tests shard 0/6
+          - job-name: go_core_deployment_tests shard 0/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-0/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -639,10 +621,10 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "0"
             logs-artifact-name: go_core_deployment_tests_logs_shard_0
-          - job-name: go_core_deployment_tests shard 1/6
+          - job-name: go_core_deployment_tests shard 1/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-1/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -653,10 +635,10 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "1"
             logs-artifact-name: go_core_deployment_tests_logs_shard_1
-          - job-name: go_core_deployment_tests shard 2/6
+          - job-name: go_core_deployment_tests shard 2/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-2/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -667,10 +649,10 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "2"
             logs-artifact-name: go_core_deployment_tests_logs_shard_2
-          - job-name: go_core_deployment_tests shard 3/6
+          - job-name: go_core_deployment_tests shard 3/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-3/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -681,10 +663,10 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "3"
             logs-artifact-name: go_core_deployment_tests_logs_shard_3
-          - job-name: go_core_deployment_tests shard 4/6
+          - job-name: go_core_deployment_tests shard 4/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-4/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -695,10 +677,10 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "4"
             logs-artifact-name: go_core_deployment_tests_logs_shard_4
-          - job-name: go_core_deployment_tests shard 5/6
+          - job-name: go_core_deployment_tests shard 5/7
             cmd: go_core_deployment_tests
             os: runs-on=${{ github.run_id
               }}-deployment-5/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
@@ -709,9 +691,23 @@ jobs:
             setup-aptos: "true"
             install-loopps: "true"
             setup-sui: "true"
-            shard-count: "6"
+            shard-count: "7"
             shard-index: "5"
             logs-artifact-name: go_core_deployment_tests_logs_shard_5
+          - job-name: go_core_deployment_tests shard 6/7
+            cmd: go_core_deployment_tests
+            os: runs-on=${{ github.run_id
+              }}-deployment-6/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+            trunk-auto-quarantine: "true"
+            go-mod-directory: "deployment/"
+            setup-solana: "true"
+            setup-aptos: "true"
+            install-loopps: "true"
+            setup-sui: "true"
+            shard-count: "7"
+            shard-index: "6"
+            logs-artifact-name: go_core_deployment_tests_logs_shard_6
     name: Core Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [ filter, run-frequency, core-shard-consistency ]
