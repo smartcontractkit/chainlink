@@ -156,8 +156,8 @@ func validateShardArgs(shardCount, shardIndex int) error {
 
 func shardForPackage(pkg string, shardCount int) int {
 	hasher := fnv.New32a()
-	_, _ = hasher.Write([]byte(pkg))
-	return int(hasher.Sum32() % uint32(shardCount))
+	_, _ = hasher.Write([]byte(pkg)) // hash.Hash.Write on fnv (Fowler-Noll-Vo) never returns an error
+	return int(int64(hasher.Sum32()) % int64(shardCount))
 }
 
 func printUsage(w io.Writer) {
