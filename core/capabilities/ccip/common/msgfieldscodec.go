@@ -2,7 +2,18 @@ package common
 
 import cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses for a specific chain
+// ProtocolAddressCodec defines the canonical OCR3 ContractConfig encoding for a
+// chain family. It is used by the bootstrap path, where chain SDKs and LOOP
+// relayers may be unavailable.
+type ProtocolAddressCodec interface {
+	// OracleIDAsAddressBytes returns a valid address for this chain family with the bytes set to the given oracle ID.
+	OracleIDAsAddressBytes(oracleID uint8) ([]byte, error)
+	// TransmitterBytesToString converts a transmitter account from bytes to string
+	TransmitterBytesToString([]byte) (string, error)
+}
+
+// ChainSpecificAddressCodec is the full chain-integration codec used by the
+// plugin path. For LOOPP-backed chains, it flows through CCIPProvider.Codec().
 type ChainSpecificAddressCodec interface {
 	// AddressBytesToString converts an address from bytes to string
 	AddressBytesToString([]byte) (string, error)

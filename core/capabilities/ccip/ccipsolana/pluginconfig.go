@@ -10,18 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 )
 
-// InitializePluginConfig returns a pluginConfig for Solana chains.
-func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
+// InitializePluginConfig returns a minimal PluginConfig for Solana chains.
+// Codec fields are sourced from CCIPProvider.Codec() at runtime.
+func InitializePluginConfig(_ logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
-		CommitPluginCodec:          NewCommitPluginCodecV1(),
-		ExecutePluginCodec:         NewExecutePluginCodecV1(extraDataCodec),
-		MessageHasher:              NewMessageHasherV1(logger.Sugared(lggr).Named(chainsel.FamilySolana).Named("MessageHasherV1"), extraDataCodec),
-		TokenDataEncoder:           NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:        NewGasEstimateProvider(extraDataCodec),
-		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
-		AddressCodec:               AddressCodec{},
-		ExtraDataCodec:             ExtraDataDecoder{},
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 		CCIPProviderSupported:      true,
 	}

@@ -12,7 +12,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -120,8 +119,6 @@ type bootstrapOracleCreator struct {
 	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
 	lggr                    logger.Logger
 	homeChainContractReader types.ContractReader
-	relayers                map[types.RelayID]loop.Relayer
-	transmitters            map[types.RelayID][]string
 }
 
 func NewBootstrapOracleCreator(
@@ -131,8 +128,6 @@ func NewBootstrapOracleCreator(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	lggr logger.Logger,
 	homeChainContractReader types.ContractReader,
-	relayers map[types.RelayID]loop.Relayer,
-	transmitters map[types.RelayID][]string,
 ) cctypes.OracleCreator {
 	return &bootstrapOracleCreator{
 		peerWrapper:             peerWrapper,
@@ -141,8 +136,6 @@ func NewBootstrapOracleCreator(
 		monitoringEndpointGen:   monitoringEndpointGen,
 		lggr:                    lggr,
 		homeChainContractReader: homeChainContractReader,
-		relayers:                relayers,
-		transmitters:            transmitters,
 	}
 }
 
@@ -157,11 +150,6 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
-	}
-
-	pluginServices, err := ccipcommon.GetPluginServices(i.lggr, destChainFamily)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
 
 	chainID, err := chainsel.GetChainIDFromSelector(chainSelector)
@@ -190,13 +178,9 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 		config.ConfigDigest,
 	)
 
-	providerClosers, err := i.populateAddressCodecRegistryWithProviderCodecs(ctx, destRelayID, config, &pluginServices.AddrCodec, pluginServices.CCIPProviderSupported)
-	if err != nil {
-		return nil, fmt.Errorf("failed to populate address codec registry with codecs from CCIPProviders: %w", err)
-	}
-	closers := append([]io.Closer{pgd, rmnHomeReader}, providerClosers...)
+	closers := []io.Closer{pgd, rmnHomeReader}
 
-	configTracker, err := ocrimpls.NewConfigTracker(config, pluginServices.AddrCodec)
+	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.ProtocolAddressCodecs())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config tracker: %w", err)
 	}
@@ -234,52 +218,6 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	)
 
 	return newBootstrapOracle(bootstrapperWithCustomClose, pgd, rmnHomeReader), nil
-}
-
-func (i *bootstrapOracleCreator) populateAddressCodecRegistryWithProviderCodecs(
-	ctx context.Context,
-	destRelayID types.RelayID,
-	config cctypes.OCR3ConfigWithMeta,
-	addressCodec *ccipcommon.AddressCodec,
-	ccipProviderSupportedMap map[string]bool,
-) ([]io.Closer, error) {
-	if addressCodec.HasCodec(destRelayID.Network) {
-		return nil, nil
-	}
-
-	supported, ok := ccipProviderSupportedMap[destRelayID.Network]
-	if !ok || !supported {
-		return nil, fmt.Errorf("no address codec registered for chain family %s and CCIPProvider is not supported", destRelayID.Network)
-	}
-	relayer, ok := i.relayers[destRelayID]
-	if !ok {
-		return nil, fmt.Errorf("missing relayer for relay ID %s needed to populate address codec", destRelayID)
-	}
-
-	transmitter := i.transmitters[destRelayID]
-	if len(transmitter) == 0 {
-		return nil, fmt.Errorf("transmitter list is empty for relay ID %s", destRelayID)
-	}
-
-	ccipProvider, err := relayer.NewCCIPProvider(ctx, types.CCIPProviderArgs{
-		PluginType:           cciptypes.PluginType(config.Config.PluginType),
-		OffRampAddress:       config.Config.OfframpAddress,
-		TransmitterAddress:   cciptypes.UnknownEncodedAddress(transmitter[0]),
-		ExtraDataCodecBundle: ccipcommon.GetExtraDataCodecRegistry(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CCIPProvider for relay ID %s: %w", destRelayID, err)
-	}
-
-	codec := ccipProvider.Codec()
-	if codec.ChainSpecificAddressCodec == nil {
-		return nil, errors.Join(
-			fmt.Errorf("CCIPProvider for relay ID %s has no ChainSpecificAddressCodec", destRelayID),
-			services.CloseAll(ccipProvider),
-		)
-	}
-	addressCodec.RegisterCodec(destRelayID.Network, codec.ChainSpecificAddressCodec)
-	return []io.Closer{ccipProvider}, nil
 }
 
 func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cctypes.OCR3ConfigWithMeta) (ccipreaderpkg.RMNHome, error) {

@@ -150,22 +150,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to populate codec registries with codecs from CCIPProviders: %w", err)
 	}
 
-	// if CCIP provider is supported, inject the codecs from the provider into the plugin config.
-	if destProvider := ccipProviders[config.Config.ChainSelector]; destProvider != nil {
-		destProviderCodec := destProvider.Codec()
-		if destProviderCodec.CommitPluginCodec == nil {
-			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no commit plugin codec", config.Config.ChainSelector)
-		}
-		if destProviderCodec.ExecutePluginCodec == nil {
-			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no execute plugin codec", config.Config.ChainSelector)
-		}
-		if destProviderCodec.MessageHasher == nil {
-			return nil, fmt.Errorf("CCIPProvider for destination chain %d has no message hasher", config.Config.ChainSelector)
-		}
-		pluginServices.PluginConfig.CommitPluginCodec = destProviderCodec.CommitPluginCodec
-		pluginServices.PluginConfig.ExecutePluginCodec = destProviderCodec.ExecutePluginCodec
-		pluginServices.PluginConfig.MessageHasher = destProviderCodec.MessageHasher
-	}
+	destProvider := ccipProviders[config.Config.ChainSelector]
+	pluginServices.PluginConfig = mergePluginConfigWithProviderCodec(pluginServices.PluginConfig, destProvider)
 
 	destChainID, err := chainsel.GetChainIDFromSelector(chainSelector)
 	if err != nil {
@@ -173,7 +159,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 	destRelayID := types.NewRelayID(destChainFamily, destChainID)
 
-	configTracker, err := ocrimpls.NewConfigTracker(config, pluginServices.AddrCodec)
+	configTracker, err := ocrimpls.NewConfigTracker(config, ccipcommon.ProtocolAddressCodecs())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create config tracker: %w, %d", err, chainSelector)
 	}
@@ -202,7 +188,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		"maxDurationShouldTransmitAcceptedReport", publicConfig.MaxDurationShouldTransmitAcceptedReport,
 	)
 
-	offrampAddrStr, err := pluginServices.AddrCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
+	var offrampAddrStr string
+	if destProvider != nil && destProvider.Codec().ChainSpecificAddressCodec != nil {
+		offrampAddrStr, err = destProvider.Codec().ChainSpecificAddressCodec.AddressBytesToString(config.Config.OfframpAddress)
+	} else {
+		offrampAddrStr, err = pluginServices.AddrCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert offramp address to string using address codec: %w", err)
 	}
@@ -652,6 +643,32 @@ func (i *pluginOracleCreator) populateCodecRegistriesWithProviderCodecs(
 		}
 	}
 	return nil
+}
+
+// mergePluginConfigWithProviderCodec returns a copy of cfg with codec fields
+// overridden from destProvider when available. EVM has no CCIPProvider and keeps
+// its PluginConfig codecs unchanged.
+func mergePluginConfigWithProviderCodec(cfg ccipcommon.PluginConfig, destProvider types.CCIPProvider) ccipcommon.PluginConfig {
+	if destProvider == nil {
+		return cfg
+	}
+	c := destProvider.Codec()
+	if c.CommitPluginCodec != nil {
+		cfg.CommitPluginCodec = c.CommitPluginCodec
+	}
+	if c.ExecutePluginCodec != nil {
+		cfg.ExecutePluginCodec = c.ExecutePluginCodec
+	}
+	if c.MessageHasher != nil {
+		cfg.MessageHasher = c.MessageHasher
+	}
+	if c.TokenDataEncoder != nil {
+		cfg.TokenDataEncoder = c.TokenDataEncoder
+	}
+	if ep := destProvider.GasEstimateProvider(); ep != nil {
+		cfg.GasEstimateProvider = ep
+	}
+	return cfg
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {

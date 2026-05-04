@@ -245,8 +245,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			allRelayers,
-			transmitterKeys,
 		)
 	}
 
