@@ -136,7 +136,10 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 			case uint64:
 				extraArgs.IsWritableBitmap = v
 			case int64: // LOOP gRPC may convert uint64 -> int64
-				extraArgs.IsWritableBitmap = uint64(v) //nolint:gosec // bitmap, interpret bits as-is
+				if v < 0 {
+					return out, fmt.Errorf("IsWritableBitmap out of uint64 range: %d", v)
+				}
+				extraArgs.IsWritableBitmap = uint64(v)
 			default:
 				return out, fmt.Errorf("invalid type for IsWritableBitmap, expected uint64, got %T", fieldValue)
 			}
