@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.45.1
+
+### Patch Changes
+
+- [#22303](https://github.com/smartcontractkit/chainlink/pull/22303) [`77dc29f`](https://github.com/smartcontractkit/chainlink/commit/77dc29f13fc7880388882107f26a860579b05b48) - Fix Operator UI jobs management after legacy Keepers v1 removal: bump bundled Operator UI so GraphQL no longer queries removed KeeperSpec types. #bugfix #nops
+
 ## 2.45.0
 
 ### Breaking Changes
