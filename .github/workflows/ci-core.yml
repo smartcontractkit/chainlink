@@ -529,7 +529,7 @@ jobs:
           GO_TEST_SHARD_COUNT: ${{ matrix.shard-count }}
           GO_TEST_SHARD_INDEX: ${{ matrix.shard-index }}
         run: |
-          GODEBUG=goindex=0 ./tools/bin/${{ matrix.cmd }} ./...
+          GODEBUG=goindex=0 "./tools/bin/${{ matrix.cmd }}" ./...
           # See: https://github.com/golang/go/issues/69179
       - name: Print Races
         id: print-races
@@ -539,7 +539,7 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find race.* | xargs cat >> races.txt
+          find . -maxdepth 1 -name 'race.*' -exec cat {} + >> races.txt
           if [[ -s races.txt ]]; then
             cat races.txt
             echo "post_to_slack=true" | tee -a "$GITHUB_OUTPUT"
@@ -831,7 +831,7 @@ jobs:
           for golang_lint_artifact in golangci-lint-report*
           do
               echo "Found golangci-lint-report artifacts"
-              sonarqube_lint_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")
+              sonarqube_lint_report_paths=$(find . -type f -name 'golangci-lint-report.xml' -printf "%p,")
               echo "Lint report paths: $sonarqube_lint_report_paths"
               break
           done
@@ -859,7 +859,7 @@ jobs:
           fi
 
           echo "Final SONARQUBE_ARGS: $ARGS"
-          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
+          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
@@ -933,7 +933,7 @@ jobs:
 
           # Check if the current hour is 00 (one per day)
           if [ "$current_hour" -eq "00" ]; then
-            echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+            echo "one-per-day-frequency=true" | tee -a "$GITHUB_OUTPUT"
           fi
 
   misc:
