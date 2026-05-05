@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
@@ -32,7 +33,17 @@ func (sk setKeeperRegistryAddress) Apply(
 		"numChains", len(config.Chains),
 	)
 
+	evmChains := e.BlockChains.EVMChains()
+
+	var primaryChain cldf_evm.Chain
+	for chainSelector := range config.Chains {
+		primaryChain = evmChains[chainSelector]
+		break
+	}
+
 	deps := VaultDeps{
+		Auth:        primaryChain.DeployerKey,
+		Chain:       primaryChain,
 		Environment: e,
 		DataStore:   e.DataStore,
 	}
@@ -123,6 +134,7 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 
 		evmChains := deps.Environment.BlockChains.EVMChains()
 
+		// Move this to the sequence
 		for chainSelector, chainConfig := range input.Chains {
 			chain, ok := evmChains[chainSelector]
 			if !ok {
