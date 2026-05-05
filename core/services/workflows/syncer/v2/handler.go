@@ -664,13 +664,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		},
 	}
 
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
 	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)

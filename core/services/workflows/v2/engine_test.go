@@ -2262,7 +2262,7 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Verify the registry was updated
-	updatedNode, err := localRegistry.LocalNode(ctx)
+	updatedNode, err := localRegistry.NodeByPeerID(ctx, peerID)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(2), updatedNode.WorkflowDON.ConfigVersion, "DON ConfigVersion should now be 2")
 	t.Logf("✓ Registry updated: DON ConfigVersion is now %d", updatedNode.WorkflowDON.ConfigVersion)
