@@ -168,7 +168,7 @@ func (m *ConfidentialModule) Execute(
 		WorkflowTag:         m.workflowTag,
 		WorkflowExecutionID: helper.GetWorkflowExecutionID(),
 	}
-	if err := m.enrichConfidentialOrgIdentity(ctx, &md, execPayload); err != nil {
+	if err = m.enrichConfidentialOrgIdentity(ctx, &md, execPayload); err != nil {
 		return nil, fmt.Errorf("confidential workflow org identity: %w", err)
 	}
 

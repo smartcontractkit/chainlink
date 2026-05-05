@@ -205,7 +205,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 		Config: values.EmptyMap(),
 	}
 
-	if err := c.enrichRequestMetadataOrg(ctx, &capReq.Metadata, c.ExecutionOrgID); err != nil {
+	if err = c.enrichRequestMetadataOrg(ctx, &capReq.Metadata, c.ExecutionOrgID); err != nil {
 		return nil, fmt.Errorf("workflow capability metadata: %w", err)
 	}
 
