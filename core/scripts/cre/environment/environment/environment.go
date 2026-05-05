@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -106,7 +107,9 @@ func waitToCleanUp(d time.Duration) {
 }
 
 func describePortUsage(ctx context.Context, port int) (string, error) {
-	cmd := exec.CommandContext(ctx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port)) //nolint:gosec //G204-- we control the value of the cmd so the lint/sec error is a false positive
+	lsofCtx, lsofCtxCancel := context.WithTimeout(ctx, 20*time.Second)
+	defer lsofCtxCancel()
+	cmd := exec.CommandContext(lsofCtx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port)) //nolint:gosec //G204-- we control the value of the cmd so the lint/sec error is a false positive
 	output, err := cmd.CombinedOutput()
 	trimmedOutput := strings.TrimSpace(string(output))
 
@@ -891,12 +894,14 @@ func StartCLIEnvironment(
 			regex := regexp.MustCompile(`:(\d+)`)
 			matches := regex.FindStringSubmatch(setupErr.Error())
 			if len(matches) > 1 {
-				port := mustStringToInt(matches[1])
-				portUsage, err := describePortUsage(cmdContext, port)
-				if err != nil {
-					return nil, fmt.Errorf("failed to describe port usage: %w", err)
+				port, pErr := strconv.Atoi(matches[1])
+				// ignore errors from now on, so that we don't overwrite the original error
+				if pErr == nil {
+					portUsage, err := describePortUsage(cmdContext, port)
+					if err == nil {
+						fmt.Printf("Port %d is already in use by:\n%s\n\n", port, portUsage)
+					}
 				}
-				fmt.Printf("Port %d is already in use by:\n%s\n\n", port, portUsage)
 			}
 		}
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
