@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/minio"
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/mock"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/root"
 )
 
@@ -16,7 +15,6 @@ func init() {
 	root.RootCmd.AddCommand(environment.TopologyCmd())
 	root.RootCmd.AddCommand(examples.ExamplesCmd)
 	root.RootCmd.AddCommand(minio.MinioCommand)
-	root.RootCmd.AddCommand(mock.MockCommand)
 	root.RootCmd.AddCommand(environment.BsCmd)
 	root.RootCmd.AddCommand(environment.ObsCmd)
 }

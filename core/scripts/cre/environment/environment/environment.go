@@ -532,6 +532,7 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&withBeholder, "with-beholder", "b", false, "Deploy Beholder (Chip Ingress + Red Panda)")
 	cmd.Flags().BoolVarP(&withDashboards, "with-dashboards", "d", false, "Deploy Observability Stack and Grafana Dashboards")
 	cmd.Flags().BoolVar(&withObs, "with-observability", false, "Start Observability Stack")
+	cmd.Flags().BoolVar(&withBilling, "with-billing", false, "Deploy Billing Platform Service")
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
@@ -838,7 +839,6 @@ func StartCLIEnvironment(
 		NodeSets:                in.NodeSets,
 		BlockchainsInput:        in.Blockchains,
 		ChipRouterInput:         in.ChipRouter,
-		ContractVersions:        env.ContractVersions(),
 		JdInput:                 in.JD,
 		Provider:                *in.Infra,
 		S3ProviderInput:         in.S3ProviderInput,

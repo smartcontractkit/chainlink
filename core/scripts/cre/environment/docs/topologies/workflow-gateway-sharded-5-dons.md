@@ -16,7 +16,6 @@ This matrix is the source of truth for capability placement by DON.
 | `evm` | `-` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` |
 | `http-action` | `-` | `local` | `-` | `-` | `-` | `-` | `-` |
 | `http-trigger` | `-` | `local` | `-` | `-` | `-` | `-` | `-` |
-| `log-event-trigger` | `-` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` | `local (1337,2337)` |
 | `vault` | `-` | `local` | `-` | `-` | `-` | `-` | `-` |
 
 ## DONs

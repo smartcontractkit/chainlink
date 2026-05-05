@@ -14,9 +14,10 @@ import (
 	solgo "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/require"
+
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"

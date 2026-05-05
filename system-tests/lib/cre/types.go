@@ -58,7 +58,7 @@ const (
 // Capabilities
 const (
 	DONTimeCapability           CapabilityFlag = "don-time"
-	ConsensusCapabilityV2       CapabilityFlag = "consensus"
+	ConsensusCapability         CapabilityFlag = "consensus"
 	CronCapability              CapabilityFlag = "cron"
 	EVMCapability               CapabilityFlag = "evm"
 	VaultCapability             CapabilityFlag = "vault"
@@ -710,7 +710,7 @@ func (m *DonMetadata) SolanaChains() []string {
 }
 
 func (m *DonMetadata) RequiresOCR() bool {
-	return slices.Contains(m.Flags, ConsensusCapabilityV2) ||
+	return slices.Contains(m.Flags, ConsensusCapability) ||
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
 }
 

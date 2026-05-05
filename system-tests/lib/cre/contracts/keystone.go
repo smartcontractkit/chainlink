@@ -38,10 +38,11 @@ import (
 	syncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
+var V2Version = semver.MustParse("2.0.0")
+
 type DeployKeystoneContractsInput struct {
-	CldfEnvironment  *cldf.Environment
-	CtfBlockchains   []blockchains.Blockchain
-	ContractVersions map[cre.ContractType]*semver.Version
+	CldfEnvironment *cldf.Environment
+	CtfBlockchains  []blockchains.Blockchain
 }
 
 type DeployKeystoneContractsOutput struct {
@@ -78,11 +79,11 @@ func DeployKeystoneContracts(
 		return nil, errors.Wrap(err, "failed to merge datastore with Keystone contracts addresses")
 	}
 
-	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], registryChainSelector, wfRegAddr)
+	wfRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.WorkflowRegistry.String(), V2Version, "")
+	testLogger.Info().Msgf("Deployed Workflow Registry %s contract on chain %d at %s", V2Version, registryChainSelector, wfRegAddr)
 
-	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], "")
-	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()], registryChainSelector, capRegAddr)
+	capRegAddr := MustGetAddressFromMemoryDataStore(memoryDatastore, registryChainSelector, keystone_changeset.CapabilitiesRegistry.String(), V2Version, "")
+	testLogger.Info().Msgf("Deployed Capabilities Registry %s contract on chain %d at %s", V2Version, registryChainSelector, capRegAddr)
 
 	input.CldfEnvironment.DataStore = memoryDatastore.Seal()
 
@@ -118,14 +119,6 @@ func (d *dons) donsOrderedByID() []donConfig {
 		return out[i].id < out[j].id
 	})
 
-	return out
-}
-
-func (d *dons) allDonCapabilities() []keystone_changeset.DonCapabilities {
-	out := make([]keystone_changeset.DonCapabilities, 0, len(d.c))
-	for _, don := range d.donsOrderedByID() {
-		out = append(out, don.DonCapabilities)
-	}
 	return out
 }
 
@@ -408,7 +401,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 
 		forwarderF := (len(workerNodes) - 1) / 3
 		if forwarderF == 0 {
-			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapabilityV2) {
+			if flags.HasFlag(donMetadata.Flags, cre.ConsensusCapability) {
 				return nil, fmt.Errorf("incorrect number of worker nodes: %d. Resulting F must conform to formula: mod((N-1)/3) > 0", len(workerNodes))
 			}
 			// for other capabilities, we can use 1 as F
@@ -439,7 +432,7 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 	return dons, nil
 }
 
-func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabilityRegistryInput) (CapabilitiesRegistry, error) {
+func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabilityRegistryInput) (CapabilityRegistry, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -448,14 +441,14 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 	if dErr != nil {
 		return nil, errors.Wrap(dErr, "failed to map input to dons")
 	}
-	v2Input := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToExtraSignerFamilies)
+	contractInput := dons.mustToV2ConfigureInput(input.ChainSelector, input.CapabilitiesRegistryAddress.Hex(), input.CapabilityToOCR3Config, input.CapabilityToExtraSignerFamilies)
 	_, seqErr := operations.ExecuteSequence(
 		input.CldEnv.OperationsBundle,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistry,
 		cap_reg_v2_seq.ConfigureCapabilitiesRegistryDeps{
 			Env: input.CldEnv,
 		},
-		v2Input,
+		contractInput,
 	)
 	if seqErr != nil {
 		return nil, errors.Wrap(seqErr, "failed to configure capabilities registry")
@@ -471,7 +464,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 	}
 
-	capReg := newV2CapabilitiesRegistry(capRegContract.Contract)
+	capReg := newCapabilityRegistry(capRegContract.Contract)
 
 	// TODO: remove this once the race condition is fixed (CRE-2684)
 	if waitErr := waitForWorkflowWorkersCapabilityRegistrySync(ctx, input); waitErr != nil {
@@ -488,19 +481,19 @@ type DonInfo struct {
 	NodeP2PIds  [][32]byte
 }
 
-type CapabilitiesRegistry interface {
+type CapabilityRegistry interface {
 	GetDONByName(opts *bind.CallOpts, donName string) (DonInfo, error)
 }
 
-type v2CapabilitiesRegistry struct {
+type capabilityRegistry struct {
 	reg *capabilities_registry_v2.CapabilitiesRegistry
 }
 
-func newV2CapabilitiesRegistry(reg *capabilities_registry_v2.CapabilitiesRegistry) CapabilitiesRegistry {
-	return &v2CapabilitiesRegistry{reg: reg}
+func newCapabilityRegistry(reg *capabilities_registry_v2.CapabilitiesRegistry) CapabilityRegistry {
+	return &capabilityRegistry{reg: reg}
 }
 
-func (r *v2CapabilitiesRegistry) GetDONByName(opts *bind.CallOpts, donName string) (DonInfo, error) {
+func (r *capabilityRegistry) GetDONByName(opts *bind.CallOpts, donName string) (DonInfo, error) {
 	d, err := r.reg.GetDONByName(opts, donName)
 	if err != nil {
 		return DonInfo{}, err
@@ -515,7 +508,7 @@ func (r *v2CapabilitiesRegistry) GetDONByName(opts *bind.CallOpts, donName strin
 }
 
 // ResolveContractDonIDs retrieves contract donIDs using GetDONByName(don.Name + "-don").
-func ResolveContractDonIDs(capReg CapabilitiesRegistry, donNames []string) (map[string]uint32, error) {
+func ResolveContractDonIDs(capReg CapabilityRegistry, donNames []string) (map[string]uint32, error) {
 	result := make(map[string]uint32)
 	for _, name := range donNames {
 		donName := name + "-don"
@@ -531,7 +524,7 @@ func ResolveContractDonIDs(capReg CapabilitiesRegistry, donNames []string) (map[
 // ResolveAndApplyContractDonIDs resolves contract donIDs from the Capabilities Registry and applies them
 // to topology, dons, and nodeSets.
 func ResolveAndApplyContractDonIDs(
-	capReg CapabilitiesRegistry,
+	capReg CapabilityRegistry,
 	dons *cre.Dons,
 	topology *cre.Topology,
 	nodeSets []*cre.NodeSet,
@@ -548,7 +541,7 @@ func ResolveAndApplyContractDonIDs(
 }
 
 func resolveContractDonIDsFromDons(
-	capReg CapabilitiesRegistry,
+	capReg CapabilityRegistry,
 	dons *cre.Dons,
 ) (map[string]uint32, error) {
 	registeredDonNames := make([]string, 0)
