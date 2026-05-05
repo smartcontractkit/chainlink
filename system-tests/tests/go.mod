@@ -58,7 +58,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.98
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260504171535-31bb37ff18d5
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260505124104-72181f5345ce
 	github.com/smartcontractkit/chainlink-common/keystore v1.1.0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260504075031-e5aae8c82e91
 	github.com/smartcontractkit/chainlink-deployments-framework v0.98.0
