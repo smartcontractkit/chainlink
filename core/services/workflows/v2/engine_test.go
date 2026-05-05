@@ -1721,6 +1721,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		cfg.WorkflowID,
 		"",
 		cfg.WorkflowEncryptionKey,
+		nil,
 	)
 	cfg.SecretsFetcher = secretsFetcher
 	engine, err := v2.NewEngine(cfg)
