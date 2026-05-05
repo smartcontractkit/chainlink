@@ -206,7 +206,6 @@ jobs:
               should_run = os.environ["SHOULD_RUN_CORE_TESTS"]
               for i in range(count):
                   rows.append({
-                      "aggregate-check": "core-tests",
                       "job-name": f"go_core_tests shard {i}/{count}",
                       "cmd": "go_core_tests",
                       "os": f"runs-on={run_id}-unit-{i}/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
@@ -224,7 +223,6 @@ jobs:
               should_run = os.environ["SHOULD_RUN_CORE_TESTS"]
               for i in range(count):
                   rows.append({
-                      "aggregate-check": "core-tests-integration",
                       "job-name": f"go_core_tests_integration shard {i}/{count}",
                       "cmd": "go_core_tests_integration",
                       "os": f"runs-on={run_id}-integ-{i}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
@@ -244,7 +242,6 @@ jobs:
               should_run = os.environ["SHOULD_RUN_DEPLOYMENT_TESTS"]
               for i in range(count):
                   rows.append({
-                      "aggregate-check": "core-deployment-tests",
                       "job-name": f"go_core_deployment_tests shard {i}/{count}",
                       "cmd": "go_core_deployment_tests",
                       "os": f"runs-on={run_id}-deployment-{i}/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
@@ -264,7 +261,6 @@ jobs:
           def add_core_misc_rows():
               should_run = os.environ["SHOULD_RUN_CORE_TESTS"]
               rows.append({
-                  "aggregate-check": "core-misc",
                   "job-name": "go_core_fuzz",
                   "cmd": "go_core_fuzz",
                   "os": f"runs-on={run_id}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
@@ -278,7 +274,6 @@ jobs:
                   "logs-artifact-name": "go_core_fuzz_logs",
               })
               rows.append({
-                  "aggregate-check": "core-misc",
                   "job-name": "go_core_race_tests",
                   "cmd": "go_core_race_tests",
                   "os": f"runs-on={run_id}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
@@ -553,31 +548,6 @@ jobs:
           fi
           echo "github.event_name: ${{ github.event_name }}"
           echo "github.ref: ${{ github.ref }}"
-      - name: Write row status
-        if: ${{ always() }}
-        shell: bash
-        env:
-          AGGREGATE_CHECK: ${{ matrix.aggregate-check }}
-          SHOULD_RUN: ${{ matrix.should-run }}
-          RUN_TESTS_OUTCOME: ${{ steps.run-tests.outcome }}
-          JOB_STATUS: ${{ job.status }}
-          LOGS_ARTIFACT_NAME: ${{ matrix.logs-artifact-name }}
-        run: |
-          if [[ "${SHOULD_RUN}" != "true" ]]; then
-            result="skipped"
-          elif [[ "${RUN_TESTS_OUTCOME}" == "failure" ]]; then
-            result="failure"
-          elif [[ "${JOB_STATUS}" == "failure" ]]; then
-            result="failure"
-          elif [[ "${JOB_STATUS}" == "cancelled" ]]; then
-            result="cancelled"
-          else
-            result="success"
-          fi
-
-          cat > "${LOGS_ARTIFACT_NAME}-status.json" <<EOF
-          {"aggregate_check":"${AGGREGATE_CHECK}","result":"${result}"}
-          EOF
       - name: Analyze and upload test results
         if: ${{ matrix.should-run == 'true' && matrix.trunk-auto-quarantine == 'true' &&
           !cancelled() }}
@@ -594,13 +564,6 @@ jobs:
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           print-logs: "true"
-      - name: Upload row status
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: row-status-${{ matrix.logs-artifact-name }}
-          path: ${{ matrix.logs-artifact-name }}-status.json
-          retention-days: 7
       - name: Store logs artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -634,42 +597,43 @@ jobs:
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
     needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - name: Download row status artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: row-status-*
-          merge-multiple: true
       - name: Check integration shard results
         env:
-          AGGREGATE_CHECK: core-tests-integration
           EXPECTED_ROWS: ${{ env.CORE_INTEGRATION_TEST_SHARD_COUNT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_NAME_PREFIX: "Core Tests (go_core_tests_integration shard "
         run: |
+          gh api \
+            --paginate \
+            --jq '.jobs[] | {name, conclusion} | @json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+            > jobs.jsonl
+
           python - <<'PY'
-          import glob
           import json
           import os
           import sys
 
-          suite = os.environ["AGGREGATE_CHECK"]
+          prefix = os.environ["JOB_NAME_PREFIX"]
           expected = int(os.environ["EXPECTED_ROWS"])
           rows = []
-          for path in glob.glob("*-status.json"):
-              with open(path, encoding="utf-8") as f:
-                  row = json.load(f)
-              if row.get("aggregate_check") == suite:
-                  rows.append(row)
+          with open("jobs.jsonl", encoding="utf-8") as f:
+              for line in f:
+                  row = json.loads(line)
+                  if row["name"].startswith(prefix):
+                      rows.append(row)
 
           if len(rows) != expected:
-              print(f"Expected {expected} rows for {suite}, got {len(rows)}")
+              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
               sys.exit(1)
 
-          results = [row["result"] for row in rows]
-          if all(result == "skipped" for result in results):
-              print("Integration core tests were skipped.")
-              sys.exit(0)
-          if any(result in {"failure", "cancelled"} for result in results):
-              print(f"Integration shard group failed with results: {results}")
+          conclusions = [row["conclusion"] for row in rows]
+          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
+              print(f"Integration shard group failed with conclusions: {conclusions}")
               sys.exit(1)
           print("All integration shards succeeded.")
           PY
@@ -679,42 +643,43 @@ jobs:
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
     needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - name: Download row status artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: row-status-*
-          merge-multiple: true
       - name: Check deployment shard results
         env:
-          AGGREGATE_CHECK: core-deployment-tests
           EXPECTED_ROWS: ${{ env.CORE_DEPLOYMENT_TEST_SHARD_COUNT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_NAME_PREFIX: "Core Tests (go_core_deployment_tests shard "
         run: |
+          gh api \
+            --paginate \
+            --jq '.jobs[] | {name, conclusion} | @json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+            > jobs.jsonl
+
           python - <<'PY'
-          import glob
           import json
           import os
           import sys
 
-          suite = os.environ["AGGREGATE_CHECK"]
+          prefix = os.environ["JOB_NAME_PREFIX"]
           expected = int(os.environ["EXPECTED_ROWS"])
           rows = []
-          for path in glob.glob("*-status.json"):
-              with open(path, encoding="utf-8") as f:
-                  row = json.load(f)
-              if row.get("aggregate_check") == suite:
-                  rows.append(row)
+          with open("jobs.jsonl", encoding="utf-8") as f:
+              for line in f:
+                  row = json.loads(line)
+                  if row["name"].startswith(prefix):
+                      rows.append(row)
 
           if len(rows) != expected:
-              print(f"Expected {expected} rows for {suite}, got {len(rows)}")
+              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
               sys.exit(1)
 
-          results = [row["result"] for row in rows]
-          if all(result == "skipped" for result in results):
-              print("Deployment core tests were skipped.")
-              sys.exit(0)
-          if any(result in {"failure", "cancelled"} for result in results):
-              print(f"Deployment shard group failed with results: {results}")
+          conclusions = [row["conclusion"] for row in rows]
+          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
+              print(f"Deployment shard group failed with conclusions: {conclusions}")
               sys.exit(1)
           print("All deployment shards succeeded.")
           PY
@@ -724,42 +689,43 @@ jobs:
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
     needs: [ core-tests, core-shard-consistency ]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - name: Download row status artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: row-status-*
-          merge-multiple: true
       - name: Check unit shard results
         env:
-          AGGREGATE_CHECK: core-tests
           EXPECTED_ROWS: ${{ env.CORE_TEST_SHARD_COUNT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_NAME_PREFIX: "Core Tests (go_core_tests shard "
         run: |
+          gh api \
+            --paginate \
+            --jq '.jobs[] | {name, conclusion} | @json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+            > jobs.jsonl
+
           python - <<'PY'
-          import glob
           import json
           import os
           import sys
 
-          suite = os.environ["AGGREGATE_CHECK"]
+          prefix = os.environ["JOB_NAME_PREFIX"]
           expected = int(os.environ["EXPECTED_ROWS"])
           rows = []
-          for path in glob.glob("*-status.json"):
-              with open(path, encoding="utf-8") as f:
-                  row = json.load(f)
-              if row.get("aggregate_check") == suite:
-                  rows.append(row)
+          with open("jobs.jsonl", encoding="utf-8") as f:
+              for line in f:
+                  row = json.loads(line)
+                  if row["name"].startswith(prefix):
+                      rows.append(row)
 
           if len(rows) != expected:
-              print(f"Expected {expected} rows for {suite}, got {len(rows)}")
+              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
               sys.exit(1)
 
-          results = [row["result"] for row in rows]
-          if all(result == "skipped" for result in results):
-              print("Unit core tests were skipped.")
-              sys.exit(0)
-          if any(result in {"failure", "cancelled"} for result in results):
-              print(f"Unit shard group failed with results: {results}")
+          conclusions = [row["conclusion"] for row in rows]
+          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
+              print(f"Unit shard group failed with conclusions: {conclusions}")
               sys.exit(1)
           print("All unit shards succeeded.")
           PY
