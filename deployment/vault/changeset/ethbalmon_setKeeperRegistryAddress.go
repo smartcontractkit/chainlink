@@ -88,128 +88,36 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 			"chains", len(input.Chains),
 		)
 
-		opReport, err := operations.ExecuteOperation(
-			b,
-			SetKeeperRegistryOperation,
-			deps,
-			SetKeeperRegistryOperationInput{
-				Chains: input.Chains,
-			},
-		)
-		if err != nil {
-			return EthBalMonSetKeeperRegistryAddressSequenceOutput{},
-				fmt.Errorf("failed to generate set keeper registry proposal: %w", err)
-		}
-
-		return EthBalMonSetKeeperRegistryAddressSequenceOutput{
-			MCMSTimelockProposals: opReport.Output.MCMSTimelockProposals,
-		}, nil
-	},
-)
-
-type SetKeeperRegistryOperationInput struct {
-	Chains map[uint64]vaulttypes.SetKeeperRegistryChainConfig `json:"chains"`
-}
-
-type SetKeeperRegistryOperationOutput struct {
-	MCMSTimelockProposals []mcms.TimelockProposal
-}
-
-var SetKeeperRegistryOperation = operations.NewOperation(
-	"ethbalmon-set-keeper-registry-op",
-	semver.MustParse("1.0.0"),
-	"Generate proposal to set Keeper Registry address on the Ethereum Balance Monitor contract",
-	func(
-		b operations.Bundle,
-		deps VaultDeps,
-		input SetKeeperRegistryOperationInput,
-	) (SetKeeperRegistryOperationOutput, error) {
 		if len(input.Chains) == 0 {
-			return SetKeeperRegistryOperationOutput{}, fmt.Errorf("no chains provided")
+			return EthBalMonSetKeeperRegistryAddressSequenceOutput{}, fmt.Errorf("no chains provided")
 		}
 
 		var batches []mcmstypes.BatchOperation
 		timelockAddresses := make(map[mcmstypes.ChainSelector]string)
 		chainMetadata := make(map[mcmstypes.ChainSelector]mcmstypes.ChainMetadata)
 
-		evmChains := deps.Environment.BlockChains.EVMChains()
-
-		// Move this to the sequence
 		for chainSelector, chainConfig := range input.Chains {
-			chain, ok := evmChains[chainSelector]
-			if !ok {
-				return SetKeeperRegistryOperationOutput{}, fmt.Errorf("chain not found in environment: %d", chainSelector)
-			}
-
-			ethBalMonAddr, err := mustGetContractAddress(
-				deps.DataStore,
-				chainSelector,
-				cldf.ContractType(vaulttypes.ETHBALMON_CONTRACT_TYPE),
-			)
-			if err != nil {
-				return SetKeeperRegistryOperationOutput{},
-					fmt.Errorf("chain %d: failed to get EthBalMon address: %w", chainSelector, err)
-			}
-
-			timelockAddr, err := mustGetContractAddress(
-				deps.DataStore,
-				chainSelector,
-				commontypes.RBACTimelock,
-			)
-			if err != nil {
-				return SetKeeperRegistryOperationOutput{},
-					fmt.Errorf("chain %d: failed to get timelock address: %w", chainSelector, err)
-			}
-
-			mcmsAddr, err := mustGetContractAddress(
-				deps.DataStore,
-				chainSelector,
-				commontypes.ManyChainMultisig,
-			)
-			if err != nil {
-				return SetKeeperRegistryOperationOutput{},
-					fmt.Errorf("chain %d: failed to get MCMS address: %w", chainSelector, err)
-			}
-
-			ethBalMon, err := eth_balance_monitor_wrapper.NewEthBalanceMonitor(
-				common.HexToAddress(ethBalMonAddr),
-				chain.Client,
-			)
-			if err != nil {
-				return SetKeeperRegistryOperationOutput{},
-					fmt.Errorf("chain %d: failed to instantiate EthBalanceMonitor at %s: %w", chainSelector, ethBalMonAddr, err)
-			}
-
-			setKeeperRegistryTx, err := ethBalMon.SetKeeperRegistryAddress(
-				cldf.SimTransactOpts(),
-				common.HexToAddress(chainConfig.NewKeeperRegistryAddress),
-			)
-			if err != nil {
-				return SetKeeperRegistryOperationOutput{},
-					fmt.Errorf("chain %d: failed to generate setKeeperRegistryAddress calldata: %w", chainSelector, err)
-			}
-
-			batches = append(batches, mcmstypes.BatchOperation{
-				ChainSelector: mcmstypes.ChainSelector(chainSelector),
-				Transactions: []mcmstypes.Transaction{
-					{
-						OperationMetadata: mcmstypes.OperationMetadata{
-							ContractType: vaulttypes.ETHBALMON_CONTRACT_TYPE,
-							Tags: []string{
-								"setKeeperRegistryAddress",
-							},
-						},
-						To:               ethBalMonAddr,
-						Data:             setKeeperRegistryTx.Data(),
-						AdditionalFields: json.RawMessage(`{"value": 0}`),
-					},
+			opReport, err := operations.ExecuteOperation(
+				b,
+				SetKeeperRegistryOperation,
+				deps,
+				SetKeeperRegistryOperationInput{
+					ChainSelector:            chainSelector,
+					NewKeeperRegistryAddress: chainConfig.NewKeeperRegistryAddress,
 				},
-			})
+			)
+			if err != nil {
+				return EthBalMonSetKeeperRegistryAddressSequenceOutput{},
+					fmt.Errorf("chain %d: failed to generate set keeper registry batch: %w", chainSelector, err)
+			}
 
-			timelockAddresses[mcmstypes.ChainSelector(chainSelector)] = timelockAddr
+			opOut := opReport.Output
+
+			batches = append(batches, opOut.BatchOperation)
+			timelockAddresses[mcmstypes.ChainSelector(chainSelector)] = opOut.TimelockAddress
 			chainMetadata[mcmstypes.ChainSelector(chainSelector)] = mcmstypes.ChainMetadata{
 				StartingOpCount: 0,
-				MCMAddress:      mcmsAddr,
+				MCMAddress:      opOut.MCMSAddress,
 			}
 		}
 
@@ -222,7 +130,8 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			SetDescription("Set Keeper Registry address on EthBalanceMonitor across chains").
 			Build()
 		if err != nil {
-			return SetKeeperRegistryOperationOutput{}, fmt.Errorf("failed to build timelock proposal: %w", err)
+			return EthBalMonSetKeeperRegistryAddressSequenceOutput{},
+				fmt.Errorf("failed to build timelock proposal: %w", err)
 		}
 
 		b.Logger.Infow("Generated EthBalMon set keeper registry proposal",
@@ -230,8 +139,114 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			"operations", len(batches),
 		)
 
-		return SetKeeperRegistryOperationOutput{
+		return EthBalMonSetKeeperRegistryAddressSequenceOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	},
+)
+
+type SetKeeperRegistryOperationInput struct {
+	ChainSelector            uint64 `json:"chain_selector"`
+	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`
+}
+
+type SetKeeperRegistryOperationOutput struct {
+	ChainSelector   uint64
+	BatchOperation  mcmstypes.BatchOperation
+	TimelockAddress string
+	MCMSAddress     string
+}
+
+var SetKeeperRegistryOperation = operations.NewOperation(
+	"ethbalmon-set-keeper-registry-op",
+	semver.MustParse("1.0.0"),
+	"Generate batch operation to set Keeper Registry address on the Ethereum Balance Monitor contract",
+	func(
+		b operations.Bundle,
+		deps VaultDeps,
+		input SetKeeperRegistryOperationInput,
+	) (SetKeeperRegistryOperationOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return SetKeeperRegistryOperationOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		ethBalMonAddr, err := mustGetContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			cldf.ContractType(vaulttypes.ETHBALMON_CONTRACT_TYPE),
+		)
+		if err != nil {
+			return SetKeeperRegistryOperationOutput{},
+				fmt.Errorf("failed to get EthBalMon address: %w", err)
+		}
+
+		timelockAddr, err := mustGetContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			commontypes.RBACTimelock,
+		)
+		if err != nil {
+			return SetKeeperRegistryOperationOutput{},
+				fmt.Errorf("failed to get timelock address: %w", err)
+		}
+
+		mcmsAddr, err := mustGetContractAddress(
+			deps.DataStore,
+			input.ChainSelector,
+			commontypes.ManyChainMultisig,
+		)
+		if err != nil {
+			return SetKeeperRegistryOperationOutput{},
+				fmt.Errorf("failed to get MCMS address: %w", err)
+		}
+
+		ethBalMon, err := eth_balance_monitor_wrapper.NewEthBalanceMonitor(
+			common.HexToAddress(ethBalMonAddr),
+			chain.Client,
+		)
+		if err != nil {
+			return SetKeeperRegistryOperationOutput{},
+				fmt.Errorf("failed to instantiate EthBalanceMonitor at %s: %w", ethBalMonAddr, err)
+		}
+
+		setKeeperRegistryTx, err := ethBalMon.SetKeeperRegistryAddress(
+			cldf.SimTransactOpts(),
+			common.HexToAddress(input.NewKeeperRegistryAddress),
+		)
+		if err != nil {
+			return SetKeeperRegistryOperationOutput{},
+				fmt.Errorf("failed to generate setKeeperRegistryAddress calldata: %w", err)
+		}
+
+		batch := mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
+			Transactions: []mcmstypes.Transaction{
+				{
+					OperationMetadata: mcmstypes.OperationMetadata{
+						ContractType: vaulttypes.ETHBALMON_CONTRACT_TYPE,
+						Tags: []string{
+							"setKeeperRegistryAddress",
+						},
+					},
+					To:               ethBalMonAddr,
+					Data:             setKeeperRegistryTx.Data(),
+					AdditionalFields: json.RawMessage(`{"value": 0}`),
+				},
+			},
+		}
+
+		b.Logger.Infow("Generated EthBalMon set keeper registry batch",
+			"chainSelector", input.ChainSelector,
+			"ethBalMon", ethBalMonAddr,
+			"newKeeperRegistry", input.NewKeeperRegistryAddress,
+		)
+
+		return SetKeeperRegistryOperationOutput{
+			ChainSelector:   input.ChainSelector,
+			BatchOperation:  batch,
+			TimelockAddress: timelockAddr,
+			MCMSAddress:     mcmsAddr,
 		}, nil
 	},
 )
