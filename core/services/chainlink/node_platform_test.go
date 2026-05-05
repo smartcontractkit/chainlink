@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/guregu/null.v4"
 
@@ -49,14 +50,6 @@ func (f fakeNodePlatformJobReader) FindJobs(_ context.Context, offset, limit int
 	return f.jobs[offset:end], len(f.jobs), nil
 }
 
-type submitterAddress struct {
-	ChainID    string
-	JobType    string
-	PluginType string
-	FieldPath  string
-	Addresses  []string
-}
-
 func eip55Address(raw string) evmtypes.EIP55Address {
 	return evmtypes.MustEIP55Address(raw)
 }
@@ -64,20 +57,6 @@ func eip55Address(raw string) evmtypes.EIP55Address {
 func eip55AddressPtr(raw string) *evmtypes.EIP55Address {
 	address := eip55Address(raw)
 	return &address
-}
-
-func nodeSubmitterAddresses(addresses []*commonv1.NodeSubmitterAddress) []submitterAddress {
-	out := make([]submitterAddress, 0, len(addresses))
-	for _, address := range addresses {
-		out = append(out, submitterAddress{
-			ChainID:    address.ChainId,
-			JobType:    address.JobType,
-			PluginType: address.PluginType,
-			FieldPath:  address.FieldPath,
-			Addresses:  address.Addresses,
-		})
-	}
-	return out
 }
 
 func TestNewNodePlatformBuildInfoConfig_UsesThreeMinuteBeat(t *testing.T) {
@@ -240,81 +219,84 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 
 	var payload commonv1.NodeJobInfo
 	require.NoError(t, proto.Unmarshal(msg.Body, &payload))
-	require.Equal(t, "csa-public-key", payload.CsaPublicKey)
-	require.ElementsMatch(t, []submitterAddress{
-		{
-			ChainID:   "1",
-			JobType:   "offchainreporting",
-			FieldPath: "transmitterAddress",
-			Addresses: []string{"0x9999999999999999999999999999999999999999"},
-		},
-		{
-			ChainID:    "1",
-			JobType:    "offchainreporting2",
-			PluginType: "median",
-			FieldPath:  "relayConfig.dualTransmission.transmitterAddress",
-			Addresses:  []string{"0x2222222222222222222222222222222222222222"},
-		},
-		{
-			ChainID:    "1",
-			JobType:    "offchainreporting2",
-			PluginType: "median",
-			FieldPath:  "relayConfig.sendingKeys",
-			Addresses: []string{
-				"0x1111111111111111111111111111111111111111",
-				"0x3333333333333333333333333333333333333333",
+	expected := &commonv1.NodeJobInfo{
+		CsaPublicKey: "csa-public-key",
+		SubmitterAddresses: []*commonv1.NodeSubmitterAddress{
+			{
+				ChainId:   "1",
+				JobType:   "offchainreporting",
+				FieldPath: "transmitterAddress",
+				Addresses: []string{"0x9999999999999999999999999999999999999999"},
+			},
+			{
+				ChainId:    "1",
+				JobType:    "offchainreporting2",
+				PluginType: "median",
+				FieldPath:  "relayConfig.dualTransmission.transmitterAddress",
+				Addresses:  []string{"0x2222222222222222222222222222222222222222"},
+			},
+			{
+				ChainId:    "1",
+				JobType:    "offchainreporting2",
+				PluginType: "median",
+				FieldPath:  "relayConfig.sendingKeys",
+				Addresses: []string{
+					"0x1111111111111111111111111111111111111111",
+					"0x3333333333333333333333333333333333333333",
+				},
+			},
+			{
+				ChainId:    "1",
+				JobType:    "offchainreporting2",
+				PluginType: "median",
+				FieldPath:  "transmitterID",
+				Addresses:  []string{"0x1111111111111111111111111111111111111111"},
+			},
+			{
+				ChainId:   "4",
+				JobType:   "vrf",
+				FieldPath: "fromAddresses",
+				Addresses: []string{
+					"0x6666666666666666666666666666666666666666",
+					"0x7777777777777777777777777777777777777777",
+				},
+			},
+			{
+				ChainId:   "5",
+				JobType:   "blockhashstore",
+				FieldPath: "fromAddresses",
+				Addresses: []string{"0x8888888888888888888888888888888888888888"},
+			},
+			{
+				ChainId:   "6",
+				JobType:   "blockheaderfeeder",
+				FieldPath: "fromAddresses",
+				Addresses: []string{"0x9999999999999999999999999999999999999999"},
+			},
+			{
+				ChainId:   "7",
+				JobType:   "legacygasstationserver",
+				FieldPath: "fromAddresses",
+				Addresses: []string{"0x1010101010101010101010101010101010101010"},
+			},
+			{
+				ChainId:   "8",
+				JobType:   "standardcapabilities",
+				FieldPath: "oracle_factory.transmitter_id",
+				Addresses: []string{"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+			},
+			{
+				ChainId:   "9",
+				JobType:   "directrequest",
+				FieldPath: "observationSource.ethtx.from",
+				Addresses: []string{
+					"0xcccccccccccccccccccccccccccccccccccccccc",
+					"0xdddddddddddddddddddddddddddddddddddddddd",
+				},
 			},
 		},
-		{
-			ChainID:    "1",
-			JobType:    "offchainreporting2",
-			PluginType: "median",
-			FieldPath:  "transmitterID",
-			Addresses:  []string{"0x1111111111111111111111111111111111111111"},
-		},
-		{
-			ChainID:   "4",
-			JobType:   "vrf",
-			FieldPath: "fromAddresses",
-			Addresses: []string{
-				"0x6666666666666666666666666666666666666666",
-				"0x7777777777777777777777777777777777777777",
-			},
-		},
-		{
-			ChainID:   "5",
-			JobType:   "blockhashstore",
-			FieldPath: "fromAddresses",
-			Addresses: []string{"0x8888888888888888888888888888888888888888"},
-		},
-		{
-			ChainID:   "6",
-			JobType:   "blockheaderfeeder",
-			FieldPath: "fromAddresses",
-			Addresses: []string{"0x9999999999999999999999999999999999999999"},
-		},
-		{
-			ChainID:   "7",
-			JobType:   "legacygasstationserver",
-			FieldPath: "fromAddresses",
-			Addresses: []string{"0x1010101010101010101010101010101010101010"},
-		},
-		{
-			ChainID:   "8",
-			JobType:   "standardcapabilities",
-			FieldPath: "oracle_factory.transmitter_id",
-			Addresses: []string{"0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-		},
-		{
-			ChainID:   "9",
-			JobType:   "directrequest",
-			FieldPath: "observationSource.ethtx.from",
-			Addresses: []string{
-				"0xcccccccccccccccccccccccccccccccccccccccc",
-				"0xdddddddddddddddddddddddddddddddddddddddd",
-			},
-		},
-	}, nodeSubmitterAddresses(payload.SubmitterAddresses))
+	}
+	require.Truef(t, proto.Equal(expected, &payload), "expected:\n%sgot:\n%s", prototext.Format(expected), prototext.Format(&payload))
 }
 
 func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
@@ -334,7 +316,7 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 	}
 
 	servicetest.Run(t, chainlink.NewNodePlatformJobInfoService(chainlink.NodePlatformJobInfoConfig{
-		Beat:         10 * time.Millisecond,
+		Beat:         100 * time.Millisecond,
 		Lggr:         logger.TestLogger(t),
 		CSAPublicKey: "csa-public-key",
 		JobReader: fakeNodePlatformJobReader{
@@ -361,7 +343,7 @@ func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
 			}
 		}
 		return false
-	}, time.Second, 10*time.Millisecond)
+	}, time.Second, 100*time.Millisecond)
 }
 
 func TestNodePlatformBuildInfo_ResolvesCSAKeyOnStart(t *testing.T) {
