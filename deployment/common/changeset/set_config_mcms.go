@@ -11,6 +11,7 @@ import (
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	aptosstate "github.com/smartcontractkit/cld-changesets/pkg/family/aptos"
 	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
@@ -97,7 +98,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
 			}
 		case chain_selectors.FamilyAptos:
-			_, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+			_, err := aptosstate.LoadMCMSAddresses(e, []uint64{chainSelector})
 			if err != nil {
 				return err
 			}
@@ -402,7 +403,7 @@ func setConfigAptos(
 	if !ok {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("aptos chain %d not found", chainSelector)
 	}
-	mcmsAddresses, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+	mcmsAddresses, err := aptosstate.LoadMCMSAddresses(e, []uint64{chainSelector})
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("loading mcmsAddresses: %w", err)
 	}
