@@ -409,7 +409,6 @@ func ExecuteEVMLogTriggerTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	successfulLogTriggerChains := make([]string, 0, len(chainsToTest))
 	for chainID, bcOutput := range chainsToTest {
-		// TODO: (CRE-2314) Re-enable trigger event ACKS
 		triggerDB := connectTriggerDB(t, testEnv.Config.NodeSets, chainID)
 
 		baselineStats, err := snapshotTriggerStats(t.Context(), triggerDB)
