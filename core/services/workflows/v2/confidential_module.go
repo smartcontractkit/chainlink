@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -62,15 +63,16 @@ func IsConfidential(data []byte) (bool, error) {
 // Instead of running WASM locally, it delegates execution to the
 // confidential-workflows capability via the CapabilitiesRegistry.
 type ConfidentialModule struct {
-	capRegistry     core.CapabilitiesRegistry
-	binaryURL       string
-	binaryHash      []byte
-	workflowID      string
-	workflowOwner   string
-	workflowName    string
-	workflowTag     string
-	vaultDonSecrets []SecretIdentifier
-	lggr            logger.Logger
+	capRegistry                    core.CapabilitiesRegistry
+	binaryURL                      string
+	binaryHash                     []byte
+	workflowID                     string
+	workflowOwner                  string
+	workflowName                   string
+	workflowTag                    string
+	vaultDonSecrets                []SecretIdentifier
+	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter
+	lggr                           logger.Logger
 }
 
 var _ host.ModuleV2 = (*ConfidentialModule)(nil)
@@ -81,19 +83,41 @@ func NewConfidentialModule(
 	binaryHash []byte,
 	workflowID, workflowOwner, workflowName, workflowTag string,
 	vaultDonSecrets []SecretIdentifier,
+	vaultOrgIDAsSecretOwnerEnabled limits.GateLimiter,
 	lggr logger.Logger,
 ) *ConfidentialModule {
 	return &ConfidentialModule{
-		capRegistry:     capRegistry,
-		binaryURL:       binaryURL,
-		binaryHash:      binaryHash,
-		workflowID:      workflowID,
-		workflowOwner:   workflowOwner,
-		workflowName:    workflowName,
-		workflowTag:     workflowTag,
-		vaultDonSecrets: vaultDonSecrets,
-		lggr:            lggr,
+		capRegistry:                    capRegistry,
+		binaryURL:                      binaryURL,
+		binaryHash:                     binaryHash,
+		workflowID:                     workflowID,
+		workflowOwner:                  workflowOwner,
+		workflowName:                   workflowName,
+		workflowTag:                    workflowTag,
+		vaultDonSecrets:                vaultDonSecrets,
+		vaultOrgIDAsSecretOwnerEnabled: vaultOrgIDAsSecretOwnerEnabled,
+		lggr:                           lggr,
 	}
+}
+
+func (m *ConfidentialModule) enrichConfidentialOrgIdentity(ctx context.Context, md *capabilities.RequestMetadata, execPayload *confworkflowtypes.WorkflowExecution) error {
+	if m.vaultOrgIDAsSecretOwnerEnabled == nil {
+		return errors.New("vault org id gate is nil")
+	}
+	enabled, err := m.vaultOrgIDAsSecretOwnerEnabled.Limit(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		md.OrgID = ""
+		execPayload.OrgId = ""
+		return nil
+	}
+	org := contexts.CREValue(ctx).Org
+	md.OrgID = org
+	md.WorkflowID = m.workflowID
+	execPayload.OrgId = org
+	return nil
 }
 
 func (m *ConfidentialModule) Start()            {}
@@ -123,17 +147,29 @@ func (m *ConfidentialModule) Execute(
 		}
 	}
 
+	execPayload := &confworkflowtypes.WorkflowExecution{
+		WorkflowId:     m.workflowID,
+		BinaryUrl:      m.binaryURL,
+		BinaryHash:     m.binaryHash,
+		ExecuteRequest: execReqBytes,
+		Owner:          m.workflowOwner,
+		ExecutionId:    helper.GetWorkflowExecutionID(),
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		VaultDonSecrets: protoSecrets,
-		Execution: &confworkflowtypes.WorkflowExecution{
-			WorkflowId:     m.workflowID,
-			BinaryUrl:      m.binaryURL,
-			BinaryHash:     m.binaryHash,
-			ExecuteRequest: execReqBytes,
-			Owner:          m.workflowOwner,
-			ExecutionId:    helper.GetWorkflowExecutionID(),
-			OrgId:          contexts.CREValue(ctx).Org,
-		},
+		Execution:       execPayload,
+	}
+
+	md := capabilities.RequestMetadata{
+		WorkflowID:          m.workflowID,
+		WorkflowOwner:       m.workflowOwner,
+		WorkflowName:        m.workflowName,
+		WorkflowTag:         m.workflowTag,
+		WorkflowExecutionID: helper.GetWorkflowExecutionID(),
+	}
+	if err := m.enrichConfidentialOrgIdentity(ctx, &md, execPayload); err != nil {
+		return nil, fmt.Errorf("confidential workflow org identity: %w", err)
 	}
 
 	payload, err := anypb.New(capInput)
@@ -150,13 +186,7 @@ func (m *ConfidentialModule) Execute(
 		Payload:      payload,
 		Method:       "Execute",
 		CapabilityId: confidentialWorkflowsCapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          m.workflowID,
-			WorkflowOwner:       m.workflowOwner,
-			WorkflowName:        m.workflowName,
-			WorkflowTag:         m.workflowTag,
-			WorkflowExecutionID: helper.GetWorkflowExecutionID(),
-		},
+		Metadata:     md,
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)

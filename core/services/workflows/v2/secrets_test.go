@@ -49,6 +49,9 @@ func testVaultOrgIDAsSecretOwnerGate(t *testing.T, enabled bool) limits.GateLimi
 	require.NoError(t, err)
 	gate, err := limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: logger.TestLogger(t)}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, gate.Close())
+	})
 	return gate
 }
 

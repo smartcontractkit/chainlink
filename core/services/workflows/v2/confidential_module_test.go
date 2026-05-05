@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,6 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 
@@ -25,7 +29,21 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 	wfpb "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func testConfidentialVaultOrgGate(t *testing.T, enabled bool) limits.GateLimiter {
+	t.Helper()
+	getter, err := settings.NewJSONGetter([]byte(fmt.Sprintf(`{"global":{"VaultOrgIdAsSecretOwnerEnabled":%t}}`, enabled)))
+	require.NoError(t, err)
+	gate, err := limits.MakeGateLimiter(limits.Factory{Settings: getter, Logger: corelogger.TestLogger(t)}, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, gate.Close())
+	})
+	return gate
+}
 
 // stubExecutionHelper implements host.ExecutionHelper for testing.
 type stubExecutionHelper struct {
@@ -176,6 +194,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "API_KEY"},
 				{Key: "SIGNING_KEY", Namespace: "custom-ns"},
 			},
+			testConfidentialVaultOrgGate(t, false),
 			lggr,
 		)
 
@@ -209,6 +228,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			[]byte("hash"),
 			"wf-1", "owner", "name", "tag",
 			[]SecretIdentifier{{Key: "SECRET_A"}}, // no namespace
+			testConfidentialVaultOrgGate(t, false),
 			lggr,
 		)
 
@@ -229,7 +249,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(nil, errors.New("capability not found")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, testConfidentialVaultOrgGate(t, false), lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -247,7 +267,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, testConfidentialVaultOrgGate(t, false), lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -265,7 +285,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 			Return(capabilities.CapabilityResponse{Payload: nil}, nil).Once()
 
 		mod := NewConfidentialModule(
-			capReg, "", nil, "wf", "owner", "name", "tag", nil, lggr,
+			capReg, "", nil, "wf", "owner", "name", "tag", nil, testConfidentialVaultOrgGate(t, false), lggr,
 		)
 
 		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{})
@@ -300,6 +320,7 @@ func TestConfidentialModule_Execute(t *testing.T) {
 				{Key: "K1", Namespace: "ns1"},
 				{Key: "K2"},
 			},
+			testConfidentialVaultOrgGate(t, false),
 			lggr,
 		)
 

@@ -1036,6 +1036,7 @@ func (h *eventHandler) confidentialEngineFactory(
 		binaryHash,
 		spec.WorkflowID, spec.WorkflowOwner, workflowName.String(), spec.WorkflowTag,
 		attrs.VaultDonSecrets,
+		h.engineLimiters.VaultOrgIDAsSecretOwnerEnabled,
 		lggr,
 	)
 

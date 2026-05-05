@@ -31,8 +31,10 @@ var _ host.ExecutionHelper = (*ExecutionHelper)(nil)
 type ExecutionHelper struct {
 	*Engine
 	WorkflowExecutionID string
-	ExecutionTimestamp  time.Time
-	UserLogChan         chan<- *protoevents.LogLine
+	// ExecutionOrgID is resolved once per execution (see Engine.startExecution); used for capability metadata when the org gate is enabled.
+	ExecutionOrgID     string
+	ExecutionTimestamp time.Time
+	UserLogChan        chan<- *protoevents.LogLine
 	TimeProvider
 	SecretsFetcher
 
@@ -201,6 +203,10 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 			ExecutionTimestamp:       c.ExecutionTimestamp,
 		},
 		Config: values.EmptyMap(),
+	}
+
+	if err := c.enrichRequestMetadataOrg(ctx, &capReq.Metadata, c.ExecutionOrgID); err != nil {
+		return nil, fmt.Errorf("workflow capability metadata: %w", err)
 	}
 
 	execLogger.Debug("Executing capability ...")

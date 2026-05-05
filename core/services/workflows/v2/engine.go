@@ -246,9 +246,8 @@ func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
 
-	// Resolve the workflow owner's org once at engine startup and treat it as stable
-	// for the lifetime of this engine instance. If org membership/linking changes, the
-	// workflow must be restarted to pick up the new org mapping.
+	// Resolve the workflow owner's org at engine startup for logging, metrics, and CRE context.
+	// Subscribe and each execution re-resolve via resolveWorkflowOrgID for secrets wiring and metadata.
 	e.orgID = ""
 	if e.cfg.OrgResolver != nil {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
@@ -415,11 +414,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
+	subscribeOrgID := e.resolveWorkflowOrgID(subCtx)
 	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(subCtx, e.cfg.WorkflowID, subscribeOrgID)))
 	if err != nil {
 		return fmt.Errorf("failed to execute subscribe: %w", err)
 	}
@@ -465,6 +465,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		return err
 	}
 	defer regCancel()
+	subscribeOrgID = e.resolveWorkflowOrgID(regCtx)
 
 	// trigger registration results for use in concurrent trigger subscriptions
 	type triggerRegResult struct {
@@ -500,16 +501,8 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 				EngineVersion:                 platform.ValueWorkflowVersionV2,
 				// no WorkflowExecutionID needed (or available at this stage)
 			}
-			gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
-			if gate == nil {
-				return errors.New("vault org id gate is nil")
-			}
-			enabled, gateErr := gate.Limit(gCtx)
-			if gateErr != nil {
-				return gateErr
-			}
-			if enabled {
-				metadata.OrgID = e.orgID
+			if err := e.enrichRequestMetadataOrg(gCtx, &metadata, subscribeOrgID); err != nil {
+				return err
 			}
 			triggerEventCh, regErr := triggerCap.RegisterTrigger(gCtx, capabilities.TriggerRegistrationRequest{
 				TriggerID: registrationID,
@@ -683,8 +676,12 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 
-	// Use the org resolved at engine startup for all executions in this engine instance.
-	executionOrgID := contexts.CREValue(ctx).Org
+	executionOrgID := e.resolveWorkflowOrgID(ctx)
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: executionOrgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID})
+	if sp := trace.SpanFromContext(ctx); sp.SpanContext().IsValid() {
+		sp.SetAttributes(attribute.String("org_id", executionOrgID))
+	}
+
 	loggerLabels := maps.Clone(*e.loggerLabels.Load())
 	loggerLabels[platform.KeyOrganizationID] = executionOrgID
 	lggr := e.logger().With(platform.KeyOrganizationID, executionOrgID)
@@ -869,8 +866,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	execHelper := &ExecutionHelper{
-		Engine: e, WorkflowExecutionID: executionID, ExecutionTimestamp: executionTimestamp,
-		UserLogChan: userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(executionID),
+		Engine: e, WorkflowExecutionID: executionID, ExecutionOrgID: executionOrgID,
+		ExecutionTimestamp: executionTimestamp,
+		UserLogChan:        userLogChan, TimeProvider: timeProvider, SecretsFetcher: e.secretsFetcher(execCtx, executionID, executionOrgID),
 	}
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
@@ -953,7 +951,41 @@ func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID stri
 	return trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
 }
 
-func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
+// resolveWorkflowOrgID returns the org ID for workflow wiring for this call path. When OrgResolver
+// is set, this queries linking (same as engine startup). The result is not written to e.orgID so
+// concurrent executions do not race on shared engine state.
+func (e *Engine) resolveWorkflowOrgID(ctx context.Context) string {
+	if e.cfg.OrgResolver == nil {
+		return e.orgID
+	}
+	orgID, err := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
+	if err != nil {
+		e.logger().Warnw("Failed to resolve organization ID for workflow wiring", "workflowOwner", e.cfg.WorkflowOwner, "err", err)
+		return ""
+	}
+	return orgID
+}
+
+// enrichRequestMetadataOrg sets RequestMetadata.OrgID when VaultOrgIdAsSecretOwnerEnabled is on,
+// and clears it when the gate is off.
+func (e *Engine) enrichRequestMetadataOrg(ctx context.Context, md *capabilities.RequestMetadata, resolvedOrgID string) error {
+	gate := e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled
+	if gate == nil {
+		return errors.New("vault org id gate is nil")
+	}
+	enabled, err := gate.Limit(ctx)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		md.OrgID = resolvedOrgID
+	} else {
+		md.OrgID = ""
+	}
+	return nil
+}
+
+func (e *Engine) secretsFetcher(ctx context.Context, phaseID string, resolvedOrgID string) SecretsFetcher {
 	if e.cfg.SecretsFetcher != nil {
 		return e.cfg.SecretsFetcher
 	}
@@ -965,7 +997,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		e.cfg.LocalLimiters.SecretsConcurrency,
 		e.cfg.LocalLimiters.SecretsCalls,
 		e.cfg.LocalLimiters.VaultOrgIDAsSecretOwnerEnabled,
-		e.orgID,
+		resolvedOrgID,
 		e.cfg.WorkflowOwner,
 		e.cfg.WorkflowName.String(),
 		e.cfg.WorkflowID,
@@ -1014,15 +1046,20 @@ func (e *Engine) close() error {
 // NOTE: needs to be called under the triggersRegMu lock
 func (e *Engine) unregisterAllTriggers(ctx context.Context) {
 	failCount := 0
+	unregisterOrgID := e.resolveWorkflowOrgID(ctx)
 	for registrationID, trigger := range e.triggers {
+		md := capabilities.RequestMetadata{
+			WorkflowID:    e.cfg.WorkflowID,
+			WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
+		}
+		if err := e.enrichRequestMetadataOrg(ctx, &md, unregisterOrgID); err != nil {
+			e.logger().Warnw("Failed to apply org gate to unregister metadata", "registrationId", registrationID, "err", err)
+		}
 		err := trigger.UnregisterTrigger(ctx, capabilities.TriggerRegistrationRequest{
 			TriggerID: registrationID,
-			Metadata: capabilities.RequestMetadata{
-				WorkflowID:    e.cfg.WorkflowID,
-				WorkflowDonID: e.localNode.Load().WorkflowDON.ID,
-			},
-			Payload: trigger.payload,
-			Method:  trigger.method,
+			Metadata:  md,
+			Payload:   trigger.payload,
+			Method:    trigger.method,
 		})
 		if err != nil {
 			e.logger().Errorw("Failed to unregister trigger", "registrationId", registrationID, "err", err)
