@@ -115,6 +115,9 @@ type Handler struct {
 }
 
 func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
+	if responseSigner == nil {
+		return nil, errors.New("response signer is required")
+	}
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
