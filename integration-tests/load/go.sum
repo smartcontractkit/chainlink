@@ -1660,8 +1660,8 @@ github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-2025121515250
 github.com/smartcontractkit/chainlink-common/pkg/monitoring v0.0.0-20251215152504-b1e41f508340/go.mod h1:P/0OSXUlFaxxD4B/P6HWbxYtIRmmWGDJAvanq19879c=
 github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260504075031-e5aae8c82e91 h1:s8E4EYRKEjghJFDnIWQxw8zoCvORVolIY/EKZ+JmzRc=
 github.com/smartcontractkit/chainlink-data-streams v0.1.14-0.20260504075031-e5aae8c82e91/go.mod h1:Fl6b/I5qn5TcEh85FP1rNsJ7stcYtmXhVbM2W5RuzQg=
-github.com/smartcontractkit/chainlink-deployments-framework v0.98.0 h1:Ov/KOEtubOHXX8oa9UtARhHmkQNCOIjWNt+Zi0AuzHM=
-github.com/smartcontractkit/chainlink-deployments-framework v0.98.0/go.mod h1:24dwRW1PYolrlxSth///ddG3auGqR+50xaJiXfUHhkg=
+github.com/smartcontractkit/chainlink-deployments-framework v0.99.0 h1:UmFIN63m3+qXB5sP3ZtNzoMS8iIPDxeDVzYnhFB/U2k=
+github.com/smartcontractkit/chainlink-deployments-framework v0.99.0/go.mod h1:h2R69nbkSMGUSYHrf1lbrchml1CdR1jP4t9HsBb0xdY=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260504070828-3216bb63d886 h1:ighx6Wf5Le/tp2nFIipnr3axk+zlmu6SZ6n7qp2mpqQ=
 github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260504070828-3216bb63d886/go.mod h1:GH17WWRgGTWHp4GfJbK/9LdgkajYuLx1TmAO/jqRKDs=
 github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 h1:QJiXTG9CmaQAuMRn5JGi+Jhji7fSkehVnKpjc8oNJJY=
@@ -1738,8 +1738,8 @@ github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c63
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a/go.mod h1:1eaXR+Fe6TlpP+CKXozfYlFM8QgN/N5C7OMvTRWNT8I=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b h1:RarA5fTnBzQY9wHhl6g7Ac7Nv0d/izr2/zuSWhveB4c=
 github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b/go.mod h1:ea1LESxlSSOgc2zZBqf1RTkXTMthHaspdqUHd7W4lF0=
-github.com/smartcontractkit/cld-changesets v0.0.0-20260427210718-b873c54e8d22 h1:yW9CUsDI/4qfnUcJ7iU+RYiiw0avyxysckGryVicyaI=
-github.com/smartcontractkit/cld-changesets v0.0.0-20260427210718-b873c54e8d22/go.mod h1:thij0vx1djo0ze/ZqYmYAqHMhSqwr91M+51jmj7YBS4=
+github.com/smartcontractkit/cld-changesets v0.0.0-20260430124953-6d9010c9fc9c h1:rclOuE6VJGVb5E11LU+Na4sLm8u0ckklmbRetfa/cUo=
+github.com/smartcontractkit/cld-changesets v0.0.0-20260430124953-6d9010c9fc9c/go.mod h1:2WTFcRtU5PYJqIms4Pq7w6Ev4lon4zeCZPp8IVWGkM0=
 github.com/smartcontractkit/cre-sdk-go v1.5.0 h1:kepW3QDKARrOOHjXwWAZ9j5KLk6bxLzvi6OMrLsFwVo=
 github.com/smartcontractkit/cre-sdk-go v1.5.0/go.mod h1:yYrQFz1UH7hhRbPO0q4fgo1tfsJNd4yXnI3oCZE0RzM=
 github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad h1:lgHxTHuzJIF3Vj6LSMOnjhqKgRqYW+0MV2SExtCYL1Q=

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
@@ -21,6 +22,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
+
+	cldmcmschangesets "github.com/smartcontractkit/cld-changesets/mcms/changesets"
 )
 
 func TestMCMSSignFireDrillChangeset(t *testing.T) {
@@ -69,9 +72,9 @@ func TestMCMSSignFireDrillChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.MCMSSignFireDrillChangeset), commonchangeset.FireDrillConfig{
+		runtime.ChangesetTask(cldmcmschangesets.MCMSSignFireDrillChangeset{}, cldmcmschangesets.FireDrillConfig{
 			Selectors: []uint64{evmSelector1, evmSelector2, solSelector},
-			TimelockCfg: proposalutils.TimelockConfig{
+			TimelockCfg: cldfproposalutils.TimelockConfig{
 				MCMSAction: mcmsTypes.TimelockActionBypass,
 			},
 		}),
