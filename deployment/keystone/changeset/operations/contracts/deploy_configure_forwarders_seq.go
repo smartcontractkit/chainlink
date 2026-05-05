@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
@@ -20,10 +21,10 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
 	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
@@ -265,7 +266,7 @@ func configureForwarderOp(
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
 
-	var mcmsContracts *mcmschangesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)

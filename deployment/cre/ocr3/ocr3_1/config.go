@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
@@ -16,29 +17,32 @@ import (
 )
 
 type V3_1OracleConfig struct {
-	DeltaProgressMillis  uint32
-	DeltaRoundMillis     uint32
-	DeltaGraceMillis     uint32
-	DeltaStageMillis     uint32
-	MaxRoundsPerEpoch    uint64
-	TransmissionSchedule []int
+	DeltaProgressMillis  uint32 `yaml:"deltaProgressMillis" json:"deltaProgressMillis"`
+	DeltaRoundMillis     uint32 `yaml:"deltaRoundMillis" json:"deltaRoundMillis"`
+	DeltaGraceMillis     uint32 `yaml:"deltaGraceMillis" json:"deltaGraceMillis"`
+	DeltaStageMillis     uint32 `yaml:"deltaStageMillis" json:"deltaStageMillis"`
+	MaxRoundsPerEpoch    uint64 `yaml:"maxRoundsPerEpoch" json:"maxRoundsPerEpoch"`
+	TransmissionSchedule []int  `yaml:"transmissionSchedule" json:"transmissionSchedule"`
 
-	MaxDurationInitializationMillis               uint32
-	MaxDurationShouldAcceptAttestedReportMillis   uint32
-	MaxDurationShouldTransmitAcceptedReportMillis uint32
+	MaxDurationInitializationMillis               uint32 `yaml:"maxDurationInitializationMillis" json:"maxDurationInitializationMillis"`
+	MaxDurationShouldAcceptAttestedReportMillis   uint32 `yaml:"maxDurationShouldAcceptAttestedReportMillis" json:"maxDurationShouldAcceptAttestedReportMillis"`
+	MaxDurationShouldTransmitAcceptedReportMillis uint32 `yaml:"maxDurationShouldTransmitAcceptedReportMillis" json:"maxDurationShouldTransmitAcceptedReportMillis"`
 
-	WarnDurationQueryMillis               uint32
-	WarnDurationObservationMillis         uint32
-	WarnDurationValidateObservationMillis uint32
-	WarnDurationObservationQuorumMillis   uint32
-	WarnDurationStateTransition           uint32
-	WarnDurationCommitted                 uint32
+	WarnDurationQueryMillis               uint32 `yaml:"warnDurationQueryMillis" json:"warnDurationQueryMillis"`
+	WarnDurationObservationMillis         uint32 `yaml:"warnDurationObservationMillis" json:"warnDurationObservationMillis"`
+	WarnDurationValidateObservationMillis uint32 `yaml:"warnDurationValidateObservationMillis" json:"warnDurationValidateObservationMillis"`
+	WarnDurationObservationQuorumMillis   uint32 `yaml:"warnDurationObservationQuorumMillis" json:"warnDurationObservationQuorumMillis"`
+	WarnDurationStateTransition           uint32 `yaml:"warnDurationStateTransition" json:"warnDurationStateTransition"`
+	WarnDurationCommitted                 uint32 `yaml:"warnDurationCommitted" json:"warnDurationCommitted"`
 
-	MaxFaultyOracles int
+	MaxFaultyOracles int `yaml:"maxFaultyOracles" json:"maxFaultyOracles"`
 
-	PrevConfigDigest  string
-	PrevSeqNr         uint64
-	PrevHistoryDigest string
+	PrevConfigDigest  string `yaml:"prevConfigDigest" json:"prevConfigDigest"`
+	PrevSeqNr         uint64 `yaml:"prevSeqNr" json:"prevSeqNr"`
+	PrevHistoryDigest string `yaml:"prevHistoryDigest" json:"prevHistoryDigest"`
+
+	DKGOffchainConfig   *DKGOffchainConfig   `yaml:"dkgOffchainConfig,omitempty" json:"dkgOffchainConfig,omitempty"`
+	VaultOffchainConfig *VaultOffchainConfig `yaml:"vaultOffchainConfig,omitempty" json:"vaultOffchainConfig,omitempty"`
 }
 
 func GenerateOCR3_1ConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets focr.OCRSecrets, reportingPluginConfigOverride []byte, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
@@ -52,19 +56,35 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []ocr3.NodeKeys, secrets foc
 		return ocr3.OCR2OracleConfig{}, fmt.Errorf("transmission schedule must have exactly one entry, matching the len of the number of nodes want [%d], got %v. Total TransmissionSchedules = %d", len(nca), cfg.TransmissionSchedule, len(cfg.TransmissionSchedule))
 	}
 
-	if secrets.IsEmpty() {
-		return ocr3.OCR2OracleConfig{}, errors.New("OCRSecrets is required")
-	}
-
 	identities, err := ocr3.MakeIdentities(nca)
 	if err != nil {
 		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to make identities: %w", err)
 	}
 
-	cfgBytes := reportingPluginConfigOverride
-	if cfgBytes == nil {
-		return ocr3.OCR2OracleConfig{}, errors.New("failed to get offchain config: reportingPluginConfigOverride is required for OCR3.1")
+	return genOCR3_1Config(cfg, identities, secrets, reportingPluginConfigOverride)
+}
+
+func genOCR3_1Config(cfg V3_1OracleConfig, identities []confighelper.OracleIdentityExtra, secrets focr.OCRSecrets, cfgBytes []byte) (ocr3.OCR2OracleConfig, error) {
+	if secrets.IsEmpty() {
+		return ocr3.OCR2OracleConfig{}, errors.New("OCRSecrets is required")
 	}
+
+	if cfgBytes == nil {
+		pc, err := getPluginConfig(cfg)
+		if err != nil {
+			return ocr3.OCR2OracleConfig{}, err
+		}
+		if pc != nil {
+			cfgBytes, err = pc.Marshal()
+			if err != nil {
+				return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to marshal plugin config: %w", err)
+			}
+		}
+	}
+	if cfgBytes == nil {
+		return ocr3.OCR2OracleConfig{}, errors.New("failed to get offchain config: one of reportingPluginConfigOverride, DKGOffchainConfig, or VaultOffchainConfig is required")
+	}
+
 	prevConfigDigest, prevHistoryDigest, err := VerifyAndExtractOCR3_1Fields(cfg.PrevConfigDigest, cfg.PrevSeqNr, cfg.PrevHistoryDigest)
 	if err != nil {
 		return ocr3.OCR2OracleConfig{}, errors.New("VerifyAndExtractOCR3_1Fields failed to verify and extract OCR3.1 fields: " + err.Error())
@@ -117,14 +137,12 @@ func GenerateOCR3_1Config(cfg V3_1OracleConfig, nca []ocr3.NodeKeys, secrets foc
 		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to convert transmitters to addresses: %w", err)
 	}
 
-	config := ocr3.OCR2OracleConfig{
+	return ocr3.OCR2OracleConfig{
 		Signers:               configSigners,
 		Transmitters:          transmitterAddresses,
 		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
-	}
-
-	return config, nil
+	}, nil
 }

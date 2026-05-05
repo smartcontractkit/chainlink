@@ -419,7 +419,7 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "success - strips owner prefix from forwarded request before authorization",
+			name: "success - replaces owner prefix from forwarded request after authorization",
 			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.MatchedBy(func(req jsonrpc.Request[json.RawMessage]) bool {
 					if req.Method != vaulttypes.MethodSecretsCreate || req.ID != "1" || req.Params == nil {
@@ -448,10 +448,10 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			request: &jsonrpc.Request[json.RawMessage]{
 				Method: vaulttypes.MethodSecretsCreate,
-				ID:     "0xAbC" + vaulttypes.RequestIDSeparator + "1",
+				ID:     "0xDef" + vaulttypes.RequestIDSeparator + "1",
 				Params: func() *json.RawMessage {
 					params, _ := json.Marshal(vaultcommon.CreateSecretsRequest{
-						RequestId: "0xAbC" + vaulttypes.RequestIDSeparator + "1",
+						RequestId: "0xDef" + vaulttypes.RequestIDSeparator + "1",
 						EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 							{
 								Id: &vaultcommon.SecretIdentifier{
@@ -469,13 +469,21 @@ func TestGatewayHandler_HandleGatewayMessage(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "failure - owner mismatch against authorized owner",
+			name: "failure - capability rejects owner mismatch",
 			setupMocks: func(ss *vaulttypesmocks.SecretsService, gc *connector_mocks.GatewayConnector, ra *vaultcapmocks.Authorizer) {
 				ra.EXPECT().AuthorizeRequest(mock.Anything, mock.Anything).Return(authResult("", "0xdef"), nil)
+				ss.EXPECT().CreateSecrets(mock.Anything, mock.MatchedBy(func(req *vaultcommon.CreateSecretsRequest) bool {
+					return len(req.EncryptedSecrets) == 1 &&
+						req.EncryptedSecrets[0].Id.Key == "test-secret" &&
+						req.EncryptedSecrets[0].Id.Owner == "0xabc" &&
+						req.RequestId == "0xdef"+vaulttypes.RequestIDSeparator+"1" &&
+						req.OrgId == "" &&
+						req.WorkflowOwner == "0xdef"
+				})).Return(nil, errors.New("capability owner validation failed"))
 				gc.On("SendToGateway", mock.Anything, "gateway-1", mock.MatchedBy(func(resp *jsonrpc.Response[json.RawMessage]) bool {
 					return resp.Error != nil &&
 						resp.Error.Code == api.ToJSONRPCErrorCode(api.FatalError) &&
-						resp.Error.Message == `secret ID owner "0xabc" does not match authorized owner "0xdef" at index 0`
+						resp.Error.Message == "capability owner validation failed"
 				})).Return(nil)
 			},
 			request: &jsonrpc.Request[json.RawMessage]{

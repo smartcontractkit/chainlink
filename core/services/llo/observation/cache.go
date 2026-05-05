@@ -29,6 +29,17 @@ var (
 	},
 		[]string{"streamID", "reason"},
 	)
+	promCacheHitEntryAgeMs = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: "llo",
+		Subsystem: "datasource",
+		Name:      "cache_hit_entry_age_ms",
+		Help:      "Wall time since the cache entry was written when a plugin read hits the cache (staleness proxy)",
+		Buckets: []float64{
+			0.5, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000,
+		},
+	},
+		[]string{"streamID"},
+	)
 )
 
 // StreamValueCache is used by dataSource to decouple the read/write paths for stream values.
@@ -60,6 +71,7 @@ type Cache struct {
 type item struct {
 	value     llo.StreamValue
 	expiresAt time.Time
+	writtenAt time.Time // wall clock at Add/AddMany; used for cache_hit_entry_age_ms
 }
 
 type cacheOutcome string
@@ -73,6 +85,7 @@ const (
 type metricEvent struct {
 	id           llotypes.StreamID
 	cacheOutcome cacheOutcome
+	ageMs        float64 // valid when cacheOutcomeHit and writtenAt was set on the item
 }
 
 // NewCache creates a new cache.
@@ -112,24 +125,26 @@ func NewCache(cleanupInterval time.Duration) *Cache {
 
 // Add adds a stream value to the cache.
 func (c *Cache) Add(id llotypes.StreamID, value llo.StreamValue, ttl time.Duration) {
+	now := time.Now()
 	var expiresAt time.Time
 	if ttl > 0 {
-		expiresAt = time.Now().Add(ttl)
+		expiresAt = now.Add(ttl)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.values[id] = item{value: value, expiresAt: expiresAt}
+	c.values[id] = item{value: value, expiresAt: expiresAt, writtenAt: now}
 }
 
 func (c *Cache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
+	now := time.Now()
 	var expiresAt time.Time
 	if ttl > 0 {
-		expiresAt = time.Now().Add(ttl)
+		expiresAt = now.Add(ttl)
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for id, value := range values {
-		c.values[id] = item{value: value, expiresAt: expiresAt}
+		c.values[id] = item{value: value, expiresAt: expiresAt, writtenAt: now}
 	}
 }
 
@@ -152,7 +167,11 @@ func (c *Cache) UpdateStreamValues(streamValues llo.StreamValues) {
 			streamValues[id] = nil
 			continue
 		}
-		events = append(events, metricEvent{id: id, cacheOutcome: cacheOutcomeHit})
+		ageMs := -1.0
+		if !itm.writtenAt.IsZero() {
+			ageMs = float64(now.Sub(itm.writtenAt).Milliseconds())
+		}
+		events = append(events, metricEvent{id: id, cacheOutcome: cacheOutcomeHit, ageMs: ageMs})
 		streamValues[id] = itm.value
 	}
 	c.mu.RUnlock()
@@ -193,6 +212,9 @@ func (c *Cache) updateMetrics() {
 				idStr := strconv.FormatUint(uint64(e.id), 10)
 				if e.cacheOutcome == cacheOutcomeHit {
 					promCacheHitCount.WithLabelValues(idStr).Inc()
+					if e.ageMs >= 0 {
+						promCacheHitEntryAgeMs.WithLabelValues(idStr).Observe(e.ageMs)
+					}
 				} else {
 					promCacheMissCount.WithLabelValues(idStr, string(e.cacheOutcome)).Inc()
 				}
