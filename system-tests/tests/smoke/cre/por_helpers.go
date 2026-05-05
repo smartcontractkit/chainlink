@@ -31,7 +31,7 @@ import (
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
-	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -41,17 +41,17 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-const PoRWFV2Location = "../../../../core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/main.go"
+const PoRWFLocation = "../../../../core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/main.go"
 
 // WorkflowTestConfig holds per-test workflow configuration for PoR tests.
 // CronSchedule is optional; when non-empty it overrides the default "*/30 * * * * *"
-// schedule embedded in the V2 workflow binary. Leave empty for smoke tests so the
+// schedule embedded in the workflow binary. Leave empty for smoke tests so the
 // existing behaviour is unchanged.
 type WorkflowTestConfig struct {
 	WorkflowName         string
 	WorkflowFileLocation string
 	FeedIDs              []string
-	CronSchedule         string // optional; V2 only
+	CronSchedule         string // optional
 }
 
 // BeforePoRTest creates a FakePriceProvider and a WorkflowTestConfig pre-populated with
@@ -154,13 +154,13 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 		writeTargetName := corevm.GenerateWriteTargetName(chainID)
 		testLogger.Info().Msgf("Generated WriteTargetName for chain %d (%s): %s", chainID, chainFamily, writeTargetName)
 
-		workflowConfig := porV2types.WorkflowConfig{
+		workflowConfig := portypes.WorkflowConfig{
 			ChainSelector: chainSelector,
-			BalanceReaderConfig: porV2types.BalanceReaderConfig{
+			BalanceReaderConfig: portypes.BalanceReaderConfig{
 				BalanceReaderAddress: readBalancesAddress.Hex(),
 				AddressesToRead:      addressesToRead,
 			},
-			ComputeConfig: porV2types.ComputeConfig{
+			ComputeConfig: portypes.ComputeConfig{
 				FeedID:                feedID,
 				URL:                   priceProvider.URL(),
 				DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),
@@ -187,7 +187,7 @@ func ExecutePoRTest(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvider
 }
 
 // SetupPoRWorkflowForSoak deploys DataFeedsCache + ReadBalances on the first writable EVM
-// chain, compiles and registers the V2 PoR workflow using the supplied WorkflowTestConfig,
+// chain, compiles and registers the PoR workflow using the supplied WorkflowTestConfig,
 // and returns the DataFeedsCache contract address so the soak loop can poll it directly.
 //
 // Workflow cleanup (unregistration) is registered automatically via t.Cleanup inside
@@ -241,14 +241,14 @@ func SetupPoRWorkflowForSoak(t *testing.T, testEnv *ttypes.TestEnvironment, pric
 	testLogger.Info().Msgf("SetupPoRWorkflowForSoak: chain=%d writeTarget=%s cache=%s feedID=%s cron=%q",
 		chainID, writeTargetName, dataFeedsCacheAddress.Hex(), feedID, wfConfig.CronSchedule)
 
-	workflowConfig := porV2types.WorkflowConfig{
+	workflowConfig := portypes.WorkflowConfig{
 		ChainSelector: chainSelector,
 		CronSchedule:  wfConfig.CronSchedule,
-		BalanceReaderConfig: porV2types.BalanceReaderConfig{
+		BalanceReaderConfig: portypes.BalanceReaderConfig{
 			BalanceReaderAddress: readBalancesAddress.Hex(),
 			AddressesToRead:      addressesToRead,
 		},
-		ComputeConfig: porV2types.ComputeConfig{
+		ComputeConfig: portypes.ComputeConfig{
 			FeedID:                feedID,
 			URL:                   priceProvider.URL(),
 			DataFeedsCacheAddress: dataFeedsCacheAddress.Hex(),

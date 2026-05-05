@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -26,7 +26,7 @@ var cronInvalidSchedulesTests = []struct {
 
 func CronBeholderFailsWithInvalidScheduleTest(t *testing.T, testEnv *ttypes.TestEnvironment, invalidSchedule string) {
 	testLogger := framework.L
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	workflowName := "cronbeholder"
 
 	listenerCtx, messageChan, kafkaErrChan := t_helpers.StartBeholder(t, testLogger, testEnv)

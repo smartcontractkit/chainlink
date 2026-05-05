@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
 
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -36,7 +36,7 @@ const (
 	grpcSourceTestDonFamily      = "test-don-family" // must match DefaultDONFamily in lib/cre/environment/config/config.go
 	grpcSourceTestSyncerInterval = 15 * time.Second  // default syncer poll interval
 	// Path to cron workflow source used for testing
-	grpcTestWorkflowSource = "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	grpcTestWorkflowSource = "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 )
 
 // Test_CRE_GRPCSource_Lifecycle tests the complete lifecycle of workflows via the gRPC

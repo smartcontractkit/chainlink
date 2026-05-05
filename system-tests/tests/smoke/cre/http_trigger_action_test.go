@@ -58,7 +58,7 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 		URL:           fakeServer.BaseURLHost,
 	}
 
-	pathToWorkflow := "../../../../core/scripts/cre/environment/examples/workflows/v2/http_simple/main.go"
+	pathToWorkflow := "../../../../core/scripts/cre/environment/examples/workflows/http_simple/main.go"
 	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, uniqueWorkflowName, &httpWorkflowConfig, pathToWorkflow)
 
 	testEnv.Logger.Info().Msg("Getting gateway configuration...")

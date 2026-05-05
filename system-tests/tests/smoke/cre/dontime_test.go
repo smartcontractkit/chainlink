@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -18,7 +18,7 @@ import (
 
 func ExecuteDonTimeTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/time_consensus/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/time_consensus/main.go"
 	workflowName := t_helpers.UniqueWorkflowName(testEnv, "timebeholder")
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)

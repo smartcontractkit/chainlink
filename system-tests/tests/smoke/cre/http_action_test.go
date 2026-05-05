@@ -103,7 +103,7 @@ func ExecuteHTTPActionRegressionTest(t *testing.T, testEnv *ttypes.TestEnvironme
 
 	testLogger.Info().Msgf("Test HTTP server started on port %d at: %s (%s)", testEnv.Config.FakeHTTP.Port, fakeHTTP.BaseURLHost, fakeHTTP.BaseURLDocker)
 
-	t.Run("[v2] HTTP Action multi-headers regression: both Headers and MultiHeaders set rejected", func(t *testing.T) {
+	t.Run("HTTP Action multi-headers regression: both Headers and MultiHeaders set rejected", func(t *testing.T) {
 		HTTPActionRegressionTest(t, testEnv, fakeHTTP.BaseURLDocker+"/api/resources/")
 	})
 }
@@ -187,7 +187,7 @@ func ExecuteHTTPActionCRUDSuccessTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	for _, testCase := range httpActionSuccessTests {
 		testCase.url = fakeHTTP.BaseURLDocker + testCase.endpoint
 
-		testName := "[v2] HTTP Action " + testCase.name
+		testName := "HTTP Action " + testCase.name
 		t.Run(testName, func(t *testing.T) {
 			if parallelEnabled {
 				t.Parallel()

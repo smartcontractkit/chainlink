@@ -40,7 +40,7 @@ This matrix shows which capabilities are covered by each canary test, making it 
 
 from the `core/scripts/cre/environment` directory:
 
-1. **Start the environment with contracts (defaults to v2):**
+1. **Start the environment with contracts:**
    ```bash
    go run . env start
    ```
@@ -96,8 +96,6 @@ from the `core/scripts/cre/environment` directory:
      --compile \
      -c ./../../../../system-tests/tests/canaries_sentinels/proof-of-reserve/cron-based/config.yaml
    ```
-
-Local CRE uses v2 workflow and capabilities registry contracts only.
 
 ## Monitoring and Alerting
 

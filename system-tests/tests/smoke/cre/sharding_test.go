@@ -25,7 +25,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
@@ -50,7 +50,7 @@ Prerequisites:
   CTF_CONFIGS=configs/workflow-gateway-sharded-don.toml go run . env start
 
 - Run the test:
-  go test -timeout 20m -run "^Test_CRE_V2_Sharding$" -v
+  go test -timeout 20m -run "^Test_CRE_Sharding$" -v
 */
 
 func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -111,7 +111,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	waitForRingOracleHealthy(t, shardZero)
 
 	const numWorkflows = 5
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/v2/cron/main.go"
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	var workflowIDs []string
 	for i := 0; i < numWorkflows; i++ {
 		workflowName := fmt.Sprintf("shardtest%d", i)

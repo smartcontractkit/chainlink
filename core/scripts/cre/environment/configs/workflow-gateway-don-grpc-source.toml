@@ -2,7 +2,7 @@
 # This topology is the same as workflow-gateway-don.toml but with AdditionalSources
 # configured to read workflows from a gRPC source at host.docker.internal:8544.
 #
-# Used by: system-tests/tests/smoke/cre/v2_grpc_source_test.go
+# Used by: system-tests/tests/smoke/cre/grpc_source_test.go
 
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
