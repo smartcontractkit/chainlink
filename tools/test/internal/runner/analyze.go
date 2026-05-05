@@ -104,7 +104,7 @@ type RunMeta struct {
 	SlowThreshold      time.Duration `json:"slow_threshold"`
 	FailFast           bool          `json:"fail_fast,omitempty"`
 	FailFastOn         []string      `json:"fail_fast_on,omitempty"`
-	Shuffle            bool          `json:"shuffle_seed,omitempty"`
+	Shuffle            bool          `json:"shuffle,omitempty"`
 }
 
 // Report classifies tests across iterations of a diagnose run.
@@ -475,7 +475,8 @@ func diagnoseLogFilenameForIterWithBudget(pkg, test string, iteration string, bu
 	sum := sha256.Sum256([]byte(base))
 	hash := fmt.Sprintf("_%x", sum[:4])
 	budgetSuffix := fmt.Sprintf("_iter-%s.log", budgetIteration)
-	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-len(budgetSuffix)) + hash + suffix
+	reservedSuffix := max(len(suffix), len(budgetSuffix))
+	return truncateUTF8MaxBytes(base, maxDiagnoseLogFilenameBytes-len(hash)-reservedSuffix) + hash + suffix
 }
 
 func compactIterations(iters []int) string {

@@ -844,7 +844,7 @@ func testBlockHeaderFeeder(
 			runs, err := app.PipelineORM().GetAllRuns(ctx)
 			require.NoError(c, err)
 			t.Log("runs", len(runs))
-			require.Equal(c, len(runs), 1)
+			require.Len(c, runs, 1)
 		}, testutils.WaitTimeout(t), time.Second)
 
 		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
@@ -1151,7 +1151,7 @@ func testSingleConsumerEIP150(
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
 		require.NoError(c, err)
 		t.Log("runs", len(runs))
-		require.Equal(c, len(runs), 1)
+		require.Len(c, runs, 1)
 	}, testutils.WaitTimeout(t), time.Second)
 
 	t.Log("Done!")

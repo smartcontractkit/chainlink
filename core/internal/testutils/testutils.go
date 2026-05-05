@@ -100,7 +100,7 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 		// 10% buffer for cleanup
 		timeLeft := time.Until(d) * 9 / 10
 
-		// Still cap it! Even if they asked for 5m, if the test gets
+		// Never return more than remaining test time or the requested duration.
 		return min(timeLeft, requested)
 	}
 

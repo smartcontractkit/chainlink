@@ -131,6 +131,20 @@ func TestDiagnoseLogFilenameLongIterationStaysWithinLimit(t *testing.T) {
 	assert.LessOrEqual(t, len(filepath.Base(name)), maxDiagnoseLogFilenameBytes)
 }
 
+func TestDiagnoseLogFilenameWithBudgetRespectsLongestIterationSuffix(t *testing.T) {
+	t.Parallel()
+	// Placeholder "{iter}" in report paths can be longer than the numeric budget iteration;
+	// truncation must reserve space for the actual suffix appended to the filename.
+	longTest := "TestIntegration/" + strings.Repeat("very_long_subtest_name/", 20)
+	name := diagnoseLogFilenameForIterWithBudget(
+		"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2",
+		longTest,
+		"{iter}",
+		"0",
+	)
+	assert.LessOrEqual(t, len(name), maxDiagnoseLogFilenameBytes, name)
+}
+
 func TestWriteLogFilesNoLogsForNonFlaggedTests(t *testing.T) {
 	t.Parallel()
 
