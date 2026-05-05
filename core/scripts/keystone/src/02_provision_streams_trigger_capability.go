@@ -34,7 +34,6 @@ import (
 
 	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 
@@ -113,7 +112,7 @@ func setupStreamsTrigger(
 		latestConfigDigest, err := ocrtypes.BytesToConfigDigest(latestConfigDetails.ConfigDigest[:])
 		PanicErr(err)
 
-		digester := mercury.NewOffchainConfigDigester(
+		digester := datastreamsmercury.NewOffchainConfigDigester(
 			feed.id,
 			big.NewInt(chainID),
 			verifier.Address(),

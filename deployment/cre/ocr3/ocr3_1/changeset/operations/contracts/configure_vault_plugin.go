@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
@@ -15,7 +16,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
@@ -84,7 +84,7 @@ func (l ConfigureVaultPlugin) VerifyPreconditions(_ cldf.Environment, input Conf
 func (l ConfigureVaultPlugin) Apply(e cldf.Environment, input ConfigureVaultPluginInput) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Configuring VaultPlugin contract with DON", "donName", input.DON.Name, "nodes", input.DON.NodeIDs, "dryRun", input.DryRun)
 
-	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, *input.MCMSConfig)

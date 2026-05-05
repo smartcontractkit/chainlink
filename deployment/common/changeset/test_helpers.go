@@ -8,6 +8,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -23,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 type testMetadata struct {
@@ -194,7 +193,7 @@ func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf_evm.Ch
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
-	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 	require.NotNil(t, linkState.LinkToken)
 
@@ -223,7 +222,7 @@ func MustFundAddressWithLink(t *testing.T, e cldf.Environment, chain cldf_evm.Ch
 func MaybeGetLinkBalance(t *testing.T, e cldf.Environment, chain cldf_evm.Chain, linkAddr common.Address) *big.Int {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
-	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: chain.DeployerKey.Context}, linkAddr)
 	require.NoError(t, err)

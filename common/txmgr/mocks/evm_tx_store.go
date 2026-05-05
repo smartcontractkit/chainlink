@@ -2336,6 +2336,63 @@ func (_c *EvmTxStore_LoadTxAttempts_Call) RunAndReturn(run func(context.Context,
 	return _c
 }
 
+// OldestNonTerminalTxAgeSeconds provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) OldestNonTerminalTxAgeSeconds(ctx context.Context, chainID *big.Int) (float64, error) {
+	ret := _m.Called(ctx, chainID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for OldestNonTerminalTxAgeSeconds")
+	}
+
+	var r0 float64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (float64, error)); ok {
+		return rf(ctx, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) float64); ok {
+		r0 = rf(ctx, chainID)
+	} else {
+		r0 = ret.Get(0).(float64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// EvmTxStore_OldestNonTerminalTxAgeSeconds_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'OldestNonTerminalTxAgeSeconds'
+type EvmTxStore_OldestNonTerminalTxAgeSeconds_Call struct {
+	*mock.Call
+}
+
+// OldestNonTerminalTxAgeSeconds is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainID *big.Int
+func (_e *EvmTxStore_Expecter) OldestNonTerminalTxAgeSeconds(ctx interface{}, chainID interface{}) *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call {
+	return &EvmTxStore_OldestNonTerminalTxAgeSeconds_Call{Call: _e.mock.On("OldestNonTerminalTxAgeSeconds", ctx, chainID)}
+}
+
+func (_c *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call) Run(run func(ctx context.Context, chainID *big.Int)) *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*big.Int))
+	})
+	return _c
+}
+
+func (_c *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call) Return(seconds float64, err error) *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call {
+	_c.Call.Return(seconds, err)
+	return _c
+}
+
+func (_c *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call) RunAndReturn(run func(context.Context, *big.Int) (float64, error)) *EvmTxStore_OldestNonTerminalTxAgeSeconds_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PreloadTxes provides a mock function with given fields: ctx, attempts
 func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) error {
 	ret := _m.Called(ctx, attempts)

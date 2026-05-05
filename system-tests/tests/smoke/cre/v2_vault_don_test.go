@@ -3,8 +3,7 @@ package cre
 import (
 	"context"
 	"encoding/json"
-	"math/rand"
-	"strconv"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -29,12 +28,15 @@ import (
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
+
+func uniqueVaultSecretID(prefix string) string {
+	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
+}
 
 func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	var testLogger = framework.L
@@ -45,26 +47,32 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-		owner := sc.MustGetRootKeyAddress().Hex()
+		workflowOwnerAddress := sc.MustGetRootKeyAddress()
+		owner := workflowOwnerAddress.Hex()
 		expectedResponseOwner := owner
+		orgID := ""
 		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 		if linkingService != nil {
-			orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 			linkingService.SetOwnerOrg(owner, orgID)
 			if orgIDAsSecretOwnerEnabled {
 				expectedResponseOwner = orgID
 			}
 		}
+		if orgIDAsSecretOwnerEnabled {
+			require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
+		}
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
 		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
-		secretID := strconv.Itoa(rand.Intn(10000))
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlist")
 		createValue := "secret-basic-create"
 		updateValue := "secret-basic-update"
-		createEnc, err := crevault.EncryptSecret(createValue, vaultPublicKey, sc.MustGetRootKeyAddress())
+		createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(createValue, vaultParsedPublicKey, workflowOwnerAddress)
 		require.NoError(t, err)
-		updateEnc, err := crevault.EncryptSecret(updateValue, vaultPublicKey, sc.MustGetRootKeyAddress())
+		updateEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(updateValue, vaultParsedPublicKey, workflowOwnerAddress)
 		require.NoError(t, err)
 		ulCh := make(chan *workflowevents.UserLogs, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
@@ -78,15 +86,78 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		var orgIDLabelSecretID string
+		var orgIDLabelCreateValue string
+		if orgIDAsSecretOwnerEnabled {
+			orgIDLabelSecretID = secretID + "orgidlabel"
+			orgIDLabelCreateValue = "secret-basic-create-org-id-label"
+			orgIDLabelCreateEnc, orgErr := vaultutils.EncryptSecretWithOrgID(orgIDLabelCreateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, orgErr)
+			executeVaultAllowListSecretsCreateTest(t, orgIDLabelCreateEnc, orgIDLabelSecretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		}
 		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "alt", sc, wfReg)
-		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"main"}, sc, wfReg)
-		executeVaultSecretsWorkflowChecksTest(t, testEnv, "allowlist-final-verify", []vaultWorkflowCheck{
+		updatedChecks := []vaultWorkflowCheck{
+			{Name: "allowlist-main-updated", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: updateValue},
+			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
+		}
+		finalChecks := []vaultWorkflowCheck{
 			{Name: "allowlist-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
 			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
-		}, ulCh, bmCh)
+		}
+		if orgIDAsSecretOwnerEnabled {
+			orgIDChecks := []vaultWorkflowCheck{
+				{Name: "allowlist-org-id-label-main", SecretKey: orgIDLabelSecretID, SecretNamespace: "main", ExpectedValue: orgIDLabelCreateValue},
+				{Name: "allowlist-org-id-label-alt", SecretKey: orgIDLabelSecretID, SecretNamespace: "alt", ExpectedValue: orgIDLabelCreateValue},
+			}
+			updatedChecks = append(updatedChecks, orgIDChecks...)
+			finalChecks = append(finalChecks, orgIDChecks...)
+		}
+		workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "allowlist-lifecycle", []vaultWorkflowPhase{
+			{Name: "allowlist-updated", Checks: updatedChecks},
+			{Name: "allowlist-final-verify", Checks: finalChecks},
+		})
+		waitForVaultWorkflowPhase(t, workflowID, "allowlist-updated", ulCh, bmCh)
+		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"main"}, sc, wfReg)
+		waitForVaultWorkflowPhase(t, workflowID, "allowlist-final-verify", ulCh, bmCh)
 		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"alt"}, sc, wfReg)
+		if orgIDAsSecretOwnerEnabled {
+			executeVaultSecretsDeleteTest(t, orgIDLabelSecretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		}
+	})
+
+	if !isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		return
+	}
+
+	t.Run("allowlist_crud_with_org_id_identity", func(t *testing.T) {
+		require.NotNil(t, linkingService, "JWT auth enabled topology must include a linking service")
+
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		workflowOwnerAddress := sc.MustGetRootKeyAddress()
+		workflowOwner := workflowOwnerAddress.Hex()
+		orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		linkingService.SetOwnerOrg(workflowOwner, orgID)
+
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistorgid")
+		createEnc, err := vaultutils.EncryptSecretWithOrgID("secret-org-id-owner-create", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+		updateEnc, err := vaultutils.EncryptSecretWithOrgID("secret-org-id-owner-update", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+
+		allowlistAuth := newAllowlistVaultRequestAuth(workflowOwner, sc, wfReg)
+		namespaces := []string{"main"}
+		executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t, allowlistAuth, orgID, createEnc, secretID, []string{orgID}, gwURL, namespaces)
+		executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, updateEnc, secretID, orgID, gwURL, namespaces)
+		executeVaultSecretsListWithAuthAndOwner(t, allowlistAuth, orgID, []string{secretID}, orgID, gwURL, "main")
+		executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, secretID, orgID, gwURL, namespaces)
 	})
 }
 
@@ -131,7 +202,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	workflowOwnerAddress := common.HexToAddress(workflowOwner)
 
 	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
-		secretID := strconv.Itoa(rand.Intn(10000))
+		secretID := uniqueVaultSecretID("jwt")
 		createValue := "secret-jwt-workflow-owner"
 		enc, err := vaultutils.EncryptSecretWithOrgID(createValue, vaultParsedPublicKey, orgID)
 		require.NoError(t, err)
@@ -160,19 +231,39 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		waitForVaultWorkflowPhase(t, workflowID, "jwt-deleted", ulCh, bmCh)
 	})
 
+	t.Run("jwt_rejected_when_secret_labeled_as_workflow_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtreject")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-wrong-label", vaultParsedPublicKey, workflowOwnerAddress)
+		require.NoError(t, err)
+
+		uniqueRequestID := uuid.New().String()
+		secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+			RequestId:        uniqueRequestID,
+			EncryptedSecrets: buildEncryptedSecrets(secretID, orgID, encryptedSecret, []string{"main"}),
+		}
+		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+		jwtAuth.apply(t, &jsonRequest)
+
+		jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gwURL, jsonRequest, http.StatusBadRequest)
+		require.Equal(t, uniqueRequestID, jsonResponse.ID)
+		require.NotNil(t, jsonResponse.Error)
+		require.Equal(t, jsonrpc.ErrInvalidParams, jsonResponse.Error.Code)
+		require.Contains(t, jsonResponse.Error.Error(), "doesn't have owner as the label")
+	})
+
 	t.Run("mixed_allowlist_and_jwt_auth", func(t *testing.T) {
 		t.Run("cross_auth_create_update_list_and_delete", func(t *testing.T) {
-			allowlistSecretID := strconv.Itoa(rand.Intn(10000))
-			jwtSecretID := strconv.Itoa(rand.Intn(10000))
+			allowlistSecretID := uniqueVaultSecretID("mixedallowlist")
+			jwtSecretID := uniqueVaultSecretID("mixedjwt")
 			allowlistCreateValue := "secret-mixed-allowlist-create"
 			jwtCreateValue := "secret-mixed-jwt-create"
 			allowlistUpdateValue := "secret-mixed-allowlist-update"
 			jwtUpdateValue := "secret-mixed-jwt-update"
-			allowlistCreateEnc, err := crevault.EncryptSecret(allowlistCreateValue, vaultPublicKey, workflowOwnerAddress)
+			allowlistCreateEnc, err := vaultutils.EncryptSecretWithOrgID(allowlistCreateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, err)
 			jwtCreateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtCreateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, err)
-			allowlistUpdateEnc, err := crevault.EncryptSecret(allowlistUpdateValue, vaultPublicKey, workflowOwnerAddress)
+			allowlistUpdateEnc, err := vaultutils.EncryptSecretWithOrgID(allowlistUpdateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, err)
 			jwtUpdateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtUpdateValue, vaultParsedPublicKey, orgID)
 			require.NoError(t, err)
@@ -217,8 +308,15 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		})
 	})
 
-	t.Run("jwt_rejected_when_workflow_owner_missing", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "missing workflow_owner in authorization_details")
+	t.Run("jwt_without_workflow_owner_uses_org_id_identity", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtorgonly")
+		encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-org-only", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+
+		orgOnlyJWTAuth := newJWTVaultRequestAuth(issuer, orgID, "")
+		executeVaultSecretsCreateWithAuth(t, orgOnlyJWTAuth, encryptedSecret, secretID, orgID, gwURL, []string{"main"})
+		executeVaultSecretsListWithAuth(t, orgOnlyJWTAuth, []string{secretID}, orgID, gwURL, "main")
+		executeVaultSecretsDeleteWithAuth(t, orgOnlyJWTAuth, secretID, orgID, gwURL, []string{"main"})
 	})
 
 	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {

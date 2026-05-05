@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
@@ -76,7 +77,7 @@ func (u UserWorkflowUpsert) VerifyPreconditions(e cldf.Environment, config UserW
 
 func (u UserWorkflowUpsert) Apply(e cldf.Environment, config UserWorkflowUpsertInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -168,7 +169,7 @@ func (u UserWorkflowPause) VerifyPreconditions(e cldf.Environment, config UserWo
 
 func (u UserWorkflowPause) Apply(e cldf.Environment, config UserWorkflowPauseInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -265,7 +266,7 @@ func (u UserWorkflowBatchPause) VerifyPreconditions(e cldf.Environment, config U
 
 func (u UserWorkflowBatchPause) Apply(e cldf.Environment, config UserWorkflowBatchPauseInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -363,7 +364,7 @@ func (u UserWorkflowActivate) VerifyPreconditions(e cldf.Environment, config Use
 
 func (u UserWorkflowActivate) Apply(e cldf.Environment, config UserWorkflowActivateInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -448,7 +449,7 @@ func (u UserWorkflowDelete) VerifyPreconditions(e cldf.Environment, config UserW
 
 func (u UserWorkflowDelete) Apply(e cldf.Environment, config UserWorkflowDeleteInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -544,7 +545,7 @@ func (u UserLinkOwner) VerifyPreconditions(e cldf.Environment, config UserLinkOw
 
 func (u UserLinkOwner) Apply(e cldf.Environment, config UserLinkOwnerInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -642,7 +643,7 @@ func (u UserUnlinkOwner) VerifyPreconditions(e cldf.Environment, config UserUnli
 
 func (u UserUnlinkOwner) Apply(e cldf.Environment, config UserUnlinkOwnerInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
@@ -736,7 +737,7 @@ func (u UserAllowlistRequest) VerifyPreconditions(e cldf.Environment, config Use
 
 func (u UserAllowlistRequest) Apply(e cldf.Environment, config UserAllowlistRequestInput) (cldf.ChangesetOutput, error) {
 	// Get MCMS contracts if needed
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)

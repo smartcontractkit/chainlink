@@ -1,8 +1,6 @@
 package chainlink
 
 import (
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -12,7 +10,7 @@ type GeneralConfig interface {
 	config.AppConfig
 	toml.HasEVMConfigs
 	CosmosConfigs() RawConfigs
-	SolanaConfigs() solcfg.TOMLConfigs
+	SolanaConfigs() RawConfigs
 	StarknetConfigs() RawConfigs
 	AptosConfigs() RawConfigs
 	TronConfigs() RawConfigs
