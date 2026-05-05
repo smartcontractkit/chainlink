@@ -975,6 +975,7 @@ func (e *Engine) secretsFetcher(phaseID string) SecretsFetcher {
 		// or the workflowID if called during trigger subscription
 		phaseID,
 		e.cfg.WorkflowEncryptionKey,
+		e.cfg.OverrideFetcher,
 	)
 }
 

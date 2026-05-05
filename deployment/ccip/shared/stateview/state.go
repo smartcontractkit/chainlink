@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -377,11 +378,11 @@ func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
 	return 0, errors.New("no home chain found")
 }
 
-func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
-	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
+func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]evmstate.MCMSWithTimelockState)
 	for _, chainSelector := range c.EVMChains() {
 		chain := c.MustGetEVMChainState(chainSelector)
-		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
+		mcmsStateByChain[chainSelector] = evmstate.MCMSWithTimelockState{
 			CancellerMcm: chain.CancellerMcm,
 			BypasserMcm:  chain.BypasserMcm,
 			ProposerMcm:  chain.ProposerMcm,
@@ -994,7 +995,7 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 }
 
 func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
-	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
+	mcmsStateWithQualifier, err := evmstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
 	if err != nil {
 		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
 	}
@@ -1088,18 +1089,18 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 	}
 
 	var state evm.CCIPChainState
-	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commonstate.MaybeLoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := evmstate.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
@@ -1788,7 +1789,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
 		if mcmsCfg != nil {
-			err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
+			err = mcmsCfg.Validate(chain, evmstate.MCMSWithTimelockState{
 				CancellerMcm: chainState.CancellerMcm,
 				ProposerMcm:  chainState.ProposerMcm,
 				BypasserMcm:  chainState.BypasserMcm,

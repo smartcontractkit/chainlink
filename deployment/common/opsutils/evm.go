@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/zksync-sdk/zksync2-go/accounts"
 	"github.com/zksync-sdk/zksync2-go/clients"
 
@@ -25,7 +26,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -120,7 +120,7 @@ func AddEVMCallSequenceToCSOutput[IN any](
 	csOutput cldf.ChangesetOutput,
 	seqReport operations.SequenceReport[IN, map[uint64][]EVMCallOutput],
 	seqErr error,
-	mcmsStateByChain map[uint64]state.MCMSWithTimelockState,
+	mcmsStateByChain map[uint64]evmstate.MCMSWithTimelockState,
 	mcmsCfg *proposalutils.TimelockConfig,
 	mcmsDescription string,
 ) (cldf.ChangesetOutput, error) {

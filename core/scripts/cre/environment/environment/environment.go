@@ -11,8 +11,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -104,6 +106,32 @@ func waitToCleanUp(d time.Duration) {
 	time.Sleep(d)
 }
 
+func describePortUsage(ctx context.Context, port int) (string, error) {
+	lsofCtx, lsofCtxCancel := context.WithTimeout(ctx, 20*time.Second)
+	defer lsofCtxCancel()
+	cmd := exec.CommandContext(lsofCtx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port)) //nolint:gosec //G204-- we control the value of the cmd so the lint/sec error is a false positive
+	output, err := cmd.CombinedOutput()
+	trimmedOutput := strings.TrimSpace(string(output))
+
+	if err == nil {
+		if trimmedOutput == "" {
+			return fmt.Sprintf("no processes found on TCP port %d", port), nil
+		}
+		return trimmedOutput, nil
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return fmt.Sprintf("no processes found on TCP port %d", port), nil
+	}
+
+	if trimmedOutput == "" {
+		return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w", port, err)
+	}
+
+	return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w\n%s", port, err, trimmedOutput)
+}
+
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	globalPreRunFunc(cmd, args)
 	provisioningStartTime = time.Now()
@@ -115,7 +143,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// so we can skip Docker cleanup for Kubernetes provider
 }
 
-var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.ChipIngressConfig, cleanupOnFailure bool, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -153,6 +181,12 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
 				fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
+			}
+		}
+
+		if persistedBeholderState != nil {
+			if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup failure")
 			}
 		}
 
@@ -233,8 +267,10 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var persistedBeholderState *envconfig.ChipIngressConfig
+
 			defer func() {
-				StartCmdRecoverHandlerFunc(recover(), cleanupOnFailure, cleanupWait)
+				StartCmdRecoverHandlerFunc(recover(), persistedBeholderState, cleanupOnFailure, cleanupWait)
 			}()
 
 			if doSetup {
@@ -257,7 +293,8 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
 			}
 
-			persistedBeholderState, persistedBeholderStateErr := loadPersistedBeholderState(relativePathToRepoRoot)
+			var persistedBeholderStateErr error
+			persistedBeholderState, persistedBeholderStateErr = loadPersistedBeholderState(relativePathToRepoRoot)
 			if persistedBeholderStateErr != nil {
 				framework.L.Warn().Err(persistedBeholderStateErr).Msg("failed to load persisted Beholder state before startup cleanup")
 			}
@@ -316,6 +353,12 @@ func startCmd() *cobra.Command {
 					removeErr := framework.RemoveTestContainers()
 					if removeErr != nil {
 						fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
+					}
+				}
+
+				if persistedBeholderState != nil {
+					if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+						framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup termination")
 					}
 				}
 
@@ -862,6 +905,20 @@ func StartCLIEnvironment(
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
+		if strings.Contains(setupErr.Error(), "address already in use") {
+			regex := regexp.MustCompile(`:(\d+)`)
+			matches := regex.FindStringSubmatch(setupErr.Error())
+			if len(matches) > 1 {
+				port, pErr := strconv.Atoi(matches[1])
+				// ignore errors from now on, so that we don't overwrite the original error
+				if pErr == nil {
+					portUsage, err := describePortUsage(cmdContext, port)
+					if err == nil {
+						fmt.Printf("Port %d is already in use by:\n%s\n\n", port, portUsage)
+					}
+				}
+			}
+		}
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
 

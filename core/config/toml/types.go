@@ -2117,8 +2117,18 @@ type StreamsSecretConfig struct {
 }
 
 type CreSecrets struct {
-	Streams      *StreamsSecretConfig `toml:",omitempty"`
-	LocalSecrets map[string]string    `toml:",omitempty"`
+	Streams              *StreamsSecretConfig         `toml:",omitempty"`
+	LocalSecretOverrides map[string]map[string]string `toml:",omitempty"`
+}
+
+// normalizeCRELocalSecretOwnerKey lowercases a workflow owner string and strips a "0x" / "0X"
+// prefix for LocalSecretOverrides map key lookup.
+func normalizeCRELocalSecretOwnerKey(k string) (string, error) {
+	s := strings.TrimSpace(k)
+	if s == "" {
+		return "", errors.New("empty owner key in LocalSecretOverrides")
+	}
+	return strings.TrimPrefix(strings.ToLower(s), "0x"), nil
 }
 
 func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
@@ -2139,9 +2149,15 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 		}
 	}
 
-	if f.LocalSecrets != nil {
-		c.LocalSecrets = make(map[string]string, len(f.LocalSecrets))
-		maps.Copy(c.LocalSecrets, f.LocalSecrets)
+	if f.LocalSecretOverrides != nil {
+		c.LocalSecretOverrides = make(map[string]map[string]string, len(f.LocalSecretOverrides))
+		for k, v := range f.LocalSecretOverrides {
+			nk, nerr := normalizeCRELocalSecretOwnerKey(k)
+			if nerr != nil {
+				return nerr
+			}
+			c.LocalSecretOverrides[nk] = maps.Clone(v)
+		}
 	}
 
 	return nil
@@ -2156,8 +2172,8 @@ func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
 	}
-	if len(c.LocalSecrets) > 0 && len(f.LocalSecrets) > 0 {
-		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecrets"})
+	if len(c.LocalSecretOverrides) > 0 && len(f.LocalSecretOverrides) > 0 {
+		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecretOverrides"})
 	}
 	return err
 }

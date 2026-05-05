@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -20,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	state2 "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -163,9 +164,9 @@ func TestTransferToMCMSWithTimelockV2DataStore(t *testing.T) {
 	require.True(t, rt.State().Proposals[0].IsExecuted)
 
 	// We expect now that the link token is owned by the MCMS timelock.
-	addrsDatastore, err := state2.LoadAddressesFromDataStore(rt.State().DataStore, selector, "")
+	addrsDatastore, err := evmstate.LoadAddressesFromDataStore(rt.State().DataStore, selector, "") //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
-	linkState, err := state2.MaybeLoadLinkTokenChainState(chain, addrsDatastore)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addrsDatastore)
 	require.NoError(t, err)
 
 	o, err := linkState.LinkToken.Owner(nil)
