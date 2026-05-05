@@ -167,10 +167,10 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 	}
 }
 
-func TestShouldEmit_AllOCR2Types(t *testing.T) {
+func TestShouldEmit_NoOCR2Types(t *testing.T) {
 	beholdertest.NewObserver(t)
 	cfg := defaultConfig()
-	cfg.enabledOCR2PluginTypes = []string{} // empty allowlist = all OCR2 types
+	cfg.enabledOCR2PluginTypes = []string{} // empty allowlist = disable all
 
 	svc := newTestReporter(t, cfg, nil)
 
@@ -178,8 +178,8 @@ func TestShouldEmit_AllOCR2Types(t *testing.T) {
 	nonMedian := makeNonMedianOCR2Job()
 	vrf := makeVRFJob()
 
-	assert.True(t, svc.ShouldEmit(&median))
-	assert.True(t, svc.ShouldEmit(&nonMedian))
+	assert.False(t, svc.ShouldEmit(&median))
+	assert.False(t, svc.ShouldEmit(&nonMedian))
 	assert.False(t, svc.ShouldEmit(&vrf))
 }
 
@@ -306,34 +306,34 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 	require.Empty(t, msgs)
 }
 
-func TestOnJobStarted_EmitsCreate(t *testing.T) {
+func TestAfterJobStarted_EmitsCreate(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
 	jb := makeMedianJob()
 	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
-	svc.OnJobStarted(context.Background(), jb)
+	svc.AfterJobStarted(context.Background(), jb)
 
 	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_CREATE, ev.EmissionTrigger)
 }
 
-func TestOnJobStopped_EmitsDelete(t *testing.T) {
+func TestAfterJobStopped_EmitsDelete(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
 	jb := makeMedianJob()
 	svc := newTestReporter(t, defaultConfig(), newFeedsORMWithoutProposal(t, jb))
-	svc.OnJobStopped(context.Background(), jb)
+	svc.AfterJobStopped(context.Background(), jb)
 
 	ev := requireSingleJobSpecEvent(t, observer)
 	assert.Equal(t, events.EmissionTrigger_EMISSION_TRIGGER_DELETE, ev.EmissionTrigger)
 }
 
-func TestOnJobStarted_SkippedWhenGateFails(t *testing.T) {
+func TestAfterJobStarted_SkippedWhenGateFails(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
 	// default config only allows median, so a VRF job should be skipped
 	svc := newTestReporter(t, defaultConfig(), nil)
-	svc.OnJobStarted(context.Background(), makeVRFJob())
+	svc.AfterJobStarted(context.Background(), makeVRFJob())
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, msgs)

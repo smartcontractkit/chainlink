@@ -87,8 +87,8 @@ func (s *Service) HealthReport() map[string]error {
 	return map[string]error{ServiceName: s.Ready()}
 }
 
-// OnJobStarted emits a create event when a job starts.
-func (s *Service) OnJobStarted(ctx context.Context, jb job.Job) {
+// AfterJobStarted emits a create event when a job starts.
+func (s *Service) AfterJobStarted(ctx context.Context, jb job.Job) {
 	if !s.ShouldEmit(&jb) {
 		return
 	}
@@ -97,8 +97,8 @@ func (s *Service) OnJobStarted(ctx context.Context, jb job.Job) {
 	}
 }
 
-// OnJobStopped emits a delete event when a job is removed.
-func (s *Service) OnJobStopped(ctx context.Context, jb job.Job) {
+// AfterJobStopped emits a delete event when a job is removed.
+func (s *Service) AfterJobStopped(ctx context.Context, jb job.Job) {
 	if !s.ShouldEmit(&jb) {
 		return
 	}
@@ -129,7 +129,7 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 	}
 	allowed := s.config.EnabledOCR2PluginTypes()
 	if len(allowed) == 0 {
-		return true
+		return false
 	}
 	return slices.Contains(allowed, string(j.OCR2OracleSpec.PluginType))
 }

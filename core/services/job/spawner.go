@@ -20,8 +20,8 @@ type (
 	// Listener is notified when the Spawner starts or stops a job.
 	// Callbacks run asynchronously and must not block.
 	Listener interface {
-		OnJobStarted(ctx context.Context, jb Job)
-		OnJobStopped(ctx context.Context, jb Job)
+		AfterJobStarted(ctx context.Context, jb Job)
+		AfterJobStopped(ctx context.Context, jb Job)
 	}
 
 	// Spawner manages the spinning up and down of the long-running
@@ -377,14 +377,15 @@ func (js *spawner) RegisterListener(l Listener) {
 	js.listenersMu.Lock()
 	defer js.listenersMu.Unlock()
 	js.listeners = append(js.listeners, l)
+	js.lggr.Debugf("Registered job listener %T", l)
 }
 
 func (js *spawner) notifyStarted(jb Job) {
-	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.OnJobStarted(ctx, jb) })
+	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.AfterJobStarted(ctx, jb) })
 }
 
 func (js *spawner) notifyStopped(jb Job) {
-	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.OnJobStopped(ctx, jb) })
+	js.dispatchToListeners(func(ctx context.Context, l Listener) { l.AfterJobStopped(ctx, jb) })
 }
 
 // dispatchToListeners fans out fn to every registered listener in a single
