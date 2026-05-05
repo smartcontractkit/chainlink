@@ -19,62 +19,80 @@ func TestSkipRevertedTxnFetchFatal(t *testing.T) {
 	dbErr := stderrors.New("connection reset")
 
 	tests := []struct {
-		name string
-		ctx  context.Context
-		err  error
-		want bool
+		name  string
+		ctxFn func() context.Context
+		err   error
+		want  bool
 	}{
 		{
 			name: "nil error",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  nil,
 			want: false,
 		},
 		{
 			name: "context.Canceled on alive ctx",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  context.Canceled,
 			want: true,
 		},
 		{
 			name: "wrapped context.Canceled",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  errors.Wrap(context.Canceled, "pq"),
 			want: true,
 		},
 		{
 			name: "context.DeadlineExceeded on alive ctx inner query timeout",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  context.DeadlineExceeded,
 			want: false,
 		},
 		{
 			name: "wrapped DeadlineExceeded on alive ctx",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  errors.Wrap(context.DeadlineExceeded, "timeout"),
 			want: false,
 		},
 		{
 			name: "DeadlineExceeded while outer ctx canceled",
-			ctx:  ctxCanceled,
+			ctxFn: func() context.Context {
+				return ctxCanceled
+			},
 			err:  context.DeadlineExceeded,
 			want: true,
 		},
 		{
 			name: "generic DB error on alive ctx",
-			ctx:  ctxAlive,
+			ctxFn: func() context.Context {
+				return ctxAlive
+			},
 			err:  dbErr,
 			want: false,
 		},
 		{
 			name: "generic DB error while outer ctx canceled",
-			ctx:  ctxCanceled,
+			ctxFn: func() context.Context {
+				return ctxCanceled
+			},
 			err:  dbErr,
 			want: true,
 		},
 		{
 			name: "context.Canceled while outer ctx also canceled",
-			ctx:  ctxCanceled,
+			ctxFn: func() context.Context {
+				return ctxCanceled
+			},
 			err:  context.Canceled,
 			want: true,
 		},
@@ -83,7 +101,7 @@ func TestSkipRevertedTxnFetchFatal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := skipRevertedTxnFetchFatal(tt.ctx, tt.err)
+			got := skipRevertedTxnFetchFatal(tt.ctxFn(), tt.err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

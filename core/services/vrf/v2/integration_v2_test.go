@@ -569,7 +569,7 @@ func createVRFJobs(
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
 	ctx := testutils.Context(t)
-	require.Equal(t, len(gasLanePrices), len(fromKeys), "must provide one gas lane price for each set of from addresses")
+	require.Len(t, gasLanePrices, len(fromKeys), "must provide one gas lane price for each set of from addresses")
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
 		var keyStrs []string

@@ -676,7 +676,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 	revertedTxn RevertedVRFTxn,
 ) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
-		return txmgr.Tx{}, fmt.Errorf("vrf_owner_not_set_in_job_spec")
+		return txmgr.Tx{}, errors.New("vrf_owner_not_set_in_job_spec")
 	}
 
 	proof := revertedTxn.Proof

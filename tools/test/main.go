@@ -1,6 +1,4 @@
 // Package main launches the tools/test CLI.
-//
-//go:generate go run . --sync-skills
 package main
 
 import (
