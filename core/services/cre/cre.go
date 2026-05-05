@@ -260,14 +260,13 @@ func (s *Services) newSubservices(
 	return srvs, nil
 }
 
+// Same peerID resolution pattern as core/services/standardcapabilities/delegate.go: prefer a
+// configured peerID, fall through to GetOrFirst(zero) so single-key nodes still resolve cleanly.
 func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
-	if capCfg.Peering().Enabled() {
-		return capCfg.Peering().PeerID()
+	if id := capCfg.Peering().PeerID(); id != (p2pkey.PeerID{}) {
+		return id
 	}
-	if capCfg.SharedPeering().Enabled() {
-		return cfg.P2P().PeerID()
-	}
-	return p2pkey.PeerID{}
+	return cfg.P2P().PeerID()
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE
