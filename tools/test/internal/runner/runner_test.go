@@ -93,6 +93,16 @@ func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
 	assert.NotContains(t, out, "results in ")
 }
 
+func TestPrintDiagnoseAnalyzingStartsNewLineAfterLiveProgress(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	out := output.New(false, io.Discard, &stderr, output.SkipFD)
+
+	printDiagnoseAnalyzing(out, true)
+
+	assert.Equal(t, "\r\u001b[K\nanalyzing...\n", stderr.String())
+}
+
 func TestParseDiagnoseGoTestCount(t *testing.T) {
 	t.Parallel()
 

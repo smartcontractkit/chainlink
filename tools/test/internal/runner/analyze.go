@@ -763,18 +763,41 @@ func printSummarySectionTree(w io.Writer, title string, n int, entries []TestEnt
 		depth := 0
 		for _, seg := range nonEmpty {
 			depth++
-			fmt.Fprintln(w, termstyle.Muted.Render(pipeBranch(depth)+seg+"/"))
+			line := pipeBranch(depth) + seg + "/"
+			if depth == len(nonEmpty) {
+				if pkgEntry, ok := packageLevelEntry(byPkg[pkg]); ok {
+					line += " " + formatPackageLevelSummary(pkgEntry, seg, formatTest)
+				}
+			}
+			fmt.Fprintln(w, termstyle.Muted.Render(line))
 		}
 		testDepth := len(nonEmpty) + 1
 		if len(nonEmpty) == 0 {
 			testDepth = 1
 		}
 		for _, e := range byPkg[pkg] {
+			if e.Test == "" {
+				continue
+			}
 			line := pipeBranch(testDepth) + formatTest(e)
 			fmt.Fprintln(w, testStyle.Render(line))
 		}
 	}
 	fmt.Fprintln(w)
+}
+
+func packageLevelEntry(entries []TestEntry) (TestEntry, bool) {
+	for _, e := range entries {
+		if e.Test == "" {
+			return e, true
+		}
+	}
+	return TestEntry{}, false
+}
+
+func formatPackageLevelSummary(e TestEntry, pkgName string, formatTest func(TestEntry) string) string {
+	e.Test = pkgName
+	return strings.TrimPrefix(formatTest(e), pkgName+" ")
 }
 
 func entryFQName(e TestEntry) string {

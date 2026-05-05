@@ -36,6 +36,7 @@ type diagnoseRunState struct {
 	failedFastReason string
 	iterDurations    []time.Duration
 	shuffleSeeds     map[int]int64
+	liveProgress     bool
 }
 
 // GoTest runs `go test` with the given args (repo root as working directory).
@@ -108,6 +109,7 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
+	printDiagnoseAnalyzing(out, state.liveProgress)
 	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
@@ -228,6 +230,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	progressTickDone := make(chan struct{})
 	if parallel > 1 && !out.AIOutput() && out.LiveInlineProgress() {
 		parallelProgress = newParallelDiagnoseProgress(conf.Iterations)
+		state.liveProgress = true
 		start := time.Now()
 		progressTickWG.Go(func() {
 			tick := time.NewTicker(250 * time.Millisecond)
@@ -528,6 +531,16 @@ func printDiagnoseResultsDirHeader(out *output.Printer, resultsDir string) {
 		return
 	}
 	out.HumanStderr(termstyle.Muted.Render("results directory: ") + termstyle.Label.Render(resultsDir))
+}
+
+func printDiagnoseAnalyzing(out *output.Printer, afterLiveProgress bool) {
+	if out.AIOutput() {
+		return
+	}
+	if afterLiveProgress {
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
+	}
+	out.HumanStderr("analyzing...")
 }
 
 func printDiagnoseIterationDigest(out *output.Printer, iterationIdx0, totalIters int, conf *config.App, resultsDir string, iterDur time.Duration) {

@@ -86,11 +86,14 @@ func TestStartHeartbeats(t *testing.T) {
 		diff := heartbeatPeriod + 1*time.Second
 		t.Logf("Sleeping %.2f seconds before checking blockhash in BHS added by BHS_Heartbeats_Service\n", diff.Seconds())
 		time.Sleep(diff)
-		// storeEarliest in BHS contract stores blocktip - 256 in the Blockhash Store (BHS)
+		// Mine the storeEarliest TX: the heartbeat fired during the sleep and the TXM
+		// has had the full sleep duration to broadcast it to the mempool.
+		uni.backend.Commit()
+		// storeEarliest stores block.number - 256; read tip after the commit so the
+		// mined block number is known and no +1 guess is required.
 		tipHeader, err := uni.backend.Client().HeaderByNumber(testutils.Context(t), nil)
 		require.NoError(t, err)
-		// the storeEarliest transaction will end up in a new block, hence the + 1 below.
-		blockNumberStored := tipHeader.Number.Uint64() - 256 + 1
+		blockNumberStored := tipHeader.Number.Uint64() - 256
 		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, blockNumberStored)
 	})
 }

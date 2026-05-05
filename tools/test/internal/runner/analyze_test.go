@@ -457,6 +457,25 @@ func TestPrintSummaryTimeoutShowsTestNotPassCounts(t *testing.T) {
 	assert.NotContains(t, out, "(2p/0f)")
 }
 
+func TestPrintSummaryPackageLevelFlakeDoesNotPrintPackageAsTest(t *testing.T) {
+	t.Parallel()
+	rep := &Report{
+		Iterations:    50,
+		SlowThreshold: 30 * time.Second,
+		Flakes: []TestEntry{
+			{Package: "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2", Runs: 50, Fails: 4},
+			{Package: "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2", Test: "TestVRFV2Integration_SingleConsumer_ForceFulfillment", Runs: 48, Fails: 1},
+		},
+	}
+	var buf strings.Builder
+	PrintSummary(&buf, rep)
+	out := buf.String()
+	assert.Contains(t, out, "Flaky (2)")
+	assert.Contains(t, out, "|-- v2/ (4/50)")
+	assert.Contains(t, out, "|---- TestVRFV2Integration_SingleConsumer_ForceFulfillment (1/48)")
+	assert.NotContains(t, out, "|---- github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2")
+}
+
 func TestAnalyzeResultsRoundtrip(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

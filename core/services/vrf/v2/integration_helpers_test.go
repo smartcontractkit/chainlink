@@ -482,7 +482,7 @@ func verifyBlockhashStored(
 	requestBlock uint64,
 ) {
 	// Wait for the blockhash to be stored
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		callOpts := &bind.CallOpts{
 			Pending:     false,
@@ -493,12 +493,13 @@ func verifyBlockhashStored(
 		_, err := uni.bhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
 		if err == nil {
 			return true
-		} else if strings.Contains(err.Error(), "execution reverted") {
+		}
+		if strings.Contains(err.Error(), "execution reverted") {
 			return false
 		}
-		t.Fatal(err)
+		require.FailNowf(t, "GetBlockhash: %v", err.Error())
 		return false
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeoutCustom(t, 5*time.Minute), time.Second)
 }
 
 func verifyBlockhashStoredTrusted(
@@ -507,7 +508,7 @@ func verifyBlockhashStoredTrusted(
 	requestBlock uint64,
 ) {
 	// Wait for the blockhash to be stored
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		callOpts := &bind.CallOpts{
 			Pending:     false,
@@ -518,12 +519,13 @@ func verifyBlockhashStoredTrusted(
 		_, err := uni.trustedBhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
 		if err == nil {
 			return true
-		} else if strings.Contains(err.Error(), "execution reverted") {
+		}
+		if strings.Contains(err.Error(), "execution reverted") {
 			return false
 		}
-		t.Fatal(err)
+		require.FailNowf(t, "GetBlockhash (trusted BHS): %v", err.Error())
 		return false
-	}, time.Second*300, time.Second).Should(gomega.BeTrue())
+	}, testutils.WaitTimeoutCustom(t, 5*time.Minute), time.Second)
 }
 
 func testSingleConsumerHappyPathBatchFulfillment(
@@ -838,13 +840,13 @@ func testBlockHeaderFeeder(
 		topUpSubscription(t, consumer, consumerContract, uni.backend, big.NewInt(5e18), nativePayment)
 
 		// Wait for fulfillment to be queued.
-		gomega.NewGomegaWithT(t).Eventually(func() bool {
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
 			uni.backend.Commit()
 			runs, err := app.PipelineORM().GetAllRuns(ctx)
-			require.NoError(t, err)
+			require.NoError(c, err)
 			t.Log("runs", len(runs))
-			return len(runs) == 1
-		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+			require.Equal(c, len(runs), 1)
+		}, testutils.WaitTimeout(t), time.Second)
 
 		mine(t, requestID, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
 
@@ -1134,13 +1136,13 @@ func testSingleConsumerEIP150(
 	requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, uint32(callBackGasLimit), uni.rootContract, uni.backend, nativePayment)
 
 	// Wait for simulation to pass.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
-		require.NoError(t, err)
+		require.NoError(c, err)
 		t.Log("runs", len(runs))
-		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+		require.Equal(c, len(runs), 1)
+	}, testutils.WaitTimeout(t), time.Second)
 
 	t.Log("Done!")
 }
@@ -1889,13 +1891,13 @@ func testReplayOldRequestsOnStartUp(
 	}, testutils.WaitTimeout(t), 100*time.Millisecond)
 
 	// Wait for fulfillment to be queued.
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		uni.backend.Commit()
 		runs, err := app.PipelineORM().GetAllRuns(ctx)
-		require.NoError(t, err)
+		require.NoError(c, err)
 		t.Log("runs", len(runs))
-		return len(runs) == 1
-	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+		require.Equal(c, len(runs), 1)
+	}, testutils.WaitTimeout(t), time.Second)
 
 	// Mine the fulfillment that was queued.
 	mine(t, requestID1, subID, uni.backend, db, vrfVersion, testutils.SimulatedChainID)
