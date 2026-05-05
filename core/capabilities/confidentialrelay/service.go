@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -28,7 +29,9 @@ type Service struct {
 	wrapper       *gatewayconnector.ServiceWrapper
 	capRegistry   core.CapabilitiesRegistry
 	p2pKeystore   keystore.P2P
-	peerID        p2pkey.PeerID
+	peering       config.P2P
+	sharedPeering config.SharedPeering
+	nodeP2P       config.P2P
 	lggr          logger.Logger
 	limitsFactory limits.Factory
 
@@ -39,7 +42,9 @@ func NewService(
 	wrapper *gatewayconnector.ServiceWrapper,
 	capRegistry core.CapabilitiesRegistry,
 	p2pKeystore keystore.P2P,
-	peerID p2pkey.PeerID,
+	peering config.P2P,
+	sharedPeering config.SharedPeering,
+	nodeP2P config.P2P,
 	lggr logger.Logger,
 	limitsFactory limits.Factory,
 ) *Service {
@@ -47,7 +52,9 @@ func NewService(
 		wrapper:       wrapper,
 		capRegistry:   capRegistry,
 		p2pKeystore:   p2pKeystore,
-		peerID:        peerID,
+		peering:       peering,
+		sharedPeering: sharedPeering,
+		nodeP2P:       nodeP2P,
 		lggr:          lggr,
 		limitsFactory: limitsFactory,
 	}
@@ -64,7 +71,7 @@ func (s *Service) start(ctx context.Context) error {
 	if conn == nil {
 		return errors.New("gateway connector not available")
 	}
-	key, err := s.p2pKeystore.GetOrFirst(s.peerID)
+	key, err := s.p2pKeystore.GetOrFirst(s.peerID())
 	if err != nil {
 		return fmt.Errorf("failed to get p2p key for confidential relay signing: %w", err)
 	}
@@ -81,6 +88,16 @@ func (s *Service) close() error {
 		return s.handler.Close()
 	}
 	return nil
+}
+
+func (s *Service) peerID() p2pkey.PeerID {
+	if s.peering.Enabled() {
+		return s.peering.PeerID()
+	}
+	if s.sharedPeering.Enabled() {
+		return s.nodeP2P.PeerID()
+	}
+	return p2pkey.PeerID{}
 }
 
 type relayResponseSigner interface {
