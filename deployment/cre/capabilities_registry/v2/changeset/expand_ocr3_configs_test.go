@@ -191,6 +191,67 @@ func makeTestNodes(t *testing.T, chainSel uint64) ([]*fakeNodeInfo, []capabiliti
 	return fakeNodes, registryNodes
 }
 
+// v3_1OracleConfigMap returns a minimal V3_1OracleConfig as map[string]any
+// suitable for JSON roundtrip into ocr3_1.V3_1OracleConfig.
+func v3_1OracleConfigMap(numNodes int) map[string]any {
+	return map[string]any{
+		"deltaProgressMillis":  5000,
+		"deltaRoundMillis":     200,
+		"deltaGraceMillis":     0,
+		"deltaStageMillis":     0,
+		"maxRoundsPerEpoch":    10,
+		"transmissionSchedule": []any{numNodes},
+
+		"maxDurationInitializationMillis":               10000,
+		"maxDurationShouldAcceptAttestedReportMillis":   1000,
+		"maxDurationShouldTransmitAcceptedReportMillis": 1000,
+
+		"warnDurationQueryMillis":               1000,
+		"warnDurationObservationMillis":         1000,
+		"warnDurationValidateObservationMillis": 1000,
+		"warnDurationObservationQuorumMillis":   1000,
+		"warnDurationStateTransition":           1000,
+		"warnDurationCommitted":                 1000,
+
+		"maxFaultyOracles": 1,
+	}
+}
+
+// v3_1VaultConfigMap adds a VaultOffchainConfig to a base V3_1OracleConfig map.
+func v3_1VaultConfigMap(numNodes int) map[string]any {
+	m := v3_1OracleConfigMap(numNodes)
+	m["vaultOffchainConfig"] = map[string]any{
+		"batchSize":                         10,
+		"maxSecretsPerOwner":                100,
+		"maxCiphertextLengthBytes":          4096,
+		"maxIdentifierKeyLengthBytes":       64,
+		"maxIdentifierOwnerLengthBytes":     64,
+		"maxIdentifierNamespaceLengthBytes": 64,
+		"dkgInstanceID":                     "sanmarinodkg/v1/0xdeadbeef/0xabcdef",
+
+		"limitsMaxQueryLength":                                  65536,
+		"limitsMaxObservationLength":                            65536,
+		"limitsMaxReportsPlusPrecursorLength":                   65536,
+		"limitsMaxReportLength":                                 65536,
+		"limitsMaxReportCount":                                  10,
+		"limitsMaxKeyValueModifiedKeysPlusValuesLength":         65536,
+		"limitsMaxBlobPayloadLength":                            65536,
+		"limitsMaxKeyValueModifiedKeys":                         10,
+		"limitsMaxPerOracleUnexpiredBlobCumulativePayloadBytes": 65536,
+		"limitsMaxPerOracleUnexpiredBlobCount":                  10,
+	}
+	return m
+}
+
+// v3_1DKGConfigMap adds a DKGOffchainConfig to a base V3_1OracleConfig map.
+func v3_1DKGConfigMap(numNodes int) map[string]any {
+	m := v3_1OracleConfigMap(numNodes)
+	m["dkgOffchainConfig"] = map[string]any{
+		"T": 1,
+	}
+	return m
+}
+
 // oracleConfigMap returns a minimal OracleConfig as map[string]any suitable for
 // JSON roundtrip into ocr3.OracleConfig. numNodes controls TransmissionSchedule.
 func oracleConfigMap(numNodes int) map[string]any {
@@ -308,7 +369,7 @@ func TestExpandOCR3Configs(t *testing.T) {
 		}
 		err := expandOCR3Configs(env, 0, nil, capConfigs, nil)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse oracle config")
+		assert.Contains(t, err.Error(), "failed to parse ocr3 oracle config")
 	})
 
 	t.Run("configCountFn error is propagated", func(t *testing.T) {
@@ -428,5 +489,202 @@ func TestExpandOCR3Configs(t *testing.T) {
 		expanded := capConfigs[1].Config["ocr3Configs"].(map[string]any)["__default__"].(map[string]any)
 		_, hasSigners := expanded["signers"]
 		assert.True(t, hasSigners, "consensus entry should have been expanded")
+	})
+
+	t.Run("unknown __ocrVersion__ returns error", func(t *testing.T) {
+		t.Parallel()
+		env := cldf.Environment{Logger: logger.Test(t)}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "vault@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "bogus_version",
+							"offchainConfig": map[string]any{},
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, 0, nil, capConfigs, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown ocrVersion")
+	})
+
+	t.Run("ocr3_1 - parse error in oracle config", func(t *testing.T) {
+		t.Parallel()
+		env := cldf.Environment{Logger: logger.Test(t)}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "vault@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1",
+							"offchainConfig": map[string]any{
+								"deltaProgressMillis": "not-a-number",
+							},
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, 0, nil, capConfigs, nil)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to parse ocr3_1 oracle config")
+	})
+
+	t.Run("ocr3_1 - missing plugin config", func(t *testing.T) {
+		t.Parallel()
+		chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		fakeNodes, registryNodes := makeTestNodes(t, chainSel)
+		client := newFakeOffchainClient(fakeNodes)
+		env := cldf.Environment{
+			Logger:     logger.Test(t),
+			Offchain:   client,
+			OCRSecrets: ocr.XXXGenerateTestOCRSecrets(),
+		}
+		// No VaultOffchainConfig or DKGOffchainConfig in the oracle config map.
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "vault@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1",
+							"offchainConfig": v3_1OracleConfigMap(len(registryNodes)),
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, chainSel, registryNodes, capConfigs, func(_, _ string) (uint64, error) {
+			return 1, nil
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "one of reportingPluginConfigOverride")
+	})
+
+	t.Run("ocr3_1 - successful expansion with vault config", func(t *testing.T) {
+		t.Parallel()
+		chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		fakeNodes, registryNodes := makeTestNodes(t, chainSel)
+		client := newFakeOffchainClient(fakeNodes)
+		env := cldf.Environment{
+			Logger:     logger.Test(t),
+			Offchain:   client,
+			OCRSecrets: ocr.XXXGenerateTestOCRSecrets(),
+		}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "vault@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1",
+							"offchainConfig": v3_1VaultConfigMap(len(registryNodes)),
+						},
+					},
+				},
+			},
+		}
+		wantConfigCount := uint64(7)
+		err := expandOCR3Configs(env, chainSel, registryNodes, capConfigs, func(capID, key string) (uint64, error) {
+			assert.Equal(t, "vault@1.0.0", capID)
+			assert.Equal(t, "__default__", key)
+			return wantConfigCount, nil
+		})
+		require.NoError(t, err)
+
+		expanded := capConfigs[0].Config["ocr3Configs"].(map[string]any)["__default__"].(map[string]any)
+
+		signers, ok := expanded["signers"].([]string)
+		require.True(t, ok, "signers should be []string")
+		assert.Len(t, signers, len(registryNodes))
+
+		transmitters, ok := expanded["transmitters"].([]string)
+		require.True(t, ok, "transmitters should be []string")
+		assert.Len(t, transmitters, len(registryNodes))
+
+		assert.Equal(t, uint32(1), expanded["f"])
+		assert.Equal(t, wantConfigCount, expanded["configCount"])
+
+		offchainCfg, ok := expanded["offchainConfig"].(string)
+		require.True(t, ok, "offchainConfig should be a base64 string after expansion")
+		assert.NotEmpty(t, offchainCfg)
+	})
+
+	t.Run("ocr3_1_DKG - missing DKGOffchainConfig", func(t *testing.T) {
+		t.Parallel()
+		// DKGOffchainConfig nil check fires before any node fetching, so no real offchain client needed.
+		env := cldf.Environment{Logger: logger.Test(t)}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "dkg@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1_DKG",
+							"offchainConfig": v3_1OracleConfigMap(4),
+						},
+					},
+				},
+			},
+		}
+		err := expandOCR3Configs(env, 0, nil, capConfigs, func(_, _ string) (uint64, error) {
+			return 1, nil
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "DKGOffchainConfig is required")
+	})
+
+	t.Run("ocr3_1_DKG - successful expansion", func(t *testing.T) {
+		t.Parallel()
+		chainSel := chainselectors.ETHEREUM_TESTNET_SEPOLIA.Selector
+		fakeNodes, registryNodes := makeTestNodes(t, chainSel)
+		client := newFakeOffchainClient(fakeNodes)
+		env := cldf.Environment{
+			Logger:     logger.Test(t),
+			Offchain:   client,
+			OCRSecrets: ocr.XXXGenerateTestOCRSecrets(),
+		}
+		capConfigs := []ocr3CapConfig{
+			{
+				CapabilityID: "dkg@1.0.0",
+				Config: map[string]any{
+					"ocr3Configs": map[string]any{
+						"__default__": map[string]any{
+							"__ocrVersion__": "ocr3_1_DKG",
+							"offchainConfig": v3_1DKGConfigMap(len(registryNodes)),
+						},
+					},
+				},
+			},
+		}
+		wantConfigCount := uint64(3)
+		err := expandOCR3Configs(env, chainSel, registryNodes, capConfigs, func(capID, key string) (uint64, error) {
+			assert.Equal(t, "dkg@1.0.0", capID)
+			assert.Equal(t, "__default__", key)
+			return wantConfigCount, nil
+		})
+		require.NoError(t, err)
+
+		expanded := capConfigs[0].Config["ocr3Configs"].(map[string]any)["__default__"].(map[string]any)
+
+		signers, ok := expanded["signers"].([]string)
+		require.True(t, ok, "signers should be []string")
+		assert.Len(t, signers, len(registryNodes))
+
+		transmitters, ok := expanded["transmitters"].([]string)
+		require.True(t, ok, "transmitters should be []string")
+		assert.Len(t, transmitters, len(registryNodes))
+
+		assert.Equal(t, uint32(1), expanded["f"])
+		assert.Equal(t, wantConfigCount, expanded["configCount"])
+
+		offchainCfg, ok := expanded["offchainConfig"].(string)
+		require.True(t, ok, "offchainConfig should be a base64 string after expansion")
+		assert.NotEmpty(t, offchainCfg)
 	})
 }
