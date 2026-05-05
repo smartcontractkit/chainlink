@@ -151,6 +151,22 @@ func TestVerifyAllowsEmptyShard(t *testing.T) {
 	}
 }
 
+func TestVerifyWithSingleShardCoversEntireInput(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"verify", "--shard-count", "1"}, strings.NewReader("pkg/a\npkg/b\npkg/c\n"), &stdout)
+	if err != nil {
+		t.Fatalf("verify failed: %v", err)
+	}
+
+	output := stdout.String()
+	if !strings.Contains(output, "verified 3 packages across 1 shards") {
+		t.Fatalf("unexpected verify summary: %q", output)
+	}
+	if !strings.Contains(output, "shard 0: 3 packages") {
+		t.Fatalf("unexpected shard coverage: %q", output)
+	}
+}
+
 func TestVerifyRejectsDuplicatePaths(t *testing.T) {
 	var stdout bytes.Buffer
 	err := run([]string{"verify", "--shard-count", "2"}, strings.NewReader("pkg/a\npkg/a\n"), &stdout)

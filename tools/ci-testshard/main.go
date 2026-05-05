@@ -40,8 +40,8 @@ func runList(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs := flag.NewFlagSet("list", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
-	shardCount := fs.Int("shard-count", 0, "total number of shards")
-	shardIndex := fs.Int("shard-index", -1, "zero-based shard index")
+	shardCount := fs.Int("shard-count", 1, "total number of shards")
+	shardIndex := fs.Int("shard-index", 0, "zero-based shard index")
 
 	if err := fs.Parse(args); err != nil {
 		return usageError("%v", err)
@@ -73,7 +73,7 @@ func runVerify(args []string, stdin io.Reader, stdout io.Writer) error {
 	fs := flag.NewFlagSet("verify", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 
-	shardCount := fs.Int("shard-count", 0, "total number of shards")
+	shardCount := fs.Int("shard-count", 1, "total number of shards")
 
 	if err := fs.Parse(args); err != nil {
 		return usageError("%v", err)
