@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.46.0
+
+### Minor Changes
+
+- [#22250](https://github.com/smartcontractkit/chainlink/pull/22250) [`ffa5f62`](https://github.com/smartcontractkit/chainlink/commit/ffa5f62008eee8737648c29d32384dc6bd68bbcc) - Minor bump to start next version
+
 ## 2.45.0
 
 ### Breaking Changes
