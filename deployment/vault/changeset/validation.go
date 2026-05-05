@@ -221,3 +221,51 @@ func ValidateSetWhitelistConfig(e cldf.Environment, cfg types.SetWhitelistConfig
 
 	return nil
 }
+
+func validateEthAddress(field, raw string) error {
+	if raw == "" {
+		return fmt.Errorf("%s must not be empty", field)
+	}
+	if !common.IsHexAddress(raw) {
+		return fmt.Errorf("%s is not a valid hex address: %s", field, raw)
+	}
+	return nil
+}
+
+func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cfg types.DeployEthBalMonInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("chains must not be empty")
+	}
+
+	for chainSelector, chainCfg := range cfg.Chains {
+		if err := validateChainSelector(chainSelector, env); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+		if chainCfg.SetKeeperRegistryAddress == "" {
+			return fmt.Errorf("chain %d: setKeeperRegistryAddress must not be empty", chainSelector)
+		}
+		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
+		}
+	}
+
+	return nil
+}
+
+func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetKeeperRegistryAddressInput) error {
+	if len(cfg.Chains) == 0 {
+		return fmt.Errorf("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+
+		if !common.IsHexAddress(chainConfig.NewKeeperRegistryAddress) {
+			return fmt.Errorf("chain %d: invalid keeper registry address: %s", chainSelector, chainConfig.NewKeeperRegistryAddress)
+		}
+	}
+
+	return nil
+}

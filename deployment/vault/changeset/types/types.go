@@ -72,3 +72,30 @@ type BatchNativeTransferState struct {
 	// ValidationErrors contains any validation errors found
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
 }
+
+// DeployEthBalMonChainConfig is the EthBalMon configuration for a single chain.
+//
+// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder address (from the
+// upkeep "forwarder address" on chains with Chainlink automation) or the
+// KMS executor address on chains that use the Plaid/KMS automation path instead.
+//
+// SetMinWaitPeriodSeconds is optional; when omitted or non-positive it defaults to 60.
+type DeployEthBalMonChainConfig struct {
+	SetKeeperRegistryAddress string  `json:"setKeeperRegistryAddress"`
+	SetMinWaitPeriodSeconds  *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
+}
+
+// DeployEthBalMonInput configures EthBalMon deployment across chains.
+// Map keys are chain selectors; each entry is one chain’s keeper/KMS and watch list.
+type DeployEthBalMonInput struct {
+	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
+}
+
+// setKeeperRegistryAddress config
+type SetKeeperRegistryChainConfig struct {
+	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`
+}
+
+type EthBalMonSetKeeperRegistryAddressInput struct {
+	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
+}

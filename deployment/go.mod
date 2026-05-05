@@ -48,7 +48,7 @@ require (
 	github.com/smartcontractkit/chainlink-deployments-framework v0.94.1
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260410162948-2dca02f24e98
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
-	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260119171452-39c98c3b33cd
+	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260416124344-dbcbab4eb90f
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260410144512-ca02ad6ed16a
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260409211238-5b99921cbc7c
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
