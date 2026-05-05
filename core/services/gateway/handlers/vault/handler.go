@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -144,9 +145,10 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	writeMethodsEnabled       limits.GateLimiter
+	orgIDAsSecretOwnerEnabled limits.GateLimiter
+	activeRequests            map[string]*activeRequest
+	metrics                   *metrics
 
 	aggregator aggregator
 
@@ -237,24 +239,29 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
+	orgIDAsSecretOwnerEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create vault org ID as secret owner limiter: %w", err)
+	}
 
 	return &handler{
-		methodConfig:        cfg,
-		donConfig:           donConfig,
-		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:     nodeRateLimiter,
-		writeMethodsEnabled: writeMethodsEnabled,
-		activeRequests:      make(map[string]*activeRequest),
-		mu:                  sync.RWMutex{},
-		authorizer:          authorizer,
-		jwtAuth:             jwtAuth,
-		stopCh:              make(services.StopChan),
-		metrics:             metrics,
-		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
-		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
+		methodConfig:              cfg,
+		donConfig:                 donConfig,
+		don:                       don,
+		lggr:                      logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:            time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:           nodeRateLimiter,
+		writeMethodsEnabled:       writeMethodsEnabled,
+		orgIDAsSecretOwnerEnabled: orgIDAsSecretOwnerEnabled,
+		activeRequests:            make(map[string]*activeRequest),
+		mu:                        sync.RWMutex{},
+		authorizer:                authorizer,
+		jwtAuth:                   jwtAuth,
+		stopCh:                    make(services.StopChan),
+		metrics:                   metrics,
+		aggregator:                &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
+		clock:                     clock,
+		RequestValidator:          vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
 	}, nil
 }
 
@@ -300,6 +307,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
+			h.orgIDAsSecretOwnerEnabled.Close(),
 			h.MaxRequestBatchSizeLimiter.Close(),
 		)
 	})
@@ -577,6 +585,14 @@ func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *
 	return h.sendResponse(ctx, ar, successResp)
 }
 
+func (h *handler) skipSecretLabelValidation(ctx context.Context, orgID string) (bool, error) {
+	orgIDAsSecretOwnerEnabled, err := h.orgIDAsSecretOwnerEnabled.Limit(ctx)
+	if err != nil {
+		return false, err
+	}
+	return orgIDAsSecretOwnerEnabled && orgID == "", nil
+}
+
 func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
@@ -600,7 +616,21 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest)
+	skipLabelValidation, err := h.skipSecretLabelValidation(ctx, createSecretsRequest.OrgId)
+	if err != nil {
+		l.Errorw("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled: "+err.Error()), nil))
+	}
+	validationRequest := createSecretsRequest
+	if createSecretsRequest.OrgId != "" {
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(createSecretsRequest).(*vaultcommon.CreateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
+	}
+	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -641,7 +671,21 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest)
+	skipLabelValidation, err := h.skipSecretLabelValidation(ctx, updateSecretsRequest.OrgId)
+	if err != nil {
+		l.Errorw("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled: "+err.Error()), nil))
+	}
+	validationRequest := updateSecretsRequest
+	if updateSecretsRequest.OrgId != "" {
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(updateSecretsRequest).(*vaultcommon.UpdateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
+	}
+	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))

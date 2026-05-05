@@ -21,7 +21,6 @@ func InitializePluginConfig(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDat
 		RMNCrypto:                  nil,
 		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(extraDataCodec),
 		AddressCodec:               AddressCodec{},
-		ChainRW:                    ChainRWProvider{},
 		ExtraDataCodec:             ExtraDataDecoder{},
 		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
 		CCIPProviderSupported:      true,

@@ -212,33 +212,6 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
-  emit-pre-release-image-published-event:
-    name: Emit pre-release image published event
-    needs: [ docker-core ]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Emit pre-release image published event
-        env:
-          DOCKER_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            "/repos/${GITHUB_REPOSITORY}/dispatches" \
-            --input - <<JSON
-          {
-            "event_type": "pre-release-image-published",
-            "client_payload": {
-              "chainlink_image_tag": "${DOCKER_MANIFEST_TAG}",
-              "chainlink_version": "${GITHUB_REF_NAME}"
-            }
-          }
-          JSON
-
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify:
@@ -263,3 +236,35 @@ jobs:
       docker-image-names: |
         ${{ needs.docker-core.result == 'success' && format('public.ecr.aws/chainlink/chainlink:{0}|{1}', needs.docker-core.outputs.docker-manifest-tag, needs.docker-core.outputs.docker-manifest-digest) || '' }}
         ${{ needs.docker-ccip.result == 'success' && format('public.ecr.aws/chainlink/ccip:{0}|{1}', needs.docker-ccip.outputs.docker-manifest-tag, needs.docker-ccip.outputs.docker-manifest-digest) || '' }}
+
+  emit-pre-release-image-published-event:
+    name: Emit pre-release image published event
+    needs: [ docker-core, slack-notify ]
+    if: |
+      always() &&
+      needs.docker-core.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Emit pre-release image published event
+        env:
+          DOCKER_MANIFEST_TAG: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+          SLACK_THREAD_TS: ${{ needs.slack-notify.outputs.slack-thread-ts }}
+        run: |
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/dispatches" \
+            --input - <<JSON
+          {
+            "event_type": "pre-release-image-published",
+            "client_payload": {
+              "chainlink_image_tag": "${DOCKER_MANIFEST_TAG}",
+              "chainlink_version": "${GITHUB_REF_NAME}",
+              "slack_thread_ts": "${SLACK_THREAD_TS}"
+            }
+          }
+          JSON

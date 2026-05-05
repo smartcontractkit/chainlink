@@ -11,8 +11,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -102,6 +104,32 @@ func init() {
 func waitToCleanUp(d time.Duration) {
 	fmt.Printf("Waiting %s before cleanup\n", d)
 	time.Sleep(d)
+}
+
+func describePortUsage(ctx context.Context, port int) (string, error) {
+	lsofCtx, lsofCtxCancel := context.WithTimeout(ctx, 20*time.Second)
+	defer lsofCtxCancel()
+	cmd := exec.CommandContext(lsofCtx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port)) //nolint:gosec //G204-- we control the value of the cmd so the lint/sec error is a false positive
+	output, err := cmd.CombinedOutput()
+	trimmedOutput := strings.TrimSpace(string(output))
+
+	if err == nil {
+		if trimmedOutput == "" {
+			return fmt.Sprintf("no processes found on TCP port %d", port), nil
+		}
+		return trimmedOutput, nil
+	}
+
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
+		return fmt.Sprintf("no processes found on TCP port %d", port), nil
+	}
+
+	if trimmedOutput == "" {
+		return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w", port, err)
+	}
+
+	return "", fmt.Errorf("failed to inspect TCP port %d with lsof: %w\n%s", port, err, trimmedOutput)
 }
 
 var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
@@ -862,6 +890,20 @@ func StartCLIEnvironment(
 	defer cancel()
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(ctx, testLogger, singleFileLogger, universalSetupInput, relativePathToRepoRoot)
 	if setupErr != nil {
+		if strings.Contains(setupErr.Error(), "address already in use") {
+			regex := regexp.MustCompile(`:(\d+)`)
+			matches := regex.FindStringSubmatch(setupErr.Error())
+			if len(matches) > 1 {
+				port, pErr := strconv.Atoi(matches[1])
+				// ignore errors from now on, so that we don't overwrite the original error
+				if pErr == nil {
+					portUsage, err := describePortUsage(cmdContext, port)
+					if err == nil {
+						fmt.Printf("Port %d is already in use by:\n%s\n\n", port, portUsage)
+					}
+				}
+			}
+		}
 		return nil, fmt.Errorf("failed to setup test environment: %w", setupErr)
 	}
 
