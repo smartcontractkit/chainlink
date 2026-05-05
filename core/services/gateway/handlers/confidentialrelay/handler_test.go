@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/time/rate"
 
+	relaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -101,13 +102,13 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ jsonrpc.Request[json.RawMessage], _ map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
 	return nil, m.err
 }
 
 type respondingMockAggregator struct{}
 
-func (m *respondingMockAggregator) Aggregate(resps map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *respondingMockAggregator) Aggregate(_ jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], _ int, _ int, _ logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
 	if len(resps) == 0 {
 		return nil, errInsufficientResponsesForQuorum
 	}
@@ -210,15 +211,22 @@ func TestConfidentialRelayHandler_QuorumWithRealAggregator(t *testing.T) {
 		Params: &params,
 	}
 
-	resultData := json.RawMessage(`{"payload":"result"}`)
-	makeResp := func() *jsonrpc.Response[json.RawMessage] {
-		rd := make(json.RawMessage, len(resultData))
-		copy(rd, resultData)
+	makeSignedResp := func(signer string) *jsonrpc.Response[json.RawMessage] {
+		signed := relaytypes.SignedCapabilityResponseResult{
+			Result: relaytypes.CapabilityResponseResult{Payload: "result"},
+			Signatures: []relaytypes.RelayResponseSignature{{
+				Signer:    []byte(signer),
+				Signature: []byte("sig-" + signer),
+			}},
+		}
+		raw, mErr := json.Marshal(signed)
+		require.NoError(t, mErr)
+		rm := json.RawMessage(raw)
 		return &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      "req-quorum",
 			Method:  MethodCapabilityExec,
-			Result:  &rd,
+			Result:  &rm,
 		}
 	}
 
@@ -234,9 +242,9 @@ func TestConfidentialRelayHandler_QuorumWithRealAggregator(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	// Send 2 matching responses (F+1 = 2)
+	// Send F+1 = 2 matching signed responses with distinct signers.
 	for i := range 2 {
-		err = h.HandleNodeMessage(t.Context(), makeResp(), fmt.Sprintf("0x%04d", i))
+		err = h.HandleNodeMessage(t.Context(), makeSignedResp(fmt.Sprintf("signer-%d", i)), fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
 	}
 	wg.Wait()
@@ -266,27 +274,41 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 	err := h.HandleJSONRPCUserMessage(t.Context(), req, cb)
 	require.NoError(t, err)
 
-	// One divergent response
-	divergentResult := json.RawMessage(`{"secrets":[],"master_public_key":"DIFFERENT","threshold":1}`)
+	// One divergent response.
+	divergent, err := json.Marshal(relaytypes.SignedCapabilityResponseResult{
+		Result: relaytypes.CapabilityResponseResult{Payload: "DIVERGENT"},
+		Signatures: []relaytypes.RelayResponseSignature{{
+			Signer:    []byte("signer-divergent"),
+			Signature: []byte("sig-divergent"),
+		}},
+	})
+	require.NoError(t, err)
+	divergentRaw := json.RawMessage(divergent)
 	divergentResp := &jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-diverge",
 		Method:  MethodCapabilityExec,
-		Result:  &divergentResult,
+		Result:  &divergentRaw,
 	}
 	err = h.HandleNodeMessage(t.Context(), divergentResp, "0x0000")
 	require.NoError(t, err)
 
-	// Two matching responses (quorum = F+1 = 2)
-	matchingResult := json.RawMessage(`{"secrets":[],"master_public_key":"mpk","threshold":1}`)
+	// F+1 = 2 matching signed responses; distinct signers form the quorum.
 	for i := 1; i <= 2; i++ {
-		rd := make(json.RawMessage, len(matchingResult))
-		copy(rd, matchingResult)
+		matching, mErr := json.Marshal(relaytypes.SignedCapabilityResponseResult{
+			Result: relaytypes.CapabilityResponseResult{Payload: "match"},
+			Signatures: []relaytypes.RelayResponseSignature{{
+				Signer:    []byte(fmt.Sprintf("signer-%d", i)),
+				Signature: []byte(fmt.Sprintf("sig-%d", i)),
+			}},
+		})
+		require.NoError(t, mErr)
+		rm := json.RawMessage(matching)
 		resp := &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
 			ID:      "req-diverge",
 			Method:  MethodCapabilityExec,
-			Result:  &rd,
+			Result:  &rm,
 		}
 		err = h.HandleNodeMessage(t.Context(), resp, fmt.Sprintf("0x%04d", i))
 		require.NoError(t, err)
