@@ -577,6 +577,8 @@ jobs:
             ./postgres_logs.txt
             ./junit.xml
             ./deployment/junit.xml
+            ./deployment/output.txt
+            ./deployment/output-short.txt
           retention-days: 7
       - name: Notify Slack on Race Test Failure
         if: |
