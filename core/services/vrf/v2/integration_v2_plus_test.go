@@ -1140,16 +1140,7 @@ func setupSubscriptionAndFund(
 	receipt, err := uni.backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), receipt.Status)
-	var subID *big.Int
-	for _, log := range receipt.Logs {
-		if log.Address != uni.rootContractAddress {
-			continue
-		}
-		// SubscriptionCreated(uint64 indexed subId, address owner): Topics[1] = subId
-		subID = new(big.Int).SetBytes(log.Topics[1].Bytes())
-		break
-	}
-	require.NotNil(t, subID, "no SubscriptionCreated log from coordinator in CreateSubscription receipt")
+	subID := parseSubscriptionCreatedSubIDFromReceipt(t, receipt, uni.rootContractAddress)
 
 	_, err = consumerContract.SetSubID(consumer, subID)
 	require.NoError(t, err)
