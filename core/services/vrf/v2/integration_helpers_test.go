@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
@@ -21,8 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -862,33 +859,6 @@ func testBlockHeaderFeeder(
 	}
 }
 
-// parseSubscriptionCreatedSubIDFromReceipt finds SubscriptionCreated on coordinatorAddress,
-// matching the event signature from VRFCoordinatorV2 or VRFCoordinatorV25 ABIs (topics differ).
-func parseSubscriptionCreatedSubIDFromReceipt(t *testing.T, receipt *gethtypes.Receipt, coordinatorAddress common.Address) *big.Int {
-	t.Helper()
-	v2ABI, err := vrf_coordinator_v2.VRFCoordinatorV2MetaData.GetAbi()
-	require.NoError(t, err)
-	v25ABI, err := vrf_coordinator_v2_5.VRFCoordinatorV25MetaData.GetAbi()
-	require.NoError(t, err)
-	v2Topic := v2ABI.Events["SubscriptionCreated"].ID
-	v25Topic := v25ABI.Events["SubscriptionCreated"].ID
-
-	for _, lg := range receipt.Logs {
-		if lg.Address != coordinatorAddress {
-			continue
-		}
-		if len(lg.Topics) < 3 { // topic0 signature + indexed subId + indexed owner
-			continue
-		}
-		if lg.Topics[0] != v2Topic && lg.Topics[0] != v25Topic {
-			continue
-		}
-		return new(big.Int).SetBytes(lg.Topics[1].Bytes())
-	}
-	require.FailNow(t, "no SubscriptionCreated log from coordinator in CreateSubscription receipt")
-	return nil
-}
-
 func createSubscriptionAndGetSubID(
 	t *testing.T,
 	subOwner *bind.TransactOpts,
@@ -902,7 +872,15 @@ func createSubscriptionAndGetSubID(
 	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), receipt.Status)
-	return parseSubscriptionCreatedSubIDFromReceipt(t, receipt, coordinator.Address())
+	for _, log := range receipt.Logs {
+		if log.Address != coordinator.Address() {
+			continue
+		}
+		// SubscriptionCreated(uint64 indexed subId, address owner): Topics[1] = subId
+		return new(big.Int).SetBytes(log.Topics[1].Bytes())
+	}
+	require.FailNow(t, "no SubscriptionCreated log from coordinator in CreateSubscription receipt")
+	return nil
 }
 
 func setupAndFundSubscriptionAndConsumer(
