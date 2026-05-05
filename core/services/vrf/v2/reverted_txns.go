@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	stderrors "errors"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
@@ -62,7 +61,7 @@ func skipRevertedTxnFetchFatal(ctx context.Context, err error) bool {
 	if err == nil {
 		return false
 	}
-	if stderrors.Is(err, context.Canceled) {
+	if errors.Is(err, context.Canceled) {
 		return true
 	}
 	if ctx.Err() != nil {
@@ -189,7 +188,7 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = unique(recentReceipts)
@@ -251,7 +250,7 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent non-force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = unique(recentReceipts)
@@ -304,7 +303,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching recent reverted force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching recent reverted force-fulfilled txns: %w", err)
 	}
 
 	sqlQueryAll := fmt.Sprintf(`
@@ -333,7 +332,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	err = ds.SelectContext(ctx, &allReceipts, sqlQueryAll, chainID)
 	lsn.postSqlLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.Wrap(err, "Error fetching all recent force-fulfilled txns")
+		return nil, fmt.Errorf("error fetching all recent force-fulfilled txns: %w", err)
 	}
 
 	recentReceipts = UniqueByReqID(recentReceipts, allReceipts)
@@ -515,7 +514,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	ethClient := lsn.chain.Client()
 	tx, err := ethClient.TransactionByHash(ctx, txnReceiptDB.TxHash)
 	if err != nil {
-		return nil, errors.Wrap(err, "get_txn_by_hash")
+		return nil, fmt.Errorf("get_txn_by_hash: %w", err)
 	}
 
 	// Simulate txn to get revert error
@@ -586,7 +585,7 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	}
 	unpackedInputs, err := batchCoordinatorV2ABI.Methods["fulfillRandomWords"].Inputs.Unpack(txnReceiptDB.EncodedPayload[4:])
 	if err != nil {
-		return nil, errors.Wrap(err, "cannot_unpack_batch_txn")
+		return nil, fmt.Errorf("cannot_unpack_batch_txn: %w", err)
 	}
 	proofs := abi.ConvertType(unpackedInputs[0], new([]vrf_coordinator_v2.VRFProof)).(*[]vrf_coordinator_v2.VRFProof)
 	reqCommitments := abi.ConvertType(unpackedInputs[1], new([]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)).(*[]vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)
@@ -677,7 +676,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 	revertedTxn RevertedVRFTxn,
 ) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
-		return txmgr.Tx{}, errors.New("vrf_owner_not_set_in_job_spec")
+		return txmgr.Tx{}, fmt.Errorf("vrf_owner_not_set_in_job_spec")
 	}
 
 	proof := revertedTxn.Proof
@@ -686,7 +685,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 	fromAddresses := lsn.fromAddresses()
 	fromAddress, err := lsn.gethks.GetRoundRobinAddress(ctx, lsn.chainID, fromAddresses...)
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "failed_to_get_vrf_listener_from_address")
+		return txmgr.Tx{}, fmt.Errorf("failed_to_get_vrf_listener_from_address: %w", err)
 	}
 
 	// fulfill the request through the VRF owner
@@ -701,7 +700,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 
 	txData, err := vrfOwnerABI.Pack("fulfillRandomWords", proof, reqCommitment)
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
+		return txmgr.Tx{}, fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
 	}
 	vrfOwnerCoordinator, _ := lsn.vrfOwner.GetVRFCoordinator(nil)
 	lsn.l.Infow("RevertedTxnForceFulfilment EstimatingGas",
@@ -715,7 +714,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		Data: txData,
 	})
 	if err != nil {
-		return txmgr.Tx{}, errors.Wrap(err, "failed to estimate gas on VRFOwner.fulfillRandomWords")
+		return txmgr.Tx{}, fmt.Errorf("failed to estimate gas on VRFOwner.fulfillRandomWords: %w", err)
 	}
 	estimateGasLimit = uint64(1.4 * float64(estimateGasLimit))
 
