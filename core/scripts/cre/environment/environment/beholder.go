@@ -797,6 +797,7 @@ If you want to use both together start ChIP Ingress on a different port with '--
 			return errors.Wrap(err, "failed to register Beholder with chip ingress router")
 		}
 	}
+	// ignore the fact that ChIP Ingress Router is not started. Once it is started it will detect that Beholder is running and will register it.
 
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
