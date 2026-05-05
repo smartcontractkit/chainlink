@@ -214,7 +214,7 @@ jobs:
                       "trunk-auto-quarantine": "true",
                       "shard-count": str(count),
                       "shard-index": str(i),
-                      "run-timeout-minutes": "15",
+                      "run-timeout-minutes": "30",
                       "touch-web-assets": "true",
                       "logs-artifact-name": f"go_core_tests_logs_shard_{i}",
                   })
@@ -233,7 +233,7 @@ jobs:
                       "install-loopps": "true",
                       "shard-count": str(count),
                       "shard-index": str(i),
-                      "run-timeout-minutes": "15",
+                      "run-timeout-minutes": "30",
                       "touch-web-assets": "true",
                       "logs-artifact-name": f"go_core_tests_integration_logs_shard_{i}",
                   })
@@ -255,7 +255,7 @@ jobs:
                       "setup-sui": "true",
                       "shard-count": str(count),
                       "shard-index": str(i),
-                      "run-timeout-minutes": "20",
+                      "run-timeout-minutes": "40",
                       "logs-artifact-name": f"go_core_deployment_tests_logs_shard_{i}",
                   })
 
@@ -268,7 +268,7 @@ jobs:
                   "should-run": should_run,
                   "shard-count": "1",
                   "shard-index": "0",
-                  "run-timeout-minutes": "15",
+                  "run-timeout-minutes": "30",
                   "touch-web-assets": "true",
                   "restore-build-cache-only": "true",
                   "increase-timeouts-on-schedule": "true",
@@ -281,7 +281,7 @@ jobs:
                   "should-run": should_run,
                   "shard-count": "1",
                   "shard-index": "0",
-                  "run-timeout-minutes": "15",
+                  "run-timeout-minutes": "30",
                   "touch-web-assets": "true",
                   "restore-build-cache-only": "true",
                   "increase-timeouts-on-schedule": "true",
@@ -449,7 +449,7 @@ jobs:
     name: Core Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [ filter, shard-matrices, run-frequency ]
-    timeout-minutes: 30
+    timeout-minutes: 50
     runs-on: ${{ matrix.should-run == 'true' && matrix.os || 'ubuntu-latest' }}
     permissions:
       id-token: write

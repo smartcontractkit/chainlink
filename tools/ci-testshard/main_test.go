@@ -175,6 +175,14 @@ func TestVerifyRejectsDuplicatePaths(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsDuplicatePathsAmongOthers(t *testing.T) {
+	var stdout bytes.Buffer
+	err := run([]string{"verify", "--shard-count", "2"}, strings.NewReader("pkg/a\npkg/b\npkg/c\npkg/d\npkg/e\npkg/a\n"), &stdout)
+	if err == nil || !strings.Contains(err.Error(), `duplicate package path "pkg/a"`) {
+		t.Fatalf("expected duplicate package failure, got %v", err)
+	}
+}
+
 func TestInvalidShardParamsFail(t *testing.T) {
 	tests := []struct {
 		name string
