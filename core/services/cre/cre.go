@@ -14,6 +14,7 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -178,6 +179,8 @@ func (s *Services) newSubservices(
 			relayService := confidentialrelay.NewService(
 				gatewayConnectorWrapper,
 				opts.CapabilitiesRegistry,
+				keyStore.P2P(),
+				confidentialRelayPeerID(cfg, capCfg),
 				lggr,
 				opts.LimitsFactory,
 			)
@@ -255,6 +258,16 @@ func (s *Services) newSubservices(
 	srvs = append(srvs, wfSyncerSrvcs...)
 
 	return srvs, nil
+}
+
+func confidentialRelayPeerID(cfg Config, capCfg config.Capabilities) p2pkey.PeerID {
+	if capCfg.Peering().Enabled() {
+		return capCfg.Peering().PeerID()
+	}
+	if capCfg.SharedPeering().Enabled() {
+		return cfg.P2P().PeerID()
+	}
+	return p2pkey.PeerID{}
 }
 
 // Config is the minimal interface needed from GeneralConfig for CRE

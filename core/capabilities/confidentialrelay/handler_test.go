@@ -2,6 +2,7 @@ package confidentialrelay
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vault "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
@@ -124,7 +126,9 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	t.Helper()
 	lggr, err := logger.New()
 	require.NoError(t, err)
-	h, err := NewHandler(registry, gwConn, lggr, limits.Factory{Logger: lggr})
+	key, err := p2pkey.NewV2()
+	require.NoError(t, err)
+	h, err := NewHandler(registry, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	h.validateAttestation = noopValidator
 	return h
@@ -257,15 +261,26 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
-				var result confidentialrelaytypes.CapabilityResponseResult
+				params := confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					Owner:        "0xowner",
+					ExecutionID:  "32c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce1",
+					ReferenceID:  "17",
+					CapabilityID: "my-cap@1.0.0",
+					Payload:      makeCapabilityPayload(t, map[string]any{"key": "val"}),
+				}
+				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				decoded, err := base64.StdEncoding.DecodeString(result.Payload)
+				require.Len(t, result.Signatures, 1)
+				assertValidCapabilitySignature(t, params, result)
+
+				decoded, err := base64.StdEncoding.DecodeString(result.Result.Payload)
 				require.NoError(t, err)
 				var capResp sdkpb.CapabilityResponse
 				require.NoError(t, proto.Unmarshal(decoded, &capResp))
 				require.NotNil(t, capResp.GetPayload())
 				assert.Equal(t, "result-proto-bytes", string(capResp.GetPayload().GetValue()))
-				assert.Empty(t, result.Error)
+				assert.Empty(t, result.Result.Error)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
 				exec := reg.executables["my-cap@1.0.0"]
@@ -370,10 +385,17 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
-				var result confidentialrelaytypes.CapabilityResponseResult
+				params := confidentialrelaytypes.CapabilityRequestParams{
+					WorkflowID:   "wf-1",
+					CapabilityID: "fail-cap@1.0.0",
+					Payload:      base64.StdEncoding.EncodeToString(mustMarshalProto(t, &sdkpb.CapabilityRequest{Id: "fail-cap@1.0.0", Method: "Execute"})),
+				}
+				var result confidentialrelaytypes.SignedCapabilityResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				assert.Equal(t, "execution failed", result.Error)
-				assert.Empty(t, result.Payload)
+				require.Len(t, result.Signatures, 1)
+				assertValidCapabilitySignature(t, params, result)
+				assert.Equal(t, "execution failed", result.Result.Error)
+				assert.Empty(t, result.Result.Payload)
 			},
 		},
 		{
@@ -385,10 +407,22 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
 				require.Nil(t, resp.Error)
-				var result confidentialrelaytypes.SecretsResponseResult
+				params := confidentialrelaytypes.SecretsRequestParams{
+					WorkflowID:       "wf-secrets-1",
+					Owner:            "0xab5801a7d398351b8be11c439e05c5b3259aec9b",
+					ExecutionID:      "aaaa",
+					OrgID:            "org-123",
+					EnclavePublicKey: "enclave-pub-key-1",
+					Secrets: []confidentialrelaytypes.SecretIdentifier{
+						{Key: "API_KEY"},
+					},
+				}
+				var result confidentialrelaytypes.SignedSecretsResponseResult
 				require.NoError(t, json.Unmarshal(*resp.Result, &result))
-				require.Len(t, result.Secrets, 1)
-				assert.Equal(t, "API_KEY", result.Secrets[0].ID.Key)
+				require.Len(t, result.Signatures, 1)
+				assertValidSecretsSignature(t, params, result)
+				require.Len(t, result.Result.Secrets, 1)
+				assert.Equal(t, "API_KEY", result.Result.Secrets[0].ID.Key)
 			},
 			checkExecutable: func(t *testing.T, reg *mockCapRegistry) {
 				exec := reg.executables[vault.CapabilityID]
@@ -483,6 +517,37 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustMarshalProto(t *testing.T, msg proto.Message) []byte {
+	t.Helper()
+	b, err := proto.Marshal(msg)
+	require.NoError(t, err)
+	return b
+}
+
+func assertValidCapabilitySignature(
+	t *testing.T,
+	params confidentialrelaytypes.CapabilityRequestParams,
+	result confidentialrelaytypes.SignedCapabilityResponseResult,
+) {
+	t.Helper()
+	hash := result.Result.Hash(params)
+	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
+	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
+}
+
+func assertValidSecretsSignature(
+	t *testing.T,
+	params confidentialrelaytypes.SecretsRequestParams,
+	result confidentialrelaytypes.SignedSecretsResponseResult,
+) {
+	t.Helper()
+	hash := result.Result.Hash(params)
+	payload := confidentialrelaytypes.RelayResponseSignaturePayload(hash)
+	pubKey := ed25519.PublicKey(result.Signatures[0].Signer)
+	require.True(t, ed25519.Verify(pubKey, payload, result.Signatures[0].Signature))
 }
 
 func TestHandler_Lifecycle(t *testing.T) {
