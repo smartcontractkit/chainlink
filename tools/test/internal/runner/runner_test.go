@@ -2,8 +2,6 @@ package runner
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -23,13 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 )
 
-// Fixed clock for diagnoseResultsDirName assertions (timestamp 20240601123045).
 var diagnoseResultsDirNameAt = time.Date(2024, 6, 1, 12, 30, 45, 0, time.UTC)
-
-func testArgHash8(goTestArgs []string) string {
-	h := sha256.Sum256([]byte(strings.Join(goTestArgs, "\x00")))
-	return hex.EncodeToString(h[:4])
-}
 
 // When ctx is already canceled before Diagnose starts, no iterations run but
 // analysis still produces a report.json — this is the path a user hits after
@@ -63,6 +55,10 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	var rep Report
 	require.NoError(t, json.Unmarshal(reportBytes, &rep))
 	assert.Equal(t, 0, rep.Iterations)
+	require.NotNil(t, rep.Run)
+	assert.Equal(t, []string{"./..."}, rep.Run.GoTestArgs)
+	assert.Equal(t, "allpkgs", rep.Run.TargetSlug)
+	require.NotNil(t, rep.Run.FinishedAt)
 }
 
 func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
@@ -269,71 +265,40 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		conf       *config.App
 		goTestArgs []string
 		want       string
 	}{
 		{
-			name: "repo root pattern",
-			conf: &config.App{
-				Iterations: 1,
-			},
+			name:       "repo root pattern",
 			goTestArgs: []string{"./..."},
-			want:       diagnoseResultsNamePrefix + "allpkgs-it1-h" + testArgHash8([]string{"./..."}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "allpkgs-20240601123045",
 		},
 		{
-			name: "nested package with ellipsis",
-			conf: &config.App{
-				Iterations: 10,
-			},
+			name:       "nested package with ellipsis",
 			goTestArgs: []string{"./core/..."},
-			want:       diagnoseResultsNamePrefix + "core_allpkgs-it10-h" + testArgHash8([]string{"./core/..."}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "core_allpkgs-20240601123045",
 		},
 		{
-			name: "fail-fast and shuffle and non-default slow",
-			conf: &config.App{
-				Iterations:    2,
-				SlowThreshold: 45 * time.Second,
-				FailFast:      true,
-				Shuffle:       true,
-			},
+			name:       "flags before package",
 			goTestArgs: []string{"-race", "-run=^TestFoo$", "./pkg"},
-			want: diagnoseResultsNamePrefix + "pkg-it2-h" + testArgHash8([]string{"-race", "-run=^TestFoo$", "./pkg"}) +
-				"-ff-shuffle-slow45s-20240601123045",
+			want:       diagnoseResultsNamePrefix + "pkg-20240601123045",
 		},
 		{
-			name: "fail-fast-on categories included",
-			conf: &config.App{
-				Iterations: 2,
-				FailFastOn: []string{"timeout", "slow"},
-			},
+			name:       "single package",
 			goTestArgs: []string{"./pkg"},
-			want:       diagnoseResultsNamePrefix + "pkg-it2-h" + testArgHash8([]string{"./pkg"}) + "-ffontimeout_slow-20240601123045",
+			want:       diagnoseResultsNamePrefix + "pkg-20240601123045",
 		},
 		{
-			name: "default slow threshold omitted",
-			conf: &config.App{
-				Iterations:    3,
-				SlowThreshold: 30 * time.Second,
-			},
+			name:       "short path",
 			goTestArgs: []string{"./a"},
-			want:       diagnoseResultsNamePrefix + "a-it3-h" + testArgHash8([]string{"./a"}) + "-20240601123045",
-		},
-		{
-			name: "parallel iterations included when greater than one",
-			conf: &config.App{
-				Iterations:         8,
-				ParallelIterations: 3,
-			},
-			goTestArgs: []string{"./pkg"},
-			want:       diagnoseResultsNamePrefix + "pkg-it8-p3-h" + testArgHash8([]string{"./pkg"}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "a-20240601123045",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := diagnoseResultsDirName(tc.conf, tc.goTestArgs, diagnoseResultsDirNameAt)
+			got := diagnoseResultsDirName(tc.goTestArgs, diagnoseResultsDirNameAt)
 			assert.Equal(t, tc.want, got)
 			assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
 		})
@@ -344,18 +309,13 @@ func TestDiagnoseResultsDirNameLongRunAndPath(t *testing.T) {
 	t.Parallel()
 	longRun := strings.Repeat("Xy", 80)
 	goTestArgs := []string{"-run=" + longRun, "./p"}
-	conf := &config.App{
-		Iterations: 1,
-	}
-	got := diagnoseResultsDirName(conf, goTestArgs, diagnoseResultsDirNameAt)
+	got := diagnoseResultsDirName(goTestArgs, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
-	assert.Contains(t, got, "-it1-h")
-	assert.Contains(t, got, testArgHash8(goTestArgs))
-	assert.Regexp(t, `diagnose-p-it1-h[0-9a-f]{8}-20240601123045`, got)
+	assert.Regexp(t, `diagnose-p-20240601123045`, got)
 
 	longTarget := "./" + strings.Repeat("seg/", 60) + "z"
 	goTestArgs2 := []string{longTarget}
-	got2 := diagnoseResultsDirName(conf, goTestArgs2, diagnoseResultsDirNameAt)
+	got2 := diagnoseResultsDirName(goTestArgs2, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got2), maxDiagnoseResultsBasename)
 	assert.True(t, strings.HasPrefix(got2, diagnoseResultsNamePrefix))
 }

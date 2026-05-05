@@ -73,14 +73,23 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 	// Fetch recent single and batch txns, that have not been force-fulfilled
 	recentSingleTxns, err := lsn.fetchRecentSingleTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if ctx.Err() != nil { // context cancelled
+			return
+		}
 		lsn.l.Fatalw("Fetch recent txns", "err", err)
 	}
 	recentBatchTxns, err := lsn.fetchRecentBatchTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if ctx.Err() != nil { // context cancelled
+			return
+		}
 		lsn.l.Fatalw("Fetch recent batch txns", "err", err)
 	}
 	recentForceFulfillmentTxns, err := lsn.fetchRevertedForceFulfilmentTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
+		if ctx.Err() != nil { // context cancelled
+			return
+		}
 		lsn.l.Fatalw("Fetch recent reverted force-fulfillment txns", "err", err)
 	}
 	recentTxns := make([]TxnReceiptDB, 0)

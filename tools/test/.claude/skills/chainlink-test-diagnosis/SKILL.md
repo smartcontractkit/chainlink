@@ -104,15 +104,15 @@ For commands expected to exceed 2 minutes:
 <output_layout>
 Under repo root.
 
-`diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/`
+`diagnose-<targetSlug>-<YYYYMMDDHHMMSS>/` (optional numeric suffix `-1`, `-2`, … if a colliding name already exists in the same second)
 
-- `<targetSlug>`: from trailing package patterns. Leading `./` stripped, `/...` becomes `_allpkgs`, bare `...` becomes `allpkgs`, `/` becomes `_`.
-- `<config>`: `it<N>`, optional `p<N>` when `--parallel-iterations > 1`, `h` + 8-hex hash of the full go test argument list, optional `ff`, optional `ffon<categories>` for `--fail-fast-on`, `shuffle`, and optional `slow<duration>` when `--slow-threshold` differs from default. Long basenames shorten slug and drop optional tokens.
+- `<targetSlug>`: derived from trailing `go test` package patterns only (not flags). Leading `./` stripped; bare `...` → `allpkgs`; `foo/...` → `foo_allpkgs`; `/` → `_`. Long slugs are truncated; extreme cases may fall back to `diagnose-x-<timestamp>`.
+- Full `go test` argv, harness flags, and start/finish times: `report.json` key `run`.
 
 Inner layout:
 
 ```
-diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>/
+diagnose-<targetSlug>-<YYYYMMDDHHMMSS>/
 ├── iteration-<n>.log.jsonl
 ├── report.json
 ├── report.csv
@@ -243,6 +243,89 @@ For `slow` bucket:
 - Look for `time.Sleep`, long polling loops, retry helpers with generous defaults.
 - Chainlink suspects: on-chain event waits with coarse intervals, reconcile loops, long OCR rounds.
 </G>
+
+<H name="logpoller">
+**LogPoller timing race** — dominant flake pattern in simulated-chain tests with `Feature.LogPoller = true`.
+
+Error signature: `"failed to retrieve log value pointer of block N: not found"` at a `FilterXxx` call immediately after `backend.Commit()`.
+
+Root cause: LogPoller-backed interfaces (`CoordinatorV2_X`, etc.) index asynchronously (~1 s interval). Any `FilterXxx()` on such an interface called synchronously after `backend.Commit()` races the poll cycle. Raw geth bindings (e.g. `*vrf_coordinator_v2_5.VRFCoordinatorV25`) do NOT go through LogPoller — check the type before applying fixes.
+
+Three sub-patterns:
+
+**H1 — One-shot creation event:** Replace `FilterXxx` with receipt-based parsing.
+```go
+// BEFORE: races LogPoller
+tx, err := coordinator.CreateSubscription(auth)
+require.NoError(t, err)
+backend.Commit()
+iter, err := coordinator.FilterSubscriptionCreated(nil, nil)
+require.NoError(t, err)
+subID := iter.Event().SubID()
+
+// AFTER: deterministic receipt parse
+tx, err := coordinator.CreateSubscription(auth)
+require.NoError(t, err)
+backend.Commit()
+receipt, err := backend.Client().TransactionReceipt(ctx, tx.Hash())
+require.NoError(t, err)
+require.Equal(t, uint64(1), receipt.Status)
+var subID *big.Int
+for _, log := range receipt.Logs {
+    if log.Address != coordinatorAddress {
+        continue
+    }
+    // indexed Topics[1] = subId (32-byte big-endian padded uint64)
+    subID = new(big.Int).SetBytes(log.Topics[1].Bytes())
+    break
+}
+require.NotNil(t, subID, "no SubscriptionCreated log in receipt")
+```
+
+**H2 — Diagnostic filter inside `require.Eventually`:** Change `require.NoError` to non-fatal skip so transient errors retry.
+```go
+// BEFORE: crashes permanently on first LogPoller miss
+require.Eventually(t, func() bool {
+    it, err := coordinator.FilterRandomWordsForced(nil, ids, subs, addrs)
+    require.NoError(t, err)
+    // ...
+    return utils.IsEmpty(commitment[:])
+}, timeout, tick)
+
+// AFTER: retries on transient errors
+require.Eventually(t, func() bool {
+    it, err := coordinator.FilterRandomWordsForced(nil, ids, subs, addrs)
+    if err == nil {
+        for it.Next() {
+            require.Equal(t, expected, it.Event.Field)
+        }
+    }
+    return utils.IsEmpty(commitment[:])
+}, timeout, tick)
+```
+
+**H3 — Fixed reference block in advancing loop:** Compute reference value inside the closure.
+```go
+// BEFORE: blockToCheck goes stale as new blocks commit
+backend.Commit()
+tip, _ := backend.Client().HeaderByNumber(ctx, nil)
+blockToCheck := tip.Number.Uint64() - 256
+verifyBlockhashStored(t, uni, blockToCheck)
+
+// AFTER: re-derive on each tick
+require.Eventually(t, func() bool {
+    backend.Commit()
+    tip, err := backend.Client().HeaderByNumber(ctx, nil)
+    if err != nil || tip == nil || tip.Number.Uint64() < 256 {
+        return false
+    }
+    _, err = bhsContract.GetBlockhash(nil, new(big.Int).SetUint64(tip.Number.Uint64()-256))
+    return err == nil
+}, testutils.WaitTimeoutCustom(t, 5*time.Minute), time.Second)
+```
+
+**TXM broadcast latency:** Under 5+ parallel workers, a service may log a tx as "sent" before TXM actually broadcasts it to the mempool. The tx mines one block later than expected. If the test checks a fixed block offset and the service is provably firing (logs confirm it), suspect latency and apply H3.
+</H>
 
 </playbook>
 </diagnose>

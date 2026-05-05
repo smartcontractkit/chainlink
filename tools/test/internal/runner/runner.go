@@ -125,6 +125,8 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 				report.IterationSummaries[i].ShuffleSeed = state.shuffleSeeds[i]
 			}
 		}
+		finished := time.Now()
+		report.Run = newRunMeta(conf, goTestArgs, resultsDir, start, &finished)
 	}
 	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
 		out.Stderrf("write log files: %v\n", err)
@@ -171,7 +173,7 @@ func EffectiveParallelIterations(conf *config.App) int {
 }
 
 func makeDiagnoseResultsDir(conf *config.App, goTestArgs []string, now time.Time) (string, error) {
-	base := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(conf, goTestArgs, now))
+	base := filepath.Join(conf.RepoRoot, diagnoseResultsDirName(goTestArgs, now))
 	for i := 0; ; i++ {
 		dir := base
 		if i > 0 {
@@ -218,6 +220,10 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	}
 	if conf.Shuffle {
 		state.shuffleSeeds = make(map[int]int64)
+	}
+
+	if !out.AIOutput() {
+		printDiagnoseIterationTableHeader(out)
 	}
 
 	runCtx, cancel := context.WithCancel(ctx)
@@ -582,18 +588,8 @@ func formatIterationDigestAI(iter, total int, d IterationDigest, dur time.Durati
 }
 
 func printIterationDigestHuman(out *output.Printer, iter, total int, d IterationDigest, dur time.Duration) {
-	rs := renderIterationResultHuman(d.Result)
-	sec := dur.Round(time.Second)
-	line := termstyle.Label.Render(fmt.Sprintf("%d/%d", iter, total)) + " " +
-		rs + " " +
-		termstyle.Muted.Render("("+sec.String()+")") + " " +
-		termstyle.Muted.Render("— ") +
-		countPartHuman("failures", d.FailTests) +
-		termstyle.Muted.Render(" · ") +
-		countPartHuman("timeouts", d.TimeoutTests) +
-		termstyle.Muted.Render(" · ") +
-		countPartHuman("slow", d.SlowTests)
-	out.HumanStderr(line)
+	_ = total
+	out.HumanStderr(formatDiagnoseIterationTableRow(iter, d, dur))
 }
 
 func renderIterationResultHuman(r string) string {
@@ -607,19 +603,6 @@ func renderIterationResultHuman(r string) string {
 	default:
 		return termstyle.Muted.Render(r)
 	}
-}
-
-func countPartHuman(label string, n int) string {
-	var num string
-	switch {
-	case n > 0 && label == "slow":
-		num = termstyle.Flaky.Render(strconv.Itoa(n))
-	case n > 0 && (label == "failures" || label == "timeouts"):
-		num = termstyle.Bad.Render(strconv.Itoa(n))
-	default:
-		num = termstyle.Muted.Render(strconv.Itoa(n))
-	}
-	return termstyle.Muted.Render(label+": ") + num
 }
 
 // syncedWriter serializes writes to w so stdout and stderr from `go test` can
@@ -751,4 +734,43 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 		return fmt.Errorf("reading go test output: %w", scanErr)
 	}
 	return runErr
+}
+
+func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, started time.Time, finished *time.Time) *RunMeta {
+	if conf == nil {
+		return nil
+	}
+	target := guessPackagePatternForSlug(goTestArgs)
+	slug := diagnoseTargetSlug(target)
+	args := append([]string(nil), goTestArgs...)
+	slow := conf.SlowThreshold
+	if slow == 0 {
+		slow = 30 * time.Second
+	}
+	var ffo []string
+	if n, err := config.NormalizeFailFastOn(conf.FailFastOn); err == nil && len(n) > 0 {
+		ffo = n
+	}
+	par := conf.ParallelIterations
+	if par < 1 {
+		par = 1
+	}
+	var fin *time.Time
+	if finished != nil {
+		t := finished.UTC()
+		fin = &t
+	}
+	return &RunMeta{
+		ResultsDirBasename: filepath.Base(resultsDir),
+		StartedAt:          started.UTC(),
+		FinishedAt:         fin,
+		GoTestArgs:         args,
+		TargetSlug:         slug,
+		DiagnoseIterations: conf.Iterations,
+		ParallelIterations: par,
+		SlowThreshold:      slow,
+		FailFast:           conf.FailFast,
+		FailFastOn:         ffo,
+		Shuffle:            conf.Shuffle,
+	}
 }

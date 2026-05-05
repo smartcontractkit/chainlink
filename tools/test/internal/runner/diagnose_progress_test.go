@@ -80,7 +80,9 @@ func TestRenderDiagnoseProgressLine_smoke(t *testing.T) {
 	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
 	require.Contains(t, b.String(), "1/3")
 	require.NotContains(t, b.String(), "iter 1/3")
-	require.Contains(t, b.String(), "1/10 10%")
+	require.Contains(t, b.String(), "1/10")
+	require.Contains(t, b.String(), "·")
+	require.Contains(t, b.String(), "10%")
 	require.Contains(t, b.String(), "✅")
 	require.NotContains(t, b.String(), "█")
 }
@@ -117,7 +119,9 @@ func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
 	require.Contains(t, got, "done 1/10")
 	require.Contains(t, got, "active 1")
 	require.Contains(t, got, "iter 3")
-	require.Contains(t, got, "0/5 0%")
+	require.Contains(t, got, "0/5")
+	require.Contains(t, got, "·")
+	require.Contains(t, got, "0%")
 	require.Contains(t, got, "core/bridges")
 	require.Contains(t, got, "⌛")
 }

@@ -200,6 +200,25 @@ func (p *diagnoseProgress) snapshot() (completed int, total int, lastPkg string,
 	return len(p.done), p.total, p.lastPkg, p.pkgOutcome[p.lastPkg]
 }
 
+// progressBracket wraps inner (already styled) in muted square brackets.
+func progressBracket(inner string) string {
+	return termstyle.Muted.Render("[") + inner + termstyle.Muted.Render("]")
+}
+
+// packageProgressCountSegment returns styled "a/b · p%" (or "a/?") for bracketed progress lines.
+func packageProgressCountSegment(completed, total int) string {
+	if total < 0 {
+		return termstyle.Accent.Render(fmt.Sprintf("%d/?", completed))
+	}
+	pct := 0
+	if total > 0 {
+		pct = completed * 100 / total
+	}
+	return termstyle.Accent.Render(fmt.Sprintf("%d/%d", completed, total)) +
+		termstyle.Muted.Render(" · ") +
+		termstyle.Accent.Render(fmt.Sprintf("%d%%", pct))
+}
+
 // packageOutcomeMark returns a short suffix after the displayed package path:
 // pass/fail/skip from package-level JSON events, or an hourglass while that path
 // is active but no terminal result is recorded yet, or empty when there is no path.
@@ -228,7 +247,6 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed 
 	completed, total, lastPkg, outcome := prog.snapshot()
 
 	meta := fmt.Sprintf("%d/%d", iteration, iterations)
-	countStr := packageProgressCount(completed, total)
 
 	const pkgMaxChars = 42
 	displayPkg := shortenChainlinkImportPath(lastPkg)
@@ -239,11 +257,12 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed 
 	}
 	shortPkg := ellipsizeRight(displayPkg, pkgMaxChars-markReserve) + mark
 
-	line := termstyle.Label.Render(meta) + "  " + termstyle.Accent.Render(countStr)
+	line := progressBracket(termstyle.Label.Render(meta)) + "  " +
+		progressBracket(packageProgressCountSegment(completed, total))
 	if shortPkg != "" {
-		line += "  " + termstyle.Muted.Render(shortPkg) // path + ⌛ while running, or ✅/❌/⏭ when done
+		line += "  " + progressBracket(termstyle.Muted.Render(shortPkg)) // path + ⌛ while running, or ✅/❌/⏭ when done
 	}
-	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
+	line += "  " + progressBracket(termstyle.Muted.Render(elapsed.Round(time.Second).String()))
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
 }
@@ -253,18 +272,18 @@ func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgr
 		return
 	}
 	completed, totalIterations, activeCount, iteration, current := prog.snapshot()
-	line := termstyle.Label.Render(fmt.Sprintf("done %d/%d", completed, totalIterations)) + "  " +
-		termstyle.Accent.Render(fmt.Sprintf("active %d", activeCount))
+	line := progressBracket(termstyle.Label.Render(fmt.Sprintf("done %d/%d", completed, totalIterations))) + "  " +
+		progressBracket(termstyle.Accent.Render(fmt.Sprintf("active %d", activeCount)))
 	if activeCount > 0 {
-		line += "  " + termstyle.Label.Render(fmt.Sprintf("iter %d", iteration+1)) + "  " +
-			termstyle.Accent.Render(packageProgressCount(current.completed, current.total))
+		line += "  " + progressBracket(termstyle.Label.Render(fmt.Sprintf("iter %d", iteration+1))) + "  " +
+			progressBracket(packageProgressCountSegment(current.completed, current.total))
 		displayPkg := shortenChainlinkImportPath(current.lastPkg)
 		if displayPkg != "" {
 			mark := packageOutcomeMark(current.outcome, displayPkg)
-			line += "  " + termstyle.Muted.Render(ellipsizeRight(displayPkg, 42)+mark)
+			line += "  " + progressBracket(termstyle.Muted.Render(ellipsizeRight(displayPkg, 42)+mark))
 		}
 	}
-	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
+	line += "  " + progressBracket(termstyle.Muted.Render(elapsed.Round(time.Second).String()))
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
 }
@@ -280,17 +299,6 @@ func (p *parallelDiagnoseProgress) snapshot() (completed, totalIterations, activ
 		}
 	}
 	return p.completed, p.totalIterations, len(p.active), iteration, current
-}
-
-func packageProgressCount(completed, total int) string {
-	if total < 0 {
-		return fmt.Sprintf("%d/?", completed)
-	}
-	pct := 0
-	if total > 0 {
-		pct = completed * 100 / total
-	}
-	return fmt.Sprintf("%d/%d %d%%", completed, total, pct)
 }
 
 func ellipsizeRight(s string, maxLen int) string {

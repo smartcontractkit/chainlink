@@ -91,8 +91,25 @@ type IterationSummary struct {
 	ShuffleSeed  int64         `json:"shuffle_seed,omitempty"`
 }
 
+// RunMeta records how the diagnose harness was invoked and where output lives.
+// Use this for full argv and flags; the directory name only carries a short target slug and timestamp.
+type RunMeta struct {
+	ResultsDirBasename string        `json:"results_dir_basename"`
+	StartedAt          time.Time     `json:"started_at"`
+	FinishedAt         *time.Time    `json:"finished_at,omitempty"`
+	GoTestArgs         []string      `json:"go_test_args"`
+	TargetSlug         string        `json:"target_slug"`
+	DiagnoseIterations int           `json:"diagnose_iterations"`
+	ParallelIterations int           `json:"parallel_iterations,omitempty"`
+	SlowThreshold      time.Duration `json:"slow_threshold"`
+	FailFast           bool          `json:"fail_fast,omitempty"`
+	FailFastOn         []string      `json:"fail_fast_on,omitempty"`
+	Shuffle            bool          `json:"shuffle_seed,omitempty"`
+}
+
 // Report classifies tests across iterations of a diagnose run.
 type Report struct {
+	Run                *RunMeta           `json:"run,omitempty"`
 	Iterations         int                `json:"iterations"`
 	SlowThreshold      time.Duration      `json:"slow_threshold"`
 	IterationSummaries []IterationSummary `json:"iteration_summaries,omitempty"`
