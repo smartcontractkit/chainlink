@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	stderrors "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -51,6 +52,25 @@ type (
 
 var ReqScanTimeRangeInDB = "1 hour"
 
+// skipRevertedTxnFetchFatal reports whether a fetch error should not trigger Fatal.
+// We skip on explicit cancellation and when the outer ctx is done (e.g. job stop).
+// We do not skip solely on [context.DeadlineExceeded] while the outer ctx is still
+// valid: sqlutil's per-query timeout uses an inner context, so that case must still
+// Fatal to surface stuck/slow DB. Drivers may return unrelated errors while the outer
+// ctx is already canceled — we skip Fatal then but log at Debug in the caller.
+func skipRevertedTxnFetchFatal(ctx context.Context, err error) bool {
+	if err == nil {
+		return false
+	}
+	if stderrors.Is(err, context.Canceled) {
+		return true
+	}
+	if ctx.Err() != nil {
+		return true
+	}
+	return false
+}
+
 func (lsn *listenerV2) runRevertedTxnsHandler(pollPeriod time.Duration) {
 	pollPeriod = pollPeriod + time.Second*3
 	tick := time.NewTicker(pollPeriod)
@@ -73,21 +93,24 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 	// Fetch recent single and batch txns, that have not been force-fulfilled
 	recentSingleTxns, err := lsn.fetchRecentSingleTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
-		if ctx.Err() != nil { // context cancelled
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "recent_single")
 			return
 		}
 		lsn.l.Fatalw("Fetch recent txns", "err", err)
 	}
 	recentBatchTxns, err := lsn.fetchRecentBatchTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
-		if ctx.Err() != nil { // context cancelled
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "recent_batch")
 			return
 		}
 		lsn.l.Fatalw("Fetch recent batch txns", "err", err)
 	}
 	recentForceFulfillmentTxns, err := lsn.fetchRevertedForceFulfilmentTxns(ctx, lsn.ds, lsn.chainID.Uint64(), pollPeriod)
 	if err != nil {
-		if ctx.Err() != nil { // context cancelled
+		if skipRevertedTxnFetchFatal(ctx, err) {
+			lsn.l.Debugw("Reverted txn fetch aborted", "err", err, "stage", "force_fulfillment")
 			return
 		}
 		lsn.l.Fatalw("Fetch recent reverted force-fulfillment txns", "err", err)
