@@ -14,9 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
+	soltestutils "github.com/smartcontractkit/cld-changesets/pkg/family/solana/testutils"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
 )
 
 func TestGrantRoleTimelockSolana(t *testing.T) {
@@ -31,7 +33,7 @@ func TestGrantRoleTimelockSolana(t *testing.T) {
 	executors2 := randomSolanaAccounts(t, 2)
 	addresses, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	soltestutils.FundSignerPDAs(t, chain, mcmsState)
@@ -103,6 +105,6 @@ func randomSolanaAccounts(t *testing.T, n int) []solana.PublicKey {
 	return accounts
 }
 
-func timelockAddress(chainState *state.MCMSWithTimelockStateSolana) string {
-	return state.EncodeAddressWithSeed(chainState.TimelockProgram, chainState.TimelockSeed)
+func timelockAddress(chainState *solstate.MCMSWithTimelockState) string {
+	return solstate.EncodeAddressWithSeed(chainState.TimelockProgram, chainState.TimelockSeed)
 }

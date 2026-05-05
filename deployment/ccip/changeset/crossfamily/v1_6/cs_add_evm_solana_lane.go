@@ -14,12 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -249,7 +249,7 @@ var (
 type Dependencies struct {
 	Env             cldf.Environment
 	EVMMCMSState    map[uint64]evmstate.MCMSWithTimelockState
-	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
+	SolanaMCMSState map[uint64]solstate.MCMSWithTimelockState
 
 	changesetInput csInputs
 }
@@ -495,7 +495,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get addresses for Solana chain: %w", err)
 	}
-	mcmState, err := commonstate.MaybeLoadMCMSWithTimelockChainStateSolana(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(env.BlockChains.SolanaChains()[input.SolanaChainSelector], addresses)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load Solana MCMS state: %w", err)
 	}
@@ -511,7 +511,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	deps := Dependencies{
 		Env:          env,
 		EVMMCMSState: evmState.EVMMCMSStateByChain(),
-		SolanaMCMSState: map[uint64]commonstate.MCMSWithTimelockStateSolana{
+		SolanaMCMSState: map[uint64]solstate.MCMSWithTimelockState{
 			input.SolanaChainSelector: *mcmState,
 		},
 		changesetInput: changesetInputs,

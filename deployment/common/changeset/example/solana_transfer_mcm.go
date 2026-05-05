@@ -15,7 +15,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -51,7 +52,7 @@ func (f TransferFromTimelock) VerifyPreconditions(e cldf.Environment, config Tra
 		if err != nil {
 			return fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state: %w", err)
 		}
@@ -91,11 +92,11 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addreses)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
-		timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		timelockID := mcmssolanasdk.ContractAddress(mcmState.TimelockProgram, mcmssolanasdk.PDASeed(mcmState.TimelockSeed))
 		proposerID := mcmssolanasdk.ContractAddress(mcmState.McmProgram, mcmssolanasdk.PDASeed(mcmState.ProposerMcmSeed))
 		timelocks[chainSelector] = timelockID

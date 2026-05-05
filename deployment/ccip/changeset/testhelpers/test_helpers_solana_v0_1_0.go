@@ -49,7 +49,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/test_ccip_receiver"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -89,8 +89,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/internal/jdtestutils"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
 
 const (
@@ -628,27 +628,27 @@ func SendRequestSol(
 		feeTokenUserATA = ata
 	}
 
-	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
+	destinationChainStatePDA, err := ccipsolstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
 	if err != nil {
 		return nil, err
 	}
 
-	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
+	noncePDA, err := ccipsolstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
 	if err != nil {
 		return nil, err
 	}
 
-	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
+	linkFqBillingConfigPDA, _, err := ccipsolstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
+	feeTokenFqBillingConfigPDA, _, err := ccipsolstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
+	billingSignerPDA, _, err := ccipsolstate.FindFeeBillingSignerPDA(s.Router)
 	if err != nil {
 		return nil, err
 	}
@@ -658,12 +658,12 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
+	fqDestChainPDA, _, err := ccipsolstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
 	if err != nil {
 		return nil, err
 	}
 
-	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
+	rmnRemoteCursesPDA, _, err := ccipsolstate.FindRMNRemoteCursesPDA(s.RMNRemote)
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +756,7 @@ func SendRequestSol(
 
 		tokenPool.Chain[cfg.DestChain] = chainPDA
 
-		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, tokenPubKey, s.FeeQuoter)
+		billingPDA, _, err := ccipsolstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, tokenPubKey, s.FeeQuoter)
 		if err != nil {
 			return nil, err
 		}
@@ -2463,7 +2463,7 @@ func TransferOwnershipSolanaV0_1_0(
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := ccipsolstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Fund signer PDAs for timelock and mcm

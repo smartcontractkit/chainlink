@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmslib "github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -88,7 +89,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 				}
 			}
 		case chain_selectors.FamilySolana:
-			state, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
+			state, err := solstate.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 			if err != nil {
 				return err
 			}
@@ -307,7 +308,7 @@ func setConfigSolana(
 	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
 ) ([]mcmstypes.BatchOperation, error) {
 	chain := e.BlockChains.SolanaChains()[chainSelector]
-	mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
+	mcmsStatePerChain, err := solstate.MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
 	if err != nil {
 		return nil, err
 	}

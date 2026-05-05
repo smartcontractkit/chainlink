@@ -10,6 +10,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -195,7 +196,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 	// Load the MCMS state
 	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addrs)
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
 	require.NoError(t, err)
 
 	// Fund the signer PDAs for the MCMS contracts

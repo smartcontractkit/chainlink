@@ -8,6 +8,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
+	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -106,7 +107,7 @@ func (t *TransferToTimelockSolana) Apply(
 	env cldf.Environment, cfg TransferToTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
 	solChains := env.BlockChains.SolanaChains()
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(solChains)))
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockState(env, slices.Collect(maps.Keys(solChains)))
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -206,7 +207,7 @@ func GenericTransferOwnership(env cldf.Environment, req *TransferOwnershipReques
 	}
 
 	// Load MCMS state
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolanaV2(
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockChainStateV2(
 		env.DataStore.Addresses().Filter(datastore.AddressRefByChainSelector(req.ChainSel)))
 	if err != nil {
 		return out, err
@@ -286,7 +287,7 @@ func GenericVerifyPreconditions(env cldf.Environment, chainSel uint64, version, 
 type (
 	Deps struct {
 		Env   cldf.Environment
-		State *state.MCMSWithTimelockStateSolana
+		State *solstate.MCMSWithTimelockState
 		Chain cldfsol.Chain
 	}
 
@@ -317,7 +318,7 @@ func TransferToTimelockSolanaOp(b operations.Bundle, deps Deps, in TransferToTim
 	proposers[chainSelector] = solanaAddress(chainState.McmProgram, mcmssolanasdk.PDASeed(chainState.ProposerMcmSeed))
 	inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 
-	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockSignerPDA := solstate.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 
 	transactions := []mcmstypes.Transaction{}
 	contract := in.Contract
@@ -387,7 +388,7 @@ func (t TransferMCMSToTimelockSolana) VerifyPreconditions(
 func (t TransferMCMSToTimelockSolana) Apply(
 	env cldf.Environment, cfg TransferMCMSToTimelockSolanaConfig,
 ) (cldf.ChangesetOutput, error) {
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)
+	mcmsState, err := solstate.MaybeLoadMCMSWithTimelockState(env, cfg.Chains)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
 	}
@@ -398,25 +399,25 @@ func (t TransferMCMSToTimelockSolana) Apply(
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.ProposerMcmSeed,
-				OwnerPDA:  state.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed),
+				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed),
 				Type:      commontypes.ProposerManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.CancellerMcmSeed,
-				OwnerPDA:  state.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed),
+				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed),
 				Type:      commontypes.CancellerManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.BypasserMcmSeed,
-				OwnerPDA:  state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed),
+				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed),
 				Type:      commontypes.BypasserManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.TimelockProgram,
 				Seed:      chainState.TimelockSeed,
-				OwnerPDA:  state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed),
+				OwnerPDA:  solstate.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed),
 				Type:      commontypes.RBACTimelock,
 			},
 			{
