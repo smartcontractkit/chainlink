@@ -91,6 +91,8 @@ type DeployEthBalMonInput struct {
 	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
 }
 
+const ETHBALMON_CONTRACT_TYPE string = "EthBalMon"
+
 // setKeeperRegistryAddress config
 type SetKeeperRegistryChainConfig struct {
 	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`

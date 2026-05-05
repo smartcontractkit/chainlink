@@ -91,11 +91,11 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 		addressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
 			Address:       chainOut.ContractAddress,
-			Type:          "EthBalMon",
+			Type:          ds.ContractType(vaulttypes.ETHBALMON_CONTRACT_TYPE),
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     fmt.Sprintf("%s:%s", "EthBalMon", chainOut.ContractAddress),
+			Qualifier:     fmt.Sprintf("%s:%s", vaulttypes.ETHBALMON_CONTRACT_TYPE, chainOut.ContractAddress),
 			Labels: ds.NewLabelSet(
-				"EthBalMon",
+				vaulttypes.ETHBALMON_CONTRACT_TYPE,
 				"EthBalMonV1_0_0",
 			),
 		}
@@ -456,7 +456,7 @@ func BuildAcceptOwnershipTimelockProposal(
 			Transactions: []mcmstypes.Transaction{
 				{
 					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: "EthBalMon",
+						ContractType: vaulttypes.ETHBALMON_CONTRACT_TYPE,
 						Tags:         []string{"acceptOwnership"},
 					},
 					To:               contractAddr,

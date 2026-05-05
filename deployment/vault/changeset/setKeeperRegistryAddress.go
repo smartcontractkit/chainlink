@@ -132,7 +132,7 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			ethBalMonAddr, err := mustGetContractAddress(
 				deps.DataStore,
 				chainSelector,
-				cldf.ContractType("EthBalMon"),
+				cldf.ContractType(vaulttypes.ETHBALMON_CONTRACT_TYPE),
 			)
 			if err != nil {
 				return SetKeeperRegistryOperationOutput{},
@@ -182,7 +182,7 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 				Transactions: []mcmstypes.Transaction{
 					{
 						OperationMetadata: mcmstypes.OperationMetadata{
-							ContractType: "EthBalMon",
+							ContractType: vaulttypes.ETHBALMON_CONTRACT_TYPE,
 							Tags: []string{
 								"setKeeperRegistryAddress",
 							},
