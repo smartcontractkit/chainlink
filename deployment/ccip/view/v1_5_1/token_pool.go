@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
@@ -15,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
 	burn_mint_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/burn_mint_token_pool"
 	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 )

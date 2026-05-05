@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
 )
 
 type OffRampView struct {

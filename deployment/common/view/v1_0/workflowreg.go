@@ -9,8 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	workflow_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
 )
 
 type WorkflowStatus uint8

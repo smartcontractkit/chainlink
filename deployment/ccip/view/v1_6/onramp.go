@@ -10,8 +10,9 @@ import (
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 )
 
 type OnRampView struct {

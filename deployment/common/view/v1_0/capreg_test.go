@@ -6,8 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 func TestCapRegView_Denormalize(t *testing.T) {

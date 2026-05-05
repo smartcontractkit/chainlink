@@ -6,9 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/burn_mint_token_pool_and_proxy"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/token_pool"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"

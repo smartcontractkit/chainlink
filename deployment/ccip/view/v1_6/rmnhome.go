@@ -8,9 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 )
 
 type RMNHomeView struct {

@@ -8,10 +8,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 )
 
 type fields struct {

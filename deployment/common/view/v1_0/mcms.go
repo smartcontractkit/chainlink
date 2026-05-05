@@ -14,8 +14,9 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
 type Role struct {

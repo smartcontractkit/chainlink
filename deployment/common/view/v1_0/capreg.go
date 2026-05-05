@@ -10,9 +10,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 )
 
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.

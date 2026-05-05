@@ -13,9 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 

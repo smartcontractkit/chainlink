@@ -3,8 +3,9 @@ package v1_5
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 )
 
 type CommitStoreView struct {
