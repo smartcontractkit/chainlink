@@ -183,6 +183,7 @@ jobs:
     name: Build Shard Matrices
     needs: [ filter ]
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
       core-test-matrix: ${{ steps.shard-matrices.outputs.core-test-matrix }}
     steps:
@@ -352,6 +353,7 @@ jobs:
     if: ${{ always() }}
     needs: [ filter, golangci ]
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check Golangci-lint Matrix Results
         env:
@@ -390,6 +392,8 @@ jobs:
     needs: [ filter ]
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v6
@@ -738,6 +742,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.actor != 'dependabot[bot]' &&
       needs.filter.outputs.should-run-core-tests == 'true' }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -777,6 +783,9 @@ jobs:
     # If core is cancelled, skip this to not delay the cancellation of the workflow.
     if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v6
@@ -875,6 +884,8 @@ jobs:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
+    permissions:
+      contents: read
     defaults:
       run:
         shell: bash
@@ -918,6 +929,7 @@ jobs:
     outputs:
       one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Check time and set frequencies
         id: check-time
@@ -940,6 +952,8 @@ jobs:
     # Catchall job for miscellaneous steps.
     name: Misc
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
