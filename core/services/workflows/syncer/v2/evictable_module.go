@@ -186,23 +186,16 @@ func (m *EvictableModule) Close() {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// Drop the strong (refcounted) ref and clear the weak L2. If a pin is
-	// still in flight it keeps the holder reachable until it releases; the
-	// onceCloseModule guarantees mod.Close runs at most once across this
-	// path and the runtime.AddCleanup callback.
-	strong := m.current.Swap(nil)
-	h := strong
-	if h == nil {
-		h = m.weakInner.Value()
-	}
+	// weakInner mirrors current while loaded and survives Evict, so it is the
+	// most up-to-date reference to the holder; if current is set, the holder
+	// can't have been reaped yet, so weakInner.Value will return it. We still
+	// need to drop the owning refcount that current was carrying.
+	h := m.weakInner.Value()
 	m.weakInner = weak.Pointer[loadedModule]{}
-	if strong != nil {
+	if strong := m.current.Swap(nil); strong != nil {
 		strong.release()
 	}
 	if h != nil {
-		// Don't Stop the cleanup: it is the only path that closes the module
-		// when GC reaps a holder that outlives this call (e.g. via in-flight
-		// pins). sync.Once makes the eventual cleanup-driven Close a no-op.
 		h.mod.Close()
 	}
 }
