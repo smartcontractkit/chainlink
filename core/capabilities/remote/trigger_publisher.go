@@ -531,38 +531,65 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		"nWorkflowDONs", len(grouped))
 
 	for callerDonID, keys := range grouped {
-		workflowIDs := make([]string, len(keys))
-		triggerIDs := make([]string, len(keys))
-		for i, key := range keys {
-			workflowIDs[i] = key.workflowID
-			triggerIDs[i] = key.triggerID
+		if len(keys) == 0 {
+			continue
 		}
 
-		msg := &types.MessageBody{
-			CapabilityId:     p.capabilityID,
-			CapabilityDonId:  cfg.capDonInfo.ID,
-			CallerDonId:      callerDonID,
-			Method:           types.MethodTriggerRegistrationCheck,
-			CapabilityMethod: p.capMethodName,
-			Metadata: &types.MessageBody_TriggerEventMetadata{
-				TriggerEventMetadata: &types.TriggerEventMetadata{
-					WorkflowIds: workflowIDs,
-					TriggerIds:  triggerIDs,
-				},
-			},
+		chunkSize := int(cfg.remoteConfig.MaxBatchSize)
+		if chunkSize < 1 {
+			chunkSize = commoncap.DefaultBatchSize
+		}
+		// MaxBatchSize == 1 uses a single registration-check message per DON peer per tick with all IDs,
+		// matching pre-chunking behavior and keeping P2P volume O(peers), not O(peers × registrations).
+		if chunkSize == 1 {
+			chunkSize = len(keys)
 		}
 
 		don, ok := cfg.workflowDONs[callerDonID]
 		if !ok {
 			continue
 		}
-		for _, peerID := range don.Members {
-			err := p.dispatcher.Send(peerID, msg)
-			if err != nil {
-				p.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+
+		for offset := 0; offset < len(keys); offset += chunkSize {
+			end := offset + chunkSize
+			if end > len(keys) {
+				end = len(keys)
 			}
+			chunk := keys[offset:end]
+			workflowIDs := make([]string, len(chunk))
+			triggerIDs := make([]string, len(chunk))
+			for i, key := range chunk {
+				workflowIDs[i] = key.workflowID
+				triggerIDs[i] = key.triggerID
+			}
+
+			msg := &types.MessageBody{
+				CapabilityId:     p.capabilityID,
+				CapabilityDonId:  cfg.capDonInfo.ID,
+				CallerDonId:      callerDonID,
+				Method:           types.MethodTriggerRegistrationCheck,
+				CapabilityMethod: p.capMethodName,
+				Metadata: &types.MessageBody_TriggerEventMetadata{
+					TriggerEventMetadata: &types.TriggerEventMetadata{
+						WorkflowIds: workflowIDs,
+						TriggerIds:  triggerIDs,
+					},
+				},
+			}
+
+			for _, peerID := range don.Members {
+				err := p.dispatcher.Send(peerID, msg)
+				if err != nil {
+					p.lggr.Errorw("failed to send message", "donId", cfg.capDonInfo.ID, "peerId", peerID, "err", err)
+				}
+			}
+			p.lggr.Debugw("sent batched registration check",
+				"callerDonId", callerDonID,
+				"chunkOffset", offset,
+				"chunkLen", len(chunk),
+				"totalRegistrations", len(keys),
+				"nPeers", len(don.Members))
 		}
-		p.lggr.Debugw("sent batched registration check", "callerDonId", callerDonID, "nRegistrations", len(keys), "nPeers", len(don.Members))
 	}
 }
 

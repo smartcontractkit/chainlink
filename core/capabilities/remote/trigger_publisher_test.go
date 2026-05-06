@@ -3,6 +3,7 @@ package remote_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -564,6 +565,78 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for registration check message")
 	}
+
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.Test(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+	peers := make([]p2ptypes.PeerID, 2)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	capDonInfo := commoncap.DON{ID: capabilityDONID, Members: []p2ptypes.PeerID{peers[0]}, F: 0}
+	workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: []p2ptypes.PeerID{peers[1]}, F: 0}
+	workflowDONs := map[uint32]commoncap.DON{workflowDonInfo.ID: workflowDonInfo}
+
+	const chunkSize uint32 = 10
+	const nRegs = 25
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            chunkSize,
+		BatchCollectionPeriod:   time.Second,
+	}
+
+	underlying := newMultiTrigger(capInfo)
+	dispatcher := mocks.NewDispatcher(t)
+
+	var mu sync.Mutex
+	var chunkLens []int
+	dispatcher.On("Send", peers[1], mock.MatchedBy(func(m *remotetypes.MessageBody) bool {
+		return m.Method == remotetypes.MethodTriggerRegistrationCheck
+	})).Run(func(args mock.Arguments) {
+		msg := args.Get(1).(*remotetypes.MessageBody)
+		meta := msg.GetTriggerEventMetadata()
+		require.NotNil(t, meta)
+		mu.Lock()
+		chunkLens = append(chunkLens, len(meta.WorkflowIds))
+		mu.Unlock()
+	}).Return(nil).Maybe()
+
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	for i := 0; i < nRegs; i++ {
+		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], fmt.Sprintf("trigger_%d", i)))
+		<-underlying.registrationsCh
+	}
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		var has10, has5 bool
+		for _, n := range chunkLens {
+			if n == 10 {
+				has10 = true
+			}
+			if n == 5 {
+				has5 = true
+			}
+		}
+		return has10 && has5 && len(chunkLens) >= 3
+	}, 3*time.Second, 20*time.Millisecond)
 
 	require.NoError(t, publisher.Close())
 }
@@ -1221,7 +1294,7 @@ type multiTrigger struct {
 func newMultiTrigger(info commoncap.CapabilityInfo) *multiTrigger {
 	return &multiTrigger{
 		info:             info,
-		registrationsCh:  make(chan commoncap.TriggerRegistrationRequest, 10),
+		registrationsCh:  make(chan commoncap.TriggerRegistrationRequest, 128),
 		eventChans:       make(map[string]chan commoncap.TriggerResponse),
 		unregisterCalled: make(chan string, 1),
 	}
