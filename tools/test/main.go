@@ -1,3 +1,4 @@
+// Package main launches the tools/test CLI.
 package main
 
 import (
