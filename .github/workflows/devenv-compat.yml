@@ -168,7 +168,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
-          echo "CTF_TAG=framework/$CTF_VERSION" >> $GITHUB_ENV
+          echo "CTF_TAG=framework/$CTF_VERSION" >> "$GITHUB_ENV"
 
       - name: Install CTF binary
         working-directory: ${{ env.WORKING_DIR }}
@@ -210,6 +210,8 @@ jobs:
           STRIP_IMAGE_SUFFIX: ${{ env.STRIP_IMAGE_SUFFIX }}
           PRODUCT: ${{ env.PRODUCT }}
           NO_GIT_ROLLBACK: ${{ env.NO_GIT_ROLLBACK }}
+          REFS: ${{ env.REFS }}
+          EXCLUDE_REFS: ${{ env.EXCLUDE_REFS }}
           BUILD_CMD: ${{ env.BUILD_CMD }}
           ENV_CMD: ${{ env.ENV_CMD }}
           TEST_CMD: ${{ env.TEST_CMD }}
@@ -217,13 +219,17 @@ jobs:
           VERSIONS_BACK: ${{ env.VERSIONS_BACK }}
           TAG_VERSION_CEILING: ${{ env.TAG_VERSION_CEILING }}
         run: |
-          REFS_ARGS=""
-          if [ -n "${{ env.REFS }}" ]; then
-            REFS_ARGS="--refs ${{ env.REFS }}"
+          REFS_ARGS=()
+          if [ -n "${REFS}" ]; then
+            REFS_ARGS=(--refs "${REFS}")
           fi
-          EXCLUDE_REFS_ARGS=""
-          if [ -n "${{ env.EXCLUDE_REFS }}" ]; then
-            EXCLUDE_REFS_ARGS="--exclude-refs ${{ env.EXCLUDE_REFS }}"
+          EXCLUDE_REFS_ARGS=()
+          if [ -n "${EXCLUDE_REFS}" ]; then
+            EXCLUDE_REFS_ARGS=(--exclude-refs "${EXCLUDE_REFS}")
+          fi
+          ROLLBACK_FLAG=()
+          if [ -n "${NO_GIT_ROLLBACK}" ]; then
+            ROLLBACK_FLAG=("${NO_GIT_ROLLBACK}")
           fi
           ./bin/ctf compat backward \
             --registry "${REGISTRY}" \
@@ -231,27 +237,29 @@ jobs:
             --envcmd "${ENV_CMD}" \
             --testcmd "${TEST_CMD}" \
             --product "${PRODUCT}" \
-            ${REFS_ARGS} \
-            ${EXCLUDE_REFS_ARGS} \
+            "${REFS_ARGS[@]}" \
+            "${EXCLUDE_REFS_ARGS[@]}" \
             --upgrade-nodes "${UPGRADE_NODES}" \
             --don_nodes "${DON_NODES}" \
             --node-name-template "${NODE_NAME_TEMPLATE}" \
             --strip-image-suffix "${STRIP_IMAGE_SUFFIX}" \
             --versions-back "${VERSIONS_BACK}" \
             --tag-version-ceiling "${TAG_VERSION_CEILING}" \
-            ${{ env.NO_GIT_ROLLBACK }}
+            "${ROLLBACK_FLAG[@]}"
 
       - name: Attach CI Summary
         working-directory: ${{ env.WORKING_DIR }}
         if: always()
         run: |
           if [ -f "ci_summary.txt" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**CI Summary:**" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat ci_summary.txt >> $GITHUB_STEP_SUMMARY
+            {
+              echo ""
+              echo "**CI Summary:**"
+              echo '```'
+              cat ci_summary.txt
+            } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "ci_summary.txt not found" >> $GITHUB_STEP_SUMMARY
+            echo "ci_summary.txt not found" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Collect Docker container logs
@@ -259,10 +267,11 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           mkdir -p logs
-          for container in $(docker ps -q); do
-            container_name=$(docker inspect --format='{{.Name}}' $container | sed 's/^\///')
-            docker logs $container > "logs/${container_name}.log" 2>&1
-          done
+          while IFS= read -r container; do
+            [ -z "${container}" ] && continue
+            container_name=$(docker inspect --format='{{.Name}}' "${container}" | sed 's/^\///')
+            docker logs "${container}" > "logs/${container_name}.log" 2>&1
+          done < <(docker ps -q)
 
       - name: Upload logs
         if: always()
