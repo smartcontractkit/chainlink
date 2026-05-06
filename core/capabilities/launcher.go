@@ -629,7 +629,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 			return fmt.Errorf("failed to add target shim: %w", err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 
 	return nil
@@ -864,7 +864,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 	return nil
 }
@@ -895,7 +895,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	if errors.Is(err, remote.ErrReceiverExists) {
 		// If a receiver already exists, let's log the error for debug purposes, but
 		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		w.lggr.Debugw("receiver already exists for capability", "capabilityID", capID, "donID", don.ID, "error", err)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)

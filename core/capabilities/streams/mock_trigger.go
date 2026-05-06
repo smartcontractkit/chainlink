@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

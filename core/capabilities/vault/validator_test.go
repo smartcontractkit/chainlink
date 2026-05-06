@@ -241,7 +241,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				})
+				}, false)
 			},
 			value: hex.EncodeToString(make([]byte, 10)),
 		},
@@ -253,7 +253,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				})
+				}, false)
 			},
 			value:     hex.EncodeToString(make([]byte, 11)),
 			errSubstr: "ciphertext size exceeds maximum allowed size",
@@ -266,7 +266,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				})
+				}, false)
 			},
 			value: hex.EncodeToString(make([]byte, 10)),
 		},
@@ -278,7 +278,7 @@ func TestRequestValidator_CiphertextSizeLimit(t *testing.T) {
 					EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 						{Id: id, EncryptedValue: value},
 					},
-				})
+				}, false)
 			},
 			value:     hex.EncodeToString(make([]byte, 11)),
 			errSubstr: "ciphertext size exceeds maximum allowed size",
@@ -324,7 +324,7 @@ func TestRequestValidator_ValidateCreateSecretsRequest_UsesRequestIdentityForOrg
 				EncryptedValue: encrypted,
 			},
 		},
-	})
+	}, false)
 
 	require.NoError(t, err)
 }
@@ -351,7 +351,39 @@ func TestRequestValidator_ValidateCreateSecretsRequest_FallsBackToSecretOwnerFor
 				EncryptedValue: encrypted,
 			},
 		},
-	})
+	}, false)
 
+	require.NoError(t, err)
+}
+
+func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithBool(t *testing.T) {
+	pk, _ := generateTestKeys(t)
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter[pkgconfig.Size](10*pkgconfig.KByte),
+	)
+
+	orgID := "org_2xAbCdEfGhIjKlMnOpQrStUvWxYz"
+	workflowOwner := "0x0001020304050607080900010203040506070809"
+	encrypted := encryptWithOrgIDLabel(t, pk, orgID)
+	request := &vaultcommon.CreateSecretsRequest{
+		RequestId:     "request-id",
+		WorkflowOwner: workflowOwner,
+		EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+			{
+				Id: &vaultcommon.SecretIdentifier{
+					Key:       "key",
+					Namespace: "namespace",
+					Owner:     workflowOwner,
+				},
+				EncryptedValue: encrypted,
+			},
+		},
+	}
+
+	err := validator.ValidateCreateSecretsRequest(t.Context(), pk, request, false)
+	require.ErrorContains(t, err, "doesn't have owner as the label")
+
+	err = validator.ValidateCreateSecretsRequest(t.Context(), pk, request, true)
 	require.NoError(t, err)
 }

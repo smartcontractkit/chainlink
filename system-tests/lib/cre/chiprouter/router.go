@@ -22,10 +22,12 @@ var (
 	errClient  error
 )
 
+const relativePathToRepoRoot = "../../../../"
+
 func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 	clientOnce.Do(func() {
 		in := &envconfig.Config{}
-		err := in.Load(os.Getenv("CTF_CONFIGS"))
+		err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 		if err != nil {
 			errClient = err
 			return
@@ -36,11 +38,6 @@ func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 			return
 		}
 
-		// st, err := envconfig.LoadChipIngressRouterStateFromLocalCRE(relativePathToRepoRoot)
-		// if err != nil {
-		// 	errClient = err
-		// 	return
-		// }
 		clientInst, errClient = ctfchiprouterclient.New(ctx, in.ChipRouter.Out.ExternalAdminURL, in.ChipRouter.Out.ExternalGRPCURL)
 	})
 

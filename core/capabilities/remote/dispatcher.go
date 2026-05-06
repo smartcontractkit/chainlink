@@ -51,7 +51,7 @@ type dispatcherMetrics struct {
 	sharedPeerMsgsRcvdCounter   metric.Int64Counter
 	rateLimitedMsgsCounter      metric.Int64Counter
 	invalidMsgsCounter          metric.Int64Counter
-	unregisteredCapMsgsCounter  metric.Int64Counter
+	unknownCapMsgsCounter       metric.Int64Counter
 	receiveChannelUsageGauge    metric.Float64Gauge
 	receiverDroppedMsgsCounter  metric.Int64Counter
 }
@@ -107,9 +107,9 @@ func (d *dispatcher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_invalid_msgs_total: %w", err)
 	}
-	d.metrics.unregisteredCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unregistered_capability_msgs_total")
+	d.metrics.unknownCapMsgsCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_unknown_capability_msgs_total")
 	if err != nil {
-		return fmt.Errorf("failed to register platform_don2don_dispatcher_unregistered_capability_msgs_total: %w", err)
+		return fmt.Errorf("failed to register platform_don2don_dispatcher_unknown_capability_msgs_total: %w", err)
 	}
 	d.metrics.receiveChannelUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_don2don_dispatcher_receive_channel_usage")
 	if err != nil {
@@ -310,12 +310,12 @@ func (d *dispatcher) handleMessage(ctx context.Context, msg *p2ptypes.Message) {
 	receiver, ok := d.receivers[k]
 	d.mu.RUnlock()
 	if !ok {
-		d.metrics.unregisteredCapMsgsCounter.Add(ctx, 1, metric.WithAttributes(
+		d.metrics.unknownCapMsgsCounter.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("capabilityId", k.capID),
 			attribute.String("donId", strconv.FormatUint(uint64(k.donID), 10)),
 			attribute.String("method", k.methodName),
 		))
-		d.lggr.Debugw("received message for unregistered capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
+		d.lggr.Debugw("received message for unknown capability or method", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID, "method", k.methodName)
 		d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 		return
 	}

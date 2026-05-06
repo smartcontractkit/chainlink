@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
@@ -17,7 +18,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset/operations/contracts"
@@ -76,7 +76,7 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInput) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Configuring Vault DKG contract with DON", "donName", input.DON.Name, "nodes", input.DON.NodeIDs, "dryRun", input.DryRun)
 
-	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(e, input.ContractChainSelector, *input.MCMSConfig)

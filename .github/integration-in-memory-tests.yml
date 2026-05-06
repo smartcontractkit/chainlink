@@ -54,22 +54,6 @@ runner-test-matrix:
         -- -v -run "Test_CCIPMessaging_EVM2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
 
-  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana
-    path: integration-tests/smoke/ccip/ccip_messaging_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
-    test_go_project_path: integration-tests
-
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_EVM2Solana_LOOPP
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
     test_env_type: in-memory
@@ -86,24 +70,6 @@ runner-test-matrix:
         -- -v -run "Test_CCIPMessaging_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
-    test_env_vars:
-      CL_SOLANA_CMD: chainlink-solana
-
-  - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM
-    path: integration-tests/smoke/ccip/ccip_messaging_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    runs_on_self_hosted: runs-on/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
-    triggers:
-      - PR Integration CCIP Tests
-      - Nightly Integration CCIP Tests
-    test_cmd: |
-      gotestsum \
-        --junitfile=/tmp/junit.xml \
-        --jsonfile=/tmp/gotest.log \
-        --format=github-actions \
-        -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
-    test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Solana2EVM_LOOPP
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -121,8 +87,6 @@ runner-test-matrix:
         -- -v -run "Test_CCIPMessaging_Solana2EVM" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
-    test_env_vars:
-      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_Revert_EVM2Solana_LOOPP
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -140,8 +104,6 @@ runner-test-matrix:
         -- -v -run "Test_CCIPMessaging_Revert_EVM2Solana" -timeout 18m -count=1 -parallel=4 ./smoke/ccip
     test_go_project_path: integration-tests
     install_plugins_public: true
-    test_env_vars:
-      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_messaging_test.go:Test_CCIPMessaging_MultiExecReports_EVM2Solana
     path: integration-tests/smoke/ccip/ccip_messaging_test.go
@@ -399,6 +361,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run ".*" -timeout 16m -count=1 -parallel=2 smoke/ccip/ccip_token_transfer_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*_LOOPP
     path: integration-tests/smoke/ccip/ccip_token_transfer_test.go
@@ -416,8 +379,6 @@ runner-test-matrix:
         -- -v -run ".*" -timeout 16m -count=1 -parallel=2 smoke/ccip/ccip_token_transfer_test.go
     test_go_project_path: integration-tests
     install_plugins_public: true
-    test_env_vars:
-      CL_SOLANA_CMD: chainlink-solana
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
     path: integration-tests/smoke/ccip/ccip_cs_update_rmn_config_test.go
@@ -449,6 +410,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurse$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseUncurseAptos
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -482,6 +444,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseMCMS$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseBypass
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -498,6 +461,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseBypass$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseIdempotent
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -513,6 +477,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseIdempotent$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseIdempotent
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -528,6 +493,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurseIdempotent$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurse
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -544,6 +510,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurse$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseMCMS
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -560,6 +527,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurseMCMS$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseBypass
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -576,6 +544,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurseBypass$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseConfigValidate
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -592,6 +561,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseConfigValidate$" -timeout 20m -count=1 -parallel=2 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseNoConnectedLanes
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -607,6 +577,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseNoConnectedLanes$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanes
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -622,6 +593,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseOneConnectedLanes$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesSolana
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -637,6 +609,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseOneConnectedLanesSolana$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesGlobalOnly
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -652,6 +625,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseOneConnectedLanesGlobalOnly$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNCurseOneConnectedLanesLaneOnlyOnSource
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -667,6 +641,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNCurseOneConnectedLanesLaneOnlyOnSource$" -timeout 20m -count=1 -parallel=1 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:TestRMNUncurseForceOption
     path: integration-tests/smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
@@ -683,6 +658,7 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "^TestRMNUncurseForceOption$" -timeout 20m -count=1 -parallel=4 smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go
     test_go_project_path: integration-tests
+    install_plugins_public: true
 
   - id: smoke/ccip/ccip_disable_lane_test.go:*
     path: integration-tests/smoke/ccip/ccip_disable_lane_test.go

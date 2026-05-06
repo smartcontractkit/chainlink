@@ -245,21 +245,6 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
-[Keeper]
-DefaultTransactionQueueDepth = 1
-GasPriceBufferPercent = 20
-GasTipCapBufferPercent = 20
-BaseFeeBufferPercent = 20
-MaxGracePeriod = 100
-TurnLookBack = 1000
-
-[Keeper.Registry]
-CheckGasOverhead = 200000
-PerformGasOverhead = 300000
-MaxPerformDataSize = 5000
-SyncInterval = '30m0s'
-SyncUpkeepQueueSize = 10
-
 [AutoPprof]
 Enabled = false
 ProfileRoot = ''
@@ -482,6 +467,7 @@ SafeTagSupported = true
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
@@ -554,6 +540,7 @@ PersistenceBatchSize = 100
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -335,7 +335,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	// Delete the newly deployed MCMS addresses from addressbook so that the state loader does not pick them up
 	// otherwise the mcms state will throw an error for duplicate MCMS contracts
 	addressBookToDelete := cldf.NewMemoryAddressBook()
-	addressesToDelete, err := commonstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier)
+	addressesToDelete, err := evmstate.LoadAddressesFromDataStore(e.Env.DataStore, chain, linktokenOwnerQualifier) //nolint:staticcheck // will be refactored once usages are removed
 	require.NoError(t, err)
 	for addr, tv := range addressesToDelete {
 		require.NoError(t, addressBookToDelete.Save(chain, addr, tv))

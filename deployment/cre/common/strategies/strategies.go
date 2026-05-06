@@ -7,13 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
 
@@ -35,7 +35,7 @@ func CreateStrategy(
 	chain cldf_evm.Chain,
 	env cldf.Environment,
 	mcmsConfig *contracts.MCMSConfig,
-	mcmsContracts *commonchangeset.MCMSWithTimelockState,
+	mcmsContracts *evmstate.MCMSWithTimelockState,
 	targetAddress common.Address,
 	description string,
 ) (TransactionStrategy, error) {
@@ -73,7 +73,7 @@ type SimpleTransactionV2 = SimpleTransaction
 type MCMSTransactionV2 = MCMSTransaction
 
 // GetMCMSContracts retrieves MCMS contracts from the environment using merged approach (both DataStore and AddressBook)
-func GetMCMSContracts(e cldf.Environment, chainSelector uint64, mcmsConfig contracts.MCMSConfig) (*commonchangeset.MCMSWithTimelockState, error) {
+func GetMCMSContracts(e cldf.Environment, chainSelector uint64, mcmsConfig contracts.MCMSConfig) (*evmstate.MCMSWithTimelockState, error) {
 	var qualifier string
 
 	qualifier, ok := mcmsConfig.TimelockQualifierPerChain[chainSelector]
@@ -81,7 +81,7 @@ func GetMCMSContracts(e cldf.Environment, chainSelector uint64, mcmsConfig contr
 		return nil, fmt.Errorf("no timelock qualifier found for chain selector %d in MCMSConfig", chainSelector)
 	}
 
-	states, err := commonchangeset.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
+	states, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load MCMS contracts for chain %d: %w", chainSelector, err)
 	}

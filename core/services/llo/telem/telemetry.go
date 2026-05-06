@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"

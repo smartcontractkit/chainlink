@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
@@ -445,11 +444,9 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 		return nil, fmt.Errorf("only 1 Solana chain is supported, but found %d for node at index %d", len(typedConfig.Solana), workerNode.Index)
 	}
 
-	if typedConfig.Solana[0].ChainID == nil {
-		return nil, fmt.Errorf("solana chainID is nil for node at index %d", workerNode.Index)
+	if typedConfig.Solana[0].ChainID() == "" {
+		return nil, fmt.Errorf("solana chainID is empty for node at index %d", workerNode.Index)
 	}
-
-	var solCfg solcfg.WorkflowConfig
 
 	// Execute template with chain's workflow configuration
 	tmpl, err := template.New("solanaWorkflowConfig").Parse(solWorkflowConfigTemplate)
@@ -467,12 +464,13 @@ func updateNodeConfig(workerNode *cre.NodeMetadata, chainID string, data input, 
 		return nil, fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, err, configStr)
 	}
 
-	unmarshallErr = toml.Unmarshal([]byte(configStr), &solCfg)
+	var solWorkflow map[string]any
+	unmarshallErr = toml.Unmarshal([]byte(configStr), &solWorkflow)
 	if unmarshallErr != nil {
 		return nil, errors.Wrap(unmarshallErr, "failed to unmarshal Solana.Workflow config")
 	}
 
-	typedConfig.Solana[0].Workflow = solCfg
+	typedConfig.Solana[0]["Workflow"] = solWorkflow
 
 	stringifiedConfig, mErr := toml.Marshal(typedConfig)
 	if mErr != nil {
