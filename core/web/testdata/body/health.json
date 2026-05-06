@@ -218,6 +218,15 @@
     },
     {
       "type": "checks",
+      "id": "NodePlatformJobInfo",
+      "attributes": {
+        "name": "NodePlatformJobInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "PipelineORM",
       "attributes": {
         "name": "PipelineORM",

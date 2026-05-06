@@ -29,7 +29,7 @@ func NewLocalTargetCapability(lggr logger.Logger, capabilityID string, localDON 
 
 func (l *LocalTargetCapability) Execute(ctx context.Context, req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	if l.localNode.PeerID == nil || l.localNode.WorkflowDON.ID == 0 {
-		l.lggr.Debugf("empty DON info, executing immediately")
+		l.lggr.Debug("empty DON info, executing immediately")
 		return l.TargetCapability.Execute(ctx, req)
 	}
 
