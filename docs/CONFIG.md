@@ -17757,7 +17757,8 @@ FastlaneAuctionRequestTimeout configures the timeout for fastlane auction reques
 ```toml
 FeeBoost = false # Default
 ```
-FeeBoost enables node to immediately boost txs to the max gas price configured 
+FeeBoost enables node to immediately boost txs to the max gas price configured
+
 ## EVM.BalanceMonitor
 ```toml
 [EVM.BalanceMonitor]
