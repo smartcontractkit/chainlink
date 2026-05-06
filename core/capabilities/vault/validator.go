@@ -22,17 +22,17 @@ type RequestValidator struct {
 	MaxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
-func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets)
+func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets, skipLabelValidation)
 }
 
-func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest) error {
-	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets)
+func (r *RequestValidator) ValidateUpdateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.UpdateSecretsRequest, skipLabelValidation bool) error {
+	return r.validateWriteRequest(ctx, publicKey, request.RequestId, request.OrgId, request.WorkflowOwner, request.EncryptedSecrets, skipLabelValidation)
 }
 
 // validateWriteRequest performs common validation for CreateSecrets and UpdateSecrets requests.
 // It treats publicKey as optional, since it can be nil if the gateway nodes don't have the public key cached yet.
-func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, orgID string, workflowOwner string, encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, id string, orgID string, workflowOwner string, encryptedSecrets []*vaultcommon.EncryptedSecret, skipLabelValidation bool) error {
 	if id == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -66,13 +66,19 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		if err := r.validateCiphertextSize(ctx, req.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
-		expectedWorkflowOwner := workflowOwner
-		if expectedWorkflowOwner == "" && orgID == "" {
-			expectedWorkflowOwner = req.Id.Owner
-		}
-		err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, expectedWorkflowOwner, orgID)
-		if err != nil {
-			return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
+		if skipLabelValidation {
+			if _, err := verifyEncryptedSecret(publicKey, req.EncryptedValue); err != nil {
+				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] is invalid. Error: " + err.Error())
+			}
+		} else {
+			expectedWorkflowOwner := workflowOwner
+			if expectedWorkflowOwner == "" && orgID == "" {
+				expectedWorkflowOwner = req.Id.Owner
+			}
+			err := EnsureRightLabelOnSecret(publicKey, req.EncryptedValue, expectedWorkflowOwner, orgID)
+			if err != nil {
+				return errors.New("Encrypted Secret at index [" + strconv.Itoa(idx) + "] doesn't have owner as the label. Error: " + err.Error())
+			}
 		}
 		_, ok := uniqueIDs[vaulttypes.KeyFor(req.Id)]
 		if ok {
@@ -169,19 +175,12 @@ func NewRequestValidator(
 // parameter can be empty to skip that check. The function succeeds if the label matches
 // at least one non-empty owner.
 func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, workflowOwner string, orgID string) error {
-	cipherText := &tdh2easy.Ciphertext{}
-	cipherBytes, err := hex.DecodeString(secret)
+	cipherText, err := verifyEncryptedSecret(publicKey, secret)
 	if err != nil {
-		return errors.New("failed to decode encrypted value:" + err.Error())
+		return err
 	}
-	if publicKey == nil {
-		// Public key can be nil if gateway cache isn't populated yet (immediately after gateway reboots).
-		// Ok to not validate in such cases, since this validation also runs on Vault Nodes.
+	if cipherText == nil {
 		return nil
-	}
-	err = cipherText.UnmarshalVerify(cipherBytes, publicKey)
-	if err != nil {
-		return errors.New("failed to verify encrypted value:" + err.Error())
 	}
 	secretLabel := cipherText.Label()
 	expectedLabels := make([]string, 0, 2)
@@ -203,4 +202,22 @@ func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, work
 	}
 
 	return errors.New("secret label [" + hex.EncodeToString(secretLabel[:]) + "] does not match any of the provided owner labels; expectedLabels=[" + strings.Join(expectedLabels, ", ") + "]")
+}
+
+func verifyEncryptedSecret(publicKey *tdh2easy.PublicKey, secret string) (*tdh2easy.Ciphertext, error) {
+	cipherBytes, err := hex.DecodeString(secret)
+	if err != nil {
+		return nil, errors.New("failed to decode encrypted value:" + err.Error())
+	}
+	if publicKey == nil {
+		// Public key can be nil if gateway cache isn't populated yet (immediately after gateway reboots).
+		// Ok to not validate in such cases, since this validation also runs on Vault Nodes.
+		return nil, nil
+	}
+
+	cipherText := &tdh2easy.Ciphertext{}
+	if err := cipherText.UnmarshalVerify(cipherBytes, publicKey); err != nil {
+		return nil, errors.New("failed to verify encrypted value:" + err.Error())
+	}
+	return cipherText, nil
 }

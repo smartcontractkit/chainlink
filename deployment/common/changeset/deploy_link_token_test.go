@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 func TestDeployLinkToken(t *testing.T) {
@@ -35,7 +35,7 @@ func TestDeployLinkToken(t *testing.T) {
 	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 
-	state, err := commonState.MaybeLoadLinkTokenChainState(chain, addrs)
+	state, err := evmstate.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
 	// View itself already unit tested
@@ -65,7 +65,7 @@ func TestDeployLinkTokenZk(t *testing.T) {
 	addrs, err := rt.State().AddressBook.AddressesForChain(selector)
 	require.NoError(t, err)
 
-	state, err := commonState.MaybeLoadLinkTokenChainState(chain, addrs)
+	state, err := evmstate.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
 	// View itself already unit tested

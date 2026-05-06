@@ -6,12 +6,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type PriceRegistryView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	FeeTokens          []common.Address `json:"feeTokens"`
 	StalenessThreshold string           `json:"stalenessThreshold"`
 	Updaters           []common.Address `json:"updaters"`
@@ -21,7 +22,7 @@ func GeneratePriceRegistryView(pr *price_registry_1_2_0.PriceRegistry) (PriceReg
 	if pr == nil {
 		return PriceRegistryView{}, errors.New("cannot generate view for nil PriceRegistry")
 	}
-	meta, err := types.NewContractMetaData(pr, pr.Address())
+	meta, err := commoncldchangesets.NewContractMetaData(pr, pr.Address())
 	if err != nil {
 		return PriceRegistryView{}, fmt.Errorf("failed to generate contract metadata for PriceRegistry %s: %w", pr.Address(), err)
 	}

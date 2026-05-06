@@ -16,11 +16,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var (
@@ -79,7 +81,7 @@ type jsonWebKeySet struct {
 
 // JWTBasedAuth verifies Auth0-issued RS256 JWTs using the provider's
 // public JWKS endpoint and extracts Vault-specific claims (org_id,
-// workflow_owner, request_digest). It is safe for concurrent use.
+// optional workflow_owner, request_digest). It is safe for concurrent use.
 //
 // JWKS keys are fetched lazily on the first token validation and refreshed
 // on key-ID misses, rate-limited to at most once per JWKSRefreshInterval.
@@ -220,6 +222,14 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("request digest mismatch: computed=%s claimed=%s", requestDigest, claims.RequestDigest)
 	}
 
+	if claims.WorkflowOwner == "" {
+		if err := validateOrgIDOwnedVaultRequest(req, claims.OrgID); err != nil {
+			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, err)
+			v.lggr.Debugw("JWTBasedAuth missing workflow owner rejected non-org-owned request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", wrappedErr)
+			return nil, fmt.Errorf("invalid JWT auth token: %w", wrappedErr)
+		}
+	}
+
 	v.lggr.Debugw("JWTBasedAuth authorization succeeded", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "digest", requestDigest, "expiresAt", claims.ExpiresAt.UTC().Unix())
 	return &AuthResult{
 		orgID:         claims.OrgID,
@@ -231,7 +241,7 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 
 // validateToken verifies the JWT signature via Auth0 JWKS, validates
 // standard claims (iss, aud, exp), and extracts Vault-specific claims
-// (org_id, workflow_owner, request_digest).
+// (org_id, optional workflow_owner, request_digest).
 func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*JWTClaims, error) {
 	if tokenString == "" {
 		return nil, ErrMissingToken
@@ -262,9 +272,10 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		jwt.WithAudience(v.audience),
 		jwt.WithExpirationRequired(),
 		jwt.WithIssuedAt(),
+		jwt.WithLeeway(time.Minute),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w. Expected Issuer: %s, Actual Issuer: %s", ErrInvalidToken, err, v.issuerURL, unverified.Claims.(jwt.MapClaims)["iss"])
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
@@ -332,11 +343,79 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 	if requestDigest == "" {
 		return "", "", ErrMissingRequestDigest
 	}
-	if workflowOwner == "" {
-		return "", "", ErrMissingWorkflowOwner
-	}
 
 	return workflowOwner, requestDigest, nil
+}
+
+func validateOrgIDOwnedVaultRequest(req jsonrpc.Request[json.RawMessage], orgID string) error {
+	if orgID == "" {
+		return ErrMissingOrgID
+	}
+	if req.Params == nil {
+		return errors.New("request params are required")
+	}
+
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		parsed := &vaultcommon.CreateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse create secrets request: %w", err)
+		}
+		return validateEncryptedSecretOwnersMatchOrgID(parsed.EncryptedSecrets, orgID)
+	case vaulttypes.MethodSecretsUpdate:
+		parsed := &vaultcommon.UpdateSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse update secrets request: %w", err)
+		}
+		return validateEncryptedSecretOwnersMatchOrgID(parsed.EncryptedSecrets, orgID)
+	case vaulttypes.MethodSecretsDelete:
+		parsed := &vaultcommon.DeleteSecretsRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse delete secrets request: %w", err)
+		}
+		return validateSecretIdentifierOwnersMatchOrgID(parsed.Ids, orgID)
+	case vaulttypes.MethodSecretsList:
+		parsed := &vaultcommon.ListSecretIdentifiersRequest{}
+		if err := json.Unmarshal(*req.Params, parsed); err != nil {
+			return fmt.Errorf("failed to parse list secrets request: %w", err)
+		}
+		if parsed.Owner != orgID {
+			return fmt.Errorf("list secrets owner %q does not match org_id %q", parsed.Owner, orgID)
+		}
+		return nil
+	default:
+		return fmt.Errorf("method %q does not carry org-owned secret identifiers", req.Method)
+	}
+}
+
+func validateEncryptedSecretOwnersMatchOrgID(encryptedSecrets []*vaultcommon.EncryptedSecret, orgID string) error {
+	if len(encryptedSecrets) == 0 {
+		return errors.New("encrypted secrets must contain at least one identifier")
+	}
+	for idx, encryptedSecret := range encryptedSecrets {
+		if encryptedSecret == nil || encryptedSecret.Id == nil {
+			return fmt.Errorf("encrypted secret at index %d must include an identifier", idx)
+		}
+		if encryptedSecret.Id.Owner != orgID {
+			return fmt.Errorf("encrypted secret owner at index %d %q does not match org_id %q", idx, encryptedSecret.Id.Owner, orgID)
+		}
+	}
+	return nil
+}
+
+func validateSecretIdentifierOwnersMatchOrgID(ids []*vaultcommon.SecretIdentifier, orgID string) error {
+	if len(ids) == 0 {
+		return errors.New("secret identifiers must not be empty")
+	}
+	for idx, id := range ids {
+		if id == nil {
+			return fmt.Errorf("secret identifier at index %d must not be nil", idx)
+		}
+		if id.Owner != orgID {
+			return fmt.Errorf("secret identifier owner at index %d %q does not match org_id %q", idx, id.Owner, orgID)
+		}
+	}
+	return nil
 }
 
 // resolveSigningKey looks up the RSA public key for the given kid from the

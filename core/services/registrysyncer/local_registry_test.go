@@ -1,6 +1,7 @@
 package registrysyncer
 
 import (
+	"context"
 	"testing"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -14,6 +15,57 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 )
+
+func TestLocalRegistry_LocalNode(t *testing.T) {
+	lggr := logger.Test(t)
+	localPeer := types.PeerID{0: 7}
+	getPeerID := func() (types.PeerID, error) {
+		return localPeer, nil
+	}
+	idsToDons := map[DonID]DON{
+		1: {
+			DON: capabilities.DON{
+				ID:               1,
+				F:                1,
+				Members:          []types.PeerID{localPeer},
+				AcceptsWorkflows: true,
+			},
+			CapabilityConfigurations: map[string]CapabilityConfiguration{
+				"capabilityID@1.0.0": {},
+			},
+		},
+	}
+	idsToNodes := map[types.PeerID]NodeInfo{
+		localPeer: {NodeOperatorID: 42},
+	}
+	idsToCapabilities := map[string]Capability{
+		"capabilityID@1.0.0": {
+			ID:             "capabilityID@1.0.0",
+			CapabilityType: capabilities.CapabilityTypeAction,
+		},
+	}
+	lr := NewLocalRegistry(lggr, getPeerID, idsToDons, idsToNodes, idsToCapabilities)
+
+	ctx := t.Context()
+	want, err := lr.NodeByPeerID(ctx, localPeer)
+	require.NoError(t, err)
+
+	got, err := lr.LocalNode(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+
+	gotAgain, err := lr.LocalNode(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, want, gotAgain)
+
+	t.Run("GetPeerID error", func(t *testing.T) {
+		broken := NewLocalRegistry(lggr, func() (types.PeerID, error) {
+			return types.PeerID{}, assert.AnError
+		}, idsToDons, idsToNodes, idsToCapabilities)
+		_, err := broken.LocalNode(context.Background())
+		require.ErrorContains(t, err, "unable to get local node: peerWrapper hasn't started yet")
+	})
+}
 
 func TestLocalRegistry_DONsForCapability(t *testing.T) {
 	lggr := logger.Test(t)

@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/sequences"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -41,7 +42,7 @@ func (l SetDONsFamilies) VerifyPreconditions(e cldf.Environment, config SetDONsF
 }
 
 func (l SetDONsFamilies) Apply(e cldf.Environment, config SetDONsFamiliesInput) (cldf.ChangesetOutput, error) {
-	var mcmscrecontracts *commonchangeset.MCMSWithTimelockState
+	var mcmscrecontracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmscrecontracts, err = strategies.GetMCMSContracts(e, config.RegistrySelector, *config.MCMSConfig)

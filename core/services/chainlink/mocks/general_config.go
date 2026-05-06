@@ -7,7 +7,6 @@ import (
 
 	uuid "github.com/google/uuid"
 	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	mock "github.com/stretchr/testify/mock"
@@ -2051,19 +2050,19 @@ func (_c *GeneralConfig_ShutdownGracePeriod_Call) RunAndReturn(run func() time.D
 }
 
 // SolanaConfigs provides a mock function with no fields
-func (_m *GeneralConfig) SolanaConfigs() solanaconfig.TOMLConfigs {
+func (_m *GeneralConfig) SolanaConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for SolanaConfigs")
 	}
 
-	var r0 solanaconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() solanaconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(solanaconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -2087,12 +2086,12 @@ func (_c *GeneralConfig_SolanaConfigs_Call) Run(run func()) *GeneralConfig_Solan
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }

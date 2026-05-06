@@ -11,6 +11,7 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
@@ -53,29 +54,29 @@ var wantOCR3_1Config = `{
 
 var ocr3_1Cfg = `
 {
-  "DeltaProgressMillis":  5000,
-  "DeltaRoundMillis":     200,
-  "DeltaGraceMillis":     0,
-  "DeltaStageMillis":     0,
-  "MaxRoundsPerEpoch":    10,
-  "TransmissionSchedule": [
+  "deltaProgressMillis":  5000,
+  "deltaRoundMillis":     200,
+  "deltaGraceMillis":     0,
+  "deltaStageMillis":     0,
+  "maxRoundsPerEpoch":    10,
+  "transmissionSchedule": [
     10
   ],
-  "MaxDurationInitializationMillis": 10000,
-  "MaxDurationShouldAcceptAttestedReportMillis": 1000,
-  "MaxDurationShouldTransmitAcceptedReportMillis": 1000,
+  "maxDurationInitializationMillis": 10000,
+  "maxDurationShouldAcceptAttestedReportMillis": 1000,
+  "maxDurationShouldTransmitAcceptedReportMillis": 1000,
 
-  "WarnDurationQueryMillis":               1000,
-  "WarnDurationObservationMillis":         1000,
-  "WarnDurationValidateObservationMillis": 1000,
-  "WarnDurationObservationQuorumMillis":   1000,
-  "WarnDurationStateTransition":           1000,
-  "WarnDurationCommitted":                 1000,
+  "warnDurationQueryMillis":               1000,
+  "warnDurationObservationMillis":         1000,
+  "warnDurationValidateObservationMillis": 1000,
+  "warnDurationObservationQuorumMillis":   1000,
+  "warnDurationStateTransition":           1000,
+  "warnDurationCommitted":                 1000,
 
-  "MaxFaultyOracles": 3,
-  "PrevConfigDigest": "abC1230000000000000000000000000000000000000000000000000000000000",
-  "PrevSeqNr": 5,
-  "PrevHistoryDigest": "abC1240000000000000000000000000000000000000000000000000000000000"
+  "maxFaultyOracles": 3,
+  "prevConfigDigest": "abC1230000000000000000000000000000000000000000000000000000000000",
+  "prevSeqNr": 5,
+  "prevHistoryDigest": "abC1240000000000000000000000000000000000000000000000000000000000"
 }`
 
 func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
@@ -109,29 +110,29 @@ func Test_configureOCR3_1Request_generateOCR3_1Config(t *testing.T) {
 
 var ocr3_1CfgNoPrevConfigDigest = `
 {
-  "DeltaProgressMillis":  5000,
-  "DeltaRoundMillis":     200,
-  "DeltaGraceMillis":     0,
-  "DeltaStageMillis":     0,
-  "MaxRoundsPerEpoch":    10,
-  "TransmissionSchedule": [
+  "deltaProgressMillis":  5000,
+  "deltaRoundMillis":     200,
+  "deltaGraceMillis":     0,
+  "deltaStageMillis":     0,
+  "maxRoundsPerEpoch":    10,
+  "transmissionSchedule": [
     10
   ],
-  "MaxDurationInitializationMillis": 10000,
-  "MaxDurationShouldAcceptAttestedReportMillis": 1000,
-  "MaxDurationShouldTransmitAcceptedReportMillis": 1000,
+  "maxDurationInitializationMillis": 10000,
+  "maxDurationShouldAcceptAttestedReportMillis": 1000,
+  "maxDurationShouldTransmitAcceptedReportMillis": 1000,
 
-  "WarnDurationQueryMillis":               1000,
-  "WarnDurationObservationMillis":         1000,
-  "WarnDurationValidateObservationMillis": 1000,
-  "WarnDurationObservationQuorumMillis":   1000,
-  "WarnDurationStateTransition":           1000,
-  "WarnDurationCommitted":                 1000,
+  "warnDurationQueryMillis":               1000,
+  "warnDurationObservationMillis":         1000,
+  "warnDurationValidateObservationMillis": 1000,
+  "warnDurationObservationQuorumMillis":   1000,
+  "warnDurationStateTransition":           1000,
+  "warnDurationCommitted":                 1000,
 
-  "MaxFaultyOracles": 3,
-  "PrevConfigDigest": "",
-  "PrevSeqNr": 0,
-  "PrevHistoryDigest": ""
+  "maxFaultyOracles": 3,
+  "prevConfigDigest": "",
+  "prevSeqNr": 0,
+  "prevHistoryDigest": ""
 }`
 
 func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
@@ -158,6 +159,113 @@ func Test_configureOCR3_1_NoPrevConfigDigest(t *testing.T) {
 		cfg2.TransmissionSchedule = []int{len(nodes) + 1}
 		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
 		require.Error(t, err)
+	})
+}
+
+// baseV3_1Config returns a V3_1OracleConfig suitable for 10-node testnet data.
+func baseV3_1Config(numNodes int) V3_1OracleConfig {
+	return V3_1OracleConfig{
+		DeltaProgressMillis:  5000,
+		DeltaRoundMillis:     200,
+		MaxRoundsPerEpoch:    10,
+		TransmissionSchedule: []int{numNodes},
+
+		MaxDurationInitializationMillis:               10000,
+		MaxDurationShouldAcceptAttestedReportMillis:   1000,
+		MaxDurationShouldTransmitAcceptedReportMillis: 1000,
+
+		WarnDurationQueryMillis:               1000,
+		WarnDurationObservationMillis:         1000,
+		WarnDurationValidateObservationMillis: 1000,
+		WarnDurationObservationQuorumMillis:   1000,
+		WarnDurationStateTransition:           1000,
+		WarnDurationCommitted:                 1000,
+
+		MaxFaultyOracles: 3,
+	}
+}
+
+func Test_GenerateOCR3_1Config_VaultOffchainConfig(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+	cfg := baseV3_1Config(len(nodes))
+	dkgInstanceID := "sanmarinodkg/v1/0xdeadbeef/0xabcdef"
+	cfg.VaultOffchainConfig = &VaultOffchainConfig{
+		BatchSize:                         10,
+		MaxSecretsPerOwner:                100,
+		MaxCiphertextLengthBytes:          4096,
+		MaxIdentifierKeyLengthBytes:       64,
+		MaxIdentifierOwnerLengthBytes:     64,
+		MaxIdentifierNamespaceLengthBytes: 64,
+		DKGInstanceID:                     &dkgInstanceID,
+		LimitsMaxQueryLength:              65536,
+		LimitsMaxObservationLength:        65536,
+		LimitsMaxReportLength:             65536,
+		LimitsMaxReportCount:              10,
+	}
+
+	// reportingPluginConfigOverride = nil: genOCR3_1Config must fall back to VaultOffchainConfig.
+	got, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+	require.NoError(t, err)
+	require.Len(t, got.Signers, len(nodes))
+	require.Len(t, got.Transmitters, len(nodes))
+	require.Equal(t, uint8(3), got.F)
+	require.Equal(t, uint64(310), got.OffchainConfigVersion)
+	require.NotEmpty(t, got.OffchainConfig)
+
+	t.Run("override takes precedence over VaultOffchainConfig", func(t *testing.T) {
+		override := []byte("explicit-override")
+		got2, err := GenerateOCR3_1ConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), override, nil)
+		require.NoError(t, err)
+		// Both succeed; OffchainConfig bytes will differ because the plugin config bytes differ.
+		require.NotEqual(t, got.OffchainConfig, got2.OffchainConfig)
+	})
+
+	t.Run("both VaultOffchainConfig and DKGOffchainConfig returns error", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.DKGOffchainConfig = &DKGOffchainConfig{}
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "multiple offchain configs")
+	})
+
+	t.Run("no plugin config and nil override returns error", func(t *testing.T) {
+		cfg2 := cfg
+		cfg2.VaultOffchainConfig = nil
+		_, err := GenerateOCR3_1ConfigFromNodes(cfg2, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "one of reportingPluginConfigOverride")
+	})
+}
+
+func Test_GenerateDKGConfigFromNodes_DKGOffchainConfig(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+	cfg := baseV3_1Config(len(nodes))
+	cfg.DKGOffchainConfig = &DKGOffchainConfig{
+		ReportingPluginConfig: dkgocrtypes.ReportingPluginConfig{T: 1},
+	}
+
+	dkgCfg := dkgocrtypes.ReportingPluginConfig{T: 1}
+	got, err := GenerateDKGConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), dkgCfg, nil)
+	require.NoError(t, err)
+	require.Len(t, got.Signers, len(nodes))
+	require.Len(t, got.Transmitters, len(nodes))
+	require.Equal(t, uint8(3), got.F)
+	require.Equal(t, uint64(310), got.OffchainConfigVersion)
+	require.NotEmpty(t, got.OffchainConfig)
+
+	t.Run("DKG signers differ from standard OCR3.1 signers", func(t *testing.T) {
+		// DKG derives onchain keys from ed25519 offchain keys; OCR3.1 uses EVM onchain keys directly.
+		stdCfg := baseV3_1Config(len(nodes))
+		stdGot, err := GenerateOCR3_1ConfigFromNodes(stdCfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"), nil)
+		require.NoError(t, err)
+		require.NotEqual(t, stdGot.Signers, got.Signers)
+	})
+
+	t.Run("DKG transmit accounts use derived addresses not EVM transmitters", func(t *testing.T) {
+		stdCfg := baseV3_1Config(len(nodes))
+		stdGot, err := GenerateOCR3_1ConfigFromNodes(stdCfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), []byte("001"), nil)
+		require.NoError(t, err)
+		require.NotEqual(t, stdGot.Transmitters, got.Transmitters)
 	})
 }
 

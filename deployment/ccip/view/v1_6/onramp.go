@@ -10,12 +10,13 @@ import (
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type OnRampView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	DynamicConfig                          onramp.OnRampDynamicConfig       `json:"dynamicConfig"`
 	StaticConfig                           onramp.OnRampStaticConfig        `json:"staticConfig"`
 	DestChainSpecificData                  map[uint64]DestChainSpecificData `json:"destChainSpecificData"`
@@ -32,7 +33,7 @@ func GenerateOnRampView(
 	routerContract, testRouterContract *router1_2.Router,
 	taContract *token_admin_registry.TokenAdminRegistry,
 ) (OnRampView, error) {
-	tv, err := types.NewContractMetaData(onRampContract, onRampContract.Address())
+	tv, err := commoncldchangesets.NewContractMetaData(onRampContract, onRampContract.Address())
 	if err != nil {
 		return OnRampView{}, fmt.Errorf("failed to get contract metadata: %w", err)
 	}
