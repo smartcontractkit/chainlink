@@ -17,9 +17,9 @@ var (
 	// ErrVaultJWTMultipleOAuthScopes is returned when more than one Vault secret scope
 	// is present (after filtering to known Vault OAuth scopes). Authorization requires
 	// a single unambiguous Vault scope.
-	ErrVaultJWTMultipleOAuthScopes = errors.New("Vault JWT must carry exactly one Vault secret OAuth scope")
+	ErrVaultJWTMultipleOAuthScopes = errors.New("vault JWT must carry exactly one Vault secret OAuth scope")
 	// ErrVaultJWTScopeDenied is returned when the token's scopes do not authorize the requested Vault method.
-	ErrVaultJWTScopeDenied = errors.New("JWT OAuth scope does not authorize this Vault method")
+	ErrVaultJWTScopeDenied = errors.New("jwt OAuth scope does not authorize this Vault method")
 )
 
 // OAuth scopes issued by the CRE authorization server for Vault secret operations.
