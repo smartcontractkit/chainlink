@@ -10,9 +10,12 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -93,8 +96,9 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 		}
 
 		var batches []mcmstypes.BatchOperation
-		timelockAddresses := make(map[mcmstypes.ChainSelector]string)
-		chainMetadata := make(map[mcmstypes.ChainSelector]mcmstypes.ChainMetadata)
+		timelockAddresses := make(map[uint64]string)
+		mcmAddressByChain := make(map[uint64]string)
+		inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 
 		for chainSelector, chainConfig := range input.Chains {
 			opReport, err := operations.ExecuteOperation(
@@ -114,21 +118,20 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 			opOut := opReport.Output
 
 			batches = append(batches, opOut.BatchOperation)
-			timelockAddresses[mcmstypes.ChainSelector(chainSelector)] = opOut.TimelockAddress
-			chainMetadata[mcmstypes.ChainSelector(chainSelector)] = mcmstypes.ChainMetadata{
-				StartingOpCount: 0,
-				MCMAddress:      opOut.MCMSAddress,
-			}
+			timelockAddresses[chainSelector] = opOut.TimelockAddress
+			mcmAddressByChain[chainSelector] = opOut.MCMSAddress
+			inspectorPerChain[chainSelector] = opOut.Inspector
 		}
 
-		proposal, err := mcms.NewTimelockProposalBuilder().
-			SetVersion("v1").
-			SetAction(mcmstypes.TimelockActionBypass).
-			SetTimelockAddresses(timelockAddresses).
-			SetChainMetadata(chainMetadata).
-			SetOperations(batches).
-			SetDescription("Set Keeper Registry address on EthBalanceMonitor across chains").
-			Build()
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			deps.Environment,
+			timelockAddresses,
+			mcmAddressByChain,
+			inspectorPerChain,
+			batches,
+			"EthBalMon SetKeeperRegistryAddress",
+			proposalutils.TimelockConfig{MinDelay: 0},
+		)
 		if err != nil {
 			return EthBalMonSetKeeperRegistryAddressSequenceOutput{},
 				fmt.Errorf("failed to build timelock proposal: %w", err)
@@ -155,6 +158,7 @@ type SetKeeperRegistryOperationOutput struct {
 	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
 	TimelockAddress string                   `json:"timelock_address"`
 	MCMSAddress     string                   `json:"mcms_address"`
+	Inspector       *mcmsevmsdk.Inspector    `json:"inspector"`
 }
 
 var SetKeeperRegistryOperation = operations.NewOperation(
@@ -236,6 +240,8 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			},
 		}
 
+		chainInspector := mcmsevmsdk.NewInspector(chain.Client)
+
 		b.Logger.Infow("Generated EthBalMon set keeper registry batch",
 			"chainSelector", input.ChainSelector,
 			"ethBalMon", ethBalMonAddr,
@@ -247,6 +253,7 @@ var SetKeeperRegistryOperation = operations.NewOperation(
 			BatchOperation:  batch,
 			TimelockAddress: timelockAddr,
 			MCMSAddress:     mcmsAddr,
+			Inspector:       chainInspector,
 		}, nil
 	},
 )
