@@ -118,6 +118,10 @@ type ReportSummary struct {
 	FlakeExecutionFailRate *float64 `json:"flake_execution_fail_rate,omitempty"`
 	SlowCount              int      `json:"slow_count,omitempty"`
 	SlowPrevalence         *float64 `json:"slow_prevalence,omitempty"`
+	// IterationDurationMin/Max/P50 summarize wall-clock runtimes (IterationSummary.Duration) across all completed iterations.
+	IterationDurationMin time.Duration `json:"iteration_duration_min,omitempty"`
+	IterationDurationMax time.Duration `json:"iteration_duration_max,omitempty"`
+	IterationDurationP50 time.Duration `json:"iteration_duration_p50,omitempty"`
 }
 
 // Report classifies tests across iterations of a diagnose run.
@@ -740,11 +744,19 @@ func printOverallStats(w io.Writer, rep *Report) {
 		return
 	}
 	s := rep.Summary
-	if s.DistinctNamedTests == 0 && s.FlakeTotalRuns == 0 {
+	hasIterRuntime := s.IterationDurationMin > 0 || s.IterationDurationP50 > 0 || s.IterationDurationMax > 0
+	if s.DistinctNamedTests == 0 && s.FlakeTotalRuns == 0 && !hasIterRuntime {
 		return
 	}
 
 	fmt.Fprintln(w, termstyle.Label.Render("Overall"))
+	if hasIterRuntime {
+		line := fmt.Sprintf("  Iteration runtimes: min=%s p50=%s max=%s",
+			s.IterationDurationMin.Round(time.Millisecond),
+			s.IterationDurationP50.Round(time.Millisecond),
+			s.IterationDurationMax.Round(time.Millisecond))
+		fmt.Fprintln(w, termstyle.Muted.Render(line))
+	}
 	if s.DistinctNamedTests > 0 {
 		pct := 0.0
 		if s.FlakePrevalence != nil {
@@ -1058,21 +1070,29 @@ func slowIterations(elapsedByIter map[int]time.Duration, threshold time.Duration
 	return iters
 }
 
-// stats computes min and p50 from a sample of durations.
-// Returns (0, 0) for an empty sample.
-func stats(samples []time.Duration) (minDur, p50 time.Duration) {
+// sortedDurationStats returns min, max, and median (p50) from wall-clock or elapsed samples.
+// Returns (0, 0, 0) for an empty sample.
+func sortedDurationStats(samples []time.Duration) (minDur, maxDur, p50 time.Duration) {
 	if len(samples) == 0 {
-		return 0, 0
+		return 0, 0, 0
 	}
 	sorted := append([]time.Duration(nil), samples...)
 	slices.Sort(sorted)
 	minDur = sorted[0]
+	maxDur = sorted[len(sorted)-1]
 	n := len(sorted)
 	if n%2 == 1 {
 		p50 = sorted[n/2]
 	} else {
 		p50 = (sorted[n/2-1] + sorted[n/2]) / 2
 	}
+	return minDur, maxDur, p50
+}
+
+// stats computes min and p50 from a sample of durations.
+// Returns (0, 0) for an empty sample.
+func stats(samples []time.Duration) (minDur, p50 time.Duration) {
+	minDur, _, p50 = sortedDurationStats(samples)
 	return minDur, p50
 }
 

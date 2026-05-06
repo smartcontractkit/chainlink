@@ -131,6 +131,7 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 		}
 		finished := time.Now()
 		report.Run = newRunMeta(conf, goTestArgs, resultsDir, start, &finished)
+		fillIterationRuntimeSummary(report)
 	}
 	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
 		out.Stderrf("write log files: %v\n", err)
@@ -165,6 +166,27 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 	out.HumanStderr(termstyle.Muted.Render("report.json: ") + termstyle.Label.Render(reportPath))
 	return nil
+}
+
+// fillIterationRuntimeSummary sets summary iteration_duration_* from each
+// iteration's wall-clock Duration (min / max / p50 across the run).
+func fillIterationRuntimeSummary(rep *Report) {
+	if rep == nil || rep.Summary == nil {
+		return
+	}
+	var samples []time.Duration
+	for _, s := range rep.IterationSummaries {
+		if s.Duration > 0 {
+			samples = append(samples, s.Duration)
+		}
+	}
+	if len(samples) == 0 {
+		return
+	}
+	minD, maxD, p50 := sortedDurationStats(samples)
+	rep.Summary.IterationDurationMin = minD
+	rep.Summary.IterationDurationMax = maxD
+	rep.Summary.IterationDurationP50 = p50
 }
 
 // marshalAISummaryJSON returns one line of JSON for --ai-output: the report's

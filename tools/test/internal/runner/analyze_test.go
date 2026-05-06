@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -460,21 +461,49 @@ func TestReportSummary(t *testing.T) {
 	}
 }
 
-func TestPrintSummaryOverallStats(t *testing.T) {
+func TestPrintSummaryOverallContains(t *testing.T) {
 	t.Parallel()
-	rep, _, err := Analyze(readers(
-		`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
-		`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
-	), 30*time.Second)
-	require.NoError(t, err)
-
-	var buf strings.Builder
-	PrintSummary(&buf, rep)
-	out := buf.String()
-	assert.Contains(t, out, "Overall")
-	assert.Contains(t, out, "Flaky tests:")
-	assert.Contains(t, out, "Flaky runs:")
-	assert.Contains(t, out, "Slow tests:")
+	tests := []struct {
+		name   string
+		prep   func(t *testing.T) *Report
+		needle []string
+	}{
+		{
+			name: "flake_rates_and_slow_line",
+			prep: func(t *testing.T) *Report {
+				rep, _, err := Analyze(readers(
+					`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
+					`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
+				), 30*time.Second)
+				require.NoError(t, err)
+				return rep
+			},
+			needle: []string{"Overall", "Flaky tests:", "Flaky runs:", "Slow tests:"},
+		},
+		{
+			name: "iteration_wall_clock_runtimes",
+			prep: func(t *testing.T) *Report {
+				rep, _, err := Analyze(readers(`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}`), 30*time.Second)
+				require.NoError(t, err)
+				require.NotNil(t, rep.Summary)
+				rep.IterationSummaries[0].Duration = 5 * time.Second
+				fillIterationRuntimeSummary(rep)
+				return rep
+			},
+			needle: []string{"Overall", "Iteration runtimes:", "min=5s"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var buf strings.Builder
+			PrintSummary(&buf, tc.prep(t))
+			out := buf.String()
+			for _, s := range tc.needle {
+				assert.Contains(t, out, s)
+			}
+		})
+	}
 }
 
 func publicTestEntries(entries []TestEntry) []TestEntry {
@@ -756,45 +785,159 @@ func TestAnalyzeSkipsMalformedLines(t *testing.T) {
 	assert.Empty(t, rep.Failures)
 }
 
-func TestStatsP50(t *testing.T) {
+func TestDurationSampleStats(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
 		samples []time.Duration
 		wantMin time.Duration
+		wantMax time.Duration
 		wantP50 time.Duration
 	}{
 		{
 			name:    "empty",
 			samples: nil,
 			wantMin: 0,
+			wantMax: 0,
 			wantP50: 0,
 		},
 		{
 			name:    "single",
 			samples: []time.Duration{5 * time.Second},
 			wantMin: 5 * time.Second,
+			wantMax: 5 * time.Second,
 			wantP50: 5 * time.Second,
 		},
 		{
-			name:    "odd count",
+			name:    "odd_count_unsorted",
 			samples: []time.Duration{3, 1, 2},
 			wantMin: 1,
+			wantMax: 3,
 			wantP50: 2,
 		},
 		{
-			name:    "even count averages middle two",
-			samples: []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second, 9 * time.Second},
+			name: "even_count_averages_middle_two",
+			samples: []time.Duration{
+				1 * time.Second, 3 * time.Second, 5 * time.Second, 9 * time.Second,
+			},
 			wantMin: 1 * time.Second,
+			wantMax: 9 * time.Second,
 			wantP50: 4 * time.Second,
+		},
+		{
+			name: "three_spread_values",
+			samples: []time.Duration{
+				100 * time.Millisecond,
+				300 * time.Millisecond,
+				200 * time.Millisecond,
+			},
+			wantMin: 100 * time.Millisecond,
+			wantMax: 300 * time.Millisecond,
+			wantP50: 200 * time.Millisecond,
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			minDur, p50 := stats(tc.samples)
-			assert.Equal(t, tc.wantMin, minDur, "min")
-			assert.Equal(t, tc.wantP50, p50, "p50")
+			gotMin, gotMax, gotP50 := sortedDurationStats(tc.samples)
+			assert.Equal(t, tc.wantMin, gotMin, "sortedDurationStats min")
+			assert.Equal(t, tc.wantMax, gotMax, "sortedDurationStats max")
+			assert.Equal(t, tc.wantP50, gotP50, "sortedDurationStats p50")
+			min2, p502 := stats(tc.samples)
+			assert.Equal(t, tc.wantMin, min2, "stats min")
+			assert.Equal(t, tc.wantP50, p502, "stats p50")
+		})
+	}
+}
+
+func TestFillIterationRuntimeSummaryTable(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		iters   []IterationSummary
+		wantMin time.Duration
+		wantMax time.Duration
+		wantP50 time.Duration
+	}{
+		{
+			name: "three_wall_clock_samples",
+			iters: []IterationSummary{
+				{Index: 0, Duration: 10 * time.Second},
+				{Index: 1, Duration: 30 * time.Second},
+				{Index: 2, Duration: 20 * time.Second},
+			},
+			wantMin: 10 * time.Second,
+			wantMax: 30 * time.Second,
+			wantP50: 20 * time.Second,
+		},
+		{
+			name: "skips_zero_duration",
+			iters: []IterationSummary{
+				{Index: 0, Duration: 0},
+				{Index: 1, Duration: 10 * time.Second},
+			},
+			wantMin: 10 * time.Second,
+			wantMax: 10 * time.Second,
+			wantP50: 10 * time.Second,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rep := &Report{
+				Summary:            &ReportSummary{},
+				IterationSummaries: tc.iters,
+			}
+			fillIterationRuntimeSummary(rep)
+			require.NotNil(t, rep.Summary)
+			assert.Equal(t, tc.wantMin, rep.Summary.IterationDurationMin)
+			assert.Equal(t, tc.wantMax, rep.Summary.IterationDurationMax)
+			assert.Equal(t, tc.wantP50, rep.Summary.IterationDurationP50)
+		})
+	}
+}
+
+func TestMarshalAISummaryJSON(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		build func(t *testing.T) *Report
+		check func(t *testing.T, raw []byte)
+	}{
+		{
+			name: "nil_report",
+			build: func(t *testing.T) *Report {
+				return nil
+			},
+			check: func(t *testing.T, raw []byte) {
+				assert.Equal(t, "null", string(raw))
+			},
+		},
+		{
+			name: "from_analyze_flake",
+			build: func(t *testing.T) *Report {
+				rep, _, err := Analyze(readers(
+					`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.1}`,
+					`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.1}`,
+				), 30*time.Second)
+				require.NoError(t, err)
+				return rep
+			},
+			check: func(t *testing.T, raw []byte) {
+				var sum ReportSummary
+				require.NoError(t, json.Unmarshal(raw, &sum))
+				assert.Equal(t, 1, sum.DistinctNamedTests)
+				assert.Equal(t, 1, sum.FlakeNamedCount)
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rep := tc.build(t)
+			b, err := marshalAISummaryJSON(rep)
+			require.NoError(t, err)
+			tc.check(t, b)
 		})
 	}
 }

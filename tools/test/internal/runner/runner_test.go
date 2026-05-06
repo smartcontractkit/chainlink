@@ -82,32 +82,6 @@ func TestDiagnoseCanceledCtxAIStdoutTwoLines(t *testing.T) {
 	assert.Equal(t, "null", lines[2])
 }
 
-func TestMarshalAISummaryJSON(t *testing.T) {
-	t.Parallel()
-
-	t.Run("nil report", func(t *testing.T) {
-		t.Parallel()
-		b, err := marshalAISummaryJSON(nil)
-		require.NoError(t, err)
-		assert.Equal(t, "null", string(b))
-	})
-
-	t.Run("from Analyze flake", func(t *testing.T) {
-		t.Parallel()
-		rep, _, err := Analyze(readers(
-			`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.1}`,
-			`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.1}`,
-		), 30*time.Second)
-		require.NoError(t, err)
-		b, err := marshalAISummaryJSON(rep)
-		require.NoError(t, err)
-		var sum ReportSummary
-		require.NoError(t, json.Unmarshal(b, &sum))
-		assert.Equal(t, 1, sum.DistinctNamedTests)
-		assert.Equal(t, 1, sum.FlakeNamedCount)
-	})
-}
-
 func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()
