@@ -276,8 +276,9 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 	wg.Wait()
 }
 
-func TestEvictable_EvictWaitsForExecution(t *testing.T) {
+func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 	var executing atomic.Bool
+	var closeCalled atomic.Bool
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
 		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
@@ -287,7 +288,7 @@ func TestEvictable_EvictWaitsForExecution(t *testing.T) {
 			return &sdkpb.ExecutionResult{}, nil
 		},
 	)
-	inner.EXPECT().Close()
+	inner.EXPECT().Close().Run(func() { closeCalled.Store(true) })
 
 	em, _ := newTestEvictableModule(t, inner, nil)
 
@@ -298,14 +299,114 @@ func TestEvictable_EvictWaitsForExecution(t *testing.T) {
 		_, _ = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	}()
 
-	// Give Execute goroutine time to acquire RLock
+	// Give Execute goroutine time to pin the inner module.
 	time.Sleep(10 * time.Millisecond)
-	assert.True(t, executing.Load(), "Execute should still be running")
+	require.True(t, executing.Load(), "Execute should still be running")
 
-	em.Evict()
-	// By the time Evict returns (it needed WLock), Execute should have finished
-	assert.False(t, executing.Load())
+	evictReturned := make(chan struct{})
+	go func() {
+		em.Evict()
+		close(evictReturned)
+	}()
+
+	select {
+	case <-evictReturned:
+	case <-time.After(20 * time.Millisecond):
+		t.Fatal("Evict must not block on in-flight Execute")
+	}
+
+	assert.True(t, executing.Load(), "Execute is still running after Evict returned")
+	assert.False(t, closeCalled.Load(), "inner.Close must not fire while a pin is held")
+	assert.False(t, em.IsLoaded(), "current entry should be cleared synchronously")
+
 	wg.Wait()
+	assert.False(t, executing.Load())
+	assert.True(t, closeCalled.Load(), "inner.Close fires after the executing pin releases")
+}
+
+func TestEvictable_NewExecuteProceedsWhileEvictPendingOnLongExecution(t *testing.T) {
+	firstExecuteStarted := make(chan struct{})
+	releaseFirstExecute := make(chan struct{})
+	firstExecuteDone := make(chan error, 1)
+	secondExecuteDone := make(chan error, 1)
+	secondInnerExecuteStarted := make(chan struct{})
+	evictReturned := make(chan struct{})
+
+	var callCount atomic.Int32
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+			if callCount.Add(1) != 1 {
+				t.Fatalf("inner mock should only run the long execution")
+			}
+			close(firstExecuteStarted)
+			<-releaseFirstExecute
+			return &sdkpb.ExecutionResult{}, nil
+		},
+	)
+	inner.EXPECT().Close()
+
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		reloaded := modulemocks.NewModuleV2(t)
+		reloaded.EXPECT().Start().Maybe()
+		reloaded.EXPECT().Close().Maybe()
+		reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+			func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+				select {
+				case <-secondInnerExecuteStarted:
+				default:
+					close(secondInnerExecuteStarted)
+				}
+				return &sdkpb.ExecutionResult{}, nil
+			},
+		)
+		return reloaded, nil
+	}
+
+	em, _ := newTestEvictableModule(t, inner, factory)
+	em.started.Store(true)
+
+	go func() {
+		_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+		firstExecuteDone <- err
+	}()
+
+	<-firstExecuteStarted
+
+	evictStart := time.Now()
+	go func() {
+		em.Evict()
+		close(evictReturned)
+	}()
+
+	select {
+	case <-evictReturned:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("Evict must return without waiting for the long execution")
+	}
+	require.Less(t, time.Since(evictStart), 50*time.Millisecond)
+
+	go func() {
+		_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+		secondExecuteDone <- err
+	}()
+
+	select {
+	case <-secondInnerExecuteStarted:
+	case <-time.After(time.Second):
+		t.Fatal("second Execute should reload and run while first Execute is still pinned")
+	}
+
+	require.NoError(t, <-secondExecuteDone)
+
+	select {
+	case <-firstExecuteDone:
+		t.Fatal("first Execute returned before being released")
+	default:
+	}
+
+	close(releaseFirstExecute)
+	require.NoError(t, <-firstExecuteDone)
 }
 
 func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {

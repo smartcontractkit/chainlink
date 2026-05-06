@@ -44,12 +44,49 @@ func defaultModuleFactory(ctx context.Context, modCfg *host.ModuleConfig, binary
 	return host.NewModule(ctx, modCfg, binary, opts...)
 }
 
+// moduleEntry wraps a host.ModuleV2 with a refcount so Evict can drop ownership
+// without waiting for in-flight Execute calls. The owning ref held via
+// EvictableModule.current counts as 1; each successful tryAcquire adds 1.
+// The release that drives the count to zero closes the inner module exactly once.
+type moduleEntry struct {
+	mod      host.ModuleV2
+	refCount atomic.Int64
+}
+
+func newModuleEntry(mod host.ModuleV2) *moduleEntry {
+	e := &moduleEntry{mod: mod}
+	e.refCount.Store(1)
+	return e
+}
+
+// tryAcquire pins the entry by incrementing refCount only if it is non-zero.
+// A plain Add(1) would race with a release that already drove the count to zero
+// and called Close, leading to a use-after-close. CAS makes the increment
+// conditional on the entry still being live.
+func (e *moduleEntry) tryAcquire() bool {
+	for {
+		n := e.refCount.Load()
+		if n == 0 {
+			return false
+		}
+		if e.refCount.CompareAndSwap(n, n+1) {
+			return true
+		}
+	}
+}
+
+func (e *moduleEntry) release() {
+	if e.refCount.Add(-1) == 0 {
+		e.mod.Close()
+	}
+}
+
 // EvictableModule wraps a host.ModuleV2 with idle-eviction and on-demand reload.
 // Trigger registrations and event channels are owned by the engine, not by this module,
 // so evicting the inner module only frees WASM memory without losing trigger connectivity.
 type EvictableModule struct {
-	inner         host.ModuleV2
-	mu            sync.RWMutex
+	current       atomic.Pointer[moduleEntry]
+	mu            sync.Mutex // serializes ensureLoaded reloads; never held during inner.Execute
 	lastUsed      atomic.Int64
 	binarySize    atomic.Int64
 	closed        atomic.Bool
@@ -81,7 +118,6 @@ func NewEvictableModule(
 		factory = defaultModuleFactory
 	}
 	m := &EvictableModule{
-		inner:         inner,
 		workflowID:    workflowID,
 		engineVersion: engineVersion,
 		moduleConfig:  moduleConfig,
@@ -89,6 +125,9 @@ func NewEvictableModule(
 		store:         store,
 		factory:       factory,
 		metrics:       cm,
+	}
+	if inner != nil {
+		m.current.Store(newModuleEntry(inner))
 	}
 	m.lastUsed.Store(time.Now().UnixNano())
 	// Set from the bytes used to build inner (and written by StoreModule) so eviction
@@ -100,21 +139,17 @@ func NewEvictableModule(
 }
 
 func (m *EvictableModule) Start() {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.inner != nil {
-		m.inner.Start()
+	if e := m.current.Load(); e != nil && e.tryAcquire() {
+		defer e.release()
+		e.mod.Start()
 	}
 	m.started.Store(true)
 }
 
 func (m *EvictableModule) Close() {
 	m.closed.Store(true)
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.inner != nil {
-		m.inner.Close()
-		m.inner = nil
+	if e := m.current.Swap(nil); e != nil {
+		e.release()
 	}
 }
 
@@ -123,16 +158,14 @@ func (m *EvictableModule) IsLegacyDAG() bool {
 }
 
 func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteRequest, handler host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-	// the fundamental issue is that Go's RWMutex can't upgrade RLock to WLock
-	// atomically. ensureLoaded and RLock acquisition cannot be atomic because
-	// ensureLoaded may need the write lock internally to reload. This opens a
-	// narrow window where Evict (called by the reaper under the write lock)
-	// can nil-out m.inner between ensureLoaded returning and us grabbing the
-	// RLock. The loop re-checks m.inner under the RLock and retries (bounded by
-	// executePinMaxAttempts) if it was evicted in that gap; each iteration also
-	// checks ctx so cancellation is not starved. Once pinned, RLock is held for
-	// the duration of inner.Execute.
-	var pinned host.ModuleV2
+	// Each loaded module is held behind a refcounted moduleEntry. Pinning is a
+	// CAS-conditional refcount increment: it succeeds only if the entry is still
+	// live (count > 0). Evict drops the owning ref atomically, so in-flight pins
+	// keep the entry alive until they release; the last release calls Close.
+	// ensureLoaded and pin are still not atomic, so we keep a bounded retry loop
+	// for the case where Evict fires between ensureLoaded returning and pin: each
+	// iteration also checks ctx so cancellation is not starved.
+	var pinned *moduleEntry
 	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -144,27 +177,22 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 			h(m)
 		}
 		m.lastUsed.Store(time.Now().UnixNano())
-		m.mu.RLock()
-		if m.inner != nil {
-			pinned = m.inner
+		if e := m.current.Load(); e != nil && e.tryAcquire() {
+			pinned = e
 			break
 		}
-		m.mu.RUnlock()
 	}
 	if pinned == nil {
 		return nil, fmt.Errorf("%w (workflow_id=%s attempts=%d)", ErrExecutePinExhausted, m.workflowID, executePinMaxAttempts)
 	}
-	defer m.mu.RUnlock()
-	return pinned.Execute(ctx, request, handler)
+	defer pinned.release()
+	return pinned.mod.Execute(ctx, request, handler)
 }
 
 func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
-	m.mu.RLock()
-	if m.inner != nil {
-		m.mu.RUnlock()
+	if m.current.Load() != nil {
 		return nil
 	}
-	m.mu.RUnlock()
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -172,7 +200,7 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	if m.closed.Load() {
 		return errors.New("module is permanently closed")
 	}
-	if m.inner != nil {
+	if m.current.Load() != nil {
 		return nil
 	}
 
@@ -227,26 +255,26 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	if m.started.Load() {
 		mod.Start()
 	}
-	m.inner = mod
+	m.current.Store(newModuleEntry(mod))
 	return nil
 }
 
-// Evict closes the inner module and frees its memory.
+// Evict drops the owning reference to the inner module. In-flight Execute calls
+// keep the entry alive via their pin; the last release closes the module. Evict
+// itself never blocks on an executing call.
 // A subsequent Execute call will reload from disk.
 func (m *EvictableModule) Evict() {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.inner != nil && !m.closed.Load() {
-		m.inner.Close()
-		m.inner = nil
+	if m.closed.Load() {
+		return
+	}
+	if e := m.current.Swap(nil); e != nil {
+		e.release()
 	}
 }
 
 // IsLoaded reports whether the inner module is currently in memory.
 func (m *EvictableModule) IsLoaded() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.inner != nil
+	return m.current.Load() != nil
 }
 
 // LastUsed returns the last time Execute was called (unix nanoseconds).
