@@ -53,7 +53,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260421142741-9c7fbaf7c828
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.18
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.21
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.22
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
