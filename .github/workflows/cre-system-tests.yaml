@@ -43,7 +43,6 @@ on:
       ecr:
         type: string
         required: true
-        default: "sdlc"
         description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for
           the Chainlink image."
       chainlink_version:
@@ -171,10 +170,10 @@ jobs:
       ENABLE_AUTO_QUARANTINE: "true"
       # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
       # Beholder stack will be started only for the Beholder tests
-      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+      CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION
         }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
-      CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+      CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION
         }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
       BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
