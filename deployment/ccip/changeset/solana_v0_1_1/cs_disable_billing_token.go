@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -38,7 +39,7 @@ func (cfg DisableBillingTokenConfig) Validate(e cldf.Environment, state statevie
 		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
 	}
 	if cfg.TokenMint.IsZero() {
-		return fmt.Errorf("token mint must be set")
+		return errors.New("token mint must be set")
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	if err := chainState.ValidateFeeQuoterConfig(chain); err != nil {
