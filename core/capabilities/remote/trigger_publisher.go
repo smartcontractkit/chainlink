@@ -149,14 +149,6 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 	}
 
 	batchingEnabled := config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod
-	p.lggr.Infow("SetConfig applied",
-		"maxBatchSize", config.MaxBatchSize,
-		"batchCollectionPeriod", config.BatchCollectionPeriod,
-		"batchingEnabled", batchingEnabled,
-		"messageExpiry", config.MessageExpiry,
-		"registrationRefresh", config.RegistrationRefresh,
-		"numWorkflowDONs", len(workflowDONs),
-	)
 
 	// always replace the whole dynamicPublisherConfig object to avoid inconsistent state
 	p.cfg.Store(&dynamicPublisherConfig{
