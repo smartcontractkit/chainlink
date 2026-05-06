@@ -199,6 +199,7 @@ func waitForForceFulfillment(t *testing.T,
 	requestID := req.requestID
 
 	// Wait for force-fulfillment to be queued.
+	// Use a longer timeout: the retry cycle (multiple reverts before success) can exceed DefaultWaitTimeout under parallel load.
 	require.Eventually(t, func() bool {
 		uni.backend.Commit()
 		commitment, err := coordinator.GetCommitment(nil, requestID)
@@ -206,7 +207,7 @@ func waitForForceFulfillment(t *testing.T,
 		t.Log("commitment is:", hexutil.Encode(commitment[:]), ", requestID: ", common.BigToHash(requestID).Hex())
 		checkForForceFulfilledEvent(t, th, req, sub, -1)
 		return utils.IsEmpty(commitment[:])
-	}, testutils.WaitTimeout(t), time.Second)
+	}, testutils.WaitTimeoutCustom(t, 90*time.Second), time.Second)
 
 	// Mine the fulfillment that was queued.
 	mineForceFulfilled(t, requestID, sub.subID, forceFulfilledCount, *uni, th.db)
@@ -229,7 +230,7 @@ func checkForForceFulfilledEvent(t *testing.T,
 	sub *vrfSub,
 	numForcedLogs int) {
 	requestID := req.requestID
-	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(nil, []*big.Int{requestID},
+	it, err := th.uni.vrfOwnerNew.FilterRandomWordsForced(indexedFilterOpts(t, th.uni.backend), []*big.Int{requestID},
 		[]uint64{sub.subID}, []common.Address{th.eoaConsumerAddr})
 	require.NoError(t, err)
 	i := 0

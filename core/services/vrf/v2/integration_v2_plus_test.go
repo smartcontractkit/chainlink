@@ -1133,14 +1133,23 @@ func setupSubscriptionAndFund(
 	consumerAddress common.Address,
 	linkAmount *big.Int,
 	nativeAmount *big.Int) *big.Int {
-	_, err := uni.rootContract.CreateSubscription(consumer)
+	tx, err := uni.rootContract.CreateSubscription(consumer)
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, nil)
+	receipt, err := uni.backend.Client().TransactionReceipt(testutils.Context(t), tx.Hash())
 	require.NoError(t, err)
-	require.True(t, iter.Next(), "could not find SubscriptionCreated event for subID")
-	subID := iter.Event().SubID()
+	require.Equal(t, uint64(1), receipt.Status)
+	var subID *big.Int
+	for _, log := range receipt.Logs {
+		if log.Address != uni.rootContractAddress {
+			continue
+		}
+		// SubscriptionCreated(uint64 indexed subId, address owner): Topics[1] = subId
+		subID = new(big.Int).SetBytes(log.Topics[1].Bytes())
+		break
+	}
+	require.NotNil(t, subID, "no SubscriptionCreated log from coordinator in CreateSubscription receipt")
 
 	_, err = consumerContract.SetSubID(consumer, subID)
 	require.NoError(t, err)

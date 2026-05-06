@@ -917,9 +917,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		wg                             sync.WaitGroup
 		nativeProcessed, linkProcessed map[string]struct{}
 	)
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		nativeProcessed = lsn.processRequestsPerSubHelper(
 			ctx,
 			subID,
@@ -928,9 +926,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			nativeRequests,
 			subIsActive,
 			true)
-	}()
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		linkProcessed = lsn.processRequestsPerSubHelper(
 			ctx,
 			subID,
@@ -939,7 +936,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			linkRequests,
 			subIsActive,
 			false)
-	}()
+	})
 	wg.Wait()
 	// combine the native and link processed requests into the processed map
 	maps.Copy(processed, nativeProcessed)

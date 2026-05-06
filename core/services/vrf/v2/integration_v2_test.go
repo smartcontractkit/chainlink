@@ -28,8 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/quarantine"
-
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -571,10 +569,7 @@ func createVRFJobs(
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job) {
 	ctx := testutils.Context(t)
-	if len(gasLanePrices) != len(fromKeys) {
-		t.Fatalf("must provide one gas lane price for each set of from addresses. len(gasLanePrices) != len(fromKeys) [%d != %d]",
-			len(gasLanePrices), len(fromKeys))
-	}
+	require.Len(t, gasLanePrices, len(fromKeys), "must provide one gas lane price for each set of from addresses")
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
 		var keyStrs []string
@@ -659,17 +654,26 @@ func requestRandomnessForWrapper(
 		numWords,
 	)
 	require.NoError(t, err)
-	uni.backend.Commit()
+	filterOpts := commitRequestAndFilterIndexBlock(t, uni.backend)
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
-	require.NoError(t, err, "could not filter RandomWordsRequested events")
+	// LogPoller indexes asynchronously; retry until the target block is available.
+	var iter v22.RandomWordsRequestedIterator
+	require.Eventually(t, func() bool {
+		var filterErr error
+		iter, filterErr = coordinator.FilterRandomWordsRequested(filterOpts, nil, []*big.Int{subID}, nil)
+		if filterErr != nil {
+			uni.backend.Commit()
+			return false
+		}
+		return true
+	}, testutils.WaitTimeout(t), time.Second, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
 	for iter.Next() {
 		events = append(events, iter.Event())
 	}
 
-	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(nil, nil)
+	wrapperIter, err := vrfWrapperConsumer.FilterWrapperRequestMade(filterOpts, nil)
 	require.NoError(t, err, "could not filter WrapperRequestMade events")
 
 	wrapperConsumerEvents := []*vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExampleWrapperRequestMade{}
@@ -716,10 +720,19 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 		nativePayment,
 	)
 	require.NoError(t, err)
-	backend.Commit()
+	filterOpts := commitRequestAndFilterIndexBlock(t, backend)
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
-	require.NoError(t, err, "could not filter RandomWordsRequested events")
+	// LogPoller indexes asynchronously; retry until the target block is available.
+	var iter v22.RandomWordsRequestedIterator
+	require.Eventually(t, func() bool {
+		var filterErr error
+		iter, filterErr = coordinator.FilterRandomWordsRequested(filterOpts, nil, []*big.Int{subID}, nil)
+		if filterErr != nil {
+			backend.Commit()
+			return false
+		}
+		return true
+	}, testutils.WaitTimeout(t), time.Second, "could not filter RandomWordsRequested events")
 
 	var events []v22.RandomWordsRequested
 	for iter.Next() {
@@ -739,6 +752,30 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.Equal(t, nativePayment, event.NativePayment())
 
 	return requestID, event.Raw().BlockNumber
+}
+
+func commitRequestAndFilterIndexBlock(t *testing.T, backend types.Backend) *bind.FilterOpts {
+	ctx := testutils.Context(t)
+	block, err := backend.Client().BlockByHash(ctx, backend.Commit())
+	require.NoError(t, err)
+	end := block.NumberU64()
+	// Geth's filter index reads end+1, so mine one more block and filter only
+	// through the request block.
+	backend.Commit()
+	return &bind.FilterOpts{Start: 0, End: &end, Context: ctx}
+}
+
+func indexedFilterOpts(t *testing.T, backend types.Backend) *bind.FilterOpts {
+	ctx := testutils.Context(t)
+	header, err := backend.Client().HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	if header.Number.Sign() == 0 {
+		return &bind.FilterOpts{Start: 0, Context: ctx}
+	}
+	// Geth's filter index reads end+1; latest-1 keeps the lookup bounded to an
+	// indexed block and avoids blocking simulated-backend mining loops.
+	end := header.Number.Uint64() - 1
+	return &bind.FilterOpts{Start: 0, End: &end, Context: ctx}
 }
 
 // subscribeAndAssertSubscriptionCreatedEvent subscribes the given consumer contract
@@ -929,7 +966,6 @@ func checkForReceipt(t *testing.T, db *sqlx.DB, txID int64) bool {
 }
 
 func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
-	quarantine.Flaky(t, "DX-1875")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1091,7 +1127,7 @@ func testEoa(
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
 
-	// Createa a new subscription.
+	// Create a new subscription.
 	subID := setupAndFundSubscriptionAndConsumer(
 		t,
 		uni,
