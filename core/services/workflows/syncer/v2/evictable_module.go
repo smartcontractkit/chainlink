@@ -186,12 +186,10 @@ func (m *EvictableModule) Close() {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// weakInner mirrors current while loaded and survives Evict, so it is the
-	// most up-to-date reference to the holder; if current is set, the holder
-	// can't have been reaped yet, so weakInner.Value will return it. We still
-	// need to drop the owning refcount that current was carrying.
+	// weakInner is the live holder (current is a strong subset of it). Drop
+	// the owning refcount and close via the holder; sync.Once makes the
+	// eventual cleanup-driven Close (after GC reaps the holder) a no-op.
 	h := m.weakInner.Value()
-	m.weakInner = weak.Pointer[loadedModule]{}
 	if strong := m.current.Swap(nil); strong != nil {
 		strong.release()
 	}
