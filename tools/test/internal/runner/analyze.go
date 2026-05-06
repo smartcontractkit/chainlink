@@ -184,56 +184,59 @@ func (a *aggregate) recordElapsed(iterIdx int, d time.Duration) {
 
 // scanIterationJSONL merges one iteration's JSONL stream into aggs at iterIdx.
 func scanIterationJSONL(r io.Reader, iterIdx int, aggs map[testKey]*aggregate) error {
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 || line[0] != '{' {
-			continue
-		}
-		var ev TestEvent
-		if err := json.Unmarshal(line, &ev); err != nil {
-			continue
-		}
-		key := testKey{Package: ev.Package, Test: ev.Test}
-		a := aggs[key]
-		if a == nil {
-			a = newAggregate()
-			aggs[key] = a
-		}
-		switch ev.Action {
-		case "pass":
-			a.passes++
-			a.iterations[iterIdx] = struct{}{}
-			d := seconds(ev.Elapsed)
-			a.recordElapsed(iterIdx, d)
-		case "fail":
-			a.fails++
-			a.iterations[iterIdx] = struct{}{}
-			a.failedIters[iterIdx] = true
-			d := seconds(ev.Elapsed)
-			a.recordElapsed(iterIdx, d)
-		case "skip":
-			a.skips++
-			a.iterations[iterIdx] = struct{}{}
-			a.skipIters[iterIdx] = true
-			d := seconds(ev.Elapsed)
-			a.recordElapsed(iterIdx, d)
-		case "output":
-			if strings.Contains(ev.Output, timeoutPanic) {
-				a.timedOut = true
-				a.iterations[iterIdx] = struct{}{}
-				a.timeoutIters[iterIdx] = true
+	reader := bufio.NewReaderSize(r, 1024*1024)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			if line[0] == '{' {
+				var ev TestEvent
+				if json.Unmarshal(line, &ev) == nil {
+					key := testKey{Package: ev.Package, Test: ev.Test}
+					a := aggs[key]
+					if a == nil {
+						a = newAggregate()
+						aggs[key] = a
+					}
+					switch ev.Action {
+					case "pass":
+						a.passes++
+						a.iterations[iterIdx] = struct{}{}
+						d := seconds(ev.Elapsed)
+						a.recordElapsed(iterIdx, d)
+					case "fail":
+						a.fails++
+						a.iterations[iterIdx] = struct{}{}
+						a.failedIters[iterIdx] = true
+						d := seconds(ev.Elapsed)
+						a.recordElapsed(iterIdx, d)
+					case "skip":
+						a.skips++
+						a.iterations[iterIdx] = struct{}{}
+						a.skipIters[iterIdx] = true
+						d := seconds(ev.Elapsed)
+						a.recordElapsed(iterIdx, d)
+					case "output":
+						if strings.Contains(ev.Output, timeoutPanic) {
+							a.timedOut = true
+							a.iterations[iterIdx] = struct{}{}
+							a.timeoutIters[iterIdx] = true
+						}
+						buf := a.outputs[iterIdx]
+						if buf == nil {
+							buf = &strings.Builder{}
+							a.outputs[iterIdx] = buf
+						}
+						buf.WriteString(ev.Output)
+					}
+				}
 			}
-			buf := a.outputs[iterIdx]
-			if buf == nil {
-				buf = &strings.Builder{}
-				a.outputs[iterIdx] = buf
-			}
-			buf.WriteString(ev.Output)
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("reading iteration %d: %w", iterIdx, err)
+		if err != nil {
+			if err != io.EOF {
+				return fmt.Errorf("reading iteration %d: %w", iterIdx, err)
+			}
+			break
+		}
 	}
 	return nil
 }
@@ -664,6 +667,7 @@ func (r csvRow) record() []string {
 
 // flaggedRows builds the deduped CSV row set. A test in both Flakes and Slow
 // is categorized as "flake" (primary signal wins over "slow").
+// The implicit category precedence rule is: Timeout > Failure > Flake > Slow.
 func flaggedRows(rep *Report) []csvRow {
 	seen := map[testKey]struct{}{}
 	var rows []csvRow
@@ -1043,22 +1047,26 @@ func parseRunningTests(output string) []string {
 	}
 	var names []string
 	for line := range strings.SplitSeq(tail, "\n") {
-		trim := strings.TrimLeft(line, "\t ")
-		if trim == "" {
-			if len(names) == 0 {
-				continue
-			}
+		if strings.HasPrefix(line, "goroutine ") {
 			break
+		}
+		trim := strings.TrimSpace(line)
+		if trim == "" {
+			continue
 		}
 		open := strings.LastIndex(trim, " (")
-		if open < 0 || !strings.HasSuffix(trim, ")") {
-			break
+		if open > 0 {
+			trim = strings.TrimSpace(trim[:open])
 		}
-		name := trim[:open]
-		if name == "" {
-			break
+		if strings.Contains(trim, " ") {
+			if len(names) > 0 {
+				break
+			}
+			continue
 		}
-		names = append(names, name)
+		if trim != "" {
+			names = append(names, trim)
+		}
 	}
 	return names
 }

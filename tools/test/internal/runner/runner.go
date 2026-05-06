@@ -306,66 +306,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	var wg sync.WaitGroup
 	for _, resource := range resources {
 		wg.Go(func() {
-			used := false
-			for iteration := range jobs {
-				if runCtx.Err() != nil {
-					return
-				}
-				if used && resource.Reset != nil {
-					if err := resource.Reset(runCtx); err != nil {
-						if runCtx.Err() != nil {
-							return
-						}
-						select {
-						case results <- diagnoseIterationResult{iteration: iteration, fatalErr: fmt.Errorf("reset database before iteration %d: %w", iteration, err)}:
-						case <-runCtx.Done():
-						}
-						cancel()
-						return
-					}
-				}
-				used = true
-				var seed int64
-				if conf.Shuffle {
-					seed = hooks.seed()
-				}
-				iterStart := time.Now()
-				iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart)
-				iterDur := time.Since(iterStart)
-				var dumpErr error
-				if resource.DumpDiagnostics != nil {
-					dumpErr = resource.DumpDiagnostics(runCtx, resultsDir, iteration)
-				}
-				failedFast, failReason := shouldFailFastIteration(conf, resultsDir, iteration, iterErr)
-				failedFast = failedFast && runCtx.Err() == nil
-				if failedFast {
-					cancel()
-				}
-				select {
-				case results <- diagnoseIterationResult{
-					iteration:  iteration,
-					duration:   iterDur,
-					shuffle:    seed,
-					iterErr:    iterErr,
-					dumpErr:    dumpErr,
-					failedFast: failedFast,
-					failReason: failReason,
-				}:
-				case <-runCtx.Done():
-					if failedFast {
-						results <- diagnoseIterationResult{
-							iteration:  iteration,
-							duration:   iterDur,
-							shuffle:    seed,
-							iterErr:    iterErr,
-							dumpErr:    dumpErr,
-							failedFast: true,
-							failReason: failReason,
-						}
-					}
-					return
-				}
-			}
+			executeSingleIteration(runCtx, conf, out, resultsDir, goTestArgs, resource, hooks, parallel, parallelProgress, diagnoseRunStart, jobs, results, cancel)
 		})
 	}
 
@@ -418,6 +359,69 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 		}
 	}
 	return state, firstErr
+}
+
+func executeSingleIteration(runCtx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resource diagnoseIterationResource, hooks diagnoseRunHooks, parallel int, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, jobs <-chan int, results chan<- diagnoseIterationResult, cancel context.CancelFunc) {
+	used := false
+	for iteration := range jobs {
+		if runCtx.Err() != nil {
+			return
+		}
+		if used && resource.Reset != nil {
+			if err := resource.Reset(runCtx); err != nil {
+				if runCtx.Err() != nil {
+					return
+				}
+				select {
+				case results <- diagnoseIterationResult{iteration: iteration, fatalErr: fmt.Errorf("reset database before iteration %d: %w", iteration, err)}:
+				case <-runCtx.Done():
+				}
+				cancel()
+				return
+			}
+		}
+		used = true
+		var seed int64
+		if conf.Shuffle {
+			seed = hooks.seed()
+		}
+		iterStart := time.Now()
+		iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart)
+		iterDur := time.Since(iterStart)
+		var dumpErr error
+		if resource.DumpDiagnostics != nil {
+			dumpErr = resource.DumpDiagnostics(runCtx, resultsDir, iteration)
+		}
+		failedFast, failReason := shouldFailFastIteration(conf, resultsDir, iteration, iterErr)
+		failedFast = failedFast && runCtx.Err() == nil
+		if failedFast {
+			cancel()
+		}
+		select {
+		case results <- diagnoseIterationResult{
+			iteration:  iteration,
+			duration:   iterDur,
+			shuffle:    seed,
+			iterErr:    iterErr,
+			dumpErr:    dumpErr,
+			failedFast: failedFast,
+			failReason: failReason,
+		}:
+		case <-runCtx.Done():
+			if failedFast {
+				results <- diagnoseIterationResult{
+					iteration:  iteration,
+					duration:   iterDur,
+					shuffle:    seed,
+					iterErr:    iterErr,
+					dumpErr:    dumpErr,
+					failedFast: true,
+					failReason: failReason,
+				}
+			}
+			return
+		}
+	}
 }
 
 func shouldFailFastIteration(conf *config.App, resultsDir string, iteration int, iterErr error) (bool, string) {
@@ -724,22 +728,25 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	var readWG sync.WaitGroup
 	var scanErr error
 	readWG.Go(func() {
-		sc := bufio.NewScanner(pr)
-		sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-		for sc.Scan() {
-			line := sc.Bytes()
-			out := make([]byte, len(line)+1)
-			copy(out, line)
-			out[len(line)] = '\n'
-			if _, werr := sw.Write(out); werr != nil {
+		r := bufio.NewReaderSize(pr, 1024*1024)
+		for {
+			line, err := r.ReadBytes('\n')
+			if len(line) > 0 {
+				if _, werr := sw.Write(line); werr != nil {
+					break
+				}
+				completedIncreased := prog.onTestJSONLine(line)
+				if completedIncreased && !live {
+					redraw(false)
+				}
+			}
+			if err != nil {
+				if err != io.EOF {
+					scanErr = err
+				}
 				break
 			}
-			completedIncreased := prog.onTestJSONLine(line)
-			if completedIncreased && !live {
-				redraw(false)
-			}
 		}
-		scanErr = sc.Err()
 	})
 
 	tickDone := make(chan struct{})

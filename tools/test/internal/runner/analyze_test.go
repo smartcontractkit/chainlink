@@ -35,16 +35,19 @@ func TestAnalyzePackageLevelTimeoutIterationSummary(t *testing.T) {
 	assert.Equal(t, "timeout", rep.IterationSummaries[0].Result)
 }
 
-func TestAnalyzeLineExceedsDefaultScannerLimit(t *testing.T) {
+func TestAnalyzeHandlesLongLines(t *testing.T) {
 	t.Parallel()
-	// bufio.Scanner default max token is bufio.MaxScanTokenSize (64 KiB).
+	// Create a line that exceeds bufio.MaxScanTokenSize (64 KiB).
 	over := strings.Repeat("x", bufio.MaxScanTokenSize+1) + "\n"
 	iter := `{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}` + "\n" + over +
 		`{"Action":"pass","Package":"p","Test":"T2","Elapsed":0.01}` + "\n"
-	_, _, err := Analyze(readers(iter), 30*time.Second)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "reading iteration 0")
-	require.ErrorIs(t, err, bufio.ErrTooLong, "want bufio.ErrTooLong wrapped in analyze error")
+	rep, _, err := Analyze(readers(iter), 30*time.Second)
+	require.NoError(t, err)
+	require.NotNil(t, rep)
+	require.Len(t, rep.IterationSummaries, 1)
+	assert.Equal(t, "pass", rep.IterationSummaries[0].Result)
+	assert.NotNil(t, rep.Summary)
+	assert.Equal(t, 2, rep.Summary.DistinctNamedTests)
 }
 
 func TestAnalyzeBuildErrorsInterleavedWithJSONL(t *testing.T) {
@@ -63,6 +66,85 @@ badpkg.go:1:2: undefined: MissingType
 	require.Len(t, rep.IterationSummaries, 1)
 	assert.Equal(t, "fail", rep.IterationSummaries[0].Result)
 	assert.Equal(t, []string{"example.com/badpkg"}, rep.IterationSummaries[0].FailingTests)
+}
+
+func TestAnalyzeTestdataFiles(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		file         string
+		wantResult   string
+		wantFailPkg  int
+		wantFailTest []string
+		wantTimeouts []string
+	}{
+		{
+			name:         "build failure",
+			file:         "build-failure.log.jsonl",
+			wantResult:   "fail",
+			wantFailPkg:  1,
+			wantFailTest: nil,
+			wantTimeouts: nil,
+		},
+		{
+			name:         "panic",
+			file:         "panic.log.jsonl",
+			wantResult:   "fail",
+			wantFailPkg:  1, // package-level failure
+			wantFailTest: []string{"TestPanic", "TestPanic/test5"},
+			wantTimeouts: nil,
+		},
+		{
+			name:         "timeout",
+			file:         "timeout.log.jsonl",
+			wantResult:   "timeout",
+			wantFailPkg:  1, // package-level failure
+			wantFailTest: nil,
+			wantTimeouts: []string{"TestTimeout/test5"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f, err := os.Open(filepath.Join("testdata", tc.file))
+			require.NoError(t, err)
+			defer f.Close()
+
+			rep, _, err := Analyze([]io.Reader{f}, 30*time.Second)
+			require.NoError(t, err)
+
+			require.Len(t, rep.IterationSummaries, 1)
+			assert.Equal(t, tc.wantResult, rep.IterationSummaries[0].Result)
+
+			if tc.wantResult == "fail" && len(tc.wantFailTest) > 0 {
+				assert.ElementsMatch(t, tc.wantFailTest, rep.IterationSummaries[0].FailingTests)
+			} else if tc.wantResult == "fail" && len(tc.wantFailTest) == 0 && tc.wantFailPkg > 0 {
+				// build failure typically puts package name in FailingTests
+				require.NotEmpty(t, rep.IterationSummaries[0].FailingTests)
+				assert.Contains(t, rep.IterationSummaries[0].FailingTests[0], "github.com/smartcontractkit/chainlink")
+			}
+
+			var failTests []string
+			var failPkgs int
+			for _, fail := range rep.Failures {
+				if fail.Test == "" {
+					failPkgs++
+				} else {
+					failTests = append(failTests, fail.Test)
+				}
+			}
+			assert.Equal(t, tc.wantFailPkg, failPkgs, "package level failures")
+			assert.ElementsMatch(t, tc.wantFailTest, failTests, "test level failures")
+
+			var timeoutTests []string
+			for _, to := range rep.Timeouts {
+				timeoutTests = append(timeoutTests, to.Test)
+			}
+			assert.ElementsMatch(t, tc.wantTimeouts, timeoutTests, "timeouts")
+		})
+	}
 }
 
 func TestAnalyzePackageLevelFailureIterationSummary(t *testing.T) {
