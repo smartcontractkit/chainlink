@@ -17735,6 +17735,7 @@ DualBroadcast = false # Example
 ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
 FastlaneAuctionRequestTimeout = '5s' # Example
+FeeBoost = false # Default
 ```
 
 
@@ -17779,6 +17780,12 @@ Bundles enables Bundles functionality for SVR.
 FastlaneAuctionRequestTimeout = '5s' # Example
 ```
 FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
+
+### FeeBoost
+```toml
+FeeBoost = false # Default
+```
+FeeBoost enables node to immediately boost txs to the max gas price configured
 
 ## EVM.BalanceMonitor
 ```toml

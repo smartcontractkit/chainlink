@@ -179,6 +179,7 @@ func SetupTestEnvironment(
 		input.NodeSets,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
+		input.ChipRouterInput.Out.InternalGRPCURL,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
