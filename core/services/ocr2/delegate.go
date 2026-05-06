@@ -626,6 +626,15 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
+func AdjustLocalConfigForRegistryBasedConfig(lc ocrtypes.LocalConfig) ocrtypes.LocalConfig {
+	// block confirmations are irrelevant when using registry-based config
+	// this also works with legacy config contracts, simply doesn't wait for extra confirmations
+	lc.SkipContractConfigConfirmations = true
+	// poll frequently to react to config changes quickly
+	lc.ContractConfigTrackerPollInterval = 5 * time.Second
+	return lc
+}
+
 func (d *Delegate) newServicesVaultPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -754,6 +763,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
+
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
 	}
 
@@ -848,6 +858,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get DKG config digester from OCRConfigService: %w", err)
 		}
+		lc = AdjustLocalConfigForRegistryBasedConfig(lc)
 		lggr.Infow("Using dynamic OCR config from registry for DKG", "capabilityID", vaultCapabilityID, "ocrConfigKey", dkgOCRConfigKey)
 	}
 
@@ -969,6 +980,7 @@ func (d *Delegate) newDonTimePlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
+		lc = AdjustLocalConfigForRegistryBasedConfig(lc)
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
 	}
 
