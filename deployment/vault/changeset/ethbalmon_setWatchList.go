@@ -7,7 +7,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartco ntractkit/mcms"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
+	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
