@@ -151,10 +151,10 @@ type SetKeeperRegistryOperationInput struct {
 }
 
 type SetKeeperRegistryOperationOutput struct {
-	ChainSelector   uint64
-	BatchOperation  mcmstypes.BatchOperation
-	TimelockAddress string
-	MCMSAddress     string
+	ChainSelector   uint64                   `json:"chain_selector"`
+	BatchOperation  mcmstypes.BatchOperation `json:"batch_operation"`
+	TimelockAddress string                   `json:"timelock_address"`
+	MCMSAddress     string                   `json:"mcms_address"`
 }
 
 var SetKeeperRegistryOperation = operations.NewOperation(

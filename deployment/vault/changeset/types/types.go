@@ -4,6 +4,7 @@ package types
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -100,4 +101,13 @@ type SetKeeperRegistryChainConfig struct {
 
 type EthBalMonSetKeeperRegistryAddressInput struct {
 	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
+}
+
+type EthBalMonSetWatchListChainConfig struct {
+	Addresses       []common.Address `json:"addresses"`
+	MinBalancesWei  []big.Int        `json:"min_balance_wei"`
+	TopUpAmountsWei []big.Int        `json:"topup_amounts_wei"`
+}
+type EthBalMonSetWatchListInput struct {
+	Chains map[uint64]EthBalMonSetWatchListChainConfig `json:"chains"`
 }
