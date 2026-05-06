@@ -291,7 +291,7 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 				RegistrationExpiry:      2 * time.Hour,
 				MinResponsesToAggregate: 1,
 				MessageExpiry:           time.Hour,
-				MaxBatchSize:            1,
+				MaxBatchSize:            100,
 				BatchCollectionPeriod:   time.Second,
 			}
 
@@ -336,19 +336,21 @@ func TestRegistrationCheckTrafficVolume(t *testing.T) {
 			snap := dispatcher.Snapshot()
 			checkCount := snap[remotetypes.MethodTriggerRegistrationCheck]
 
-			// The publisher batches all registrations into one message per
-			// workflow DON peer, regardless of N.
-			expectedChecks := int64(tc.workflowDonSize)
-			t.Logf("Registrations: %d, WorkflowDON peers: %d", tc.nRegistrations, tc.workflowDonSize)
-			t.Logf("Expected check sends: %d, Actual: %d", expectedChecks, checkCount)
+			// With MaxBatchSize=100, each registration-check tick sends ceil(N/100) messages per
+			// workflow-DON peer (chunked metadata), not one giant payload.
+			chunksPerTick := (tc.nRegistrations + 99) / 100
+			minPerFullTick := int64(chunksPerTick * tc.workflowDonSize)
+
+			t.Logf("Registrations: %d, WorkflowDON peers: %d, chunksPerTick: %d", tc.nRegistrations, tc.workflowDonSize, chunksPerTick)
+			t.Logf("Expected min (>= one tick): %d, Actual: %d", minPerFullTick, checkCount)
 			t.Logf("Full snapshot: %v", snap)
 
-			// Allow multiple ticks (the timer may fire more than once in 200ms)
-			require.GreaterOrEqual(t, checkCount, expectedChecks,
-				"publisher should send at least workflowDonMembers TriggerRegistrationCheck messages per tick")
-			// But it should scale with peers, not registrations
-			require.Less(t, checkCount, int64(tc.nRegistrations),
-				"registration check traffic must NOT scale with number of registrations")
+			// Allow multiple ticks in the 200ms window (50ms refresh → several ticks).
+			require.GreaterOrEqual(t, checkCount, minPerFullTick,
+				"publisher should send at least chunksPerTick*peers TriggerRegistrationCheck messages per tick")
+			// Total sends stay far below one message per registration (worst case would be N×peers).
+			require.Less(t, checkCount, int64(tc.nRegistrations*tc.workflowDonSize),
+				"registration check traffic must remain far below per-registration fan-out")
 		})
 	}
 }
@@ -390,7 +392,7 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 		RegistrationExpiry:      2 * time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
-		MaxBatchSize:            1,
+		MaxBatchSize:            100,
 		BatchCollectionPeriod:   time.Second,
 	}
 	workflowDONs := map[uint32]commoncap.DON{workflowDon.ID: workflowDon}
@@ -609,7 +611,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		RegistrationExpiry:      2 * time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
-		MaxBatchSize:            1,
+		MaxBatchSize:            100,
 		BatchCollectionPeriod:   time.Second,
 	}
 	wfDONs := map[uint32]commoncap.DON{wfDon.ID: wfDon}
@@ -655,7 +657,7 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		RegistrationExpiry:      2 * time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
-		MaxBatchSize:            1,
+		MaxBatchSize:            100,
 		BatchCollectionPeriod:   time.Second,
 	}
 	require.NoError(t, pub2.SetConfig(evCfg, underEv, capDon, wfDONs))

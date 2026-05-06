@@ -539,11 +539,6 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 		if chunkSize < 1 {
 			chunkSize = commoncap.DefaultBatchSize
 		}
-		// MaxBatchSize == 1 uses a single registration-check message per DON peer per tick with all IDs,
-		// matching pre-chunking behavior and keeping P2P volume O(peers), not O(peers × registrations).
-		if chunkSize == 1 {
-			chunkSize = len(keys)
-		}
 
 		don, ok := cfg.workflowDONs[callerDonID]
 		if !ok {

@@ -586,15 +586,15 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 	workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: []p2ptypes.PeerID{peers[1]}, F: 0}
 	workflowDONs := map[uint32]commoncap.DON{workflowDonInfo.ID: workflowDonInfo}
 
-	const chunkSize uint32 = 10
-	const nRegs = 25
+	const maxBatchSize uint32 = 100
+	const nRegs = 250
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
 		RegistrationExpiry:      100 * time.Second,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
-		MaxBatchSize:            chunkSize,
+		MaxBatchSize:            maxBatchSize,
 		BatchCollectionPeriod:   time.Second,
 	}
 
@@ -623,19 +623,22 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 		<-underlying.registrationsCh
 	}
 
+	// 250 registrations at MaxBatchSize=100 → chunk lengths 100, 100, 50 per tick per peer.
 	require.Eventually(t, func() bool {
 		mu.Lock()
 		defer mu.Unlock()
-		var has10, has5 bool
+		var has100, has50 bool
+		var n100 int
 		for _, n := range chunkLens {
-			if n == 10 {
-				has10 = true
+			if n == 100 {
+				has100 = true
+				n100++
 			}
-			if n == 5 {
-				has5 = true
+			if n == 50 {
+				has50 = true
 			}
 		}
-		return has10 && has5 && len(chunkLens) >= 3
+		return has100 && has50 && n100 >= 2 && len(chunkLens) >= 3
 	}, 3*time.Second, 20*time.Millisecond)
 
 	require.NoError(t, publisher.Close())
