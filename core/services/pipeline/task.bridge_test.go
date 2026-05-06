@@ -787,7 +787,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
 		assert.NoError(t, err)
-		assert.InDelta(t, float64(10), req.Meta["latestAnswer"], 0)
+		assert.InEpsilon(t, float64(10), req.Meta["latestAnswer"], 0)
 		assert.InDelta(t, float64(1616447984), req.Meta["updatedAt"], 0)
 		w.Header().Set("Content-Type", "application/json")
 		assert.NoError(t, json.NewEncoder(w).Encode(empty))

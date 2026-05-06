@@ -349,7 +349,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
 			bt.httpClient = r.unrestrictedHTTPClient
-			bt.requiredJSONPaths = RequiredJSONPathsFromBridge(bt)
+			bt.requiredJSONPaths = bt.getRequiredJSONPaths()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config

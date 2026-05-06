@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestingSetBridgeRequiredJSONPaths sets required JSON paths on a bridge task
+// for tests in external test packages (e.g. pipeline_test).
+func TestingSetBridgeRequiredJSONPaths(t *BridgeTask, paths [][]string) {
+	t.requiredJSONPaths = paths
+}
+
 func TestRequiredJSONPathsFromBridge_DirectEdge(t *testing.T) {
 	t.Parallel()
 
@@ -27,7 +33,7 @@ b -> p;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Equal(t, [][]string{{"data", "result"}}, paths)
 }
 
@@ -50,7 +56,7 @@ p [type=jsonparse path="a,b" data="$(b)"];
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Equal(t, [][]string{{"a", "b"}}, paths)
 }
 
@@ -74,7 +80,7 @@ b -> p;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Equal(t, [][]string{{"a", "b", "c"}}, paths)
 }
 
@@ -98,7 +104,7 @@ b -> p;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Nil(t, paths)
 }
 
@@ -122,7 +128,7 @@ b -> p;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Nil(t, paths)
 }
 
@@ -151,8 +157,8 @@ b1 -> p;
 	require.NotNil(t, b0)
 	require.NotNil(t, b1)
 
-	require.Equal(t, [][]string{{"only", "b0"}}, RequiredJSONPathsFromBridge(b0))
-	require.Nil(t, RequiredJSONPathsFromBridge(b1))
+	require.Equal(t, [][]string{{"only", "b0"}}, b0.getRequiredJSONPaths())
+	require.Nil(t, b1.getRequiredJSONPaths())
 }
 
 func TestRequiredJSONPathsFromBridge_DedupesPaths(t *testing.T) {
@@ -177,7 +183,7 @@ b -> p2;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Equal(t, [][]string{{"data", "result"}}, paths)
 }
 
@@ -201,7 +207,7 @@ b -> p;
 	}
 	require.NotNil(t, bt)
 
-	paths := RequiredJSONPathsFromBridge(bt)
+	paths := bt.getRequiredJSONPaths()
 	require.Nil(t, paths)
 }
 
@@ -315,7 +321,7 @@ func TestJSONDecodeValidateRequiredPaths(t *testing.T) {
 
 func TestRequiredJSONPathsFromBridge_NilTask(t *testing.T) {
 	t.Parallel()
-	require.Nil(t, RequiredJSONPathsFromBridge(nil))
+	require.Nil(t, ((*BridgeTask)(nil)).getRequiredJSONPaths())
 }
 
 func TestParseBridgeTask_CheckRequired(t *testing.T) {
