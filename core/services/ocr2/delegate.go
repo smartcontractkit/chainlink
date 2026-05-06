@@ -626,15 +626,6 @@ type connProvider interface {
 	ClientConn() grpc.ClientConnInterface
 }
 
-func AdjustLocalConfigForRegistryBasedConfig(lc ocrtypes.LocalConfig) ocrtypes.LocalConfig {
-	// block confirmations are irrelevant when using registry-based config
-	// this also works with legacy config contracts, simply doesn't wait for extra confirmations
-	lc.SkipContractConfigConfirmations = true
-	// poll frequently to react to config changes quickly
-	lc.ContractConfigTrackerPollInterval = 5 * time.Second
-	return lc
-}
-
 func (d *Delegate) newServicesVaultPlugin(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
@@ -754,6 +745,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	// Get config tracker and digester, optionally wrapping with OCRConfigService
 	configTracker := provider.ContractConfigTracker()
 	configDigester := provider.OffchainConfigDigester()
+	vaultPluginLocalConfig := lc
 	if d.ocrConfigService != nil {
 		configTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, vaultOCRConfigKey, configTracker)
 		if err != nil {
@@ -763,7 +755,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
-		lc = AdjustLocalConfigForRegistryBasedConfig(lc)
+		vaultPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(vaultPluginLocalConfig)
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
 	}
 
@@ -778,7 +770,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
-		LocalConfig:             lc,
+		LocalConfig:             vaultPluginLocalConfig,
 		Logger:                  ocrLogger,
 		MonitoringEndpoint:      oracleEndpoint,
 		OffchainConfigDigester:  configDigester,
@@ -849,6 +841,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
 	dkgConfigTracker := dkgProvider.ContractConfigTracker()
 	dkgConfigDigester := dkgProvider.OffchainConfigDigester()
+	dkgPluginLocalConfig := lc
 	if d.ocrConfigService != nil {
 		dkgConfigTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, dkgOCRConfigKey, dkgConfigTracker)
 		if err != nil {
@@ -858,7 +851,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get DKG config digester from OCRConfigService: %w", err)
 		}
-		lc = AdjustLocalConfigForRegistryBasedConfig(lc)
+		dkgPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(dkgPluginLocalConfig)
 		lggr.Infow("Using dynamic OCR config from registry for DKG", "capabilityID", vaultCapabilityID, "ocrConfigKey", dkgOCRConfigKey)
 	}
 
@@ -868,7 +861,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		dkgConfigTracker,
 		ocrDB,
 		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
-		lc,
+		dkgPluginLocalConfig,
 		dkgOcrLogger,
 		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),
 		dkgOracleEndpoint,
@@ -980,7 +973,7 @@ func (d *Delegate) newDonTimePlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
-		lc = AdjustLocalConfigForRegistryBasedConfig(lc)
+		lc = generic.AdjustLocalConfigForRegistryBasedConfig(lc)
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
 	}
 
