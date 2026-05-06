@@ -793,10 +793,11 @@ func formatFlakyTestLine(e TestEntry) string {
 	if runs < 1 {
 		runs = 1
 	}
+	pct := flakeFailRatio(e) * 100
 	if e.Test == "" {
-		return fmt.Sprintf("%s (%d/%d)", e.Package, e.Fails, runs)
+		return fmt.Sprintf("%s (%d/%d) %.1f%%", e.Package, e.Fails, runs, pct)
 	}
-	return fmt.Sprintf("%s (%d/%d)", e.Test, e.Fails, runs)
+	return fmt.Sprintf("%s (%d/%d) %.1f%%", e.Test, e.Fails, runs, pct)
 }
 
 func formatTimeoutTestLine(e TestEntry) string {

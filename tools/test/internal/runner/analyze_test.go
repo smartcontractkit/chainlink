@@ -668,8 +668,8 @@ func TestPrintSummaryPackageLevelFlakeDoesNotPrintPackageAsTest(t *testing.T) {
 	PrintSummary(&buf, rep)
 	out := buf.String()
 	assert.Contains(t, out, "Flaky (2)")
-	assert.Contains(t, out, "|-- v2/ (4/50)")
-	assert.Contains(t, out, "|---- TestVRFV2Integration_SingleConsumer_ForceFulfillment (1/48)")
+	assert.Contains(t, out, "|-- v2/ (4/50) 8.0%")
+	assert.Contains(t, out, "|---- TestVRFV2Integration_SingleConsumer_ForceFulfillment (1/48) 2.1%")
 	assert.NotContains(t, out, "|---- github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2")
 }
 
