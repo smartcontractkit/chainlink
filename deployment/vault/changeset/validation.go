@@ -11,8 +11,9 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	evmstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"

@@ -39,10 +39,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
@@ -527,6 +527,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		workflowORM    = workflowstore.NewInMemoryStore(globalLogger, clockwork.NewRealClock())
 	)
 	srvcs = append(srvcs, workflowORM)
+
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM))
+	srvcs = append(srvcs, &nodePlatformJobInfo)
 
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))

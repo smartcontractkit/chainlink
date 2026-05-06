@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/stretchr/testify/require"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -84,7 +84,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, addresses, 5)
 
-	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsState, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	v, err := mcmsState.GenerateMCMSWithTimelockView()

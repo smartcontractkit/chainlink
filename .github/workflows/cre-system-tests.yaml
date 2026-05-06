@@ -4,7 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        description: "ECR repository name used to compose image with chainlink_image_tag
+          (for example: chainlink-integration-tests or chainlink or
+          chainlink/chainlink)."
         required: true
         type: string
       chainlink_image_tag:
@@ -18,16 +20,20 @@ on:
           - "sdlc"
           - "public"
         default: "sdlc"
-        description: "Whether to use the SDLC or public ECR registry for the Chainlink image."
+        description: "Whether to use the SDLC or public ECR registry for the Chainlink
+          image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        description: "The version of Chainlink repository to use for the tests. If
+          empty, defaults to github.sha."
         default: ""
   workflow_call:
     inputs:
       chainlink_image_repository_path:
-        description: "ECR repository name used to compose image with chainlink_image_tag (for example: chainlink-integration-tests or chainlink or chainlink/chainlink)."
+        description: "ECR repository name used to compose image with chainlink_image_tag
+          (for example: chainlink-integration-tests or chainlink or
+          chainlink/chainlink)."
         required: true
         type: string
       chainlink_image_tag:
@@ -37,17 +43,19 @@ on:
       ecr:
         type: string
         required: true
-        default: "sdlc"
-        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for the Chainlink image."
+        description: "Whether to use the SDLC (sdlc) or public ECR registry (public) for
+          the Chainlink image."
       chainlink_version:
         required: false
         type: string
-        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        description: "The version of Chainlink repository to use for the tests. If
+          empty, defaults to github.sha."
         default: ""
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id
+      }}/cpu=8/ram=32/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -156,10 +164,12 @@ jobs:
       fail-fast: false
       matrix:
         tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
-    needs: [define-test-matrix]
+    needs: [ define-test-matrix ]
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
-    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{ github.run_attempt }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
+      github.run_attempt
+      }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
@@ -169,9 +179,14 @@ jobs:
       ENABLE_AUTO_QUARANTINE: "true"
       # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
       # Beholder stack will be started only for the Beholder tests
-      CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
-      CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
-      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
+      CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+        secrets.QA_AWS_REGION
+        }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+      CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+        secrets.QA_AWS_REGION
+        }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+      BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+        secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -205,7 +220,8 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@183a1442edf41672e66566b7fc560e297a290896 # v2.1.1
         with:
-          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
+            secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
@@ -250,9 +266,11 @@ jobs:
         shell: bash
         id: start-local-cre
         env:
-          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
-          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           CTF_CONFIGS: ${{ matrix.tests.configs }}
           CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
@@ -353,7 +371,8 @@ jobs:
             echo "tests_result=✅ Tests passed" >> $GITHUB_OUTPUT
           fi
 
-      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
+      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
+          }})
         if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:

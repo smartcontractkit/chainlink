@@ -6,9 +6,9 @@ import (
 	"slices"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -18,7 +18,7 @@ var _ cldf.ViewStateV2 = Vault
 type VaultView struct {
 	TimelockBalances     map[uint64]*types.TimelockNativeBalanceInfo `json:"timelock_balances"`
 	WhitelistedAddresses map[uint64][]changeset.WhitelistEntry       `json:"whitelisted_addresses"`
-	MCMSWithTimelock     map[uint64]v1_0.MCMSWithTimelockView        `json:"mcms_with_timelock,omitempty"`
+	MCMSWithTimelock     map[uint64]mcmsv10.MCMSWithTimelockView     `json:"mcms_with_timelock,omitempty"`
 }
 
 func (v *VaultView) MarshalJSON() ([]byte, error) {
@@ -52,7 +52,7 @@ func Vault(e cldf.Environment, _ json.Marshaler) (json.Marshaler, error) {
 func GenerateVaultView(e cldf.Environment, chainSelectors []uint64) (*VaultView, error) {
 	view := &VaultView{
 		WhitelistedAddresses: make(map[uint64][]changeset.WhitelistEntry),
-		MCMSWithTimelock:     make(map[uint64]v1_0.MCMSWithTimelockView),
+		MCMSWithTimelock:     make(map[uint64]mcmsv10.MCMSWithTimelockView),
 	}
 
 	balances, err := changeset.GetTimelockBalances(e, chainSelectors)
@@ -67,7 +67,7 @@ func GenerateVaultView(e cldf.Environment, chainSelectors []uint64) (*VaultView,
 	}
 	view.WhitelistedAddresses = addresses
 
-	mcmsStates, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
+	mcmsStates, err := evmstate.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
 	if err != nil {
 		e.Logger.Warnf("Failed to load MCMS state (this may be expected if MCMS is not deployed): %v", err)
 	} else {

@@ -13,6 +13,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+
 	solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -246,7 +248,7 @@ var (
 
 type Dependencies struct {
 	Env             cldf.Environment
-	EVMMCMSState    map[uint64]commonstate.MCMSWithTimelockState
+	EVMMCMSState    map[uint64]evmstate.MCMSWithTimelockState
 	SolanaMCMSState map[uint64]commonstate.MCMSWithTimelockStateSolana
 
 	changesetInput csInputs

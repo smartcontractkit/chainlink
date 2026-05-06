@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	opscontracts "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -42,7 +43,7 @@ func (d DeleteDONs) VerifyPreconditions(_ cldf.Environment, cfg DeleteDONsInput)
 }
 
 func (d DeleteDONs) Apply(e cldf.Environment, cfg DeleteDONsInput) (cldf.ChangesetOutput, error) {
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if cfg.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, cfg.RegistryChainSel, *cfg.MCMSConfig)
