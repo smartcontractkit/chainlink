@@ -148,8 +148,6 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 		membersCache[id] = cache
 	}
 
-	batchingEnabled := config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod
-
 	// always replace the whole dynamicPublisherConfig object to avoid inconsistent state
 	p.cfg.Store(&dynamicPublisherConfig{
 		remoteConfig:    config,
@@ -157,7 +155,7 @@ func (p *triggerPublisher) SetConfig(config *commoncap.RemoteTriggerConfig, unde
 		capDonInfo:      capDonInfo,
 		workflowDONs:    workflowDONs,
 		membersCache:    membersCache,
-		batchingEnabled: batchingEnabled,
+		batchingEnabled: config.MaxBatchSize > 1 && config.BatchCollectionPeriod >= minAllowedBatchCollectionPeriod,
 	})
 
 	return nil
