@@ -108,7 +108,9 @@ type RunMeta struct {
 }
 
 // ReportSummary holds aggregate flake and slow rates for the full diagnose run.
-// Denominators use distinct named tests (package.test keys), matching jq-friendly stats in report.json.
+// FlakePrevalence uses distinct named tests (package.test keys). Per-execution
+// flake_fail_runs / flake_total_runs sum across flaky entries; flake_failing_iterations
+// / flake_iteration_total count diagnose iterations (union of flake failures vs rep.Iterations).
 type ReportSummary struct {
 	DistinctNamedTests     int      `json:"distinct_named_tests"`
 	FlakeNamedCount        int      `json:"flake_named_count"`
@@ -116,6 +118,11 @@ type ReportSummary struct {
 	FlakeFailRuns          int      `json:"flake_fail_runs,omitempty"`
 	FlakeTotalRuns         int      `json:"flake_total_runs,omitempty"`
 	FlakeExecutionFailRate *float64 `json:"flake_execution_fail_rate,omitempty"`
+	// FlakeFailingIterations is how many diagnose iterations had at least one
+	// flake failure; FlakeIterationTotal is rep.Iterations (not summed per-test runs).
+	FlakeFailingIterations int      `json:"flake_failing_iterations,omitempty"`
+	FlakeIterationTotal    int      `json:"flake_iteration_total,omitempty"`
+	FlakeIterationFailRate *float64 `json:"flake_iteration_fail_rate,omitempty"`
 	SlowCount              int      `json:"slow_count,omitempty"`
 	SlowPrevalence         *float64 `json:"slow_prevalence,omitempty"`
 	// IterationDurationMin/Max/P50 summarize wall-clock runtimes (IterationSummary.Duration) across all completed iterations.
@@ -351,9 +358,13 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 		}
 	}
 	var flakeFailRuns, flakeTotalRuns int
+	iterWithFlakeFail := make(map[int]struct{})
 	for _, e := range rep.Flakes {
 		flakeFailRuns += e.Fails
 		flakeTotalRuns += e.Runs
+		for _, i := range e.FailIters {
+			iterWithFlakeFail[i] = struct{}{}
+		}
 	}
 	slowCount := len(rep.Slow)
 
@@ -363,6 +374,12 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 		FlakeFailRuns:      flakeFailRuns,
 		FlakeTotalRuns:     flakeTotalRuns,
 		SlowCount:          slowCount,
+	}
+	if len(rep.Flakes) > 0 && rep.Iterations > 0 {
+		s.FlakeFailingIterations = len(iterWithFlakeFail)
+		s.FlakeIterationTotal = rep.Iterations
+		v := float64(s.FlakeFailingIterations) / float64(rep.Iterations)
+		s.FlakeIterationFailRate = &v
 	}
 	if distinct > 0 {
 		v := float64(flakeNamed) / float64(distinct)
@@ -383,9 +400,25 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 // Counts match a single-iteration Analyze (same rules as the final report).
 type IterationDigest struct {
 	Result       string // pass, fail, timeout
+	RanTests     int    // distinct named tests (package.test) that completed in this iteration
 	FailTests    int    // len(IterationSummaries[0].FailingTests)
 	SlowTests    int    // tests over slow threshold
 	TimeoutTests int    // len(Timeouts) for this iteration
+}
+
+// countNamedTestsRanInAggs counts distinct non-empty test keys that recorded
+// pass, fail, or skip in this iteration (len(iterations) > 0 on the aggregate).
+func countNamedTestsRanInAggs(aggs map[testKey]*aggregate) int {
+	n := 0
+	for k, a := range aggs {
+		if k.Test == "" {
+			continue
+		}
+		if len(a.iterations) > 0 {
+			n++
+		}
+	}
+	return n
 }
 
 // DigestIterationJSONL parses one `go test -json` stream and returns counts for progress UI.
@@ -396,8 +429,11 @@ func DigestIterationJSONL(r io.Reader, slowThreshold time.Duration) (IterationDi
 		return IterationDigest{}, err
 	}
 	reattributeTimeouts(aggs, newAggregate)
+	ran := countNamedTestsRanInAggs(aggs)
 	rep, _ := buildReportFromAggs(aggs, 1, slowThreshold)
-	return iterationDigestFromReport(rep), nil
+	d := iterationDigestFromReport(rep)
+	d.RanTests = ran
+	return d, nil
 }
 
 func iterationDigestFromReport(rep *Report) IterationDigest {
@@ -765,9 +801,9 @@ func printOverallStats(w io.Writer, rep *Report) {
 		line := fmt.Sprintf("  Flaky tests: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pct)
 		fmt.Fprintln(w, termstyle.Muted.Render(line))
 	}
-	if s.FlakeTotalRuns > 0 && s.FlakeExecutionFailRate != nil {
-		pct := *s.FlakeExecutionFailRate * 100
-		line := fmt.Sprintf("  Flaky runs: %d/%d fails (%.1f%%)", s.FlakeFailRuns, s.FlakeTotalRuns, pct)
+	if len(rep.Flakes) > 0 && s.FlakeIterationFailRate != nil {
+		pct := *s.FlakeIterationFailRate * 100
+		line := fmt.Sprintf("  Flaky Iterations: %d/%d (%.1f%%)", s.FlakeFailingIterations, s.FlakeIterationTotal, pct)
 		fmt.Fprintln(w, termstyle.Muted.Render(line))
 	}
 	if rep.SlowThreshold > 0 && s.DistinctNamedTests > 0 && s.SlowPrevalence != nil {

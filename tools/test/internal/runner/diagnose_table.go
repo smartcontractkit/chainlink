@@ -16,6 +16,7 @@ import (
 const (
 	diagnoseColIter    = 5
 	diagnoseColResult  = 8
+	diagnoseColTests   = 8
 	diagnoseColCount   = 8
 	diagnoseColRuntime = 10
 )
@@ -29,13 +30,14 @@ func printDiagnoseIterationTableHeader(out *output.Printer) {
 }
 
 func diagnoseTableHeaderPlain() string {
-	return fmt.Sprintf("%5s  %-8s  %8s  %8s  %8s  %10s",
-		"Iter", "Result", "Failures", "Timeouts", "Slow", "Runtime")
+	return fmt.Sprintf("%5s  %-8s  %8s  %8s  %8s  %8s  %10s",
+		"Iter", "Result", "Tests", "Failures", "Timeouts", "Slow", "Runtime")
 }
 
 func formatDiagnoseIterationTableRow(iter int, d IterationDigest, dur time.Duration) string {
 	iterCol := lipgloss.PlaceHorizontal(diagnoseColIter, lipgloss.Right, termstyle.Label.Render(strconv.Itoa(iter)))
 	resCol := lipgloss.PlaceHorizontal(diagnoseColResult, lipgloss.Left, renderIterationResultHuman(d.Result))
+	testsCol := lipgloss.PlaceHorizontal(diagnoseColTests, lipgloss.Right, termstyle.Muted.Render(strconv.Itoa(d.RanTests)))
 	failCol := lipgloss.PlaceHorizontal(diagnoseColCount, lipgloss.Right, diagnoseTableCountStyled(d.FailTests, "fail"))
 	toCol := lipgloss.PlaceHorizontal(diagnoseColCount, lipgloss.Right, diagnoseTableCountStyled(d.TimeoutTests, "timeout"))
 	slowCol := lipgloss.PlaceHorizontal(diagnoseColCount, lipgloss.Right, diagnoseTableCountStyled(d.SlowTests, "slow"))
@@ -43,18 +45,23 @@ func formatDiagnoseIterationTableRow(iter int, d IterationDigest, dur time.Durat
 	rtCol := lipgloss.PlaceHorizontal(diagnoseColRuntime, lipgloss.Right, rt)
 	gap := "  "
 	return lipgloss.JoinHorizontal(lipgloss.Top,
-		iterCol, gap, resCol, gap, failCol, gap, toCol, gap, slowCol, gap, rtCol)
+		iterCol, gap, resCol, gap, testsCol, gap, failCol, gap, toCol, gap, slowCol, gap, rtCol)
 }
 
 func diagnoseTableCountStyled(n int, kind string) string {
-	var num string
-	switch {
-	case n > 0 && kind == "slow":
-		num = termstyle.Flaky.Render(strconv.Itoa(n))
-	case n > 0 && (kind == "fail" || kind == "timeout"):
-		num = termstyle.Bad.Render(strconv.Itoa(n))
+	s := strconv.Itoa(n)
+	switch kind {
+	case "fail", "timeout":
+		if n == 0 {
+			return termstyle.OK.Render(s)
+		}
+		return termstyle.Bad.Render(s)
+	case "slow":
+		if n == 0 {
+			return termstyle.OK.Render(s)
+		}
+		return termstyle.Flaky.Render(s)
 	default:
-		num = termstyle.Muted.Render(strconv.Itoa(n))
+		return termstyle.Muted.Render(s)
 	}
-	return num
 }

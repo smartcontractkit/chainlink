@@ -477,7 +477,7 @@ func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
 		},
 	}
 	hooks := diagnoseRunHooks{
-		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress) error {
+		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, _ time.Time) error {
 			require.False(t, liveProgress)
 			require.Nil(t, parallelProgress)
 			nowActive := atomic.AddInt32(&active, 1)
@@ -525,7 +525,7 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	var mu sync.Mutex
 	started := make(map[int]struct{})
 	hooks := diagnoseRunHooks{
-		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress) error {
+		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
 			mu.Lock()
 			started[iteration] = struct{}{}
 			mu.Unlock()
@@ -607,12 +607,12 @@ func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress) error {
+				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
 					return os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
 				},
 			}
 			if tc.iterErr != nil {
-				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress) error {
+				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
 					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
 					return tc.iterErr
 				}
@@ -624,4 +624,12 @@ func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
 			assert.Equal(t, tc.wantFailed, state.failedFast)
 		})
 	}
+}
+
+func TestFormatIterationDigestAI(t *testing.T) {
+	t.Parallel()
+	d := IterationDigest{
+		Result: "pass", RanTests: 126, FailTests: 0, TimeoutTests: 0, SlowTests: 6,
+	}
+	assert.Equal(t, "d 7/100 p 90s r126 f0 t0 s6", formatIterationDigestAI(7, 100, d, 90*time.Second))
 }

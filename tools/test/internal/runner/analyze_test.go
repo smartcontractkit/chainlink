@@ -90,6 +90,7 @@ func TestDigestIterationJSONL(t *testing.T) {
 		d, err := DigestIterationJSONL(strings.NewReader(iter), 30*time.Second)
 		require.NoError(t, err)
 		assert.Equal(t, "pass", d.Result)
+		assert.Equal(t, 1, d.RanTests)
 		assert.Equal(t, 0, d.FailTests)
 		assert.Equal(t, 0, d.SlowTests)
 		assert.Equal(t, 0, d.TimeoutTests)
@@ -103,6 +104,7 @@ func TestDigestIterationJSONL(t *testing.T) {
 		d, err := DigestIterationJSONL(strings.NewReader(slowJSON), 30*time.Second)
 		require.NoError(t, err)
 		assert.Equal(t, 1, d.SlowTests)
+		assert.Equal(t, 1, d.RanTests)
 		assert.Equal(t, "pass", d.Result)
 	})
 
@@ -112,6 +114,7 @@ func TestDigestIterationJSONL(t *testing.T) {
 		d, err := DigestIterationJSONL(strings.NewReader(failJSON), 30*time.Second)
 		require.NoError(t, err)
 		assert.Equal(t, "fail", d.Result)
+		assert.Equal(t, 0, d.RanTests)
 		assert.Equal(t, 1, d.FailTests)
 	})
 
@@ -123,7 +126,19 @@ func TestDigestIterationJSONL(t *testing.T) {
 		d, err := DigestIterationJSONL(strings.NewReader(toJSON), 30*time.Second)
 		require.NoError(t, err)
 		assert.Equal(t, "timeout", d.Result)
+		assert.Equal(t, 0, d.RanTests)
 		assert.GreaterOrEqual(t, d.TimeoutTests, 1)
+	})
+
+	t.Run("two named tests", func(t *testing.T) {
+		t.Parallel()
+		jsonl := `{"Action":"pass","Package":"p","Test":"TA","Elapsed":0.01}
+{"Action":"pass","Package":"p","Test":"TB","Elapsed":0.02}
+`
+		d, err := DigestIterationJSONL(strings.NewReader(jsonl), 30*time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, 2, d.RanTests)
+		assert.Equal(t, "pass", d.Result)
 	})
 }
 
@@ -344,6 +359,10 @@ func TestReportSummary(t *testing.T) {
 				assert.Equal(t, 2, s.FlakeTotalRuns)
 				require.NotNil(t, s.FlakeExecutionFailRate)
 				assert.InDelta(t, 0.5, *s.FlakeExecutionFailRate, 1e-9)
+				assert.Equal(t, 1, s.FlakeFailingIterations)
+				assert.Equal(t, 2, s.FlakeIterationTotal)
+				require.NotNil(t, s.FlakeIterationFailRate)
+				assert.InDelta(t, 0.5, *s.FlakeIterationFailRate, 1e-9)
 				require.NotNil(t, s.SlowPrevalence)
 				assert.InDelta(t, 0.0, *s.SlowPrevalence, 1e-9)
 			},
@@ -364,6 +383,9 @@ func TestReportSummary(t *testing.T) {
 				assert.Equal(t, 0, s.FlakeFailRuns)
 				assert.Equal(t, 0, s.FlakeTotalRuns)
 				assert.Nil(t, s.FlakeExecutionFailRate)
+				assert.Equal(t, 0, s.FlakeFailingIterations)
+				assert.Equal(t, 0, s.FlakeIterationTotal)
+				assert.Nil(t, s.FlakeIterationFailRate)
 			},
 		},
 		{
@@ -394,6 +416,9 @@ func TestReportSummary(t *testing.T) {
 				assert.InDelta(t, 0.0, *s.FlakePrevalence, 1e-9)
 				require.NotNil(t, s.SlowPrevalence)
 				assert.InDelta(t, 0.0, *s.SlowPrevalence, 1e-9)
+				assert.Equal(t, 0, s.FlakeFailingIterations)
+				assert.Equal(t, 0, s.FlakeIterationTotal)
+				assert.Nil(t, s.FlakeIterationFailRate)
 			},
 		},
 		{
@@ -424,6 +449,10 @@ func TestReportSummary(t *testing.T) {
 				assert.Equal(t, 2, s.FlakeTotalRuns)
 				require.NotNil(t, s.FlakeExecutionFailRate)
 				assert.InDelta(t, 0.5, *s.FlakeExecutionFailRate, 1e-9)
+				assert.Equal(t, 1, s.FlakeFailingIterations)
+				assert.Equal(t, 2, s.FlakeIterationTotal)
+				require.NotNil(t, s.FlakeIterationFailRate)
+				assert.InDelta(t, 0.5, *s.FlakeIterationFailRate, 1e-9)
 			},
 		},
 		{
@@ -447,6 +476,10 @@ func TestReportSummary(t *testing.T) {
 				assert.InDelta(t, 2.0/3.0, *s.FlakePrevalence, 1e-9)
 				assert.Equal(t, 2, s.FlakeFailRuns)
 				assert.Equal(t, 4, s.FlakeTotalRuns)
+				assert.Equal(t, 1, s.FlakeFailingIterations)
+				assert.Equal(t, 2, s.FlakeIterationTotal)
+				require.NotNil(t, s.FlakeIterationFailRate)
+				assert.InDelta(t, 0.5, *s.FlakeIterationFailRate, 1e-9)
 			},
 		},
 	}
@@ -478,7 +511,7 @@ func TestPrintSummaryOverallContains(t *testing.T) {
 				require.NoError(t, err)
 				return rep
 			},
-			needle: []string{"Overall", "Flaky tests:", "Flaky runs:", "Slow tests:"},
+			needle: []string{"Overall", "Flaky tests:", "Flaky Iterations: 1/2 (50.0%)", "Slow tests:"},
 		},
 		{
 			name: "iteration_wall_clock_runtimes",
@@ -928,6 +961,8 @@ func TestMarshalAISummaryJSON(t *testing.T) {
 				require.NoError(t, json.Unmarshal(raw, &sum))
 				assert.Equal(t, 1, sum.DistinctNamedTests)
 				assert.Equal(t, 1, sum.FlakeNamedCount)
+				assert.Equal(t, 1, sum.FlakeFailingIterations)
+				assert.Equal(t, 2, sum.FlakeIterationTotal)
 			},
 		},
 	}

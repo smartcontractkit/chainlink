@@ -24,7 +24,7 @@ import (
 
 type diagnoseIterationResource = db.Resource
 
-type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress) error
+type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error
 
 type diagnoseRunHooks struct {
 	runIteration diagnoseIterationRunner
@@ -273,26 +273,30 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	jobs := make(chan int)
 	results := make(chan diagnoseIterationResult)
 	var parallelProgress *parallelDiagnoseProgress
+	var diagnoseRunStart time.Time
 	var progressTickWG sync.WaitGroup
 	progressTickDone := make(chan struct{})
-	if parallel > 1 && !out.AIOutput() && out.LiveInlineProgress() {
-		parallelProgress = newParallelDiagnoseProgress(conf.Iterations)
+	if !out.AIOutput() && out.LiveInlineProgress() {
 		state.liveProgress = true
-		start := time.Now()
-		progressTickWG.Go(func() {
-			tick := time.NewTicker(250 * time.Millisecond)
-			defer tick.Stop()
-			for {
-				select {
-				case <-progressTickDone:
-					return
-				case <-tick.C:
-					parallelProgress.withRenderLock(func() {
-						renderParallelDiagnoseProgressLine(out.HumanStderrWriter(), parallelProgress, time.Since(start), true)
-					})
+		if parallel > 1 {
+			parallelProgress = newParallelDiagnoseProgress(conf.Iterations)
+			progressTickWG.Go(func() {
+				tick := time.NewTicker(250 * time.Millisecond)
+				defer tick.Stop()
+				for {
+					select {
+					case <-progressTickDone:
+						return
+					case <-tick.C:
+						parallelProgress.withRenderLock(func() {
+							renderParallelDiagnoseProgressLine(out.HumanStderrWriter(), parallelProgress, time.Now(), true)
+						})
+					}
 				}
-			}
-		})
+			})
+		} else {
+			diagnoseRunStart = time.Now()
+		}
 	}
 	defer func() {
 		close(progressTickDone)
@@ -326,7 +330,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 					seed = hooks.seed()
 				}
 				iterStart := time.Now()
-				iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress)
+				iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart)
 				iterDur := time.Since(iterStart)
 				var dumpErr error
 				if resource.DumpDiagnostics != nil {
@@ -611,6 +615,9 @@ func printDiagnoseIterationDigest(out *output.Printer, iterationIdx0, totalIters
 	printIterationDigestHuman(out, iter, totalIters, d, iterDur)
 }
 
+// formatIterationDigestAI prints one line for --ai-output diagnose progress.
+// Tokens: d iter/total; p|f|t result; wall seconds; r named tests that ran;
+// f failing-test entries; t timeouts; s slow tests.
 func formatIterationDigestAI(iter, total int, d IterationDigest, dur time.Duration) string {
 	rs := "?"
 	switch d.Result {
@@ -625,7 +632,7 @@ func formatIterationDigestAI(iter, total int, d IterationDigest, dur time.Durati
 	if sec < 0 {
 		sec = 0
 	}
-	return fmt.Sprintf("d %d/%d %s %ds f%d t%d s%d", iter, total, rs, sec, d.FailTests, d.TimeoutTests, d.SlowTests)
+	return fmt.Sprintf("d %d/%d %s %ds r%d f%d t%d s%d", iter, total, rs, sec, d.RanTests, d.FailTests, d.TimeoutTests, d.SlowTests)
 }
 
 func printIterationDigestHuman(out *output.Printer, iter, total int, d IterationDigest, dur time.Duration) {
@@ -659,7 +666,7 @@ func (sw *syncedWriter) Write(p []byte) (int, error) {
 	return sw.w.Write(p)
 }
 
-func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress) error {
+func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -697,7 +704,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	}
 	prog := newDiagnoseProgress(totalPkgs)
 	if parallelProgress != nil {
-		parallelProgress.start(iteration, totalPkgs)
+		parallelProgress.start(iteration)
 		defer parallelProgress.finish(iteration)
 	}
 
@@ -711,7 +718,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	}
 
 	redraw := func(liveInline bool) {
-		renderDiagnoseProgressLine(out.HumanStderrWriter(), iter, iters, time.Since(start), prog, liveInline)
+		renderDiagnoseProgressLine(out.HumanStderrWriter(), iter, iters, time.Since(start), diagnoseRunStart, time.Now(), liveInline)
 	}
 
 	var readWG sync.WaitGroup
@@ -728,9 +735,6 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 				break
 			}
 			completedIncreased := prog.onTestJSONLine(line)
-			if parallelProgress != nil {
-				parallelProgress.update(iteration, prog)
-			}
 			if completedIncreased && !live {
 				redraw(false)
 			}

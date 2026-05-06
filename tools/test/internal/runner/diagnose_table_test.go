@@ -22,8 +22,8 @@ func stripANSI(s string) string {
 func TestDiagnoseTableHeaderPlain(t *testing.T) {
 	t.Parallel()
 	got := diagnoseTableHeaderPlain()
-	want := fmt.Sprintf("%5s  %-8s  %8s  %8s  %8s  %10s",
-		"Iter", "Result", "Failures", "Timeouts", "Slow", "Runtime")
+	want := fmt.Sprintf("%5s  %-8s  %8s  %8s  %8s  %8s  %10s",
+		"Iter", "Result", "Tests", "Failures", "Timeouts", "Slow", "Runtime")
 	assert.Equal(t, want, got)
 	assert.Len(t, got, len(want))
 }
@@ -53,28 +53,28 @@ func TestFormatDiagnoseIterationTableRow(t *testing.T) {
 			name: "pass_clean",
 			iter: 1,
 			d: IterationDigest{
-				Result: "pass", FailTests: 0, TimeoutTests: 0, SlowTests: 0,
+				Result: "pass", RanTests: 0, FailTests: 0, TimeoutTests: 0, SlowTests: 0,
 			},
 			dur:      3*time.Minute + 7*time.Second,
-			wantSans: "    1  pass             0         0         0        3m7s",
+			wantSans: "    1  pass             0         0         0         0        3m7s",
 		},
 		{
 			name: "fail_with_counts",
 			iter: 12,
 			d: IterationDigest{
-				Result: "fail", FailTests: 1, TimeoutTests: 2, SlowTests: 5,
+				Result: "fail", RanTests: 0, FailTests: 1, TimeoutTests: 2, SlowTests: 5,
 			},
 			dur:      90 * time.Second,
-			wantSans: "   12  fail             1         2         5       1m30s",
+			wantSans: "   12  fail             0         1         2         5       1m30s",
 		},
 		{
 			name: "timeout_result",
 			iter: 3,
 			d: IterationDigest{
-				Result: "timeout", FailTests: 0, TimeoutTests: 1, SlowTests: 0,
+				Result: "timeout", RanTests: 0, FailTests: 0, TimeoutTests: 1, SlowTests: 0,
 			},
 			dur:      time.Hour,
-			wantSans: "    3  timeout          0         1         0      1h0m0s",
+			wantSans: "    3  timeout          0         0         1         0      1h0m0s",
 		},
 	}
 	for _, tc := range cases {
