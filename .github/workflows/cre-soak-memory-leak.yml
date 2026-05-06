@@ -113,8 +113,6 @@ jobs:
         id: run-soak
         shell: bash
         working-directory: system-tests/tests
-        env:
-          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest.log \
