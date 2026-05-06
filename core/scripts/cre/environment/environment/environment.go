@@ -485,7 +485,7 @@ func startCmd() *cobra.Command {
 					return errors.New("no workflow DON found")
 				}
 
-				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, envconfig.WorkflowRegistryV2Semver)
+				deployErr := deployAndVerifyExampleWorkflow(cmdContext, registryChainOut.CtfOutput().Nodes[0].ExternalHTTPUrl, workflowDonID, exampleWorkflowTimeout, workflowRegistryAddress, output.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 				if deployErr != nil {
 					fmt.Printf("Failed to deploy and verify example workflow: %s\n", deployErr)
 				}
