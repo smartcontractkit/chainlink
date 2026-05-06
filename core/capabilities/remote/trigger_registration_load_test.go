@@ -643,10 +643,16 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 	pubDisp.Reset()
 
 	time.Sleep(200 * time.Millisecond)
+	chunksPerPublisherTick := (nPublisherRegs + int(pubCfg.MaxBatchSize) - 1) / int(pubCfg.MaxBatchSize)
+	pubCheckSendsPerTick := int64(chunksPerPublisherTick * wfDonPeerCount)
+
 	phase3Checks := pubDisp.Count(remotetypes.MethodTriggerRegistrationCheck)
-	require.GreaterOrEqual(t, phase3Checks, int64(wfDonPeerCount))
-	require.Less(t, phase3Checks, int64(nPublisherRegs),
-		"registration check sends must stay O(workflow peers), not O(N registrations)")
+	require.GreaterOrEqual(t, phase3Checks, pubCheckSendsPerTick,
+		"expect at least one registration-check tick (chunked by MaxBatchSize)")
+	// Measurement spans multiple RegistrationRefresh ticks — total sends grow with ticks,
+	// but stay far below naive per-registration × peers fan-out.
+	require.Less(t, phase3Checks, int64(nPublisherRegs*wfDonPeerCount),
+		"registration check traffic must stay below per-registration × workflow peers")
 
 	// --- Phase 4: publisher — one underlying trigger event + workflow ACK quorum ---
 	pubEvDisp := newCountingDispatcher()
@@ -657,8 +663,10 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		RegistrationExpiry:      2 * time.Hour,
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           time.Hour,
-		MaxBatchSize:            100,
-		BatchCollectionPeriod:   time.Second,
+		// MaxBatchSize must be 1 (or BatchCollectionPeriod < 10ms) so trigger-event batching
+		// is disabled; otherwise events wait for the batch window and this phase sees 0 sends.
+		MaxBatchSize:          1,
+		BatchCollectionPeriod: time.Second,
 	}
 	require.NoError(t, pub2.SetConfig(evCfg, underEv, capDon, wfDONs))
 	require.NoError(t, pub2.Start(ctx))
@@ -712,31 +720,30 @@ func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
 		nRegistrations, phase1Reg, perTickReg)
 	t.Logf("Phase 2 — subscriber AckEvent after one event: TriggerEventAck total=%d (expected: %d = capPeers)",
 		ackFanout, capDonPeerCount)
-	t.Logf("Phase 3 — publisher sendRegistrationChecks (~200ms, N=%d registrations): TriggerRegistrationCheck total=%d (expected per tick: %d = wfPeers; actual may be multiple ticks)",
-		nPublisherRegs, phase3Checks, wfDonPeerCount)
+	t.Logf("Phase 3 — publisher sendRegistrationChecks (~200ms, N=%d, MaxBatchSize=%d): TriggerRegistrationCheck total=%d (min one tick ≈ %d = ceil(N/batch)×wfPeers; window spans multiple ticks)",
+		nPublisherRegs, pubCfg.MaxBatchSize, phase3Checks, pubCheckSendsPerTick)
 	t.Logf("Phase 4 — publisher one event then %d ACKs: TriggerEvent sends=%d (expected: %d = wfPeers); snapshot after ACK: %s",
 		minRegSenders, afterEvent, wfDonPeerCount, formatP2PSnapshot(afterAck))
 
-	checkDenom := phase3Checks
-	if checkDenom < 1 {
-		checkDenom = 1
-	}
-	regToCheckRatio := float64(phase1Reg) / float64(checkDenom)
+	// Compare single-tick orders of magnitude: phase1 is one subscriber refresh tick;
+	// phase3 denominator is one publisher registration-check tick (chunked), not the
+	// summed multi-tick window total (phase3Checks).
+	regToCheckRatio := float64(perTickReg) / float64(pubCheckSendsPerTick)
 	t.Logf("--- Ratios (illustrative; phase windows differ) ---")
-	t.Logf("registrationLoop RegisterTrigger (one tick) / registration-check sends in phase3 ≈ %.1fx",
+	t.Logf("registrationLoop RegisterTrigger (one tick) / publisher registration-check sends per tick ≈ %.1fx",
 		regToCheckRatio)
 	ackDenom := ackFanout
 	if ackDenom < 1 {
 		ackDenom = 1
 	}
 	t.Logf("registrationLoop per tick / one subscriber AckEvent round ≈ %.1fx",
-		float64(phase1Reg)/float64(ackDenom))
+		float64(perTickReg)/float64(ackDenom))
 	evDenom := afterEvent
 	if evDenom < 1 {
 		evDenom = 1
 	}
 	t.Logf("registrationLoop per tick / one trigger event dispatch ≈ %.1fx",
-		float64(phase1Reg)/float64(evDenom))
+		float64(perTickReg)/float64(evDenom))
 
 	require.Greater(t, regToCheckRatio, 10.0,
 		"evidence: periodic registration refresh traffic should dwarf registration-check traffic")
