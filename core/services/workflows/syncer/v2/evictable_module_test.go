@@ -40,6 +40,19 @@ func (m *EvictableModule) forceEvictForTest() {
 	m.weakInner = weak.Pointer[loadedModule]{}
 }
 
+// fakeModule is a minimal host.ModuleV2 used by tests that need to observe
+// Close calls without going through the mockery expectation lifecycle.
+type fakeModule struct {
+	closeCalls atomic.Int32
+}
+
+func (f *fakeModule) Start()             {}
+func (f *fakeModule) IsLegacyDAG() bool  { return false }
+func (f *fakeModule) Close()             { f.closeCalls.Add(1) }
+func (f *fakeModule) Execute(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+	return &sdkpb.ExecutionResult{}, nil
+}
+
 // countingStore wraps a SerialisedModuleStore and counts GetModule calls
 // to verify whether disk I/O occurred during module reload.
 type countingStore struct {
@@ -854,6 +867,36 @@ func TestEvictable_WeakRefClearedOnForceEvict(t *testing.T) {
 	// runtime.KeepAlive prevents the compiler from reordering the inner
 	// reference above the forceEvict call, which would defeat the check.
 	runtime.KeepAlive(inner)
+}
+
+// TestEvictable_GCFiresCloseAfterEvict proves the production close path:
+// after Evict drops the strong reference, the weakly-held loadedModule becomes
+// GC-eligible and runtime.AddCleanup must eventually invoke mod.Close. This
+// is the only path that reclaims wasm runtime resources in production
+// (forceEvictForTest exists solely as a deterministic test hook).
+func TestEvictable_GCFiresCloseAfterEvict(t *testing.T) {
+	fake := &fakeModule{}
+
+	em, _ := newTestEvictableModule(t, fake, nil)
+	require.True(t, em.IsLoaded())
+	require.Equal(t, int32(0), fake.closeCalls.Load(), "Close must not fire on construction")
+
+	em.Evict()
+	require.False(t, em.IsLoaded(), "Evict clears the strong reference synchronously")
+	require.Equal(t, int32(0), fake.closeCalls.Load(),
+		"Evict must not call Close; close is deferred to GC + runtime.AddCleanup")
+
+	// runtime.AddCleanup fires asynchronously after the holder becomes
+	// unreachable. Force GC repeatedly until the cleanup runs (or time out).
+	require.Eventually(t, func() bool {
+		runtime.GC()
+		return fake.closeCalls.Load() == 1
+	}, 5*time.Second, 50*time.Millisecond,
+		"runtime.AddCleanup must close the wrapped module after GC reclaims the holder")
+
+	assert.Nil(t, em.weakInner.Value(),
+		"weak L2 must report nil once the holder has been GC-reclaimed")
+	assert.Equal(t, int32(1), fake.closeCalls.Load(), "Close must fire exactly once")
 }
 
 // --- Metrics integration tests ---
