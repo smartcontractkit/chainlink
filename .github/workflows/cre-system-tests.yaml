@@ -181,10 +181,10 @@ jobs:
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
     steps:
-      - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
-        with:
-          metrics: cpu,network,memory,disk
+      # - name: Enable S3 Cache for Self-Hosted Runners
+      #   uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+      #   with:
+      #     metrics: cpu,network,memory,disk
 
       - name: Checkout
         uses: actions/checkout@v6
