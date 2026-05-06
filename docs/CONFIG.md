@@ -2594,6 +2594,7 @@ PollingInterval is how often to emit a heartbeat event for each tracked job.
 EnabledOCR2PluginTypes = ["median"] # Default
 ```
 EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
+An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin types.
 
 ## CRE
 ```toml
