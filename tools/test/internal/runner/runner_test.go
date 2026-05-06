@@ -61,6 +61,53 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	require.NotNil(t, rep.Run.FinishedAt)
 }
 
+func TestDiagnoseCanceledCtxAIStdoutTwoLines(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	conf := &config.App{
+		RepoRoot:   repoRoot,
+		AIOutput:   true,
+		Iterations: 3,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var stdout strings.Builder
+	err := Diagnose(ctx, conf, output.New(conf.AIOutput, &stdout, io.Discard, output.SkipFD), []string{"./..."}, nil)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	require.Len(t, lines, 3, "stdout: %q", stdout.String())
+	assert.Equal(t, filepath.Join(lines[0], "report.json"), lines[1])
+	assert.Equal(t, "null", lines[2])
+}
+
+func TestMarshalAISummaryJSON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nil report", func(t *testing.T) {
+		t.Parallel()
+		b, err := marshalAISummaryJSON(nil)
+		require.NoError(t, err)
+		assert.Equal(t, "null", string(b))
+	})
+
+	t.Run("from Analyze flake", func(t *testing.T) {
+		t.Parallel()
+		rep, _, err := Analyze(readers(
+			`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.1}`,
+			`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.1}`,
+		), 30*time.Second)
+		require.NoError(t, err)
+		b, err := marshalAISummaryJSON(rep)
+		require.NoError(t, err)
+		var sum ReportSummary
+		require.NoError(t, json.Unmarshal(b, &sum))
+		assert.Equal(t, 1, sum.DistinctNamedTests)
+		assert.Equal(t, 1, sum.FlakeNamedCount)
+	})
+}
+
 func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
 	t.Parallel()
 	repoRoot := t.TempDir()

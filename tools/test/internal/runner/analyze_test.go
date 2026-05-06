@@ -309,6 +309,174 @@ func TestAnalyze(t *testing.T) {
 	}
 }
 
+func TestReportSummary(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		iterations    []string
+		slowThreshold time.Duration
+		check         func(t *testing.T, s *ReportSummary)
+	}{
+		{
+			name:          "no iterations yields nil summary",
+			iterations:    []string{},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				assert.Nil(t, s)
+			},
+		},
+		{
+			name: "flake prevalence and execution rate",
+			iterations: []string{
+				`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
+				`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 1, s.DistinctNamedTests)
+				assert.Equal(t, 1, s.FlakeNamedCount)
+				require.NotNil(t, s.FlakePrevalence)
+				assert.InDelta(t, 1.0, *s.FlakePrevalence, 1e-9)
+				assert.Equal(t, 1, s.FlakeFailRuns)
+				assert.Equal(t, 2, s.FlakeTotalRuns)
+				require.NotNil(t, s.FlakeExecutionFailRate)
+				assert.InDelta(t, 0.5, *s.FlakeExecutionFailRate, 1e-9)
+				require.NotNil(t, s.SlowPrevalence)
+				assert.InDelta(t, 0.0, *s.SlowPrevalence, 1e-9)
+			},
+		},
+		{
+			name: "deterministic failure has zero flake buckets",
+			iterations: []string{
+				`{"Action":"fail","Package":"pkg/bar","Test":"TestBroken","Elapsed":0.1}` + "\n",
+				`{"Action":"fail","Package":"pkg/bar","Test":"TestBroken","Elapsed":0.1}` + "\n",
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 1, s.DistinctNamedTests)
+				assert.Equal(t, 0, s.FlakeNamedCount)
+				require.NotNil(t, s.FlakePrevalence)
+				assert.InDelta(t, 0.0, *s.FlakePrevalence, 1e-9)
+				assert.Equal(t, 0, s.FlakeFailRuns)
+				assert.Equal(t, 0, s.FlakeTotalRuns)
+				assert.Nil(t, s.FlakeExecutionFailRate)
+			},
+		},
+		{
+			name: "slow prevalence",
+			iterations: []string{
+				`{"Action":"pass","Package":"pkg/a","Test":"TestSlow","Elapsed":45.0}`,
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 1, s.DistinctNamedTests)
+				assert.Equal(t, 1, s.SlowCount)
+				require.NotNil(t, s.SlowPrevalence)
+				assert.InDelta(t, 1.0, *s.SlowPrevalence, 1e-9)
+			},
+		},
+		{
+			name: "clean pass zero flake and slow rates",
+			iterations: []string{
+				`{"Action":"pass","Package":"pkg/c","Test":"TestOK","Elapsed":0.01}`,
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 1, s.DistinctNamedTests)
+				assert.Equal(t, 0, s.FlakeNamedCount)
+				require.NotNil(t, s.FlakePrevalence)
+				assert.InDelta(t, 0.0, *s.FlakePrevalence, 1e-9)
+				require.NotNil(t, s.SlowPrevalence)
+				assert.InDelta(t, 0.0, *s.SlowPrevalence, 1e-9)
+			},
+		},
+		{
+			name: "slow prevalence omitted when threshold disabled",
+			iterations: []string{
+				`{"Action":"pass","Package":"pkg/a","Test":"TestSlow","Elapsed":45.0}`,
+			},
+			slowThreshold: 0,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 0, s.SlowCount)
+				assert.Nil(t, s.SlowPrevalence)
+			},
+		},
+		{
+			name: "package-level flake execution without named tests",
+			iterations: []string{
+				`{"Action":"fail","Package":"pkg/build","Elapsed":0.0}` + "\n",
+				`{"Action":"pass","Package":"pkg/build","Elapsed":0.0}` + "\n",
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 0, s.DistinctNamedTests)
+				assert.Equal(t, 0, s.FlakeNamedCount)
+				assert.Nil(t, s.FlakePrevalence)
+				assert.Equal(t, 1, s.FlakeFailRuns)
+				assert.Equal(t, 2, s.FlakeTotalRuns)
+				require.NotNil(t, s.FlakeExecutionFailRate)
+				assert.InDelta(t, 0.5, *s.FlakeExecutionFailRate, 1e-9)
+			},
+		},
+		{
+			name: "multiple flakes prevalence over distinct named tests",
+			iterations: []string{
+				`{"Action":"fail","Package":"pkg/d","Test":"TestParent/sub1","Elapsed":0.1}
+{"Action":"pass","Package":"pkg/d","Test":"TestParent/sub2","Elapsed":0.1}
+{"Action":"fail","Package":"pkg/d","Test":"TestParent","Elapsed":0.2}
+`,
+				`{"Action":"pass","Package":"pkg/d","Test":"TestParent/sub1","Elapsed":0.1}
+{"Action":"pass","Package":"pkg/d","Test":"TestParent/sub2","Elapsed":0.1}
+{"Action":"pass","Package":"pkg/d","Test":"TestParent","Elapsed":0.2}
+`,
+			},
+			slowThreshold: 30 * time.Second,
+			check: func(t *testing.T, s *ReportSummary) {
+				require.NotNil(t, s)
+				assert.Equal(t, 3, s.DistinctNamedTests)
+				assert.Equal(t, 2, s.FlakeNamedCount)
+				require.NotNil(t, s.FlakePrevalence)
+				assert.InDelta(t, 2.0/3.0, *s.FlakePrevalence, 1e-9)
+				assert.Equal(t, 2, s.FlakeFailRuns)
+				assert.Equal(t, 4, s.FlakeTotalRuns)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			rep, _, err := Analyze(readers(tc.iterations...), tc.slowThreshold)
+			require.NoError(t, err)
+			tc.check(t, rep.Summary)
+		})
+	}
+}
+
+func TestPrintSummaryOverallStats(t *testing.T) {
+	t.Parallel()
+	rep, _, err := Analyze(readers(
+		`{"Action":"fail","Package":"pkg/foo","Test":"TestX","Elapsed":0.5}`,
+		`{"Action":"pass","Package":"pkg/foo","Test":"TestX","Elapsed":0.4}`,
+	), 30*time.Second)
+	require.NoError(t, err)
+
+	var buf strings.Builder
+	PrintSummary(&buf, rep)
+	out := buf.String()
+	assert.Contains(t, out, "Overall")
+	assert.Contains(t, out, "Flaky tests:")
+	assert.Contains(t, out, "Flaky runs:")
+	assert.Contains(t, out, "Slow tests:")
+}
+
 func publicTestEntries(entries []TestEntry) []TestEntry {
 	out := append([]TestEntry(nil), entries...)
 	for i := range out {

@@ -107,11 +107,25 @@ type RunMeta struct {
 	Shuffle            bool          `json:"shuffle,omitempty"`
 }
 
+// ReportSummary holds aggregate flake and slow rates for the full diagnose run.
+// Denominators use distinct named tests (package.test keys), matching jq-friendly stats in report.json.
+type ReportSummary struct {
+	DistinctNamedTests     int      `json:"distinct_named_tests"`
+	FlakeNamedCount        int      `json:"flake_named_count"`
+	FlakePrevalence        *float64 `json:"flake_prevalence,omitempty"`
+	FlakeFailRuns          int      `json:"flake_fail_runs,omitempty"`
+	FlakeTotalRuns         int      `json:"flake_total_runs,omitempty"`
+	FlakeExecutionFailRate *float64 `json:"flake_execution_fail_rate,omitempty"`
+	SlowCount              int      `json:"slow_count,omitempty"`
+	SlowPrevalence         *float64 `json:"slow_prevalence,omitempty"`
+}
+
 // Report classifies tests across iterations of a diagnose run.
 type Report struct {
 	Run                *RunMeta           `json:"run,omitempty"`
 	Iterations         int                `json:"iterations"`
 	SlowThreshold      time.Duration      `json:"slow_threshold"`
+	Summary            *ReportSummary     `json:"summary,omitempty"`
 	IterationSummaries []IterationSummary `json:"iteration_summaries,omitempty"`
 	Flakes             []TestEntry        `json:"flakes,omitempty"`
 	Failures           []TestEntry        `json:"failures,omitempty"`
@@ -310,8 +324,55 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 	}
 	rep.IterationSummaries = summaries
 
+	rep.Summary = buildReportSummary(rep, aggs, slowThreshold)
+
 	logs := buildLogMap(aggs)
 	return rep, logs
+}
+
+func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold time.Duration) *ReportSummary {
+	if len(aggs) == 0 {
+		return nil
+	}
+	distinct := 0
+	for k := range aggs {
+		if k.Test != "" {
+			distinct++
+		}
+	}
+	flakeNamed := 0
+	for _, e := range rep.Flakes {
+		if e.Test != "" {
+			flakeNamed++
+		}
+	}
+	var flakeFailRuns, flakeTotalRuns int
+	for _, e := range rep.Flakes {
+		flakeFailRuns += e.Fails
+		flakeTotalRuns += e.Runs
+	}
+	slowCount := len(rep.Slow)
+
+	s := &ReportSummary{
+		DistinctNamedTests: distinct,
+		FlakeNamedCount:    flakeNamed,
+		FlakeFailRuns:      flakeFailRuns,
+		FlakeTotalRuns:     flakeTotalRuns,
+		SlowCount:          slowCount,
+	}
+	if distinct > 0 {
+		v := float64(flakeNamed) / float64(distinct)
+		s.FlakePrevalence = &v
+	}
+	if flakeTotalRuns > 0 {
+		v := float64(flakeFailRuns) / float64(flakeTotalRuns)
+		s.FlakeExecutionFailRate = &v
+	}
+	if slowThreshold > 0 && distinct > 0 {
+		v := float64(slowCount) / float64(distinct)
+		s.SlowPrevalence = &v
+	}
+	return s
 }
 
 // IterationDigest summarizes one iteration JSONL log for per-iteration CLI output.
@@ -670,6 +731,39 @@ func PrintSummary(w io.Writer, rep *Report) {
 		})
 		printSummarySectionTree(w, "Slow", n, slow, termstyle.Muted, termstyle.Muted, formatSlowTestLine)
 	}
+
+	printOverallStats(w, rep)
+}
+
+func printOverallStats(w io.Writer, rep *Report) {
+	if rep == nil || rep.Summary == nil {
+		return
+	}
+	s := rep.Summary
+	if s.DistinctNamedTests == 0 && s.FlakeTotalRuns == 0 {
+		return
+	}
+
+	fmt.Fprintln(w, termstyle.Label.Render("Overall"))
+	if s.DistinctNamedTests > 0 {
+		pct := 0.0
+		if s.FlakePrevalence != nil {
+			pct = *s.FlakePrevalence * 100
+		}
+		line := fmt.Sprintf("  Flaky tests: %d/%d (%.1f%%)", s.FlakeNamedCount, s.DistinctNamedTests, pct)
+		fmt.Fprintln(w, termstyle.Muted.Render(line))
+	}
+	if s.FlakeTotalRuns > 0 && s.FlakeExecutionFailRate != nil {
+		pct := *s.FlakeExecutionFailRate * 100
+		line := fmt.Sprintf("  Flaky runs: %d/%d fails (%.1f%%)", s.FlakeFailRuns, s.FlakeTotalRuns, pct)
+		fmt.Fprintln(w, termstyle.Muted.Render(line))
+	}
+	if rep.SlowThreshold > 0 && s.DistinctNamedTests > 0 && s.SlowPrevalence != nil {
+		pct := *s.SlowPrevalence * 100
+		line := fmt.Sprintf("  Slow tests: %d/%d (%.1f%%)", s.SlowCount, s.DistinctNamedTests, pct)
+		fmt.Fprintln(w, termstyle.Muted.Render(line))
+	}
+	fmt.Fprintln(w)
 }
 
 func formatBrokenTestLine(e TestEntry) string {

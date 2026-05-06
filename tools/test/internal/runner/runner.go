@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -68,6 +69,9 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 
 // Diagnose runs go test -json once per iteration, writing each stream to
 // iteration-<n>.log.jsonl, then analyzes and writes report.json.
+// With --ai-output, stdout is three lines: the results directory path, the
+// path to report.json, and one line of JSON (the report's summary object, or
+// the JSON keyword null when there is no summary).
 // Test iteration failures do not stop later runs (unless --fail-fast); they are
 // reflected in report.json. Diagnose returns a non-nil error for setup failures
 // (e.g. mkdir, database reset), analyze/write report failures, or ctx errors
@@ -144,6 +148,12 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	reportPath := filepath.Join(resultsDir, "report.json")
 	if out.AIOutput() {
 		out.SparseStdoutln(reportPath)
+		summaryJSON, err := marshalAISummaryJSON(report)
+		if err != nil {
+			out.Stderrf("marshal ai summary: %v\n", err)
+			return err
+		}
+		out.SparseStdoutln(string(summaryJSON))
 		return nil
 	}
 
@@ -155,6 +165,15 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 	out.HumanStderr(termstyle.Muted.Render("report.json: ") + termstyle.Label.Render(reportPath))
 	return nil
+}
+
+// marshalAISummaryJSON returns one line of JSON for --ai-output: the report's
+// summary block, or the JSON keyword null when absent (no aggregate stats).
+func marshalAISummaryJSON(report *Report) ([]byte, error) {
+	if report == nil || report.Summary == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(report.Summary)
 }
 
 // EffectiveParallelIterations returns the bounded diagnose worker count.
