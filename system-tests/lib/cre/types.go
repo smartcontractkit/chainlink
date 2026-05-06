@@ -515,7 +515,7 @@ func (g *GenerateConfigsInput) Validate() error {
 		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
 	if g.ChipRouterInternalGRPCURL == "" {
-		return fmt.Errorf("chip router internal grpc url not set")
+		return errors.New("chip router internal grpc url not set")
 	}
 	return nil
 }
