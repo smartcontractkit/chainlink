@@ -41,14 +41,11 @@ import (
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	blockchains_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/sets"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
@@ -192,53 +189,6 @@ var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.C
 		// signal that the environment failed to start
 		os.Exit(1)
 	}
-}
-
-var StartCmdGenerateSettingsFile = func(registryChain blockchains.Blockchain, output *creenv.SetupOutput) error {
-	rpcs := map[uint64]string{}
-	for _, bcOut := range output.CreEnvironment.Blockchains {
-		rpcs[bcOut.ChainSelector()] = bcOut.CtfOutput().Nodes[0].ExternalHTTPUrl
-	}
-
-	regChainEVM, isEVM := registryChain.(*evm.Blockchain)
-	if !isEVM {
-		return fmt.Errorf("registry chain is not EVM, but %T, cannot generate CRE CLI settings file", registryChain)
-	}
-
-	creCLISettingsFile, settingsErr := crecli.PrepareCRECLISettingsFile(
-		crecli.CRECLIProfile,
-		regChainEVM.SethClient.MustGetRootKeyAddress(),
-		output.CreEnvironment.CldfEnvironment.DataStore,
-		output.CreEnvironment.ContractVersions,
-		output.Dons.MustWorkflowDON().ID,
-		regChainEVM.ChainSelector(),
-		rpcs,
-		output.S3ProviderOutput,
-	)
-
-	if settingsErr != nil {
-		return settingsErr
-	}
-
-	// Copy the file to current directory as cre.yaml
-	currentDir, cErr := os.Getwd()
-	if cErr != nil {
-		return cErr
-	}
-
-	targetPath := filepath.Join(currentDir, "cre.yaml")
-	input, err := os.ReadFile(creCLISettingsFile.Name())
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(targetPath, input, 0o600)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("CRE CLI settings file created: %s\n\n", targetPath)
-
-	return nil
 }
 
 func startCmd() *cobra.Command {
@@ -432,11 +382,6 @@ func startCmd() *cobra.Command {
 			}
 
 			registryChainOut := output.CreEnvironment.Blockchains[0]
-
-			sErr := StartCmdGenerateSettingsFile(registryChainOut, output)
-			if sErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to create CRE CLI settings file: %s. You need to create it manually.", sErr)
-			}
 
 			dxErr := trackStartup(true, hasBuiltDockerImage(in), output.CreEnvironment.Provider.Type, nil, nil)
 			if dxErr != nil {
@@ -892,6 +837,7 @@ func StartCLIEnvironment(
 		Features:                features,
 		GatewayWhitelistConfig:  gatewayWhitelistConfig,
 		BlockchainDeployers:     blockchains_sets.NewDeployerSet(testLogger, in.Infra),
+		ContractVersions:        env.ContractVersions(),
 	}
 
 	ctx, cancel := context.WithTimeout(cmdContext, 10*time.Minute)
