@@ -46,10 +46,10 @@ func defaultModuleFactory(ctx context.Context, modCfg *host.ModuleConfig, binary
 }
 
 // onceCloseModule wraps host.ModuleV2 with an idempotent Close. Both
-// runtime.AddCleanup (fired on GC) and explicit EvictableModule.Close target
-// this method, and Cleanup.Stop is documented to be a no-op once cleanup has
-// begun, so without sync.Once the two paths could race into a double-close
-// of host.module (which is not idempotent and would panic).
+// runtime.AddCleanup (fired when GC reaps the holder) and explicit
+// EvictableModule.Close target this method, and they may run in either order;
+// sync.Once ensures host.module.Close (which is not idempotent and would panic
+// on double-close) runs at most once across both paths.
 //
 // onceCloseModule is separate from loadedModule because runtime.AddCleanup
 // forbids the cleanup arg from transitively referencing the cleanup target.
@@ -200,7 +200,9 @@ func (m *EvictableModule) Close() {
 		strong.release()
 	}
 	if h != nil {
-		h.cleanup.Stop()
+		// Don't Stop the cleanup: it is the only path that closes the module
+		// when GC reaps a holder that outlives this call (e.g. via in-flight
+		// pins). sync.Once makes the eventual cleanup-driven Close a no-op.
 		h.mod.Close()
 	}
 }
@@ -261,10 +263,12 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	// L2: try to resurrect the still-live compiled module weakly held since
 	// Evict. weak.Pointer.Value returns nil once GC has reclaimed the holder
 	// (and cleanup is therefore queued or done), so a non-nil result means
-	// the holder is reachable and its mod is still open. Stop cleanup before
-	// re-promoting so the upcoming GC pass will not close it.
+	// the holder is reachable and its mod is still open. We deliberately do
+	// NOT call h.cleanup.Stop here: the cleanup is the only path that closes
+	// the module when this resurrected holder is later evicted and reaped,
+	// and re-promoting it via current strongly references it again, so GC
+	// won't fire until the next eviction makes it unreachable once more.
 	if h := m.weakInner.Value(); h != nil {
-		h.cleanup.Stop()
 		h.refCount.Add(1) // re-establish owning ref (weakly-held holder had refCount 0)
 		m.metrics.recordReload(ctx, "weak_ref")
 		m.current.Store(h)

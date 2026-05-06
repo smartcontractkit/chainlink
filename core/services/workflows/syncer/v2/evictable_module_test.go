@@ -30,11 +30,9 @@ func (m *EvictableModule) forceEvictForTest() {
 	defer m.mu.Unlock()
 	if h := m.current.Swap(nil); h != nil {
 		h.release()
-		h.cleanup.Stop()
 		h.mod.Close()
 	}
 	if h := m.weakInner.Value(); h != nil {
-		h.cleanup.Stop()
 		h.mod.Close()
 	}
 	m.weakInner = weak.Pointer[loadedModule]{}
@@ -46,9 +44,9 @@ type fakeModule struct {
 	closeCalls atomic.Int32
 }
 
-func (f *fakeModule) Start()             {}
-func (f *fakeModule) IsLegacyDAG() bool  { return false }
-func (f *fakeModule) Close()             { f.closeCalls.Add(1) }
+func (f *fakeModule) Start()            {}
+func (f *fakeModule) IsLegacyDAG() bool { return false }
+func (f *fakeModule) Close()            { f.closeCalls.Add(1) }
 func (f *fakeModule) Execute(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
 	return &sdkpb.ExecutionResult{}, nil
 }
