@@ -47,15 +47,15 @@ func defaultModuleFactory(ctx context.Context, modCfg *host.ModuleConfig, binary
 
 // onceCloseModule wraps host.ModuleV2 with an idempotent Close. Both
 // runtime.AddCleanup (fired on GC) and explicit EvictableModule.Close target
-// this method so the underlying module is closed at most once; host.module.Close
-// is not idempotent and would panic on double-close.
+// this method, and Cleanup.Stop is documented to be a no-op once cleanup has
+// begun, so without sync.Once the two paths could race into a double-close
+// of host.module (which is not idempotent and would panic).
 //
 // onceCloseModule is separate from loadedModule because runtime.AddCleanup
 // forbids the cleanup arg from transitively referencing the cleanup target.
 type onceCloseModule struct {
 	mod       host.ModuleV2
 	closeOnce sync.Once
-	closed    atomic.Bool
 }
 
 func (m *onceCloseModule) Start() { m.mod.Start() }
@@ -65,13 +65,8 @@ func (m *onceCloseModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 }
 
 func (m *onceCloseModule) Close() {
-	m.closeOnce.Do(func() {
-		m.closed.Store(true)
-		m.mod.Close()
-	})
+	m.closeOnce.Do(m.mod.Close)
 }
-
-func (m *onceCloseModule) IsClosed() bool { return m.closed.Load() }
 
 // loadedModule is the weak-pointable holder around a compiled host.ModuleV2.
 // EvictableModule holds it strongly while loaded (L1) and weakly after Evict
@@ -221,9 +216,9 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	// blocking, so in-flight pins keep the holder reachable until they release;
 	// final close runs via runtime.AddCleanup once GC reaps the holder, or
 	// eagerly via EvictableModule.Close. ensureLoaded and pin are not atomic,
-	// so we keep a bounded retry loop for the case where Evict (or a stale
-	// closed holder) fires between ensureLoaded returning and pin; each
-	// iteration also checks ctx so cancellation is not starved.
+	// so we keep a bounded retry loop for the case where Evict fires between
+	// ensureLoaded returning and pin; each iteration also checks ctx so
+	// cancellation is not starved.
 	var pinned *loadedModule
 	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
 		if err := ctx.Err(); err != nil {
@@ -236,11 +231,7 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 			h(m)
 		}
 		m.lastUsed.Store(time.Now().UnixNano())
-		if h := m.current.Load(); h != nil && !h.mod.IsClosed() && h.tryAcquire() {
-			if h.mod.IsClosed() {
-				h.release()
-				continue
-			}
+		if h := m.current.Load(); h != nil && h.tryAcquire() {
 			pinned = h
 			break
 		}
@@ -253,7 +244,7 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 }
 
 func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
-	if h := m.current.Load(); h != nil && !h.mod.IsClosed() {
+	if m.current.Load() != nil {
 		return nil
 	}
 
@@ -263,27 +254,21 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	if m.closed.Load() {
 		return errors.New("module is permanently closed")
 	}
-	if h := m.current.Load(); h != nil && !h.mod.IsClosed() {
+	if m.current.Load() != nil {
 		return nil
-	}
-	// Drop any strong reference to a holder whose Close already ran
-	// (possible if cleanup raced with a previous weak resurrection).
-	if h := m.current.Swap(nil); h != nil {
-		h.release()
 	}
 
 	// L2: try to resurrect the still-live compiled module weakly held since
-	// Evict. Stop cleanup before re-promoting so close is not triggered after
-	// resurrection. If the cleanup already ran (IsClosed), fall through to
-	// disk; otherwise re-establish the owning ref and promote.
+	// Evict. weak.Pointer.Value returns nil once GC has reclaimed the holder
+	// (and cleanup is therefore queued or done), so a non-nil result means
+	// the holder is reachable and its mod is still open. Stop cleanup before
+	// re-promoting so the upcoming GC pass will not close it.
 	if h := m.weakInner.Value(); h != nil {
 		h.cleanup.Stop()
-		if !h.mod.IsClosed() {
-			h.refCount.Add(1) // re-establish owning ref (weakly-held holder had refCount 0)
-			m.metrics.recordReload(ctx, "weak_ref")
-			m.current.Store(h)
-			return nil
-		}
+		h.refCount.Add(1) // re-establish owning ref (weakly-held holder had refCount 0)
+		m.metrics.recordReload(ctx, "weak_ref")
+		m.current.Store(h)
+		return nil
 	}
 
 	// L3: read binary from disk and re-instantiate via the factory.
@@ -353,8 +338,7 @@ func (m *EvictableModule) Evict() {
 
 // IsLoaded reports whether the inner module is currently in memory.
 func (m *EvictableModule) IsLoaded() bool {
-	h := m.current.Load()
-	return h != nil && !h.mod.IsClosed()
+	return m.current.Load() != nil
 }
 
 // LastUsed returns the last time Execute was called (unix nanoseconds).
