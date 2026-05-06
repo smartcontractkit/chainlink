@@ -131,6 +131,9 @@ func (s *Service) ShouldEmit(j *job.Job) bool {
 	if len(allowed) == 0 {
 		return false
 	}
+	if slices.Contains(allowed, "all") {
+		return true
+	}
 	return slices.Contains(allowed, string(j.OCR2OracleSpec.PluginType))
 }
 

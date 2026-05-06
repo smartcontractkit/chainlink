@@ -101,12 +101,12 @@ func makeNonMedianOCR2Job() job.Job {
 	return jb
 }
 
-func makeVRFJob() job.Job {
+func makeNonOCR2Job() job.Job {
 	return job.Job{
 		ID:            3,
 		ExternalJobID: uuid.New(),
-		Name:          null.StringFrom("test-vrf-job"),
-		Type:          job.VRF,
+		Name:          null.StringFrom("test-cron-job"),
+		Type:          job.Cron,
 		SchemaVersion: 1,
 		PipelineSpec:  &pipeline.Spec{ID: 30, DotDagSource: ""},
 		Pipeline:      pipeline.Pipeline{},
@@ -148,7 +148,7 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 
 	median := makeMedianJob()
 	nonMedian := makeNonMedianOCR2Job()
-	vrf := makeVRFJob()
+	nonOCR2 := makeNonOCR2Job()
 
 	cases := []struct {
 		name string
@@ -157,7 +157,7 @@ func TestShouldEmit_DefaultConfig(t *testing.T) {
 	}{
 		{"median OCR2 job emits", &median, true},
 		{"non-median OCR2 job skipped", &nonMedian, false},
-		{"non-OCR2 (VRF) job skipped", &vrf, false},
+		{"non-OCR2 job skipped", &nonOCR2, false},
 	}
 
 	for _, tc := range cases {
@@ -176,11 +176,27 @@ func TestShouldEmit_NoOCR2Types(t *testing.T) {
 
 	median := makeMedianJob()
 	nonMedian := makeNonMedianOCR2Job()
-	vrf := makeVRFJob()
+	nonOCR2 := makeNonOCR2Job()
 
 	assert.False(t, svc.ShouldEmit(&median))
 	assert.False(t, svc.ShouldEmit(&nonMedian))
-	assert.False(t, svc.ShouldEmit(&vrf))
+	assert.False(t, svc.ShouldEmit(&nonOCR2))
+}
+
+func TestShouldEmit_AllOCR2Types(t *testing.T) {
+	beholdertest.NewObserver(t)
+	cfg := defaultConfig()
+	cfg.enabledOCR2PluginTypes = []string{"all"}
+
+	svc := newTestReporter(t, cfg, nil)
+
+	median := makeMedianJob()
+	nonMedian := makeNonMedianOCR2Job()
+	nonOCR2 := makeNonOCR2Job()
+
+	assert.True(t, svc.ShouldEmit(&median))
+	assert.True(t, svc.ShouldEmit(&nonMedian))
+	assert.False(t, svc.ShouldEmit(&nonOCR2))
 }
 
 func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
@@ -190,9 +206,9 @@ func TestShouldEmit_NonOCR2Skipped(t *testing.T) {
 	svc := newTestReporter(t, cfg, nil)
 
 	median := makeMedianJob()
-	vrf := makeVRFJob()
+	nonOCR2 := makeNonOCR2Job()
 
-	assert.False(t, svc.ShouldEmit(&vrf))
+	assert.False(t, svc.ShouldEmit(&nonOCR2))
 	assert.True(t, svc.ShouldEmit(&median))
 }
 
@@ -298,7 +314,7 @@ func TestBuildEvent_NonOCR2Job(t *testing.T) {
 
 	svc := newTestReporter(t, defaultConfig(), nil)
 
-	jb := makeVRFJob()
+	jb := makeNonOCR2Job()
 	err := svc.EmitForJob(context.Background(), jb, events.EmissionTrigger_EMISSION_TRIGGER_HEARTBEAT)
 	require.ErrorContains(t, err, "unsupported job type")
 
@@ -331,9 +347,9 @@ func TestAfterJobStopped_EmitsDelete(t *testing.T) {
 func TestAfterJobStarted_SkippedWhenGateFails(t *testing.T) {
 	observer := beholdertest.NewObserver(t)
 
-	// default config only allows median, so a VRF job should be skipped
+	// default config only allows median, so a non-OCR2 job should be skipped
 	svc := newTestReporter(t, defaultConfig(), nil)
-	svc.AfterJobStarted(context.Background(), makeVRFJob())
+	svc.AfterJobStarted(context.Background(), makeNonOCR2Job())
 
 	msgs := observer.Messages(t, "beholder_entity", events.ProtoPkg+"."+events.JobSpecEventEntity)
 	require.Empty(t, msgs)
