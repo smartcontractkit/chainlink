@@ -10,14 +10,14 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260430175646-295a7f9a1500"
+      gitRef: "v0.0.0-20260506112908-f0d993b5bd6d"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
       # IMP: consult chainlink-sui team before updating this version
       # current version is v0.0.0-20260427132612-76b9f754a556
-      gitRef: "v0.0.0-20260427132612-76b9f754a556"
+      gitRef: "v0.0.0-20260429183453-39df0198aed8"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:

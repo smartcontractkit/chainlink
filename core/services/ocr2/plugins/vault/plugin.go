@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
 	"sort"
 	"time"
@@ -46,10 +45,6 @@ import (
 const (
 	blobBroadcastTimeout        = 2 * time.Second
 	maxConcurrentBlobBroadcasts = 10
-)
-
-var (
-	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 )
 
 type ReportingPluginConfig struct {
@@ -343,12 +338,21 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		return nil, ocr3_1types.ReportingPluginInfo1{}, fmt.Errorf("could not resolve plugin limits: %w", err)
 	}
 
+	validator := vaultcap.NewRequestValidator(
+		cfg.MaxRequestBatchSize,
+		cfg.MaxCiphertextLengthBytes,
+		cfg.MaxIdentifierKeyLengthBytes,
+		cfg.MaxIdentifierOwnerLengthBytes,
+		cfg.MaxIdentifierNamespaceLengthBytes,
+	)
+
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
 			store:      r.store,
 			cfg:        cfg,
 			metrics:    metrics,
 			onchainCfg: config,
+			validator:  validator,
 			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
 				handle := ocr3_1types.BlobHandle{}
 				err := handle.UnmarshalBinary(data)
@@ -369,6 +373,7 @@ type ReportingPlugin struct {
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
 	metrics    *pluginMetrics
+	validator  *vaultcap.RequestValidator
 
 	// For testing: functions to mock out marshaling/unmarshaling blob handles.
 	// The Blob API isn't very test friendly because it uses sum types that belong
@@ -839,7 +844,7 @@ func (r *ReportingPlugin) observeCreateSecretRequest(ctx context.Context, reader
 		return id, newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 
-	if ierr := r.validateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
+	if ierr := r.validator.ValidateCiphertextSize(ctx, secretRequest.Id.Owner, secretRequest.EncryptedValue); ierr != nil {
 		return id, newUserError(ierr.Error())
 	}
 
@@ -1061,15 +1066,7 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 
 func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
 	if id == nil {
-		return nil, newUserError("invalid secret identifier: cannot be nil")
-	}
-
-	if id.Key == "" {
-		return nil, newUserError("invalid secret identifier: key cannot be empty")
-	}
-
-	if id.Owner == "" {
-		return nil, newUserError("invalid secret identifier: owner cannot be empty")
+		return nil, newUserError("secret identifier cannot be nil")
 	}
 
 	namespace := id.Namespace
@@ -1077,8 +1074,8 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		namespace = vaulttypes.DefaultNamespace
 	}
 
-	if !isValidIDComponent(id.Key) || !isValidIDComponent(id.Owner) || !isValidIDComponent(namespace) {
-		return nil, newUserError("invalid secret identifier: key, owner and namespace must only contain alphanumeric characters")
+	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
+		return nil, newUserError(err.Error())
 	}
 
 	newID := &vaultcommon.SecretIdentifier{
@@ -1087,30 +1084,6 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 		Namespace: namespace,
 	}
 
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: id.Owner})
-	if err := r.cfg.MaxIdentifierOwnerLengthBytes.Check(ctx, pkgconfig.Size(len(id.Owner))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
-			return nil, newUserError(fmt.Sprintf("invalid secret identifier: owner exceeds maximum length of %s", errBoundLimited.Limit))
-		}
-		return nil, newUserError("failed to check owner length limit: " + err.Error())
-	}
-
-	if err := r.cfg.MaxIdentifierNamespaceLengthBytes.Check(ctx, pkgconfig.Size(len(id.Namespace))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
-			return nil, newUserError(fmt.Sprintf("invalid secret identifier: namespace exceeds maximum length of %s", errBoundLimited.Limit))
-		}
-		return nil, newUserError("failed to check namespace length limit: " + err.Error())
-	}
-
-	if err := r.cfg.MaxIdentifierKeyLengthBytes.Check(ctx, pkgconfig.Size(len(id.Key))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
-			return nil, newUserError(fmt.Sprintf("invalid secret identifier: key exceeds maximum length of %s", errBoundLimited.Limit))
-		}
-		return nil, newUserError("failed to check key length limit: " + err.Error())
-	}
 	return newID, nil
 }
 
@@ -1314,6 +1287,9 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		if secretRequest.Id == nil {
 			return errors.New("GetSecrets request contains nil secret identifier")
 		}
+		if err := r.validator.ValidateSecretIdentifier(ctx, secretRequest.Id.Key, secretRequest.Id.Owner, secretRequest.Id.Namespace); err != nil {
+			return fmt.Errorf("GetSecrets request contains invalid secret identifier: %w", err)
+		}
 		key := vaulttypes.KeyFor(r.canonicalResponseID(ctx, secretRequest.Id, req.OrgId))
 		if _, ok := reqMap[key]; ok {
 			return fmt.Errorf("duplicate request found for item %s", key)
@@ -1373,22 +1349,6 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 	return nil
 }
 
-func (r *ReportingPlugin) validateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
-	rawCiphertextB, err := hex.DecodeString(encryptedValue)
-	if err != nil {
-		return fmt.Errorf("invalid hex encoding for ciphertext: %w", err)
-	}
-	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
-	if err := r.cfg.MaxCiphertextLengthBytes.Check(innerCtx, pkgconfig.Size(len(rawCiphertextB))*pkgconfig.Byte); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
-			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)
-		}
-		return errors.New("failed to check ciphertext size")
-	}
-	return nil
-}
-
 func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
 	if o.GetCreateSecretsRequest() == nil || o.GetCreateSecretsResponse() == nil {
 		return errors.New("CreateSecrets observation must have both request and response")
@@ -1409,6 +1369,9 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 		if s.Id == nil {
 			return errors.New("CreateSecrets request contains nil secret identifier")
 		}
+		if err := r.validator.ValidateSecretIdentifier(ctx, s.Id.Key, s.Id.Owner, s.Id.Namespace); err != nil {
+			return fmt.Errorf("CreateSecrets request contains invalid secret identifier: %w", err)
+		}
 		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
 		if ok {
 			return fmt.Errorf("CreateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
@@ -1416,7 +1379,7 @@ func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("CreateSecrets request: %w", err)
 		}
 	}
@@ -1450,6 +1413,9 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 		if s.Id == nil {
 			return errors.New("UpdateSecrets request contains nil secret identifier")
 		}
+		if err := r.validator.ValidateSecretIdentifier(ctx, s.Id.Key, s.Id.Owner, s.Id.Namespace); err != nil {
+			return fmt.Errorf("UpdateSecrets request contains invalid secret identifier: %w", err)
+		}
 		_, ok := idSet[vaulttypes.KeyFor(s.Id)]
 		if ok {
 			return fmt.Errorf("UpdateSecrets requests cannot contain duplicate request for a given secret identifier: %s", s.Id)
@@ -1457,7 +1423,7 @@ func (r *ReportingPlugin) validateUpdateSecretsObservation(ctx context.Context, 
 
 		idSet[vaulttypes.KeyFor(s.Id)] = true
 
-		if err := r.validateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
+		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
 			return fmt.Errorf("UpdateSecrets request: %w", err)
 		}
 	}
@@ -1487,16 +1453,19 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 	// We disallow duplicate delete requests within a single batch request.
 	// This prevents users from clobbering their own writes.
 	idSet := map[string]bool{}
-	for _, r := range o.GetDeleteSecretsRequest().Ids {
-		if r == nil {
+	for _, id := range o.GetDeleteSecretsRequest().Ids {
+		if id == nil {
 			return errors.New("DeleteSecrets request contains nil secret identifier")
 		}
-		_, ok := idSet[vaulttypes.KeyFor(r)]
+		if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
+			return fmt.Errorf("DeleteSecrets request contains invalid secret identifier: %w", err)
+		}
+		_, ok := idSet[vaulttypes.KeyFor(id)]
 		if ok {
-			return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", r)
+			return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", id)
 		}
 
-		idSet[vaulttypes.KeyFor(r)] = true
+		idSet[vaulttypes.KeyFor(id)] = true
 	}
 
 	for _, r := range o.GetDeleteSecretsResponse().Responses {
@@ -1509,17 +1478,23 @@ func (r *ReportingPlugin) validateDeleteSecretsObservation(ctx context.Context, 
 }
 
 func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.Context, o *vaultcommon.Observation) error {
-	if o.GetListSecretIdentifiersRequest() == nil || o.GetListSecretIdentifiersResponse() == nil {
+	listReq := o.GetListSecretIdentifiersRequest()
+	listResp := o.GetListSecretIdentifiersResponse()
+	if listReq == nil || listResp == nil {
 		return errors.New("ListSecretIdentifiers observation must have both request and response")
 	}
 
-	resp := o.GetListSecretIdentifiersResponse()
-	if resp.Success {
-		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: o.GetListSecretIdentifiersRequest().Owner})
-		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(resp.Identifiers)); err != nil {
+	// Passing in owner as key since Validate requires a non-empty key but list secret doesn't have a key
+	if err := r.validator.ValidateSecretIdentifier(ctx, listReq.Owner, listReq.Owner, listReq.Namespace); err != nil {
+		return fmt.Errorf("ListSecretIdentifiers request contains invalid secret identifier: %w", err)
+	}
+
+	if listResp.Success {
+		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: listReq.Owner})
+		if err := r.cfg.MaxSecretsPerOwner.Check(ctx, len(listResp.Identifiers)); err != nil {
 			var errBoundLimited limits.ErrorBoundLimited[int]
 			if errors.As(err, &errBoundLimited) {
-				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(resp.Identifiers), errBoundLimited.Limit)
+				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d)", len(listResp.Identifiers), errBoundLimited.Limit)
 			}
 			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
 		}
