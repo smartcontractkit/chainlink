@@ -43,8 +43,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260323124644-faea187e6997
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.18
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.3-0.20260506095219-9844f7980ce5
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.22-0.20260506095219-9844f7980ce5
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.3
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.22
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.10.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
