@@ -212,9 +212,9 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
-	if err := enforceVaultJWTOAuthScopes(req.Method, claims.OAuthScopes); err != nil {
-		v.lggr.Debugw("JWTBasedAuth OAuth scope rejected request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "scopes", claims.OAuthScopes, "error", err)
-		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
+	if scopeErr := enforceVaultJWTOAuthScopes(req.Method, claims.OAuthScopes); scopeErr != nil {
+		v.lggr.Debugw("JWTBasedAuth OAuth scope rejected request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "scopes", claims.OAuthScopes, "error", scopeErr)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", scopeErr)
 	}
 
 	requestDigest, err := req.Digest()
@@ -229,8 +229,8 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 	}
 
 	if claims.WorkflowOwner == "" {
-		if err := validateOrgIDOwnedVaultRequest(req, claims.OrgID); err != nil {
-			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, err)
+		if ownerErr := validateOrgIDOwnedVaultRequest(req, claims.OrgID); ownerErr != nil {
+			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, ownerErr)
 			v.lggr.Debugw("JWTBasedAuth missing workflow owner rejected non-org-owned request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", wrappedErr)
 			return nil, fmt.Errorf("invalid JWT auth token: %w", wrappedErr)
 		}
