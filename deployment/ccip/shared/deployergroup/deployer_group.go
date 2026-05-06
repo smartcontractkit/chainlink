@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -587,5 +588,5 @@ func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeA
 }
 
 func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	return state.LoadAddressesFromDataStore(e.DataStore, selector, qualifier)
+	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // will be refactored once usages are removed
 }

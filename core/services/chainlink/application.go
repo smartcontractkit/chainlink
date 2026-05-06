@@ -528,6 +528,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM))
+	srvcs = append(srvcs, &nodePlatformJobInfo)
+
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))
 	for i, chain := range cfg.EVMConfigs() {

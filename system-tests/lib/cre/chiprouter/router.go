@@ -34,7 +34,7 @@ func getClient(ctx context.Context) (*ctfchiprouterclient.Client, error) {
 			}
 		}
 		in := &envconfig.Config{}
-		err := in.Load(os.Getenv("CTF_CONFIGS"))
+		err := in.Load(envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot))
 		if err != nil {
 			errClient = err
 			return

@@ -122,6 +122,6 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	return &confidentialRelayConfig{enabled: enabled}
 }
 
-func (c *creConfig) LocalSecrets() map[string]string {
-	return c.s.LocalSecrets
+func (c *creConfig) LocalSecretOverrides() map[string]map[string]string {
+	return c.s.LocalSecretOverrides
 }

@@ -11,6 +11,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmschainwrappers "github.com/smartcontractkit/mcms/chainwrappers"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -88,7 +89,7 @@ func (tc *TimelockConfig) MCMBasedOnActionTON(s *tonstate.MCMSSuiteState) (strin
 	}
 }
 
-func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
+func (tc *TimelockConfig) MCMBasedOnAction(s evmstate.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
 	// if MCMSAction is not set, default to timelock.Schedule, this is to ensure no breaking changes for existing code
 	if tc.MCMSAction == "" {
 		tc.MCMSAction = types.TimelockActionSchedule
@@ -127,7 +128,7 @@ func (tc *TimelockConfig) validateCommon() error {
 	return nil
 }
 
-func (tc *TimelockConfig) Validate(chain cldf_evm.Chain, s state.MCMSWithTimelockState) error {
+func (tc *TimelockConfig) Validate(chain cldf_evm.Chain, s evmstate.MCMSWithTimelockState) error {
 	err := tc.validateCommon()
 	if err != nil {
 		return err
@@ -436,7 +437,7 @@ func getSolanaState(env cldf.Environment, selector uint64) (*state.MCMSWithTimel
 // Deprecated: Use extensible AggregateProposalsV2 instead. Which accepts multiple chain families.
 func AggregateProposals(
 	env cldf.Environment,
-	mcmsEVMState map[uint64]state.MCMSWithTimelockState,
+	mcmsEVMState map[uint64]evmstate.MCMSWithTimelockState,
 	mcmsSolanaState map[uint64]state.MCMSWithTimelockStateSolana,
 	proposals []mcmslib.TimelockProposal,
 	description string,
@@ -455,7 +456,7 @@ func AggregateProposals(
 }
 
 type MCMSStates struct {
-	MCMSEVMState    map[uint64]state.MCMSWithTimelockState
+	MCMSEVMState    map[uint64]evmstate.MCMSWithTimelockState
 	MCMSSolanaState map[uint64]state.MCMSWithTimelockStateSolana
 	MCMSAptosState  map[uint64]aptos.AccountAddress
 	MCMSTONState    map[uint64]tonstate.MCMSChainState
