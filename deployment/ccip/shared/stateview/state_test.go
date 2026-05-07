@@ -2,6 +2,7 @@ package stateview_test
 
 import (
 	"crypto/ecdsa"
+	"math/big"
 	"testing"
 	"time"
 
@@ -9,6 +10,9 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -42,6 +46,116 @@ func TestLoadChainState_MultipleFeeQuoters(t *testing.T) {
 
 	require.Equal(t, fq2, state.FeeQuoter.Address().Hex(), "expected latest fee quoter to be selected")
 	require.Equal(t, deployment.Version1_2_0, *state.FeeQuoterVersion, "expected latest fee quoter version to be selected")
+}
+
+func TestLoadChainState_LegacyV15EVM2EVMDatastoreKeys(t *testing.T) {
+	t.Parallel()
+
+	srcSel := chain_selectors.TEST_90000001.Selector
+	dstSel := chain_selectors.TEST_90000002.Selector
+
+	e, err := environment.New(t.Context(),
+		environment.WithEVMSimulated(t, []uint64{srcSel, dstSel}),
+		environment.WithLogger(logger.Test(t)),
+	)
+	require.NoError(t, err)
+
+	chain := e.BlockChains.EVMChains()[srcSel]
+
+	_, tx, onRamp, err := evm_2_evm_onramp.DeployEVM2EVMOnRamp(
+		chain.DeployerKey, chain.Client,
+		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
+			LinkToken:          common.HexToAddress("0x1"),
+			ChainSelector:      chain.Selector,
+			DestChainSelector:  dstSel,
+			DefaultTxGasLimit:  10,
+			MaxNopFeesJuels:    big.NewInt(10),
+			PrevOnRamp:         common.Address{},
+			RmnProxy:           common.HexToAddress("0x2"),
+			TokenAdminRegistry: common.HexToAddress("0x3"),
+		},
+		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+			Router:                            common.HexToAddress("0x4"),
+			MaxNumberOfTokensPerMsg:           0,
+			DestGasOverhead:                   0,
+			DestGasPerPayloadByte:             0,
+			DestDataAvailabilityOverheadGas:   0,
+			DestGasPerDataAvailabilityByte:    0,
+			DestDataAvailabilityMultiplierBps: 0,
+			PriceRegistry:                     common.HexToAddress("0x5"),
+			MaxDataBytes:                      0,
+			MaxPerMsgGasLimit:                 0,
+			DefaultTokenFeeUSDCents:           0,
+			DefaultTokenDestGasOverhead:       0,
+			EnforceOutOfOrder:                 false,
+		},
+		evm_2_evm_onramp.RateLimiterConfig{
+			IsEnabled: true,
+			Capacity:  big.NewInt(100),
+			Rate:      big.NewInt(10),
+		},
+		[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{},
+		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{},
+		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
+	)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	_, tx, cs, err := commit_store.DeployCommitStore(
+		chain.DeployerKey, chain.Client, commit_store.CommitStoreStaticConfig{
+			ChainSelector:       dstSel,
+			SourceChainSelector: srcSel,
+			OnRamp:              common.HexToAddress("0x4"),
+			RmnProxy:            common.HexToAddress("0x1"),
+		})
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	offRampStatic := evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
+		ChainSelector:       dstSel,
+		SourceChainSelector: srcSel,
+		RmnProxy:            common.HexToAddress("0x1"),
+		CommitStore:         cs.Address(),
+		TokenAdminRegistry:  common.HexToAddress("0x3"),
+		OnRamp:              common.HexToAddress("0x4"),
+	}
+	rl := evm_2_evm_offramp.RateLimiterConfig{
+		IsEnabled: true,
+		Capacity:  big.NewInt(100),
+		Rate:      big.NewInt(10),
+	}
+	_, tx, offRamp, err := evm_2_evm_offramp.DeployEVM2EVMOffRamp(
+		chain.DeployerKey, chain.Client, offRampStatic, rl)
+	_, err = cldf.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	evm2evmAddrs := map[string]cldf.TypeAndVersion{
+		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.EVM2EVMOnRamp, deployment.Version1_5_0),
+		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.EVM2EVMOffRamp, deployment.Version1_5_0),
+	}
+
+	legacyDisabled, err := stateview.LoadChainState(t.Context(), chain, evm2evmAddrs)
+	require.NoError(t, err)
+	require.Nil(t, legacyDisabled.EVM2EVMOnRamp)
+	require.Nil(t, legacyDisabled.EVM2EVMOffRamp)
+
+	lcs, err := stateview.LoadChainState(t.Context(), chain, evm2evmAddrs, stateview.WithLoadLegacyContracts(true))
+	require.NoError(t, err)
+	require.NotNil(t, lcs.EVM2EVMOnRamp[dstSel])
+	require.Equal(t, onRamp.Address(), lcs.EVM2EVMOnRamp[dstSel].Address())
+	require.NotNil(t, lcs.EVM2EVMOffRamp[srcSel])
+	require.Equal(t, offRamp.Address(), lcs.EVM2EVMOffRamp[srcSel].Address())
+	require.Equal(t, evm_2_evm_onramp.EVM2EVMOnRampABI, lcs.ABIByAddress[onRamp.Address().Hex()])
+	require.Equal(t, evm_2_evm_offramp.EVM2EVMOffRampABI, lcs.ABIByAddress[offRamp.Address().Hex()])
+
+	legacyNamesAddrs := map[string]cldf.TypeAndVersion{
+		onRamp.Address().Hex():  cldf.NewTypeAndVersion(shared.OnRamp, deployment.Version1_5_0),
+		offRamp.Address().Hex(): cldf.NewTypeAndVersion(shared.OffRamp, deployment.Version1_5_0),
+	}
+	byLegacyKeys, err := stateview.LoadChainState(t.Context(), chain, legacyNamesAddrs, stateview.WithLoadLegacyContracts(true))
+	require.NoError(t, err)
+	require.Equal(t, onRamp.Address(), byLegacyKeys.EVM2EVMOnRamp[dstSel].Address())
+	require.Equal(t, offRamp.Address(), byLegacyKeys.EVM2EVMOffRamp[srcSel].Address())
 }
 
 func TestSmokeState(t *testing.T) {

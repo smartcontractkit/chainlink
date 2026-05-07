@@ -1504,7 +1504,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ERC677Tokens[ccipshared.TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below are commented out to avoid loading them by default, to be uncommented for migrations
-		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOnRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}
@@ -1521,7 +1522,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
 			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
-		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOffRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}
