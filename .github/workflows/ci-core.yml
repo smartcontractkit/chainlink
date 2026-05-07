@@ -170,6 +170,7 @@ jobs:
             **/*.go
             **/go.mod
             **/go.sum
+            **/.golangci.yml
           module-patterns: |
             **
             !core/scripts/cre/environment/examples/workflows/**
