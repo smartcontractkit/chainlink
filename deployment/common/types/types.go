@@ -18,6 +18,10 @@ const (
 	CancellerManyChainMultisig cldf.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  cldf.ContractType = "ProposerManyChainMultiSig"
 	ManyChainMultisig          cldf.ContractType = "ManyChainMultiSig"
+	// ProdTestnetMCM is a legacy RDD label still present on CCIP testnet datastore / address-book entries.
+	// It denotes the same ManyChainMultiSig ABI as ManyChainMultiSig @ v1.0.0; role disambiguation uses
+	// the same PROPOSER / BYPASSER / CANCELLER labels as ManyChainMultiSig entries.
+	ProdTestnetMCM             cldf.ContractType = "prodTestnetMCM"
 	RBACTimelock               cldf.ContractType = "RBACTimelock"
 	CallProxy                  cldf.ContractType = "CallProxy"
 

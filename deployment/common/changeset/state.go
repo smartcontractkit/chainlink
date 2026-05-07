@@ -120,14 +120,22 @@ func MaybeLoadMCMSWithTimelockChainState(
 		proposerMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		bypasserMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		cancellerMCMS = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+
+		prodProposerMCMS  = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
+		prodBypasserMCMS  = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
+		prodCancellerMCMS = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
 	)
 
 	// Convert map keys to a slice
 	proposerMCMS.Labels.Add(types.ProposerRole.String())
 	bypasserMCMS.Labels.Add(types.BypasserRole.String())
 	cancellerMCMS.Labels.Add(types.CancellerRole.String())
+	prodProposerMCMS.Labels.Add(types.ProposerRole.String())
+	prodBypasserMCMS.Labels.Add(types.BypasserRole.String())
+	prodCancellerMCMS.Labels.Add(types.CancellerRole.String())
 	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
 		proposerMCMS, bypasserMCMS, cancellerMCMS,
+		prodProposerMCMS, prodBypasserMCMS, prodCancellerMCMS,
 	}
 
 	// Ensure we either have the bundle or not.
@@ -168,10 +176,10 @@ func MaybeLoadMCMSWithTimelockChainState(
 				return nil, err
 			}
 			state.CancellerMcm = mcms
-		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
-			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
-			// field.  If a specifically typed contract already occupies the field, then this
-			// contract will be ignored.
+		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String(),
+			tv.Type == types.ProdTestnetMCM && tv.Version.String() == multichain.Version.String():
+			// ManyChainMultiSig and legacy prodTestnetMCM (RDD testnet label) share the MCMS ABI;
+			// labels disambiguate roles (see MaybeLoadMCMSWithTimelockChainState in state/evm.go).
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
