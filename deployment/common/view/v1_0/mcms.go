@@ -14,8 +14,9 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type Role struct {
@@ -59,7 +60,7 @@ var (
 // --- evm ---
 
 type MCMSView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	// Note config is json marshallable.
 	Config mcmstypes.Config `json:"config"`
 }
@@ -92,7 +93,7 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 	}
 	return MCMSView{
 		// Has no type and version on the contract
-		ContractMetaData: types.ContractMetaData{
+		ContractMetaData: commoncldchangesets.ContractMetaData{
 			Owner:   owner,
 			Address: mcms.Address(),
 		},
@@ -101,7 +102,7 @@ func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 }
 
 type TimelockView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	MembersByRole map[string][]common.Address `json:"membersByRole"`
 }
 
@@ -122,7 +123,7 @@ func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 	}
 	return TimelockView{
 		// Has no type and version or owner.
-		ContractMetaData: types.ContractMetaData{
+		ContractMetaData: commoncldchangesets.ContractMetaData{
 			Address: tl.Address(),
 		},
 		MembersByRole: membersByRole,
@@ -130,12 +131,12 @@ func GenerateTimelockView(tl owner_helpers.RBACTimelock) (TimelockView, error) {
 }
 
 type CallProxyView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 }
 
 func GenerateCallProxyView(cp owner_helpers.CallProxy) (CallProxyView, error) {
 	return CallProxyView{
-		ContractMetaData: types.ContractMetaData{
+		ContractMetaData: commoncldchangesets.ContractMetaData{
 			Address: cp.Address(),
 		},
 	}, nil

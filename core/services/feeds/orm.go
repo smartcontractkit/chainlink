@@ -40,6 +40,7 @@ type ORM interface {
 	DeleteProposal(ctx context.Context, id int64) error
 	GetJobProposal(ctx context.Context, id int64) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(ctx context.Context, uuid uuid.UUID) (*JobProposal, error)
+	GetJobProposalByExternalJobID(ctx context.Context, externalJobID uuid.UUID) (*JobProposal, error)
 	ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error)
 	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error // NEEDED?
 	UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
@@ -430,6 +431,21 @@ AND status <> $2;
 	jp = new(JobProposal)
 	err = o.ds.GetContext(ctx, jp, stmt, id, JobProposalStatusDeleted)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
+}
+
+// GetJobProposalByExternalJobID gets a non-deleted job proposal by its external job ID.
+func (o *orm) GetJobProposalByExternalJobID(ctx context.Context, externalJobID uuid.UUID) (jp *JobProposal, err error) {
+	stmt := `
+SELECT *
+FROM job_proposals
+WHERE external_job_id = $1
+AND status <> $2
+LIMIT 1;
+`
+
+	jp = new(JobProposal)
+	err = o.ds.GetContext(ctx, jp, stmt, externalJobID, JobProposalStatusDeleted)
+	return jp, errors.Wrap(err, "GetJobProposalByExternalJobID failed")
 }
 
 // ListJobProposalsByManagersIDs gets job proposals by feeds managers IDs.

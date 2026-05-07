@@ -194,7 +194,7 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	}
 
 	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
-		h.lggr.Errorf("Failed to send message to gateway %s: %v", gatewayID, err)
+		h.lggr.Errorw("Failed to send message to gateway", "gatewayID", gatewayID, "error", err)
 		return err
 	}
 
@@ -334,7 +334,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	h.lggr.Debugf("Processing authorized and normalized create secrets request [%s]", vaultCapRequest.String())
+	h.lggr.Debugw("Processing authorized and normalized create secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
@@ -357,7 +357,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	h.lggr.Debugf("Processing authorized and normalized update secrets request [%s]", vaultCapRequest.String())
+	h.lggr.Debugw("Processing authorized and normalized update secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
@@ -380,7 +380,7 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	h.lggr.Debugf("Processing authorized and normalized delete secrets request [%s]", r.String())
+	h.lggr.Debugw("Processing authorized and normalized delete secrets request", "request", r.String())
 	resp, err := h.secretsService.DeleteSecrets(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to delete secrets: %w", err))
@@ -410,7 +410,7 @@ func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
 	}
 
-	h.lggr.Debugf("Processing authorized and normalized list secrets request [%s]", r.String())
+	h.lggr.Debugw("Processing authorized and normalized list secrets request", "request", r.String())
 	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
@@ -460,7 +460,7 @@ func (h *GatewayHandler) errorResponse(
 	errorCode api.ErrorCode,
 	err error,
 ) *jsonrpc.Response[json.RawMessage] {
-	h.lggr.Errorf("error code: %d, err: %s", errorCode, err.Error())
+	h.lggr.Errorw("gateway handler error response", "gatewayID", gatewayID, "requestID", req.ID, "method", req.Method, "errorCode", errorCode, "error", err)
 	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 		attribute.String("error", errorCode.String()),

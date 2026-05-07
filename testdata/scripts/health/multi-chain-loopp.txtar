@@ -138,11 +138,13 @@ ok EVM.1.RelayerService.PluginRelayerClient.PluginEVM.Txm.WrappedEvmEstimator
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
+ok JobSpecReporter
 ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
 ok Mercury.WSRPCPool.CacheSet
 ok NodePlatformBuildInfo
+ok NodePlatformJobInfo
 ok PipelineORM
 ok PipelineRunner
 ok PipelineRunner.BridgeCache
@@ -501,6 +503,15 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "JobSpecReporter",
+      "attributes": {
+        "name": "JobSpecReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "LLOTransmissionReaper",
       "attributes": {
         "name": "LLOTransmissionReaper",
@@ -540,6 +551,15 @@ ok WorkflowStore
       "id": "NodePlatformBuildInfo",
       "attributes": {
         "name": "NodePlatformBuildInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "NodePlatformJobInfo",
+      "attributes": {
+        "name": "NodePlatformJobInfo",
         "status": "passing",
         "output": ""
       }

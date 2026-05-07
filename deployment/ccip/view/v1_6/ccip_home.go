@@ -15,12 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -83,7 +84,7 @@ type CCIPHomeVersionedConfig struct {
 }
 
 type CCIPHomeView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	ChainConfigs       []CCIPHomeChainConfigArgView `json:"chainConfigs"`
 	CapabilityRegistry common.Address               `json:"capabilityRegistry"`
 	Dons               []DonView                    `json:"dons"`
@@ -104,7 +105,7 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 	if ch == nil {
 		return CCIPHomeView{}, errors.New("cannot generate view for nil CCIPHome")
 	}
-	meta, err := types.NewContractMetaData(ch, ch.Address())
+	meta, err := commoncldchangesets.NewContractMetaData(ch, ch.Address())
 	if err != nil {
 		return CCIPHomeView{}, fmt.Errorf("failed to generate contract metadata for CCIPHome %s: %w", ch.Address(), err)
 	}

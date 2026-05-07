@@ -1,7 +1,6 @@
 package contracts
 
 import (
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/v2/changeset"
-
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -109,23 +106,19 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
 	}
 
-	cfg, err := dkgReportingPluginConfig(input.DON, input.OracleConfig.MaxFaultyOracles+1) // validate config can be created
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create DKG reporting plugin config: %w", err)
-	}
+	input.OracleConfig.DKGOffchainConfig = dkgOffchainConfig(input.DON, input.OracleConfig.MaxFaultyOracles+1)
 	report, err := operations.ExecuteOperation(e.OperationsBundle, ConfigureDKG, ConfigureDKGDeps{
 		WriteGeneratedConfig: io.Discard,
 		Env:                  &e,
 		Strategy:             strategy,
 	}, ConfigureDKGInput{
-		ContractAddress:       &contractAddr,
-		ChainSelector:         input.ContractChainSelector,
-		DON:                   input.DON.DonNodeSet,
-		Config:                input.OracleConfig,
-		DryRun:                input.DryRun,
-		MCMSConfig:            input.MCMSConfig,
-		ReportingPluginConfig: cfg,
-		ExtraSignerFamilies:   input.ExtraSignerFamilies,
+		ContractAddress:     &contractAddr,
+		ChainSelector:       input.ContractChainSelector,
+		DON:                 input.DON.DonNodeSet,
+		Config:              input.OracleConfig,
+		DryRun:              input.DryRun,
+		MCMSConfig:          input.MCMSConfig,
+		ExtraSignerFamilies: input.ExtraSignerFamilies,
 	})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure OCR3 contract: %w", err)
@@ -137,20 +130,10 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 	}, nil
 }
 
-func dkgReportingPluginConfig(don DKGDon, threshold int) (dkgocrtypes.ReportingPluginConfig, error) {
-	keys := []dkgocrtypes.P256ParticipantPublicKey{}
-	for _, k := range don.RecipientPublicKeys {
-		bk, err := hex.DecodeString(k)
-		if err != nil {
-			return dkgocrtypes.ReportingPluginConfig{}, fmt.Errorf("failed to decode recipient public key %s: %w", k, err)
-		}
-		keys = append(keys, dkgocrtypes.P256ParticipantPublicKey(bk))
-	}
-	cfg := dkgocrtypes.ReportingPluginConfig{
+func dkgOffchainConfig(don DKGDon, threshold int) *ocr3_1.DKGOffchainConfig {
+	return &ocr3_1.DKGOffchainConfig{
 		T:                   threshold,
-		DealerPublicKeys:    keys,
-		RecipientPublicKeys: keys,
+		DealerPublicKeys:    don.RecipientPublicKeys,
+		RecipientPublicKeys: don.RecipientPublicKeys,
 	}
-
-	return cfg, nil
 }
