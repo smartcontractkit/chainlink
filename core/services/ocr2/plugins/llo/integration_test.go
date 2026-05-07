@@ -2697,13 +2697,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // tombstoned, the DON stops observing its streams (no bridge traffic for those stream jobs)
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
-	// NOTE: t.Parallel() is intentionally omitted here. This test spins up 5
-	// heavyweight nodes (1 bootstrap + 4 oracles), each with its own full
-	// PostgreSQL DB. Running it concurrently with the other parallel integration
-	// tests in this package exhausts memory on CI runners and triggers OOM
-	// kills before the test reaches its first assertion. Serialising this test
-	// relative to its siblings is the safest fix without restructuring the
-	// entire file. See CRE-3921.
+	t.Parallel()
 
 	const (
 		salt              = 500
@@ -2879,12 +2873,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	// for the active stream to be observed at least once more.
 	// DefaultMinReportIntervalNanoseconds=1s and DeltaRound=500ms mean a
 	// pipeline started just before the snapshot could complete within 1s;
-	// 3s provides comfortable headroom. See CRE-3921.
-	time.Sleep(3 * time.Second)
-	require.Equal(t, bCallsAfterReportsStopped, streamBCalls.Load(),
-		"tombstoned channel's stream should not be observed (no additional bridge calls)")
-	require.Greater(t, streamACalls.Load(), aCallsAfterReportsStopped,
-		"active channel's stream should still be observed")
+	// 3s provides comfortable headroom.
+	require.Eventually(t, func() bool {
+		return bCallsAfterReportsStopped == streamBCalls.Load()
+	}, 3*time.Second, 100*time.Millisecond, "tombstoned channel's stream should not be observed (no additional bridge calls)")
+	require.Eventually(t, func() bool {
+		return streamACalls.Load() > aCallsAfterReportsStopped
+	}, 3*time.Second, 100*time.Millisecond, "active channel's stream should still be observed")
 }
 
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
