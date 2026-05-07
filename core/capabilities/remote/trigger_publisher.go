@@ -533,11 +533,7 @@ func (p *triggerPublisher) sendRegistrationChecks() {
 			continue
 		}
 
-		chunkSize := int(cfg.remoteConfig.MaxBatchSize)
-		if chunkSize < 1 {
-			chunkSize = commoncap.DefaultBatchSize
-		}
-
+		chunkSize := 1000
 		don, ok := cfg.workflowDONs[callerDonID]
 		if !ok {
 			continue
