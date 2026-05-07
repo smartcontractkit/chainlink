@@ -6,8 +6,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CORE_TEST_SHARD_COUNT: "2"
-  CORE_INTEGRATION_TEST_SHARD_COUNT: "2"
   CORE_DEPLOYMENT_TEST_SHARD_COUNT: "7"
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's
@@ -203,40 +201,32 @@ jobs:
           rows = []
 
           def add_core_tests_rows():
-              count = int(os.environ["CORE_TEST_SHARD_COUNT"])
               should_run = os.environ["SHOULD_RUN_CORE_TESTS"]
-              for i in range(count):
-                  rows.append({
-                      "job-name": f"go_core_tests shard {i}/{count}",
-                      "cmd": "go_core_tests",
-                      "os": f"runs-on={run_id}-unit-{i}/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
-                      "should-run": should_run,
-                      "trunk-auto-quarantine": "true",
-                      "shard-count": str(count),
-                      "shard-index": str(i),
-                      "run-timeout-minutes": "30",
-                      "touch-web-assets": "true",
-                      "logs-artifact-name": f"go_core_tests_logs_shard_{i}",
-                  })
+              rows.append({
+                  "job-name": "go_core_tests",
+                  "cmd": "go_core_tests",
+                  "os": f"runs-on={run_id}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
+                  "should-run": should_run,
+                  "trunk-auto-quarantine": "true",
+                  "run-timeout-minutes": "30",
+                  "touch-web-assets": "true",
+                  "logs-artifact-name": "go_core_tests_logs",
+              })
 
           def add_core_integration_rows():
-              count = int(os.environ["CORE_INTEGRATION_TEST_SHARD_COUNT"])
               should_run = os.environ["SHOULD_RUN_CORE_TESTS"]
-              for i in range(count):
-                  rows.append({
-                      "job-name": f"go_core_tests_integration shard {i}/{count}",
-                      "cmd": "go_core_tests_integration",
-                      "os": f"runs-on={run_id}-integ-{i}/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-                      "should-run": should_run,
-                      "trunk-auto-quarantine": "true",
-                      "setup-solana": "true",
-                      "install-loopps": "true",
-                      "shard-count": str(count),
-                      "shard-index": str(i),
-                      "run-timeout-minutes": "30",
-                      "touch-web-assets": "true",
-                      "logs-artifact-name": f"go_core_tests_integration_logs_shard_{i}",
-                  })
+              rows.append({
+                  "job-name": "go_core_tests_integration",
+                  "cmd": "go_core_tests_integration",
+                  "os": f"runs-on={run_id}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                  "should-run": should_run,
+                  "trunk-auto-quarantine": "true",
+                  "setup-solana": "true",
+                  "install-loopps": "true",
+                  "run-timeout-minutes": "30",
+                  "touch-web-assets": "true",
+                  "logs-artifact-name": "go_core_tests_integration_logs",
+              })
 
           def add_core_deployment_rows():
               count = int(os.environ["CORE_DEPLOYMENT_TEST_SHARD_COUNT"])
@@ -245,7 +235,7 @@ jobs:
                   rows.append({
                       "job-name": f"go_core_deployment_tests shard {i}/{count}",
                       "cmd": "go_core_deployment_tests",
-                      "os": f"runs-on={run_id}-deployment-{i}/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
+                      "os": f"runs-on={run_id}-deployment-{i}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
                       "should-run": should_run,
                       "trunk-auto-quarantine": "true",
                       "go-mod-directory": "deployment/",
@@ -411,23 +401,6 @@ jobs:
 
       - name: Download deployment Go vendor packages
         run: cd deployment && go mod download
-
-      - name: Verify core test sharding
-        shell: bash
-        run: |
-          go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... \
-            | go run ./tools/ci-testshard verify --shard-count "${CORE_TEST_SHARD_COUNT}"
-
-      - name: Verify integration test sharding
-        shell: bash
-        run: |
-          integration_tagged_test_files=$(find . -name '*_test.go' -exec grep -l '//go:build integration' {} +)
-          if [[ -z "$integration_tagged_test_files" ]]; then
-            echo "No integration-tagged tests found."
-            exit 0
-          fi
-          echo "$integration_tagged_test_files" | xargs -n1 dirname | sort -u \
-            | go run ./tools/ci-testshard verify --shard-count "${CORE_INTEGRATION_TEST_SHARD_COUNT}"
 
       - name: Verify deployment test sharding
         shell: bash
@@ -598,52 +571,6 @@ jobs:
             channel: ${{ secrets.SLACK_TOPIC_DATA_RACES_CHANNEL_ID}}
             text: "Race Tests Failed: <${{ format('https://github.com/{0}/actions/runs/{1}/job/{2}', github.repository, github.run_id, job.check_run_id) }}|Run>"
 
-  core-tests-integration-result:
-    name: Core Tests (go_core_tests_integration)
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ core-tests, core-shard-consistency ]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - name: Check integration shard results
-        env:
-          EXPECTED_ROWS: ${{ env.CORE_INTEGRATION_TEST_SHARD_COUNT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JOB_NAME_PREFIX: "Core Tests (go_core_tests_integration shard "
-        run: |
-          gh api \
-            --paginate \
-            --jq '.jobs[] | {name, conclusion} | @json' \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
-            > jobs.jsonl
-
-          python - <<'PY'
-          import json
-          import os
-          import sys
-
-          prefix = os.environ["JOB_NAME_PREFIX"]
-          expected = int(os.environ["EXPECTED_ROWS"])
-          rows = []
-          with open("jobs.jsonl", encoding="utf-8") as f:
-              for line in f:
-                  row = json.loads(line)
-                  if row["name"].startswith(prefix):
-                      rows.append(row)
-
-          if len(rows) != expected:
-              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
-              sys.exit(1)
-
-          conclusions = [row["conclusion"] for row in rows]
-          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
-              print(f"Integration shard group failed with conclusions: {conclusions}")
-              sys.exit(1)
-          print("All integration shards succeeded.")
-          PY
-
   core-deployment-tests-result:
     name: Core Tests (go_core_deployment_tests)
     if: ${{ always() && github.actor != 'dependabot[bot]' }}
@@ -690,52 +617,6 @@ jobs:
           print("All deployment shards succeeded.")
           PY
 
-  core-tests-result:
-    name: Core Tests (go_core_tests)
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ core-tests, core-shard-consistency ]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-    steps:
-      - name: Check unit shard results
-        env:
-          EXPECTED_ROWS: ${{ env.CORE_TEST_SHARD_COUNT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JOB_NAME_PREFIX: "Core Tests (go_core_tests shard "
-        run: |
-          gh api \
-            --paginate \
-            --jq '.jobs[] | {name, conclusion} | @json' \
-            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
-            > jobs.jsonl
-
-          python - <<'PY'
-          import json
-          import os
-          import sys
-
-          prefix = os.environ["JOB_NAME_PREFIX"]
-          expected = int(os.environ["EXPECTED_ROWS"])
-          rows = []
-          with open("jobs.jsonl", encoding="utf-8") as f:
-              for line in f:
-                  row = json.loads(line)
-                  if row["name"].startswith(prefix):
-                      rows.append(row)
-
-          if len(rows) != expected:
-              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
-              sys.exit(1)
-
-          conclusions = [row["conclusion"] for row in rows]
-          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
-              print(f"Unit shard group failed with conclusions: {conclusions}")
-              sys.exit(1)
-          print("All unit shards succeeded.")
-          PY
-
   core-scripts-tests:
     name: test-scripts
     needs: [ filter ]
@@ -771,15 +652,7 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs:
-      [
-        golangci,
-        core-tests,
-        core-tests-result,
-        core-tests-integration-result,
-        core-deployment-tests-result,
-        core-scripts-tests,
-      ]
+    needs: [ golangci, core-tests, core-deployment-tests-result, core-scripts-tests ]
     # If core is cancelled, skip this to not delay the cancellation of the workflow.
     if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
