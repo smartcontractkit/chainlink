@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -220,6 +221,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 				case <-ctx.Done():
 					break readLoop
 				}
+				runtime.Gosched()
 			}
 		drainLoop:
 			for {
