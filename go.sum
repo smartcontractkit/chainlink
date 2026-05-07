@@ -1228,8 +1228,8 @@ github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
 github.com/smartcontractkit/chain-selectors v1.0.98 h1:fuI7CQ1o5cX64eO4/LvwtfhdpGFH5vnsM/bFHRwEiww=
 github.com/smartcontractkit/chain-selectors v1.0.98/go.mod h1:qy7whtgG5g+7z0jt0nRyii9bLND9m15NZTzuQPkMZ5w=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260506112908-f0d993b5bd6d h1:KMZmEzlZ+iknVFCuv+8o9iEKK52HXyeauIWbo+KhYv8=
-github.com/smartcontractkit/chainlink-aptos v0.0.0-20260506112908-f0d993b5bd6d/go.mod h1:zfE2R7887kiwXkGTHKPe5NBgwhFwIC3pnA2uAxrbvig=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260507123701-77fc93b573bb h1:6UjHnVanvb+6yJuefhyVlfv6YKFGMeZY5jv+a7Sexyo=
+github.com/smartcontractkit/chainlink-aptos v0.0.0-20260507123701-77fc93b573bb/go.mod h1:FEm5fvIQe5O8Qdx6GvQcXsk7rDFpmYdIWXea5i4tpjw=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
 github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260428205619-2db1389501a1 h1:p0nFrTYrOQzDhWYm6suaM5CoWiXV5NV7llHnp6/Kn/8=
@@ -1266,10 +1266,17 @@ github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-202604231355
 github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c/go.mod h1:HcwehCao5k5C2NGuKJUVoX/AYtoH6njGFiV44dBOcY4=
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c h1:0c+bCKo47vy/ItRtGa3S/vCpE5LRlgXpGnVKQX8TgjE=
 github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c/go.mod h1:kGprqyjsz6qFNVszOQoHc24wfvCjyipNZFste/3zcbs=
+<<<<<<< HEAD
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260423135514-5b1a7565a99c h1:1VVreRcffo3N3zF1JVtgS+YC4puuj3y0FU0Fta7L3U0=
 github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260423135514-5b1a7565a99c/go.mod h1:HG/aei0MgBOpsyRLexdKGtOUO8yjSJO3iUu0Uu8KBm4=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260423135514-5b1a7565a99c h1:N5cZI93lPH0oYnVSP9dq72QwKnrW0gBpEmx2MI1ermg=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260423135514-5b1a7565a99c/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
+=======
+github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260505202410-b350dca113b4 h1:v/rAtObo9zMpQDnGQ0seaSEqw60JUjowwcNw3DCpVY4=
+github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260505202410-b350dca113b4/go.mod h1:HG/aei0MgBOpsyRLexdKGtOUO8yjSJO3iUu0Uu8KBm4=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260505202410-b350dca113b4 h1:nXU0s4WAVU2cAR76Ke7h9z55NuEtRq1WvT4wVEs7jwk=
+github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260505202410-b350dca113b4/go.mod h1:7ketk4ischPQW/JQgmyHz6zdzLUJv1VC29SiSgosydQ=
+>>>>>>> 055966a4de (Bump chainlink-aptos to add node_balance metric for aptos (#22340))
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4 h1:GCzrxDWn3b7jFfEA+WiYRi8CKoegsayiDoJBCjYkneE=
 github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4/go.mod h1:HHGeDUpAsPa0pmOx7wrByCitjQ0mbUxf0R9v+g67uCA=
 github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d h1:VYoBBNnQpZ5p+enPTl8SkKBRaubqyGpO0ul3B1np++I=
