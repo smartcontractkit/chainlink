@@ -143,20 +143,20 @@ func fakePriceResponder(t *testing.T, requestData map[string]any, result decimal
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Equal(t, expectedRequest.Data, reqBody.Data)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 
 		if inputKey != "" {
 			m := utils.MustUnmarshalToMap(string(payload))
 			if expectedInput != nil {
-				require.Equal(t, expectedInput, m[inputKey])
+				assert.Equal(t, expectedInput, m[inputKey])
 			} else {
-				require.Nil(t, m[inputKey])
+				assert.Nil(t, m[inputKey])
 			}
 		}
 	})
@@ -175,28 +175,28 @@ func fakeIntermittentlyFailingPriceResponder(t *testing.T, requestData map[strin
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Equal(t, expectedRequest.Data, reqBody.Data)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedRequest.Data, reqBody.Data)
 		// require.Equal(t, float64(0), reqBody.Meta["id"])
 
 		if reqBody.Meta["shouldFail"].(bool) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			require.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure")))
+			assert.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure")))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 
 		if inputKey != "" {
 			m := utils.MustUnmarshalToMap(string(payload))
 			if expectedInput != nil {
-				require.Equal(t, expectedInput, m[inputKey])
+				assert.Equal(t, expectedInput, m[inputKey])
 			} else {
-				require.Nil(t, m[inputKey])
+				assert.Nil(t, m[inputKey])
 			}
 		}
 	})
@@ -206,7 +206,7 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, err := w.Write([]byte(s))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 }
 
@@ -330,6 +330,112 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 	require.Equal(t, runInfo.IsRetryable, runInfo2.IsRetryable)
 }
 
+func TestBridgeTask_CacheFallbackOnMissingRequiredJSONPath(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, r.Body.Close())
+		w.Header().Set("Content-Type", "application/json")
+		if callCount.Add(1) == 1 {
+			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
+			assert.NoError(t, json.NewEncoder(w).Encode(resp))
+			return
+		}
+		// HTTP 200 but missing data.result — should fall back to cache when required paths are set.
+		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
+		assert.NoError(t, err)
+	}))
+	defer s1.Close()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+
+	task := pipeline.BridgeTask{
+		BaseTask:      pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:          bridge.Name.String(),
+		RequestData:   btcUSDPairing,
+		CacheTTL:      "30s",
+		CheckRequired: "true",
+	}
+	pipeline.TestingSetBridgeRequiredJSONPaths(&task, [][]string{{"data", "result"}})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	ctx := testutils.Context(t)
+	result, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.NoError(t, result.Error)
+	require.False(t, runInfo.IsRetryable)
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.NoError(t, result2.Error)
+	require.False(t, runInfo2.IsRetryable)
+	require.Equal(t, result.Value, result2.Value)
+
+	var parsed struct {
+		Data struct {
+			Result decimal.Decimal `json:"result"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result2.Value.(string)), &parsed))
+	require.Equal(t, decimal.NewFromInt(42), parsed.Data.Result)
+}
+
+func TestBridgeTask_SkipsRequiredPathValidationWhenCheckRequiredFalse(t *testing.T) {
+	t.Parallel()
+
+	var callCount atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NoError(t, r.Body.Close())
+		w.Header().Set("Content-Type", "application/json")
+		if callCount.Add(1) == 1 {
+			resp := adapterResponse{Data: dataWithResult(t, decimal.NewFromInt(42))}
+			assert.NoError(t, json.NewEncoder(w).Encode(resp))
+			return
+		}
+		_, err := w.Write([]byte(`{"errorMessage":null,"error":null,"statusCode":null,"providerStatusCode":null,"data":{}}`))
+		assert.NoError(t, err)
+	}))
+	defer s1.Close()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+		CacheTTL:    "30s",
+		// checkRequired omitted: do not run JSON path validation or cache fallback for it.
+	}
+	pipeline.TestingSetBridgeRequiredJSONPaths(&task, [][]string{{"data", "result"}})
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+
+	ctx := testutils.Context(t)
+	_, runInfo := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.False(t, runInfo.IsRetryable)
+
+	result2, runInfo2 := task.Run(ctx, logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+	require.False(t, runInfo2.IsRetryable)
+	require.NoError(t, result2.Error)
+	require.Contains(t, result2.Value.(string), `"data":{}`)
+}
+
 func TestBridgeTask_DoesNotReturnStaleResults(t *testing.T) {
 	t.Parallel()
 
@@ -435,17 +541,17 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.WebServer().BridgeResponseURL(), id.String()), reqBody.ResponseURL)
+		assert.NoError(t, err)
+		assert.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.WebServer().BridgeResponseURL(), id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
 
 		// w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{"pending": true}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
 	server := httptest.NewServer(handler)
@@ -680,11 +786,11 @@ func TestBridgeTask_Meta(t *testing.T) {
 		var req adapterRequest
 		body, _ := io.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
-		require.NoError(t, err)
-		require.Equal(t, float64(10), req.Meta["latestAnswer"])
-		require.Equal(t, float64(1616447984), req.Meta["updatedAt"])
+		assert.NoError(t, err)
+		assert.InEpsilon(t, float64(10), req.Meta["latestAnswer"], 0)
+		assert.InDelta(t, float64(1616447984), req.Meta["updatedAt"], 0)
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(empty))
+		assert.NoError(t, json.NewEncoder(w).Encode(empty))
 		httpCalled.Store(true)
 	})
 
@@ -798,7 +904,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		resp := &adapterResponse{}
 		resp.SetErrorMessage("could not hit data fetcher")
 		err := json.NewEncoder(w).Encode(resp)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -837,7 +943,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -927,7 +1033,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte(`{"fooresponse": 1}`))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -1039,7 +1145,7 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 	s1 := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := json.NewEncoder(w).Encode(testAdapterResponse)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 	defer s1.Close()
 
@@ -1215,13 +1321,13 @@ ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\
 
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, herr := io.ReadAll(req.Body)
-		require.NoError(t, herr)
-		require.JSONEq(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
+		assert.NoError(t, herr)
+		assert.JSONEq(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 		res.WriteHeader(http.StatusInternalServerError)
 		resp := `{"error": {"name":"AdapterLWBAError", "message": "bid ask violation detected"}}`
 		_, herr = res.Write([]byte(resp))
-		require.NoError(t, herr)
+		assert.NoError(t, herr)
 	}))
 	t.Cleanup(bridge.Close)
 	u, _ := url.Parse(bridge.URL)

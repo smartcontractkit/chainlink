@@ -1,6 +1,7 @@
 package ocr3_1
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	types2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/stretchr/testify/require"
@@ -240,12 +242,9 @@ func Test_GenerateOCR3_1Config_VaultOffchainConfig(t *testing.T) {
 func Test_GenerateDKGConfigFromNodes_DKGOffchainConfig(t *testing.T) {
 	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
 	cfg := baseV3_1Config(len(nodes))
-	cfg.DKGOffchainConfig = &DKGOffchainConfig{
-		ReportingPluginConfig: dkgocrtypes.ReportingPluginConfig{T: 1},
-	}
+	cfg.DKGOffchainConfig = &DKGOffchainConfig{T: 1}
 
-	dkgCfg := dkgocrtypes.ReportingPluginConfig{T: 1}
-	got, err := GenerateDKGConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), dkgCfg, nil)
+	got, err := GenerateDKGConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
 	require.NoError(t, err)
 	require.Len(t, got.Signers, len(nodes))
 	require.Len(t, got.Transmitters, len(nodes))
@@ -267,6 +266,67 @@ func Test_GenerateDKGConfigFromNodes_DKGOffchainConfig(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, stdGot.Transmitters, got.Transmitters)
 	})
+}
+
+// Test_GenerateDKGConfigFromNodes_OffchainConfigContainsDKGFields is the
+// regression test for CRE-4087. The bug was that DKGOffchainConfig embedded a
+// dkgocrtypes.ReportingPluginConfig whose fields were shadowed by the explicit
+// string-typed fields, so callers marshaled an empty embedded struct and the
+// DKG dealer/recipient keys never made it into OffchainConfig. This test
+// generates the config end-to-end, deserializes the libocr OffchainConfig,
+// and asserts the embedded DKG plugin config matches the inputs.
+func Test_GenerateDKGConfigFromNodes_OffchainConfigContainsDKGFields(t *testing.T) {
+	nodes := loadTestData(t, "../testdata/testnet_wf_view.json")
+
+	dealerKey := strings.Repeat("ab", dkgocrtypes.P256ParticipantPublicKeyLength)
+	recipientKey := strings.Repeat("cd", dkgocrtypes.P256ParticipantPublicKeyLength)
+
+	cfg := baseV3_1Config(len(nodes))
+	cfg.DKGOffchainConfig = &DKGOffchainConfig{
+		T:                   2,
+		DealerPublicKeys:    []string{dealerKey},
+		RecipientPublicKeys: []string{recipientKey},
+	}
+	got, err := GenerateDKGConfigFromNodes(cfg, nodes, chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector, ocr.XXXGenerateTestOCRSecrets(), nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, got.OffchainConfig)
+
+	signers := make([]types.OnchainPublicKey, len(got.Signers))
+	for i, s := range got.Signers {
+		signers[i] = s
+	}
+	transmitters := make([]types.Account, len(got.Transmitters))
+	for i, addr := range got.Transmitters {
+		transmitters[i] = types.Account(addr.Hex())
+	}
+	pc, err := ocr3_1confighelper.PublicConfigFromContractConfig(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		types.ContractConfig{
+			Signers:               signers,
+			Transmitters:          transmitters,
+			F:                     got.F,
+			OnchainConfig:         got.OnchainConfig,
+			OffchainConfigVersion: got.OffchainConfigVersion,
+			OffchainConfig:        got.OffchainConfig,
+		},
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, pc.ReportingPluginConfig,
+		"OffchainConfig must carry the marshaled DKG reporting plugin config — pre-fix code embedded an empty struct")
+
+	var decoded dkgocrtypes.ReportingPluginConfig
+	require.NoError(t, decoded.UnmarshalBinary(pc.ReportingPluginConfig))
+
+	require.Equal(t, 2, decoded.T)
+
+	wantDealer, err := hex.DecodeString(dealerKey)
+	require.NoError(t, err)
+	wantRecipient, err := hex.DecodeString(recipientKey)
+	require.NoError(t, err)
+	require.Len(t, decoded.DealerPublicKeys, 1)
+	require.Equal(t, wantDealer, []byte(decoded.DealerPublicKeys[0]))
+	require.Len(t, decoded.RecipientPublicKeys, 1)
+	require.Equal(t, wantRecipient, []byte(decoded.RecipientPublicKeys[0]))
 }
 
 func loadTestData(t *testing.T, path string) []deployment.Node {

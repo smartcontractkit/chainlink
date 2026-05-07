@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/db"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/runner"
 )
 
@@ -30,28 +30,56 @@ go -C tools/test run . diagnose --iterations 10 -- ./core/...`,
 		if err != nil {
 			return err
 		}
+		out := output.NewFromApp(conf)
 
-		defer func() {
-			if err := dbHandle.Cleanup(); err != nil {
-				fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
-			}
-		}()
-
-		if conf.Iterations < 1 {
-			return errors.New("--iterations must be >= 1")
-		}
-
-		if err := runner.WarnDiagnoseGoTestCount(os.Stderr, args); err != nil {
+		if err = validateDiagnoseConfig(conf); err != nil {
 			return err
 		}
 
-		return runner.Diagnose(cmd.Context(), conf, args, dbHandle.Reset, dbHandle.DumpDiagnostics)
+		if err = runner.WarnDiagnoseGoTestCount(out.WarnWriter(), args); err != nil {
+			return err
+		}
+
+		pool, err := db.EnsurePool(cmd.Context(), conf, out, runner.EffectiveParallelIterations(conf))
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := pool.Cleanup(); err != nil {
+				out.Stderrf("error tearing down postgres: %v\n", err)
+			}
+		}()
+
+		return runner.Diagnose(cmd.Context(), conf, out, args, pool.Resources())
 	},
 }
 
 func init() {
 	diagnoseCmd.Flags().Int("iterations", 1, "number of full test runs")
+	diagnoseCmd.Flags().Int("parallel-iterations", 1, "maximum number of diagnose iterations to run concurrently; each worker uses its own ephemeral Postgres")
 	diagnoseCmd.Flags().Duration("slow-threshold", 30*time.Second, "tests whose max Elapsed exceeds this are flagged slow")
 	diagnoseCmd.Flags().Bool("fail-fast", false, "stop this diagnose run immediately if any iteration fails")
+	diagnoseCmd.Flags().StringSlice("fail-fast-on", nil, `stop this diagnose run immediately when an iteration matches one or more categories: "failure", "timeout", "slow", or "any"`)
 	diagnoseCmd.Flags().Bool("shuffle-seed", false, "randomize test order each iteration; a unique seed is generated per iteration and recorded in report.json for reproduction")
+}
+
+func validateDiagnoseConfig(conf *config.App) error {
+	if conf.Iterations < 1 {
+		return errors.New("--iterations must be >= 1")
+	}
+	if conf.ParallelIterations < 1 {
+		return errors.New("--parallel-iterations must be >= 1")
+	}
+	if conf.ParallelIterations > conf.Iterations {
+		return errors.New("--parallel-iterations must be <= --iterations")
+	}
+	if conf.ParallelIterations > 1 && conf.DatabaseURL != "" {
+		return errors.New("--parallel-iterations > 1 cannot be used with --database-url")
+	}
+	failFastOn, err := config.NormalizeFailFastOn(conf.FailFastOn)
+	if err != nil {
+		return err
+	}
+	conf.FailFastOn = failFastOn
+	return nil
 }
