@@ -301,7 +301,7 @@ func TestComputeFetch(t *testing.T) {
 // metering accumulator may record above the mocked delay. Observed CI overhead
 // is ~438ms; -race adds additional overhead. 1500ms gives ~3x headroom while
 // still detecting metering bugs that double-count elapsed time.
-const meteringOverheadBudgetMs = int64(1500)
+const meteringOverheadBudgetMs uint64 = 1500
 
 func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 	t.Parallel()
@@ -377,8 +377,10 @@ func TestCompute_SpendValueRelativeToComputeTime(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.GreaterOrEqual(t, value, test.expectedLowerLimit)
-			overhead := int64(value) - test.time.Milliseconds()
-			assert.Less(t, overhead, meteringOverheadBudgetMs, "metering overhead exceeded budget: %dms", overhead)
+			//nolint:gosec // G115: test.time is a positive constant, no overflow possible
+			upperBound := uint64(test.time.Milliseconds()) + meteringOverheadBudgetMs
+			assert.Less(t, value, upperBound, "metering value %dms exceeds mocked delay %dms + overhead budget %dms",
+				value, test.time.Milliseconds(), meteringOverheadBudgetMs)
 		})
 	}
 }
