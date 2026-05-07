@@ -80,7 +80,7 @@ type NewChainDefinition struct {
 	// ChainContractParams defines contract parameters for the chain.
 	ccipseq.ChainContractParams `json:"chainContractParams"`
 	// ExistingContracts defines any contracts that are already deployed on this chain.
-	ExistingContracts commoncs.ExistingContractsConfig `json:"existingContracts"`
+	ExistingContracts changeset.ExistingContractsConfig `json:"existingContracts"`
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
 	ConfigOnHome ChainConfig `json:"configOnHome"`
 	// CommitOCRParams defines the OCR parameters for this chain's commit plugin.
@@ -268,7 +268,7 @@ func addCandidatesForNewChainLogic(e cldf.Environment, c AddCandidatesForNewChai
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run removeLinkTokenAddressIfExists on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
 		err = runAndSaveAddresses(func() (cldf.ChangesetOutput, error) {
-			return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
+			return changeset.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 		}, newAddresses, e.ExistingAddresses)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
@@ -991,7 +991,7 @@ func runAndSaveAddresses(fn func() (cldf.ChangesetOutput, error), newAddresses c
 
 // If LINK token is present in the existing contracts, remove it
 // This is because the LINK token can either be deployed via CLD or imported from existing deployments
-func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commoncs.ExistingContractsConfig) error {
+func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *changeset.ExistingContractsConfig) error {
 	if len(existingContracts.ExistingContracts) == 0 {
 		return nil
 	}
@@ -1002,7 +1002,7 @@ func RemoveLinkTokenAddressIfExists(e cldf.Environment, existingContracts *commo
 	}
 
 	// Filter out LinkToken contracts that match the state LinkToken address
-	filteredContracts := make([]commoncs.Contract, 0, len(existingContracts.ExistingContracts))
+	filteredContracts := make([]changeset.Contract, 0, len(existingContracts.ExistingContracts))
 
 	for _, contract := range existingContracts.ExistingContracts {
 		shouldKeep := true

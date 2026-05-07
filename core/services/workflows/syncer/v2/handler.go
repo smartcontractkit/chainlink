@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sync"
 	"time"
 
@@ -86,6 +87,8 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
+	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
+	localSecretOverrides map[string]map[string]string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -189,13 +192,23 @@ func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
 	}
 }
 
-func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+// WithLocalSecretOverrides wires [CRE.LocalSecretOverrides]: per-workflow-owner name->secret map
+func WithLocalSecretOverrides(lggr logger.Logger, perOwner map[string]map[string]string) func(*eventHandler) {
 	return func(e *eventHandler) {
-		if len(secrets) == 0 {
+		if len(perOwner) == 0 {
 			return
 		}
-		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
-		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+		e.localSecretOverrides = make(map[string]map[string]string, len(perOwner))
+		for k, m := range perOwner {
+			e.localSecretOverrides[k] = maps.Clone(m)
+		}
+		owners := make([]string, 0, len(e.localSecretOverrides))
+		for owner := range e.localSecretOverrides {
+			owners = append(owners, owner)
+		}
+		lggr.Warnw("Per-owner local secret overrides are active; vault is used for secret IDs not listed under each owner",
+			"numOwners", len(e.localSecretOverrides),
+			"owners", owners)
 	}
 }
 
@@ -651,13 +664,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		},
 	}
 
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
 	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -914,6 +927,22 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	return nil
 }
 
+func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
+	if h.localSecretOverrides == nil {
+		return nil
+	}
+	key, err := v2.LocalSecretOverrideOwnerKey(owner)
+	if err != nil {
+		h.lggr.Errorw("invalid workflow owner for local secret overrides", "owner", owner, "err", err)
+		return nil
+	}
+	overrides := h.localSecretOverrides[key]
+	if len(overrides) == 0 {
+		return nil
+	}
+	return v2.NewLocalSecretsFetcher(owner, overrides)
+}
+
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
@@ -953,6 +982,7 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+		OverrideFetcher:               h.overrideFetcherForOwner(owner),
 		DebugMode:                     h.debugMode,
 		SdkName:                       sdkName,
 
