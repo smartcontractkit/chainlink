@@ -208,7 +208,7 @@ jobs:
                   "os": f"runs-on={run_id}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
                   "should-run": should_run,
                   "trunk-auto-quarantine": "true",
-                  "run-timeout-minutes": "30",
+                  "run-timeout-minutes": "15",
                   "touch-web-assets": "true",
                   "logs-artifact-name": "go_core_tests_logs",
               })
@@ -245,7 +245,7 @@ jobs:
                       "setup-sui": "true",
                       "shard-count": str(count),
                       "shard-index": str(i),
-                      "run-timeout-minutes": "40",
+                      "run-timeout-minutes": "25",
                       "logs-artifact-name": f"go_core_deployment_tests_logs_shard_{i}",
                   })
 
@@ -258,7 +258,7 @@ jobs:
                   "should-run": should_run,
                   "shard-count": "1",
                   "shard-index": "0",
-                  "run-timeout-minutes": "30",
+                  "run-timeout-minutes": "15",
                   "touch-web-assets": "true",
                   "restore-build-cache-only": "true",
                   "increase-timeouts-on-schedule": "true",
@@ -271,7 +271,7 @@ jobs:
                   "should-run": should_run,
                   "shard-count": "1",
                   "shard-index": "0",
-                  "run-timeout-minutes": "30",
+                  "run-timeout-minutes": "15",
                   "touch-web-assets": "true",
                   "restore-build-cache-only": "true",
                   "increase-timeouts-on-schedule": "true",
@@ -422,7 +422,7 @@ jobs:
     name: Core Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [ filter, shard-matrices, run-frequency ]
-    timeout-minutes: 50
+    timeout-minutes: 35
     runs-on: ${{ matrix.should-run == 'true' && matrix.os || 'ubuntu-latest' }}
     permissions:
       id-token: write
