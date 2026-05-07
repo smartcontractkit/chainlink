@@ -617,11 +617,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
-<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260429183453-39df0198aed8 // indirect
-=======
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260427132612-76b9f754a556 // indirect
->>>>>>> 781f360b96 ([DX-4048] use dynamic ChIP Ingress/Router host port allocation (#22315))
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.22 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
