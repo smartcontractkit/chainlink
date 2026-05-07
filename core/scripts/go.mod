@@ -54,6 +54,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260420204255-a3f3bdd56877
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.18.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.19
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.3
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.22
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.5
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
