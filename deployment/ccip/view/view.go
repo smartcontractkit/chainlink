@@ -6,6 +6,11 @@ import (
 
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
+
+	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v1_0"
+
+	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
@@ -50,9 +55,9 @@ type ChainView struct {
 	// be more than one per env.
 	CCIPHome           map[string]v1_6.CCIPHomeView                  `json:"ccipHome,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
-	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock"`
-	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken"`
-	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken"`
+	MCMSWithTimelock   mcmsv10.MCMSWithTimelockView                  `json:"mcmsWithTimelock"`
+	LinkToken          linkviewv10.LinkTokenView                     `json:"linkToken"`
+	StaticLinkToken    linkviewv10.StaticLinkTokenView               `json:"staticLinkToken"`
 
 	UpdateMu *sync.Mutex `json:"-"`
 }
@@ -80,9 +85,9 @@ func NewChain() ChainView {
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		CCIPHome:           make(map[string]v1_6.CCIPHomeView),
-		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
-		LinkToken:          common_v1_0.LinkTokenView{},
-		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
+		MCMSWithTimelock:   mcmsv10.MCMSWithTimelockView{},
+		LinkToken:          linkviewv10.LinkTokenView{},
+		StaticLinkToken:    linkviewv10.StaticLinkTokenView{},
 		UpdateMu:           &sync.Mutex{},
 	}
 }

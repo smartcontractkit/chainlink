@@ -285,7 +285,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		}
 
 		nCfg := envtest.NodeConfig{
-			ChainSelectors: []uint64{registryChainSel, aptosChainSel},
+			ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
 			Name:           fmt.Sprintf("%s-%d", donCfg.Name, i),
 			Labels:         labels,
 		}
@@ -303,7 +303,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel, aptosChainSel uint64,
 		maps.Copy(btLabels, donCfg.Labels)
 	}
 	nodesCfg = append(nodesCfg, envtest.NodeConfig{
-		ChainSelectors: []uint64{registryChainSel, aptosChainSel},
+		ChainSelectors: []uint64{registryChainSel, aptosChainSel, chain_selectors.SOLANA_DEVNET.Selector},
 		Name:           donCfg.Name + "-bootstrap",
 		Labels:         btLabels,
 	})

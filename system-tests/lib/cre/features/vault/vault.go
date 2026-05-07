@@ -2,7 +2,6 @@ package vault
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -21,12 +20,10 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -510,17 +507,4 @@ func vaultMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 			},
 		},
 	}
-}
-
-func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
-	masterPublicKey := tdh2easy.PublicKey{}
-	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode master public key")
-	}
-	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal master public key")
-	}
-	return vaultutils.EncryptSecretWithWorkflowOwner(secret, &masterPublicKey, owner)
 }

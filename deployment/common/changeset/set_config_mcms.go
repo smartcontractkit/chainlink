@@ -11,6 +11,7 @@ import (
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -72,7 +73,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 			if cfg.ProposalConfig != nil {
 				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
 			}
-			state, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
+			state, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return err
 			}
@@ -153,7 +154,7 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *evmstate.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	var proposerTx, cancellerTx, bypasserTx *types.Transaction
 	var err error
 
@@ -223,7 +224,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 			if cfg.ProposalConfig != nil {
 				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
 			}
-			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
+			mcmsStatePerChain, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -275,7 +276,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	return cldf.ChangesetOutput{}, nil
 }
 
-func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state commonState.MCMSWithTimelockState) mcmstypes.BatchOperation {
+func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state evmstate.MCMSWithTimelockState) mcmstypes.BatchOperation {
 	result := mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(chainSelector),
 		Transactions:  []mcmstypes.Transaction{},
