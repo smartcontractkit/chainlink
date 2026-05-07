@@ -234,6 +234,18 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 	if err != nil {
 		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
 	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
@@ -261,7 +273,7 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		metrics:                   metrics,
 		aggregator:                &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
 		clock:                     clock,
-		RequestValidator:          vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
+		RequestValidator:          vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }
 
@@ -724,7 +736,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err = h.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
@@ -752,7 +764,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
 	}
-	err := h.ValidateListSecretIdentifiersRequest(req)
+	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))
