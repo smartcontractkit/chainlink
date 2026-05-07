@@ -189,7 +189,6 @@ require (
 	github.com/btcsuite/btcd/btcutil v1.1.6 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
-	github.com/buger/goterm v1.0.4 // indirect
 	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect
