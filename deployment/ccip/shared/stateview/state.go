@@ -1114,7 +1114,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
 		case cldf.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			cldf.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			cldf.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
+			cldf.NewTypeAndVersion(commontypes.ProdTestnetMCM, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		case cldf.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token.LinkTokenABI
@@ -1731,7 +1732,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			// bypasser, proposer and canceller
 			// if you try to compare tvStr.String() you will have to compare all combinations of labels
 			// so we will compare the type and version only
-			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
+			// ProdTestnetMCM @ 1.0.0 is the same MCMS ABI (RDD legacy datastore label).
+			if (tvStr.Type == commontypes.ManyChainMultisig || tvStr.Type == commontypes.ProdTestnetMCM) && tvStr.Version == deployment.Version1_0_0 {
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
 			}
