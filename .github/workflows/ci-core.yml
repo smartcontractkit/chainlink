@@ -419,7 +419,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.shard-matrices.outputs.core-test-matrix) }}
-    name: Core Tests (${{ matrix.job-name }})
+    name: Core Tests (${{ matrix.job-name }}) # Be careful modifying the job name, as it is used to fetch the job URL and used by branch protection rules
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [ filter, shard-matrices, run-frequency ]
     timeout-minutes: 35
@@ -442,6 +442,7 @@ jobs:
         if: ${{ matrix.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
+          # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
           restore-build-cache-only: ${{ matrix.restore-build-cache-only == 'true' }}
           build-cache-version: ${{ matrix.cmd }}
           go-version-file: ${{ matrix.go-mod-directory }}go.mod
@@ -487,9 +488,9 @@ jobs:
         if: ${{ matrix.should-run == 'true' && matrix.increase-timeouts-on-schedule ==
           'true' && github.event.schedule != '' }}
         run: |
-          echo "TIMEOUT=10m" >> $GITHUB_ENV
-          echo "COUNT=50" >> $GITHUB_ENV
-          echo "FUZZ_TIMEOUT_MINUTES=10" >> $GITHUB_ENV
+          echo "TIMEOUT=10m" >> "$GITHUB_ENV"
+          echo "COUNT=50" >> "$GITHUB_ENV"
+          echo "FUZZ_TIMEOUT_MINUTES=10" >> "$GITHUB_ENV"
       - name: Run tests
         if: ${{ matrix.should-run == 'true' }}
         timeout-minutes: ${{ fromJson(matrix.run-timeout-minutes) }}
