@@ -135,7 +135,11 @@ func decodeSignedResponse(req jsonrpc.Request[json.RawMessage], rawResult json.R
 		if err := json.Unmarshal(rawResult, &signed); err != nil {
 			return [32]byte{}, nil, nil, fmt.Errorf("decode signed secrets response: %w", err)
 		}
-		return signed.Result.Hash(params), signed.Signatures, signed.Result, nil
+		hash, err := signed.Result.Hash(params)
+		if err != nil {
+			return [32]byte{}, nil, nil, fmt.Errorf("hash secrets response: %w", err)
+		}
+		return hash, signed.Signatures, signed.Result, nil
 	case relaytypes.MethodCapabilityExec:
 		var params relaytypes.CapabilityRequestParams
 		if req.Params != nil {
@@ -147,7 +151,11 @@ func decodeSignedResponse(req jsonrpc.Request[json.RawMessage], rawResult json.R
 		if err := json.Unmarshal(rawResult, &signed); err != nil {
 			return [32]byte{}, nil, nil, fmt.Errorf("decode signed capability response: %w", err)
 		}
-		return signed.Result.Hash(params), signed.Signatures, signed.Result, nil
+		hash, err := signed.Result.Hash(params)
+		if err != nil {
+			return [32]byte{}, nil, nil, fmt.Errorf("hash capability response: %w", err)
+		}
+		return hash, signed.Signatures, signed.Result, nil
 	default:
 		return [32]byte{}, nil, nil, fmt.Errorf("%w: %q", errUnknownMethod, req.Method)
 	}

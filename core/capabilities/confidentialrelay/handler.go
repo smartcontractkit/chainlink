@@ -608,7 +608,10 @@ func (h *Handler) signSecretsResponse(
 		return nil, errors.New("response signer not configured")
 	}
 
-	hash := result.Hash(params)
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash secrets response: %w", err)
+	}
 	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
 	if err != nil {
 		return nil, err
@@ -631,7 +634,10 @@ func (h *Handler) signCapabilityResponse(
 		return nil, errors.New("response signer not configured")
 	}
 
-	hash := result.Hash(params)
+	hash, err := result.Hash(params)
+	if err != nil {
+		return nil, fmt.Errorf("hash capability response: %w", err)
+	}
 	signature, err := h.responseSigner.Sign(confidentialrelaytypes.RelayResponseSignaturePayload(hash))
 	if err != nil {
 		return nil, err
