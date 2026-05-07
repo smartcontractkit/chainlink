@@ -668,51 +668,16 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			resp.triggerIDs = nil
 		}
 
-		ackSnapshot := make(map[string]map[p2ptypes.PeerID]bool)
-		p.mu.RLock()
-		// determine which triggerIDs / workflowIDs have not yet ACKd this trigger event
-		for _, triggerID := range triggerBatch {
-			key := ackKey{
-				callerDonID:    resp.callerDonID,
-				triggerEventID: resp.triggerEventID,
-				triggerID:      triggerID,
-			}
-			ackSnapshot[triggerID] = p.ackCache.Peers(key)
-		}
-		p.mu.RUnlock()
-
 		peersSent := 0
-		peersSkipped := 0
 		for _, peerID := range cfg.workflowDONs[resp.callerDonID].Members {
-			var missingTriggerIDs []string
-			var missingWorkflowIDs []string
-
-			for i, triggerID := range triggerBatch {
-				peers := ackSnapshot[triggerID]
-				if peers == nil || !peers[peerID] {
-					missingTriggerIDs = append(missingTriggerIDs, triggerID)
-					missingWorkflowIDs = append(missingWorkflowIDs, workflowBatch[i])
-				}
-			}
-
-			if len(missingTriggerIDs) == 0 {
-				peersSkipped++
-				p.lggr.Debugw("skipping trigger event send; all triggerIDs already ACKed by peer",
-					"peerID", peerID,
-					"callerDonID", resp.callerDonID,
-					"triggerEventID", resp.triggerEventID,
-					"triggerIDs", triggerBatch,
-				)
-				continue
-			}
 			peersSent++
 
 			p.lggr.Debugw("sending trigger event to peer",
 				"peerID", peerID,
 				"callerDonID", resp.callerDonID,
 				"triggerEventID", resp.triggerEventID,
-				"workflowIDs", missingWorkflowIDs,
-				"triggerIDs", missingTriggerIDs,
+				"workflowIDs", workflowBatch,
+				"triggerIDs", triggerBatch,
 			)
 
 			msg := &types.MessageBody{
@@ -724,8 +689,8 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 				CapabilityMethod: p.capMethodName,
 				Metadata: &types.MessageBody_TriggerEventMetadata{
 					TriggerEventMetadata: &types.TriggerEventMetadata{
-						WorkflowIds:    missingWorkflowIDs,
-						TriggerIds:     missingTriggerIDs,
+						WorkflowIds:    workflowBatch,
+						TriggerIds:     triggerBatch,
 						TriggerEventId: resp.triggerEventID,
 					},
 				},
@@ -740,8 +705,7 @@ func (p *triggerPublisher) sendBatch(resp *batchedResponse) {
 			"triggerEventID", resp.triggerEventID,
 			"callerDonID", resp.callerDonID,
 			"batchSize", len(triggerBatch),
-			"peersSent", peersSent,
-			"peersSkipped", peersSkipped)
+			"peersSent", peersSent)
 	}
 }
 
