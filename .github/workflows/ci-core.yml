@@ -672,28 +672,31 @@ jobs:
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
-          sonarqube_coverage_report_paths=""
-          sonarqube_tests_report_paths=""
+          # Check and assign paths for coverage/test reports in go_core_tests_logs
+          core_artifact="go_core_tests_logs"
+          if [ -d "$core_artifact" ]; then
+            echo "Found $core_artifact"
+            sonarqube_coverage_report_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
+            sonarqube_tests_report_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
+            echo "Coverage report paths: $sonarqube_coverage_report_paths"
+            echo "Tests report paths: $sonarqube_tests_report_paths"
+          else
+            echo "Did not find $core_artifact"
+            sonarqube_coverage_report_paths=""
+            sonarqube_tests_report_paths=""
+          fi
 
-          for core_artifact in go_core_tests_logs_shard_*; do
-            if [ -d "$core_artifact" ]; then
-              echo "Found $core_artifact"
-              core_coverage_paths=$(find "$core_artifact" -name coverage.txt | paste -sd "," -)
-              core_tests_paths=$(find "$core_artifact" -name output.txt | paste -sd "," -)
-              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$core_coverage_paths"
-              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$core_tests_paths"
-            fi
-          done
+          # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
+          integration_tests_artifact="go_core_tests_integration_logs"
+          if [ -d "$integration_tests_artifact" ]; then
+            echo "Found $integration_tests_artifact"
+            integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
+            integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
 
-          for integration_tests_artifact in go_core_tests_integration_logs_shard_*; do
-            if [ -d "$integration_tests_artifact" ]; then
-              echo "Found $integration_tests_artifact"
-              integration_coverage_paths=$(find "$integration_tests_artifact" -name coverage.txt | paste -sd "," -)
-              integration_tests_paths=$(find "$integration_tests_artifact" -name output.txt | paste -sd "," -)
-              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
-              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
-            fi
-          done
+            # Append to existing paths if they are set, otherwise assign directly
+            sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
+            sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
+          fi
 
           # Check and assign paths for coverage/test reports in go_core_scripts_tests_logs
           scripts_tests_artifact="go_core_scripts_tests_logs"
@@ -713,7 +716,7 @@ jobs:
           for golang_lint_artifact in golangci-lint-report*
           do
               echo "Found golangci-lint-report artifacts"
-              sonarqube_lint_report_paths=$(find . -type f -name 'golangci-lint-report.xml' -printf "%p,")
+              sonarqube_lint_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")
               echo "Lint report paths: $sonarqube_lint_report_paths"
               break
           done
@@ -741,7 +744,7 @@ jobs:
           fi
 
           echo "Final SONARQUBE_ARGS: $ARGS"
-          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
+          echo "SONARQUBE_ARGS=$ARGS" >> $GITHUB_ENV
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
