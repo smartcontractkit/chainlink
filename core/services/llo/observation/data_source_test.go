@@ -150,6 +150,7 @@ type mockTelemeter struct {
 	mu                     sync.Mutex
 	v3PremiumLegacyPackets []v3PremiumLegacyPacket
 	ch                     chan any
+	channels               []chan any
 }
 
 type v3PremiumLegacyPacket struct {
@@ -172,6 +173,7 @@ func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size i
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ch = make(chan any, size)
+	m.channels = append(m.channels, m.ch)
 
 	return m.ch
 }
@@ -304,7 +306,8 @@ func Test_DataSource(t *testing.T) {
 
 			err := ds.Observe(ctx, vals, opts)
 			tm.mu.Lock()
-			ch := tm.ch
+			require.NotEmpty(t, tm.channels)
+			ch := tm.channels[0]
 			tm.mu.Unlock()
 
 			ds.Close()
