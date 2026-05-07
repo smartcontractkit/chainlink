@@ -126,7 +126,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
-                  ref: develop # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
 
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
@@ -149,7 +151,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
-                  ref: develop # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -171,7 +175,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
-                  ref: develop # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -193,7 +199,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
-                  ref: develop # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -215,7 +223,9 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
               with:
-                  ref: develop # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
