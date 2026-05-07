@@ -473,4 +473,3 @@ func (d *DeprecatedDelegate) BeforeJobDeleted(Job) {}
 func (d *DeprecatedDelegate) OnDeleteJob(context.Context, Job) error {
 	return nil
 }
-
