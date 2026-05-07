@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/runner"
 )
 
@@ -31,9 +32,14 @@ go -C tools/test run . --ai-output gotestsum --format=testname -- -count=1 ./cor
 // runGotestsum runs the gotestsum path. lookPath and deferCleanup are injectable for tests.
 // deferCleanup must run on every exit path after PersistentPreRunE may have started Postgres.
 func runGotestsum(cmd *cobra.Command, args []string, lookPath func(string) (string, error), deferCleanup func() error) error {
+	var out *output.Printer
 	defer func() {
 		if err := deferCleanup(); err != nil {
-			fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
+			if out != nil {
+				out.Stderrf("error tearing down postgres: %v\n", err)
+			} else {
+				_, _ = fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
+			}
 		}
 	}()
 	if _, err := lookPath("gotestsum"); err != nil {
@@ -43,5 +49,6 @@ func runGotestsum(cmd *cobra.Command, args []string, lookPath func(string) (stri
 	if err != nil {
 		return err
 	}
+	out = output.NewFromApp(conf)
 	return runner.Gotestsum(cmd.Context(), conf, args)
 }

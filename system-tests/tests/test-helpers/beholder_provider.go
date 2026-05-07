@@ -69,7 +69,8 @@ func NewBeholder(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*Be
 	beholderStartupMu.Lock()
 	defer beholderStartupMu.Unlock()
 
-	if err := startBeholderIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath, testConfig.ChipIngressGRPCPort); err != nil {
+	// we don't need to pass the GRPC port here, because it will be automatically assigned by Docker
+	if err := startBeholderIfNotRunning(testConfig.RelativePathToRepoRoot, testConfig.EnvironmentDirPath); err != nil {
 		return nil, errors.Wrap(err, "Beholder failed to start")
 	}
 
@@ -82,7 +83,7 @@ func NewBeholder(lggr zerolog.Logger, testConfig *configuration.TestConfig) (*Be
 }
 
 // startBeholderIfNotRunning starts the Beholder stack if it's not already running.
-func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir, grpcPort string) error {
+func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
 	if config.ChipIngressStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Msg("No need to start Beholder - it is already running")
 		return nil
@@ -92,7 +93,7 @@ func startBeholderIfNotRunning(relativePathToRepoRoot, environmentDir, grpcPort 
 	ctx, cancel := context.WithTimeout(context.Background(), beholderStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start", "--grpc-port", grpcPort)
+	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "beholder", "start")
 	cmd.Dir = environmentDir
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
