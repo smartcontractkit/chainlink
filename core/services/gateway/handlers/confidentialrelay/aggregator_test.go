@@ -12,6 +12,38 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
+// chainlink-common's confidentialrelay.Validate (introduced in chainlink-common#2021)
+// rejects request params missing any field the canonical hash binds to and rejects
+// malformed structured fields (Owner must be a 0x-prefixed 20-byte hex Ethereum address;
+// ExecutionID must be 32-byte hex with no prefix). Hash returns an error on Validate
+// failure, so test params that exercise the real aggregator must satisfy these formats.
+const (
+	testOwner       = "0x0000000000000000000000000000000000000001"
+	testExecutionID = "0000000000000000000000000000000000000000000000000000000000000001"
+	testEnclavePK   = "aabbcc"
+)
+
+func validCapParams(workflowID string) relaytypes.CapabilityRequestParams {
+	return relaytypes.CapabilityRequestParams{
+		WorkflowID:   workflowID,
+		Owner:        testOwner,
+		ExecutionID:  testExecutionID,
+		ReferenceID:  "ref-1",
+		CapabilityID: "cap-1",
+		Payload:      "in",
+	}
+}
+
+func validSecretsParams(workflowID string) relaytypes.SecretsRequestParams {
+	return relaytypes.SecretsRequestParams{
+		WorkflowID:       workflowID,
+		Owner:            testOwner,
+		ExecutionID:      testExecutionID,
+		Secrets:          []relaytypes.SecretIdentifier{{Key: "k1", Namespace: "ns"}},
+		EnclavePublicKey: testEnclavePK,
+	}
+}
+
 func capExecRequest(t *testing.T, id string, params relaytypes.CapabilityRequestParams) jsonrpc.Request[json.RawMessage] {
 	t.Helper()
 	raw, err := json.Marshal(params)
@@ -59,7 +91,7 @@ func TestAggregator_capabilityExec_quorumMergesSignatures(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.CapabilityRequestParams{WorkflowID: "wf-1", CapabilityID: "cap-1", Payload: "in"}
+	params := validCapParams("wf-1")
 	req := capExecRequest(t, "req-1", params)
 	result := relaytypes.CapabilityResponseResult{Payload: "out-A"}
 
@@ -86,7 +118,7 @@ func TestAggregator_capabilityExec_dedupesDuplicateSigner(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.CapabilityRequestParams{WorkflowID: "wf-1", CapabilityID: "cap-1", Payload: "in"}
+	params := validCapParams("wf-1")
 	req := capExecRequest(t, "req-dup", params)
 	result := relaytypes.CapabilityResponseResult{Payload: "out-A"}
 
@@ -108,13 +140,15 @@ func TestAggregator_capabilityExec_tiedMajoritiesDeterministic(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.CapabilityRequestParams{WorkflowID: "wf-1", CapabilityID: "cap-1", Payload: "in"}
+	params := validCapParams("wf-1")
 	req := capExecRequest(t, "req-tie", params)
 
 	resultA := relaytypes.CapabilityResponseResult{Payload: "out-A"}
 	resultB := relaytypes.CapabilityResponseResult{Payload: "out-B"}
-	hashA := resultA.Hash(params)
-	hashB := resultB.Hash(params)
+	hashA, err := resultA.Hash(params)
+	require.NoError(t, err)
+	hashB, err := resultB.Hash(params)
+	require.NoError(t, err)
 	require.NotEqual(t, hashA, hashB)
 
 	wantResult := resultA
@@ -144,7 +178,7 @@ func TestAggregator_skipsTransportErrorsFromQuorum(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.CapabilityRequestParams{WorkflowID: "wf-1", CapabilityID: "cap-1", Payload: "in"}
+	params := validCapParams("wf-1")
 	req := capExecRequest(t, "req-err", params)
 	result := relaytypes.CapabilityResponseResult{Payload: "out-A"}
 
@@ -175,7 +209,7 @@ func TestAggregator_quorumUnobtainable(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.CapabilityRequestParams{WorkflowID: "wf-1", CapabilityID: "cap-1", Payload: "in"}
+	params := validCapParams("wf-1")
 	req := capExecRequest(t, "req-uno", params)
 
 	// 4 distinct logical results means no bucket reaches F+1=2; remaining=0; unattainable.
@@ -196,15 +230,7 @@ func TestAggregator_secretsGet_quorumMergesSignatures(t *testing.T) {
 	lggr := logger.Test(t)
 	agg := &aggregator{}
 
-	params := relaytypes.SecretsRequestParams{
-		WorkflowID:  "wf-1",
-		Owner:       "0xabc",
-		ExecutionID: "exec-1",
-		Secrets: []relaytypes.SecretIdentifier{
-			{Key: "k1", Namespace: "ns"},
-		},
-		EnclavePublicKey: "pk",
-	}
+	params := validSecretsParams("wf-1")
 	rawParams, err := json.Marshal(params)
 	require.NoError(t, err)
 	rm := json.RawMessage(rawParams)

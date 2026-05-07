@@ -65,6 +65,18 @@ var nodeOne = config.NodeConfig{
 	Address: "0x1234",
 }
 
+// validCapParamsJSON returns JSON-RPC params for MethodCapabilityExec that satisfy
+// chainlink-common's CapabilityRequestParams.Validate so the real aggregator's Hash()
+// step does not drop responses (testOwner / testExecutionID constants live in
+// aggregator_test.go, same package).
+func validCapParamsJSON(workflowID string) json.RawMessage {
+	raw, err := json.Marshal(validCapParams(workflowID))
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(raw)
+}
+
 func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	t.Helper()
 	lggr := logger.Test(t)
@@ -204,7 +216,7 @@ func TestConfidentialRelayHandler_QuorumWithRealAggregator(t *testing.T) {
 	h.aggregator = &aggregator{}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-quorum",
 		Method: MethodCapabilityExec,
@@ -255,7 +267,7 @@ func TestConfidentialRelayHandler_QuorumWithDivergentResponses(t *testing.T) {
 	h.aggregator = &aggregator{}
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-diverge",
 		Method: MethodCapabilityExec,
@@ -366,7 +378,7 @@ func TestConfidentialRelayHandler_RequestTimeout(t *testing.T) {
 	// Use the real aggregator so responses are not immediately satisfied
 	h.aggregator = &aggregator{}
 
-	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+	params := validCapParamsJSON("wf1")
 	req := jsonrpc.Request[json.RawMessage]{
 		ID:     "req-timeout",
 		Method: MethodCapabilityExec,
