@@ -518,6 +518,9 @@ jobs:
       - name: Check and Set SonarQube Report Paths
         shell: bash
         run: |
+          # Enable nullglob so unmatched globs expand to nothing
+          shopt -s nullglob
+
           # Check and assign paths for coverage/test reports in go_core_tests_logs
           core_artifact="go_core_tests_logs"
           if [ -d "$core_artifact" ]; then
@@ -561,6 +564,7 @@ jobs:
           # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
           for golang_lint_artifact in golangci-lint-report*
           do
+              # With nullglob enabled, the loop simply doesn't execute if no matches
               echo "Found golangci-lint-report artifacts"
               sonarqube_lint_report_paths=$(find "./${golang_lint_artifact}" -type f -name 'golangci-lint-report.xml' -printf "%p,")
               echo "Lint report paths: $sonarqube_lint_report_paths"
@@ -590,7 +594,7 @@ jobs:
           fi
 
           echo "Final SONARQUBE_ARGS: $ARGS"
-          echo "SONARQUBE_ARGS=$ARGS" >> "${GITHUB_ENV}"
+          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
 
       - name: SonarQube Scan
         if: ${{ env.SONARQUBE_ARGS != '' }}
