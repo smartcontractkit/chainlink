@@ -121,7 +121,11 @@ type CacheMetrics struct {
 	loadedGauge     metric.Int64Gauge
 	memorySaved     metric.Int64Gauge   // bytes saved by evicting idle modules
 	versionMismatch metric.Int64Counter // cached binary rejected due to engine version mismatch
+	pinExhausted    metric.Int64Counter // execute retries exhausted before a pin succeeds
 }
+
+// cachePinExhaustedHook is a test-only hook to observe pin-exhausted recordings.
+var cachePinExhaustedHook func()
 
 func (cm *CacheMetrics) recordReload(ctx context.Context, source string) {
 	if cm == nil {
@@ -158,6 +162,16 @@ func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
 	cm.versionMismatch.Add(ctx, 1)
 }
 
+func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
+	if cm == nil {
+		return
+	}
+	cm.pinExhausted.Add(ctx, 1)
+	if cachePinExhaustedHook != nil {
+		cachePinExhaustedHook()
+	}
+}
+
 func NewCacheMetrics() (*CacheMetrics, error) {
 	reloadSource, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_reload_total")
 	if err != nil {
@@ -179,12 +193,17 @@ func NewCacheMetrics() (*CacheMetrics, error) {
 	if err != nil {
 		return nil, err
 	}
+	pinExhausted, err := beholder.GetMeter().Int64Counter("platform_workflow_module_cache_pin_exhausted_total")
+	if err != nil {
+		return nil, err
+	}
 	return &CacheMetrics{
 		reloadSource:    reloadSource,
 		evictionTotal:   evictionTotal,
 		loadedGauge:     loadedGauge,
 		memorySaved:     memorySaved,
 		versionMismatch: versionMismatch,
+		pinExhausted:    pinExhausted,
 	}, nil
 }
 

@@ -183,6 +183,7 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 		}
 	}
 	if pinned == nil {
+		m.metrics.recordPinExhausted(ctx)
 		return nil, fmt.Errorf("%w (workflow_id=%s attempts=%d)", ErrExecutePinExhausted, m.workflowID, executePinMaxAttempts)
 	}
 	defer pinned.release()
