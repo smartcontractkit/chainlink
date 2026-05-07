@@ -474,16 +474,17 @@ type (
 )
 
 type GenerateConfigsInput struct {
-	Datastore               datastore.DataStore
-	DonMetadata             *DonMetadata
-	Blockchains             map[uint64]blockchains.Blockchain
-	RegistryChainSelector   uint64
-	Flags                   []string
-	CapabilitiesPeeringData CapabilitiesPeeringData
-	OCRPeeringData          OCRPeeringData
-	ContractVersions        map[ContractType]*semver.Version
-	Topology                *Topology
-	Provider                infra.Provider
+	Datastore                 datastore.DataStore
+	DonMetadata               *DonMetadata
+	Blockchains               map[uint64]blockchains.Blockchain
+	RegistryChainSelector     uint64
+	Flags                     []string
+	CapabilitiesPeeringData   CapabilitiesPeeringData
+	OCRPeeringData            OCRPeeringData
+	ContractVersions          map[ContractType]*semver.Version
+	Topology                  *Topology
+	Provider                  infra.Provider
+	ChipRouterInternalGRPCURL string
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -513,7 +514,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(h) == 0 {
 		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
-	// TODO check for required registry contracts by type and version
+	if g.ChipRouterInternalGRPCURL == "" {
+		return errors.New("chip router internal grpc url not set")
+	}
 	return nil
 }
 

@@ -2,12 +2,15 @@ package runner
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,15 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 )
 
-// Fixed clock for diagnoseResultsDirName assertions (timestamp 20240601123045).
 var diagnoseResultsDirNameAt = time.Date(2024, 6, 1, 12, 30, 45, 0, time.UTC)
-
-func testArgHash8(goTestArgs []string) string {
-	h := sha256.Sum256([]byte(strings.Join(goTestArgs, "\x00")))
-	return hex.EncodeToString(h[:4])
-}
 
 // When ctx is already canceled before Diagnose starts, no iterations run but
 // analysis still produces a report.json — this is the path a user hits after
@@ -39,7 +37,7 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := Diagnose(ctx, conf, []string{"./..."}, nil, nil)
+	err := Diagnose(ctx, conf, output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD), []string{"./..."}, nil)
 	require.NoError(t, err)
 
 	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
@@ -57,6 +55,69 @@ func TestDiagnoseCanceledCtxRunsNoIterationsButStillWritesReport(t *testing.T) {
 	var rep Report
 	require.NoError(t, json.Unmarshal(reportBytes, &rep))
 	assert.Equal(t, 0, rep.Iterations)
+	require.NotNil(t, rep.Run)
+	assert.Equal(t, []string{"./..."}, rep.Run.GoTestArgs)
+	assert.Equal(t, "allpkgs", rep.Run.TargetSlug)
+	require.NotNil(t, rep.Run.FinishedAt)
+}
+
+func TestDiagnoseCanceledCtxAIStdoutTwoLines(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	conf := &config.App{
+		RepoRoot:   repoRoot,
+		AIOutput:   true,
+		Iterations: 3,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var stdout strings.Builder
+	err := Diagnose(ctx, conf, output.New(conf.AIOutput, &stdout, io.Discard, output.SkipFD), []string{"./..."}, nil)
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	require.Len(t, lines, 3, "stdout: %q", stdout.String())
+	assert.Equal(t, filepath.Join(lines[0], "report.json"), lines[1])
+	assert.Equal(t, "null", lines[2])
+}
+
+func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	conf := &config.App{
+		RepoRoot:   repoRoot,
+		AIOutput:   false,
+		Iterations: 2,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	var stderr strings.Builder
+	err := Diagnose(ctx, conf, output.New(false, io.Discard, &stderr, output.SkipFD), []string{"./..."}, nil)
+	require.NoError(t, err)
+
+	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	reportPath := filepath.Join(matches[0], "report.json")
+
+	out := stderr.String()
+	assert.Contains(t, out, "results directory")
+	assert.Contains(t, out, matches[0])
+	assert.Contains(t, out, reportPath)
+	assert.Contains(t, out, "report.json:")
+	assert.NotContains(t, out, "results in ")
+}
+
+func TestPrintDiagnoseAnalyzingStartsNewLineAfterLiveProgress(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	out := output.New(false, io.Discard, &stderr, output.SkipFD)
+
+	printDiagnoseAnalyzing(out, true)
+
+	assert.Equal(t, "\r\u001b[K\nanalyzing...\n", stderr.String())
 }
 
 func TestParseDiagnoseGoTestCount(t *testing.T) {
@@ -207,7 +268,7 @@ func TestDiagnoseShuffleSeedsAbsentWhenNoIterationsRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	require.NoError(t, Diagnose(ctx, conf, []string{"./..."}, nil, nil))
+	require.NoError(t, Diagnose(ctx, conf, output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD), []string{"./..."}, nil))
 
 	matches, err := filepath.Glob(filepath.Join(repoRoot, diagnoseResultsNamePrefix+"*"))
 	require.NoError(t, err)
@@ -225,53 +286,40 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		conf       *config.App
 		goTestArgs []string
 		want       string
 	}{
 		{
-			name: "repo root pattern",
-			conf: &config.App{
-				Iterations: 1,
-			},
+			name:       "repo root pattern",
 			goTestArgs: []string{"./..."},
-			want:       diagnoseResultsNamePrefix + "allpkgs-it1-h" + testArgHash8([]string{"./..."}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "allpkgs-20240601123045",
 		},
 		{
-			name: "nested package with ellipsis",
-			conf: &config.App{
-				Iterations: 10,
-			},
+			name:       "nested package with ellipsis",
 			goTestArgs: []string{"./core/..."},
-			want:       diagnoseResultsNamePrefix + "core_allpkgs-it10-h" + testArgHash8([]string{"./core/..."}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "core_allpkgs-20240601123045",
 		},
 		{
-			name: "fail-fast and shuffle and non-default slow",
-			conf: &config.App{
-				Iterations:    2,
-				SlowThreshold: 45 * time.Second,
-				FailFast:      true,
-				Shuffle:       true,
-			},
+			name:       "flags before package",
 			goTestArgs: []string{"-race", "-run=^TestFoo$", "./pkg"},
-			want: diagnoseResultsNamePrefix + "pkg-it2-h" + testArgHash8([]string{"-race", "-run=^TestFoo$", "./pkg"}) +
-				"-ff-shuffle-slow45s-20240601123045",
+			want:       diagnoseResultsNamePrefix + "pkg-20240601123045",
 		},
 		{
-			name: "default slow threshold omitted",
-			conf: &config.App{
-				Iterations:    3,
-				SlowThreshold: 30 * time.Second,
-			},
+			name:       "single package",
+			goTestArgs: []string{"./pkg"},
+			want:       diagnoseResultsNamePrefix + "pkg-20240601123045",
+		},
+		{
+			name:       "short path",
 			goTestArgs: []string{"./a"},
-			want:       diagnoseResultsNamePrefix + "a-it3-h" + testArgHash8([]string{"./a"}) + "-20240601123045",
+			want:       diagnoseResultsNamePrefix + "a-20240601123045",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got := diagnoseResultsDirName(tc.conf, tc.goTestArgs, diagnoseResultsDirNameAt)
+			got := diagnoseResultsDirName(tc.goTestArgs, diagnoseResultsDirNameAt)
 			assert.Equal(t, tc.want, got)
 			assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
 		})
@@ -282,20 +330,31 @@ func TestDiagnoseResultsDirNameLongRunAndPath(t *testing.T) {
 	t.Parallel()
 	longRun := strings.Repeat("Xy", 80)
 	goTestArgs := []string{"-run=" + longRun, "./p"}
-	conf := &config.App{
-		Iterations: 1,
-	}
-	got := diagnoseResultsDirName(conf, goTestArgs, diagnoseResultsDirNameAt)
+	got := diagnoseResultsDirName(goTestArgs, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
-	assert.Contains(t, got, "-it1-h")
-	assert.Contains(t, got, testArgHash8(goTestArgs))
-	assert.Regexp(t, `diagnose-p-it1-h[0-9a-f]{8}-20240601123045`, got)
+	assert.Regexp(t, `diagnose-p-20240601123045`, got)
 
 	longTarget := "./" + strings.Repeat("seg/", 60) + "z"
 	goTestArgs2 := []string{longTarget}
-	got2 := diagnoseResultsDirName(conf, goTestArgs2, diagnoseResultsDirNameAt)
+	got2 := diagnoseResultsDirName(goTestArgs2, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got2), maxDiagnoseResultsBasename)
 	assert.True(t, strings.HasPrefix(got2, diagnoseResultsNamePrefix))
+}
+
+func TestMakeDiagnoseResultsDirAvoidsExistingDirectory(t *testing.T) {
+	t.Parallel()
+	conf := &config.App{
+		RepoRoot:   t.TempDir(),
+		Iterations: 1,
+	}
+	first, err := makeDiagnoseResultsDir(conf, []string{"./pkg"}, diagnoseResultsDirNameAt)
+	require.NoError(t, err)
+	second, err := makeDiagnoseResultsDir(conf, []string{"./pkg"}, diagnoseResultsDirNameAt)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first, second)
+	assert.DirExists(t, first)
+	assert.DirExists(t, second)
 }
 
 func TestDiagnoseDumpDBCalledWithResultsDir(t *testing.T) {
@@ -320,8 +379,32 @@ func TestDiagnoseDumpDBCalledWithResultsDir(t *testing.T) {
 	}
 
 	// pre-canceled ctx → no iterations run → dumpDB never called
-	require.NoError(t, Diagnose(ctx, conf, []string{"./..."}, nil, dumpDB))
+	require.NoError(t, Diagnose(ctx, conf, output.New(conf.AIOutput, io.Discard, io.Discard, output.SkipFD), []string{"./..."}, []diagnoseIterationResource{{DumpDiagnostics: dumpDB}}))
 	assert.Empty(t, calls)
+}
+
+func TestPrintDiagnoseResultsDirHeader(t *testing.T) {
+	t.Parallel()
+	dir := "/tmp/diagnose-out-xyz"
+
+	t.Run("human", func(t *testing.T) {
+		t.Parallel()
+		var stdout, stderr strings.Builder
+		p := output.New(false, &stdout, &stderr, output.SkipFD)
+		printDiagnoseResultsDirHeader(p, dir)
+		assert.Empty(t, stdout.String())
+		assert.Contains(t, stderr.String(), "results directory")
+		assert.Contains(t, stderr.String(), dir)
+	})
+
+	t.Run("ai", func(t *testing.T) {
+		t.Parallel()
+		var stdout, stderr strings.Builder
+		p := output.New(true, &stdout, &stderr, output.SkipFD)
+		printDiagnoseResultsDirHeader(p, dir)
+		assert.Contains(t, stdout.String(), dir)
+		assert.Empty(t, stderr.String())
+	})
 }
 
 func TestTruncateUTF8MaxBytes(t *testing.T) {
@@ -341,4 +424,212 @@ func TestPackagePatternsFromEnd(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, []string{"./core/...", "./foo"}, packagePatternsFromEnd([]string{"-race", "-timeout=5m", "./core/...", "./foo"}))
 	assert.Nil(t, packagePatternsFromEnd([]string{"-v", "-race"}))
+}
+
+func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	resultsDir := t.TempDir()
+	conf := &config.App{
+		RepoRoot:           repoRoot,
+		AIOutput:           true,
+		Iterations:         4,
+		ParallelIterations: 2,
+	}
+	var stdout strings.Builder
+	out := output.New(true, &stdout, io.Discard, output.SkipFD)
+
+	var active int32
+	var maxActive int32
+	var mu sync.Mutex
+	envByIter := make(map[int][]string)
+	var resets, dumps int
+	resources := []diagnoseIterationResource{
+		{
+			Env: []string{"CL_DATABASE_URL=postgres://worker-0/db"},
+			Reset: func(context.Context) error {
+				mu.Lock()
+				defer mu.Unlock()
+				resets++
+				return nil
+			},
+			DumpDiagnostics: func(_ context.Context, _ string, _ int) error {
+				mu.Lock()
+				defer mu.Unlock()
+				dumps++
+				return nil
+			},
+		},
+		{
+			Env: []string{"CL_DATABASE_URL=postgres://worker-1/db"},
+			Reset: func(context.Context) error {
+				mu.Lock()
+				defer mu.Unlock()
+				resets++
+				return nil
+			},
+			DumpDiagnostics: func(_ context.Context, _ string, _ int) error {
+				mu.Lock()
+				defer mu.Unlock()
+				dumps++
+				return nil
+			},
+		},
+	}
+	hooks := diagnoseRunHooks{
+		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, _ time.Time) error {
+			require.False(t, liveProgress)
+			require.Nil(t, parallelProgress)
+			nowActive := atomic.AddInt32(&active, 1)
+			for {
+				seen := atomic.LoadInt32(&maxActive)
+				if nowActive <= seen || atomic.CompareAndSwapInt32(&maxActive, seen, nowActive) {
+					break
+				}
+			}
+			mu.Lock()
+			envByIter[iteration] = append([]string(nil), env...)
+			mu.Unlock()
+			time.Sleep(25 * time.Millisecond)
+			err := os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(`{"Action":"pass","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600)
+			atomic.AddInt32(&active, -1)
+			return err
+		},
+	}
+
+	state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, resources, hooks)
+	require.NoError(t, err)
+	assert.Equal(t, 4, state.completed)
+	assert.Equal(t, int32(2), atomic.LoadInt32(&maxActive))
+	assert.Equal(t, 2, resets, "each worker should reset before being reused")
+	assert.Equal(t, 4, dumps)
+	assert.Len(t, envByIter, 4)
+	for _, env := range envByIter {
+		assert.Len(t, env, 1)
+		assert.Contains(t, env[0], "CL_DATABASE_URL=postgres://worker-")
+	}
+	assert.Equal(t, 4, strings.Count(stdout.String(), "d "))
+}
+
+func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
+	t.Parallel()
+	resultsDir := t.TempDir()
+	conf := &config.App{
+		RepoRoot:           t.TempDir(),
+		AIOutput:           true,
+		Iterations:         5,
+		ParallelIterations: 2,
+		FailFast:           true,
+	}
+	out := output.New(true, io.Discard, io.Discard, output.SkipFD)
+	var mu sync.Mutex
+	started := make(map[int]struct{})
+	hooks := diagnoseRunHooks{
+		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+			mu.Lock()
+			started[iteration] = struct{}{}
+			mu.Unlock()
+			if iteration == 0 {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-0.log.jsonl"), []byte(`{"Action":"fail","Package":"p","Test":"T","Elapsed":0.01}`+"\n"), 0600))
+				return errors.New("test failed")
+			}
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	}
+
+	state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}, {}}, hooks)
+	require.NoError(t, err)
+	assert.True(t, state.failedFast)
+	assert.LessOrEqual(t, len(started), conf.ParallelIterations)
+}
+
+func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		failFastOn    []string
+		iterationJSON string
+		iterErr       error
+		wantCompleted int
+		wantFailed    bool
+	}{
+		{
+			name:          "timeout stops on timeout",
+			failFastOn:    []string{"timeout"},
+			iterationJSON: `{"Action":"output","Package":"p","Test":"TestHang","Output":"panic: test timed out after 5s\n"}` + "\n" + `{"Action":"fail","Package":"p","Test":"TestHang","Elapsed":5}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "timeout ignores plain failure",
+			failFastOn:    []string{"timeout"},
+			iterationJSON: `{"Action":"fail","Package":"p","Test":"TestFail","Elapsed":0.01}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 3,
+		},
+		{
+			name:          "slow stops on passing slow test",
+			failFastOn:    []string{"slow"},
+			iterationJSON: `{"Action":"pass","Package":"p","Test":"TestSlow","Elapsed":45}`,
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "failure stops on plain failure",
+			failFastOn:    []string{"failure"},
+			iterationJSON: `{"Action":"fail","Package":"p","Test":"TestFail","Elapsed":0.01}`,
+			iterErr:       errors.New("test failed"),
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+		{
+			name:          "any stops on slow",
+			failFastOn:    []string{"any"},
+			iterationJSON: `{"Action":"pass","Package":"p","Test":"TestSlow","Elapsed":45}`,
+			wantCompleted: 1,
+			wantFailed:    true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			resultsDir := t.TempDir()
+			conf := &config.App{
+				RepoRoot:      t.TempDir(),
+				AIOutput:      true,
+				Iterations:    3,
+				SlowThreshold: 30 * time.Second,
+				FailFastOn:    tc.failFastOn,
+			}
+			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
+			hooks := diagnoseRunHooks{
+				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+					return os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
+				},
+			}
+			if tc.iterErr != nil {
+				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
+					return tc.iterErr
+				}
+			}
+
+			state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}}, hooks)
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantCompleted, state.completed)
+			assert.Equal(t, tc.wantFailed, state.failedFast)
+		})
+	}
+}
+
+func TestFormatIterationDigestAI(t *testing.T) {
+	t.Parallel()
+	d := IterationDigest{
+		Result: "pass", RanTests: 126, FailTests: 0, TimeoutTests: 0, SlowTests: 6,
+	}
+	assert.Equal(t, "d 7/100 p 90s r126 f0 t0 s6", formatIterationDigestAI(7, 100, d, 90*time.Second))
 }

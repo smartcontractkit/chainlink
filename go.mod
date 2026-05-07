@@ -9,6 +9,7 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/aptos-labs/aptos-go-sdk v1.12.1
 	github.com/avast/retry-go/v4 v4.7.0
+	github.com/buger/jsonparser v1.1.2
 	github.com/buraksezer/consistent v0.10.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2
@@ -190,7 +191,6 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/buger/goterm v1.0.4 // indirect
-	github.com/buger/jsonparser v1.1.2 // indirect
 	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.0 // indirect

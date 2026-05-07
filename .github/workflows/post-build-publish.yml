@@ -27,12 +27,17 @@ jobs:
                       echo "Chainlink Version is required, but 'client_payload.chainlink_version' is empty"
                       exit 1
                   fi
+                  if [[ "$CHAINLINK_VERSION" != v* ]]; then
+                      echo "This workflow can only be used with semver tags, 'chainlink_version' must begin with 'v', got: $CHAINLINK_VERSION"
+                      exit 1
+                  fi
                   echo "Trigger validated successfully"
     # Upgrade compatibility tests
     # Include rc and beta releases, since we will be upgrading from them on canary servers
     df1-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
+        needs: validate-trigger
         permissions:
             id-token: write
             contents: read
@@ -48,11 +53,13 @@ jobs:
             logs-directory: "./devenv/tests/ocr2/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
         secrets: inherit
 
     cre-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: CRE Upgrade Test
+        needs: validate-trigger
         permissions:
             id-token: write
             contents: read
@@ -68,6 +75,7 @@ jobs:
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
         secrets: inherit
 
     legacy-system-tests:
