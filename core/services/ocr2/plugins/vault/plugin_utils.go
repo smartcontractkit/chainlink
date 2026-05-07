@@ -7,10 +7,11 @@ import (
 
 	"golang.org/x/exp/constraints"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
