@@ -71,7 +71,6 @@ func ComputeDKGConfig(
 		jdNodes,
 		registryChainSel,
 		env.OCRSecrets,
-		oracleOffchainConfig.DKGOffchainConfig.ReportingPluginConfig,
 		extraSignerFamilies,
 	)
 	if err != nil {

@@ -1328,6 +1328,9 @@ func TestConfig_full(t *testing.T) {
 		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
 		}
+		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
+			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = ptr(false)
+		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
 			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
 		}
