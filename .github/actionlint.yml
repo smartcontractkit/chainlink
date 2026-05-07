@@ -9,4 +9,6 @@ paths:
       - '.*SC2129:style:.*'
       # https://www.shellcheck.net/wiki/SC2002
       - '.*SC2002:style:.*'
+      # ignore if: false, as it's a common pattern to temporarily disable a job or step
+      - 'constant expression "false" in condition.*'
 
