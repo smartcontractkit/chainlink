@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -25,8 +24,6 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
@@ -95,9 +92,6 @@ var (
 			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: toml.Keeper{
-				GasPriceBufferPercent: ptr[uint16](10),
-			},
 			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
@@ -155,68 +149,6 @@ var (
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
-		},
-		Solana: []*solcfg.TOMLConfig{
-			{
-				ChainID: ptr("mainnet"),
-				Chain: solcfg.Chain{
-					MaxRetries: ptr[int64](12),
-				},
-				MultiNode: mnCfg.MultiNodeConfig{
-					MultiNode: mnCfg.MultiNode{
-						Enabled:                      ptr(false),
-						PollFailureThreshold:         ptr[uint32](5),
-						PollInterval:                 &second,
-						SelectionMode:                &selectionMode,
-						SyncThreshold:                ptr[uint32](5),
-						NodeIsSyncingEnabled:         ptr(false),
-						LeaseDuration:                &minute,
-						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
-					},
-				},
-				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://mainnet.solana.com"), Order: ptr(int32(1))},
-				},
-			},
-			{
-				ChainID: ptr("testnet"),
-				Chain: solcfg.Chain{
-					OCR2CachePollPeriod: commoncfg.MustNewDuration(time.Minute),
-				},
-				MultiNode: mnCfg.MultiNodeConfig{
-					MultiNode: mnCfg.MultiNode{
-						Enabled:                      ptr(false),
-						PollFailureThreshold:         ptr[uint32](5),
-						PollInterval:                 &second,
-						SelectionMode:                &selectionMode,
-						SyncThreshold:                ptr[uint32](5),
-						NodeIsSyncingEnabled:         ptr(false),
-						LeaseDuration:                &minute,
-						NewHeadsPollInterval:         &second,
-						FinalizedBlockPollInterval:   &second,
-						EnforceRepeatableRead:        ptr(true),
-						DeathDeclarationDelay:        &minute,
-						VerifyChainID:                ptr(true),
-						NodeNoNewHeadsThreshold:      &minute,
-						NoNewFinalizedHeadsThreshold: &minute,
-						FinalityDepth:                ptr[uint32](0),
-						FinalityTagEnabled:           ptr(true),
-						FinalizedBlockOffset:         ptr[uint32](0),
-					},
-				},
-				Nodes: []*solcfg.Node{
-					{Name: ptr("secondary"), URL: commoncfg.MustParseURL("http://testnet.solana.com"), Order: ptr(int32(2))},
-				},
-			},
 		},
 	}
 )
@@ -594,21 +526,6 @@ func TestConfig_Marshal(t *testing.T) {
 			PerOwner: ptr(int32(200)),
 		},
 	}
-	full.Keeper = toml.Keeper{
-		DefaultTransactionQueueDepth: ptr[uint32](17),
-		GasPriceBufferPercent:        ptr[uint16](12),
-		GasTipCapBufferPercent:       ptr[uint16](43),
-		BaseFeeBufferPercent:         ptr[uint16](89),
-		MaxGracePeriod:               ptr[int64](31),
-		TurnLookBack:                 ptr[int64](91),
-		Registry: toml.KeeperRegistry{
-			CheckGasOverhead:    ptr[uint32](90),
-			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
-			SyncInterval:        commoncfg.MustNewDuration(time.Hour),
-			SyncUpkeepQueueSize: ptr[uint32](31),
-			MaxPerformDataSize:  ptr[uint32](5000),
-		},
-	}
 	full.AutoPprof = toml.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
@@ -773,6 +690,7 @@ func TestConfig_Marshal(t *testing.T) {
 				LogBackfillBatchSize:         ptr[uint32](17),
 				LogPollInterval:              &minute,
 				LogKeepBlocksDepth:           ptr[uint32](100000),
+				LogPollerSkipEmptyBlocks:     ptr(false),
 				LogPrunePageSize:             ptr[uint32](0),
 				BackupLogPollerBlockDelay:    ptr[uint64](532),
 				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
@@ -816,6 +734,7 @@ func TestConfig_Marshal(t *testing.T) {
 
 				NodePool: evmcfg.NodePool{
 					PollFailureThreshold:           ptr[uint32](5),
+					PollSuccessThreshold:           ptr[uint32](0),
 					PollInterval:                   &minute,
 					SelectionMode:                  &selectionMode,
 					SyncThreshold:                  ptr[uint32](13),
@@ -884,76 +803,6 @@ func TestConfig_Marshal(t *testing.T) {
 					SendOnly: ptr(true),
 				},
 			}},
-	}
-	full.Solana = []*solcfg.TOMLConfig{
-		{
-			ChainID: ptr("mainnet"),
-			Enabled: ptr(false),
-			Chain: solcfg.Chain{
-				BlockTime:                 commoncfg.MustNewDuration(500 * time.Millisecond),
-				BalancePollPeriod:         commoncfg.MustNewDuration(time.Minute),
-				ConfirmPollPeriod:         commoncfg.MustNewDuration(time.Second),
-				OCR2CachePollPeriod:       commoncfg.MustNewDuration(time.Minute),
-				OCR2CacheTTL:              commoncfg.MustNewDuration(time.Hour),
-				TxTimeout:                 commoncfg.MustNewDuration(time.Hour),
-				TxRetryTimeout:            commoncfg.MustNewDuration(time.Minute),
-				TxConfirmTimeout:          commoncfg.MustNewDuration(time.Second),
-				TxExpirationRebroadcast:   ptr(false),
-				TxRetentionTimeout:        commoncfg.MustNewDuration(0 * time.Second),
-				SkipPreflight:             ptr(true),
-				Commitment:                ptr("banana"),
-				MaxRetries:                ptr[int64](7),
-				FeeEstimatorMode:          ptr("fixed"),
-				ComputeUnitPriceMax:       ptr[uint64](1000),
-				ComputeUnitPriceMin:       ptr[uint64](10),
-				ComputeUnitPriceDefault:   ptr[uint64](100),
-				FeeBumpPeriod:             commoncfg.MustNewDuration(time.Minute),
-				BlockHistoryPollPeriod:    commoncfg.MustNewDuration(time.Minute),
-				BlockHistorySize:          ptr[uint64](1),
-				BlockHistoryBatchLoadSize: ptr[uint64](20),
-				ComputeUnitLimitDefault:   ptr[uint32](100_000),
-				EstimateComputeUnitLimit:  ptr(false),
-				LogPollerStartingLookback: commoncfg.MustNewDuration(24 * time.Hour),
-				LogPollerCPIEventsEnabled: ptr(true),
-				LogPollerSlotsBatchSize:   ptr[int64](100),
-			},
-			MultiNode: mnCfg.MultiNodeConfig{
-				MultiNode: mnCfg.MultiNode{
-					Enabled:                      ptr(false),
-					PollFailureThreshold:         ptr[uint32](5),
-					PollInterval:                 &second,
-					SelectionMode:                &selectionMode,
-					SyncThreshold:                ptr[uint32](5),
-					NodeIsSyncingEnabled:         ptr(false),
-					LeaseDuration:                &minute,
-					NewHeadsPollInterval:         &second,
-					FinalizedBlockPollInterval:   &second,
-					EnforceRepeatableRead:        ptr(true),
-					DeathDeclarationDelay:        &minute,
-					VerifyChainID:                ptr(true),
-					NodeNoNewHeadsThreshold:      &minute,
-					NoNewFinalizedHeadsThreshold: &minute,
-					FinalityDepth:                ptr[uint32](0),
-					FinalityTagEnabled:           ptr(true),
-					FinalizedBlockOffset:         ptr[uint32](0),
-				},
-			},
-			Nodes: []*solcfg.Node{
-				{Name: ptr("primary"), URL: commoncfg.MustParseURL("http://solana.web"), Order: ptr(int32(1))},
-				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
-				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
-			},
-			Workflow: solcfg.WorkflowConfig{
-				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
-				FromAddress:       ptr(solana.MustPublicKeyFromBase58("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e")),
-				ForwarderAddress:  ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
-				ForwarderState:    ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
-				TxAcceptanceState: ptr(commontypes.Finalized),
-				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
-				Local:             ptr(true),
-				GasLimitDefault:   ptr(uint64(0)),
-			},
-		},
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
@@ -1201,21 +1050,6 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
-DefaultTransactionQueueDepth = 17
-GasPriceBufferPercent = 12
-GasTipCapBufferPercent = 43
-BaseFeeBufferPercent = 89
-MaxGracePeriod = 31
-TurnLookBack = 91
-
-[Keeper.Registry]
-CheckGasOverhead = 90
-PerformGasOverhead = 4294967295
-MaxPerformDataSize = 5000
-SyncInterval = '1h0m0s'
-SyncUpkeepQueueSize = 31
-`},
 		{"AutoPprof", Config{Core: toml.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
@@ -1256,6 +1090,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
 LogPollInterval = '1m0s'
+LogPollerSkipEmptyBlocks = false
 LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 532
@@ -1346,6 +1181,7 @@ PriceMax = '79.228162514264337593543950335 gether'
 
 [EVM.NodePool]
 PollFailureThreshold = 5
+PollSuccessThreshold = 0
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
@@ -1409,83 +1245,6 @@ HTTPURL = 'https://bar.com'
 Name = 'broadcast'
 HTTPURL = 'http://broadcast.mirror'
 SendOnly = true
-`},
-		{"Solana", Config{Solana: full.Solana}, `[[Solana]]
-ChainID = 'mainnet'
-Enabled = false
-BlockTime = '500ms'
-BalancePollPeriod = '1m0s'
-ConfirmPollPeriod = '1s'
-OCR2CachePollPeriod = '1m0s'
-OCR2CacheTTL = '1h0m0s'
-TxTimeout = '1h0m0s'
-TxRetryTimeout = '1m0s'
-TxConfirmTimeout = '1s'
-TxExpirationRebroadcast = false
-TxRetentionTimeout = '0s'
-SkipPreflight = true
-Commitment = 'banana'
-MaxRetries = 7
-FeeEstimatorMode = 'fixed'
-ComputeUnitPriceMax = 1000
-ComputeUnitPriceMin = 10
-ComputeUnitPriceDefault = 100
-FeeBumpPeriod = '1m0s'
-BlockHistoryPollPeriod = '1m0s'
-BlockHistorySize = 1
-BlockHistoryBatchLoadSize = 20
-ComputeUnitLimitDefault = 100000
-EstimateComputeUnitLimit = false
-LogPollerStartingLookback = '24h0m0s'
-LogPollerCPIEventsEnabled = true
-LogPollerSlotsBatchSize = 100
-
-[Solana.Workflow]
-AcceptanceTimeout = '45s'
-ForwarderAddress = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-ForwarderState = '14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5'
-FromAddress = '4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e'
-GasLimitDefault = 0
-Local = true
-PollPeriod = '3s'
-TxAcceptanceState = 3
-
-[Solana.MultiNode]
-Enabled = false
-PollFailureThreshold = 5
-PollInterval = '1s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-NodeIsSyncingEnabled = false
-LeaseDuration = '1m0s'
-NewHeadsPollInterval = '1s'
-FinalizedBlockPollInterval = '1s'
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
-NodeNoNewHeadsThreshold = '1m0s'
-NoNewFinalizedHeadsThreshold = '1m0s'
-FinalityDepth = 0
-FinalityTagEnabled = true
-FinalizedBlockOffset = 0
-
-[[Solana.Nodes]]
-Name = 'primary'
-URL = 'http://solana.web'
-SendOnly = false
-Order = 1
-
-[[Solana.Nodes]]
-Name = 'foo'
-URL = 'http://solana.foo'
-SendOnly = true
-Order = 2
-
-[[Solana.Nodes]]
-Name = 'bar'
-URL = 'http://solana.bar'
-SendOnly = true
-Order = 3
 `},
 		{"Mercury", Config{Core: toml.Core{Mercury: full.Mercury}}, `[Mercury]
 VerboseLogging = true
@@ -1600,14 +1359,6 @@ func TestConfig_full(t *testing.T) {
 		}
 	}
 
-	for c := range got.Solana {
-		for n := range got.Solana[c].Nodes {
-			if got.Solana[c].Nodes[n].IsLoadBalancedRPC == nil {
-				got.Solana[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
-			}
-		}
-	}
-
 	configtest.AssertFieldsNotNil(t, got)
 }
 
@@ -1698,11 +1449,11 @@ func TestConfig_Validate(t *testing.T) {
 			- Nodes: missing: expected at least one node
 	- Solana: 4 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
-		- 0.Nodes: missing: must have at least one node
-		- 1.Nodes.0.URL: missing: required for all nodes
+		- 1.Nodes.1.Name: invalid value (bar): duplicate - must be unique
+		- 0.Nodes: missing: expected at least one node
 		- 2: 2 errors:
-			- ChainID: empty: required for all chains
-			- Nodes: missing: must have at least one node
+			- ChainID: missing: required for all chains
+			- Nodes: missing: expected at least one node
 	- Starknet: 3 errors:
 		- 0.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 0.ChainID: missing: required for all chains
@@ -1950,7 +1701,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
 	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
-	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Solana = RawConfigs{{"ChainID": ptr("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
 	c.setDefaults()
 

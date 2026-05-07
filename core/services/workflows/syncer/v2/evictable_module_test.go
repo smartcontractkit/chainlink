@@ -100,6 +100,14 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	evictAfterEnsureLoadedHook = func(em *EvictableModule) { em.Evict() }
 	t.Cleanup(func() { evictAfterEnsureLoadedHook = prevHook })
 
+	cm, err := NewCacheMetrics()
+	require.NoError(t, err)
+
+	var pinExhaustedRecorded atomic.Int32
+	prevMetricHook := cachePinExhaustedHook
+	cachePinExhaustedHook = func() { pinExhaustedRecorded.Add(1) }
+	t.Cleanup(func() { cachePinExhaustedHook = prevMetricHook })
+
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
 
@@ -109,11 +117,13 @@ func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	}
 
 	em, _ := newTestEvictableModule(t, inner, factory)
+	em.metrics = cm
 	em.started.Store(true)
 	t.Cleanup(em.Close)
 
-	_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
 	require.ErrorIs(t, err, ErrExecutePinExhausted)
+	assert.Equal(t, int32(1), pinExhaustedRecorded.Load())
 }
 
 func TestEvictable_DelegatesToInner(t *testing.T) {

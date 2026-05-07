@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	linkviewv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/link/view/v1_0"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
@@ -16,7 +17,6 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
@@ -297,7 +297,7 @@ func MaybeLoadStaticLinkTokenState(chain cldf_evm.Chain, addresses map[string]cl
 // Returns the address if found in either source
 func SearchAddress(e cldf.Environment, chainSelector uint64, address string) (bool, error) {
 	// Use the merged address loading from the EVM state function
-	addressesChain, err := state.AddressesForChain(e, chainSelector, "")
+	addressesChain, err := evmstate.AddressesForChain(e, chainSelector, "")
 	if err != nil {
 		return false, fmt.Errorf("failed to load addresses: %w", err)
 	}

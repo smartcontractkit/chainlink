@@ -291,41 +291,6 @@ func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string 
 	return fmt.Sprintf(WebhookSpecNoBodyTemplate, u, fetchBridge, submitBridge)
 }
 
-type KeeperSpecParams struct {
-	Name              string
-	ContractAddress   string
-	FromAddress       string
-	EvmChainID        int
-	ObservationSource string
-}
-
-type KeeperSpec struct {
-	KeeperSpecParams
-	toml string
-}
-
-func (os KeeperSpec) Toml() string {
-	return os.toml
-}
-
-func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
-	template := `
-type            		 	= "keeper"
-schemaVersion   		 	= 1
-name            		 	= "%s"
-contractAddress 		 	= "%s"
-fromAddress     		 	= "%s"
-evmChainID      		 	= %d
-externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
-observationSource = """%s"""
-`
-	escapedObvSource := strings.ReplaceAll(params.ObservationSource, `\`, `\\`)
-	return KeeperSpec{
-		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.Name, params.ContractAddress, params.FromAddress, params.EvmChainID, escapedObvSource),
-	}
-}
-
 type VRFSpecParams struct {
 	JobID                         string
 	Name                          string

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	xerrgroup "golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -23,7 +24,6 @@ import (
 
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms"
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -124,8 +124,8 @@ func DeployMCMSWithTimelockV2(
 				// load mcms state with qualifier awareness
 				// we load the state one by one to avoid early return from MaybeLoadMCMSWithTimelockStateWithQualifier
 				// due to one of the chain not found
-				var chainstate *state.MCMSWithTimelockState
-				s, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
+				var chainstate *evmstate.MCMSWithTimelockState
+				s, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSel}, qualifier)
 				if err != nil {
 					// if the state is not found for chain, we assume it's a fresh deployment
 					// this includes "no addresses found" which is expected for new qualifiers
@@ -210,14 +210,14 @@ func grantRolePreconditions(e cldf.Environment, cfg GrantRoleInput) error {
 }
 
 // loads MCMS state for each chain using per-chain qualifiers from cfg.MCMS.TimelockQualifierPerChain when available
-func loadMCMSStatePerChainWithQualifier(e cldf.Environment, cfg GrantRoleInput) (map[uint64]*state.MCMSWithTimelockState, error) {
-	result := make(map[uint64]*state.MCMSWithTimelockState)
+func loadMCMSStatePerChainWithQualifier(e cldf.Environment, cfg GrantRoleInput) (map[uint64]*evmstate.MCMSWithTimelockState, error) {
+	result := make(map[uint64]*evmstate.MCMSWithTimelockState)
 	for selector := range cfg.ExistingProposerByChain {
 		qualifier := ""
 		if cfg.MCMS != nil && cfg.MCMS.TimelockQualifierPerChain != nil {
 			qualifier = cfg.MCMS.TimelockQualifierPerChain[selector]
 		}
-		chainState, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{selector}, qualifier)
+		chainState, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{selector}, qualifier)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +231,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	mcmsStateForProposal := make(map[uint64]state.MCMSWithTimelockState)
+	mcmsStateForProposal := make(map[uint64]evmstate.MCMSWithTimelockState)
 	for k, v := range mcmsState {
 		if v != nil {
 			// Replace the proposer MCM in state with the existing proposer.
@@ -244,7 +244,7 @@ func grantRoleLogic(e cldf.Environment, cfg GrantRoleInput) (cldf.ChangesetOutpu
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create ManyChainMultiSig for existing proposer %s on chain %d: %w",
 					cfg.ExistingProposerByChain[k].Hex(), k, err)
 			}
-			mcmsStateForProposal[k] = state.MCMSWithTimelockState{
+			mcmsStateForProposal[k] = evmstate.MCMSWithTimelockState{
 				CancellerMcm: v.CancellerMcm,
 				BypasserMcm:  v.BypasserMcm,
 				ProposerMcm:  existingProposerMcm,

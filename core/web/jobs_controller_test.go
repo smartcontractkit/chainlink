@@ -199,43 +199,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			},
 		},
 		{
-			name: "keeper",
-			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(`
-                                  type                        = "keeper"
-                                  schemaVersion               = 1
-                                  name                        = "%s"
-                                  contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-                                  fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-                                  evmChainID                  = "%s"
-                                  minIncomingConfigurations   = 1
-                                  externalJobID               = "%s"
-                             `, nameAndExternalJobID, cltest.FixtureChainID.String(), nameAndExternalJobID)
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				require.Equal(t, http.StatusInternalServerError, r.StatusCode)
-
-				errs := cltest.ParseJSONAPIErrors(t, r.Body)
-				require.NotNil(t, errs)
-				require.Len(t, errs.Errors, 1)
-				// services failed to start
-				require.Contains(t, errs.Errors[0].Detail, "no contract code at given address")
-				// but the job should still exist
-				ctx := testutils.Context(t)
-				jb, err := jorm.FindJobByExternalJobID(ctx, uuid.MustParse(nameAndExternalJobID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.KeeperSpec)
-
-				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
-				assert.Equal(t, nameAndExternalJobID, jb.Name.ValueOrZero())
-
-				// Sanity check to make sure it inserted correctly
-				require.Equal(t, types.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
-				require.Equal(t, types.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
-			},
-		},
-		{
 			name: "cron",
 			tomlTemplate: func(nameAndExternalJobID string) string {
 				return fmt.Sprintf(testspecs.CronSpecTemplate, nameAndExternalJobID)

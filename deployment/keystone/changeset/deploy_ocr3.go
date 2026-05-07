@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	changesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
@@ -68,7 +68,7 @@ func ConfigureOCR3Contract(env cldf.Environment, cfg ConfigureOCR3Config) (cldf.
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get OCR3 contract: %w", err)
 	}
 
-	var mcmsContracts *changesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if cfg.UseMCMS() {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(env, cfg.ChainSel, *cfg.MCMSConfig)

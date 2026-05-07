@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/types"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/modifier"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
@@ -67,7 +67,7 @@ func (u UpdateDON) VerifyPreconditions(_ cldf.Environment, config UpdateDONInput
 }
 
 func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.ChangesetOutput, error) {
-	var mcmsContracts *commonchangeset.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if config.MCMSConfig != nil {
 		var err error
 		mcmsContracts, err = strategies.GetMCMSContracts(e, config.RegistryChainSel, *config.MCMSConfig)

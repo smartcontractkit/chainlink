@@ -22,6 +22,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -564,8 +565,8 @@ func TestRemoveLinkTokenAddressIfExists(t *testing.T) {
 		}
 		require.NotEmpty(t, linkTokenAddr, "should have Link token in the deployed environment")
 
-		existingContracts := commoncs.ExistingContractsConfig{
-			ExistingContracts: []commoncs.Contract{
+		existingContracts := changeset.ExistingContractsConfig{
+			ExistingContracts: []changeset.Contract{
 				{
 					ChainSelector:  chainSelector,
 					Address:        linkTokenAddr,
@@ -685,8 +686,8 @@ func newChainConfigHelper(newChainSel, feedChainSel uint64, linkTokenAddr common
 			FeeQuoterParams: ccipops.DefaultFeeQuoterParams(),
 			OffRampParams:   ccipops.DefaultOffRampParams(),
 		},
-		ExistingContracts: commoncs.ExistingContractsConfig{
-			ExistingContracts: []commoncs.Contract{
+		ExistingContracts: changeset.ExistingContractsConfig{
+			ExistingContracts: []changeset.Contract{
 				{
 					Address:        linkTokenAddr.Hex(),
 					TypeAndVersion: cldf.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),

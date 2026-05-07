@@ -15,6 +15,7 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -22,8 +23,8 @@ import (
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 // vaultSecretsConfig defines the structure of the vault secrets YAML file.
@@ -114,6 +115,15 @@ func PrepareSecrets(secretsFilePath, vaultPublicKey string, ownerAddress common.
 		return "", errors.New("no secrets found in secrets file")
 	}
 
+	masterPublicKeyBytes, err := hex.DecodeString(vaultPublicKey)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to decode vault public key")
+	}
+	masterPublicKey := &tdh2easy.PublicKey{}
+	if err := masterPublicKey.Unmarshal(masterPublicKeyBytes); err != nil {
+		return "", errors.Wrap(err, "failed to unmarshal vault public key")
+	}
+
 	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(cfg.Secrets))
 	for _, entry := range cfg.Secrets {
 		value := os.Getenv(entry.EnvVar)
@@ -126,7 +136,7 @@ func PrepareSecrets(secretsFilePath, vaultPublicKey string, ownerAddress common.
 			namespace = "main"
 		}
 
-		encryptedValue, encErr := crevault.EncryptSecret(value, vaultPublicKey, ownerAddress)
+		encryptedValue, encErr := vaultutils.EncryptSecretWithWorkflowOwner(value, masterPublicKey, ownerAddress)
 		if encErr != nil {
 			return "", errors.Wrapf(encErr, "failed to encrypt secret %q", entry.Key)
 		}
