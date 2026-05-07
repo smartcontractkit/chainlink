@@ -121,6 +121,11 @@ jobs:
         needs: [ df1-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  ref: ${{ github.event.client_payload.chainlink_version }}
+
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -137,6 +142,10 @@ jobs:
         needs: [ cre-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  ref: ${{ github.event.client_payload.chainlink_version }}
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -153,6 +162,10 @@ jobs:
         needs: [ legacy-system-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  ref: ${{ github.event.client_payload.chainlink_version }}
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -169,6 +182,10 @@ jobs:
         needs: [ cre-smoke-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  ref: ${{ github.event.client_payload.chainlink_version }}
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -185,6 +202,10 @@ jobs:
         needs: [ cre-regression-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  ref: ${{ github.event.client_payload.chainlink_version }}
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
