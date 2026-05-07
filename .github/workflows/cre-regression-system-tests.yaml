@@ -212,6 +212,8 @@ jobs:
           jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
           chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: configs/workflow-gateway-capabilities-don.toml
           retry-count: "3"
           retry-delay-seconds: "15"
