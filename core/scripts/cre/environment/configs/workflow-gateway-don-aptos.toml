@@ -1,8 +1,5 @@
 # Same as workflow-gateway-don.toml but with Aptos chain and a single Aptos capability.
 # Anvil 1337: registry and gateway. Aptos: local devnet (chain_id 4). Run: env config path <this file>, then env start.
-[general]
-min_gh_cli_version = "v2.50.0"
-
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
