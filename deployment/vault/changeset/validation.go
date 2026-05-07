@@ -269,3 +269,23 @@ func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Enviro
 
 	return nil
 }
+
+func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonWithdrawInput) error {
+	if len(cfg.Chains) == 0 {
+		return fmt.Errorf("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		if chainConfig.Amount == 0 {
+			return fmt.Errorf("chain %d: amount to withdraw cannot be 0 (zero)", chainSelector)
+		}
+		if !common.IsHexAddress(chainConfig.Payeer) {
+			return fmt.Errorf("chain %d: invalid payeer address: %s", chainSelector, chainConfig.Payeer)
+		}
+	}
+
+	return nil
+}

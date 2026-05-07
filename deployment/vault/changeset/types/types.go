@@ -103,6 +103,7 @@ type EthBalMonSetKeeperRegistryAddressInput struct {
 	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
 }
 
+// setWatchList config
 type EthBalMonSetWatchListChainConfig struct {
 	Addresses       []common.Address `json:"addresses"`
 	MinBalancesWei  []big.Int        `json:"min_balance_wei"`
@@ -110,4 +111,14 @@ type EthBalMonSetWatchListChainConfig struct {
 }
 type EthBalMonSetWatchListInput struct {
 	Chains map[uint64]EthBalMonSetWatchListChainConfig `json:"chains"`
+}
+
+// withdraw config
+type EthBalMonWithdrawChainConfig struct {
+	Amount uint64 `json:"amount"`
+	Payeer string `json:"payeer"`
+}
+
+type EthBalMonWithdrawInput struct {
+	Chains map[uint64]EthBalMonWithdrawChainConfig `json:"chains"`
 }
