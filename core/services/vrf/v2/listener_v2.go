@@ -244,6 +244,10 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 			continue
 		}
 		bi := new(big.Int).SetBytes(b)
+		if c.Count < 0 {
+			lsn.l.Errorw("unexpected negative fulfillment count from tx metadata", "count", c.Count, "reqID", c.RequestID)
+			continue
+		}
 		respCounts[bi.String()] = uint64(c.Count)
 	}
 	return respCounts, nil
@@ -252,6 +256,9 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 func (lsn *listenerV2) setLatestHead(head logpoller.Block) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
+	if head.BlockNumber < 0 {
+		return
+	}
 	num := uint64(head.BlockNumber)
 	if num > lsn.latestHeadNumber {
 		lsn.latestHeadNumber = num

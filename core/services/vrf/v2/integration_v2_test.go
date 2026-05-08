@@ -1891,7 +1891,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	linkCharged := linkWeiCharged.Sub(decimal.RequireFromString("1000000000000000")).Div(wei)
 	gasPriceD := decimal.NewFromBigInt(gasPrice.ToInt(), 0)
 	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPriceD.Div(gwei), vrftesthelpers.WeiPerUnitLink.Div(wei))
-	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPriceD).Div(vrftesthelpers.WeiPerUnitLink)
+	expected := decimal.RequireFromString(strconv.FormatUint(fulfillReceipt.GasUsed, 10)).Mul(gasPriceD).Div(vrftesthelpers.WeiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
 	// The expected sub charge should be within 200 gas of the actual gas usage.
 	// wei/link * link / wei/gas = wei / (wei/gas) = gas
@@ -2216,58 +2216,8 @@ func TestStartingCountsV1(t *testing.T) {
 	md2SQL := sqlutil.JSON(md2)
 	require.NoError(t, err)
 	chainID := sqlutil.New(testutils.SimulatedChainID)
-	confirmedTxes := []txmgr.Tx{
-		{
-			Sequence:           &n1,
-			FromAddress:        k.Address,
-			Error:              null.String{},
-			BroadcastAt:        &b,
-			InitialBroadcastAt: &b,
-			CreatedAt:          b,
-			State:              txmgrcommon.TxConfirmed,
-			Meta:               &sqlutil.JSON{},
-			EncodedPayload:     []byte{},
-			ChainID:            chainID.ToInt(),
-		},
-		{
-			Sequence:           &n2,
-			FromAddress:        k.Address,
-			Error:              null.String{},
-			BroadcastAt:        &b,
-			InitialBroadcastAt: &b,
-			CreatedAt:          b,
-			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md1SQL,
-			EncodedPayload:     []byte{},
-			ChainID:            chainID.ToInt(),
-		},
-		{
-			Sequence:           &n3,
-			FromAddress:        k.Address,
-			Error:              null.String{},
-			BroadcastAt:        &b,
-			InitialBroadcastAt: &b,
-			CreatedAt:          b,
-			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md2SQL,
-			EncodedPayload:     []byte{},
-			ChainID:            chainID.ToInt(),
-		},
-		{
-			Sequence:           &n4,
-			FromAddress:        k.Address,
-			Error:              null.String{},
-			BroadcastAt:        &b,
-			InitialBroadcastAt: &b,
-			CreatedAt:          b,
-			State:              txmgrcommon.TxConfirmed,
-			Meta:               &md2SQL,
-			EncodedPayload:     []byte{},
-			ChainID:            chainID.ToInt(),
-		},
-	}
-	// add unconfirmed txes
-	unconfirmedTxes := []txmgr.Tx{}
+	// Build unconfirmed txes first so confirmedTxes can be preallocated for append(confirmed, unconfirmed...).
+	unconfirmedTxes := make([]txmgr.Tx, 0, 2)
 	for i := int64(4); i < 6; i++ {
 		reqID3 := evmutils.PadByteToHash(0x12)
 		md, err2 := json.Marshal(&txmgr.TxMeta{
@@ -2289,6 +2239,57 @@ func TestStartingCountsV1(t *testing.T) {
 			ChainID:            chainID.ToInt(),
 		})
 	}
+	confirmedTxes := make([]txmgr.Tx, 0, 4+len(unconfirmedTxes))
+	confirmedTxes = append(confirmedTxes,
+		txmgr.Tx{
+			Sequence:           &n1,
+			FromAddress:        k.Address,
+			Error:              null.String{},
+			BroadcastAt:        &b,
+			InitialBroadcastAt: &b,
+			CreatedAt:          b,
+			State:              txmgrcommon.TxConfirmed,
+			Meta:               &sqlutil.JSON{},
+			EncodedPayload:     []byte{},
+			ChainID:            chainID.ToInt(),
+		},
+		txmgr.Tx{
+			Sequence:           &n2,
+			FromAddress:        k.Address,
+			Error:              null.String{},
+			BroadcastAt:        &b,
+			InitialBroadcastAt: &b,
+			CreatedAt:          b,
+			State:              txmgrcommon.TxConfirmed,
+			Meta:               &md1SQL,
+			EncodedPayload:     []byte{},
+			ChainID:            chainID.ToInt(),
+		},
+		txmgr.Tx{
+			Sequence:           &n3,
+			FromAddress:        k.Address,
+			Error:              null.String{},
+			BroadcastAt:        &b,
+			InitialBroadcastAt: &b,
+			CreatedAt:          b,
+			State:              txmgrcommon.TxConfirmed,
+			Meta:               &md2SQL,
+			EncodedPayload:     []byte{},
+			ChainID:            chainID.ToInt(),
+		},
+		txmgr.Tx{
+			Sequence:           &n4,
+			FromAddress:        k.Address,
+			Error:              null.String{},
+			BroadcastAt:        &b,
+			InitialBroadcastAt: &b,
+			CreatedAt:          b,
+			State:              txmgrcommon.TxConfirmed,
+			Meta:               &md2SQL,
+			EncodedPayload:     []byte{},
+			ChainID:            chainID.ToInt(),
+		},
+	)
 	txList := append(confirmedTxes, unconfirmedTxes...)
 	for i := range txList {
 		err = txStore.InsertTx(ctx, &txList[i])
