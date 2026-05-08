@@ -8,13 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	dfilter "github.com/docker/docker/api/types/filters"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	mobyclient "github.com/moby/moby/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
@@ -60,13 +59,10 @@ type ChainlinkNodeLogScannerSettings struct {
 }
 
 func ScanLogs(l zerolog.Logger, settings ChainlinkNodeLogScannerSettings) error {
-	logStream, lErr := framework.StreamContainerLogs(container.ListOptions{
-		All: true,
-		Filters: dfilter.NewArgs(dfilter.KeyValuePair{
-			Key:   "label",
-			Value: "framework=ctf",
-		}),
-	}, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	logStream, lErr := framework.StreamContainerLogs(mobyclient.ContainerListOptions{
+		All:     true,
+		Filters: make(mobyclient.Filters).Add("label", "framework=ctf"),
+	}, mobyclient.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 
 	if lErr != nil {
 		return lErr
