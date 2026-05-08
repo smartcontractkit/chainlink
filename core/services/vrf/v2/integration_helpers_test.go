@@ -1174,7 +1174,7 @@ func testSingleConsumerEIP150Revert(
 	callBackGasLimit := uint64(2_500_000)            // base callback gas.
 	eip150Fee := uint64(0)                           // no premium given for callWithExactGas
 	coordinatorFulfillmentOverhead := uint64(90_000) // fixed gas used in coordinator fulfillment
-	gasLimit := uint64(callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead)
+	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
