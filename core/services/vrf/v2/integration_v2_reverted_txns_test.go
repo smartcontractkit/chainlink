@@ -188,12 +188,14 @@ func TestUniqueReqById_WithPendingReceipts(t *testing.T) {
 }
 
 // Wait till force fulfillment event fired for the req passed in, till go test timeout
-func waitForForceFulfillment(t *testing.T,
+func waitForForceFulfillment(
+	t *testing.T,
 	th *revertTxnTH,
 	req *vrfReq,
 	sub *vrfSub,
 	success bool,
-	forceFulfilledCount int64) {
+	forceFulfilledCount int64,
+) {
 	uni := th.uni
 	coordinator := th.uni.rootContract
 	requestID := req.requestID
@@ -207,7 +209,7 @@ func waitForForceFulfillment(t *testing.T,
 		t.Log("commitment is:", hexutil.Encode(commitment[:]), ", requestID: ", common.BigToHash(requestID).Hex())
 		checkForForceFulfilledEvent(t, th, req, sub, -1)
 		return utils.IsEmpty(commitment[:])
-	}, testutils.WaitTimeoutCustom(t, 90*time.Second), time.Second)
+	}, testutils.WaitTimeout(t), time.Second)
 
 	// Mine the fulfillment that was queued.
 	mineForceFulfilled(t, requestID, sub.subID, forceFulfilledCount, *uni, th.db)
