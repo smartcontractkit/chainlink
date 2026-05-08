@@ -177,14 +177,6 @@ jobs:
     timeout-minutes: 10
     env:
       ENABLE_AUTO_QUARANTINE: "true"
-      # override Chip Ingress and Chip Config images with remote images. We have added this env var here, instead of the "Start local CRE" step, because
-      # Beholder stack will be started only for the Beholder tests
-      CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-        secrets.QA_AWS_REGION
-        }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
-      CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-        secrets.QA_AWS_REGION
-        }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
       BILLING_PLATFORM_SERVICE_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
 
@@ -237,7 +229,7 @@ jobs:
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::startgroup::Install gotestsum"
+          echo "::group::Install gotestsum"
           go install gotest.tools/gotestsum@v1.13.0
           echo "::endgroup::"
 
@@ -262,33 +254,49 @@ jobs:
           echo "$resolved_image"
           echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
-      - name: Start local CRE${{ matrix.tests.cre_version }}
+      - name: Start observability stack (Beholder suite)
+        if: contains(matrix.tests.test_name, 'Beholder_Suite')
         shell: bash
-        id: start-local-cre
+        working-directory: core/scripts/cre/environment
         env:
-          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
-          CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
-          CTF_CONFIGS: ${{ matrix.tests.configs }}
-          CRE_VERSION: ${{ matrix.tests.cre_version }}
           TEST_NAME: ${{ matrix.tests.test_name }}
+          OBS_MAX_ATTEMPTS: "3"
+          OBS_RETRY_DELAY_SECONDS: "15"
+          CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+          CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
         run: |
-          cd core/scripts/cre/environment
+          set -u
+          set +e
+          # GitHub runs bash with errexit (-e); allow obs up / validation paths to fail without aborting retries.
+          attempt=1
+          while [[ "$attempt" -le "$OBS_MAX_ATTEMPTS" ]]; do
+            if [[ "$attempt" -gt 1 ]]; then
+              echo "Tearing down observability stack before retry (attempt ${attempt}/${OBS_MAX_ATTEMPTS})..."
+              go run . obs down || true
+              sleep "$OBS_RETRY_DELAY_SECONDS"
+            fi
 
-          # Check if test requires observability stack
-          if [[ "${TEST_NAME}" == *"Beholder_Suite" ]]; then
-            echo "::group::Starting Observability Stack"
-            echo "Test requires observability stack, starting..."
-
-            # Start observability stack
+            echo "::group::Starting Observability Stack (attempt ${attempt}/${OBS_MAX_ATTEMPTS})"
+            echo "Test requires observability stack for '${TEST_NAME}', starting..."
             go run . obs up -f
-
+            obs_up_exit=$?
             echo "::endgroup::"
+
+            if [[ "$obs_up_exit" -ne 0 ]]; then
+              echo "❌ ERROR: obs up failed with exit code ${obs_up_exit}"
+              if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
+                exit 1
+              fi
+              attempt=$((attempt + 1))
+              continue
+            fi
+
             echo "::group::Validating Observability Stack"
 
-            # Wait for Loki to be available
             echo "Waiting for Loki to be available at http://localhost:3030..."
             loki_ready=false
             for i in {1..30}; do
@@ -302,36 +310,49 @@ jobs:
 
             if [[ "$loki_ready" == "false" ]]; then
               echo "❌ ERROR: Loki failed to become ready after 30 seconds"
-              exit 1
+              docker ps -a || true
+              echo "::endgroup::"
+              if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
+                exit 1
+              fi
+              attempt=$((attempt + 1))
+              continue
             fi
 
-            # Validate OTel collector is running and accessible
             echo "Validating OTel collector on port 4317..."
             if docker ps --filter "name=otel-collector" --format "{{.Names}}" | grep -q "otel-collector"; then
               echo "✅ OTel collector container is running"
-            else
-              echo "❌ ERROR: OTel collector container not found"
-              docker ps -a
+              echo "::endgroup::"
+              exit 0
+            fi
+
+            echo "❌ ERROR: OTel collector container not found"
+            docker ps -a
+            echo "::endgroup::"
+            if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
               exit 1
             fi
-            echo "::endgroup::"
-          fi
+            attempt=$((attempt + 1))
+            continue
+          done
+          exit 1
 
-          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
-          # Do not remove Docker containers on error to allow log collection
-          if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}'"
-            go run . env start --with-contracts-version v1 --cleanup-on-error=false
-          else
-            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}'"
-            go run . env start --cleanup-on-error=false
-          fi
-
-          exit_code=$?
-          if [ $exit_code -ne 0 ]; then
-            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
-            exit $exit_code
-          fi
+      - name: Start local CRE${{ matrix.tests.cre_version }}
+        id: start-local-cre
+        uses: ./.github/actions/start-local-cre-environment
+        with:
+          jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
+            }}.amazonaws.com/job-distributor:0.22.1"
+          chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          ctf-configs: ${{ matrix.tests.configs }}
+          retry-count: "3"
+          retry-delay-seconds: "15"
+          cleanup-on-error: "false"
+          env-start-extra-args: "${{ matrix.tests.cre_version == 'v1' &&
+            '--with-contracts-version v1' || '' }}"
+          working-directory: core/scripts/cre/environment
 
       - name: Setup GitHub token using GATI
         id: github-token
@@ -356,6 +377,12 @@ jobs:
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"
+          CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+          CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
         run: |
           echo "Starting test: '${TEST_NAME}'"
           gotestsum \

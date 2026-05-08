@@ -1,0 +1,390 @@
+name: Deployment Tests
+run-name: Deployment Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name
+    }}-deployments-tests
+  cancel-in-progress: true
+
+env:
+  DEPLOYMENT_TEST_SHARD_COUNT: "7"
+
+# Run on key branches to make sure integration is good, otherwise run on all PR's
+on:
+  push:
+    branches:
+      - develop
+      - "release/*"
+  merge_group:
+  pull_request:
+  schedule:
+    - cron: "0 0,6,12,18 * * *"
+  workflow_dispatch:
+
+jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
+      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
+      should-run: >-
+        ${{
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-some.outputs.deployment == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: match-some
+        with:
+          # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          predicate-quantifier: some
+          # deployment - any changes in the deployment module
+          # workflow - any changes that could affect this workflow definition
+          #  - Assume any repository action changes affect this workflow
+          filters: |
+            deployment:
+              - 'deployment/**'
+            workflow:
+              - '.github/workflows/ci-deployments.yml'
+              - '.github/actions/**'
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+        id: match-every
+        with:
+          # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          #   - Enables listing of files matching each filter.
+          #   - Paths to files will be available in `${FILTER_NAME}_files` output variable.
+          #   - Paths will be formatted as JSON array
+          predicate-quantifier: every
+          # core-non-ignored - all changes except for paths which do not affect core module
+          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
+          #  - For example: core module does not depend on deployment or integration-tests module.
+          # all - changes in any directory
+          #  - This is used resolve all affected modules based on changed files
+          list-files: json
+          filters: |
+            core-non-ignored:
+              - '**'
+              - '!deployment/**'
+              - '!integration-tests/**'
+              - '!tools/secrets/**'
+              - '!tools/docker/**'
+              - '!tools/benchmark/**'
+              - '!**/README.md'
+              - '!**/CHANGELOG.md'
+              - '!*.nix'
+              - '!sonar-project.properties'
+              - '!nix.conf'
+              - '!nix-darwin-shell-hook.sh'
+              - '!LICENSE'
+              - '!.github/**'
+              - '!core/scripts/cre/environment/examples/workflows/**'
+            all:
+              - '**'
+
+      - name: Decide which tests to run (rollout-only)
+        # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
+        # before using its output to actually gate any jobs.
+        id: triggers
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        continue-on-error: true
+        with:
+          file-sets: |
+            go-files:
+              - "**/*.go"
+              - "**/go.mod"
+              - "**/go.sum"
+            core-files:
+              - "core/**"
+            core-test-files:
+              - "testdata/**"
+              - "core/**/testdata/**"
+              - "core/**/*_test.go"
+            e2e-tests-files:
+              - "system-tests/**"
+              - "integration-tests/**"
+            workflow-files:
+              - ".github/workflows/ci-deployments.yml"
+              - ".github/actions/**"
+            deployment-files:
+              - "deployment/**"
+            ignored-files:
+              - "core/scripts/cre/environment/examples/workflows/**"
+          # Note:
+          # - for pull_request, merge_group, and push events, a trigger will resolve to true if any changed files match the path/glob patterns
+          #     - exclusion-sets/negations are applied first, and therefore filter all changed files before inclusion sets are applied
+          # - by default these will resolve to true for schedule, and workflow_dispatch events
+          triggers: |
+            deployment-tests:
+              exclusion-sets: [ e2e-tests-files, core-test-files, ignored-files ]
+              inclusion-sets: [ go-files, core-files, deployment-files, workflow-files ]
+              paths:
+                - "tools/bin/go_deployment_tests"
+
+      - name: Changed modules
+        id: changed-modules
+        uses: smartcontractkit/.github/actions/changed-modules-go@changed-modules-go/v1
+        with:
+          # when scheduled/workflow_dispatch, run against all modules
+          no-change-behaviour: all
+          file-patterns: |
+            **/*.go
+            **/go.mod
+            **/go.sum
+          module-patterns: |
+            **
+            !core/scripts/cre/environment/examples/workflows/**
+
+  shard-matrices:
+    name: Build Shard Matrices
+    needs: [filter]
+    runs-on: ubuntu-latest
+    if: ${{ needs.filter.outputs.should-run == 'true' }}
+    permissions: {}
+    outputs:
+      deployment-test-matrix: ${{ steps.shard-matrices.outputs.deployment-test-matrix }}
+    steps:
+      - name: Build shard matrices
+        id: shard-matrices
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          run_id = os.environ["GITHUB_RUN_ID"]
+
+          rows = []
+
+          def add_deployment_rows():
+              count = int(os.environ["DEPLOYMENT_TEST_SHARD_COUNT"])
+              for i in range(count):
+                  rows.append({
+                      "job-name": f"go_deployment_tests shard {i}/{count}",
+                      "os": f"runs-on={run_id}-deployment-{i}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache",
+                      "shard-count": str(count),
+                      "shard-index": str(i),
+                      "run-timeout-minutes": "25",
+                      "logs-artifact-name": f"go_deployment_tests_logs_shard_{i}",
+                  })
+
+          add_deployment_rows()
+
+          print(f"deployment-test-matrix={json.dumps(rows)}")
+          PY
+
+  deployment-shard-consistency:
+    name: Check Deployment Test Sharding Consistency
+    needs: [filter]
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: deployment/go.mod
+          go-module-file: deployment/go.sum
+
+      - name: Download Go vendor packages
+        run: go mod download
+
+      - name: Verify deployment test sharding
+        shell: bash
+        run: |
+          (
+            cd deployment || exit 1
+            go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./...
+          ) | go run ./tools/ci-testshard verify --shard-count "${DEPLOYMENT_TEST_SHARD_COUNT}"
+
+  deployment-tests:
+    env:
+      # We explicitly have this env var not be "CL_DATABASE_URL" to avoid having it be used by core related tests
+      # when they should not be using it, while still allowing us to DRY up the setup
+      DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.shard-matrices.outputs.deployment-test-matrix) }}
+    name: Deployment Tests (${{ matrix.job-name }})
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    needs: [filter, shard-matrices, run-frequency]
+    timeout-minutes: 35
+    runs-on: ${{ matrix.os }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        with:
+          metrics: cpu,network,memory,disk
+      - name: Checkout the repo
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          restore-build-cache-only: false
+          build-cache-version: go_deployment_tests
+          go-version-file: deployment/go.mod
+          go-module-file: deployment/go.sum
+      - name: Setup Solana
+        uses: ./.github/actions/setup-solana
+      - name: Setup Aptos
+        uses: aptos-labs/actions/install-aptos-cli@63740b290d839b87ecfafbcf75ed03a36a54a29f # jan 15, 2025
+        with:
+          CLI_VERSION: 8.1.0
+      - name: Setup Sui CLI v1.69.2
+        uses: ./.github/actions/setup-sui
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: mainnet-v1.69.2
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
+      - name: Setup Postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          tmpfs: "true"
+          image-tag: "16-alpine"
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Setup DB
+        run: go run ./core/store/cmd/preparetest
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+      - name: Install LOOP Plugins
+        run: make install-plugins
+      - name: Run tests
+        timeout-minutes: ${{ fromJson(matrix.run-timeout-minutes) }}
+        continue-on-error: true
+        id: run-tests
+        shell: bash
+        env:
+          CL_DATABASE_URL: ${{ env.DB_URL }}
+          OUTPUT_FILE: ./output.txt
+          PRODUCE_JUNIT_XML: "true"
+          TRUNK_AUTO_QUARANTINE: "true"
+          RUN_QUARANTINED_TESTS: "true"
+          JUNIT_FILE: ${{ github.workspace }}/junit.xml
+          GO_TEST_SHARD_COUNT: ${{ matrix.shard-count }}
+          GO_TEST_SHARD_INDEX: ${{ matrix.shard-index }}
+        run: |
+          GODEBUG=goindex=0 "./tools/bin/go_deployment_tests" ./...
+          # See: https://github.com/golang/go/issues/69179
+      - name: Analyze and upload test results
+        if: ${{ !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        with:
+          junit-file-path: "./junit.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-upload-only: false
+          artifact-name: ${{ matrix.logs-artifact-name }}
+      - name: Print postgres logs
+        if: ${{ always() }}
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          print-logs: "true"
+      - name: Store logs artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.logs-artifact-name }}
+          path: |
+            ./deployment/coverage.txt
+            ./postgres_logs.txt
+            ./junit.xml
+            ./deployment/output.txt
+            ./deployment/output-short.txt
+          retention-days: 7
+
+  deployment-tests-result:
+    # Do not modify this job name, it is used by branch protection rules
+    name: Core Tests (go_core_deployment_tests)
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
+    needs: [filter, deployment-tests, deployment-shard-consistency]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check deployment shard results
+        env:
+          EXPECTED_ROWS: ${{ env.DEPLOYMENT_TEST_SHARD_COUNT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_NAME_PREFIX: "Deployment Tests (go_deployment_tests shard "
+        run: |
+          gh api \
+            --paginate \
+            --jq '.jobs[] | {name, conclusion} | @json' \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/jobs?per_page=100" \
+            > jobs.jsonl
+
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          prefix = os.environ["JOB_NAME_PREFIX"]
+          expected = int(os.environ["EXPECTED_ROWS"])
+          rows = []
+          with open("jobs.jsonl", encoding="utf-8") as f:
+              for line in f:
+                  row = json.loads(line)
+                  if row["name"].startswith(prefix):
+                      rows.append(row)
+
+          if len(rows) != expected:
+              print(f"Expected {expected} rows for {prefix}, got {len(rows)}")
+              sys.exit(1)
+
+          conclusions = [row["conclusion"] for row in rows]
+          if any(conclusion not in {"success", "skipped"} for conclusion in conclusions):
+              print(f"Deployment shard group failed with conclusions: {conclusions}")
+              sys.exit(1)
+          print("All deployment shards succeeded.")
+          PY
+
+  run-frequency:
+    name: Run frequency
+    outputs:
+      one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check time and set frequencies
+        id: check-time
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
+            # Not a scheduled event - no frequencies to set. They default to false.
+            exit 0
+          fi
+
+          # Scheduled event, check current time for frequencies
+          current_hour=$(date +"%H")
+
+          # Check if the current hour is 00 (one per day)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "one-per-day-frequency=true" | tee -a "$GITHUB_OUTPUT"
+          fi
