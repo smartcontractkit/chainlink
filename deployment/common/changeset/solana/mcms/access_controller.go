@@ -7,7 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/rpc"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -165,9 +166,9 @@ func initializeAccessController(
 }
 
 func setupRoles(chainState *solstate.MCMSWithTimelockState, chain cldf_solana.Chain) error {
-	proposerPDA := solstate.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
-	cancellerPDA := solstate.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
-	bypasserPDA := solstate.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
+	proposerPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
+	cancellerPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
+	bypasserPDA := pdasol.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
 
 	err := addAccess(chain, chainState, timelockBindings.Proposer_Role, proposerPDA)
 	if err != nil {
@@ -196,7 +197,7 @@ func addAccess(
 	chain cldf_solana.Chain, chainState *solstate.MCMSWithTimelockState,
 	role timelockBindings.Role, accounts ...solana.PublicKey,
 ) error {
-	timelockConfigPDA := solstate.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockConfigPDA := pdasol.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 
 	instructionBuilder := timelockBindings.NewBatchAddAccessInstruction([32]uint8(chainState.TimelockSeed), role,
 		timelockConfigPDA, chainState.AccessControllerProgram, chainState.RoleAccount(role), chain.DeployerKey.PublicKey())

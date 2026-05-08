@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
-	soltestutils "github.com/smartcontractkit/cld-changesets/pkg/family/solana/testutils"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
@@ -54,7 +55,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	require.NoError(t, err)
 
 	// --- assert ---
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed)
 	assertOwner(t, chain, mcmsState, timelockSignerPDA)
 }
 
@@ -63,10 +64,10 @@ func assertOwner(
 ) {
 	t.Helper()
 
-	assertMCMOwner(t, owner, solstate.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), chain)
-	assertMCMOwner(t, owner, solstate.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.CancellerMcmSeed), chain)
-	assertMCMOwner(t, owner, solstate.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), chain)
-	assertTimelockOwner(t, owner, solstate.GetTimelockConfigPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.ProposerMcmSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.CancellerMcmSeed), chain)
+	assertMCMOwner(t, owner, pdasol.GetMCMConfigPDA(mcmsState.McmProgram, mcmsState.BypasserMcmSeed), chain)
+	assertTimelockOwner(t, owner, pdasol.GetTimelockConfigPDA(mcmsState.TimelockProgram, mcmsState.TimelockSeed), chain)
 	assertAccessControllerOwner(t, owner, mcmsState.ProposerAccessControllerAccount, chain)
 	assertAccessControllerOwner(t, owner, mcmsState.ExecutorAccessControllerAccount, chain)
 	assertAccessControllerOwner(t, owner, mcmsState.CancellerAccessControllerAccount, chain)

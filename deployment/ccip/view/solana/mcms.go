@@ -7,7 +7,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -64,7 +65,7 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 	if err != nil {
 		return view, fmt.Errorf("failed to load mcms with timelock solana chain state: %w", err)
 	}
-	timelockConfigPDA := solstate.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockConfigPDA := pdasol.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	progDataAddr, err := solutils.GetProgramDataAddress(chain.Client, mcmState.TimelockProgram)
 	if err != nil {
 		return view, fmt.Errorf("failed to get program data address for program %s: %w", mcmState.TimelockProgram.String(), err)
@@ -107,9 +108,9 @@ func GenerateMCMSWithTimelockView(chain cldf_solana.Chain, addresses map[string]
 		name string
 		pda  solana.PublicKey
 	}{
-		{"Bypasser", solstate.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
-		{"Proposer", solstate.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
-		{"Canceller", solstate.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
+		{"Bypasser", pdasol.GetMCMConfigPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
+		{"Proposer", pdasol.GetMCMConfigPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
+		{"Canceller", pdasol.GetMCMConfigPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
 	} {
 		err = chain.GetAccountDataBorshInto(context.Background(), mcmConfig.pda, &mcmData)
 		if err != nil {

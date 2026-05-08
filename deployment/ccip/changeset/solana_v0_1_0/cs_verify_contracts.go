@@ -8,7 +8,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -326,7 +327,7 @@ func VerifyBuild(e cldf.Environment, cfg VerifyBuildConfig) (cldf.ChangesetOutpu
 	}
 	var timelockSignerPDA solana.PublicKey
 	if mcmState != nil {
-		timelockSignerPDA = solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA = pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	}
 
 	verifications := []struct {

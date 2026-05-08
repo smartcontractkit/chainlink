@@ -8,7 +8,8 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -83,7 +84,7 @@ func initTimelock(
 	}
 
 	if (timelockSeed != solstate.PDASeed{}) {
-		timelockConfigPDA := solstate.GetTimelockConfigPDA(timelockProgram, timelockSeed)
+		timelockConfigPDA := pdasol.GetTimelockConfigPDA(timelockProgram, timelockSeed)
 		var timelockConfig timelockBindings.Config
 		err = chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
 		if err == nil {
@@ -128,7 +129,7 @@ func initializeTimelock(
 	}
 
 	var timelockConfig timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(e.GetContext(), solstate.GetTimelockConfigPDA(timelockProgram, timelockID),
+	err := chain.GetAccountDataBorshInto(e.GetContext(), pdasol.GetTimelockConfigPDA(timelockProgram, timelockID),
 		&timelockConfig)
 	if err == nil {
 		e.Logger.Infow("Timelock already initialized, skipping initialization", "chain", chain.String())
@@ -153,7 +154,7 @@ func initializeTimelock(
 	instruction, err := timelockBindings.NewInitializeInstruction(
 		timelockID,
 		minDelay.Uint64(),
-		solstate.GetTimelockConfigPDA(timelockProgram, timelockID),
+		pdasol.GetTimelockConfigPDA(timelockProgram, timelockID),
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		timelockProgram,

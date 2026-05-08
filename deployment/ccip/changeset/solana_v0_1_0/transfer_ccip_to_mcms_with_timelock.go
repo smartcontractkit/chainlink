@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 
@@ -159,7 +160,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		if !cfg.CurrentOwner.IsZero() {
 			currentOwner = cfg.CurrentOwner
 		}
-		timelockSigner := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSigner := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		proposedOwner := timelockSigner
 		if !cfg.ProposedOwner.IsZero() {
 			proposedOwner = cfg.ProposedOwner

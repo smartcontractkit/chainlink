@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 
@@ -67,7 +68,7 @@ func (t UpdateTimelockDelaySolana) Apply(
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
-		configPDA := solstate.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		configPDA := pdasol.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		timelockBindings.SetProgramID(mcmState.TimelockProgram)
 		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), configPDA, solChain.DeployerKey.PublicKey())
 		ix, err := updateDelayIx.ValidateAndBuild()

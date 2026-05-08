@@ -14,9 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
-	soltestutils "github.com/smartcontractkit/cld-changesets/pkg/family/solana/testutils"
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )

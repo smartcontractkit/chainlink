@@ -8,8 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"golang.org/x/sync/errgroup"
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
@@ -288,7 +289,7 @@ func (d *DeployerGroup) GetDeployerForSVM(chain uint64) (func(DeployerForSVM) (s
 		if err != nil {
 			return nil, fmt.Errorf("failed to load mcm state: %w", err)
 		}
-		timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		authority = timelockSignerPDA
 	}
 

@@ -70,6 +70,8 @@ import (
 	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
 	tonCfg "github.com/smartcontractkit/chainlink-ton/deployment/ccip/config"
 	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
+	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
@@ -82,7 +84,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -2463,13 +2464,13 @@ func TransferOwnershipSolanaV0_1_0(
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	mcmState, err := ccipsolstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmState, err := cldlegacysolmcms.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSignerPDA = pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	err = solutils.FundAccounts(
 		e.GetContext(), chain.Client, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}, 100,
 	)

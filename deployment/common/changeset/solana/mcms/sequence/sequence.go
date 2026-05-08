@@ -16,9 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms/sequence/operation"
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 )
 
 var (
@@ -120,7 +121,7 @@ func deployAccessController(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add access controller to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.AccessControllerProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.AccessControllerProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -183,7 +184,7 @@ func deployMCM(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add mcm to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.ManyChainMultisigProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.ManyChainMultisigProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -261,7 +262,7 @@ func deployTimelock(b operations.Bundle, deps operation.Deps) error {
 		return fmt.Errorf("failed to add timelock to datastore: %w", err)
 	}
 
-	err = deps.State.SetState(commontypes.RBACTimelockProgram, programID, state.PDASeed{})
+	err = deps.State.SetState(commontypes.RBACTimelockProgram, programID, sollegacy.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -284,9 +285,9 @@ func initTimelock(b operations.Bundle, deps operation.Deps, minDelay *big.Int) e
 }
 
 func setupRoles(b operations.Bundle, deps operation.Deps) error {
-	proposerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.ProposerMcmSeed)
-	cancellerPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.CancellerMcmSeed)
-	bypasserPDA := state.GetMCMSignerPDA(deps.State.McmProgram, deps.State.BypasserMcmSeed)
+	proposerPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.ProposerMcmSeed)
+	cancellerPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.CancellerMcmSeed)
+	bypasserPDA := pdasol.GetMCMSignerPDA(deps.State.McmProgram, deps.State.BypasserMcmSeed)
 	roles := []struct {
 		pdas []solana.PublicKey
 		role timelockBindings.Role

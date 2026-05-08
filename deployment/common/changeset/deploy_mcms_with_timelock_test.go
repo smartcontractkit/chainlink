@@ -10,7 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -29,9 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/onchain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
-	soltestutils "github.com/smartcontractkit/cld-changesets/pkg/family/solana/testutils"
+	soltestutils "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana/testutils"
 
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -545,7 +546,7 @@ func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
 // ----- helpers -----
 
 func mcmSignerPDA(programID solana.PublicKey, seed solstate.PDASeed) string {
-	return solstate.GetMCMSignerPDA(programID, seed).String()
+	return pdasol.GetMCMSignerPDA(programID, seed).String()
 }
 
 func solanaTimelockConfig(
@@ -554,7 +555,7 @@ func solanaTimelockConfig(
 	t.Helper()
 
 	var data timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(ctx, solstate.GetTimelockConfigPDA(programID, seed), &data)
+	err := chain.GetAccountDataBorshInto(ctx, pdasol.GetTimelockConfigPDA(programID, seed), &data)
 	require.NoError(t, err)
 
 	return data

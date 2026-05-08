@@ -9,7 +9,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -1039,7 +1040,7 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 
 	bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)
 	if err != nil {

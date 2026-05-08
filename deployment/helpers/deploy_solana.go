@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -119,6 +120,6 @@ func FetchTimelockSigner(refs []datastore.AddressRef) (solana.PublicKey, error) 
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
 	}
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	return timelockSignerPDA, nil
 }

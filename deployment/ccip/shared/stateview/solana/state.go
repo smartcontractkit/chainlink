@@ -10,7 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog/log"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -580,7 +581,7 @@ func ValidateOwnershipSolana(
 	if err != nil {
 		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	config, _, err := solState.FindConfigPDA(programID)
 	if err != nil {
 		return fmt.Errorf("failed to find config PDA: %w", err)
@@ -690,7 +691,7 @@ func IsSolanaProgramOwnedByTimelock(
 	if err != nil {
 		return false
 	}
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	switch contractType {
 	case shared.Router:
 		programData := solRouter.Config{}

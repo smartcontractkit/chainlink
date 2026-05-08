@@ -3,7 +3,7 @@ package seqs
 import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	timelockbindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"

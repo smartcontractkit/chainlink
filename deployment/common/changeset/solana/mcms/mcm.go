@@ -8,7 +8,8 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -84,7 +85,7 @@ func initMCM(
 	}
 
 	if mcmSeed != (solstate.PDASeed{}) {
-		mcmConfigPDA := solstate.GetMCMConfigPDA(mcmProgram, mcmSeed)
+		mcmConfigPDA := pdasol.GetMCMConfigPDA(mcmProgram, mcmSeed)
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
 		if err == nil {
@@ -129,7 +130,7 @@ func initMCM(
 
 func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solana.PublicKey, multisigID solstate.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
-	err := chain.GetAccountDataBorshInto(e.GetContext(), solstate.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
+	err := chain.GetAccountDataBorshInto(e.GetContext(), pdasol.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
 		e.Logger.Infow("MCM already initialized, skipping initialization", "chain", chain.String())
 		return nil
@@ -153,13 +154,13 @@ func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solan
 	ix, err := mcmBindings.NewInitializeInstruction(
 		chain.Selector,
 		multisigID,
-		solstate.GetMCMConfigPDA(mcmProgram, multisigID),
+		pdasol.GetMCMConfigPDA(mcmProgram, multisigID),
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		mcmProgram,
 		programData.Address,
-		solstate.GetMCMRootMetadataPDA(mcmProgram, multisigID),
-		solstate.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+		pdasol.GetMCMRootMetadataPDA(mcmProgram, multisigID),
+		pdasol.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
 	).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)

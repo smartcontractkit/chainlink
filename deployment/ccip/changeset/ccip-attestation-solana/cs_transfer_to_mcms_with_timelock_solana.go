@@ -6,7 +6,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -110,7 +110,7 @@ func TransferSignerRegistryToMCMSWithTimelockSolanaChangeset(
 	if !cfg.CurrentOwner.IsZero() {
 		currentOwner = cfg.CurrentOwner
 	}
-	timelockSigner := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSigner := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	proposedOwner := timelockSigner
 	if !cfg.ProposedOwner.IsZero() {
 		proposedOwner = cfg.ProposedOwner

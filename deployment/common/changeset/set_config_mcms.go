@@ -11,9 +11,9 @@ import (
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	aptosstate "github.com/smartcontractkit/cld-changesets/pkg/family/aptos"
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	aptosstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/aptos"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	mcmslib "github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/sdk/evm"
@@ -29,7 +29,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/stretchr/testify/require"
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -70,13 +70,13 @@ func PreloadAddressBookWithMCMSPrograms(t *testing.T, selector uint64) *cldf.Add
 // GetMCMSStateFromAddressBook retrieves the state of the Solana MCMS contracts on the given chain.
 func GetMCMSStateFromAddressBook(
 	t *testing.T, ab cldf.AddressBook, chain cldfsolana.Chain,
-) *solstate.MCMSWithTimelockState {
+) *sollegacy.MCMSWithTimelockState {
 	t.Helper()
 
 	addresses, err := ab.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
-	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmState, err := sollegacy.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	return mcmState

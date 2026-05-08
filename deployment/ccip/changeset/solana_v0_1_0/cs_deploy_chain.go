@@ -10,7 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -911,7 +912,7 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
 		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)

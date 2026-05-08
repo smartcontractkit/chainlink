@@ -7,7 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
@@ -232,10 +233,10 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	require.NoError(t, err)
 
 	accounts := []solana.PublicKey{
-		solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed),
-		solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed),
-		solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
-		solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
+		pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
+		pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
 	}
 	var balances []uint64
 	for _, account := range accounts {

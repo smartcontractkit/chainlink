@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 

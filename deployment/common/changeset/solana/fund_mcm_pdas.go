@@ -7,7 +7,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
@@ -82,28 +83,28 @@ func (f FundMCMSignersChangeset) Apply(e cldf.Environment, config FundMCMSignerC
 
 		err = solstate.FundFromDeployerKey(
 			solChain,
-			[]solana.PublicKey{solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
+			[]solana.PublicKey{pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
 			cfgAmounts.Timelock)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
 		}
 		err = solstate.FundFromDeployerKey(
 			solChain,
-			[]solana.PublicKey{solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
+			[]solana.PublicKey{pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
 			cfgAmounts.ProposeMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector, err)
 		}
 		err = solstate.FundFromDeployerKey(
 			solChain,
-			[]solana.PublicKey{solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
+			[]solana.PublicKey{pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
 			cfgAmounts.CancellerMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS canceller on chain %d: %w", chainSelector, err)
 		}
 		err = solstate.FundFromDeployerKey(
 			solChain,
-			[]solana.PublicKey{solstate.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
+			[]solana.PublicKey{pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
 			cfgAmounts.BypasserMCM)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector, err)

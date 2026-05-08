@@ -10,12 +10,11 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
-	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -96,12 +95,12 @@ func (f TransferFromTimelock) Apply(e cldf.Environment, config TransferFromTimel
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
-		timelockSignerPDA := solstate.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		timelockID := mcmssolanasdk.ContractAddress(mcmState.TimelockProgram, mcmssolanasdk.PDASeed(mcmState.TimelockSeed))
 		proposerID := mcmssolanasdk.ContractAddress(mcmState.McmProgram, mcmssolanasdk.PDASeed(mcmState.ProposerMcmSeed))
 		timelocks[chainSelector] = timelockID
 		proposers[chainSelector] = proposerID
-		ixs, err := cldchangesetssolana.FundFromAddressIxs(
+		ixs, err := solstate.FundFromAddressIxs(
 			timelockSignerPDA,
 			[]solana.PublicKey{cfgAmounts.To},
 			cfgAmounts.Amount)

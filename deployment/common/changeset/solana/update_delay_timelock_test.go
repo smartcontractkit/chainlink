@@ -7,7 +7,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
 
@@ -152,7 +153,7 @@ func TestUpdateTimelockDelaySolana_Apply(t *testing.T) {
 	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
-	timelockConfigPDA := solstate.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockConfigPDA := pdasol.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 
 	var timelockConfig timelockBindings.Config
 	err = chain.GetAccountDataBorshInto(t.Context(), timelockConfigPDA, &timelockConfig)

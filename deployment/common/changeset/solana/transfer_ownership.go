@@ -8,7 +8,8 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
@@ -318,7 +319,7 @@ func TransferToTimelockSolanaOp(b operations.Bundle, deps Deps, in TransferToTim
 	proposers[chainSelector] = solanaAddress(chainState.McmProgram, mcmssolanasdk.PDASeed(chainState.ProposerMcmSeed))
 	inspectors[chainSelector] = mcmssolanasdk.NewInspector(solChain.Client)
 
-	timelockSignerPDA := solstate.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 
 	transactions := []mcmstypes.Transaction{}
 	contract := in.Contract
@@ -399,25 +400,25 @@ func (t TransferMCMSToTimelockSolana) Apply(
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.ProposerMcmSeed,
-				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed),
+				OwnerPDA:  pdasol.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed),
 				Type:      commontypes.ProposerManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.CancellerMcmSeed,
-				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed),
+				OwnerPDA:  pdasol.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed),
 				Type:      commontypes.CancellerManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.McmProgram,
 				Seed:      chainState.BypasserMcmSeed,
-				OwnerPDA:  solstate.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed),
+				OwnerPDA:  pdasol.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed),
 				Type:      commontypes.BypasserManyChainMultisig,
 			},
 			{
 				ProgramID: chainState.TimelockProgram,
 				Seed:      chainState.TimelockSeed,
-				OwnerPDA:  solstate.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed),
+				OwnerPDA:  pdasol.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed),
 				Type:      commontypes.RBACTimelock,
 			},
 			{

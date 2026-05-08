@@ -12,7 +12,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/pelletier/go-toml"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solstate "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
