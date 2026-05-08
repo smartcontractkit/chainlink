@@ -302,7 +302,7 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -361,7 +361,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -440,7 +440,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -603,7 +603,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -661,7 +661,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -814,14 +814,14 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 	}
 }
 
-func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
+func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 	rdr := &kv{
