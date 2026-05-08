@@ -1,38 +1,34 @@
 package runner
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 )
 
 const (
 	diagnoseResultsNamePrefix  = "diagnose-"
 	maxDiagnoseResultsBasename = 220
-	defaultSlowThreshold       = 30 * time.Second
 )
 
 // diagnoseResultsDirName returns a repo-root-relative directory basename for
-// diagnose output: diagnose-<targetSlug>-<config>-<YYYYMMDDHHMMSS>.
-func diagnoseResultsDirName(conf *config.App, goTestArgs []string, now time.Time) string {
+// diagnose output: diagnose-<targetSlug>-<YYYYMMDDHHMMSS>. Full argv and harness
+// flags live in report.json under the run key (see RunMeta).
+func diagnoseResultsDirName(goTestArgs []string, now time.Time) string {
 	tsPart := now.Format("20060102150405")
 	target := guessPackagePatternForSlug(goTestArgs)
-	for phase := range 8 {
-		cfg := diagnoseConfigDirPartPhase(conf, goTestArgs, phase)
-		tail := "-" + cfg + "-" + tsPart
-		avail := max(maxDiagnoseResultsBasename-len(diagnoseResultsNamePrefix)-len(tail), 8)
-		slug := truncateUTF8MaxBytes(diagnoseTargetSlug(target), avail)
-		base := diagnoseResultsNamePrefix + slug + tail
-		if len(base) <= maxDiagnoseResultsBasename {
-			return base
-		}
+	slug := diagnoseTargetSlug(target)
+	tail := "-" + tsPart
+	avail := max(maxDiagnoseResultsBasename-len(diagnoseResultsNamePrefix)-len(tail), 1)
+	slug = truncateUTF8MaxBytes(slug, avail)
+	if slug == "" {
+		slug = "x"
 	}
-	return diagnoseResultsNamePrefix + "x" + "-" + tsPart
+	base := diagnoseResultsNamePrefix + slug + tail
+	if len(base) <= maxDiagnoseResultsBasename {
+		return base
+	}
+	return diagnoseResultsNamePrefix + "x" + tail
 }
 
 func diagnoseTargetSlug(target string) string {
@@ -76,46 +72,6 @@ func guessPackagePatternForSlug(goTestArgs []string) string {
 	default:
 		return strings.Join(pkgs, "__")
 	}
-}
-
-func durationDirToken(d time.Duration) string {
-	return strings.ReplaceAll(d.String(), ":", "_")
-}
-
-func diagnoseConfigDirPartPhase(conf *config.App, goTestArgs []string, phase int) string {
-	h := sha256.Sum256([]byte(strings.Join(goTestArgs, "\x00")))
-	hash8 := hex.EncodeToString(h[:4])
-
-	dropSlow := phase >= 1
-	dropShuffle := phase >= 2
-	dropFF := phase >= 3
-	shortHash := phase >= 4
-
-	var parts []string
-	if conf.Iterations > 0 {
-		parts = append(parts, fmt.Sprintf("it%d", conf.Iterations))
-	}
-	hStr := hash8
-	if shortHash {
-		hStr = hStr[:4]
-	}
-	parts = append(parts, "h"+hStr)
-	if !dropFF && conf.FailFast {
-		parts = append(parts, "ff")
-	}
-	if !dropShuffle && conf.Shuffle {
-		parts = append(parts, "shuffle")
-	}
-	if !dropSlow {
-		slow := conf.SlowThreshold
-		if slow == 0 {
-			slow = defaultSlowThreshold
-		}
-		if slow != defaultSlowThreshold {
-			parts = append(parts, "slow"+durationDirToken(conf.SlowThreshold))
-		}
-	}
-	return strings.Join(parts, "-")
 }
 
 func truncateUTF8MaxBytes(s string, maxBytes int) string {

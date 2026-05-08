@@ -22,8 +22,6 @@ const (
 	ReduceAggregator Aggregator = "reduce"
 	// StreamsAggregator is the name of the streams aggregator.
 	LLOStreamsAggregator Aggregator = "llo_streams"
-	// SecureMintAggregator is the name of the secure mint aggregator.
-	SecureMintAggregator Aggregator = "secure_mint"
 )
 
 // NewAggregator creates a new aggregator based on the provided name and config.
@@ -38,8 +36,6 @@ func NewAggregator(name string, config values.Map, lggr logger.Logger) (types.Ag
 		return aggregators.NewReduceAggregator(config)
 	case string(LLOStreamsAggregator):
 		return datafeeds.NewLLOAggregator(config)
-	case string(SecureMintAggregator):
-		return datafeeds.NewSecureMintAggregator(config)
 	default:
 		return nil, fmt.Errorf("aggregator %s not supported", name)
 	}

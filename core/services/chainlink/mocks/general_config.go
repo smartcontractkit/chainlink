@@ -1295,6 +1295,53 @@ func (_c *GeneralConfig_JobPipeline_Call) RunAndReturn(run func() config.JobPipe
 	return _c
 }
 
+// JobSpecReporter provides a mock function with no fields
+func (_m *GeneralConfig) JobSpecReporter() config.JobSpecReporter {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for JobSpecReporter")
+	}
+
+	var r0 config.JobSpecReporter
+	if rf, ok := ret.Get(0).(func() config.JobSpecReporter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.JobSpecReporter)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_JobSpecReporter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobSpecReporter'
+type GeneralConfig_JobSpecReporter_Call struct {
+	*mock.Call
+}
+
+// JobSpecReporter is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobSpecReporter() *GeneralConfig_JobSpecReporter_Call {
+	return &GeneralConfig_JobSpecReporter_Call{Call: _e.mock.On("JobSpecReporter")}
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) Run(run func()) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) Return(_a0 config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_JobSpecReporter_Call) RunAndReturn(run func() config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // LOOPP provides a mock function with no fields
 func (_m *GeneralConfig) LOOPP() config.LOOPP {
 	ret := _m.Called()
