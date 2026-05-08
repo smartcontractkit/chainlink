@@ -15,14 +15,11 @@ type pluginConfig interface {
 	Marshal() ([]byte, error)
 }
 
-// DKGOffchainConfig wraps dkgocrtypes.ReportingPluginConfig for embedding in V3_1OracleConfig.
-// Field names in YAML/JSON use Go defaults (no tags on the underlying type).
 type DKGOffchainConfig struct {
-	dkgocrtypes.ReportingPluginConfig `yaml:",inline"`
-	DealerPublicKeys                  []string `yaml:"dealerPublicKeys" json:"dealerPublicKeys"`
-	RecipientPublicKeys               []string `yaml:"recipientPublicKeys" json:"recipientPublicKeys"`
-	T                                 int      `yaml:"t" json:"t"`
-	PreviousInstanceID                *string  `yaml:"previousInstanceID" json:"previousInstanceID"`
+	DealerPublicKeys    []string `yaml:"dealerPublicKeys" json:"dealerPublicKeys"`
+	RecipientPublicKeys []string `yaml:"recipientPublicKeys" json:"recipientPublicKeys"`
+	T                   int      `yaml:"t" json:"t"`
+	PreviousInstanceID  *string  `yaml:"previousInstanceID" json:"previousInstanceID"`
 }
 
 func hexArrToParticipantArr(stringKeys []string) ([]dkgocrtypes.P256ParticipantPublicKey, error) {
@@ -48,15 +45,14 @@ func (c *DKGOffchainConfig) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not decode recipient keys: %w", err)
 	}
-	var iid dkgocrtypes.InstanceID
-	if c.PreviousInstanceID != nil {
-		iid = dkgocrtypes.InstanceID(*c.PreviousInstanceID)
-	}
 	cfg := dkgocrtypes.ReportingPluginConfig{
 		T:                   c.T,
-		PreviousInstanceID:  &iid,
 		DealerPublicKeys:    dealerKeys,
 		RecipientPublicKeys: recipientKeys,
+	}
+	if c.PreviousInstanceID != nil {
+		pid := dkgocrtypes.InstanceID(*c.PreviousInstanceID)
+		cfg.PreviousInstanceID = &pid
 	}
 	return cfg.MarshalBinary()
 }

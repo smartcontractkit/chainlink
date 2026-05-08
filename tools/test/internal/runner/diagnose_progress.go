@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -15,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
-// chainlinkModulePrefix is trimmed from import paths in the diagnose progress line
-// so the status shows repo-relative paths (e.g. core/foo).
 const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
 
 // packagePatternsFromEnd returns trailing non-flag arguments. This matches the usual
@@ -29,9 +28,7 @@ func packagePatternsFromEnd(args []string) []string {
 		}
 		pkgs = append(pkgs, args[i])
 	}
-	for i, j := 0, len(pkgs)-1; i < j; i, j = i+1, j-1 {
-		pkgs[i], pkgs[j] = pkgs[j], pkgs[i]
-	}
+	slices.Reverse(pkgs)
 	return pkgs
 }
 
@@ -83,12 +80,120 @@ type diagnoseProgress struct {
 	total      int               // -1 when denominator is unknown (go list failed or empty)
 }
 
+type parallelDiagnoseProgress struct {
+	mu              sync.Mutex
+	renderMu        sync.Mutex
+	totalIterations int
+	completed       int
+	active          map[int]parallelIterationProgress
+	poolStartedAt   time.Time
+}
+
+type parallelIterationProgress struct {
+	startedAt time.Time
+}
+
+type activeIterElapsed struct {
+	iteration int           // 0-based diagnose iteration index
+	elapsed   time.Duration // wall since this iteration's go test started
+}
+
+func newParallelDiagnoseProgress(totalIterations int) *parallelDiagnoseProgress {
+	return newParallelDiagnoseProgressAt(totalIterations, time.Now())
+}
+
+func newParallelDiagnoseProgressAt(totalIterations int, poolStartedAt time.Time) *parallelDiagnoseProgress {
+	return &parallelDiagnoseProgress{
+		totalIterations: totalIterations,
+		active:          make(map[int]parallelIterationProgress),
+		poolStartedAt:   poolStartedAt,
+	}
+}
+
 func newDiagnoseProgress(totalPackages int) *diagnoseProgress {
 	return &diagnoseProgress{
 		done:       make(map[string]struct{}),
 		pkgOutcome: make(map[string]string),
 		total:      totalPackages,
 	}
+}
+
+func (p *parallelDiagnoseProgress) start(iteration int) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.active[iteration] = parallelIterationProgress{startedAt: time.Now()}
+}
+
+// startAtForTest records an active iteration with a fixed startedAt (package runner tests).
+func (p *parallelDiagnoseProgress) startAtForTest(iteration int, startedAt time.Time) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.active[iteration] = parallelIterationProgress{startedAt: startedAt}
+}
+
+func (p *parallelDiagnoseProgress) finish(iteration int) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.active, iteration)
+	p.completed++
+}
+
+// bumpCompletedForTest increments the done counter (package runner tests).
+func (p *parallelDiagnoseProgress) bumpCompletedForTest(n int) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.completed += n
+}
+
+func (p *parallelDiagnoseProgress) withRenderLock(fn func()) {
+	if p == nil {
+		fn()
+		return
+	}
+	p.renderMu.Lock()
+	defer p.renderMu.Unlock()
+	fn()
+}
+
+// renderSnapshot returns completed iteration count, total planned iterations,
+// per-active-iteration elapsed (sorted by iteration index), and wall time since
+// the parallel pool began.
+func (p *parallelDiagnoseProgress) renderSnapshot(now time.Time) (completed, total int, actives []activeIterElapsed, poolElapsed time.Duration) {
+	if p == nil {
+		return 0, 0, nil, 0
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	completed = p.completed
+	total = p.totalIterations
+	poolElapsed = now.Sub(p.poolStartedAt)
+	if poolElapsed < 0 {
+		poolElapsed = 0
+	}
+	poolElapsed = poolElapsed.Round(time.Second)
+	for iter, pr := range p.active {
+		elapsed := now.Sub(pr.startedAt)
+		if elapsed < 0 {
+			elapsed = 0
+		}
+		actives = append(actives, activeIterElapsed{iteration: iter, elapsed: elapsed.Round(time.Second)})
+	}
+	slices.SortFunc(actives, func(a, b activeIterElapsed) int {
+		return a.iteration - b.iteration
+	})
+	return completed, total, actives, poolElapsed
 }
 
 // onTestJSONLine updates state from one JSONL line. Returns true if the number
@@ -135,58 +240,44 @@ func (p *diagnoseProgress) snapshot() (completed int, total int, lastPkg string,
 	return len(p.done), p.total, p.lastPkg, p.pkgOutcome[p.lastPkg]
 }
 
-// packageOutcomeMark returns a short suffix after the displayed package path:
-// pass/fail/skip from package-level JSON events, or an hourglass while that path
-// is active but no terminal result is recorded yet, or empty when there is no path.
-func packageOutcomeMark(action, displayPkg string) string {
-	if displayPkg != "" && action == "" {
-		return " ⌛"
-	}
-	switch action {
-	case "pass":
-		return " ✅"
-	case "fail":
-		return " ❌"
-	case "skip":
-		return " ⏭"
-	default:
-		return ""
-	}
+// progressBracket wraps inner (already styled) in muted square brackets.
+func progressBracket(inner string) string {
+	return termstyle.Muted.Render("[") + inner + termstyle.Muted.Render("]")
 }
 
-// renderDiagnoseProgressLine writes one status line to w.
-func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, elapsed time.Duration, prog *diagnoseProgress, isTTY bool) {
-	if !isTTY {
-		return // no-op when not a TTY (ai output doesn't need this)
+// renderDiagnoseProgressLine writes one status line to w when liveInline is true
+// (TTY stderr in human mode). Otherwise it is a no-op so logs are not spammed.
+// diagnoseRunStart is when the overall diagnose run began; if zero, only the
+// per-iteration bracket is shown.
+func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, iterElapsed time.Duration, diagnoseRunStart time.Time, now time.Time, liveInline bool) {
+	if !liveInline {
+		return
 	}
-	completed, total, lastPkg, outcome := prog.snapshot()
-
-	meta := fmt.Sprintf("iter %d/%d", iteration, iterations)
-	var countStr string
-	if total < 0 {
-		countStr = fmt.Sprintf("%d/?", completed)
-	} else {
-		pct := 0
-		if total > 0 {
-			pct = completed * 100 / total
+	iterBracket := fmt.Sprintf("iter %d/%d (%s)", iteration, iterations, iterElapsed.Round(time.Second).String())
+	line := progressBracket(termstyle.Label.Render(iterBracket))
+	if !diagnoseRunStart.IsZero() {
+		runEl := now.Sub(diagnoseRunStart)
+		if runEl < 0 {
+			runEl = 0
 		}
-		countStr = fmt.Sprintf("%d/%d %d%%", completed, total, pct)
+		line += "  " + progressBracket(termstyle.Muted.Render(runEl.Round(time.Second).String()))
 	}
+	fmt.Fprint(w, "\r\033[K")
+	fmt.Fprint(w, line)
+}
 
-	const pkgMaxChars = 42
-	displayPkg := shortenChainlinkImportPath(lastPkg)
-	mark := packageOutcomeMark(outcome, displayPkg)
-	markReserve := 0
-	if displayPkg != "" {
-		markReserve = 8 // room for terminal marks or hourglass (display width approx)
+func renderParallelDiagnoseProgressLine(w io.Writer, prog *parallelDiagnoseProgress, now time.Time, liveInline bool) {
+	if !liveInline || prog == nil {
+		return
 	}
-	shortPkg := ellipsizeRight(displayPkg, pkgMaxChars-markReserve) + mark
-
-	line := termstyle.Label.Render(meta) + "  " + termstyle.Accent.Render(countStr)
-	if shortPkg != "" {
-		line += "  " + termstyle.Muted.Render(shortPkg) // path + ⌛ while running, or ✅/❌/⏭ when done
+	completed, totalIters, actives, poolElapsed := prog.renderSnapshot(now)
+	line := progressBracket(termstyle.Label.Render(fmt.Sprintf("done %d/%d", completed, totalIters)))
+	var lineSb275 strings.Builder
+	for _, a := range actives {
+		lineSb275.WriteString("  " + progressBracket(termstyle.Label.Render(fmt.Sprintf("iter %d (%s)", a.iteration+1, a.elapsed.String()))))
 	}
-	line += "  " + termstyle.Muted.Render(elapsed.Round(time.Second).String())
+	line += lineSb275.String()
+	line += "  " + progressBracket(termstyle.Muted.Render(poolElapsed.String()))
 	fmt.Fprint(w, "\r\033[K")
 	fmt.Fprint(w, line)
 }

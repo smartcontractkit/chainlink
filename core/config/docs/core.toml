@@ -913,6 +913,16 @@ IgnoreInvalidBridges = true # Default
 # IgnoreJoblessBridges skips bridges that have no associated jobs.
 IgnoreJoblessBridges = false # Default
 
+# JobSpecReporter holds settings for the Job Spec Reporter service, which periodically emits job spec telemetry.
+[JobSpecReporter]
+# Enabled enables the Job Spec Reporter service.
+Enabled = false # Default
+# PollingInterval is how often to emit a heartbeat event for each tracked job.
+PollingInterval = "1h" # Default
+# EnabledOCR2PluginTypes restricts OCR2 telemetry to jobs with these plugin types.
+# An empty list disables all OCR2 telemetry. Use ["all"] to enable all OCR2 plugin types.
+EnabledOCR2PluginTypes = ["median"] # Default
+
 [CRE]
 # UseLocalTimeProvider should be set true if the DON Time OCR Plugin is not running
 UseLocalTimeProvider = true # Default

@@ -143,7 +143,7 @@ var StartCmdPreRunFunc = func(cmd *cobra.Command, args []string) {
 	// so we can skip Docker cleanup for Kubernetes provider
 }
 
-var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait time.Duration) {
+var StartCmdRecoverHandlerFunc = func(p any, persistedBeholderState *envconfig.ChipIngressConfig, cleanupOnFailure bool, cleanupWait time.Duration) {
 	if p != nil {
 		fmt.Println("Panicked when starting environment")
 
@@ -181,6 +181,12 @@ var StartCmdRecoverHandlerFunc = func(p any, cleanupOnFailure bool, cleanupWait 
 			removeErr := framework.RemoveTestContainers()
 			if removeErr != nil {
 				fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCtfCleanupMsg).Error())
+			}
+		}
+
+		if persistedBeholderState != nil {
+			if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+				framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup failure")
 			}
 		}
 
@@ -261,8 +267,10 @@ func startCmd() *cobra.Command {
 		Aliases:          []string{"restart"},
 		PersistentPreRun: StartCmdPreRunFunc,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var persistedBeholderState *envconfig.ChipIngressConfig
+
 			defer func() {
-				StartCmdRecoverHandlerFunc(recover(), cleanupOnFailure, cleanupWait)
+				StartCmdRecoverHandlerFunc(recover(), persistedBeholderState, cleanupOnFailure, cleanupWait)
 			}()
 
 			if doSetup {
@@ -285,7 +293,8 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("with-plugins-docker-image flag is no longer supported. Set Docker image in TOML config instead (%s) for each nodeset under the [nodesets.nodesets.node_specs.node.image] field", effectiveConfig)
 			}
 
-			persistedBeholderState, persistedBeholderStateErr := loadPersistedBeholderState(relativePathToRepoRoot)
+			var persistedBeholderStateErr error
+			persistedBeholderState, persistedBeholderStateErr = loadPersistedBeholderState(relativePathToRepoRoot)
 			if persistedBeholderStateErr != nil {
 				framework.L.Warn().Err(persistedBeholderStateErr).Msg("failed to load persisted Beholder state before startup cleanup")
 			}
@@ -344,6 +353,12 @@ func startCmd() *cobra.Command {
 					removeErr := framework.RemoveTestContainers()
 					if removeErr != nil {
 						fmt.Fprint(os.Stderr, removeErr, manualCtfCleanupMsg)
+					}
+				}
+
+				if persistedBeholderState != nil {
+					if err := restorePersistedBeholderState(relativePathToRepoRoot, persistedBeholderState); err != nil {
+						framework.L.Warn().Err(err).Msg("failed to restore persisted Beholder state after environment startup termination")
 					}
 				}
 

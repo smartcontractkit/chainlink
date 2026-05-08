@@ -173,6 +173,15 @@
     },
     {
       "type": "checks",
+      "id": "JobSpecReporter",
+      "attributes": {
+        "name": "JobSpecReporter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "LLOTransmissionReaper",
       "attributes": {
         "name": "LLOTransmissionReaper",
@@ -212,6 +221,15 @@
       "id": "NodePlatformBuildInfo",
       "attributes": {
         "name": "NodePlatformBuildInfo",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "NodePlatformJobInfo",
+      "attributes": {
+        "name": "NodePlatformJobInfo",
         "status": "passing",
         "output": ""
       }

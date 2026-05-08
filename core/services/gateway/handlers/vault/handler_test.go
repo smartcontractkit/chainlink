@@ -294,8 +294,9 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
 				{
 					Id: &vaultcommon.SecretIdentifier{
-						Key:   "test_id",
-						Owner: "org-1",
+						Key:       "test_id",
+						Owner:     "org1",
+						Namespace: "default",
 					},
 					EncryptedValue: "abc123",
 				},

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,14 +13,22 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
+var (
+	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
+)
+
 type RequestValidator struct {
-	MaxRequestBatchSizeLimiter limits.BoundLimiter[int]
-	MaxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size]
+	MaxRequestBatchSizeLimiter          limits.BoundLimiter[int]
+	MaxCiphertextLengthLimiter          limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierKeyLengthLimiter       limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierOwnerLengthLimiter     limits.BoundLimiter[pkgconfig.Size]
+	MaxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size]
 }
 
 func (r *RequestValidator) ValidateCreateSecretsRequest(ctx context.Context, publicKey *tdh2easy.PublicKey, request *vaultcommon.CreateSecretsRequest, skipLabelValidation bool) error {
@@ -56,14 +65,14 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
 
-		if req.Id.Key == "" || req.Id.Namespace == "" || req.Id.Owner == "" {
-			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
-		}
-
 		if req.EncryptedValue == "" {
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
-		if err := r.validateCiphertextSize(ctx, req.EncryptedValue); err != nil {
+
+		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
+			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
+		}
+		if err := r.ValidateCiphertextSize(ctx, req.Id.Owner, req.EncryptedValue); err != nil {
 			return fmt.Errorf("secret encrypted value at index %d is invalid: %w", idx, err)
 		}
 		if skipLabelValidation {
@@ -91,12 +100,13 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	return nil
 }
 
-func (r *RequestValidator) validateCiphertextSize(ctx context.Context, encryptedValue string) error {
+func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
 	}
-	if err := r.MaxCiphertextLengthLimiter.Check(ctx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
+	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
+	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
 		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
 		if errors.As(err, &errBoundLimited) {
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s", errBoundLimited.Limit)
@@ -106,7 +116,50 @@ func (r *RequestValidator) validateCiphertextSize(ctx context.Context, encrypted
 	return nil
 }
 
-func (r *RequestValidator) ValidateGetSecretsRequest(request *vaultcommon.GetSecretsRequest) error {
+func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string) error {
+	if idKey == "" {
+		return errors.New("key cannot be empty")
+	}
+	if idOwner == "" {
+		return errors.New("owner cannot be empty")
+	}
+	if idNamespace == "" {
+		return errors.New("namespace cannot be empty")
+	}
+
+	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
+		return errors.New("key, owner and namespace must only contain alphanumeric characters")
+	}
+
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
+	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("owner exceeds maximum length of %s", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check owner length limit: %w", err)
+	}
+
+	if err := r.MaxIdentifierNamespaceLengthLimiter.Check(ctx, pkgconfig.Size(len(idNamespace))); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("namespace exceeds maximum length of %s", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check namespace length limit: %w", err)
+	}
+
+	if err := r.MaxIdentifierKeyLengthLimiter.Check(ctx, pkgconfig.Size(len(idKey))); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("key exceeds maximum length of %s", errBoundLimited.Limit)
+		}
+		return fmt.Errorf("failed to check key length limit: %w", err)
+	}
+
+	return nil
+}
+
+func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, request *vaultcommon.GetSecretsRequest) error {
 	if len(request.Requests) == 0 {
 		return errors.New("no GetSecret request specified in request")
 	}
@@ -121,19 +174,25 @@ func (r *RequestValidator) ValidateGetSecretsRequest(request *vaultcommon.GetSec
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
+		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
+			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
+		}
 	}
 
 	return nil
 }
 
-func (r *RequestValidator) ValidateListSecretIdentifiersRequest(request *vaultcommon.ListSecretIdentifiersRequest) error {
+func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) error {
 	if request.RequestId == "" || request.Owner == "" || request.Namespace == "" {
 		return errors.New("requestID, owner or namespace must not be empty")
 	}
+	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace); err != nil {
+		return fmt.Errorf("invalid secret identifier: %w", err)
+	}
 	return nil
 }
 
-func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.DeleteSecretsRequest) error {
+func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) error {
 	if request.RequestId == "" {
 		return errors.New("request ID must not be empty")
 	}
@@ -146,8 +205,8 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 		if id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
-		if id.Key == "" || id.Namespace == "" || id.Owner == "" {
-			return errors.New("secret ID must have key, namespace and owner set at index " + strconv.Itoa(idx) + ": " + id.String())
+		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
+			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
 
 		_, ok := uniqueIDs[vaulttypes.KeyFor(id)]
@@ -163,10 +222,16 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(request *vaultcommon.Del
 func NewRequestValidator(
 	maxRequestBatchSizeLimiter limits.BoundLimiter[int],
 	maxCiphertextLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+	maxIdentifierKeyLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+	maxIdentifierOwnerLengthLimiter limits.BoundLimiter[pkgconfig.Size],
+	maxIdentifierNamespaceLengthLimiter limits.BoundLimiter[pkgconfig.Size],
 ) *RequestValidator {
 	return &RequestValidator{
-		MaxRequestBatchSizeLimiter: maxRequestBatchSizeLimiter,
-		MaxCiphertextLengthLimiter: maxCiphertextLengthLimiter,
+		MaxRequestBatchSizeLimiter:          maxRequestBatchSizeLimiter,
+		MaxCiphertextLengthLimiter:          maxCiphertextLengthLimiter,
+		MaxIdentifierKeyLengthLimiter:       maxIdentifierKeyLengthLimiter,
+		MaxIdentifierOwnerLengthLimiter:     maxIdentifierOwnerLengthLimiter,
+		MaxIdentifierNamespaceLengthLimiter: maxIdentifierNamespaceLengthLimiter,
 	}
 }
 

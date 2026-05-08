@@ -183,6 +183,8 @@ ReadRequestsToMultipleNodes = false # Example
 Bundles = false # Example
 # FastlaneAuctionRequestTimeout configures the timeout for fastlane auction requests.
 FastlaneAuctionRequestTimeout = '5s' # Example
+# FeeBoost enables node to immediately boost txs to the max gas price configured 
+FeeBoost = false # Default
 
 [EVM.BalanceMonitor]
 # Enabled balance monitoring for all keys.
