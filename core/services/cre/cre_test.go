@@ -43,6 +43,41 @@ func (testCapabilityNodeConfig) Config() map[string]string {
 	return nil
 }
 
+func TestWorkflowRegistrySemverMajor(t *testing.T) {
+	t.Parallel()
+
+	major, err := workflowRegistrySemverMajor("")
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), major)
+
+	major, err = workflowRegistrySemverMajor("   ")
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), major)
+
+	major, err = workflowRegistrySemverMajor("2.0.0")
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), major)
+
+	major, err = workflowRegistrySemverMajor("1.0.0")
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), major)
+
+	_, err = workflowRegistrySemverMajor("not-a-version")
+	require.Error(t, err)
+}
+
+func TestRegistriesConfigured(t *testing.T) {
+	t.Parallel()
+
+	require.False(t, registriesConfigured("", "", nil))
+	require.False(t, registriesConfigured("", "", []string{"", "  "}))
+
+	require.True(t, registriesConfigured("0xabc", "", nil))
+	require.True(t, registriesConfigured("", "0xdef", nil))
+	require.True(t, registriesConfigured("", "", []string{"https://example"}))
+	require.True(t, registriesConfigured("", "", []string{"", "grpc://x"}))
+}
+
 func TestNewLocalTestMetadataRegistry(t *testing.T) {
 	t.Parallel()
 
