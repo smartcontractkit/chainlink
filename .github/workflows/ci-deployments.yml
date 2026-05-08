@@ -147,7 +147,7 @@ jobs:
 
   shard-matrices:
     name: Build Shard Matrices
-    needs: [ filter ]
+    needs: [filter]
     runs-on: ubuntu-latest
     if: ${{ needs.filter.outputs.should-run == 'true' }}
     permissions: {}
@@ -185,7 +185,7 @@ jobs:
 
   deployment-shard-consistency:
     name: Check Deployment Test Sharding Consistency
-    needs: [ filter ]
+    needs: [filter]
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     permissions:
@@ -224,7 +224,7 @@ jobs:
         include: ${{ fromJson(needs.shard-matrices.outputs.deployment-test-matrix) }}
     name: Deployment Tests (${{ matrix.job-name }})
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [ filter, shard-matrices, run-frequency ]
+    needs: [filter, shard-matrices, run-frequency]
     timeout-minutes: 35
     runs-on: ${{ matrix.os }}
     permissions:
@@ -311,8 +311,8 @@ jobs:
         with:
           name: ${{ matrix.logs-artifact-name }}
           path: |
-            ./coverage.txt
-            # ./postgres_logs.txt
+            ./deployment/coverage.txt
+            ./postgres_logs.txt
             ./junit.xml
             ./deployment/output.txt
             ./deployment/output-short.txt
@@ -321,8 +321,8 @@ jobs:
   deployment-tests-result:
     # Do not modify this job name, it is used by branch protection rules
     name: Core Tests (go_core_deployment_tests)
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
-    needs: [ deployment-tests, deployment-shard-consistency ]
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
+    needs: [filter, deployment-tests, deployment-shard-consistency]
     runs-on: ubuntu-latest
     permissions:
       actions: read
