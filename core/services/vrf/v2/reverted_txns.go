@@ -71,7 +71,7 @@ func skipRevertedTxnFetchFatal(ctx context.Context, err error) bool {
 }
 
 func (lsn *listenerV2) runRevertedTxnsHandler(pollPeriod time.Duration) {
-	pollPeriod = pollPeriod + time.Second*3
+	pollPeriod += time.Second * 3
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
 	ctx, cancel := lsn.chStop.NewCtx()
@@ -186,7 +186,7 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRecentSingleTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
@@ -248,7 +248,7 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRecentBatchTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("error fetching recent non-force-fulfilled txns: %w", err)
 	}
@@ -301,7 +301,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 
 	before := time.Now()
 	err := ds.SelectContext(ctx, &recentReceipts, sqlQuery, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "FetchRevertedForceFulfilmentTxns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("error fetching recent reverted force-fulfilled txns: %w", err)
 	}
@@ -330,7 +330,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	var allReceipts []TxnReceiptDB
 	before = time.Now()
 	err = ds.SelectContext(ctx, &allReceipts, sqlQueryAll, chainID)
-	lsn.postSqlLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
+	lsn.postSQLLog(ctx, before, pollPeriod, "Fetch all ForceFulfilment Txns")
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("error fetching all recent force-fulfilled txns: %w", err)
 	}
@@ -410,9 +410,9 @@ func UniqueByReqID(revertedForceTxns []TxnReceiptDB, allForceTxns []TxnReceiptDB
 	return res
 }
 
-// postSqlLog logs about context cancellation and timing after a query returns.
+// postSQLLog logs about context cancellation and timing after a query returns.
 // Queries which use their full timeout log critical level. More than 50% log error, and 10% warn.
-func (lsn *listenerV2) postSqlLog(ctx context.Context, begin time.Time, pollPeriod time.Duration, queryName string) {
+func (lsn *listenerV2) postSQLLog(ctx context.Context, begin time.Time, pollPeriod time.Duration, queryName string) {
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
 		lsn.l.Debugw("SQL context canceled", "ms", elapsed.Milliseconds(), "err", ctx.Err(), "sql", queryName)

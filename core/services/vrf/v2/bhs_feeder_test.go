@@ -27,14 +27,14 @@ func TestStartHeartbeats(t *testing.T) {
 	vrfKey := cltest.MustGenerateRandomKey(t)
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 	gasLanePriceWei := assets.GWei(1)
-	gasLimit := 3_000_000
+	gasLimit := uint64(3_000_000)
 
 	consumers := uni.vrfConsumers
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeyAddresses []string
-	var keySpecificOverrides []toml.KeySpecific
-	var keys []any
+	bhsKeyAddresses := make([]string, 0, len(consumers))
+	keySpecificOverrides := make([]toml.KeySpecific, 0, len(consumers)+1)
+	keys := make([]any, 0, len(consumers)+2)
 	for range consumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
@@ -58,7 +58,7 @@ func TestStartHeartbeats(t *testing.T) {
 		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 		c.Feature.LogPoller = new(true)
 		c.EVM[0].FinalityDepth = new(uint32(2))
-		c.EVM[0].GasEstimator.LimitDefault = new(uint64(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = new(gasLimit)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
 	})
 

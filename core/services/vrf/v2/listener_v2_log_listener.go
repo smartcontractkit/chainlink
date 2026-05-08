@@ -348,7 +348,8 @@ func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uin
 		// in the contract so if it was older than that, fulfillments would start failing
 		// without the blockhash store feeder. We use 200 to give the node plenty of time
 		// to fulfill even on fast chains.
-		uint64(minConfs)*(1<<lsn.respCount[req.RequestID().String()]), 200)
+		uint64(minConfs)*(1<<lsn.respCount[req.RequestID().String()]), 200,
+	)
 	if lsn.respCount[req.RequestID().String()] > 0 {
 		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw().TxHash,

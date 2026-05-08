@@ -170,7 +170,7 @@ func testMultipleConsumersNeedBHS(
 	uni coordinatorV2UniverseCommon,
 	consumers []*bind.TransactOpts,
 	consumerContracts []vrftesthelpers.VRFConsumerContract,
-	consumerContractAddresses []common.Address,
+	_ []common.Address,
 	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
@@ -180,7 +180,8 @@ func testMultipleConsumersNeedBHS(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled,
+	),
 ) {
 	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
@@ -188,9 +189,9 @@ func testMultipleConsumersNeedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeyAddresses []string
-	var keySpecificOverrides []v2.KeySpecific
-	var keys []any
+	bhsKeyAddresses := make([]string, 0, nConsumers)
+	keySpecificOverrides := make([]v2.KeySpecific, 0, nConsumers+1)
+	keys := make([]any, 0, nConsumers+2)
 	gasLanePriceWei := assets.GWei(10)
 	for range nConsumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
@@ -231,7 +232,8 @@ func testMultipleConsumersNeedBHS(
 		vrfOwnerAddress,
 		vrfVersion,
 		false,
-		gasLanePriceWei)
+		gasLanePriceWei,
+	)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 	var (
@@ -251,7 +253,8 @@ func testMultipleConsumersNeedBHS(
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100)
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100,
+	)
 
 	chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
 	require.True(t, ok)
@@ -324,7 +327,8 @@ func testMultipleConsumersNeedTrustedBHS(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled,
+	),
 ) {
 	ctx := testutils.Context(t)
 	nConsumers := len(consumers)
@@ -332,10 +336,10 @@ func testMultipleConsumersNeedTrustedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeyAddresses []common.Address
-	var bhsKeyAddressesStrings []string
-	var keySpecificOverrides []v2.KeySpecific
-	var keys []any
+	bhsKeyAddresses := make([]common.Address, 0, nConsumers)
+	bhsKeyAddressesStrings := make([]string, 0, nConsumers)
+	keySpecificOverrides := make([]v2.KeySpecific, 0, nConsumers+1)
+	keys := make([]any, 0, nConsumers+2)
 	gasLanePriceWei := assets.GWei(10)
 	for range nConsumers {
 		bhsKey := cltest.MustGenerateRandomKey(t)
@@ -489,7 +493,7 @@ func verifyBlockhashStored(
 			BlockNumber: nil,
 			Context:     nil,
 		}
-		_, err := uni.bhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
+		_, err := uni.bhsContract.GetBlockhash(callOpts, new(big.Int).SetUint64(requestBlock))
 		if err == nil {
 			return true
 		}
@@ -515,7 +519,7 @@ func verifyBlockhashStoredTrusted(
 			BlockNumber: nil,
 			Context:     nil,
 		}
-		_, err := uni.trustedBhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
+		_, err := uni.trustedBhsContract.GetBlockhash(callOpts, new(big.Int).SetUint64(requestBlock))
 		if err == nil {
 			return true
 		}
@@ -1162,15 +1166,15 @@ func testSingleConsumerEIP150Revert(
 	ownerKey ethkey.KeyV2,
 	uni coordinatorV2UniverseCommon,
 	batchCoordinatorAddress common.Address,
-	batchEnabled bool,
+	_ bool,
 	vrfVersion vrfcommon.Version,
 	nativePayment bool,
 ) {
 	ctx := testutils.Context(t)
-	callBackGasLimit := int64(2_500_000)            // base callback gas.
-	eip150Fee := int64(0)                           // no premium given for callWithExactGas
-	coordinatorFulfillmentOverhead := int64(90_000) // fixed gas used in coordinator fulfillment
-	gasLimit := callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead
+	callBackGasLimit := uint64(2_500_000)            // base callback gas.
+	eip150Fee := uint64(0)                           // no premium given for callWithExactGas
+	coordinatorFulfillmentOverhead := uint64(90_000) // fixed gas used in coordinator fulfillment
+	gasLimit := uint64(callBackGasLimit + eip150Fee + coordinatorFulfillmentOverhead)
 
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -1180,7 +1184,7 @@ func testSingleConsumerEIP150Revert(
 			Key:          new(key1.EIP55Address),
 			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = new(uint64(gasLimit))
+		c.EVM[0].GasEstimator.LimitDefault = new(gasLimit)
 		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 		c.Feature.LogPoller = new(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
@@ -1278,8 +1282,8 @@ func testSingleConsumerBigGasCallbackSandwich(
 
 	// Make some randomness requests, each one block apart, which contain a single low-gas request sandwiched between two high-gas requests.
 	numWords := uint32(2)
-	reqIDs := []*big.Int{}
 	callbackGasLimits := []uint32{2_500_000, 50_000, 1_500_000}
+	reqIDs := make([]*big.Int, 0, len(callbackGasLimits))
 	for _, limit := range callbackGasLimits {
 		requestID, _ := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, limit, uni.rootContract, uni.backend, nativePayment)
 		reqIDs = append(reqIDs, requestID)

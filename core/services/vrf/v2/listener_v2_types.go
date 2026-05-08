@@ -16,21 +16,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
-type errPossiblyInsufficientFunds struct{}
+type possiblyInsufficientFundsError struct{}
 
-func (errPossiblyInsufficientFunds) Error() string {
+func (possiblyInsufficientFundsError) Error() string {
 	return "Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available"
 }
 
-type errBlockhashNotInStore struct{}
+type blockhashNotInStoreError struct{}
 
-func (errBlockhashNotInStore) Error() string {
+func (blockhashNotInStoreError) Error() string {
 	return "Blockhash not in store"
 }
 
-type errProofVerificationFailed struct{}
+type proofVerificationFailedError struct{}
 
-func (errProofVerificationFailed) Error() string {
+func (proofVerificationFailedError) Error() string {
 	return "Proof verification failed"
 }
 

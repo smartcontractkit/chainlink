@@ -62,8 +62,8 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	txMetaFieldSubId  = "SubId"
-	txMetaGlobalSubId = "GlobalSubId"
+	txMetaFieldSubID  = "SubId"
+	txMetaGlobalSubID = "GlobalSubId"
 )
 
 func New(
