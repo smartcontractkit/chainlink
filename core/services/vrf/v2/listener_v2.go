@@ -195,19 +195,15 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 
 		if lsn.job.VRFSpec.CustomRevertsPipelineEnabled && lsn.vrfOwner != nil && lsn.job.VRFSpec.VRFOwnerAddress != nil {
 			// Start reverted txns handler in background
-			lsn.wg.Add(1)
-			go func() {
-				defer lsn.wg.Done()
+			lsn.wg.Go(func() {
 				lsn.runRevertedTxnsHandler(spec.PollPeriod)
-			}()
+			})
 		}
 
 		// Log listener gathers request logs and processes them
-		lsn.wg.Add(1)
-		go func() {
-			defer lsn.wg.Done()
+		lsn.wg.Go(func() {
 			lsn.runLogListener(spec.PollPeriod, spec.MinIncomingConfirmations)
-		}()
+		})
 
 		return nil
 	})

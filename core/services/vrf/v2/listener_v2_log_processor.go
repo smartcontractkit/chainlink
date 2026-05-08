@@ -588,10 +588,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 
 	lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
 	txData := hexutil.MustDecode(p.payload)
-	if err != nil {
-		err = fmt.Errorf("abi pack VRFOwner.fulfillRandomWords: %w", err)
-		return
-	}
+
 	estimateGasLimit, err := lsn.chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: fromAddress,
 		To:   &vrfOwnerAddressSpec,
@@ -619,7 +616,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 		Meta: &txmgr.TxMeta{
 			RequestID:     &requestID,
-			SubID:         ptr(subID.Uint64()),
+			SubID:         new(subID.Uint64()),
 			RequestTxHash: &requestTxHash,
 			// No max link since simulation failed
 		},
@@ -810,9 +807,9 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					txMetaGlobalSubID *string
 				)
 				if lsn.coordinator.Version() == vrfcommon.V2Plus {
-					txMetaGlobalSubID = ptr(p.req.req.SubID().String())
+					txMetaGlobalSubID = new(p.req.req.SubID().String())
 				} else if lsn.coordinator.Version() == vrfcommon.V2 {
-					txMetaSubID = ptr(p.req.req.SubID().Uint64())
+					txMetaSubID = new(p.req.req.SubID().Uint64())
 				}
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()

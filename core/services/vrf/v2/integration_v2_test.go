@@ -610,7 +610,7 @@ func createVRFJobs(
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
-		registerProvingKeyHelper(t, uni, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
+		registerProvingKeyHelper(t, uni, coordinator, vrfkey, new(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)
 	}
 	// Wait until all jobs are active and listening for logs
@@ -1011,7 +1011,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		5,     // number of requests to send
 		false, // don't send big callback
 		vrfcommon.V2,
@@ -1033,7 +1033,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		5,    // number of requests to send
 		true, // send big callback
 		vrfcommon.V2,
@@ -1055,7 +1055,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
@@ -1077,7 +1077,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 		uni.coordinatorV2UniverseCommon,
 		false,
 		uni.batchBHSContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 	)
 }
@@ -1093,7 +1093,7 @@ func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing
 		uni.coordinatorV2UniverseCommon,
 		true,
 		uni.batchBHSContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 	)
 }
@@ -1117,12 +1117,12 @@ func testEoa(
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          new(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.EVM[0].FinalityDepth = ptr(finalityDepth)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(gasLimit))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
+		c.EVM[0].FinalityDepth = new(finalityDepth)
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
@@ -1278,11 +1278,11 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          new(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3_500_000))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
@@ -1301,7 +1301,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		uni.coordinatorV2UniverseCommon,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 		gasLanePriceWei)
@@ -1359,12 +1359,12 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          new(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3_500_000))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
+		c.Feature.LogPoller = new(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 	})
 	ownerKey := cltest.MustGenerateRandomKey(t)
@@ -1384,7 +1384,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		uni.coordinatorV2UniverseCommon,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 		gasLanePriceWei)
@@ -1444,7 +1444,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 	)
@@ -1504,7 +1504,7 @@ func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 	)
@@ -1525,7 +1525,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		uni.rootContract,
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		assets.Ether(1).ToInt(),   // initial funding of 1 LINK
 		assets.Ether(100).ToInt(), // top up of 100 LINK
 		vrfcommon.V2,
@@ -1583,23 +1583,23 @@ func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
 func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.KeySpecific) func(*chainlink.Config, *chainlink.Secrets) {
 	return func(c *chainlink.Config, s *chainlink.Secrets) {
 		require.Zero(t, testutils.SimulatedChainID.Cmp(c.EVM[0].ChainID.ToInt()))
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		if defaultGasPrice != nil {
 			c.EVM[0].GasEstimator.PriceDefault = defaultGasPrice
 		}
-		c.EVM[0].GasEstimator.LimitDefault = ptr[uint64](3_500_000)
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(3_500_000))
 
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(1 * time.Second)
 
-		c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100)
+		c.EVM[0].HeadTracker.MaxBufferSize = new(uint32(100))
 		c.EVM[0].HeadTracker.SamplingInterval = commonconfig.MustNewDuration(0) // Head sampling disabled
 
 		c.EVM[0].Transactions.ResendAfterThreshold = commonconfig.MustNewDuration(0)
 		c.EVM[0].Transactions.ReaperThreshold = commonconfig.MustNewDuration(100 * time.Millisecond)
 
-		c.EVM[0].FinalityDepth = ptr[uint32](15)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].FinalityDepth = new(uint32(15))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(1))
 		c.EVM[0].MinContractPayment = commonassets.NewLinkFromJuels(100)
 		c.EVM[0].KeySpecific = ks
 	}
@@ -1744,7 +1744,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 			Key:          &key.EIP55Address,
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 	})
 	uni := newVRFCoordinatorV2Universe(t, key, 1)
 	carol := uni.vrfConsumers[0]
@@ -1772,7 +1772,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		uni.coordinatorV2UniverseCommon,
-		ptr(uni.vrfOwnerAddress),
+		new(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
 		gasLanePriceWei)
@@ -2417,7 +2417,8 @@ func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkTok
 	}
 }
 
-func ptr[T any](t T) *T { return &t }
+//go:fix inline
+func ptr[T any](t T) *T { return new(t) }
 
 func pair(x, y *big.Int) [2]*big.Int { return [2]*big.Int{x, y} }
 

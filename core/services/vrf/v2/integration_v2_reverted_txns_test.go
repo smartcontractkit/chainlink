@@ -95,7 +95,7 @@ func TestVRFV2Integration_ForceFulfillmentRevertedTxn_Retry(t *testing.T) {
 
 	// Make VRF request without sufficient balance and send fulfillment without simulation
 	req := makeVRFReq(t, th, th.subs[0])
-	req = fulfillVRFReq(t, th, req, th.subs[0], true, ptr(uint64(7)))
+	req = fulfillVRFReq(t, th, req, th.subs[0], true, new(uint64(7)))
 
 	waitForForceFulfillment(t, th, req, th.subs[0], true, 2)
 
@@ -290,13 +290,13 @@ func fulfillVRFReq(t *testing.T,
 	require.True(t, ok)
 
 	metadata := &txmgr.TxMeta{
-		RequestID:     ptr(common.BytesToHash(req.requestID.Bytes())),
+		RequestID:     new(common.BytesToHash(req.requestID.Bytes())),
 		SubID:         &sub.subID,
 		RequestTxHash: req.requestTxHash,
 		// No max link since simulation failed
 	}
 	if forceFulfill {
-		metadata.ForceFulfilled = ptr(true)
+		metadata.ForceFulfilled = new(true)
 		if forceFulfilmentAttempt != nil {
 			metadata.ForceFulfillmentAttempt = forceFulfilmentAttempt
 		}
@@ -459,7 +459,7 @@ func createVRFJobsNew(
 		require.NoError(t, err)
 		err = app.JobSpawner().CreateJob(ctx, nil, &jb)
 		require.NoError(t, err)
-		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, ptr(gasLanePrices[i].ToInt().Uint64()))
+		registerProvingKeyHelper(t, uni.coordinatorV2UniverseCommon, coordinator, vrfkey, new(gasLanePrices[i].ToInt().Uint64()))
 		jobs = append(jobs, jb)
 		vrfKeyIDs = append(vrfKeyIDs, vrfkey.ID())
 	}
@@ -578,14 +578,14 @@ func newRevertTxnTH(t *testing.T,
 	config, db := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key1.EIP55Address),
+			Key:          new(key1.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		}, toml.KeySpecific{
 			// Gas lane.
-			Key:          ptr(key2.EIP55Address),
+			Key:          new(key2.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
 	})
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
 

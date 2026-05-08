@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -41,14 +40,14 @@ func TestStartHeartbeats(t *testing.T) {
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
 		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
-			Key:          ptr[types.EIP55Address](bhsKey.EIP55Address),
+			Key:          new(bhsKey.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})
 		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
 	}
 	keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
 		// Gas lane.
-		Key:          ptr[types.EIP55Address](vrfKey.EIP55Address),
+		Key:          new(vrfKey.EIP55Address),
 		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 	})
 
@@ -56,10 +55,10 @@ func TestStartHeartbeats(t *testing.T) {
 
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		simulatedOverrides(t, gasLanePriceWei, keySpecificOverrides...)(c, s)
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
-		c.Feature.LogPoller = ptr(true)
-		c.EVM[0].FinalityDepth = ptr[uint32](2)
-		c.EVM[0].GasEstimator.LimitDefault = ptr(uint64(gasLimit))
+		c.EVM[0].MinIncomingConfirmations = new(uint32(2))
+		c.Feature.LogPoller = new(true)
+		c.EVM[0].FinalityDepth = new(uint32(2))
+		c.EVM[0].GasEstimator.LimitDefault = new(uint64(gasLimit))
 		c.EVM[0].LogPollInterval = commonconfig.MustNewDuration(time.Second)
 	})
 
