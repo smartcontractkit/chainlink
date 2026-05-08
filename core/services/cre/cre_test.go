@@ -66,16 +66,18 @@ func TestWorkflowRegistrySemverMajor(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestRegistriesConfigured(t *testing.T) {
+func TestWorkflowRegistryConfigured(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, registriesConfigured("", "", nil))
-	require.False(t, registriesConfigured("", "", []string{"", "  "}))
+	require.False(t, workflowRegistryConfigured("", nil, 1))
+	require.False(t, workflowRegistryConfigured("", []string{"", "  "}, 1))
+	require.True(t, workflowRegistryConfigured("0xabc", nil, 1))
 
-	require.True(t, registriesConfigured("0xabc", "", nil))
-	require.True(t, registriesConfigured("", "0xdef", nil))
-	require.True(t, registriesConfigured("", "", []string{"https://example"}))
-	require.True(t, registriesConfigured("", "", []string{"", "grpc://x"}))
+	require.False(t, workflowRegistryConfigured("", nil, 2))
+	require.False(t, workflowRegistryConfigured("", []string{"", "  "}, 2))
+	require.True(t, workflowRegistryConfigured("0xdef", nil, 2))
+	require.True(t, workflowRegistryConfigured("", []string{"https://example"}, 2))
+	require.True(t, workflowRegistryConfigured("", []string{"", "grpc://x"}, 2))
 }
 
 func TestNewLocalTestMetadataRegistry(t *testing.T) {

@@ -127,17 +127,17 @@ func (s *Services) close() error {
 	return s.WorkflowLimits.Close()
 }
 
-// registriesConfigured is true when any registry that drives CRE sync is configured:
-// external (capabilities) registry address, workflow registry contract address, or
-// workflow registry additional (e.g. gRPC) sources.
-func registriesConfigured(externalRegistryAddr, workflowRegistryAddr string, workflowAdditionalSourceURLs []string) bool {
-	if strings.TrimSpace(externalRegistryAddr) != "" {
-		return true
-	}
+// workflowRegistryConfigured is true when the workflow registry syncer should start.
+// v1 is on-chain only (non-empty contract address). v2 allows on-chain address and/or
+// additional (e.g. gRPC) sources with a non-empty URL.
+func workflowRegistryConfigured(workflowRegistryAddr string, additionalSourceURLs []string, major uint64) bool {
 	if strings.TrimSpace(workflowRegistryAddr) != "" {
 		return true
 	}
-	for _, u := range workflowAdditionalSourceURLs {
+	if major != 2 {
+		return false
+	}
+	for _, u := range additionalSourceURLs {
 		if strings.TrimSpace(u) != "" {
 			return true
 		}
@@ -243,14 +243,8 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	addURLs := make([]string, 0, len(capCfg.WorkflowRegistry().AdditionalSources()))
-	for _, src := range capCfg.WorkflowRegistry().AdditionalSources() {
-		if src != nil {
-			addURLs = append(addURLs, src.GetURL())
-		}
-	}
-	if !registriesConfigured(capCfg.ExternalRegistry().Address(), capCfg.WorkflowRegistry().Address(), addURLs) {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
+	if capCfg.ExternalRegistry().Address() == "" {
+		lggr.Warn("Skipping capabilities registry syncer, not configured")
 		return srvs, nil
 	}
 
@@ -267,18 +261,29 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
+	major, majorErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
+	if majorErr != nil {
+		return nil, majorErr
+	}
 	// WorkflowRegistrySyncer v2 supports offchain-only sources (e.g. gRPC/file) and can
 	// start without an on-chain registry address. v1 is on-chain only, so we only skip
 	// initialization when using v1.
 	if capCfg.WorkflowRegistry().Address() == "" {
-		major, err := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
-		if err != nil {
-			return nil, err
-		}
 		if major == 1 {
 			lggr.Warn("Skipping workflow registry syncer (v1 requires on-chain address)")
 			return srvs, nil
 		}
+	}
+
+	addURLs := make([]string, 0, len(capCfg.WorkflowRegistry().AdditionalSources()))
+	for _, src := range capCfg.WorkflowRegistry().AdditionalSources() {
+		if src != nil {
+			addURLs = append(addURLs, src.GetURL())
+		}
+	}
+	if !workflowRegistryConfigured(capCfg.WorkflowRegistry().Address(), addURLs, major) {
+		lggr.Warn("Skipping workflow registry syncer, not configured")
+		return srvs, nil
 	}
 
 	wfSyncer, billingClient, wfSyncerSrvcs, err := newWorkflowRegistrySyncer(
