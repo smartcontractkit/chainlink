@@ -64,6 +64,7 @@ type JWTClaims struct {
 	WorkflowOwner string // from authorization_details
 	RequestDigest string // from authorization_details
 	ExpiresAt     time.Time
+	OAuthScopes   []string // from scope / permissions claims
 }
 
 type jsonWebKey struct {
@@ -211,6 +212,11 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 		return nil, fmt.Errorf("invalid JWT auth token: %w", err)
 	}
 
+	if scopeErr := enforceVaultJWTOAuthScopes(req.Method, claims.OAuthScopes); scopeErr != nil {
+		v.lggr.Debugw("JWTBasedAuth OAuth scope rejected request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "scopes", claims.OAuthScopes, "error", scopeErr)
+		return nil, fmt.Errorf("invalid JWT auth token: %w", scopeErr)
+	}
+
 	requestDigest, err := req.Digest()
 	if err != nil {
 		v.lggr.Debugw("JWTBasedAuth failed to compute request digest", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "workflowOwner", claims.WorkflowOwner, "error", err)
@@ -223,8 +229,8 @@ func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request
 	}
 
 	if claims.WorkflowOwner == "" {
-		if err := validateOrgIDOwnedVaultRequest(req, claims.OrgID); err != nil {
-			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, err)
+		if ownerErr := validateOrgIDOwnedVaultRequest(req, claims.OrgID); ownerErr != nil {
+			wrappedErr := fmt.Errorf("%w: %w", ErrMissingWorkflowOwner, ownerErr)
 			v.lggr.Debugw("JWTBasedAuth missing workflow owner rejected non-org-owned request", "method", req.Method, "requestID", req.ID, "orgID", claims.OrgID, "error", wrappedErr)
 			return nil, fmt.Errorf("invalid JWT auth token: %w", wrappedErr)
 		}
@@ -306,11 +312,14 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 		return nil, err
 	}
 
+	oauthScopes := extractOAuthScopesFromClaims(claims)
+
 	return &JWTClaims{
 		OrgID:         orgID,
 		WorkflowOwner: workflowOwner,
 		RequestDigest: requestDigest,
 		ExpiresAt:     exp.Time,
+		OAuthScopes:   oauthScopes,
 	}, nil
 }
 

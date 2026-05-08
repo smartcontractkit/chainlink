@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/db"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 )
 
 var dbHandle *db.Handle
@@ -36,12 +37,15 @@ go -C tools/test run . gotestsum --format=dots -- -count=1 ./core/...
 # Run the full core test suite 10 times and collect statistics, debug logs, and more
 go -C tools/test run . diagnose --iterations 10 -- --timeout=15m ./core/...`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.Name() == "setup-testdb" || cmd.Name() == "remove-testdb" || cmd.Name() == "diagnose" {
+			return nil
+		}
 		conf, err := config.Load(cmd)
 		if err != nil {
 			return err
 		}
 
-		dbHandle, err = db.Ensure(cmd.Context(), conf)
+		dbHandle, err = db.Ensure(cmd.Context(), conf, output.NewFromApp(conf))
 		if err != nil {
 			return err
 		}

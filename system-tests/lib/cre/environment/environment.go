@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -47,7 +48,6 @@ type SetupOutput struct {
 	CreEnvironment                      *cre.Environment
 	Dons                                *cre.Dons
 	NodeOutput                          []*cre.NodeSetOutput
-	S3ProviderOutput                    *s3provider.Output
 	GatewayConnectors                   *cre.GatewayConnectors
 }
 
@@ -66,6 +66,7 @@ type SetupInput struct {
 	Features               cre.Features
 	GatewayWhitelistConfig gateway.WhitelistConfig
 	BlockchainDeployers    map[blockchain.ChainFamily]blockchains.Deployer
+	ContractVersions       map[cre.ContractType]*semver.Version
 
 	// allow to pass custom transformers for extensibility
 	ConfigFactoryFunctions               []cre.NodeConfigTransformerFn
@@ -110,11 +111,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
-	if s3Err != nil {
-		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
-	}
-
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Chip Router")))
 	_, err := ctfchiprouter.NewWithContext(ctx, input.ChipRouterInput)
 	if err != nil {
@@ -139,6 +135,7 @@ func SetupTestEnvironment(
 		Blockchains:           deployedBlockchains.Outputs,
 		Provider:              input.Provider,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
+		ContractVersions:      input.ContractVersions,
 	}
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Blockchains started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
@@ -173,6 +170,7 @@ func SetupTestEnvironment(
 		input.NodeSets,
 		input.Capabilities,
 		input.ConfigFactoryFunctions,
+		input.ChipRouterInput.Out.InternalGRPCURL,
 	)
 	if topoErr != nil {
 		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
@@ -432,7 +430,6 @@ func SetupTestEnvironment(
 		Dons:                                dons,
 		NodeOutput:                          startedDONs.NodeOutputs(),
 		CreEnvironment:                      creEnvironment,
-		S3ProviderOutput:                    s3Output,
 		GatewayConnectors:                   topology.GatewayConnectors,
 	}, nil
 }

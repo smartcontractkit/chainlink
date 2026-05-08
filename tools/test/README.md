@@ -20,6 +20,10 @@ make new_gotestsum ARGS="--format=testname -- -count=1 ./core/..."
 # Diagnose and fix flaky tests
 go -C tools/test run . diagnose --iterations 5 -- --timeout=9m ./core/...
 make new_test_diagnose ARGS="--iterations 5 -- --timeout=9m ./core/..."
+
+# Stop diagnose early only when a specific signal appears
+go -C tools/test run . diagnose --iterations 20 --fail-fast-on=timeout -- --timeout=9m ./core/...
+go -C tools/test run . diagnose --iterations 20 --fail-fast-on=slow --slow-threshold=10s -- ./core/...
 ```
 
 When **developing only inside this directory** (nested module), use `go run .` instead of `go -C tools/test`:
@@ -32,7 +36,7 @@ go run . diagnose --iterations 5 -- ./core/...
 
 ### AI Skill
 
-Use the [/diagnose-tests](/.agents/skills/diagnose-tests/SKILL.md) ai skill with your favorite agent to run a `diagnose` loop.
+Use the [chainlink-test-diagnosis](./.agents/skills/chainlink-test-diagnosis/SKILL.md) skill with your favorite agent to find, diagnose, and fix flaky, slow, and otherwise unstable tests.
 
 ## Why not just `go test`?
 

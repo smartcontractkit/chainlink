@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
 
 	cap_reg_v2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -28,9 +27,7 @@ import (
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
 )
 
 // must match nubmer of events we track in core/services/workflows/syncer/handler.go
@@ -294,23 +291,6 @@ func WaitForAllNodesToHaveExpectedFiltersRegistered(ctx context.Context, singleF
 	}
 
 	return nil
-}
-
-// StartS3 starts MiniIO as S3 Provider, if input is not nil. It's purpose is to store workflow-related artifacts.
-func StartS3(testLogger zerolog.Logger, input *s3provider.Input, stageGen *stagegen.StageGen) (*s3provider.Output, error) {
-	var s3ProviderOutput *s3provider.Output
-	if input != nil {
-		fmt.Print(libformat.PurpleText("%s", stageGen.Wrap("Starting MinIO")))
-		var s3ProviderErr error
-		s3ProviderOutput, s3ProviderErr = s3provider.NewMinioFactory().NewFrom(input)
-		if s3ProviderErr != nil {
-			return nil, errors.Wrap(s3ProviderErr, "minio provider creation failed")
-		}
-		testLogger.Debug().Msgf("S3Provider.Output value: %#v", s3ProviderOutput)
-		fmt.Print(libformat.PurpleText("%s", stageGen.WrapAndNext("MinIO started in %.2f seconds", stageGen.Elapsed().Seconds())))
-	}
-
-	return s3ProviderOutput, nil
 }
 
 func newORM(logger logger.Logger, chainID *big.Int, nodeIndex, externalPort int) (logpoller.ORM, *sqlx.DB, error) {

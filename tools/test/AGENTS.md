@@ -3,12 +3,13 @@ A test runner harness for the /chainlink repo.
 <goals>
 - Provide a single, easy command to setup and run tests in /chainlink repo, eliminating `make` command chaining.
 - Enable automatically re-running tests and analyzing results to catch and diagnose flakes and slow tests
-- Provide an AI skill for the process in `.agents/skills/diagnose-tests/SKILL.md`
+- Provide an AI skill for the process in `.agents/skills/chainlink-test-diagnosis/SKILL.md` (under `tools/test/`)
 </goals>
 
 <rules>
 - From /chainlink root, document `make new_test`, `make new_gotestsum`, and `make new_test_diagnose`. When working only inside this module, `go run . …` is fine.
-- Each output should account for a pretty, human-readable terminal experience, and a minimal version meant for AI ingestion
+- Each output should account for a pretty, human-readable terminal experience, and a minimal version meant for AI ingestion.
+- Harness-owned terminal messages go through `internal/output` (`--ai-output` vs human, inline progress policy); child test processes still use raw stdout/stderr passthrough where appropriate.
 </rules>
 
 <modes>

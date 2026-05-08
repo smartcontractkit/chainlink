@@ -20,8 +20,8 @@ import (
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 )
 
@@ -172,12 +172,12 @@ func deployWorkflowCmd() *cobra.Command {
 				}
 			}
 
-			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
+			workflowRegistryAddress, workflowRegistryVersion, resolveErr := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if resolveErr != nil {
 				return errors.Wrap(resolveErr, "❌ failed to resolve workflow registry")
 			}
 
-			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, "capabilities-registry-address")
+			capabilitiesRegistryAddress, capabilitiesRegistryVersion, resolveErr := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.CapabilitiesRegistry, capabilitiesRegistryAddressFlag, "capabilities-registry-address")
 			if resolveErr != nil {
 				return errors.Wrap(resolveErr, "❌ failed to resolve capabilities registry")
 			}
@@ -243,7 +243,7 @@ func deleteWorkflowCmd() *cobra.Command {
 				return err
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -306,7 +306,7 @@ func deleteAllWorkflowsCmd() *cobra.Command {
 				return err
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
@@ -541,8 +541,8 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver) (dbPort, nodeCo
 	return dbPort, nodeCount
 }
 
-func resolveContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, addressFlagName string) (string, *semver.Version, error) {
-	defaultVersion := envconfig.WorkflowRegistryV2Semver
+func resolveRegistryContractAddressAndVersion(cmd *cobra.Command, resolver *LocalCREStateResolver, contractType deployment.ContractType, explicitAddress, addressFlagName string) (string, *semver.Version, error) {
+	defaultVersion := contracts.V2Version
 
 	if cmd.Flags().Changed(addressFlagName) {
 		if strings.TrimSpace(explicitAddress) == "" {

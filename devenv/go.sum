@@ -1042,8 +1042,8 @@ github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0 h1:/bhoALRz
 github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0/go.mod h1:/dVVLXrsp+V0AbcYGJo3XMzKg3CkELsweA/TTopCsKE=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b h1:QuI6SmQFK/zyUlVWEf0GMkiUYBPY4lssn26nKSd/bOM=
 github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b/go.mod h1:qSTSwX3cBP3FKQwQacdjArqv0g6QnukjV4XuzO6UyoY=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.17 h1:QWXP12ewfRRVDbJcYJZBBCm5cP8Ds/KYpUc5VuAVYFk=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.17/go.mod h1:BALK9cj8sk12e15UF6uDhifHgIApa+6N11TcQfInEro=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.21 h1:lQs+r0+Jz9vFhmWPSo4bh0F1AePGIN7j++ex9cI4jA4=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.21/go.mod h1:BALK9cj8sk12e15UF6uDhifHgIApa+6N11TcQfInEro=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.9 h1:MVDx/Zl7qhikAx5vQgpTiyCkXw6sXgerUAU3WyJgWVY=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.9/go.mod h1:1ZKcfw6mNKvM5GNy8AjeviL0tJVZoqhLZbmskcSG68k=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 h1:VIxK8u0Jd0Q/VuhmsNm6Bls6Tb31H/sA3A/rbc5hnhg=

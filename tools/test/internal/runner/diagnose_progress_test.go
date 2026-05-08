@@ -75,28 +75,51 @@ func TestEllipsizeRight(t *testing.T) {
 
 func TestRenderDiagnoseProgressLine_smoke(t *testing.T) {
 	var b strings.Builder
-	p := newDiagnoseProgress(10)
-	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
-	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
-	require.Contains(t, b.String(), "iter 1/3")
-	require.Contains(t, b.String(), "1/10 10%")
-	require.Contains(t, b.String(), "✅")
-	require.NotContains(t, b.String(), "█")
+	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	runStart := t0.Add(-time.Hour)
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, runStart, t0, true)
+	got := b.String()
+	require.Contains(t, got, "iter 1/3 (2s)")
+	require.Contains(t, got, "1h0m0s")
+	require.NotContains(t, got, "·")
+	require.NotContains(t, got, "%")
+	require.NotContains(t, got, "✅")
+	require.NotContains(t, got, "⌛")
+	require.NotContains(t, got, "█")
 }
 
-func TestRenderDiagnoseProgressLine_inProgressShowsHourglass(t *testing.T) {
+func TestRenderDiagnoseProgressLine_noRunWallWhenRunStartZero(t *testing.T) {
 	var b strings.Builder
-	p := newDiagnoseProgress(10)
-	p.onTestJSONLine([]byte(`{"Action":"run","Package":"demo/pkg","Test":"TestX"}`))
-	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, true)
-	require.Contains(t, b.String(), "⌛")
-	require.NotContains(t, b.String(), "✅")
+	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, time.Time{}, t0, true)
+	got := b.String()
+	require.Contains(t, got, "iter 1/3 (2s)")
+	require.NotContains(t, got, "1h0m0s")
 }
 
-func TestRenderDiagnoseProgressLine_notTTY(t *testing.T) {
+func TestRenderDiagnoseProgressLine_notLiveInline(t *testing.T) {
 	var b strings.Builder
-	p := newDiagnoseProgress(10)
-	p.onTestJSONLine([]byte(`{"Action":"pass","Package":"demo/pkg"}`))
-	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, p, false)
+	t0 := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	renderDiagnoseProgressLine(&b, 1, 3, 2*time.Second, t0, t0, false)
 	require.Empty(t, b.String())
+}
+
+func TestRenderParallelDiagnoseProgressLine(t *testing.T) {
+	var b strings.Builder
+	t0 := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	now := t0.Add(100 * time.Second)
+	p := newParallelDiagnoseProgressAt(10, t0)
+	p.bumpCompletedForTest(1)
+	p.startAtForTest(1, t0.Add(-40*time.Second))
+	p.startAtForTest(3, t0.Add(-10*time.Second))
+
+	renderParallelDiagnoseProgressLine(&b, p, now, true)
+
+	got := b.String()
+	require.Contains(t, got, "done 1/10")
+	require.Contains(t, got, "iter 2 (2m20s)")
+	require.Contains(t, got, "iter 4 (1m50s)")
+	require.NotContains(t, got, "active")
+	require.NotContains(t, got, "·")
+	require.NotContains(t, got, "core/")
 }

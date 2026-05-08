@@ -62,7 +62,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				}
 			}
 
-			workflowRegistryAddress, contractsVersion, err := resolveContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
+			workflowRegistryAddress, contractsVersion, err := resolveRegistryContractAddressAndVersion(cmd, resolver, keystone_changeset.WorkflowRegistry, workflowRegistryAddressFlag, "workflow-registry-address")
 			if err != nil {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}

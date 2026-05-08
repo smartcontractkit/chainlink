@@ -4,13 +4,12 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -49,9 +48,12 @@ func dkgIdentityKeys(nca []ocr3.NodeKeys) ([]types.OnchainPublicKey, []types.Acc
 	return onchainKeys, transmitAccounts, nil
 }
 
-func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, dkgCfg dkgocrtypes.ReportingPluginConfig, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
+func GenerateDKGConfigFromNodes(cfg V3_1OracleConfig, nodes []deployment.Node, registryChainSel uint64, secrets ocr.OCRSecrets, extraSignerFamilies []string) (ocr3.OCR2OracleConfig, error) {
 	nca := ocr3.MakeNodeKeysSlice(nodes, registryChainSel, extraSignerFamilies)
-	cfgBytes, err := dkgCfg.MarshalBinary()
+	if cfg.DKGOffchainConfig == nil {
+		return ocr3.OCR2OracleConfig{}, errors.New("cannot provide empty DKGOffchainConfig")
+	}
+	cfgBytes, err := cfg.DKGOffchainConfig.Marshal()
 	if err != nil {
 		return ocr3.OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
 	}

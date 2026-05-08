@@ -531,6 +531,11 @@ PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
 
+[JobSpecReporter]
+Enabled = false
+PollingInterval = '1h0m0s'
+EnabledOCR2PluginTypes = ['median']
+
 [Sharding]
 ShardingEnabled = false
 ArbiterPort = 9876
