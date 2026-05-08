@@ -285,6 +285,29 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 		if !common.IsHexAddress(chainConfig.Payeer) {
 			return fmt.Errorf("chain %d: invalid payeer address: %s", chainSelector, chainConfig.Payeer)
 		}
+		if chainConfig.Payeer == "" || chainConfig.Payeer == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonTransferOwnershipInput) error {
+	if len(cfg.Chains) == 0 {
+		return fmt.Errorf("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		if !common.IsHexAddress(chainConfig.NewOwner) {
+			return fmt.Errorf("chain %d: invalid payeer address: %s", chainSelector, chainConfig.NewOwner)
+		}
+		if chainConfig.NewOwner == "" || chainConfig.NewOwner == "0x0000000000000000000000000000000000000000" {
+			return fmt.Errorf("chain %d: payeer address cannot be zero address", chainSelector)
+		}
 	}
 
 	return nil

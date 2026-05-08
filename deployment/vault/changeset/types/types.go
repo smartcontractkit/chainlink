@@ -122,3 +122,12 @@ type EthBalMonWithdrawChainConfig struct {
 type EthBalMonWithdrawInput struct {
 	Chains map[uint64]EthBalMonWithdrawChainConfig `json:"chains"`
 }
+
+// transferOwnership config
+type EthBalMonTransferOwnershipChainConfig struct {
+	NewOwner string `json:"new_owner"`
+}
+
+type EthBalMonTransferOwnershipInput struct {
+	Chains map[uint64]EthBalMonTransferOwnershipChainConfig `json:"chains"`
+}
