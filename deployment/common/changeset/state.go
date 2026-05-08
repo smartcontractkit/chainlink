@@ -91,7 +91,7 @@ func MaybeLoadMCMSWithTimelockState(env cldf.Environment, chainSelectors []uint6
 
 // MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
 // contracts deployed with DeployMCMSWithTimelock and loads them into a
-// MCMSWithTimelockState struct.  If none of the contracts are found, the state struct will be nil.
+// MCMSWithTimelockState struct. If none of the contracts are found, the state struct will be nil.
 //
 // An error indicates:
 // - Found but was unable to load a contract
@@ -169,8 +169,9 @@ func MaybeLoadMCMSWithTimelockChainState(
 			}
 			state.CancellerMcm = mcms
 		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
-			// ManyChainMultiSig @ v1.0.0 carries PROPOSER / BYPASSER / CANCELLER labels to assign each role address;
-			// labels disambiguate roles (see MaybeLoadMCMSWithTimelockChainState in state/evm.go).
+			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
+			// field. If a specifically typed contract already occupies the field, then this
+			// contract will be ignored.
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
