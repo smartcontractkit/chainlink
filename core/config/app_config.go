@@ -19,7 +19,6 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
-	InsecurePPROFHeap() bool
 	EVMEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool
@@ -46,7 +45,6 @@ type AppConfig interface {
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
-	Keeper() Keeper
 	Log() Log
 	Mercury() Mercury
 	OCR() OCR
@@ -65,6 +63,7 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
 }

@@ -5,10 +5,13 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/smartcontractkit/mcms"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -33,7 +36,7 @@ func buildNoOPEVM(e cldf.Environment, selector uint64) (mcmstypes.Transaction, e
 	if err != nil {
 		return mcmstypes.Transaction{}, err
 	}
-	state, err := state.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	state, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return mcmstypes.Transaction{}, err
 	}
@@ -84,7 +87,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 	operations := make([]mcmstypes.BatchOperation, 0, len(allSelectors))
 	timelocks := map[uint64]string{}
 	mcmAddresses := map[uint64]string{}
-	inspectors, err := proposalutils.McmsInspectors(e)
+	inspectors, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -100,7 +103,7 @@ func MCMSSignFireDrillChangeset(e cldf.Environment, cfg FireDrillConfig) (cldf.C
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
-			state, err := state.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
+			state, err := evmstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.EVMChains()[selector], addresses)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}

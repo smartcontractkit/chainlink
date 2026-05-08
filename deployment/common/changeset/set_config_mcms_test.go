@@ -9,10 +9,13 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	solanago "github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
+
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -73,7 +76,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 				},
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 
@@ -117,7 +120,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 							},
 						},
 					}),
-					runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+					runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 				}
 			},
 		},
@@ -133,11 +136,11 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 			timelockAddress := mcmsState.Timelock.Address()
 
 			// Create new configs for the MCMS contracts
-			cfgProposer := proposalutils.SingleGroupMCMSV2(t)
+			cfgProposer := cldftesthelpers.SingleGroupMCMS(t)
 			cfgProposer.Signers = append(cfgProposer.Signers, timelockAddress)
 			cfgProposer.Quorum = 2                             // quorum should change to 2 out of 2 signers
-			cfgCanceller := proposalutils.SingleGroupMCMSV2(t) // quorum should not change
-			cfgBypasser := proposalutils.SingleGroupMCMSV2(t)
+			cfgCanceller := cldftesthelpers.SingleGroupMCMS(t) // quorum should not change
+			cfgBypasser := cldftesthelpers.SingleGroupMCMS(t)
 			cfgBypasser.Signers = append(cfgBypasser.Signers, timelockAddress)
 			cfgBypasser.Signers = append(cfgBypasser.Signers, mcmsState.ProposerMcm.Address())
 			cfgBypasser.Quorum = 3 // quorum should change to 3 out of 3 signers
@@ -205,11 +208,11 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 	signer1Key, signer1Addr := createSolSigner(t)
 	_, signer2Addr := createSolSigner(t)
 
-	newCfgProposer := proposalutils.SingleGroupMCMSV2(t)
+	newCfgProposer := cldftesthelpers.SingleGroupMCMS(t)
 	newCfgProposer.Signers = append(newCfgProposer.Signers, signer1Addr)
 	newCfgProposer.Quorum = 2
-	newCfgCanceller := proposalutils.SingleGroupMCMSV2(t)
-	newCfgBypasser := proposalutils.SingleGroupMCMSV2(t)
+	newCfgCanceller := cldftesthelpers.SingleGroupMCMS(t)
+	newCfgBypasser := cldftesthelpers.SingleGroupMCMS(t)
 	newCfgBypasser.Signers = append(newCfgBypasser.Signers, signer1Addr)
 	newCfgBypasser.Quorum = 2
 
@@ -240,7 +243,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 				MCMSCfg: proposalutils.TimelockConfig{MinDelay: time.Second * 1},
 			}),
 			// We must sign with an additional signer since we changed the config quorum previously.
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner, signer1Key}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner, signer1Key}),
 		)
 		require.NoError(t, err)
 
@@ -263,7 +266,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 					},
 				},
 			}),
-			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner, signer1Key}),
+			runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner, signer1Key}),
 		)
 		require.NoError(t, err)
 
@@ -303,8 +306,8 @@ func TestValidateV2(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	cfg := proposalutils.SingleGroupMCMSV2(t)
-	cfgInvalid := proposalutils.SingleGroupMCMSV2(t)
+	cfg := cldftesthelpers.SingleGroupMCMS(t)
+	cfgInvalid := cldftesthelpers.SingleGroupMCMS(t)
 	cfgInvalid.Quorum = 0
 
 	tests := []struct {
@@ -550,11 +553,11 @@ func TestSetConfigMCMSV2WithTimelockQualifier(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load state via the CLLCCIP qualifier to build a valid proposer config
-	cllccipState, err := state.MaybeLoadMCMSWithTimelockStateWithQualifier(rt.Environment(), []uint64{selector}, cllccipQualifier)
+	cllccipState, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(rt.Environment(), []uint64{selector}, cllccipQualifier)
 	require.NoError(t, err)
 	require.NotNil(t, cllccipState[selector])
 
-	cfgProposer := proposalutils.SingleGroupMCMSV2(t)
+	cfgProposer := cldftesthelpers.SingleGroupMCMS(t)
 	cfgProposer.Signers = append(cfgProposer.Signers, cllccipState[selector].Timelock.Address())
 	cfgProposer.Quorum = 2
 
@@ -636,7 +639,7 @@ func TestSetConfigMCMSV2Partial(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a new config for only the proposer
-	cfgProposer := proposalutils.SingleGroupMCMSV2(t)
+	cfgProposer := cldftesthelpers.SingleGroupMCMS(t)
 	cfgProposer.Signers = append(cfgProposer.Signers, mcmsState.Timelock.Address())
 	cfgProposer.Quorum = 2
 
@@ -663,7 +666,7 @@ func TestSetConfigMCMSV2Partial(t *testing.T) {
 	require.Equal(t, cfgProposer.Quorum, newConf.Quorum)
 
 	// Check canceller and bypasser configs were not changed (should still be original)
-	originalCfg := proposalutils.SingleGroupMCMSV2(t)
+	originalCfg := cldftesthelpers.SingleGroupMCMS(t)
 
 	cancellerConf, err := inspector.GetConfig(t.Context(), mcmsState.CancellerMcm.Address().Hex())
 	require.NoError(t, err)

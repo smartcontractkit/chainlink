@@ -74,6 +74,20 @@ By default Local CRE builds the Chainlink image from the local branch. To use a 
 
 The deprecated `-p/--with-plugins-docker-image` flag still exists, but contributors should use TOML-based image selection instead.
 
+`env setup` ensures required managed images are present, including Job Distributor, Chip Router, Chip Ingress, and Chip Config.
+
+When pulling managed images from ECR, configure both registries:
+
+- `MAIN_AWS_ECR` for core managed CRE images
+- `SDLC_AWS_ECR` for Chip Router images
+
+Chip Router image resolution during startup is:
+
+1. `CTF_CHIP_ROUTER_IMAGE` (if set)
+2. `chip_router.image` from the active topology TOML
+
+If the resolved router image is missing locally, startup follows the same build-or-pull fallback path as the Beholder images.
+
 ## Beholder and Observability
 
 Use `--with-beholder` when you need the ChIP ingress stack and Red Panda. Use `--with-observability` or `--with-dashboards` when you need the Grafana-based observability stack.
@@ -84,6 +98,27 @@ Important related flags:
 - `--with-dashboards` to provision the dashboards on top of observability
 
 When dashboards are enabled, the CLI waits for Grafana at `http://localhost:3000`.
+
+### Chip Router Topology
+
+Chip Router is the ingress owner on `50051`. Nodes emit workflow telemetry to the router, and the router fans out to downstream subscribers.
+
+Current local ports:
+
+- `50050`: Chip Router admin API
+- `50051`: Chip Router ingress gRPC
+- `50052`: chip-config
+- `50053`: real ChIP / Beholder ingress gRPC
+
+In tests, sink-backed scenarios register a test sink with Chip Router. Beholder-backed scenarios register real ChIP / Beholder with Chip Router.
+
+To override the router image without changing committed TOMLs:
+
+```bash
+export CTF_CHIP_ROUTER_IMAGE=chip-router:<commit-sha>
+```
+
+This override takes precedence over `chip_router.image`.
 
 ## Storage and State
 
@@ -109,7 +144,7 @@ Hot-swapping guidance and workflow-specific commands are covered in:
 The Local CRE stack supports:
 
 - OTel-based observability
-- Chip ingress / Beholder integration
+- Chip Router fanout with Beholder integration
 - DX tracing
 
 If you need the full tracing stack for debugging or demos, enable observability during startup and follow the environment-specific tracing configuration described in the advanced page.

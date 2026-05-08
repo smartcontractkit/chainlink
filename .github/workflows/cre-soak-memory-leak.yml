@@ -28,18 +28,12 @@ jobs:
     environment:
       name: integration
       deployment: false
-    runs-on: runs-on=${{ github.run_id }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id
+      }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read
       id-token: write
-    env:
-      CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
-      CRE_SOAK_DURATION: "2h"
-      CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-      CTF_CHAINLINK_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink' }}:${{ inputs.chainlink_image_tag }}"
-      CHIP_INGRESS_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f"
-      CHIP_CONFIG_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969"
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -73,40 +67,50 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
         with:
-          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
+            secrets.AWS_ACCOUNT_ID_PROD) }}
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Install CTF binary
-        shell: bash
-        working-directory: core/scripts/cre/environment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CTF_TAG: "framework/v0.15.2"
-        run: |
-          echo "::startgroup::Install CTF binary"
-          mkdir -p bin
-          gh release download "${CTF_TAG}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
-          tar -xzf ctf.tar.gz
-          mv ctf bin/ctf
-          chmod +x bin/ctf
-          echo "::endgroup::"
-
       - name: Start observability stack
         shell: bash
         working-directory: core/scripts/cre/environment
+        env:
+          OBS_MAX_ATTEMPTS: "3"
+          OBS_RETRY_DELAY_SECONDS: "15"
         run: |
-          echo "::startgroup::Starting observability stack (required by leak package)"
-          ./bin/ctf obs up -f
-          echo "::endgroup::"
+          set -u
+          attempt=1
+          while [[ "$attempt" -le "$OBS_MAX_ATTEMPTS" ]]; do
+            echo "::group::Starting observability stack (attempt ${attempt}/${OBS_MAX_ATTEMPTS}, required by leak package)"
+            if go run . obs up -f; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            if [[ "$attempt" -lt "$OBS_MAX_ATTEMPTS" ]]; then
+              go run . obs down || true
+              sleep "$OBS_RETRY_DELAY_SECONDS"
+            fi
+            attempt=$((attempt + 1))
+          done
+          exit 1
 
       - name: Start local CRE
-        shell: bash
-        working-directory: core/scripts/cre/environment
-        run: |
-          echo "::startgroup::Starting local CRE"
-          go run . env start --cleanup-on-error=false
-          echo "::endgroup::"
+        uses: ./.github/actions/start-local-cre-environment
+        with:
+          jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
+            }}.amazonaws.com/job-distributor:0.22.1"
+          chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
+            'chainlink' }}:${{ inputs.chainlink_image_tag }}"
+          ctf-configs: configs/workflow-gateway-capabilities-don.toml
+          chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER
+            }}.dkr.ecr.${{secrets.QA_AWS_REGION
+            }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          retry-count: "3"
+          retry-delay-seconds: "15"
+          cleanup-on-error: "false"
+          working-directory: core/scripts/cre/environment
 
       - name: Install gotestsum
         shell: bash
@@ -117,7 +121,15 @@ jobs:
         shell: bash
         working-directory: system-tests/tests
         env:
-          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+          CRE_SOAK_DURATION: "2h"
+          CTF_CHIP_INGRESS_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9\
+            806ebee2f"
+          CTF_CHIP_CONFIG_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION
+            }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced018\
+            8f29b969"
         run: |
           gotestsum \
             --jsonfile=/tmp/gotest.log \
@@ -149,7 +161,7 @@ jobs:
     name: Notify about test Failure
     #if: failure()
     if: false # TODO: Silence for now
-    needs: [soak]
+    needs: [ soak ]
     environment:
       name: integration
       deployment: false

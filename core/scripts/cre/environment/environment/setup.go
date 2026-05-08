@@ -51,6 +51,7 @@ func init() {
 	SetupCmd.Flags().StringVarP(&config.ConfigPath, "config", "c", DefaultSetupConfigPath, "Path to the TOML configuration file")
 	SetupCmd.Flags().BoolVarP(&noPrompt, "no-prompt", "y", false, "Automatically accept defaults and do not prompt for user input")
 	SetupCmd.Flags().BoolVarP(&purge, "purge", "p", false, "Purge all existing images and re-download/re-build them")
+	SetupCmd.Flags().BoolVarP(&config.Build, "build", "b", false, "Build images locally instead of pulling from ECR (useful on Apple Silicon)")
 	SetupCmd.Flags().BoolVar(&withBilling, "with-billing", false, "Include billing service in the setup")
 
 	EnvironmentCmd.AddCommand(SetupCmd)
@@ -60,6 +61,7 @@ func init() {
 type SetupConfigFile struct {
 	General        GeneralConfig         `toml:"general"`
 	JobDistributor JobDistributorConfig  `toml:"job_distributor"`
+	ChipRouter     *ChipRouterConfig     `toml:"chip_router"`
 	ChipIngress    *ChipIngressConfig    `toml:"chip_ingress"`
 	ChipConfig     *ChipConfigConfig     `toml:"chip_config"`
 	BillingService *BillingServiceConfig `toml:"billing_platform_service"`
@@ -74,6 +76,12 @@ type GeneralConfig struct {
 
 // JobDistributorConfig contains job distributor image configuration
 type JobDistributorConfig struct {
+	BuildConfig BuildConfig `toml:"build_config"`
+	PullConfig  PullConfig  `toml:"pull_config"`
+}
+
+// ChipRouterConfig contains chip router image configuration
+type ChipRouterConfig struct {
 	BuildConfig BuildConfig `toml:"build_config"`
 	PullConfig  PullConfig  `toml:"pull_config"`
 }
@@ -103,11 +111,20 @@ type ObservabilityConfig struct {
 	TargetPath string `toml:"target_path"`
 }
 
-var (
-	ECR = os.Getenv("AWS_ECR") // TODO this can be moved to an env file
+const DefaultSetupConfigPath = "configs/setup.toml"
+
+const (
+	mainECREnvVarName = "MAIN_AWS_ECR"
+	sdlcECREnvVarName = "SDLC_AWS_ECR"
 )
 
-const DefaultSetupConfigPath = "configs/setup.toml"
+func mainECR() string {
+	return os.Getenv(mainECREnvVarName)
+}
+
+func sdlcECR() string {
+	return os.Getenv(sdlcECREnvVarName)
+}
 
 type EnsureOption = string
 
@@ -119,6 +136,7 @@ const (
 // SetupConfig represents the configuration for the setup command
 type SetupConfig struct {
 	ConfigPath string
+	Build      bool // when true, images are built locally instead of pulled from ECR
 }
 
 type BuildConfig struct {
@@ -225,6 +243,10 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 		tag    = c.Branch
 		commit = c.Commit
 	)
+	if strings.TrimSpace(c.LocalRepo) != "" {
+		repo = c.LocalRepo
+	}
+
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(c.LocalImage, ":")[0], "-", " ")
 	name = cases.Title(language.English).String(name)
@@ -246,6 +268,13 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 			_ = os.RemoveAll(workingDir)
 		}()
 	}
+
+	// When building on a non-amd64 host, override the TARGETOS/TARGETARCH build
+	// args so the Go binary is compiled for the correct architecture. Many
+	// Dockerfiles in this project declare `ARG TARGETARCH=amd64` which defaults
+	// to amd64 regardless of --platform. Passing --build-arg makes the cache key
+	// differ from the amd64 entry, forcing a fresh compilation.
+	overrideArch := runtime.GOARCH != "amd64"
 
 	// Save current directory and change to working directory
 	currentDir, err := os.Getwd()
@@ -269,10 +298,20 @@ func (c BuildConfig) Build(ctx context.Context) (localImage string, err error) {
 	}
 
 	// Build Docker image
-	args := []string{"build", "-t", c.LocalImage, "-f", c.Dockerfile, c.DockerCtx}
+	args := []string{"build", "--platform", "linux/" + runtime.GOARCH}
+	if overrideArch {
+		// Override TARGETOS/TARGETARCH build args so Dockerfiles with
+		// `ARG TARGETARCH=amd64` compile the correct binary. This also changes
+		// the cache key, causing Docker to recompile instead of reusing an
+		// amd64-cached layer.
+		args = append(args, "--build-arg", "TARGETOS=linux", "--build-arg", "TARGETARCH="+runtime.GOARCH)
+	}
+	args = append(args, "-t", c.LocalImage, "-f", c.Dockerfile)
 	if c.RequireGithubToken {
 		args = append(args, "--build-arg", "GITHUB_TOKEN="+os.Getenv("GITHUB_TOKEN"))
 	}
+	// Context must be the final positional argument.
+	args = append(args, c.DockerCtx)
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Stdout = os.Stdout
@@ -291,9 +330,20 @@ type PullConfig struct {
 	EcrImage   string `toml:"ecr_image"`
 }
 
+func (c PullConfig) MissingRegistryEnvVars() []string {
+	var missing []string
+	if strings.Contains(c.EcrImage, "{{.MAIN_ECR}}") && mainECR() == "" {
+		missing = append(missing, mainECREnvVarName)
+	}
+	if strings.Contains(c.EcrImage, "{{.SDLC_ECR}}") && sdlcECR() == "" {
+		missing = append(missing, sdlcECREnvVarName)
+	}
+	return missing
+}
+
 func (c PullConfig) Pull(ctx context.Context, awsProfile string) (localImage string, err error) {
-	if ECR == "" {
-		return "", errors.New("AWS_ECR environment variable is not set. See README for more details and references to find the correct ECR URL or visit https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI")
+	if missing := c.MissingRegistryEnvVars(); len(missing) > 0 {
+		return "", fmt.Errorf("%s environment variable(s) must be set. See README for setup details and https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/1045495923/Configure+the+AWS+CLI", strings.Join(missing, ", "))
 	}
 
 	tmpl, tmplErr := template.New("ecr-image").Parse(c.EcrImage)
@@ -302,7 +352,8 @@ func (c PullConfig) Pull(ctx context.Context, awsProfile string) (localImage str
 	}
 
 	templateData := map[string]string{
-		"ECR": ECR,
+		"MAIN_ECR": mainECR(),
+		"SDLC_ECR": sdlcECR(),
 	}
 
 	var configBuffer bytes.Buffer
@@ -319,6 +370,13 @@ type ImageConfig struct {
 	PullConfig  PullConfig
 }
 
+func (c ImageConfig) WithLocalImage(localImage string) ImageConfig {
+	out := c
+	out.BuildConfig.LocalImage = localImage
+	out.PullConfig.LocalImage = localImage
+	return out
+}
+
 func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, awsProfile string, noPrompt bool, defaultOption EnsureOption, purge bool) (localImage string, err error) {
 	// If purge flag is set, remove existing images first
 	if purge {
@@ -333,7 +391,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 			logger.Warn().Msgf("Failed to remove local image %s: %v", c.BuildConfig.LocalImage, err)
 		}
 
-		// Remove ECR image if it exists
+		// Remove remote-tagged image if it exists
 		_, err = dockerClient.ImageRemove(ctx, c.PullConfig.EcrImage, image.RemoveOptions{Force: true})
 		if err != nil {
 			logger.Warn().Msgf("Failed to remove ECR image %s: %v", c.PullConfig.EcrImage, err)
@@ -354,7 +412,7 @@ func (c ImageConfig) Ensure(ctx context.Context, dockerClient *client.Client, aw
 		logger.Info().Msgf("🔍 %s image not found.", name)
 		logger.Info().Msgf("Would you like to Pull (requires AWS SSO) or build the %s image? (P/b) [B]", name)
 
-		var input = PullOption // Default to Pull
+		var input = defaultOption // default controlled by the caller (PullOption or BuildOption)
 		if !noPrompt {
 			_, err := fmt.Scanln(&input)
 			if err != nil {
@@ -476,15 +534,37 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 	}
 
+	defaultOption := PullOption
+	if config.Build {
+		defaultOption = BuildOption
+	}
+
 	jdConfig := ImageConfig{
 		BuildConfig: cfg.JobDistributor.BuildConfig,
 		PullConfig:  cfg.JobDistributor.PullConfig,
 	}
 
-	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+	jdLocalImage, jdErr := jdConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 	if jdErr != nil {
 		setupErr = errors.Wrap(jdErr, "failed to ensure Job Distributor image")
 		return
+	}
+
+	var chipRouterLocalImage string
+	if cfg.ChipRouter != nil {
+		chipRouterConfig := ImageConfig{
+			BuildConfig: cfg.ChipRouter.BuildConfig,
+			PullConfig:  cfg.ChipRouter.PullConfig,
+		}
+
+		var err error
+		chipRouterLocalImage, err = chipRouterConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
+		if err != nil {
+			setupErr = errors.Wrap(err, "failed to ensure Chip Router image")
+			return
+		}
+	} else {
+		logger.Warn().Str("config file", config.ConfigPath).Msg("Skipping Chip Router setup, because configuration is not provided in the config file")
 	}
 
 	var chipIngressLocalImage string
@@ -495,7 +575,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipIngressLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Ingress image")
 			return
@@ -512,7 +592,7 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 		}
 
 		var err error
-		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, PullOption, purge)
+		chipConfigLocalImage, err = chipConfig.Ensure(ctx, dockerClient, cfg.General.AWSProfile, noPrompt, defaultOption, purge)
 		if err != nil {
 			setupErr = errors.Wrap(err, "failed to ensure Atlas Chip Config image")
 			return
@@ -560,6 +640,9 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("✅ Setup Summary:")
 	logger.Info().Msg("   ✓ Docker is installed and configured correctly")
 	logger.Info().Msgf("   ✓ Job Distributor image %s is available", jdLocalImage)
+	if chipRouterLocalImage != "" {
+		logger.Info().Msgf("   ✓ Chip Router image %s is available", chipRouterLocalImage)
+	}
 	if chipIngressLocalImage != "" {
 		logger.Info().Msgf("   ✓ Atlas Chip Ingress image %s is available", chipIngressLocalImage)
 	}
@@ -586,7 +669,6 @@ func RunSetup(ctx context.Context, config SetupConfig, noPrompt, purge, withBill
 	logger.Info().Msg("1. Navigate to the CRE environment directory: cd core/scripts/cre/environment")
 	logger.Info().Msg("2. Start the environment: go run . env start")
 	logger.Info().Msg("   Optional: Add --with-example to start with an example workflow")
-	logger.Info().Msg("   Optional: Add --with-plugins-docker-image to use a pre-built image with capabilities")
 	logger.Info().Msg("   Optional: Add --with-beholder to start the Beholder")
 	logger.Info().Msg("\nFor more information, see the documentation in core/scripts/cre/environment/README.md")
 
@@ -744,8 +826,8 @@ func checkDockerConfiguration() error {
 	return nil
 }
 
-// localImageExists checks if the local image or ECR image exists
-// if ECR image exists, it tags it as the local image
+// localImageExists checks if the local image or rendered remote image exists
+// if the rendered remote image exists, it tags it as the local image
 func localImageExists(ctx context.Context, dockerClient *client.Client, localImage, ecrImage string) (bool, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")
@@ -757,7 +839,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 		return true, nil
 	}
 
-	// Check if ECR image exists
+	// Check if rendered remote image exists
 	_, err = dockerClient.ImageInspect(ctx, ecrImage)
 	if err == nil {
 		logger.Info().Msgf("✓ %s image (%s) is available", name, ecrImage)
@@ -771,7 +853,7 @@ func localImageExists(ctx context.Context, dockerClient *client.Client, localIma
 	return false, nil
 }
 
-// pullImage pulls the Job Distributor image from ECR
+// pullImage pulls the configured image from its remote registry and retags it locally.
 func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage string) (string, error) {
 	logger := framework.L
 	name := strings.ReplaceAll(strings.Split(localImage, ":")[0], "-", " ")

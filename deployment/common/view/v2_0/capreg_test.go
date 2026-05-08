@@ -8,15 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
+	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 )
 
 type fields struct {
-	ContractMetaData types.ContractMetaData
+	ContractMetaData commoncldchangesets.ContractMetaData
 	Capabilities     []v2_0.CapabilityView
 	Nodes            []v2_0.NodeView
 	Dons             []v2_0.DonView

@@ -402,11 +402,11 @@ func newMockResponseCache() *mockResponseCache {
 	}
 }
 
-func (m *mockResponseCache) Set(workflowID string, req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse) {
+func (m *mockResponseCache) Set(req gateway_common.OutboundHTTPRequest, response gateway_common.OutboundHTTPResponse) {
 	m.setCallCount++
 }
 
-func (m *mockResponseCache) Fetch(ctx context.Context, workflowID string, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse {
+func (m *mockResponseCache) Fetch(ctx context.Context, req gateway_common.OutboundHTTPRequest, fetchFn func() gateway_common.OutboundHTTPResponse, storeOnFetch bool) gateway_common.OutboundHTTPResponse {
 	m.fetchCallCount++
 	return fetchFn()
 }

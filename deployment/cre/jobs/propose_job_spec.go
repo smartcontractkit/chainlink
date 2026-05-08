@@ -196,6 +196,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				BootstrapperOCR3Urls:       jobInput.BootstrapperOCR3Urls,
 				DKGContractAddress:         dkgContractAddr,
 				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,
+				Auth0:                      jobInput.Auth0,
 				DONFilters:                 input.DONFilters,
 				ExtraLabels:                input.ExtraLabels,
 			},

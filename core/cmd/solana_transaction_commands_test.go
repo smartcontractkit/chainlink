@@ -15,10 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	solanatesting "github.com/smartcontractkit/chainlink-solana/pkg/solana/testing"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
@@ -28,16 +27,14 @@ func TestShell_SolanaSendSol(t *testing.T) {
 	ctx := testutils.Context(t)
 	chainID := "localnet"
 	url := solanatesting.SetupLocalSolNode(t)
-	node := solcfg.Node{
-		Name: ptr(t.Name()),
-		URL:  config.MustParseURL(url),
+	chain := chainlink.RawConfig{
+		"ChainID": chainID,
+		"Enabled": true,
+		"Nodes": []any{
+			map[string]any{"Name": t.Name(), "URL": url},
+		},
 	}
-	cfg := solcfg.TOMLConfig{
-		ChainID: &chainID,
-		Nodes:   solcfg.Nodes{&node},
-		Enabled: ptr(true),
-	}
-	app := solanaStartNewApplication(t, &cfg)
+	app := solanaStartNewApplication(t, chain)
 	from, err := app.GetKeyStore().Solana().Create(ctx)
 	require.NoError(t, err)
 	to, err := solanago.NewRandomPrivateKey()

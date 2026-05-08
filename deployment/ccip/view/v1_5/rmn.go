@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type RMNView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	ConfigDetails rmn_contract.GetConfigDetails `json:"configDetails"`
 }
 
@@ -17,7 +18,7 @@ func GenerateRMNView(r *rmn_contract.RMNContract) (RMNView, error) {
 	if r == nil {
 		return RMNView{}, errors.New("cannot generate view for nil RMN")
 	}
-	meta, err := types.NewContractMetaData(r, r.Address())
+	meta, err := commoncldchangesets.NewContractMetaData(r, r.Address())
 	if err != nil {
 		return RMNView{}, fmt.Errorf("failed to generate contract metadata for RMN: %w", err)
 	}

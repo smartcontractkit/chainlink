@@ -8,13 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 )
@@ -26,7 +28,7 @@ type MCMSTransaction struct {
 	Description   string
 	Address       common.Address
 	Config        *contracts.MCMSConfig
-	MCMSContracts *commonchangeset.MCMSWithTimelockState
+	MCMSContracts *evmstate.MCMSWithTimelockState
 }
 
 func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (*mcmstypes.BatchOperation, *types.Transaction, error) {
@@ -37,7 +39,7 @@ func (m *MCMSTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return nil, nil, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return nil, tx, err
 	}
@@ -69,7 +71,7 @@ func (m *MCMSTransaction) BuildProposal(operations []mcmstypes.BatchOperation) (
 	mcmsAddressesPerChain := map[uint64]string{
 		m.ChainSel: mcmContract.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return nil, err
 	}

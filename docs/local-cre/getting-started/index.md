@@ -42,10 +42,16 @@ cd core/scripts/cre/environment
 go run . env start --auto-setup
 ```
 
+If you need setup/startup to pull managed images from ECR, provide both registries:
+
+```bash
+MAIN_AWS_ECR=<main-registry> SDLC_AWS_ECR=<sdlc-registry> go run . env start --auto-setup
+```
+
 Deploy a first workflow:
 
 ```bash
-go run . workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron_example
+go run . env workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron_example
 ```
 
 The environment command writes Local CRE state to the repo-local state file, which is what the test helpers later consume.
@@ -84,13 +90,13 @@ Once the environment is up, run the CRE smoke package:
 go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
 ```
 
-For the default smoke-test flow, start Local CRE without `--with-beholder`. Most tests start the ChIP test sink on the default gRPC port (`50051`), and Beholder uses that same port through Chip Ingress.
+For the default smoke-test flow, start Local CRE without `--with-beholder`. Chip Router owns ingress on `50051`, and tests register downstream subscribers behind the router (test sink by default, Beholder for Beholder-backed scenarios).
 
-Enable Beholder only when:
+Enable Beholder when:
 
 - you are running Beholder-specific tests
 - you intentionally need the Beholder stack for debugging
-- you move Beholder to a different port with `--grpc-port` so it does not conflict with the test sink
+- you want to inspect workflow events in the Beholder stack during debugging
 
 The smoke tests default to the capability-enabled topology when you do not override `CTF_CONFIGS`, and the test helpers can start Local CRE automatically if the state file does not exist yet.
 

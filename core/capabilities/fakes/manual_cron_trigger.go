@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-co-op/gocron/v2"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -25,6 +26,7 @@ var _ cronserver.CronCapability = (*ManualCronTriggerService)(nil)
 const ServiceName = "CronTriggerService"
 const ID = "cron-trigger@1.0.0"
 const defaultFastestScheduleIntervalSeconds = 1
+const allowSeconds = true
 
 var manualCronTriggerInfo = capabilities.MustNewCapabilityInfo(
 	ID,
@@ -43,10 +45,17 @@ type ManualCronTriggerService struct {
 	callbackCh       map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	workflowIDs      map[string]string                                           // triggerID -> workflowID mapping
+	triggerConfigs   map[string]*crontypedapi.Config
+	scheduler        gocron.Scheduler
 }
 
-func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerService {
+func NewManualCronTriggerService(parentLggr logger.Logger) (*ManualCronTriggerService, error) {
 	lggr := logger.Named(parentLggr, "CronTriggerService") // ManualCronTriggerService
+
+	scheduler, err := gocron.NewScheduler()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cron scheduler: %w", err)
+	}
 
 	return &ManualCronTriggerService{
 		CapabilityInfo:   manualCronTriggerInfo,
@@ -55,7 +64,9 @@ func NewManualCronTriggerService(parentLggr logger.Logger) *ManualCronTriggerSer
 		callbackCh:       make(map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]),
 		legacyCallbackCh: make(chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload]), //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 		workflowIDs:      make(map[string]string),
-	}
+		triggerConfigs:   make(map[string]*crontypedapi.Config),
+		scheduler:        scheduler,
+	}, nil
 }
 
 func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies core.StandardCapabilitiesDependencies) error {
@@ -75,8 +86,7 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies 
 
 	f.config = cronConfig
 
-	err := f.Start(ctx)
-	if err != nil {
+	if err := f.Start(ctx); err != nil {
 		return fmt.Errorf("error when starting trigger service: %w", err)
 	}
 
@@ -84,8 +94,9 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies 
 }
 
 func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], caperrors.Error) {
-	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload])
+	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload], 1)
 	f.workflowIDs[triggerID] = metadata.WorkflowID
+	f.triggerConfigs[triggerID] = input
 	return f.callbackCh[triggerID], nil
 }
 
@@ -105,7 +116,28 @@ func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID strin
 	return nil
 }
 
-func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, scheduledExecutionTime time.Time) error {
+func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, skipWait <-chan struct{}) error {
+	config, exists := f.triggerConfigs[triggerID]
+	if !exists {
+		return fmt.Errorf(`trigger config "%s" not found`, triggerID)
+	}
+
+	jobFired := make(chan struct{}, 1)
+	job, err := f.scheduler.NewJob(
+		gocron.CronJob(config.Schedule, allowSeconds),
+		gocron.NewTask(func() {
+			defer close(jobFired)
+			jobFired <- struct{}{}
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create cron job: %w", err)
+	}
+	scheduledExecutionTime, err := job.NextRun()
+	if err != nil {
+		return fmt.Errorf("failed to get next scheduled execution time: %w", err)
+	}
+
 	f.lggr.Debugf("ManualTrigger: %s", scheduledExecutionTime.Format(time.RFC3339Nano))
 
 	triggerEvent := f.createManualTriggerEvent(scheduledExecutionTime)
@@ -128,16 +160,22 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 		f.lggr.Errorw("failed to emit trigger execution started event", "err", err)
 	}
 
-	go func() {
-		select {
-		case f.callbackCh[triggerID] <- triggerEvent:
-			// Successfully sent trigger response
-		case <-ctx.Done():
-			// Context cancelled, cleanup goroutine
-			f.lggr.Debug("ManualTrigger goroutine cancelled due to context cancellation")
-		}
+	defer func() {
+		_ = f.scheduler.RemoveJob(job.ID())
 	}()
 
+	// Either wait for cron scheduler or skip wait signal
+	select {
+	case <-skipWait:
+		break
+	case <-jobFired:
+		break
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	// Sent trigger response
+	f.callbackCh[triggerID] <- triggerEvent
 	return nil
 }
 
@@ -161,11 +199,15 @@ func (f *ManualCronTriggerService) createManualTriggerEvent(scheduledExecutionTi
 
 func (f *ManualCronTriggerService) Start(ctx context.Context) error {
 	f.lggr.Debugw("Starting ManualCronTriggerService")
+	f.scheduler.Start()
 	return nil
 }
 
 func (f *ManualCronTriggerService) Close() error {
 	f.lggr.Debug("Closing ManualCronTriggerService")
+	if err := f.scheduler.Shutdown(); err != nil {
+		f.lggr.Errorw("failed to close scheduler", "err", err)
+	}
 	return nil
 }
 

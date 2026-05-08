@@ -8,7 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	"golang.org/x/sync/errgroup"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -52,7 +55,7 @@ func (d EvmDescribedTransaction) Describe() string {
 }
 
 func (d EvmDescribedTransaction) ToMCMS(selector uint64) (mcmstypes.Transaction, error) {
-	return proposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
+	return cldfproposalutils.TransactionForChain(selector, d.Tx.To().Hex(), d.Tx.Data(), d.Tx.Value(), "", []string{})
 }
 
 type SolanaDescribedTransaction struct {
@@ -408,7 +411,7 @@ func (d *DeployerGroup) enactMcms() (cldf.ChangesetOutput, error) {
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get proposer mcms for chain: %w", err)
 		}
-		inspectors, err := proposalutils.McmsInspectors(d.e)
+		inspectors, err := cldfproposalutils.McmsInspectors(d.e)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
 		}
@@ -585,5 +588,5 @@ func addressForChain(e cldf.Environment, selector uint64) (map[string]cldf.TypeA
 }
 
 func addressForChainFromDatastore(e cldf.Environment, selector uint64, qualifier string) (map[string]cldf.TypeAndVersion, error) {
-	return state.LoadAddressesFromDataStore(e.DataStore, selector, qualifier)
+	return evmstate.LoadAddressesFromDataStore(e.DataStore, selector, qualifier) //nolint:staticcheck // will be refactored once usages are removed
 }

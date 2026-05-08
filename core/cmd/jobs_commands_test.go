@@ -54,7 +54,6 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 				UpdatedAt: updatedAt,
 			},
 			OffChainReportingSpec: nil,
-			KeeperSpec:            nil,
 			PipelineSpec: presenters.PipelineSpec{
 				ID:           1,
 				DotDAGSource: "ds1 [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",

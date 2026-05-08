@@ -15,7 +15,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -202,7 +201,7 @@ func (g *generalConfig) CosmosConfigs() RawConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solcfg.TOMLConfigs {
+func (g *generalConfig) SolanaConfigs() RawConfigs {
 	return g.c.Solana
 }
 
@@ -458,10 +457,6 @@ func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
-func (g *generalConfig) InsecurePPROFHeap() bool {
-	return *g.c.InsecurePPROFHeap
-}
-
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }
@@ -472,10 +467,6 @@ func (g *generalConfig) JobPipelineResultWriteQueueDepth() uint64 {
 
 func (g *generalConfig) JobPipeline() coreconfig.JobPipeline {
 	return &jobPipelineConfig{c: g.c.JobPipeline}
-}
-
-func (g *generalConfig) Keeper() config.Keeper {
-	return &keeperConfig{c: g.c.Keeper}
 }
 
 func (g *generalConfig) Log() config.Log {
@@ -598,6 +589,10 @@ func (g *generalConfig) Billing() coreconfig.Billing {
 
 func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
+}
+
+func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
+	return &jobSpecReporterConfig{c: g.c.JobSpecReporter}
 }
 
 func (g *generalConfig) Sharding() coreconfig.Sharding {

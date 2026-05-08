@@ -41,6 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
+	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
+	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
@@ -52,9 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
-	reportcodecv3 "github.com/smartcontractkit/chainlink-evm/pkg/mercury/v3/reportcodec"
-	mercuryverifier "github.com/smartcontractkit/chainlink-evm/pkg/mercury/verifier"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
@@ -592,7 +592,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 {
+				if feedID == quoteStreamFeedID1 { //nolint
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()

@@ -1,4 +1,3 @@
-//nolint:revive // types is a common package name
 package types
 
 import (

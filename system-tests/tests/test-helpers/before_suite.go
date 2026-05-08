@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -26,20 +27,21 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
+	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
+	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -97,12 +99,16 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 	}
 
 	t.Cleanup(func() {
-		if t.Failed() {
+		// we only want to check for panics in Docker containers if the test is not a subtest
+		// because all subtests share the same Docker containers, so we don't need to run that check for each subtest
+		if t.Failed() && !strings.Contains(t.Name(), "/") {
 			framework.L.Warn().Msg("Test failed - checking for panics in Docker containers...")
-			foundPanics := infra.CheckContainersForPanics(framework.L, 100)
+			foundPanics := framework.CheckContainersForPanics(100)
 			if !foundPanics {
 				framework.L.Warn().Msgf("No panic patterns detected in Docker container logs")
-				infra.PrintFailedContainerLogs(framework.L, 30)
+				if logsErr := framework.PrintFailedContainerLogs(30); logsErr != nil {
+					framework.L.Error().Err(logsErr).Msg("failed to print failed Docker container logs")
+				}
 			}
 		}
 	})
@@ -123,7 +129,10 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 	sharedEnvMu.Unlock()
 
 	entry.once.Do(func() {
+		_, err := crevault.EnsureSharedTestLinkingServiceStarted()
+		require.NoError(t, err, "failed to ensure linking service is running")
 		createEnvironment(t, tconf, flags...)
+		require.NoError(t, chiprouter.EnsureStarted(t.Context()), "failed to ensure chip ingress router is running")
 		in := getEnvironmentConfig(t)
 		creEnvironment, dons, err := environment.BuildFromSavedState(t.Context(), cldlogger.NewSingleFileLogger(t), in)
 		if err != nil {
@@ -222,7 +231,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
 		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
 		require.NoErrorf(t, txOptsErr, "failed to create deployer key for chain selector %d", evmChain.ChainSelector())
-		deployerKey.Context = t.Context() //nolint:fatcontext // false-positive
+		deployerKey.Context = t.Context()
 		require.NoErrorf(
 			t,
 			setCldfEVMDeployerKey(testEnv.CreEnvironment.CldfEnvironment, evmChain.ChainSelector(), deployerKey),
@@ -295,7 +304,7 @@ func GetTestConfig(t *testing.T, configPath string) *ttypes.TestConfig {
 		EnvironmentDirPath:     environmentDirPath,
 		EnvironmentConfigPath:  filepath.Join(environmentDirPath, configPath), // change to your desired config, if you want to use another topology
 		EnvironmentStateFile:   filepath.Join(environmentDirPath, envconfig.StateDirname, envconfig.LocalCREStateFilename),
-		ChipIngressGRPCPort:    chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT,
+		ChipIngressGRPCPort:    strconv.Itoa(ctfchiprouter.DefaultBeholderGRPCPort),
 	}
 }
 

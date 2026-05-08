@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
@@ -36,7 +37,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
-	InsecurePPROFHeap   *bool
+	InsecurePPROFHeap   *bool // Deprecated: no effect if set, but field remains to parse old configs
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -52,7 +53,6 @@ type Core struct {
 	OCR2                 OCR2                 `toml:",omitempty"`
 	OCR                  OCR                  `toml:",omitempty"`
 	P2P                  P2P                  `toml:",omitempty"`
-	Keeper               Keeper               `toml:",omitempty"`
 	AutoPprof            AutoPprof            `toml:",omitempty"`
 	Pyroscope            Pyroscope            `toml:",omitempty"`
 	Sentry               Sentry               `toml:",omitempty"`
@@ -65,6 +65,7 @@ type Core struct {
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
 	BridgeStatusReporter BridgeStatusReporter `toml:",omitempty"`
+	JobSpecReporter      JobSpecReporter      `toml:",omitempty"`
 	Sharding             Sharding             `toml:",omitempty"`
 	LOOPP                LOOPP                `toml:",omitempty"`
 }
@@ -97,7 +98,6 @@ func (c *Core) SetFrom(f *Core) {
 	c.OCR2.setFrom(&f.OCR2)
 	c.OCR.setFrom(&f.OCR)
 	c.P2P.setFrom(&f.P2P)
-	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
 	c.Workflows.setFrom(&f.Workflows)
@@ -112,6 +112,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
+	c.JobSpecReporter.setFrom(&f.JobSpecReporter)
 
 	c.Sharding.setFrom(&f.Sharding)
 	c.LOOPP.setFrom(&f.LOOPP)
@@ -1615,66 +1616,6 @@ func (p *P2PV2) setFrom(f *P2PV2) {
 	}
 }
 
-type Keeper struct {
-	DefaultTransactionQueueDepth *uint32
-	GasPriceBufferPercent        *uint16
-	GasTipCapBufferPercent       *uint16
-	BaseFeeBufferPercent         *uint16
-	MaxGracePeriod               *int64
-	TurnLookBack                 *int64
-
-	Registry KeeperRegistry `toml:",omitempty"`
-}
-
-func (k *Keeper) setFrom(f *Keeper) {
-	if v := f.DefaultTransactionQueueDepth; v != nil {
-		k.DefaultTransactionQueueDepth = v
-	}
-	if v := f.GasPriceBufferPercent; v != nil {
-		k.GasPriceBufferPercent = v
-	}
-	if v := f.GasTipCapBufferPercent; v != nil {
-		k.GasTipCapBufferPercent = v
-	}
-	if v := f.BaseFeeBufferPercent; v != nil {
-		k.BaseFeeBufferPercent = v
-	}
-	if v := f.MaxGracePeriod; v != nil {
-		k.MaxGracePeriod = v
-	}
-	if v := f.TurnLookBack; v != nil {
-		k.TurnLookBack = v
-	}
-
-	k.Registry.setFrom(&f.Registry)
-}
-
-type KeeperRegistry struct {
-	CheckGasOverhead    *uint32
-	PerformGasOverhead  *uint32
-	MaxPerformDataSize  *uint32
-	SyncInterval        *commonconfig.Duration
-	SyncUpkeepQueueSize *uint32
-}
-
-func (k *KeeperRegistry) setFrom(f *KeeperRegistry) {
-	if v := f.CheckGasOverhead; v != nil {
-		k.CheckGasOverhead = v
-	}
-	if v := f.PerformGasOverhead; v != nil {
-		k.PerformGasOverhead = v
-	}
-	if v := f.MaxPerformDataSize; v != nil {
-		k.MaxPerformDataSize = v
-	}
-	if v := f.SyncInterval; v != nil {
-		k.SyncInterval = v
-	}
-	if v := f.SyncUpkeepQueueSize; v != nil {
-		k.SyncUpkeepQueueSize = v
-	}
-}
-
 type AutoPprof struct {
 	Enabled              *bool
 	ProfileRoot          *string
@@ -2179,8 +2120,18 @@ type StreamsSecretConfig struct {
 }
 
 type CreSecrets struct {
-	Streams      *StreamsSecretConfig `toml:",omitempty"`
-	LocalSecrets map[string]string    `toml:",omitempty"`
+	Streams              *StreamsSecretConfig         `toml:",omitempty"`
+	LocalSecretOverrides map[string]map[string]string `toml:",omitempty"`
+}
+
+// normalizeCRELocalSecretOwnerKey lowercases a workflow owner string and strips a "0x" / "0X"
+// prefix for LocalSecretOverrides map key lookup.
+func normalizeCRELocalSecretOwnerKey(k string) (string, error) {
+	s := strings.TrimSpace(k)
+	if s == "" {
+		return "", errors.New("empty owner key in LocalSecretOverrides")
+	}
+	return strings.TrimPrefix(strings.ToLower(s), "0x"), nil
 }
 
 func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
@@ -2201,9 +2152,15 @@ func (c *CreSecrets) SetFrom(f *CreSecrets) (err error) {
 		}
 	}
 
-	if f.LocalSecrets != nil {
-		c.LocalSecrets = make(map[string]string, len(f.LocalSecrets))
-		maps.Copy(c.LocalSecrets, f.LocalSecrets)
+	if f.LocalSecretOverrides != nil {
+		c.LocalSecretOverrides = make(map[string]map[string]string, len(f.LocalSecretOverrides))
+		for k, v := range f.LocalSecretOverrides {
+			nk, nerr := normalizeCRELocalSecretOwnerKey(k)
+			if nerr != nil {
+				return nerr
+			}
+			c.LocalSecretOverrides[nk] = maps.Clone(v)
+		}
 	}
 
 	return nil
@@ -2218,8 +2175,8 @@ func (c *CreSecrets) validateMerge(f *CreSecrets) (err error) {
 			err = errors.Join(err, configutils.ErrOverride{Name: "Streams.APISecret"})
 		}
 	}
-	if len(c.LocalSecrets) > 0 && len(f.LocalSecrets) > 0 {
-		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecrets"})
+	if len(c.LocalSecretOverrides) > 0 && len(f.LocalSecretOverrides) > 0 {
+		err = errors.Join(err, configutils.ErrOverride{Name: "LocalSecretOverrides"})
 	}
 	return err
 }
@@ -3081,6 +3038,46 @@ func (e *BridgeStatusReporter) ValidateConfig() error {
 	if e.IgnoreJoblessBridges == nil {
 		defaultIgnoreJobless := false
 		e.IgnoreJoblessBridges = &defaultIgnoreJobless
+	}
+
+	return nil
+}
+
+type JobSpecReporter struct {
+	Enabled                *bool
+	PollingInterval        *commonconfig.Duration
+	EnabledOCR2PluginTypes *[]string
+}
+
+func (e *JobSpecReporter) setFrom(f *JobSpecReporter) {
+	if f.Enabled != nil {
+		e.Enabled = f.Enabled
+	}
+	if f.PollingInterval != nil {
+		e.PollingInterval = f.PollingInterval
+	}
+	if f.EnabledOCR2PluginTypes != nil {
+		e.EnabledOCR2PluginTypes = f.EnabledOCR2PluginTypes
+	}
+}
+
+func (e *JobSpecReporter) ValidateConfig() error {
+	if e.Enabled == nil || !*e.Enabled {
+		return nil
+	}
+
+	if e.PollingInterval == nil {
+		defaultInterval := commonconfig.MustNewDuration(time.Hour)
+		e.PollingInterval = defaultInterval
+	}
+
+	if e.PollingInterval.Duration() < config.MinimumPollingInterval {
+		return configutils.ErrInvalid{Name: "PollingInterval", Value: e.PollingInterval.Duration(), Msg: "must be greater than or equal to: " + config.MinimumPollingInterval.String()}
+	}
+
+	if e.EnabledOCR2PluginTypes == nil {
+		defaultTypes := []string{"median"}
+		e.EnabledOCR2PluginTypes = &defaultTypes
 	}
 
 	return nil

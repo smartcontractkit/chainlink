@@ -11,11 +11,15 @@ import (
 	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	aptosstate "github.com/smartcontractkit/cld-changesets/pkg/family/aptos"
+	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	aptosmcms "github.com/smartcontractkit/mcms/sdk/aptos"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -70,7 +74,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 			if cfg.ProposalConfig != nil {
 				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
 			}
-			state, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
+			state, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return err
 			}
@@ -94,7 +98,7 @@ func (cfg MCMSConfigV2) Validate(e cldf.Environment, selectors []uint64) error {
 				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
 			}
 		case chain_selectors.FamilyAptos:
-			_, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+			_, err := aptosstate.LoadMCMSAddresses(e, []uint64{chainSelector})
 			if err != nil {
 				return err
 			}
@@ -151,7 +155,7 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
-func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *commonState.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain cldf_evm.Chain, cfg ConfigPerRoleV2, mcmsState *evmstate.MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	var proposerTx, cancellerTx, bypasserTx *types.Transaction
 	var err error
 
@@ -203,7 +207,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	var batches []mcmstypes.BatchOperation
 	timelockAddressesPerChain := map[uint64]string{}
 	proposerMcmsPerChain := map[uint64]string{}
-	inspectorPerChain, err := proposalutils.McmsInspectors(e)
+	inspectorPerChain, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -221,7 +225,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 			if cfg.ProposalConfig != nil {
 				qualifier = cfg.ProposalConfig.TimelockQualifierPerChain[chainSelector]
 			}
-			mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
+			mcmsStatePerChain, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(e, []uint64{chainSelector}, qualifier)
 			if err != nil {
 				return cldf.ChangesetOutput{}, err
 			}
@@ -273,7 +277,7 @@ func SetConfigMCMSV2(e cldf.Environment, cfg MCMSConfigV2) (cldf.ChangesetOutput
 	return cldf.ChangesetOutput{}, nil
 }
 
-func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state commonState.MCMSWithTimelockState) mcmstypes.BatchOperation {
+func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint64, state evmstate.MCMSWithTimelockState) mcmstypes.BatchOperation {
 	result := mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(chainSelector),
 		Transactions:  []mcmstypes.Transaction{},
@@ -399,7 +403,7 @@ func setConfigAptos(
 	if !ok {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("aptos chain %d not found", chainSelector)
 	}
-	mcmsAddresses, err := commonState.LoadMCMSAddressesAptos(e, []uint64{chainSelector})
+	mcmsAddresses, err := aptosstate.LoadMCMSAddresses(e, []uint64{chainSelector})
 	if err != nil {
 		return mcmstypes.BatchOperation{}, fmt.Errorf("loading mcmsAddresses: %w", err)
 	}

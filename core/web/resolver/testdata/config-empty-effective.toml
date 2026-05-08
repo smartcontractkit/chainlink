@@ -1,5 +1,5 @@
 InsecureFastScrypt = false
-InsecurePPROFHeap = false
+InsecurePPROFHeap = true
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 
@@ -193,21 +193,6 @@ DeltaDial = '15s'
 DeltaReconcile = '1m0s'
 ListenAddresses = []
 
-[Keeper]
-DefaultTransactionQueueDepth = 1
-GasPriceBufferPercent = 20
-GasTipCapBufferPercent = 20
-BaseFeeBufferPercent = 20
-MaxGracePeriod = 100
-TurnLookBack = 1000
-
-[Keeper.Registry]
-CheckGasOverhead = 200000
-PerformGasOverhead = 300000
-MaxPerformDataSize = 5000
-SyncInterval = '30m0s'
-SyncUpkeepQueueSize = 10
-
 [AutoPprof]
 Enabled = false
 ProfileRoot = ''
@@ -398,6 +383,11 @@ StatusPath = '/status'
 PollingInterval = '5m0s'
 IgnoreInvalidBridges = true
 IgnoreJoblessBridges = false
+
+[JobSpecReporter]
+Enabled = false
+PollingInterval = '1h0m0s'
+EnabledOCR2PluginTypes = ['median']
 
 [Sharding]
 ShardingEnabled = false

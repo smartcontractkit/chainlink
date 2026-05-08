@@ -38,10 +38,6 @@
 /core/services/webhook/ @smartcontractkit/foundations @smartcontractkit/bix-framework @smartcontractkit/core
 /core/services/llo/ @smartcontractkit/data-streams-engineers @smartcontractkit/core
 
-# CCIP
-/core/services/ccip/ @smartcontractkit/ccip
-/core/services/ocr2/plugins/ccip/ @smartcontractkit/ccip
-
 # VRF-related services
 /core/services/vrf/ @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore/ @smartcontractkit/dev-services @smartcontractkit/core
@@ -52,7 +48,6 @@
 /core/scripts/vrf*/ @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper/ @smartcontractkit/dev-services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Chainlink Functions
@@ -77,7 +72,6 @@
 
 # Tests
 /integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
-/integration-tests/ccip-tests/ @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
@@ -100,7 +94,8 @@
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
 /.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
-/tools/plugout/ @smartcontractkit/devex-cicd
+/tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
+/tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

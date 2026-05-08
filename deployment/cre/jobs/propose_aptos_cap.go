@@ -17,15 +17,16 @@ var _ cldf.ChangeSetV2[ProposeAptosCapJobSpecInput] = ProposeAptosCapJobSpec{}
 const aptosNetwork = "aptos"
 
 type AptosOverrideDefaultCfg struct {
-	CREForwarderAddress           string        `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
-	Network                       string        `json:"network,omitempty" yaml:"network,omitempty"`
-	ChainID                       string        `json:"chainId,omitempty" yaml:"chainId,omitempty"`
-	ObservationPollerWorkersCount uint          `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
-	ObservationPollPeriod         time.Duration `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
-	ChainHeightPollPeriod         time.Duration `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
-	UnknownRequestsTTL            time.Duration `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
-	DeltaStage                    time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
-	TxSearchStartingBuffer        time.Duration `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	CREForwarderAddress           string            `json:"creForwarderAddress,omitempty" yaml:"creForwarderAddress,omitempty"`
+	Network                       string            `json:"network,omitempty" yaml:"network,omitempty"`
+	ChainID                       string            `json:"chainId,omitempty" yaml:"chainId,omitempty"`
+	ObservationPollerWorkersCount uint              `json:"observationPollerWorkersCount,omitempty" yaml:"observationPollerWorkersCount,omitempty"`
+	ObservationPollPeriod         time.Duration     `json:"observationPollPeriod,omitempty" yaml:"observationPollPeriod,omitempty"`
+	ChainHeightPollPeriod         time.Duration     `json:"chainHeightPollPeriod,omitempty" yaml:"chainHeightPollPeriod,omitempty"`
+	UnknownRequestsTTL            time.Duration     `json:"unknownRequestsTTL,omitempty" yaml:"unknownRequestsTTL,omitempty"`
+	DeltaStage                    time.Duration     `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	TxSearchStartingBuffer        time.Duration     `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	P2PToTransmitterMap           map[string]string `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 }
 
 type AptosCapabilityInput struct {
@@ -43,10 +44,11 @@ type ProposeAptosCapJobSpecInput struct {
 	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
 	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
 	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
 
 	DeltaStage             time.Duration          `json:"deltaStage" yaml:"deltaStage,omitempty"`
 	TxSearchStartingBuffer time.Duration          `json:"txSearchStartingBuffer" yaml:"txSearchStartingBuffer,omitempty"`
+	CREForwarderAddress    string                 `json:"creForwarderAddress" yaml:"creForwarderAddress,omitempty"`
+	P2PToTransmitterMap    map[string]string      `json:"p2pToTransmitterMap,omitempty" yaml:"p2pToTransmitterMap,omitempty"`
 	AptosCapabilityInputs  []AptosCapabilityInput `json:"aptosCapabilityInputs" yaml:"aptosCapabilityInputs"`
 }
 
@@ -71,10 +73,15 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		OCRChainSelector:     input.OCRChainSelector,
 		BootstrapperOCR3Urls: input.BootstrapperOCR3Urls,
 		OCRContractQualifier: input.OCRContractQualifier,
-		ForwardersQualifier:  input.ForwardersQualifier,
 		DeltaStage:           input.DeltaStage,
 	}); err != nil {
 		return err
+	}
+
+	// PLEX-2797: accept forwarder address directly instead of deriving from datastore,
+	// since Aptos forwarder addresses are not yet managed in the catalog.
+	if input.CREForwarderAddress == "" {
+		return errors.New("cre forwarder address is required")
 	}
 
 	family, err := chainselectors.GetSelectorFamily(input.ChainSelector)
@@ -90,9 +97,9 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
 	}
 
-	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
-	if err != nil {
-		return err
+	ocrAddrRefKey := pkg.GetOCR3CapabilityAddressRefKey(input.OCRChainSelector, input.OCRContractQualifier)
+	if _, err := e.DataStore.Addresses().Get(ocrAddrRefKey); err != nil {
+		return fmt.Errorf("failed to get OCR contract address for ref key %s: %w", ocrAddrRefKey, err)
 	}
 
 	for _, aptosCapInput := range input.AptosCapabilityInputs {
@@ -107,9 +114,6 @@ func (u ProposeAptosCapJobSpec) VerifyPreconditions(e cldf.Environment, input Pr
 		}
 
 		if err := validateOverrideNetwork(ov.Network, aptosNetwork, aptosCapInput.NodeID); err != nil {
-			return err
-		}
-		if err := validateOverrideForwarder(ov.CREForwarderAddress, resolved.ForwarderAddress, aptosCapInput.NodeID); err != nil {
 			return err
 		}
 	}
@@ -134,16 +138,10 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		Command:               "/usr/local/bin/aptos",
 		GenerateOracleFactory: true,
 		ContractQualifier:     input.OCRContractQualifier,
-		OCRSigningStrategy:    "single-chain",
+		OCRSigningStrategy:    "multi-chain",
 		OCRChainSelector:      pkg.ChainSelector(input.OCRChainSelector),
 		ChainSelectorEVM:      pkg.ChainSelector(input.OCRChainSelector),
-		ChainSelectorAptos:    pkg.ChainSelector(input.ChainSelector),
 		BootstrapPeers:        input.BootstrapperOCR3Urls,
-	}
-
-	resolved, err := resolveContractAddresses(e, input.OCRChainSelector, input.OCRContractQualifier, input.ChainSelector, input.ForwardersQualifier)
-	if err != nil {
-		return cldf.ChangesetOutput{}, err
 	}
 
 	nodeIDToConfig := make(map[string]string, len(input.AptosCapabilityInputs))
@@ -155,7 +153,8 @@ func (u ProposeAptosCapJobSpec) Apply(e cldf.Environment, input ProposeAptosCapJ
 		cfg := aptosCapInput.OverrideDefaultCfg
 		cfg.ChainID = chainIDStr
 		cfg.Network = aptosNetwork
-		cfg.CREForwarderAddress = resolved.ForwarderAddress
+		cfg.CREForwarderAddress = input.CREForwarderAddress // PLEX-2797
+		cfg.P2PToTransmitterMap = input.P2PToTransmitterMap
 		cfg.DeltaStage = input.DeltaStage
 		cfg.TxSearchStartingBuffer = input.TxSearchStartingBuffer
 		enc, err := json.Marshal(cfg)

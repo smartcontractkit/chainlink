@@ -26,8 +26,6 @@ import (
 	offchain20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registry11 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
@@ -51,38 +49,6 @@ type keepersDeployer interface {
 	canceller
 	upkeepDeployer
 	SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error)
-}
-
-type v11KeeperDeployer struct {
-	registry11.KeeperRegistryInterface
-}
-
-func (d *v11KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
-	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
-}
-
-func (d *v11KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
-}
-
-func (d *v11KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	panic("not implemented")
-}
-
-type v12KeeperDeployer struct {
-	registry12.KeeperRegistryInterface
-}
-
-func (d *v12KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactOpts, _ []cmd.HTTPClient, keepers []common.Address, payees []common.Address) (*types.Transaction, error) {
-	return d.KeeperRegistryInterface.SetKeepers(opts, keepers, payees)
-}
-
-func (d *v12KeeperDeployer) RegisterUpkeep(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, checkData []byte, offchainConfig []byte) (*types.Transaction, error) {
-	return d.KeeperRegistryInterface.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
-}
-
-func (d *v12KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
-	panic("not implemented")
 }
 
 type v20KeeperDeployer struct {

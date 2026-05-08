@@ -10,6 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/quarantine"
 
@@ -149,11 +151,11 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			// if MCMS is enabled, we need to run the proposal
 			if tc.mcmsEnabled {
 				for _, prop := range out.MCMSTimelockProposals {
-					mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop, false)
+					mcmProp := cldftesthelpers.SignMCMSTimelockProposal(t, e, &prop, false)
 					// return the error so devs can ensure expected reversions
-					err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
+					err = cldftesthelpers.ExecuteMCMSProposalV2(t, e, mcmProp)
 					require.NoError(t, err)
-					err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+					err = cldftesthelpers.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 					require.NoError(t, err)
 				}
 			}

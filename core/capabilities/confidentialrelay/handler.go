@@ -22,6 +22,8 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -105,12 +107,21 @@ type Handler struct {
 	// validateAttestation validates TEE attestation documents.
 	// Defaults to the Nitro validator; overridden in tests.
 	validateAttestation attestationValidatorFunc
+
+	// vaultIdentityGate controls whether WorkflowOwner and OrgId are set
+	// on the vault GetSecretsRequest. Gated behind VaultOrgIdAsSecretOwnerEnabled.
+	vaultIdentityGate limits.GateLimiter
 }
 
-func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger) (*Handler, error) {
+func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnector, lggr logger.Logger, limitsFactory limits.Factory) (*Handler, error) {
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
+	}
+
+	vaultIdentityGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create vault identity gate limiter: %w", err)
 	}
 
 	h := &Handler{
@@ -119,6 +130,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, conn core.GatewayConnecto
 		lggr:                logger.Named(lggr, HandlerName),
 		metrics:             m,
 		validateAttestation: nitro.ValidateAttestation,
+		vaultIdentityGate:   vaultIdentityGate,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -226,6 +238,14 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	vaultReq := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0, len(params.Secrets)),
 	}
+	gateEnabled, err := h.vaultIdentityGate.Limit(ctx)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to check VaultOrgIdAsSecretOwnerEnabled gate: %w", err))
+	}
+	vaultReq.WorkflowOwner = normalizedOwner
+	if gateEnabled {
+		vaultReq.OrgId = params.OrgID
+	}
 	for _, s := range params.Secrets {
 		namespace := s.Namespace
 		if namespace == "" {
@@ -251,19 +271,24 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("failed to get local node: %w", err))
 	}
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:               params.WorkflowID,
+		WorkflowOwner:            params.Owner,
+		WorkflowExecutionID:      params.ExecutionID,
+		WorkflowDonID:            localNode.WorkflowDON.ID,
+		WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
+		ReferenceID:              req.ID,
+	}
+	if gateEnabled {
+		metadata.OrgID = params.OrgID
+	}
+
 	capResp, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
 		Method:       vault.MethodGetSecrets,
 		CapabilityId: vault.CapabilityID,
 		Config:       values.EmptyMap(),
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:               params.WorkflowID,
-			WorkflowOwner:            params.Owner,
-			WorkflowExecutionID:      params.ExecutionID,
-			WorkflowDonID:            localNode.WorkflowDON.ID,
-			WorkflowDonConfigVersion: localNode.WorkflowDON.ConfigVersion,
-			ReferenceID:              req.ID,
-		},
+		Metadata:     metadata,
 	})
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("vault execute failed: %w", err))

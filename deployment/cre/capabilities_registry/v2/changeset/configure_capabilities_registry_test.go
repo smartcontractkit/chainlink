@@ -948,7 +948,7 @@ func verifyCapabilitiesRegistryConfiguration(t *testing.T, fixture *testFixture)
 
 		assert.Equal(t, expectedEncryptionPublicKey, got.EncryptionPublicKey, "mismatch node encryption public key node %d", i)
 		assert.Equal(t, expectedSigner, got.Signer, "mismatch node signer node %d", i)
-		assert.Equal(t, uint32(nopFoundID), got.NodeOperatorId, "mismatch node operator id node %d", i) //nolint:gosec // G115
+		assert.Equal(t, uint32(nopFoundID), got.NodeOperatorId, "mismatch node operator id node %d", i)
 		assert.Equal(t, node.CapabilityIDs, got.CapabilityIds, "mismatch node hashed capability ids node %d", i)
 		assert.Equal(t, [32]byte(bytes32P2pID), got.P2pId, "mismatch node p2p id node %d", i)
 		assert.Equal(t, expectedCsaKey, got.CsaKey, "mismatch node CSA key node %d", i)
