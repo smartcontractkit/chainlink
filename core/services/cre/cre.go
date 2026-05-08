@@ -130,17 +130,15 @@ func (s *Services) close() error {
 // workflowRegistryConfigured is true when the workflow registry syncer should start.
 // v1 is on-chain only (non-empty contract address). v2 allows on-chain address and/or
 // additional (e.g. gRPC) sources with a non-empty URL.
-func workflowRegistryConfigured(workflowRegistryAddr string, additionalSourceURLs []string, major uint64) bool {
-	if strings.TrimSpace(workflowRegistryAddr) != "" {
+func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry, major uint64) bool {
+	if strings.TrimSpace(workflowRegistry.Address()) != "" {
 		return true
 	}
 	if major != 2 {
 		return false
 	}
-	for _, u := range additionalSourceURLs {
-		if strings.TrimSpace(u) != "" {
-			return true
-		}
+	if len(workflowRegistry.AdditionalSources()) > 0 {
+		return true
 	}
 	return false
 }
@@ -275,13 +273,7 @@ func (s *Services) newSubservices(
 		}
 	}
 
-	addURLs := make([]string, 0, len(capCfg.WorkflowRegistry().AdditionalSources()))
-	for _, src := range capCfg.WorkflowRegistry().AdditionalSources() {
-		if src != nil {
-			addURLs = append(addURLs, src.GetURL())
-		}
-	}
-	if !workflowRegistryConfigured(capCfg.WorkflowRegistry().Address(), addURLs, major) {
+	if !workflowRegistryConfigured(capCfg.WorkflowRegistry(), major) {
 		lggr.Warn("Skipping workflow registry syncer, not configured")
 		return srvs, nil
 	}

@@ -3,11 +3,54 @@ package cre
 import (
 	"testing"
 
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/require"
 
 	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+// wfRegTestStub implements config.CapabilitiesWorkflowRegistry for tests.
+type wfRegTestStub struct {
+	addr           string
+	additionalURLs []string
+}
+
+type wfRegAddSrcStub struct{ u string }
+
+func (a wfRegAddSrcStub) GetURL() string      { return a.u }
+func (a wfRegAddSrcStub) GetTLSEnabled() bool { return false }
+func (a wfRegAddSrcStub) GetName() string     { return "" }
+
+type wfRegStorageStub struct{}
+
+func (wfRegStorageStub) ArtifactStorageHost() string { return "" }
+func (wfRegStorageStub) URL() string                 { return "" }
+func (wfRegStorageStub) TLSEnabled() bool            { return false }
+
+func (w wfRegTestStub) Address() string                         { return w.addr }
+func (w wfRegTestStub) NetworkID() string                       { return "" }
+func (w wfRegTestStub) ChainID() string                         { return "" }
+func (w wfRegTestStub) ContractVersion() string                 { return "" }
+func (w wfRegTestStub) MaxEncryptedSecretsSize() utils.FileSize { return 0 }
+func (w wfRegTestStub) MaxBinarySize() utils.FileSize           { return 0 }
+func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
+func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }
+func (w wfRegTestStub) SyncStrategy() string                    { return "" }
+func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
+func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
+func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
+	out := make([]config.AdditionalWorkflowSource, len(w.additionalURLs))
+	for i, u := range w.additionalURLs {
+		out[i] = wfRegAddSrcStub{u: u}
+	}
+	return out
+}
+
+func testWorkflowRegistry(addr string, urls ...string) config.CapabilitiesWorkflowRegistry {
+	return wfRegTestStub{addr: addr, additionalURLs: urls}
+}
 
 type testLocalCapabilities struct {
 	cfgs map[string]config.CapabilityNodeConfig
@@ -69,15 +112,15 @@ func TestWorkflowRegistrySemverMajor(t *testing.T) {
 func TestWorkflowRegistryConfigured(t *testing.T) {
 	t.Parallel()
 
-	require.False(t, workflowRegistryConfigured("", nil, 1))
-	require.False(t, workflowRegistryConfigured("", []string{"", "  "}, 1))
-	require.True(t, workflowRegistryConfigured("0xabc", nil, 1))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 1))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 1))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc"), 1))
 
-	require.False(t, workflowRegistryConfigured("", nil, 2))
-	require.False(t, workflowRegistryConfigured("", []string{"", "  "}, 2))
-	require.True(t, workflowRegistryConfigured("0xdef", nil, 2))
-	require.True(t, workflowRegistryConfigured("", []string{"https://example"}, 2))
-	require.True(t, workflowRegistryConfigured("", []string{"", "grpc://x"}, 2))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 2))
+	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 2))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
+	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
 }
 
 func TestNewLocalTestMetadataRegistry(t *testing.T) {
