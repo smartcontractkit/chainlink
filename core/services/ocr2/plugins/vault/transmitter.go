@@ -88,9 +88,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 	}
 
 	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
-	if c.lifecycle != nil {
-		c.lifecycle.RecordTransmit(info.Id, seqNr, time.Now())
-	}
+	c.lifecycle.RecordTransmitted(ctx, info.Id, seqNr, time.Now())
 	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,
 		Payload:    rwi.Report,

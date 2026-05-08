@@ -82,6 +82,10 @@ func NewReportingPluginFactory(
 		return nil, errors.New("DKG recipient key cannot be nil when using result package db")
 	}
 
+	if lifecycle == nil {
+		return nil, errors.New("request lifecycle tracker cannot be nil")
+	}
+
 	cfg := &ReportingPluginConfig{
 		LazyPublicKey: lazyPublicKey,
 	}
@@ -349,9 +353,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		cfg.MaxIdentifierNamespaceLengthBytes,
 	)
 
-	if r.lifecycle != nil {
-		r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
-	}
+	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
 			lggr:       r.lggr.Named("VaultReportingPlugin"),
@@ -481,9 +483,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 
 		obs = append(obs, o)
-		if r.lifecycle != nil {
-			r.lifecycle.RecordObservationPendingBatch(req.Id, seqNr, time.Now())
-		}
+		r.lifecycle.RecordObservedOutcome(req.Id, seqNr, time.Now())
 	}
 
 	obspb := &vaultcommon.Observations{
@@ -561,9 +561,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 		blobPayloads = append(blobPayloads, itemb)
 		blobPayloadIDs = append(blobPayloadIDs, item.Id)
-		if r.lifecycle != nil {
-			r.lifecycle.RecordBlobChosen(item.Id, seqNr, time.Now())
-		}
+		r.lifecycle.RecordBlobBroadcasting(item.Id, seqNr, time.Now())
 
 		if len(blobPayloads) >= maxObservedLocalQueueItems {
 			r.lggr.Warnw("Observed local queue exceeds batch size limit, truncating",
@@ -654,9 +652,7 @@ func (r *ReportingPlugin) broadcastBlobPayloads(
 			}
 
 			results[i] = blobHandleBytes
-			if r.lifecycle != nil {
-				r.lifecycle.RecordBlobBroadcastOK(requestID, seqNr, time.Now())
-			}
+			r.lifecycle.RecordBlobBroadcasted(requestID, seqNr, time.Now())
 			return nil
 		})
 	}
@@ -1657,11 +1653,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not process pending queue during state transition: %w", err)
 	}
 
-	if r.lifecycle != nil {
-		nowST := time.Now()
-		for _, out := range os.Outcomes {
-			r.lifecycle.RecordStateTransitionOutcome(out.Id, seqNr, nowST)
-		}
+	nowST := time.Now()
+	for _, out := range os.Outcomes {
+		r.lifecycle.RecordStateTransitionOutcome(out.Id, seqNr, nowST)
 	}
 
 	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(os)
@@ -1778,11 +1772,9 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		keptItems = keptItems[:errBoundLimited.Limit]
 	}
 
-	if r.lifecycle != nil {
-		now := time.Now()
-		for _, it := range keptItems {
-			r.lifecycle.RecordPendingQueueWrite(it.Id, seqNr, now)
-		}
+	now := time.Now()
+	for _, it := range keptItems {
+		r.lifecycle.RecordWrittenToPendingQueue(ctx, it.Id, seqNr, now)
 	}
 
 	return store.WritePendingQueue(ctx, keptItems)

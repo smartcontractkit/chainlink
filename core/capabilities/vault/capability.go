@@ -25,40 +25,6 @@ import (
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
-// requestLifecycleTrace holds timestamps and OCR seqNrs for each Vault request as it
-// progresses through the capability handler and OCR plugin. Values are keyed in
-// RequestLifecycleTracker by the same requestID used in handleRequest and ReportInfo.
-type requestLifecycleTrace struct {
-	receivedAt time.Time
-
-	blobChosenAt  time.Time
-	blobChosenSeq uint64
-	hasBlobChosen bool
-
-	blobBroadcastAt  time.Time
-	blobBroadcastSeq uint64
-	hasBlobBroadcast bool
-
-	pendingQueueAt  time.Time
-	pendingQueueSeq uint64
-	hasPendingQueue bool
-
-	obsBatchAt  time.Time
-	obsBatchSeq uint64
-	hasObsBatch bool
-
-	stateTransitionAt  time.Time
-	stateTransitionSeq uint64
-	hasStateTransition bool
-
-	transmitAt  time.Time
-	transmitSeq uint64
-	hasTransmit bool
-
-	capabilityResponseAt  time.Time
-	hasCapabilityResponse bool
-}
-
 type Capability struct {
 	lggr                 logger.Logger
 	clock                clockwork.Clock
@@ -377,7 +343,7 @@ func validateOwnerMatchesResolvedIdentity(field string, owner string, resolvedId
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
 	if s.lifecycle != nil {
-		s.lifecycle.RecordReceived(requestID, s.clock.Now())
+		s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	}
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{

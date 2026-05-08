@@ -43,6 +43,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+func testRequestLifecycleTracker(t *testing.T, lggr logger.Logger) *vaultcap.RequestLifecycleTracker {
+	t.Helper()
+	lc, err := vaultcap.NewRequestLifecycleTracker(lggr)
+	require.NoError(t, err)
+	return lc
+}
+
 func writeDKGPackage(t *testing.T, orm dkgocrtypes.ResultPackageDatabase, key dkgocrtypes.P256Keyring, instanceID string) dkgocrtypes.ResultPackage {
 	pkg, err := dummydkg.NewResultPackage(dkgocrtypes.InstanceID(instanceID), dkgocrtypes.ReportingPluginConfig{
 		DealerPublicKeys:    []dkgocrtypes.P256ParticipantPublicKey{key.PublicKey()},
@@ -87,7 +94,7 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	cfg := vaultcommon.ReportingPluginConfig{
@@ -177,7 +184,7 @@ func TestPlugin_ReportingPluginFactory_PassesValidate(t *testing.T) {
 	_ = writeDKGPackage(t, orm, dkgrecipientKey, instanceID)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	cfg := vaultcommon.ReportingPluginConfig{
@@ -212,7 +219,7 @@ func TestPlugin_ReportingPluginFactory_UseDKGResult(t *testing.T) {
 	require.NoError(t, err)
 
 	lpk := vaultcap.NewLazyPublicKey()
-	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	rpf, err := NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, testRequestLifecycleTracker(t, lggr))
 	require.NoError(t, err)
 
 	instanceIDString := instanceID
@@ -264,6 +271,12 @@ func TestPlugin_ReportingPluginFactory_InvalidParams(t *testing.T) {
 	_, err = NewReportingPluginFactory(lggr, store, nil, nil, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "result package db cannot be nil")
+
+	dkgrecipientKey, err := dkgrecipientkey.New()
+	require.NoError(t, err)
+	_, err = NewReportingPluginFactory(lggr, store, orm, &dkgrecipientKey, lpk, limits.Factory{Settings: cresettings.DefaultGetter}, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "request lifecycle tracker cannot be nil")
 }
 
 func TestPlugin_Observation_NothingInBatch(t *testing.T) {
