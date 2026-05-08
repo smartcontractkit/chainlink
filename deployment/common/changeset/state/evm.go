@@ -243,22 +243,14 @@ func MaybeLoadMCMSWithTimelockChainState(chain cldf_evm.Chain, addresses map[str
 		proposerMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		bypasserMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		cancellerMCMS = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-
-		prodProposerMCMS  = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
-		prodBypasserMCMS  = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
-		prodCancellerMCMS = cldf.NewTypeAndVersion(types.ProdTestnetMCM, deployment.Version1_0_0)
 	)
 
 	// Convert map keys to a slice
 	proposerMCMS.Labels.Add(types.ProposerRole.String())
 	bypasserMCMS.Labels.Add(types.BypasserRole.String())
 	cancellerMCMS.Labels.Add(types.CancellerRole.String())
-	prodProposerMCMS.Labels.Add(types.ProposerRole.String())
-	prodBypasserMCMS.Labels.Add(types.BypasserRole.String())
-	prodCancellerMCMS.Labels.Add(types.CancellerRole.String())
 	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
 		proposerMCMS, bypasserMCMS, cancellerMCMS,
-		prodProposerMCMS, prodBypasserMCMS, prodCancellerMCMS,
 	}
 
 	// Ensure we either have the bundle or not.
@@ -299,11 +291,9 @@ func MaybeLoadMCMSWithTimelockChainState(chain cldf_evm.Chain, addresses map[str
 				return nil, err
 			}
 			state.CancellerMcm = mcms
-		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String(),
-			tv.Type == types.ProdTestnetMCM && tv.Version.String() == multichain.Version.String():
-			// ManyChainMultiSig and legacy prodTestnetMCM (RDD testnet label) share the MCMS ABI.
-			// Either type must carry PROPOSER / BYPASSER / CANCELLER labels to assign a role.
-			// prodTestnetMCM entries without labels are skipped (no deterministic role).
+		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
+			// ManyChainMultiSig @ v1.0.0 carries PROPOSER / BYPASSER / CANCELLER labels to assign each role address.
+			// Entries without labels are skipped (no deterministic role).
 			// If a specifically typed contract already occupies the field, this contract is ignored.
 			mcms, err := bindings.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -329,14 +319,25 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 	state := MCMSWithTimelockState{}
 	var (
 		// We expect one of each contract on the chain.
-		timelock  = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-		callProxy = cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-		proposer  = cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-		canceller = cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-		bypasser  = cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
-	)
+		timelock   = cldf.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+		callProxy  = cldf.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+		proposer   = cldf.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+		canceller  = cldf.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+		bypasser   = cldf.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+		multichain = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 
-	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
+		proposerMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		bypasserMCMS  = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		cancellerMCMS = cldf.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+	)
+	proposerMCMS.Labels.Add(types.ProposerRole.String())
+	bypasserMCMS.Labels.Add(types.BypasserRole.String())
+	cancellerMCMS.Labels.Add(types.CancellerRole.String())
+
+	wantTypes := []cldf.TypeAndVersion{
+		timelock, proposer, canceller, bypasser, callProxy,
+		proposerMCMS, bypasserMCMS, cancellerMCMS,
+	}
 
 	dedupMap := make(map[string]cldf.TypeAndVersion, len(refs))
 	for _, ref := range refs {
@@ -361,6 +362,9 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 		tv := cldf.TypeAndVersion{
 			Type:    cldf.ContractType(ref.Type),
 			Version: *ref.Version,
+		}
+		if !ref.Labels.IsEmpty() {
+			tv.Labels = cldf.NewLabelSet(ref.Labels.List()...)
 		}
 
 		switch {
@@ -394,8 +398,8 @@ func MaybeLoadMCMSWithTimelockChainStateFromRefs(chain cldf_evm.Chain, refs []da
 				return nil, err
 			}
 			state.CancellerMcm = mcms
-		case tv.Type == types.ProdTestnetMCM && tv.Version.String() == deployment.Version1_0_0.String():
-			// Legacy prodTestnetMCM (same ABI as ManyChainMultiSig); roles via labels (see MaybeLoadMCMSWithTimelockChainState).
+		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
+			// ManyChainMultiSig @ v1.0.0 with PROPOSER / BYPASSER / CANCELLER labels (see MaybeLoadMCMSWithTimelockChainState).
 			mcms, err := bindings.NewManyChainMultiSig(addr, chain.Client)
 			if err != nil {
 				return nil, err

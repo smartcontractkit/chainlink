@@ -18,9 +18,9 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-// TestMaybeLoadMCMSWithTimelockChainState_ProdTestnetMCM_AddressMap verifies legacy RDD datastore type
-// prodTestnetMCM @ v1.0.0 maps to ManyChainMultiSig bindings when entries carry standard MCMS role labels.
-func TestMaybeLoadMCMSWithTimelockChainState_ProdTestnetMCM_AddressMap(t *testing.T) {
+// TestMaybeLoadMCMSWithTimelockChainState_LabeledManyChainMultisig_AddressMap verifies ManyChainMultiSig @ v1.0.0
+// with standard MCMS role labels maps to ManyChainMultiSig bindings the same way as typed Proposer/Bypasser/Canceller MCMS rows.
+func TestMaybeLoadMCMSWithTimelockChainState_LabeledManyChainMultisig_AddressMap(t *testing.T) {
 	t.Parallel()
 
 	sel := chain_selectors.TEST_90000001.Selector
@@ -47,15 +47,15 @@ func TestMaybeLoadMCMSWithTimelockChainState_ProdTestnetMCM_AddressMap(t *testin
 	require.NoError(t, err)
 	require.NoError(t, canonical.Validate())
 
-	prodAddrs := map[string]cldf.TypeAndVersion{
-		canonical.Timelock.Address().Hex():    cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0),
-		canonical.CallProxy.Address().Hex():   cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0),
-		canonical.ProposerMcm.Address().Hex(): prodTestnetMCMWithRole(t, commontypes.ProposerRole),
-		canonical.BypasserMcm.Address().Hex(): prodTestnetMCMWithRole(t, commontypes.BypasserRole),
-		canonical.CancellerMcm.Address().Hex(): prodTestnetMCMWithRole(t, commontypes.CancellerRole),
+	labeledAddrs := map[string]cldf.TypeAndVersion{
+		canonical.Timelock.Address().Hex():     cldf.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0),
+		canonical.CallProxy.Address().Hex():    cldf.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0),
+		canonical.ProposerMcm.Address().Hex():  manyChainMultisigWithRole(t, commontypes.ProposerRole),
+		canonical.BypasserMcm.Address().Hex():  manyChainMultisigWithRole(t, commontypes.BypasserRole),
+		canonical.CancellerMcm.Address().Hex(): manyChainMultisigWithRole(t, commontypes.CancellerRole),
 	}
 
-	loaded, err := state.MaybeLoadMCMSWithTimelockChainState(chain, prodAddrs)
+	loaded, err := state.MaybeLoadMCMSWithTimelockChainState(chain, labeledAddrs)
 	require.NoError(t, err)
 	require.NoError(t, loaded.Validate())
 	require.Equal(t, canonical.ProposerMcm.Address(), loaded.ProposerMcm.Address())
@@ -65,8 +65,8 @@ func TestMaybeLoadMCMSWithTimelockChainState_ProdTestnetMCM_AddressMap(t *testin
 	require.Equal(t, canonical.CallProxy.Address(), loaded.CallProxy.Address())
 }
 
-// TestMaybeLoadMCMSWithTimelockChainStateFromRefs_ProdTestnetMCM exercises DataStore-style refs with prodTestnetMCM.
-func TestMaybeLoadMCMSWithTimelockChainStateFromRefs_ProdTestnetMCM(t *testing.T) {
+// TestMaybeLoadMCMSWithTimelockChainStateFromRefs_LabeledManyChainMultisig exercises DataStore-style refs with ManyChainMultiSig @ v1.0.0 and role labels.
+func TestMaybeLoadMCMSWithTimelockChainStateFromRefs_LabeledManyChainMultisig(t *testing.T) {
 	t.Parallel()
 
 	sel := chain_selectors.TEST_90000001.Selector
@@ -107,17 +107,17 @@ func TestMaybeLoadMCMSWithTimelockChainStateFromRefs_ProdTestnetMCM(t *testing.T
 		},
 		{
 			Address: canonical.ProposerMcm.Address().Hex(), ChainSelector: sel,
-			Type: datastore.ContractType(commontypes.ProdTestnetMCM), Version: v10,
+			Type: datastore.ContractType(commontypes.ManyChainMultisig), Version: v10,
 			Labels: datastore.NewLabelSet(commontypes.ProposerRole.String()),
 		},
 		{
 			Address: canonical.BypasserMcm.Address().Hex(), ChainSelector: sel,
-			Type: datastore.ContractType(commontypes.ProdTestnetMCM), Version: v10,
+			Type: datastore.ContractType(commontypes.ManyChainMultisig), Version: v10,
 			Labels: datastore.NewLabelSet(commontypes.BypasserRole.String()),
 		},
 		{
 			Address: canonical.CancellerMcm.Address().Hex(), ChainSelector: sel,
-			Type: datastore.ContractType(commontypes.ProdTestnetMCM), Version: v10,
+			Type: datastore.ContractType(commontypes.ManyChainMultisig), Version: v10,
 			Labels: datastore.NewLabelSet(commontypes.CancellerRole.String()),
 		},
 	}
@@ -130,9 +130,9 @@ func TestMaybeLoadMCMSWithTimelockChainStateFromRefs_ProdTestnetMCM(t *testing.T
 	require.Equal(t, canonical.CancellerMcm.Address(), loaded.CancellerMcm.Address())
 }
 
-func prodTestnetMCMWithRole(t *testing.T, role commontypes.MCMSRole) cldf.TypeAndVersion {
+func manyChainMultisigWithRole(t *testing.T, role commontypes.MCMSRole) cldf.TypeAndVersion {
 	t.Helper()
-	tv := cldf.NewTypeAndVersion(commontypes.ProdTestnetMCM, deployment.Version1_0_0)
+	tv := cldf.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
 	tv.Labels.Add(role.String())
 	return tv
 }
