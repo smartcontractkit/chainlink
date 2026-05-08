@@ -1,6 +1,7 @@
 package remote_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -308,6 +309,67 @@ func TestTriggerSubscriber_LegacyMessageWithoutTriggerID(t *testing.T) {
 
 	resp := <-callbackCh
 	require.NotNil(t, resp.Event.Outputs)
+}
+
+func TestTriggerSubscriber_AckReplayOnDuplicateReceive(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
+	dispatcher := remoteMocks.NewDispatcher(t)
+	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+	}
+	subscriber := remote.NewTriggerSubscriber(capInfo.ID, "method", dispatcher, lggr)
+	agg := aggregation.NewDefaultModeAggregator(config.MinResponsesToAggregate)
+	require.NoError(t, subscriber.SetConfig(config, capInfo, workflowDon.ID, capDon, agg))
+	require.NoError(t, subscriber.Start(t.Context()))
+
+	triggerRegID := fmt.Sprintf("trigger_reg_%s_%d", workflowID1, 0)
+	req := commoncap.TriggerRegistrationRequest{
+		TriggerID: triggerRegID,
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID: workflowID1,
+		},
+	}
+	callbackCh, err := subscriber.RegisterTrigger(t.Context(), req)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, subscriber.UnregisterTrigger(t.Context(), req))
+		require.NoError(t, subscriber.Close())
+	})
+
+	eventID := "event-ack-replay-1"
+	msg := buildTriggerEventWithTriggerID(t, capDon.Members[0][:], workflowID1, triggerRegID, eventID)
+	subscriber.Receive(t.Context(), msg)
+	<-callbackCh
+
+	require.NoError(t, subscriber.AckEvent(t.Context(), triggerRegID, eventID, "method"))
+
+	dispatcher.Calls = nil
+	subscriber.Receive(t.Context(), msg)
+
+	ackSends := 0
+	for _, call := range dispatcher.Calls {
+		if call.Method != "Send" {
+			continue
+		}
+		m := call.Arguments.Get(1).(*remotetypes.MessageBody)
+		if m.Method == remotetypes.MethodTriggerEventAck {
+			ackSends++
+		}
+	}
+	require.Equal(t, len(capDon.Members), ackSends, "duplicate receive should fan out ACK to all capability DON members")
+
+	select {
+	case r := <-callbackCh:
+		t.Fatalf("expected no second aggregated delivery to engine, got %+v", r)
+	default:
+	}
 }
 
 func TestTriggerSubscriber_UnregisterOneTriggerKeepsOther(t *testing.T) {
