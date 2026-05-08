@@ -1,12 +1,16 @@
-#/bin/sh
+#!/bin/bash
+set -euo pipefail
 
-function exit_error {
-    echo "Error: $1"
+exit_error() {
+    echo "Error: $1" >&2
     exit 1
 }
 # Create a new user and database for development
 # This script is intended to be run on a local development machine
-tdir=$(mktemp -d -t db-dev-user)
+# Use an explicit template so mktemp works on both BSD (macOS) and GNU
+# coreutils (Linux), where `-t db-dev-user` rejects the template as
+# having too few X's.
+tdir=$(mktemp -d "${TMPDIR:-/tmp}/db-dev-user.XXXXXX")
 
 username="chainlink_dev"
 password="insecurepassword"
@@ -62,7 +66,7 @@ popd
 
 # Set the database URL in the .dbenv file
 dbenv=$repo/.dbenv
-echo "\n!Success!\n"
+printf '\n!Success!\n\n'
 echo "Datbase URL: $db_url"
 
 echo "export $db_url" >> $dbenv
