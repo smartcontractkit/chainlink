@@ -228,9 +228,18 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
+	// WorkflowRegistrySyncer v2 supports offchain-only sources (e.g. gRPC/file) and can
+	// start without an on-chain registry address. v1 is on-chain only, so we only skip
+	// initialization when using v1.
 	if capCfg.WorkflowRegistry().Address() == "" {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
-		return srvs, nil
+		wrVersion, vErr := semver.NewVersion(capCfg.WorkflowRegistry().ContractVersion())
+		if vErr != nil {
+			return nil, vErr
+		}
+		if wrVersion.Major() == 1 {
+			lggr.Warn("Skipping workflow registry syncer (v1 requires on-chain address)")
+			return srvs, nil
+		}
 	}
 
 	wfSyncer, billingClient, wfSyncerSrvcs, err := newWorkflowRegistrySyncer(
