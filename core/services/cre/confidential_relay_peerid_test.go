@@ -30,14 +30,14 @@ type stubCapabilities struct {
 	peering config.P2P
 }
 
-func (s stubCapabilities) RateLimit() config.EngineExecutionRateLimit         { return nil }
-func (s stubCapabilities) Peering() config.P2P                                { return s.peering }
-func (s stubCapabilities) SharedPeering() config.SharedPeering                { return nil }
-func (s stubCapabilities) Dispatcher() config.Dispatcher                      { return nil }
+func (s stubCapabilities) RateLimit() config.EngineExecutionRateLimit            { return nil }
+func (s stubCapabilities) Peering() config.P2P                                   { return s.peering }
+func (s stubCapabilities) SharedPeering() config.SharedPeering                   { return nil }
+func (s stubCapabilities) Dispatcher() config.Dispatcher                         { return nil }
 func (s stubCapabilities) ExternalRegistry() config.CapabilitiesExternalRegistry { return nil }
 func (s stubCapabilities) WorkflowRegistry() config.CapabilitiesWorkflowRegistry { return nil }
-func (s stubCapabilities) GatewayConnector() config.GatewayConnector          { return nil }
-func (s stubCapabilities) Local() config.LocalCapabilities                    { return nil }
+func (s stubCapabilities) GatewayConnector() config.GatewayConnector             { return nil }
+func (s stubCapabilities) Local() config.LocalCapabilities                       { return nil }
 
 // stubConfig is a minimal cre.Config whose .P2P() returns a configurable stubP2P. Other
 // methods return nil because confidentialRelayPeerID does not read them.
