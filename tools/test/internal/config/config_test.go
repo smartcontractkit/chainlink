@@ -18,8 +18,10 @@ func TestLoadBindsPersistentAndLocalFlags(t *testing.T) {
 		Run: func(*cobra.Command, []string) {},
 	}
 	sub.Flags().Int("iterations", 1, "")
+	sub.Flags().Int("parallel-iterations", 1, "")
+	sub.Flags().StringSlice("fail-fast-on", nil, "")
 	root.AddCommand(sub)
-	root.SetArgs([]string{"sub", "--database-url", "postgres://example", "--iterations", "7"})
+	root.SetArgs([]string{"sub", "--database-url", "postgres://example", "--iterations", "7", "--parallel-iterations", "3", "--fail-fast-on", "timeout,slow"})
 
 	cmd, err := root.ExecuteC()
 	require.NoError(t, err)
@@ -28,4 +30,6 @@ func TestLoadBindsPersistentAndLocalFlags(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "postgres://example", conf.DatabaseURL)
 	assert.Equal(t, 7, conf.Iterations)
+	assert.Equal(t, 3, conf.ParallelIterations)
+	assert.Equal(t, []string{"timeout", "slow"}, conf.FailFastOn)
 }
