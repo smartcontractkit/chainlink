@@ -479,10 +479,11 @@ func TestValidateSecretIdentifier(t *testing.T) {
 			namespace: "main",
 		},
 		{
-			name:      "empty namespace normalizes to default",
+			name:      "empty namespace is rejected",
 			key:       "mykey",
 			owner:     "owner1",
 			namespace: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "empty key",

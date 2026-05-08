@@ -289,7 +289,7 @@ func TestPlugin_Observation_PendingQueueEnabled_EmptyPendingQueue(t *testing.T) 
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -348,7 +348,7 @@ func TestPlugin_Observation_PendingQueueEnabled_WithPendingQueueProvided(t *test
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -427,7 +427,7 @@ func TestPlugin_Observation_PendingQueueEnabled_ItemBothInPendingQueueAndLocalQu
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -590,7 +590,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastsPendingQueueBlobsInPar
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -648,7 +648,7 @@ func TestPlugin_Observation_PendingQueueEnabled_BroadcastBlobError(t *testing.T)
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 
@@ -801,14 +801,14 @@ func TestPlugin_Observation_GetSecretsRequest_SecretIdentifierInvalid(t *testing
 	}
 }
 
-func TestPlugin_Observation_GetSecretsRequest_FillsInNamespace(t *testing.T) {
+func TestPlugin_Observation_GetSecretsRequest_ResponseUsesCanonicalIdentifier(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
 
 	id := &vaultcommon.SecretIdentifier{
 		Owner:     "owner",
-		Namespace: "",
+		Namespace: "main",
 		Key:       "my_secret",
 	}
 	rdr := &kv{
@@ -6235,9 +6235,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "GetSecrets empty namespace passes",
+			name:      "GetSecrets empty namespace rejected",
 			obs:       makeGetSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
-			errSubstr: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "GetSecrets owner too long rejected",
@@ -6271,9 +6271,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "CreateSecrets empty namespace passes",
+			name:      "CreateSecrets empty namespace rejected",
 			obs:       makeCreateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
-			errSubstr: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "CreateSecrets owner too long rejected",
@@ -6302,9 +6302,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "UpdateSecrets empty namespace passes",
+			name:      "UpdateSecrets empty namespace rejected",
 			obs:       makeUpdateSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}, validCiphertext),
-			errSubstr: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "UpdateSecrets namespace too long rejected",
@@ -6333,9 +6333,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "owner cannot be empty",
 		},
 		{
-			name:      "DeleteSecrets empty namespace passes",
+			name:      "DeleteSecrets empty namespace rejected",
 			obs:       makeDeleteSecretsObs(&vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "", Key: "secret"}),
-			errSubstr: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "DeleteSecrets owner too long rejected",
@@ -6359,9 +6359,9 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 			errSubstr: "key cannot be empty",
 		},
 		{
-			name:      "ListSecretIdentifiers empty namespace passes",
+			name:      "ListSecretIdentifiers empty namespace rejected",
 			obs:       makeListObs("owner", ""),
-			errSubstr: "",
+			errSubstr: "namespace cannot be empty",
 		},
 		{
 			name:      "ListSecretIdentifiers owner too long rejected",
