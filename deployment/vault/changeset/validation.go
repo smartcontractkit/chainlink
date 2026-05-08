@@ -312,3 +312,35 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 
 	return nil
 }
+
+func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetWatchListInput) error {
+	if len(cfg.Chains) == 0 {
+		return fmt.Errorf("no chains provided")
+	}
+
+	for chainSelector, chainConfig := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
+		}
+		if len(chainConfig.Addresses) == 0 {
+			return fmt.Errorf("chain %d: addresses must not be empty", chainSelector)
+		}
+		if len(chainConfig.MinBalancesWei) == 0 {
+			return fmt.Errorf("chain %d: min_balance_wei must not be empty", chainSelector)
+		}
+		if len(chainConfig.TopUpAmountsWei) == 0 {
+			return fmt.Errorf("chain %d: topup_amounts_wei must not be empty", chainSelector)
+		}
+		for i, addr := range chainConfig.Addresses {
+			addrStr := addr.Hex()
+			if !common.IsHexAddress(addrStr) {
+				return fmt.Errorf("chain %d: address at index %d (%s) is invalid", chainSelector, i, addrStr)
+			}
+			if addrStr == "" || addrStr == "0x0000000000000000000000000000000000000000" {
+				return fmt.Errorf("chain %d: address at index %d is zero address", chainSelector, i)
+			}
+		}
+	}
+
+	return nil
+}

@@ -25,7 +25,7 @@ type ethBalMonSetWatchList struct{}
 var EthBalMonSetWatchList cldf.ChangeSetV2[vaulttypes.EthBalMonSetWatchListInput] = ethBalMonSetWatchList{}
 
 func (sw ethBalMonSetWatchList) VerifyPreconditions(env cldf.Environment, config vaulttypes.EthBalMonSetWatchListInput) error {
-	return nil
+	return ValidateEthBalMonSetWatchListConfig(env.GetContext(), env, config)
 
 }
 
