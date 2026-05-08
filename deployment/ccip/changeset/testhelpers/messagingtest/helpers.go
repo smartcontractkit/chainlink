@@ -139,6 +139,17 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
 	}
 
+	// Capture current slot for Solana dest chains to avoid scanning all historical transactions
+	if df, _ := chain_selectors.GetSelectorFamily(tc.DestChain); df == chain_selectors.FamilySolana {
+		type currentBlocker interface {
+			CurrentBlock(t *testing.T) uint64
+		}
+		if cb, ok := destAdapter.(currentBlocker); ok {
+			block := cb.CurrentBlock(t)
+			startBlock = &block
+		}
+	}
+
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
 		DestChainSelector: tc.DestChain,
 		Receiver:          tc.Receiver,
