@@ -228,10 +228,14 @@ func confirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(2*time.Second), false)
+	sink, errCh := SolEventEmitter[solcommon.EventCommitReportAccepted](t.Context(), dest.Client, offrampAddress, consts.EventNameCommitReportAccepted, startSlot, done, time.NewTicker(1*time.Second), false)
 
-	timeout := time.NewTimer(tests.WaitTimeout(t))
+	timeoutDuration := tests.WaitTimeout(t)
+	timeout := time.NewTimer(timeoutDuration)
 	defer timeout.Stop()
+	startTime := time.Now()
+	t.Logf("Waiting for commit report on chain %d from source %d, seq range %s (timeout %s)",
+		dest.Selector, srcSelector, expectedSeqNumRange.String(), timeoutDuration)
 
 	for {
 		select {
@@ -239,7 +243,7 @@ func confirmCommitWithExpectedSeqNumRangeSol(
 			commitEvent := eventWithTxn.Event
 			// if merkle root is zero, it only contains price updates
 			if commitEvent.Report == nil {
-				t.Logf("Skipping CommitReportAccepted with only price updates")
+				t.Logf("Skipping CommitReportAccepted with only price updates (elapsed: %s)", time.Since(startTime).Round(time.Second))
 				continue
 			}
 			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
@@ -261,8 +265,8 @@ func confirmCommitWithExpectedSeqNumRangeSol(
 		case err := <-errCh:
 			require.NoError(t, err)
 		case <-timeout.C:
-			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+			return false, fmt.Errorf("timed out after %s waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
+				time.Since(startTime).Round(time.Second), dest.Selector, srcSelector, expectedSeqNumRange.String())
 		}
 	}
 }
@@ -300,10 +304,13 @@ func GetMessageStatesWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(2*time.Second), inProgress)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t.Context(), dest.Client, offrampAddress, consts.EventNameExecutionStateChanged, startSlot, done, time.NewTicker(1*time.Second), inProgress)
 
 	timeout := time.NewTimer(timeoutDuration)
 	defer timeout.Stop()
+	startTime := time.Now()
+	t.Logf("Waiting for execution state changes on chain %d from source %d, seq nrs %v (timeout %s)",
+		dest.Selector, srcSelector, expectedSeqNrs, timeoutDuration)
 
 	for {
 		select {
@@ -339,8 +346,8 @@ func GetMessageStatesWithSeqNrsSol(
 				return executionStates, nil
 			}
 			// Otherwise, return a timeout error.
-			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
+			return nil, fmt.Errorf("timed out after %s waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v, still waiting on %d seqNrs",
+				time.Since(startTime).Round(time.Second), dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs, len(seqNrsToWatch))
 		}
 	}
 }
