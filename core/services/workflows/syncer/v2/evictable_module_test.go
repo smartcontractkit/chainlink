@@ -1057,6 +1057,11 @@ func TestEvictable_BinarySizeTracked(t *testing.T) {
 }
 
 func TestLRU_MemorySavedMetric(t *testing.T) {
+	prevHook := reapMemorySavedHook
+	var observed []int64
+	reapMemorySavedHook = func(b int64) { observed = append(observed, b) }
+	t.Cleanup(func() { reapMemorySavedHook = prevHook })
+
 	cm, err := NewCacheMetrics()
 	require.NoError(t, err)
 
@@ -1094,6 +1099,7 @@ func TestLRU_MemorySavedMetric(t *testing.T) {
 	// the memory saved. recordMemorySaved should not panic.
 	assert.False(t, m1.IsLoaded())
 	assert.False(t, m2.IsLoaded())
+	require.Equal(t, []int64{3072}, observed)
 }
 
 func TestLRU_ReapMemorySavedBytesNotCumulative(t *testing.T) {
