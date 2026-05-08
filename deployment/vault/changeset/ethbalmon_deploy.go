@@ -12,9 +12,12 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -187,12 +190,16 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			if !ok {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain not found in environment: %d", chainSelector)
 			}
-			minWait := effectiveMinWaitPeriodSeconds(*chainConfig.SetMinWaitPeriodSeconds)
+			var rawMinWait uint64
+			if chainConfig.SetMinWaitPeriodSeconds != nil {
+				rawMinWait = *chainConfig.SetMinWaitPeriodSeconds
+			}
+			minWait := effectiveMinWaitPeriodSeconds(rawMinWait)
 			timelockAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get timelock address: %w", chainSelector, err)
 			}
-			mcmsAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.ManyChainMultisig)
+			mcmsAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.BypasserManyChainMultisig)
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get mcms address: %w", chainSelector, err)
 			}
@@ -411,8 +418,9 @@ func BuildAcceptOwnershipTimelockProposal(
 	}
 
 	var batches []mcmstypes.BatchOperation
-	timelockAddresses := make(map[mcmstypes.ChainSelector]string)
-	chainMetadata := make(map[mcmstypes.ChainSelector]mcmstypes.ChainMetadata)
+	timelockAddresses := make(map[uint64]string)
+	mcmAddressByChain := make(map[uint64]string)
+	inspectorPerChain := make(map[uint64]mcmssdk.Inspector)
 
 	for chainSelector, contractAddr := range input.ContractsByChain {
 		chain, ok := e.BlockChains.EVMChains()[chainSelector]
@@ -429,11 +437,20 @@ func BuildAcceptOwnershipTimelockProposal(
 			return nil, fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 
-		mcmsAddr, err := mustGetContractAddress(
-			e.DataStore,
-			chainSelector,
-			commontypes.ManyChainMultisig,
-		)
+		var mcmsAddr string
+		if input.Action == mcmstypes.TimelockActionBypass {
+			mcmsAddr, err = mustGetContractAddress(
+				e.DataStore,
+				chainSelector,
+				commontypes.BypasserManyChainMultisig,
+			)
+		} else {
+			mcmsAddr, err = mustGetContractAddress(
+				e.DataStore,
+				chainSelector,
+				commontypes.ProposerManyChainMultisig,
+			)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
@@ -466,11 +483,9 @@ func BuildAcceptOwnershipTimelockProposal(
 			},
 		})
 
-		timelockAddresses[mcmstypes.ChainSelector(chainSelector)] = timelockAddr
-		chainMetadata[mcmstypes.ChainSelector(chainSelector)] = mcmstypes.ChainMetadata{
-			StartingOpCount: 0,
-			MCMAddress:      mcmsAddr,
-		}
+		timelockAddresses[chainSelector] = timelockAddr
+		mcmAddressByChain[chainSelector] = mcmsAddr
+		inspectorPerChain[chainSelector] = mcmsevmsdk.NewInspector(chain.Client)
 	}
 
 	description := input.Description
@@ -478,15 +493,17 @@ func BuildAcceptOwnershipTimelockProposal(
 		description = "Accept ownership of EthBalanceMonitor across chains"
 	}
 
-	proposal, err := mcms.NewTimelockProposalBuilder().
-		SetVersion("v1").
-		SetAction(input.Action).
-		SetTimelockAddresses(timelockAddresses).
-		SetChainMetadata(chainMetadata).
-		SetOperations(batches).
-		SetDescription(description).
-		Build()
-
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelockAddresses,
+		mcmAddressByChain,
+		inspectorPerChain,
+		batches,
+		description,
+		proposalutils.TimelockConfig{
+			MinDelay: 0,
+		},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build timelock proposal: %w", err)
 	}

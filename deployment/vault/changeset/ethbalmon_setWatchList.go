@@ -168,7 +168,7 @@ var EthBalMonSetWatchListOperation = operations.NewOperation(
 		mcmsAddr, err := mustGetContractAddress(
 			deps.DataStore,
 			input.ChainSelector,
-			commontypes.ManyChainMultisig,
+			commontypes.BypasserManyChainMultisig,
 		)
 		if err != nil {
 			return EthBalMonSetWatchListOpOutput{},

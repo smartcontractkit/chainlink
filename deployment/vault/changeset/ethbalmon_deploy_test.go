@@ -1,20 +1,32 @@
 package changeset
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
-	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
 func TestDeployEthBalMonValidation(t *testing.T) {
 	t.Parallel()
 
 	selector := chainselectors.TEST_90000001.Selector
+	selectorOther := chainselectors.TEST_90000002.Selector
 
 	env, err := environment.New(t.Context(),
 		environment.WithEVMSimulated(t, []uint64{selector}),
@@ -46,6 +58,18 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 			},
 			wantError: true,
 			errorMsg:  fmt.Sprintf("unknown chain selector %d", uint64(math.MaxUint64)),
+		},
+		{
+			name: "chain not in environment",
+			config: types.DeployEthBalMonInput{
+				Chains: map[uint64]types.DeployEthBalMonChainConfig{
+					selectorOther: {
+						SetKeeperRegistryAddress: "0x1234567890123456789012345678901234567890",
+					},
+				},
+			},
+			wantError: true,
+			errorMsg:  "not found in environment",
 		},
 		{
 			name: "empty setKeeperRegistryAddress",
@@ -102,13 +126,280 @@ func TestDeployEthBalMonValidation(t *testing.T) {
 	}
 }
 
+func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
+	t.Parallel()
+
+	t.Run("rejects empty contract set", func(t *testing.T) {
+		t.Parallel()
+
+		selector := chainselectors.TEST_90000001.Selector
+		env, err := environment.New(t.Context(),
+			environment.WithEVMSimulated(t, []uint64{selector}),
+		)
+		require.NoError(t, err)
+
+		_, err = BuildAcceptOwnershipTimelockProposal(*env, AcceptOwnershipProposalInput{
+			ContractsByChain: map[uint64]string{},
+			Description:      "test",
+			Action:           mcmstypes.TimelockActionBypass,
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "no contracts provided")
+	})
+}
+
 func TestDeployEthBalMonChangeset(t *testing.T) {
 	t.Parallel()
-	// rt, err := runtime.New(t.Context(), runtime.WithEnvOpts())
-	// require.NoError(t, err)
 
 	t.Run("single chain", func(t *testing.T) {
 		t.Parallel()
 
+		selector := chainselectors.TEST_90000001.Selector
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+		))
+		require.NoError(t, err)
+
+		setupMCMSInfrastructure(t, rt, []uint64{selector})
+		fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
+
+		customWait := uint64(120)
+		cfg := types.DeployEthBalMonInput{
+			Chains: map[uint64]types.DeployEthBalMonChainConfig{
+				selector: {
+					SetKeeperRegistryAddress: testAddr1,
+					SetMinWaitPeriodSeconds:  &customWait,
+				},
+			},
+		}
+
+		require.NoError(t, DeployEthBalMonChangeSet.VerifyPreconditions(rt.Environment(), cfg))
+
+		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
+		require.NoError(t, err)
+		assertEthBalMonDeployOutput(t, rt.Environment(), out, cfg)
 	})
+
+	t.Run("default min wait when unset uses 60s", func(t *testing.T) {
+		t.Parallel()
+
+		selector := chainselectors.TEST_90000001.Selector
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+		))
+		require.NoError(t, err)
+
+		setupMCMSInfrastructure(t, rt, []uint64{selector})
+		fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
+
+		cfg := types.DeployEthBalMonInput{
+			Chains: map[uint64]types.DeployEthBalMonChainConfig{
+				selector: {
+					SetKeeperRegistryAddress: testAddr1,
+				},
+			},
+		}
+
+		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
+		require.NoError(t, err)
+
+		mds, err := out.DataStore.ContractMetadata().Fetch()
+		require.NoError(t, err)
+		require.Len(t, mds, 1)
+		mdMap := contractMetadataMap(t, mds[0].Metadata)
+		require.Equal(t, uint64(60), uint64FromAny(t, mdMap["minWaitPeriodSeconds"]))
+	})
+
+	t.Run("multiple chains", func(t *testing.T) {
+		t.Parallel()
+
+		selector1 := chainselectors.TEST_90000001.Selector
+		selector2 := chainselectors.TEST_90000002.Selector
+		selectors := []uint64{selector1, selector2}
+
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, selectors),
+		))
+		require.NoError(t, err)
+
+		setupMCMSInfrastructure(t, rt, selectors)
+		fundDeployerAccounts(t, rt.Environment(), selectors)
+
+		cfg := types.DeployEthBalMonInput{
+			Chains: map[uint64]types.DeployEthBalMonChainConfig{
+				selector1: {SetKeeperRegistryAddress: testAddr1},
+				selector2: {SetKeeperRegistryAddress: testAddr2},
+			},
+		}
+
+		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
+		require.NoError(t, err)
+		assertEthBalMonDeployOutput(t, rt.Environment(), out, cfg)
+	})
+
+	t.Run("verify preconditions rejects invalid config", func(t *testing.T) {
+		t.Parallel()
+
+		selector := chainselectors.TEST_90000001.Selector
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+		))
+		require.NoError(t, err)
+
+		err = DeployEthBalMonChangeSet.VerifyPreconditions(rt.Environment(), types.DeployEthBalMonInput{
+			Chains: map[uint64]types.DeployEthBalMonChainConfig{},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "chains must not be empty")
+	})
+
+	t.Run("apply without MCMS infrastructure fails", func(t *testing.T) {
+		t.Parallel()
+
+		selector := chainselectors.TEST_90000001.Selector
+		rt, err := runtime.New(t.Context(), runtime.WithEnvOpts(
+			environment.WithEVMSimulated(t, []uint64{selector}),
+		))
+		require.NoError(t, err)
+
+		fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
+
+		cfg := types.DeployEthBalMonInput{
+			Chains: map[uint64]types.DeployEthBalMonChainConfig{
+				selector: {SetKeeperRegistryAddress: testAddr1},
+			},
+		}
+
+		_, err = DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "timelock")
+	})
+}
+
+// assertEthBalMonDeployOutput checks datastore, on-chain owner (post transferOwnership, pre-accept),
+// and the accept-ownership timelock proposal.
+func assertEthBalMonDeployOutput(
+	t *testing.T,
+	env cldf.Environment,
+	out cldf.ChangesetOutput,
+	cfg types.DeployEthBalMonInput,
+) {
+	t.Helper()
+
+	n := len(cfg.Chains)
+	require.NotNil(t, out.DataStore)
+
+	addrs, err := out.DataStore.Addresses().Fetch()
+	require.NoError(t, err)
+	require.Len(t, addrs, n)
+
+	mds, err := out.DataStore.ContractMetadata().Fetch()
+	require.NoError(t, err)
+	require.Len(t, mds, n)
+
+	bySel := make(map[uint64]datastore.ContractMetadata)
+	for _, m := range mds {
+		bySel[m.ChainSelector] = m
+	}
+
+	for sel, chainCfg := range cfg.Chains {
+		timelockAddr, err := GetContractAddress(env.DataStore, sel, commontypes.RBACTimelock)
+		require.NoError(t, err)
+		mcmsAddr, err := GetContractAddress(env.DataStore, sel, commontypes.BypasserManyChainMultisig)
+		require.NoError(t, err)
+
+		meta, ok := bySel[sel]
+		require.True(t, ok, "missing contract metadata for chain %d", sel)
+		require.NotEmpty(t, meta.Address)
+
+		md := contractMetadataMap(t, meta.Metadata)
+		require.Equal(t, chainCfg.SetKeeperRegistryAddress, md["keeperRegistryAddress"])
+
+		minWait := chainCfgMinWaitForEffective(chainCfg)
+		require.Equal(t, effectiveMinWaitPeriodSeconds(minWait), uint64FromAny(t, md["minWaitPeriodSeconds"]))
+
+		require.NotEmpty(t, md["deployTxHash"])
+		require.NotZero(t, uint64FromAny(t, md["deployBlockNumber"]))
+		require.Equal(t, timelockAddr, md["timelockAddress"])
+		require.Equal(t, mcmsAddr, md["mcmsAddress"])
+		require.NotEmpty(t, md["transferOwnershipTxHash"])
+
+		ebmAddr, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+		require.NoError(t, err)
+
+		chain := env.BlockChains.EVMChains()[sel]
+		c, err := eth_balance_monitor_wrapper.NewEthBalanceMonitor(common.HexToAddress(ebmAddr), chain.Client)
+		require.NoError(t, err)
+		owner, err := c.Owner(nil)
+		require.NoError(t, err)
+		require.Equal(t, chain.DeployerKey.From, owner,
+			"ConfirmedOwner keeps owner until timelock calls acceptOwnership")
+	}
+
+	require.Len(t, out.MCMSTimelockProposals, 1)
+	prop := out.MCMSTimelockProposals[0]
+	require.Contains(t, prop.Description, "EthBalanceMonitor")
+	require.Len(t, prop.Operations, n)
+
+	seen := make(map[uint64]bool)
+	for _, op := range prop.Operations {
+		sel := uint64(op.ChainSelector)
+		seen[sel] = true
+		require.Len(t, op.Transactions, 1)
+		tx := op.Transactions[0]
+		require.Equal(t, types.ETHBALMON_CONTRACT_TYPE, tx.OperationMetadata.ContractType)
+		require.Contains(t, tx.OperationMetadata.Tags, "acceptOwnership")
+
+		wantContract, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+		require.NoError(t, err)
+		require.Equal(t, common.HexToAddress(wantContract), common.HexToAddress(tx.To))
+	}
+
+	for sel := range cfg.Chains {
+		require.True(t, seen[sel], "proposal missing operation for chain %d", sel)
+	}
+}
+
+func chainCfgMinWaitForEffective(c types.DeployEthBalMonChainConfig) uint64 {
+	if c.SetMinWaitPeriodSeconds == nil {
+		return 0
+	}
+	return *c.SetMinWaitPeriodSeconds
+}
+
+func contractMetadataMap(t *testing.T, raw any) map[string]any {
+	t.Helper()
+	m, ok := raw.(map[string]any)
+	require.True(t, ok, "expected metadata map[string]any, got %T", raw)
+	return m
+}
+
+func uint64FromAny(t *testing.T, v any) uint64 {
+	t.Helper()
+	require.NotNil(t, v)
+	switch x := v.(type) {
+	case uint64:
+		return x
+	case uint:
+		return uint64(x)
+	case uint32:
+		return uint64(x)
+	case int:
+		return uint64(x)
+	case int64:
+		return uint64(x)
+	case float64:
+		return uint64(x)
+	case json.Number:
+		i, err := x.Int64()
+		require.NoError(t, err)
+		return uint64(i)
+	case string:
+		u, err := strconv.ParseUint(x, 10, 64)
+		require.NoError(t, err)
+		return u
+	default:
+		require.Failf(t, "unexpected type for uint64 metadata field", "%T %#v", v, v)
+		return 0
+	}
 }
