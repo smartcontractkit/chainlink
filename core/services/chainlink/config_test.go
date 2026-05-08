@@ -595,6 +595,12 @@ func TestConfig_Marshal(t *testing.T) {
 		IgnoreInvalidBridges: ptr(true),
 		IgnoreJoblessBridges: ptr(false),
 	}
+	enabledOCR2PluginTypes := []string{"median"}
+	full.JobSpecReporter = toml.JobSpecReporter{
+		Enabled:                ptr(true),
+		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
+		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
+	}
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          ptr(false),
 		ArbiterPort:              ptr[uint16](9876),
