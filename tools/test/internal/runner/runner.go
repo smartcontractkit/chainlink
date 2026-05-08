@@ -24,7 +24,7 @@ import (
 
 type diagnoseIterationResource = db.Resource
 
-type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error
+type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex) error
 
 type diagnoseRunHooks struct {
 	runIteration diagnoseIterationRunner
@@ -113,7 +113,8 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
-	printDiagnoseAnalyzing(out, state.liveProgress)
+	stopAnalyzing := startDiagnoseAnalyzingProgress(out, state.liveProgress)
+	defer stopAnalyzing()
 	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
@@ -159,7 +160,8 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	out.HumanStderr(
-		termstyle.Label.Render("diagnose complete") +
+		termstyle.Label.Render("diagnose complete") + " " +
+			termstyle.OK.Render("✅") +
 			termstyle.Muted.Render(fmt.Sprintf(" (%s)", time.Since(start))))
 	if report != nil {
 		PrintSummary(out.HumanStderrWriter(), report)
@@ -203,10 +205,7 @@ func EffectiveParallelIterations(conf *config.App) int {
 	if conf == nil {
 		return 1
 	}
-	parallel := conf.ParallelIterations
-	if parallel < 1 {
-		parallel = 1
-	}
+	parallel := max(conf.ParallelIterations, 1)
 	if conf.Iterations > 0 && parallel > conf.Iterations {
 		parallel = conf.Iterations
 	}
@@ -303,10 +302,15 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 		progressTickWG.Wait()
 	}()
 
+	var serialProgressMu *sync.Mutex
+	if parallel == 1 && state.liveProgress {
+		serialProgressMu = new(sync.Mutex)
+	}
+
 	var wg sync.WaitGroup
 	for _, resource := range resources {
 		wg.Go(func() {
-			executeSingleIteration(runCtx, conf, out, resultsDir, goTestArgs, resource, hooks, parallel, parallelProgress, diagnoseRunStart, jobs, results, cancel)
+			executeSingleIteration(runCtx, conf, out, resultsDir, goTestArgs, resource, hooks, parallel, parallelProgress, diagnoseRunStart, serialProgressMu, jobs, results, cancel)
 		})
 	}
 
@@ -346,7 +350,17 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 				printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
 			})
 		} else {
-			printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
+			// Serial TTY: worker may redraw the next iteration's \r line before this
+			// loop runs. Hold the same lock as redraw so ClearInline+Fprintln is not
+			// interleaved with another progress draw (which would leave the cursor at EOL).
+			if serialProgressMu != nil {
+				serialProgressMu.Lock()
+				out.ClearInline()
+				printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
+				serialProgressMu.Unlock()
+			} else {
+				printDiagnoseIterationDigest(out, result.iteration, conf.Iterations, conf, resultsDir, result.duration)
+			}
 		}
 		if result.dumpErr != nil && !out.AIOutput() {
 			out.Stderrf("postgres state dump iteration %d: %v\n", result.iteration, result.dumpErr)
@@ -361,7 +375,7 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	return state, firstErr
 }
 
-func executeSingleIteration(runCtx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resource diagnoseIterationResource, hooks diagnoseRunHooks, parallel int, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, jobs <-chan int, results chan<- diagnoseIterationResult, cancel context.CancelFunc) {
+func executeSingleIteration(runCtx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, resource diagnoseIterationResource, hooks diagnoseRunHooks, parallel int, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex, jobs <-chan int, results chan<- diagnoseIterationResult, cancel context.CancelFunc) {
 	used := false
 	for iteration := range jobs {
 		if runCtx.Err() != nil {
@@ -386,7 +400,7 @@ func executeSingleIteration(runCtx context.Context, conf *config.App, out *outpu
 			seed = hooks.seed()
 		}
 		iterStart := time.Now()
-		iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart)
+		iterErr := hooks.runIteration(runCtx, conf, out, resultsDir, goTestArgs, iteration, seed, resource.Env, parallel == 1, parallelProgress, diagnoseRunStart, serialProgressMu)
 		iterDur := time.Since(iterStart)
 		var dumpErr error
 		if resource.DumpDiagnostics != nil {
@@ -588,14 +602,49 @@ func printDiagnoseResultsDirHeader(out *output.Printer, resultsDir string) {
 	out.HumanStderr(termstyle.Muted.Render("results directory: ") + termstyle.Label.Render(resultsDir))
 }
 
-func printDiagnoseAnalyzing(out *output.Printer, afterLiveProgress bool) {
+// startDiagnoseAnalyzingProgress prints an "analyzing... [duration]" line and returns
+// stop, which must be called once after AnalyzeResults finishes. On a TTY the duration
+// updates in place; stop finalizes the line with a newline.
+func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool) (stop func()) {
 	if out.AIOutput() {
-		return
+		return func() {}
 	}
 	if afterLiveProgress {
 		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
 	}
-	out.HumanStderr("analyzing...")
+	if !out.LiveInlineProgress() {
+		out.HumanStderr("analyzing...")
+		return func() {}
+	}
+
+	analyzeStart := time.Now()
+	renderLine := func(suffix string) {
+		elapsed := max(time.Since(analyzeStart).Round(time.Second), 0)
+		line := termstyle.Label.Render("analyzing...") + " " + termstyle.Muted.Render("["+elapsed.String()+"]") + suffix
+		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K"+line)
+	}
+	renderLine("")
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		tick := time.NewTicker(250 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-tick.C:
+				renderLine("")
+			}
+		}
+	})
+
+	return func() {
+		close(done)
+		wg.Wait()
+		renderLine("\n")
+	}
 }
 
 func printDiagnoseIterationDigest(out *output.Printer, iterationIdx0, totalIters int, conf *config.App, resultsDir string, iterDur time.Duration) {
@@ -632,10 +681,7 @@ func formatIterationDigestAI(iter, total int, d IterationDigest, dur time.Durati
 	case "timeout":
 		rs = "t"
 	}
-	sec := int(dur.Round(time.Second) / time.Second)
-	if sec < 0 {
-		sec = 0
-	}
+	sec := max(int(dur.Round(time.Second)/time.Second), 0)
 	return fmt.Sprintf("d %d/%d %s %ds r%d f%d t%d s%d", iter, total, rs, sec, d.RanTests, d.FailTests, d.TimeoutTests, d.SlowTests)
 }
 
@@ -670,7 +716,7 @@ func (sw *syncedWriter) Write(p []byte) (int, error) {
 	return sw.w.Write(p)
 }
 
-func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time) error {
+func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex) error {
 	start := time.Now()
 	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
 	resultsFile, err := os.Create(jsonPath)
@@ -722,6 +768,10 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	}
 
 	redraw := func(liveInline bool) {
+		if serialProgressMu != nil {
+			serialProgressMu.Lock()
+			defer serialProgressMu.Unlock()
+		}
 		renderDiagnoseProgressLine(out.HumanStderrWriter(), iter, iters, time.Since(start), diagnoseRunStart, time.Now(), liveInline)
 	}
 
@@ -803,10 +853,7 @@ func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, starte
 	if n, err := config.NormalizeFailFastOn(conf.FailFastOn); err == nil && len(n) > 0 {
 		ffo = n
 	}
-	par := conf.ParallelIterations
-	if par < 1 {
-		par = 1
-	}
+	par := max(conf.ParallelIterations, 1)
 	var fin *time.Time
 	if finished != nil {
 		t := finished.UTC()

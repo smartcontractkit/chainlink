@@ -322,7 +322,7 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 		}
 	}
 	summaries := make([]IterationSummary, numIterations)
-	for i := 0; i < numIterations; i++ {
+	for i := range numIterations {
 		s := IterationSummary{Index: i}
 		switch {
 		case iterTimedOut[i]:

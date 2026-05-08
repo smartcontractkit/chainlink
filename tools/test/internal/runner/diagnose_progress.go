@@ -178,16 +178,10 @@ func (p *parallelDiagnoseProgress) renderSnapshot(now time.Time) (completed, tot
 	defer p.mu.Unlock()
 	completed = p.completed
 	total = p.totalIterations
-	poolElapsed = now.Sub(p.poolStartedAt)
-	if poolElapsed < 0 {
-		poolElapsed = 0
-	}
+	poolElapsed = max(now.Sub(p.poolStartedAt), 0)
 	poolElapsed = poolElapsed.Round(time.Second)
 	for iter, pr := range p.active {
-		elapsed := now.Sub(pr.startedAt)
-		if elapsed < 0 {
-			elapsed = 0
-		}
+		elapsed := max(now.Sub(pr.startedAt), 0)
 		actives = append(actives, activeIterElapsed{iteration: iter, elapsed: elapsed.Round(time.Second)})
 	}
 	slices.SortFunc(actives, func(a, b activeIterElapsed) int {
@@ -256,10 +250,7 @@ func renderDiagnoseProgressLine(w io.Writer, iteration, iterations int, iterElap
 	iterBracket := fmt.Sprintf("iter %d/%d (%s)", iteration, iterations, iterElapsed.Round(time.Second).String())
 	line := progressBracket(termstyle.Label.Render(iterBracket))
 	if !diagnoseRunStart.IsZero() {
-		runEl := now.Sub(diagnoseRunStart)
-		if runEl < 0 {
-			runEl = 0
-		}
+		runEl := max(now.Sub(diagnoseRunStart), 0)
 		line += "  " + progressBracket(termstyle.Muted.Render(runEl.Round(time.Second).String()))
 	}
 	fmt.Fprint(w, "\r\033[K")

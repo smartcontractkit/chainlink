@@ -110,14 +110,31 @@ func TestDiagnoseHumanModeFooterShowsReportJSONPath(t *testing.T) {
 	assert.NotContains(t, out, "results in ")
 }
 
-func TestPrintDiagnoseAnalyzingStartsNewLineAfterLiveProgress(t *testing.T) {
+func TestStartDiagnoseAnalyzingProgress_startsNewLineAfterLiveProgress(t *testing.T) {
 	t.Parallel()
 	var stderr strings.Builder
 	out := output.New(false, io.Discard, &stderr, output.SkipFD)
 
-	printDiagnoseAnalyzing(out, true)
+	stop := startDiagnoseAnalyzingProgress(out, true)
+	stop()
 
 	assert.Equal(t, "\r\u001b[K\nanalyzing...\n", stderr.String())
+}
+
+func TestStartDiagnoseAnalyzingProgress_liveInline_updatesDuration(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	out := output.NewForTest(false, io.Discard, &stderr, true)
+
+	stop := startDiagnoseAnalyzingProgress(out, false)
+	time.Sleep(300 * time.Millisecond)
+	stop()
+
+	got := stderr.String()
+	assert.Contains(t, got, "analyzing...")
+	assert.Regexp(t, `\[[0-9]+s\]`, got)
+	assert.Contains(t, got, "\r\u001b[K")
+	assert.True(t, strings.HasSuffix(got, "\n"))
 }
 
 func TestParseDiagnoseGoTestCount(t *testing.T) {
@@ -477,7 +494,7 @@ func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
 		},
 	}
 	hooks := diagnoseRunHooks{
-		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, _ time.Time) error {
+		runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
 			require.False(t, liveProgress)
 			require.Nil(t, parallelProgress)
 			nowActive := atomic.AddInt32(&active, 1)
@@ -525,7 +542,7 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	var mu sync.Mutex
 	started := make(map[int]struct{})
 	hooks := diagnoseRunHooks{
-		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+		runIteration: func(ctx context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
 			mu.Lock()
 			started[iteration] = struct{}{}
 			mu.Unlock()
@@ -542,6 +559,85 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, state.failedFast)
 	assert.LessOrEqual(t, len(started), conf.ParallelIterations)
+}
+
+// Stress serial live \r progress vs digest printing: the hook redraws on a tight
+// ticker like diagnoseIteration while the results consumer prints table rows.
+// Without a shared mutex, scheduling can merge progress and digest on one line.
+func TestRunDiagnoseIterations_serialLiveProgressMutex_noMergedProgressAndTableLines(t *testing.T) {
+	t.Parallel()
+	var stderr strings.Builder
+	out := output.NewForTest(false, io.Discard, &stderr, true)
+	require.True(t, out.LiveInlineProgress())
+
+	resultsDir := t.TempDir()
+	conf := &config.App{
+		RepoRoot:           t.TempDir(),
+		AIOutput:           false,
+		Iterations:         60,
+		ParallelIterations: 1,
+	}
+	jsonl := `{"Action":"pass","Package":"p"}` + "\n"
+
+	hooks := diagnoseRunHooks{
+		runIteration: func(ctx context.Context, _ *config.App, pr *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, liveProgress bool, _ *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialMu *sync.Mutex) error {
+			require.True(t, liveProgress)
+			require.NotNil(t, serialMu)
+			iter, iters := iteration+1, conf.Iterations
+			iterStart := time.Now()
+			tickDone := make(chan struct{})
+			var wgTick sync.WaitGroup
+			wgTick.Go(func() {
+				tick := time.NewTicker(120 * time.Microsecond)
+				defer tick.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-tickDone:
+						return
+					case <-tick.C:
+						serialMu.Lock()
+						renderDiagnoseProgressLine(pr.HumanStderrWriter(), iter, iters, time.Since(iterStart), diagnoseRunStart, time.Now(), true)
+						serialMu.Unlock()
+					}
+				}
+			})
+			time.Sleep(3 * time.Millisecond)
+			close(tickDone)
+			wgTick.Wait()
+			path := filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl")
+			return os.WriteFile(path, []byte(jsonl), 0o600)
+		},
+	}
+
+	state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}}, hooks)
+	require.NoError(t, err)
+	require.Equal(t, conf.Iterations, state.completed)
+
+	for line := range strings.SplitSeq(stderr.String(), "\n") {
+		plain := stripANSI(ttySegmentAfterLastCR(line))
+		if plain == "" {
+			continue
+		}
+		if strings.Contains(plain, "Iter") && strings.Contains(plain, "Result") {
+			continue
+		}
+		if strings.Contains(plain, "iter ") && strings.Contains(plain, "/") &&
+			(strings.Contains(plain, " pass") || strings.Contains(plain, " fail") || strings.Contains(plain, " timeout")) {
+			t.Fatalf("merged live progress with table row (serial mutex regression):\n%q", plain)
+		}
+	}
+}
+
+// ttySegmentAfterLastCR returns the portion of a single stderr line after the final
+// carriage return, matching how a terminal shows the line when the buffer records
+// many \r redraws before one newline.
+func ttySegmentAfterLastCR(s string) string {
+	if i := strings.LastIndex(s, "\r"); i >= 0 {
+		return s[i+1:]
+	}
+	return s
 }
 
 func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
@@ -607,12 +703,12 @@ func TestRunDiagnoseIterationsFailFastOnCategories(t *testing.T) {
 			}
 			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
 			hooks := diagnoseRunHooks{
-				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
 					return os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600)
 				},
 			}
 			if tc.iterErr != nil {
-				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time) error {
+				hooks.runIteration = func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
 					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(tc.iterationJSON+"\n"), 0600))
 					return tc.iterErr
 				}
