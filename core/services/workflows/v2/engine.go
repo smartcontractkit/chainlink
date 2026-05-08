@@ -398,6 +398,12 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	if subs == nil {
 		return errors.New("subscribe result is nil")
 	}
+	e.logger().Infow("DEBUG-TEE-ROUTING: workflow Subscribe returned",
+		"workflowID", e.cfg.WorkflowID,
+		"workflowName", e.cfg.WorkflowName,
+		"subCount", len(subs.GetSubscriptions()),
+		"subscriptions", subs.GetSubscriptions(),
+	)
 	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
 	if err != nil {
 		return err

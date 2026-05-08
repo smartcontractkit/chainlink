@@ -137,7 +137,14 @@ func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
 		m.provider = host.NewProviderFromSelection(m.providedTees(ctx))
 	})
 
-	return m.provider(tee)
+	result := m.provider(tee)
+	m.lggr.Infow("DEBUG-TEE-ROUTING: ConfidentialModule.Tee() called",
+		"workflowID", m.workflowID,
+		"workflowName", m.workflowName,
+		"tee", tee,
+		"matched", result,
+	)
+	return result
 }
 
 func doRequest[I, O proto.Message](

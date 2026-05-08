@@ -752,6 +752,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	initDone := make(chan error, 1)
 	var engine services.Service
 
+	h.lggr.Infow("DEBUG-TEE-ROUTING: workflowActivated -> engineFactory",
+		"workflowID", spec.WorkflowID,
+		"workflowName", spec.WorkflowName,
+		"workflowOwner", spec.WorkflowOwner,
+		"attributes", string(spec.Attributes),
+	)
 	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
