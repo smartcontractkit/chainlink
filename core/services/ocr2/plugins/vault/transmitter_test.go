@@ -24,7 +24,7 @@ func TestTransmitter(t *testing.T) {
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clockwork.NewFakeClock(), time.Hour)
 	servicetest.Run(t, handler)
-	transmitter := NewTransmitter(lggr, types.Account("0x1"), handler)
+	transmitter := NewTransmitter(lggr, types.Account("0x1"), handler, nil)
 
 	id1 := &vault.SecretIdentifier{
 		Owner:     "owner",

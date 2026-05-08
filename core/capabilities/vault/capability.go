@@ -25,6 +25,40 @@ import (
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
+// requestLifecycleTrace holds timestamps and OCR seqNrs for each Vault request as it
+// progresses through the capability handler and OCR plugin. Values are keyed in
+// RequestLifecycleTracker by the same requestID used in handleRequest and ReportInfo.
+type requestLifecycleTrace struct {
+	receivedAt time.Time
+
+	blobChosenAt  time.Time
+	blobChosenSeq uint64
+	hasBlobChosen bool
+
+	blobBroadcastAt  time.Time
+	blobBroadcastSeq uint64
+	hasBlobBroadcast bool
+
+	pendingQueueAt  time.Time
+	pendingQueueSeq uint64
+	hasPendingQueue bool
+
+	obsBatchAt  time.Time
+	obsBatchSeq uint64
+	hasObsBatch bool
+
+	stateTransitionAt  time.Time
+	stateTransitionSeq uint64
+	hasStateTransition bool
+
+	transmitAt  time.Time
+	transmitSeq uint64
+	hasTransmit bool
+
+	capabilityResponseAt  time.Time
+	hasCapabilityResponse bool
+}
+
 type Capability struct {
 	lggr                 logger.Logger
 	clock                clockwork.Clock
@@ -33,6 +67,7 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	linker               *OrgIDToWorkflowOwnerLinker
+	lifecycle            *RequestLifecycleTracker
 	*RequestValidator
 }
 
@@ -341,6 +376,9 @@ func validateOwnerMatchesResolvedIdentity(field string, owner string, resolvedId
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	if s.lifecycle != nil {
+		s.lifecycle.RecordReceived(requestID, s.clock.Now())
+	}
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
@@ -353,13 +391,23 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	select {
 	case <-ctx.Done():
 		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
+		if s.lifecycle != nil {
+			s.lifecycle.FinalizeTimeout(ctx, requestID)
+		}
 		return nil, ctx.Err()
 	case resp := <-respCh:
 		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
+		respAt := s.clock.Now()
 		if resp.Error != "" {
+			if s.lifecycle != nil {
+				s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
+			}
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
+		if s.lifecycle != nil {
+			s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
+		}
 		return resp, nil
 	}
 }
@@ -386,6 +434,7 @@ func NewCapability(
 	publicKey *LazyPublicKey,
 	orgResolver orgresolver.OrgResolver,
 	limitsFactory limits.Factory,
+	lifecycle *RequestLifecycleTracker,
 ) (*Capability, error) {
 	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
@@ -419,6 +468,7 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		linker:               linker,
+		lifecycle:            lifecycle,
 		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }
