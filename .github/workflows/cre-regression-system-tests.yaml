@@ -186,7 +186,7 @@ jobs:
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::startgroup::Install gotestsum"
+          echo "::group::Install gotestsum"
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 
@@ -206,32 +206,20 @@ jobs:
           echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
-        shell: bash
         id: start-local-cre
-        env:
-          CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
+        uses: ./.github/actions/start-local-cre-environment
+        with:
+          jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
-          CTF_CHAINLINK_IMAGE: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
-          CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
-          CRE_VERSION: ${{ matrix.tests.cre_version }}
-          TEST_NAME: ${{ matrix.tests.test_name }}
-        run: |
-          cd core/scripts/cre/environment
-
-          # Start CRE with the appropriate contracts version (i.e. Workflow/CapabilityRegistry)
-          if [[ "${CRE_VERSION}" == "v1" ]]; then
-            echo "Starting CRE with explicit v1 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start --with-contracts-version v1
-          else
-            echo "Starting CRE with default v2 contracts for test: '${TEST_NAME}' and configs: '${CTF_CONFIGS}'"
-            go run . env start
-          fi
-
-          exit_code=$?
-          if [ $exit_code -ne 0 ]; then
-            echo "Error: failed to start local CRE ${CRE_VERSION}, exit code $exit_code"
-            exit $exit_code
-          fi
+          chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          ctf-configs: configs/workflow-gateway-capabilities-don.toml
+          retry-count: "3"
+          retry-delay-seconds: "15"
+          cleanup-on-error: "false"
+          env-start-extra-args: "${{ matrix.tests.cre_version == 'v1' && '--with-contracts-version v1' || '' }}"
+          working-directory: core/scripts/cre/environment
 
       - name: Run CRE${{ matrix.tests.cre_version }} Regression system tests
         id: run-regression-tests

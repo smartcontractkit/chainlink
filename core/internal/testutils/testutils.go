@@ -86,15 +86,37 @@ func RandomizeName(n string) string {
 // DefaultWaitTimeout is the default wait timeout. If you have a *testing.T, use WaitTimeout instead.
 const DefaultWaitTimeout = 30 * time.Second
 
-// WaitTimeout returns a timeout based on the test's Deadline, if available.
+// deadlineRemainingBudget returns ~90% of time until the test deadline, or false if none.
+func deadlineRemainingBudget(t *testing.T) (time.Duration, bool) {
+	if d, ok := t.Deadline(); ok {
+		return time.Until(d) * 9 / 10, true // 10% buffer for cleanup
+	}
+	return 0, false
+}
+
+// WaitTimeout returns a timeout capped by the test's Deadline, if available.
 // Especially important to use in parallel tests, as their individual execution
 // can get paused for arbitrary amounts of time.
+//
+// When a deadline exists, it uses the full remaining budget (90% of time until the
+// deadline), not [DefaultWaitTimeout], so long-running tests still get enough wall
+// clock under package timeouts.
 func WaitTimeout(t *testing.T) time.Duration {
-	if d, ok := t.Deadline(); ok {
-		// 10% buffer for cleanup and scheduling delay
-		return time.Until(d) * 9 / 10
+	if budget, ok := deadlineRemainingBudget(t); ok {
+		return budget
 	}
 	return DefaultWaitTimeout
+}
+
+// WaitTimeoutCustom uses the requested duration when there is no test deadline.
+// When the test has a deadline, it returns the lesser of the requested duration and
+// the remaining budget (90% of time until deadline), so callers can ask for e.g. 5m
+// without exceeding the test process deadline.
+func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
+	if budget, ok := deadlineRemainingBudget(t); ok {
+		return min(budget, requested)
+	}
+	return requested
 }
 
 // Context returns a context with the test's deadline, if available.

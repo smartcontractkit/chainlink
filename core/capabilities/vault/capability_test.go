@@ -1018,9 +1018,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "CreateSecrets_Missing_Namespace",
-			response: nil,
-			error:    "namespace cannot be empty",
+			name: "CreateSecrets_EmptyNamespace_DefaultsToMain",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -1208,13 +1211,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "UpdateSecrets_Missing_Namespace",
+			name: "UpdateSecrets_EmptyNamespace_DefaultsToMain",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "namespace cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -1223,7 +1225,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "w",
 								Namespace: "",
-								Owner:     "a",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -1455,9 +1457,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "DeleteSecrets_Missing_Namespace",
-			response: nil,
-			error:    "namespace cannot be empty",
+			name: "DeleteSecrets_EmptyNamespace_DefaultsToMain",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1515,7 +1520,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_OwnerMissing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
@@ -1527,7 +1532,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_RequestID_Missing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
@@ -1540,7 +1545,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_Owner_Missing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "kk",
@@ -1551,13 +1556,16 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "ListSecretIdentifiers_Namespace_Missing",
-			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			name: "ListSecretIdentifiers_EmptyNamespace_DefaultsToMain",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
-					RequestId: "kk",
-					Owner:     "owner",
+					RequestId: requestID,
+					Owner:     owner,
 					Namespace: "",
 				}
 				return capability.ListSecretIdentifiers(t.Context(), req)
