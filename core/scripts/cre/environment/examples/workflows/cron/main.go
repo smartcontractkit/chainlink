@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 )
 
 func main() {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"maps"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -58,7 +57,6 @@ type SetupInput struct {
 	ChipRouterInput        *ctfchiprouter.Input
 	JdInput                *jd.Input
 	Provider               infra.Provider
-	ContractVersions       map[cre.ContractType]*semver.Version
 	OCR3Config             *keystone_changeset.OracleConfig
 	DONTimeConfig          *keystone_changeset.OracleConfig
 	VaultOCR3Config        *keystone_changeset.OracleConfig
@@ -112,12 +110,6 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	contractVersions := input.ContractVersions
-	if contractVersions == nil {
-		contractVersions = cre.NewContractVersionsProvider(config.DefaultContractSet()).ContractVersions()
-		input.ContractVersions = contractVersions
-	}
-
 	s3Output, s3Err := workflow.StartS3(testLogger, input.S3ProviderInput, input.StageGen)
 	if s3Err != nil {
 		return nil, pkgerrors.Wrap(s3Err, "failed to start S3 provider")
@@ -145,7 +137,6 @@ func SetupTestEnvironment(
 
 	creEnvironment := &cre.Environment{
 		Blockchains:           deployedBlockchains.Outputs,
-		ContractVersions:      input.ContractVersions,
 		Provider:              input.Provider,
 		RegistryChainSelector: deployedBlockchains.RegistryChain().ChainSelector(),
 	}
@@ -158,9 +149,8 @@ func SetupTestEnvironment(
 		testLogger,
 		singleFileLogger,
 		crecontracts.DeployKeystoneContractsInput{
-			CldfEnvironment:  newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
-			CtfBlockchains:   deployedBlockchains.Outputs,
-			ContractVersions: contractVersions,
+			CldfEnvironment: newCldfEnvironment(ctx, singleFileLogger, deployedBlockchains.CldfBlockChains),
+			CtfBlockchains:  deployedBlockchains.Outputs,
 		},
 	)
 	if deployErr != nil {
@@ -352,7 +342,7 @@ func SetupTestEnvironment(
 			deployKeystoneContractsOutput.MemoryDataStore,
 			deployedBlockchains.RegistryChain().ChainSelector(),
 			keystone_changeset.CapabilitiesRegistry.String(),
-			input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+			crecontracts.V2Version,
 			""),
 		),
 		NodeSets:                        input.NodeSets,
@@ -377,14 +367,14 @@ func SetupTestEnvironment(
 	if err := crecontracts.ResolveAndApplyContractDonIDs(capReg, dons, topology, input.NodeSets); err != nil {
 		return nil, pkgerrors.Wrap(err, "failed to resolve and apply contract donIDs")
 	}
-	wfRegVersion := input.ContractVersions[keystone_changeset.WorkflowRegistry.String()]
+
 	workflowRegistryConfigurationOutput, wfErr := workflow.ConfigureWorkflowRegistry(
 		ctx,
 		testLogger,
 		singleFileLogger,
 		&cre.WorkflowRegistryInput{
-			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, deployedBlockchains.RegistryChain().ChainSelector(), keystone_changeset.WorkflowRegistry.String(), input.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")),
-			ContractVersion: cldf.TypeAndVersion{Version: *wfRegVersion},
+			ContractAddress: common.HexToAddress(crecontracts.MustGetAddressFromDataStore(deployKeystoneContractsOutput.Env.DataStore, deployedBlockchains.RegistryChain().ChainSelector(), keystone_changeset.WorkflowRegistry.String(), crecontracts.V2Version, "")),
+			ContractVersion: cldf.TypeAndVersion{Version: *crecontracts.V2Version},
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   topology.WorkflowDONIDs,
@@ -394,11 +384,6 @@ func SetupTestEnvironment(
 	if wfErr != nil {
 		return nil, pkgerrors.Wrap(wfErr, "failed to configure workflow registry")
 	}
-
-	wfFiltersFuture := queue.SubmitErr(func(ctx context.Context) error {
-		// V2 workflow registry syncer does not register LogPoller filters on workflow DON DBs.
-		return nil
-	})
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Workflow and Capability Registry contracts configured in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 
@@ -434,10 +419,6 @@ func SetupTestEnvironment(
 			return nil, pkgerrors.Wrap(err, "failed to setup Sharding")
 		}
 		fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Sharding setup in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	}
-
-	if err := worker.AwaitErr(ctx, wfFiltersFuture); err != nil {
-		return nil, pkgerrors.Wrap(err, "failed while waiting for workflow registry filters registration")
 	}
 
 	appendOutputsToInput(input, startedDONs.NodeOutputs(), deployedBlockchains.Outputs, startedJD.JDOutput)

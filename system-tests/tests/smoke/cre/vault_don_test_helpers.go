@@ -730,21 +730,6 @@ func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 	require.Contains(t, jsonResponse.Error.Error(), expectedAuthError)
 }
 
-func executeVaultSecretsWorkflowChecksTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName string,
-	checks []vaultWorkflowCheck,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
-) {
-	t.Helper()
-
-	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, workflowBaseName, []vaultWorkflowPhase{{
-		Name:   workflowBaseName,
-		Checks: checks,
-	}})
-	waitForVaultWorkflowPhase(t, workflowID, workflowBaseName, userLogsCh, baseMessageCh)
-}
-
 func startVaultSecretsWorkflowPhasesTest(
 	t *testing.T, testEnv *ttypes.TestEnvironment,
 	workflowBaseName string,

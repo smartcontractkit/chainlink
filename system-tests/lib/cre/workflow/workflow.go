@@ -126,8 +126,7 @@ func RegisterWithContract(
 		return "", fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
 
-	// Register workflow (v2)
-	if err := registerWorkflowV2(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
+	if err := registerWorkflow(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
 		return "", err
 	}
 
@@ -149,7 +148,7 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 	ownershipProof := hex.EncodeToString(hash[:])
 	linkRequestType := uint8(0)
 
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return err
 	}
@@ -184,15 +183,15 @@ func LinkOwner(sc *seth.Client, workflowRegistryAddr common.Address, version *se
 	return err
 }
 
-// GetWorkflowNames retrieves all workflow names for the given registry contract (v2 only).
+// GetWorkflowNames retrieves all workflow names for the given registry contract
 func GetWorkflowNames(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
 	if version == nil || version.Major() != 2 {
 		return nil, fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
-	return getWorkflowNamesV2(sc, workflowRegistryAddr, version)
+	return getWorkflowNames(sc, workflowRegistryAddr, version)
 }
 
-// DeleteWithContract removes a workflow from the workflow registry contract (v2 only).
+// DeleteWithContract removes a workflow from the workflow registry contract.
 func DeleteWithContract(
 	ctx context.Context,
 	sc *seth.Client,
@@ -203,15 +202,15 @@ func DeleteWithContract(
 	if version == nil || version.Major() != 2 {
 		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
-	return deleteWorkflowV2(ctx, sc, workflowRegistryAddr, version, workflowName)
+	return deleteWorkflow(ctx, sc, workflowRegistryAddr, version, workflowName)
 }
 
-// DeleteAllWithContract removes all workflows owned by the caller from the workflow registry contract (v2 only).
+// DeleteAllWithContract removes all workflows owned by the caller from the workflow registry contract.
 func DeleteAllWithContract(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
 	if version == nil || version.Major() != 2 {
 		return fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
-	return deleteAllWorkflowsV2(ctx, sc, workflowRegistryAddr, version)
+	return deleteAllWorkflows(ctx, sc, workflowRegistryAddr, version)
 }
 
 // RemoveWorkflowArtifactsFromLocalEnv removes workflow artifact files from the local filesystem.
@@ -237,15 +236,15 @@ func constructArtifactURL(originalURL string, artifactsDirInContainer *string) s
 	return originalURL
 }
 
-// registerWorkflowV2 handles workflow registration for v2 registry contracts
-func registerWorkflowV2(
+// registerWorkflow handles workflow registration for registry contracts
+func registerWorkflow(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
 	workflowName, workflowID, binaryURL, configURL string,
 	attributes []byte,
 ) error {
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return err
 	}
@@ -278,10 +277,10 @@ func registerWorkflowV2(
 	return nil
 }
 
-// deleteAllWorkflowsV2 removes all workflows for v2 registry contracts.
-func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
+// deleteAllWorkflows removes all workflows for registry contracts.
+func deleteAllWorkflows(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) error {
 	// Create registry instance once for all operations
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return err
 	}
@@ -292,7 +291,7 @@ func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAd
 	}
 
 	// Get list of workflows to delete using the same registry instance
-	workflows, err := getWorkflowListWithRegistryV2(registry, sc)
+	workflows, err := getWorkflowListWithRegistry(registry, sc)
 	if err != nil {
 		return err
 	}
@@ -307,11 +306,11 @@ func deleteAllWorkflowsV2(_ context.Context, sc *seth.Client, workflowRegistryAd
 	return nil
 }
 
-// deleteWorkflowV2 handles workflow deletion for v2 registry contracts.
-func deleteWorkflowV2(ctx context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version, workflowName string,
+// deleteWorkflow handles workflow deletion for registry contracts.
+func deleteWorkflow(_ context.Context, sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version, workflowName string,
 ) error {
 	// Create registry instance once for all operations
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return err
 	}
@@ -337,7 +336,7 @@ func deleteWorkflowV2(ctx context.Context, sc *seth.Client, workflowRegistryAddr
 
 // findWorkflowByNameWithRegistry finds a workflow by name using an existing registry instance and returns its ID.
 func findWorkflowByNameWithRegistry(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client, workflowName string) ([32]byte, error) {
-	workflows, err := getWorkflowListWithRegistryV2(registry, sc)
+	workflows, err := getWorkflowListWithRegistry(registry, sc)
 	if err != nil {
 		return [32]byte{}, err
 	}
@@ -367,8 +366,8 @@ func verifyOwnerLinkedWithRegistry(registry *workflow_registry_wrapper_v2.Workfl
 	return nil
 }
 
-// getRegistryV2Instance creates a new v2 workflow registry instance.
-func getRegistryV2Instance(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) (*workflow_registry_wrapper_v2.WorkflowRegistry, error) {
+// getRegistryInstance creates a new workflow registry instance.
+func getRegistryInstance(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) (*workflow_registry_wrapper_v2.WorkflowRegistry, error) {
 	registry, err := workflow_registry_wrapper_v2.NewWorkflowRegistry(workflowRegistryAddr, sc.Client)
 	if err != nil {
 		return nil, errors.Wrapf(err, errCreateContractInstance, "WorkflowRegistry", version)
@@ -377,16 +376,16 @@ func getRegistryV2Instance(sc *seth.Client, workflowRegistryAddr common.Address,
 	// add contract ABI to Seth, so that it can decode transaction errors
 	abi, aErr := workflow_registry_wrapper_v2.WorkflowRegistryMetaData.GetAbi()
 	if aErr != nil {
-		return nil, fmt.Errorf("failed to get WorkflowRegistryV2 ABI: %w", aErr)
+		return nil, fmt.Errorf("failed to get WorkflowRegistry ABI: %w", aErr)
 	}
 
-	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistryV2", *abi)
+	sc.ABIFinder.ContractStore.AddABI("WorkflowRegistry", *abi)
 
 	return registry, nil
 }
 
-// getWorkflowListWithRegistryV2 retrieves the full workflow list using an existing v2 registry instance.
-func getWorkflowListWithRegistryV2(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
+// getWorkflowListWithRegistry retrieves the full workflow list using an existing registry instance.
+func getWorkflowListWithRegistry(registry *workflow_registry_wrapper_v2.WorkflowRegistry, sc *seth.Client) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
 	workflows, err := registry.GetWorkflowListByOwner(
 		sc.NewCallOpts(),
 		sc.MustGetRootKeyAddress(),
@@ -400,19 +399,19 @@ func getWorkflowListWithRegistryV2(registry *workflow_registry_wrapper_v2.Workfl
 	return workflows, nil
 }
 
-// getWorkflowListV2 retrieves the full workflow list for v2 registry contracts.
-func getWorkflowListV2(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
-	registry, err := getRegistryV2Instance(sc, workflowRegistryAddr, version)
+// getWorkflowList retrieves the full workflow list for registry contracts.
+func getWorkflowList(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]workflow_registry_wrapper_v2.WorkflowRegistryWorkflowMetadataView, error) {
+	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return nil, err
 	}
 
-	return getWorkflowListWithRegistryV2(registry, sc)
+	return getWorkflowListWithRegistry(registry, sc)
 }
 
-// getWorkflowNamesV2 retrieves all workflow names for v2 registry contracts.
-func getWorkflowNamesV2(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
-	workflows, err := getWorkflowListV2(sc, workflowRegistryAddr, version)
+// getWorkflowNames retrieves all workflow names for registry contracts.
+func getWorkflowNames(sc *seth.Client, workflowRegistryAddr common.Address, version *semver.Version) ([]string, error) {
+	workflows, err := getWorkflowList(sc, workflowRegistryAddr, version)
 	if err != nil {
 		return nil, err
 	}

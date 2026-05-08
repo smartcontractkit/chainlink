@@ -9,7 +9,7 @@ type DefaultCapbilityFlagsProvider struct {
 func NewDefaultCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
 		capabilities: []cre.CapabilityFlag{
-			cre.ConsensusCapabilityV2,
+			cre.ConsensusCapability,
 			cre.CronCapability,
 			cre.DONTimeCapability,
 			cre.VaultCapability,
@@ -34,7 +34,7 @@ type ExtensibleCapbilityFlagsProvider struct {
 func NewExtensibleCapabilityFlagsProvider(extraGlobalFlags []string) *ExtensibleCapbilityFlagsProvider {
 	return &ExtensibleCapbilityFlagsProvider{
 		globalCapabilities: append([]cre.CapabilityFlag{
-			cre.ConsensusCapabilityV2,
+			cre.ConsensusCapability,
 			cre.CronCapability,
 			cre.VaultCapability,
 			cre.HTTPTriggerCapability,
@@ -65,7 +65,7 @@ func (p *ExtensibleCapbilityFlagsProvider) ChainSpecificCapabilityFlags() []cre.
 func NewSwappableCapabilityFlagsProvider() *DefaultCapbilityFlagsProvider {
 	return &DefaultCapbilityFlagsProvider{
 		capabilities: []cre.CapabilityFlag{
-			cre.ConsensusCapabilityV2,
+			cre.ConsensusCapability,
 			cre.CronCapability,
 			cre.HTTPTriggerCapability,
 			cre.HTTPActionCapability,
