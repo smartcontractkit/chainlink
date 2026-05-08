@@ -131,7 +131,7 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 			}
 		}
 		finished := time.Now()
-		report.Run = newRunMeta(conf, goTestArgs, resultsDir, start, &finished)
+		report.Run = newRunMeta(conf, goTestArgs, resultsDir, start, &finished, len(resources) > 0)
 		fillIterationRuntimeSummary(report)
 	}
 	if err := WriteLogFiles(resultsDir, report, logs); err != nil {
@@ -838,7 +838,7 @@ func diagnoseIteration(ctx context.Context, conf *config.App, out *output.Printe
 	return runErr
 }
 
-func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, started time.Time, finished *time.Time) *RunMeta {
+func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, started time.Time, finished *time.Time, hasDatabase bool) *RunMeta {
 	if conf == nil {
 		return nil
 	}
@@ -871,5 +871,7 @@ func newRunMeta(conf *config.App, goTestArgs []string, resultsDir string, starte
 		FailFast:           conf.FailFast,
 		FailFastOn:         ffo,
 		Shuffle:            conf.Shuffle,
+		PostgresVersion:    conf.PostgresVersion,
+		HasDatabase:        hasDatabase,
 	}
 }

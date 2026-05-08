@@ -105,6 +105,8 @@ type RunMeta struct {
 	FailFast           bool          `json:"fail_fast,omitempty"`
 	FailFastOn         []string      `json:"fail_fast_on,omitempty"`
 	Shuffle            bool          `json:"shuffle,omitempty"`
+	PostgresVersion    string        `json:"postgres_version,omitempty"`
+	HasDatabase        bool          `json:"has_database"`
 }
 
 // ReportSummary holds aggregate flake and slow rates for the full diagnose run.
@@ -248,6 +250,9 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 		SlowThreshold: slowThreshold,
 	}
 
+	var pkgEntries []TestEntry
+	var testsByPkg = make(map[string][]TestEntry)
+
 	for key, a := range aggs {
 		minE, p50 := stats(a.elapseds)
 		base := TestEntry{
@@ -265,6 +270,11 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 			TimeoutIters: sortedBoolMapKeys(a.timeoutIters),
 			SlowIters:    slowIterations(a.elapsedByIter, slowThreshold),
 		}
+		if key.Test == "" {
+			pkgEntries = append(pkgEntries, base)
+			continue
+		}
+
 		switch {
 		case a.timedOut:
 			rep.Timeouts = append(rep.Timeouts, base)
@@ -282,8 +292,34 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 		case a.fails > 0 && a.passes == 0:
 			rep.Failures = append(rep.Failures, base)
 		}
-		if !a.timedOut && key.Test != "" && slowThreshold > 0 && a.maxElapsed > slowThreshold {
-			rep.Slow = append(rep.Slow, base)
+
+		if !a.timedOut && slowThreshold > 0 && a.maxElapsed > slowThreshold {
+			testsByPkg[key.Package] = append(testsByPkg[key.Package], base)
+		}
+	}
+
+	// Always include top 10 slowest packages, plus any package that has slow tests.
+	slices.SortFunc(pkgEntries, func(a, b TestEntry) int {
+		if a.MaxElapsed > b.MaxElapsed {
+			return -1
+		} else if a.MaxElapsed < b.MaxElapsed {
+			return 1
+		}
+		return strings.Compare(a.Package, b.Package)
+	})
+
+	seenPkg := make(map[string]bool)
+	for i, pkg := range pkgEntries {
+		if i < 10 {
+			rep.Slow = append(rep.Slow, pkg)
+			seenPkg[pkg.Package] = true
+		}
+		if slowTests, ok := testsByPkg[pkg.Package]; ok {
+			rep.Slow = append(rep.Slow, slowTests...)
+			if !seenPkg[pkg.Package] {
+				rep.Slow = append(rep.Slow, pkg)
+				seenPkg[pkg.Package] = true
+			}
 		}
 	}
 
@@ -773,7 +809,7 @@ func PrintSummary(w io.Writer, rep *Report) {
 			}
 			return slow[i].Test < slow[j].Test
 		})
-		printSummarySectionTree(w, "Slow", n, slow, termstyle.Muted, termstyle.Muted, formatSlowTestLine)
+		printSummarySectionTree(w, "Slow Tests & Top Packages", n, slow, termstyle.Muted, termstyle.Muted, formatSlowTestLine)
 	}
 
 	printOverallStats(w, rep)
@@ -848,10 +884,11 @@ func formatTimeoutTestLine(e TestEntry) string {
 }
 
 func formatSlowTestLine(e TestEntry) string {
+	dur := termstyle.Accent.Render(e.MaxElapsed.Round(time.Millisecond).String())
 	if e.Test == "" {
-		return fmt.Sprintf("%s %s", e.Package, e.MaxElapsed.Round(time.Millisecond))
+		return fmt.Sprintf("%s %s", e.Package, dur)
 	}
-	return fmt.Sprintf("%s %s", e.Test, e.MaxElapsed.Round(time.Millisecond))
+	return fmt.Sprintf("%s %s", e.Test, dur)
 }
 
 // pipeBranch returns a tree prefix: depth 1 -> "|-- ", depth 2 -> "|---- ", etc.

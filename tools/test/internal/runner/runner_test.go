@@ -441,6 +441,8 @@ func TestPackagePatternsFromEnd(t *testing.T) {
 	t.Parallel()
 	assert.Equal(t, []string{"./core/...", "./foo"}, packagePatternsFromEnd([]string{"-race", "-timeout=5m", "./core/...", "./foo"}))
 	assert.Nil(t, packagePatternsFromEnd([]string{"-v", "-race"}))
+	assert.Equal(t, []string{"./core/..."}, packagePatternsFromEnd([]string{"-timeout", "10m", "./core/..."}))
+	assert.Nil(t, packagePatternsFromEnd([]string{"-timeout", "10m"}))
 }
 
 func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {

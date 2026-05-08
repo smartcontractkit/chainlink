@@ -18,15 +18,25 @@ import (
 
 const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
 
-// packagePatternsFromEnd returns trailing non-flag arguments. This matches the usual
-// `go test [flags] [packages]` layout (package patterns last).
+// packagePatternsFromEnd returns trailing non-flag arguments that look like package
+// patterns (containing '.', '/', or '...'). This matches the usual `go test [flags] [packages]`
+// layout (package patterns last) while avoiding misidentifying flag values like '10m'.
 func packagePatternsFromEnd(args []string) []string {
 	var pkgs []string
 	for i := len(args) - 1; i >= 0; i-- {
-		if strings.HasPrefix(args[i], "-") {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") {
 			break
 		}
-		pkgs = append(pkgs, args[i])
+		// Go package patterns must contain a dot (relative path or domain),
+		// a slash (path separator), or the "..." wildcard.
+		if strings.Contains(arg, ".") || strings.Contains(arg, "/") || strings.Contains(arg, "...") {
+			pkgs = append(pkgs, arg)
+		} else {
+			// If we hit something that doesn't look like a package, we stop.
+			// This might be a positional argument to a flag that was missed.
+			break
+		}
 	}
 	slices.Reverse(pkgs)
 	return pkgs
