@@ -339,15 +339,17 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			task.(*HTTPTask).httpClient = r.httpClient
 			task.(*HTTPTask).unrestrictedHTTPClient = r.unrestrictedHTTPClient
 		case TaskTypeBridge:
-			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).bridgeConfig = r.bridgeConfig
+			bt := task.(*BridgeTask)
+			bt.config = r.config
+			bt.bridgeConfig = r.bridgeConfig
 			// orm added to BridgeTask
-			task.(*BridgeTask).orm = r.btORM
-			task.(*BridgeTask).specId = spec.ID
+			bt.orm = r.btORM
+			bt.specId = spec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
-			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
+			bt.httpClient = r.unrestrictedHTTPClient
+			bt.requiredJSONPaths = bt.getRequiredJSONPaths()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config

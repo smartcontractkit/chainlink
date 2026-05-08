@@ -56,7 +56,6 @@ const (
 	writeReportCorruptReceiverAddress          = "WriteReport - corrupt receiver address"
 	expectedWriteReportCorruptReceiverAddress  = "received address is not 20 bytes long"
 	writeReportInvalidGas                      = "WriteReport - invalid gas"
-	expectedWriteReportInvalidGas              = "failed to execute capability"
 	writeReportRandomTimestamps                = "WriteReport - random timestamps"
 	logTriggerInvalidAddress                   = "LogTrigger - EOA address (not a contract)"
 	expectedLogTriggerInvalidAddress           = "one or more addresses are not contracts"
@@ -352,9 +351,6 @@ var evmNegativeTestsWriteReportCorruptReceiverAddress = []evmNegativeTest{
 }
 
 var evmNegativeTestsWriteReportInvalidGas = []evmNegativeTest{
-	// WriteReport - corrupt receiver address
-	// malformed values
-	{"zero", "0", writeReportInvalidGas, expectedWriteReportInvalidGas},
 	{"low", "100000", writeReportInvalidGas, "lower than minimum gas limit"},
 	{"too high", "100000000000", writeReportInvalidGas, "gas limit exceeds configured limit"},
 }

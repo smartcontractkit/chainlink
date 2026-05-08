@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/config"
+	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/output"
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/runner"
 )
 
@@ -27,9 +25,10 @@ Because this subcommand does not parse flags, global options (--database-url,
 		if err != nil {
 			return err
 		}
+		out := output.NewFromApp(conf)
 		defer func() {
 			if err := dbHandle.Cleanup(); err != nil {
-				fmt.Fprintf(os.Stderr, "error tearing down postgres: %v\n", err)
+				out.Stderrf("error tearing down postgres: %v\n", err)
 			}
 		}()
 		return runner.GoTest(cmd.Context(), conf, args)

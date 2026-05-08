@@ -567,6 +567,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 		"iat":                             jwt.NewNumericDate(time.Now()),
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           OAuthScopeVaultSecretsCreate,
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -586,6 +587,200 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "org-123", authResult.OrgID())
 	require.Equal(t, digest, authResult.Digest())
+}
+
+func TestJWTBasedAuth_RejectsMissingOAuthScope(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"org-123"},"encrypted_value":"cipher+/=="}]}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	_, err = v.AuthorizeRequest(t.Context(), req)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrMissingVaultOAuthScope)
+}
+
+func TestJWTBasedAuth_RejectsMismatchedOAuthScope(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.delete","params":{"request_id":"req-1","ids":[{"key":"7611","namespace":"main","owner":"org-123"}]}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           OAuthScopeVaultSecretsCreate,
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	_, err = v.AuthorizeRequest(t.Context(), req)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrVaultJWTScopeDenied)
+}
+
+func TestJWTBasedAuth_RejectsMultipleVaultOAuthScopes(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"org-123"},"encrypted_value":"cipher+/=="}]}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           OAuthScopeVaultSecretsCreate + " " + OAuthScopeVaultSecretsDelete,
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	_, err = v.AuthorizeRequest(t.Context(), req)
+	require.Error(t, err)
+	require.ErrorIs(t, err, ErrVaultJWTMultipleOAuthScopes)
+}
+
+func TestJWTBasedAuth_AcceptsOpenIDPlusSingleVaultScope(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"org-123"},"encrypted_value":"cipher+/=="}]}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           "openid profile " + OAuthScopeVaultSecretsCreate,
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, "org-123", authResult.OrgID())
+}
+
+func TestJWTBasedAuth_AcceptsPermissionsClaimInsteadOfScope(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	rawRequest := []byte(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"org-123","namespace":"main"}}`)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		"permissions":                     []interface{}{OAuthScopeVaultSecretsList},
+		"authorization_details": []interface{}{
+			map[string]interface{}{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, "org-123", authResult.OrgID())
 }
 
 func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersUseOrgID(t *testing.T) {
@@ -610,6 +805,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersU
 		"iat":                             jwt.NewNumericDate(time.Now()),
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           OAuthScopeVaultSecretsCreate,
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",
@@ -650,6 +846,7 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 		"iat":                             jwt.NewNumericDate(time.Now()),
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
+		"scope":                           OAuthScopeVaultSecretsCreate,
 		"authorization_details": []interface{}{
 			map[string]interface{}{
 				"type":  "request_digest",

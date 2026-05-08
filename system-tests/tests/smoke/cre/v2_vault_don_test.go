@@ -32,6 +32,10 @@ import (
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 func uniqueVaultSecretID(prefix string) string {
@@ -158,6 +162,32 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, updateEnc, secretID, orgID, gwURL, namespaces)
 		executeVaultSecretsListWithAuthAndOwner(t, allowlistAuth, orgID, []string{secretID}, orgID, gwURL, "main")
 		executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, secretID, orgID, gwURL, namespaces)
+	})
+
+	t.Run("identifier_validation", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+		})
+		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
 	})
 }
 
@@ -461,4 +491,104 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 
 	require.NotEmpty(t, claimedDigest)
 	require.Equal(t, requestDigest, claimedDigest)
+}
+
+func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
+	t *testing.T, testEnv *ttypes.TestEnvironment,
+	workflowBaseName string,
+	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+) {
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying get secret is rejected for invalid identifier via workflow...")
+
+	const workflowFileLocation = "./vaultsecret/main.go"
+
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &vaultsecret_config.Config{
+		SecretKey:               "invalid-key-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid key
+		SecretNamespace:         "main",
+		SecretKey2:              "validkey",
+		SecretNamespace2:        "invalid-namespace-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid namespace
+		ExpectInvalidIdentifier: true,
+	}, workflowFileLocation)
+
+	// Both invalid-key and invalid-namespace checks run in the same cron trigger; a single
+	// success log is emitted only after both GetSecret calls are correctly rejected.
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
+		"Vault get correctly rejected invalid identifier", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	testLogger.Info().Msg("Vault get invalid identifier via workflow test completed")
+}
+
+// executeVaultSecretsIdentifierValidationTest verifies that the gateway rejects requests whose
+// secret identifiers contain characters outside the allowed alphanumeric+underscore set.
+// All four management request types (create, update, delete, list) are exercised across
+// invalid key, invalid namespace, and invalid owner cases. Positive-path coverage is provided
+// by basic_crud; this test focuses only on rejection behaviour.
+func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret string, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	t.Helper()
+
+	const (
+		validKey         = "validkey"
+		invalidKey       = "invalid-key-with-hyphens" // hyphen not in [a-zA-Z0-9_]
+		validNamespace   = "main"
+		invalidNamespace = "invalid-namespace-hyphens" // hyphen not in [a-zA-Z0-9_]
+	)
+
+	sendWriteAndAssert := func(t *testing.T, method, caseName string, secret *vault_helpers.EncryptedSecret) {
+		t.Helper()
+		uniqueRequestID := uuid.New().String()
+		var body []byte
+		var err error
+		switch method {
+		case vaulttypes.MethodSecretsCreate:
+			body, err = json.Marshal(vault_helpers.CreateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: []*vault_helpers.EncryptedSecret{secret}})
+		case vaulttypes.MethodSecretsUpdate:
+			body, err = json.Marshal(vault_helpers.UpdateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: []*vault_helpers.EncryptedSecret{secret}})
+		case vaulttypes.MethodSecretsDelete:
+			body, err = json.Marshal(vault_helpers.DeleteSecretsRequest{RequestId: uniqueRequestID, Ids: []*vault_helpers.SecretIdentifier{secret.Id}})
+		}
+		require.NoError(t, err)
+		bodyJSON := json.RawMessage(body)
+		req := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: method, Params: &bodyJSON}
+		allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
+		reqBody, err := json.Marshal(req)
+		require.NoError(t, err)
+		_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		require.Contains(t, string(respBody), "alphanumeric", "[%s] expected alphanumeric rejection for %s", method, caseName)
+		framework.L.Info().Msgf("[%s] %s correctly rejected: %s", method, caseName, string(respBody))
+	}
+
+	type writeCase struct {
+		name         string
+		key, own, ns string
+	}
+	writeCases := []writeCase{
+		{"invalid key", invalidKey, owner, validNamespace},
+		{"invalid namespace", validKey, owner, invalidNamespace},
+	}
+
+	for _, op := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate, vaulttypes.MethodSecretsDelete} {
+		framework.L.Info().Msgf("Testing identifier validation for %s request...", op)
+		for _, tc := range writeCases {
+			sendWriteAndAssert(t, op, tc.name, &vault_helpers.EncryptedSecret{
+				Id:             &vault_helpers.SecretIdentifier{Key: tc.key, Owner: owner, Namespace: tc.ns},
+				EncryptedValue: encryptedSecret,
+			})
+		}
+	}
+
+	framework.L.Info().Msg("Testing identifier validation for list request...")
+	uniqueRequestID := uuid.New().String()
+	body, err := json.Marshal(vault_helpers.ListSecretIdentifiersRequest{RequestId: uniqueRequestID, Owner: owner, Namespace: invalidNamespace})
+	require.NoError(t, err)
+	bodyJSON := json.RawMessage(body)
+	req := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: vaulttypes.MethodSecretsList, Params: &bodyJSON}
+	allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
+	reqBody, err := json.Marshal(req)
+	require.NoError(t, err)
+	_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+	require.Contains(t, string(respBody), "alphanumeric", "[list] expected alphanumeric rejection for %s", "invalid namespace")
+	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
+
+	framework.L.Info().Msg("All identifier validation checks passed")
 }

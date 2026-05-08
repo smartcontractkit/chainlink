@@ -71,6 +71,23 @@ func (s *Capability) Close() error {
 	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
 	}
+
+	if lerr := s.MaxCiphertextLengthLimiter.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing ciphertext size limiter: %w", lerr))
+	}
+
+	if lerr := s.MaxIdentifierKeyLengthLimiter.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing identifier key length limiter: %w", lerr))
+	}
+
+	if lerr := s.MaxIdentifierOwnerLengthLimiter.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing identifier owner length limiter: %w", lerr))
+	}
+
+	if lerr := s.MaxIdentifierNamespaceLengthLimiter.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing identifier namespace length limiter: %w", lerr))
+	}
+
 	if lerr := s.linker.Close(); lerr != nil {
 		err = errors.Join(err, fmt.Errorf("error closing org_id linker: %w", lerr))
 	}
@@ -109,10 +126,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
 	}
 
-	// Validate the request: we only check that the request contains at least one secret request.
-	// All other validations are done in the plugin and subject to consensus.
-	if len(r.Requests) == 0 {
-		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
+	err = s.ValidateGetSecretsRequest(ctx, r)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not validate get secrets request: %w", err)
 	}
 
 	for idx, req := range r.Requests {
@@ -209,7 +225,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugw("received delete secrets request", "request", request.String())
-	err := s.ValidateDeleteSecretsRequest(request)
+	err := s.ValidateDeleteSecretsRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
 		return nil, err
@@ -229,7 +245,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugw("received get secrets request", "request", request.String())
-	if err := s.ValidateGetSecretsRequest(request); err != nil {
+	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
 		return nil, err
 	}
@@ -240,7 +256,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
 	s.lggr.Debugw("received list secret identifiers request", "request", request.String())
-	err := s.ValidateListSecretIdentifiersRequest(request)
+	err := s.ValidateListSecretIdentifiersRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
 		return nil, err
@@ -383,6 +399,18 @@ func NewCapability(
 	if err != nil {
 		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
 	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key length limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner length limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace length limiter: %w", err)
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -391,6 +419,6 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		linker:               linker,
-		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter),
+		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }

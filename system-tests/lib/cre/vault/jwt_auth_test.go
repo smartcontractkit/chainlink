@@ -47,6 +47,7 @@ func TestTestJWTIssuer_WorksWithVaultJWTBasedAuth(t *testing.T) {
 		OrgID:         "org-test",
 		WorkflowOwner: "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01",
 		RequestDigest: requestDigest,
+		Scopes:        []string{vaultcap.OAuthScopeVaultSecretsList},
 	})
 	require.NoError(t, err)
 
