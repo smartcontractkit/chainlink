@@ -191,6 +191,7 @@ func makeReportingPluginConfig(
 		MaxIdentifierKeyLengthBytes:       keyLimiter,
 		MaxRequestBatchSize:               requestBatchSizeLimiter,
 		OrgIDAsSecretOwnerEnabled:         limits.NewGateLimiter(false),
+		VaultForceEmptyOCRRounds:          limits.NewGateLimiter(false),
 	}
 }
 
