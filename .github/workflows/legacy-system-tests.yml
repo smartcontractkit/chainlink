@@ -1,7 +1,6 @@
 name: Legacy System Tests
 
 on:
-  push:
   workflow_dispatch:
     inputs:
       chainlink_image_repository_path:
