@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -126,6 +127,36 @@ func (s *Services) close() error {
 	return s.WorkflowLimits.Close()
 }
 
+// workflowRegistryConfigured is true when the workflow registry syncer should start.
+// v1 is on-chain only (non-empty contract address). v2 allows on-chain address and/or
+// additional (e.g. gRPC) sources with a non-empty URL.
+func workflowRegistryConfigured(workflowRegistry config.CapabilitiesWorkflowRegistry, major uint64) bool {
+	if strings.TrimSpace(workflowRegistry.Address()) != "" {
+		return true
+	}
+	if major != 2 {
+		return false
+	}
+	if len(workflowRegistry.AdditionalSources()) > 0 {
+		return true
+	}
+	return false
+}
+
+// workflowRegistrySemverMajor returns the major contract version used to pick the workflow registry syncer.
+// Empty or whitespace-only version defaults to 2 (v2 syncer).
+func workflowRegistrySemverMajor(version string) (major uint64, err error) {
+	v := strings.TrimSpace(version)
+	if v == "" {
+		return 2, nil
+	}
+	sv, err := semver.NewVersion(v)
+	if err != nil {
+		return 0, err
+	}
+	return sv.Major(), nil
+}
+
 // newSubservices initializes and returns all CRE child services
 func (s *Services) newSubservices(
 	lggr logger.Logger,
@@ -211,7 +242,7 @@ func (s *Services) newSubservices(
 	}
 
 	if capCfg.ExternalRegistry().Address() == "" {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
+		lggr.Warn("Skipping capabilities registry syncer, not configured")
 		return srvs, nil
 	}
 
@@ -228,8 +259,22 @@ func (s *Services) newSubservices(
 	}
 	srvs = append(srvs, registrySyncerServices...)
 
+	major, majorErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
+	if majorErr != nil {
+		return nil, majorErr
+	}
+	// WorkflowRegistrySyncer v2 supports offchain-only sources (e.g. gRPC/file) and can
+	// start without an on-chain registry address. v1 is on-chain only, so we only skip
+	// initialization when using v1.
 	if capCfg.WorkflowRegistry().Address() == "" {
-		lggr.Warn("Skipping capabilities and workflow registry syncer, none configured")
+		if major == 1 {
+			lggr.Warn("Skipping workflow registry syncer (v1 requires on-chain address)")
+			return srvs, nil
+		}
+	}
+
+	if !workflowRegistryConfigured(capCfg.WorkflowRegistry(), major) {
+		lggr.Warn("Skipping workflow registry syncer, not configured")
 		return srvs, nil
 	}
 
@@ -1047,12 +1092,12 @@ func newWorkflowRegistrySyncer(
 		lggr.Infof("failed to create billing client: %s", err)
 	}
 
-	wrVersion, vErr := semver.NewVersion(capCfg.WorkflowRegistry().ContractVersion())
+	major, vErr := workflowRegistrySemverMajor(capCfg.WorkflowRegistry().ContractVersion())
 	if vErr != nil {
 		return nil, nil, nil, vErr
 	}
 
-	switch wrVersion.Major() {
+	switch major {
 	case 1:
 		srvcs, err := newWorkflowRegistrySyncerV1(
 			capCfg,
@@ -1087,7 +1132,7 @@ func newWorkflowRegistrySyncer(
 		)
 		return syncer, billingClient, srvcs, err
 	default:
-		return nil, nil, nil, fmt.Errorf("unsupported WorkflowRegistry contract version %s", wrVersion)
+		return nil, nil, nil, fmt.Errorf("unsupported WorkflowRegistry contract version %d", major)
 	}
 }
 
