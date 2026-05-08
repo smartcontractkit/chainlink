@@ -257,7 +257,7 @@ func init() {
 }
 
 func checkDockerIsRunning() {
-	cli, err := mobyclient.NewClientWithOpts(mobyclient.FromEnv)
+	cli, err := mobyclient.New(mobyclient.FromEnv)
 	if err != nil {
 		fmt.Println("Can't create Docker client, please check if Docker daemon is running!")
 		os.Exit(1)

@@ -8,13 +8,12 @@ import (
 	"strings"
 	"time"
 
+	mobyclient "github.com/moby/moby/client"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
-
-	mobyclient "github.com/moby/moby/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
 // code mostly copied from CTFv1's 'lib/testreporters' package to avoid depending on it
