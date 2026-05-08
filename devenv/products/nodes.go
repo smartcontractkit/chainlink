@@ -44,7 +44,7 @@ func RestartNodes(ctx context.Context, nodeSet *ns.Input, bc *blockchain.Input, 
 		for _, id := range containerIDs {
 			cerrg.Go(func() error {
 				framework.L.Debug().Msgf("Removing Docker container %s", id)
-				dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv, mobyclient.WithAPIVersionNegotiation())
+				dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 				if dockerClientErr != nil {
 					return errors.Wrap(dockerClientErr, "failed to create Docker client")
 				}
@@ -84,7 +84,7 @@ func RestartNodes(ctx context.Context, nodeSet *ns.Input, bc *blockchain.Input, 
 }
 
 func findAllDockerContainerIDs(ctx context.Context, pattern string) ([]string, error) {
-	dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv, mobyclient.WithAPIVersionNegotiation())
+	dockerClient, dockerClientErr := mobyclient.New(mobyclient.FromEnv)
 	if dockerClientErr != nil {
 		return nil, errors.Wrap(dockerClientErr, "failed to create Docker client")
 	}
