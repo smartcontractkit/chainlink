@@ -505,6 +505,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 		if errAdd != nil {
 			return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
 		}
+		return nil
 	}
 
 	switch capability.CapabilityType {
