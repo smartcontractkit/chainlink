@@ -26,7 +26,6 @@ var EthBalMonSetWatchList cldf.ChangeSetV2[vaulttypes.EthBalMonSetWatchListInput
 
 func (sw ethBalMonSetWatchList) VerifyPreconditions(env cldf.Environment, config vaulttypes.EthBalMonSetWatchListInput) error {
 	return ValidateEthBalMonSetWatchListConfig(env.GetContext(), env, config)
-
 }
 
 func (sw ethBalMonSetWatchList) Apply(e cldf.Environment, config vaulttypes.EthBalMonSetWatchListInput) (cldf.ChangesetOutput, error) {

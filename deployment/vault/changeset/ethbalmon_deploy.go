@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -123,7 +124,6 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 		if err := memoryDataStore.ContractMetadata().Add(contractMetadata); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add contract metadata for chain %d: %w", chainOut.ChainSelector, err)
 		}
-
 	}
 
 	proposal, err := BuildAcceptOwnershipTimelockProposal(
@@ -291,7 +291,7 @@ var DeployEthBalMonContractOperation = operations.NewOperation(
 			chain.DeployerKey,
 			chain.Client,
 			keeperRegistryAddress,
-			new(big.Int).SetUint64(uint64(input.MinWaitPeriodSeconds)), // uint -> int -> bigint
+			new(big.Int).SetUint64(input.MinWaitPeriodSeconds),
 		)
 		if err != nil {
 			return DeployEthBalMonContractOutput{}, fmt.Errorf("failed to deploy EthBalanceMonitor: %w", err)
@@ -414,7 +414,7 @@ func BuildAcceptOwnershipTimelockProposal(
 	input AcceptOwnershipProposalInput,
 ) (*mcms.TimelockProposal, error) {
 	if len(input.ContractsByChain) == 0 {
-		return nil, fmt.Errorf("no contracts provided to build accept ownership proposal")
+		return nil, errors.New("no contracts provided to build accept ownership proposal")
 	}
 
 	var batches []mcmstypes.BatchOperation

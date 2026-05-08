@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -92,7 +93,7 @@ var SetKeeperRegistrySequence = operations.NewSequence(
 		)
 
 		if len(input.Chains) == 0 {
-			return EthBalMonSetKeeperRegistryAddressSequenceOutput{}, fmt.Errorf("no chains provided")
+			return EthBalMonSetKeeperRegistryAddressSequenceOutput{}, errors.New("no chains provided")
 		}
 
 		var batches []mcmstypes.BatchOperation
