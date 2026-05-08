@@ -21,7 +21,6 @@ import (
 func forceEmptyOCRRounds(ctx context.Context, lggr logger.Logger, vaultForceEmptyOCRRounds limits.GateLimiter) bool {
 	err := vaultForceEmptyOCRRounds.AllowErr(ctx)
 	if err == nil {
-		lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 		return true
 	}
 	if errors.Is(err, limits.ErrorNotAllowed{}) {

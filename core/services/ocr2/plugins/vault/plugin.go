@@ -389,7 +389,10 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		if err != nil {
 			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
+
 	// Avoid log spam by only logging if we have any requests to process.
 	if len(currentPendingQueueItems) > 0 {
 		mbs, _ := r.cfg.MaxBatchSize.Limit(ctx)
@@ -1106,6 +1109,8 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		if err != nil {
 			return fmt.Errorf("could not fetch pending queue from store: %w", err)
 		}
+	} else {
+		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
 	}
 
 	if len(idToObs) != len(pendingQueueItems) {
