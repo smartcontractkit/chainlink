@@ -3,6 +3,7 @@ package vault
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -352,7 +353,7 @@ func (t *RequestLifecycleTracker) emitLatenciesAndRounds(ctx context.Context, tr
 		if !ok {
 			return
 		}
-		delta := int64(seq) - int64(tr.blobChosenSeq)
+		delta := uint64SeqDeltaToInt64(seq, tr.blobChosenSeq)
 		if delta < 0 {
 			delta = 0
 		}
@@ -379,7 +380,23 @@ func roundDeltaOrNeg(seq uint64, ok bool, baseSeq uint64, baseOK bool) int64 {
 	if !ok || !baseOK {
 		return -1
 	}
-	return int64(seq) - int64(baseSeq)
+	return uint64SeqDeltaToInt64(seq, baseSeq)
+}
+
+// uint64SeqDeltaToInt64 returns a-b in int64, clamping so uint64→int64 conversions never overflow (gosec G115).
+func uint64SeqDeltaToInt64(a, b uint64) int64 {
+	if a >= b {
+		d := a - b
+		if d > uint64(math.MaxInt64) {
+			return math.MaxInt64
+		}
+		return int64(d)
+	}
+	d := b - a
+	if d > uint64(math.MaxInt64) {
+		return math.MinInt64
+	}
+	return -int64(d)
 }
 
 func traceLogFields(tr *requestLifecycleTrace) []interface{} {
