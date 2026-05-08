@@ -1,4 +1,4 @@
-package v2
+package evm
 
 import (
 	"bytes"
@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
@@ -65,7 +64,7 @@ func (o *EVM) PreEnvStartup(
 	topology *cre.Topology,
 	creEnv *cre.Environment,
 ) (*cre.PreEnvStartupOutput, error) {
-	chainsWithForwarders := evm.ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
+	chainsWithForwarders := ChainsWithForwarders(creEnv.Blockchains, cre.ConvertToNodeSetWithChainCapabilities(topology.NodeSets()))
 	evmForwardersSelectors, exist := chainsWithForwarders[blockchain.FamilyEVM]
 
 	if exist {
@@ -79,7 +78,7 @@ func (o *EVM) PreEnvStartup(
 		}
 
 		if len(selectorsToDeploy) > 0 {
-			deployErr := evm.DeployEVMForwarders(testLogger, creEnv.CldfEnvironment, selectorsToDeploy, creEnv.ContractVersions)
+			deployErr := DeployEVMForwarders(testLogger, creEnv.CldfEnvironment, selectorsToDeploy, creEnv.ContractVersions)
 			if deployErr != nil {
 				return nil, errors.Wrap(deployErr, "failed to deploy EVM Keystone forwarder")
 			}
@@ -156,7 +155,7 @@ func (o *EVM) PostEnvStartup(
 			evmChainsWithForwarders = append(evmChainsWithForwarders, uint64(chainSelector))
 		}
 		for _, don := range consensusDons {
-			config, confErr := evm.ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)
+			config, confErr := ConfigureEVMForwarders(testLogger, creEnv.CldfEnvironment, evmChainsWithForwarders, don)
 			if confErr != nil {
 				return errors.Wrap(confErr, "failed to configure EVM forwarders")
 			}
