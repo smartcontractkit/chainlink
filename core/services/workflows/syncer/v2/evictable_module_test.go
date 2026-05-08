@@ -762,6 +762,10 @@ func TestLRU_ConcurrentRegisterDeregister(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+
+	lru.mu.Lock()
+	defer lru.mu.Unlock()
+	assert.Empty(t, lru.modules)
 }
 
 func TestLRU_StartStop(t *testing.T) {
