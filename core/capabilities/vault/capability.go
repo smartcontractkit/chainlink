@@ -342,9 +342,7 @@ func validateOwnerMatchesResolvedIdentity(field string, owner string, resolvedId
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
-	if s.lifecycle != nil {
-		s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
-	}
+	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
@@ -357,23 +355,17 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	select {
 	case <-ctx.Done():
 		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
-		if s.lifecycle != nil {
-			s.lifecycle.FinalizeTimeout(ctx, requestID)
-		}
+		s.lifecycle.FinalizeTimeout(ctx, requestID)
 		return nil, ctx.Err()
 	case resp := <-respCh:
 		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
 		respAt := s.clock.Now()
 		if resp.Error != "" {
-			if s.lifecycle != nil {
-				s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
-			}
+			s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
-		if s.lifecycle != nil {
-			s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
-		}
+		s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
 		return resp, nil
 	}
 }
@@ -402,6 +394,9 @@ func NewCapability(
 	limitsFactory limits.Factory,
 	lifecycle *RequestLifecycleTracker,
 ) (*Capability, error) {
+	if lifecycle == nil {
+		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
+	}
 	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
