@@ -81,7 +81,7 @@ jobs:
           set -u
           attempt=1
           while [[ "$attempt" -le "$OBS_MAX_ATTEMPTS" ]]; do
-            echo "::startgroup::Starting observability stack (attempt ${attempt}/${OBS_MAX_ATTEMPTS}, required by leak package)"
+            echo "::group::Starting observability stack (attempt ${attempt}/${OBS_MAX_ATTEMPTS}, required by leak package)"
             if go run . obs up -f; then
               echo "::endgroup::"
               exit 0

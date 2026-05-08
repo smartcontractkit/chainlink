@@ -186,7 +186,7 @@ jobs:
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::startgroup::Install gotestsum"
+          echo "::group::Install gotestsum"
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 

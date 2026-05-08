@@ -229,7 +229,7 @@ jobs:
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::startgroup::Install gotestsum"
+          echo "::group::Install gotestsum"
           go install gotest.tools/gotestsum@v1.13.0
           echo "::endgroup::"
 
@@ -274,10 +274,27 @@ jobs:
           # GitHub runs bash with errexit (-e); allow obs up / validation paths to fail without aborting retries.
           attempt=1
           while [[ "$attempt" -le "$OBS_MAX_ATTEMPTS" ]]; do
+            if [[ "$attempt" -gt 1 ]]; then
+              echo "Tearing down observability stack before retry (attempt ${attempt}/${OBS_MAX_ATTEMPTS})..."
+              go run . obs down || true
+              sleep "$OBS_RETRY_DELAY_SECONDS"
+            fi
+
             echo "::group::Starting Observability Stack (attempt ${attempt}/${OBS_MAX_ATTEMPTS})"
             echo "Test requires observability stack for '${TEST_NAME}', starting..."
             go run . obs up -f
+            obs_up_exit=$?
             echo "::endgroup::"
+
+            if [[ "$obs_up_exit" -ne 0 ]]; then
+              echo "❌ ERROR: obs up failed with exit code ${obs_up_exit}"
+              if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
+                exit 1
+              fi
+              attempt=$((attempt + 1))
+              continue
+            fi
+
             echo "::group::Validating Observability Stack"
 
             echo "Waiting for Loki to be available at http://localhost:3030..."
@@ -295,14 +312,11 @@ jobs:
               echo "❌ ERROR: Loki failed to become ready after 30 seconds"
               docker ps -a || true
               echo "::endgroup::"
-              if [[ "$attempt" -lt "$OBS_MAX_ATTEMPTS" ]]; then
-                echo "Tearing down observability stack before retry..."
-                go run . obs down || true
-                sleep "$OBS_RETRY_DELAY_SECONDS"
-                attempt=$((attempt + 1))
-                continue
+              if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
+                exit 1
               fi
-              exit 1
+              attempt=$((attempt + 1))
+              continue
             fi
 
             echo "Validating OTel collector on port 4317..."
@@ -315,14 +329,11 @@ jobs:
             echo "❌ ERROR: OTel collector container not found"
             docker ps -a
             echo "::endgroup::"
-            if [[ "$attempt" -lt "$OBS_MAX_ATTEMPTS" ]]; then
-              echo "Tearing down observability stack before retry..."
-              go run . obs down || true
-              sleep "$OBS_RETRY_DELAY_SECONDS"
-              attempt=$((attempt + 1))
-              continue
+            if [[ "$attempt" -ge "$OBS_MAX_ATTEMPTS" ]]; then
+              exit 1
             fi
-            exit 1
+            attempt=$((attempt + 1))
+            continue
           done
           exit 1
 
