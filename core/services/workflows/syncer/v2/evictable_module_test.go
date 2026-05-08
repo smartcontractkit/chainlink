@@ -313,11 +313,13 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 	em.started.Store(true)
 
 	var wg sync.WaitGroup
+	execErrs := make(chan error, 5)
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			_, _ = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+			execErrs <- err
 		}()
 	}
 	wg.Add(1)
@@ -326,6 +328,10 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 		em.Evict()
 	}()
 	wg.Wait()
+	close(execErrs)
+	for err := range execErrs {
+		require.NoError(t, err)
+	}
 }
 
 func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
