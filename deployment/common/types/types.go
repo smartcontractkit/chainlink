@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 type MCMSRole string
