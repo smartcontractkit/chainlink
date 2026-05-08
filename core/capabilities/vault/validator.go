@@ -69,6 +69,8 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 			return errors.New("secret must have encrypted value set at index " + strconv.Itoa(idx) + ":" + req.Id.String())
 		}
 
+		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
+
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -123,9 +125,7 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	if idOwner == "" {
 		return errors.New("owner cannot be empty")
 	}
-	if idNamespace == "" {
-		return errors.New("namespace cannot be empty")
-	}
+	idNamespace = vaulttypes.NormalizeNamespace(idNamespace)
 
 	if !isValidIDComponent(idKey) || !isValidIDComponent(idOwner) || !isValidIDComponent(idNamespace) {
 		return errors.New("key, owner and namespace must only contain alphanumeric characters")
@@ -174,6 +174,7 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 		if req.Id.Key == "" {
 			return errors.New("secret ID must have key set at index " + strconv.Itoa(idx) + ": " + req.Id.String())
 		}
+		req.Id.Namespace = vaulttypes.NormalizeNamespace(req.Id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, req.Id.Key, req.Id.Owner, req.Id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
@@ -183,8 +184,9 @@ func (r *RequestValidator) ValidateGetSecretsRequest(ctx context.Context, reques
 }
 
 func (r *RequestValidator) ValidateListSecretIdentifiersRequest(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) error {
-	if request.RequestId == "" || request.Owner == "" || request.Namespace == "" {
-		return errors.New("requestID, owner or namespace must not be empty")
+	request.Namespace = vaulttypes.NormalizeNamespace(request.Namespace)
+	if request.RequestId == "" || request.Owner == "" {
+		return errors.New("requestID or owner must not be empty")
 	}
 	if err := r.ValidateSecretIdentifier(ctx, request.Owner, request.Owner, request.Namespace); err != nil {
 		return fmt.Errorf("invalid secret identifier: %w", err)
@@ -205,6 +207,7 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		if id == nil {
 			return errors.New("secret ID must not be nil at index " + strconv.Itoa(idx))
 		}
+		id.Namespace = vaulttypes.NormalizeNamespace(id.Namespace)
 		if err := r.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
 			return fmt.Errorf("invalid secret identifier at index %d: %w", idx, err)
 		}
