@@ -11,12 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -162,7 +163,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				otherSel: testAddr1,
 			},
 			Description: "test",
-			Action:        mcmstypes.TimelockActionBypass,
+			Action:      mcmstypes.TimelockActionBypass,
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found in environment")
@@ -182,7 +183,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 				selector: testAddr1,
 			},
 			Description: "test",
-			Action:        mcmstypes.TimelockActionBypass,
+			Action:      mcmstypes.TimelockActionBypass,
 		})
 		require.Error(t, err)
 	})
@@ -209,7 +210,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 
 		contractsByChain := make(map[uint64]string, len(cfg.Chains))
 		for sel := range cfg.Chains {
-			addr, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+			addr, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.EthBalMonContractType))
 			require.NoError(t, err)
 			contractsByChain[sel] = addr
 		}
@@ -246,7 +247,7 @@ func TestBuildAcceptOwnershipTimelockProposal(t *testing.T) {
 		out, err := DeployEthBalMonChangeSet.Apply(rt.Environment(), cfg)
 		require.NoError(t, err)
 
-		addr, err := GetContractAddress(out.DataStore, selector, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+		addr, err := GetContractAddress(out.DataStore, selector, cldf.ContractType(types.EthBalMonContractType))
 		require.NoError(t, err)
 
 		prop, err := BuildAcceptOwnershipTimelockProposal(rt.Environment(), AcceptOwnershipProposalInput{
@@ -472,11 +473,11 @@ func TestDeployEthBalMon_RuntimeChangesetTask(t *testing.T) {
 
 		records := rt.State().DataStore.Addresses().Filter(
 			datastore.AddressRefByChainSelector(selector),
-			datastore.AddressRefByType(datastore.ContractType(types.ETHBALMON_CONTRACT_TYPE)),
+			datastore.AddressRefByType(datastore.ContractType(types.EthBalMonContractType)),
 		)
 		require.Len(t, records, 1)
 		labelSet := records[0].Labels.List()
-		require.Contains(t, labelSet, types.ETHBALMON_CONTRACT_TYPE)
+		require.Contains(t, labelSet, types.EthBalMonContractType)
 		require.Contains(t, labelSet, "EthBalMonV1_0_0")
 
 		assertEthBalMonDeployOutput(t, rt.Environment(), out, cfg)
@@ -580,7 +581,7 @@ func assertEthBalMonDeployOutput(
 		require.Equal(t, mcmsAddr, md["mcmsAddress"])
 		require.NotEmpty(t, md["transferOwnershipTxHash"])
 
-		ebmAddr, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+		ebmAddr, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.EthBalMonContractType))
 		require.NoError(t, err)
 
 		chain := env.BlockChains.EVMChains()[sel]
@@ -603,10 +604,10 @@ func assertEthBalMonDeployOutput(
 		seen[sel] = true
 		require.Len(t, op.Transactions, 1)
 		tx := op.Transactions[0]
-		require.Equal(t, types.ETHBALMON_CONTRACT_TYPE, tx.OperationMetadata.ContractType)
-		require.Contains(t, tx.OperationMetadata.Tags, "acceptOwnership")
+		require.Equal(t, types.EthBalMonContractType, tx.ContractType)
+		require.Contains(t, tx.Tags, "acceptOwnership")
 
-		wantContract, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.ETHBALMON_CONTRACT_TYPE))
+		wantContract, err := GetContractAddress(out.DataStore, sel, cldf.ContractType(types.EthBalMonContractType))
 		require.NoError(t, err)
 		require.Equal(t, common.HexToAddress(wantContract), common.HexToAddress(tx.To))
 	}
@@ -641,15 +642,24 @@ func uint64FromAny(t *testing.T, v any) uint64 {
 	case uint32:
 		return uint64(x)
 	case int:
-		return uint64(x)
+		require.GreaterOrEqual(t, x, 0)
+		u, err := strconv.ParseUint(strconv.Itoa(x), 10, 64)
+		require.NoError(t, err)
+		return u
 	case int64:
-		return uint64(x)
+		require.GreaterOrEqual(t, x, int64(0))
+		u, err := strconv.ParseUint(strconv.FormatInt(x, 10), 10, 64)
+		require.NoError(t, err)
+		return u
 	case float64:
 		return uint64(x)
 	case json.Number:
 		i, err := x.Int64()
 		require.NoError(t, err)
-		return uint64(i)
+		require.GreaterOrEqual(t, i, int64(0))
+		u, err := strconv.ParseUint(strconv.FormatInt(i, 10), 10, 64)
+		require.NoError(t, err)
+		return u
 	case string:
 		u, err := strconv.ParseUint(x, 10, 64)
 		require.NoError(t, err)

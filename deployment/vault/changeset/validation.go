@@ -11,9 +11,8 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	evmstate "github.com/smartcontractkit/cld-changesets/pkg/family/evm"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -139,7 +138,7 @@ func validateMCMSConfig(e cldf.Environment, mcmsConfig *proposalutils.TimelockCo
 	}
 	const emptyQualifier = ""
 	for chainSelector := range transfersByChain {
-		addresses, err := evmstate.LoadAddressesFromDataStore(e.DataStore, chainSelector, emptyQualifier)
+		addresses, err := state.GetAddressTypeVersionByQualifier(e.DataStore.Addresses(), chainSelector, emptyQualifier)
 		if err != nil {
 			return fmt.Errorf("failed to get addresses from datastore for chain %d: %w", chainSelector, err)
 		}
@@ -255,7 +254,7 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 
 func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetKeeperRegistryAddressInput) error {
 	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("no chains provided")
+		return errors.New("no chains provided")
 	}
 
 	for chainSelector, chainConfig := range cfg.Chains {
@@ -273,7 +272,7 @@ func ValidateSetKeeperRegistryAddressConfig(ctx context.Context, env cldf.Enviro
 
 func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonWithdrawInput) error {
 	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("no chains provided")
+		return errors.New("no chains provided")
 	}
 
 	for chainSelector, chainConfig := range cfg.Chains {
@@ -296,7 +295,7 @@ func ValidateEthBalMonWithdrawConfig(ctx context.Context, env cldf.Environment, 
 
 func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonTransferOwnershipInput) error {
 	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("no chains provided")
+		return errors.New("no chains provided")
 	}
 
 	for chainSelector, chainConfig := range cfg.Chains {
@@ -316,7 +315,7 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 
 func ValidateEthBalMonSetWatchListConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonSetWatchListInput) error {
 	if len(cfg.Chains) == 0 {
-		return fmt.Errorf("no chains provided")
+		return errors.New("no chains provided")
 	}
 
 	for chainSelector, chainConfig := range cfg.Chains {

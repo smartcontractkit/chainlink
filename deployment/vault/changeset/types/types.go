@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
@@ -91,7 +92,7 @@ type DeployEthBalMonInput struct {
 	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
 }
 
-const ETHBALMON_CONTRACT_TYPE string = "EthBalMon"
+const EthBalMonContractType = "EthBalMon"
 
 // setKeeperRegistryAddress config
 type SetKeeperRegistryChainConfig struct {

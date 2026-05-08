@@ -9,19 +9,21 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 const defaultEthBalMonMinWaitPeriodSeconds uint64 = 60
@@ -95,11 +97,11 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 		addressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
 			Address:       chainOut.ContractAddress,
-			Type:          ds.ContractType(vaulttypes.ETHBALMON_CONTRACT_TYPE),
+			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
 			Version:       semver.MustParse("1.0.0"),
-			Qualifier:     fmt.Sprintf("%s:%s", vaulttypes.ETHBALMON_CONTRACT_TYPE, chainOut.ContractAddress),
+			Qualifier:     fmt.Sprintf("%s:%s", vaulttypes.EthBalMonContractType, chainOut.ContractAddress),
 			Labels: ds.NewLabelSet(
-				vaulttypes.ETHBALMON_CONTRACT_TYPE,
+				vaulttypes.EthBalMonContractType,
 				"EthBalMonV1_0_0",
 			),
 		}
@@ -473,7 +475,7 @@ func BuildAcceptOwnershipTimelockProposal(
 			Transactions: []mcmstypes.Transaction{
 				{
 					OperationMetadata: mcmstypes.OperationMetadata{
-						ContractType: vaulttypes.ETHBALMON_CONTRACT_TYPE,
+						ContractType: vaulttypes.EthBalMonContractType,
 						Tags:         []string{"acceptOwnership"},
 					},
 					To:               contractAddr,
