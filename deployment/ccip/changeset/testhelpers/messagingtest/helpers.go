@@ -256,7 +256,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		destFamily, _ := chain_selectors.GetSelectorFamily(tc.DestChain)
+		replaySleep := 30 * time.Second
+		if sourceFamily == chain_selectors.FamilySolana || destFamily == chain_selectors.FamilySolana {
+			replaySleep = 10 * time.Second
+		}
+		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, replaySleep, tc.SourceChain, tc.DestChain)
 		out.Replayed = true
 	}
 
