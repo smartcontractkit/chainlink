@@ -56,6 +56,47 @@ func TestEvictable_Execute_ContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
+func TestEvictable_Execute_TryAcquireExhausted(t *testing.T) {
+	prevTryAcquireAttempts := tryAcquireMaxAttempts
+	tryAcquireMaxAttempts = 3
+	t.Cleanup(func() { tryAcquireMaxAttempts = prevTryAcquireAttempts })
+
+	prevExecuteAttempts := executePinMaxAttempts
+	executePinMaxAttempts = 2
+	t.Cleanup(func() { executePinMaxAttempts = prevExecuteAttempts })
+
+	prevCAS := tryAcquireCompareAndSwap
+	tryAcquireCompareAndSwap = func(_ *moduleEntry, _, _ int64) bool { return false }
+	t.Cleanup(func() { tryAcquireCompareAndSwap = prevCAS })
+
+	cm, err := NewCacheMetrics()
+	require.NoError(t, err)
+
+	var tryAcquireExhaustedRecorded atomic.Int32
+	prevTryAcquireHook := cacheTryAcquireExhaustedHook
+	cacheTryAcquireExhaustedHook = func() { tryAcquireExhaustedRecorded.Add(1) }
+	t.Cleanup(func() { cacheTryAcquireExhaustedHook = prevTryAcquireHook })
+
+	var pinExhaustedRecorded atomic.Int32
+	prevPinHook := cachePinExhaustedHook
+	cachePinExhaustedHook = func() { pinExhaustedRecorded.Add(1) }
+	t.Cleanup(func() { cachePinExhaustedHook = prevPinHook })
+
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Close()
+
+	em, _ := newTestEvictableModule(t, inner, nil)
+	em.metrics = cm
+	em.started.Store(true)
+
+	_, err = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+	require.ErrorIs(t, err, ErrExecutePinExhausted)
+	assert.Equal(t, int32(2), tryAcquireExhaustedRecorded.Load(), "one tryAcquire exhaustion per execute retry attempt")
+	assert.Equal(t, int32(1), pinExhaustedRecorded.Load(), "pin exhaustion should still be emitted once on terminal failure")
+
+	em.Close()
+}
+
 func TestEvictable_Execute_PinRetriesExhausted(t *testing.T) {
 	prevAttempts := executePinMaxAttempts
 	executePinMaxAttempts = 3

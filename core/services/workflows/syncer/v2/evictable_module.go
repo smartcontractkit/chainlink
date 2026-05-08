@@ -18,11 +18,22 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
-const defaultExecutePinMaxAttempts = 1024
+const (
+	defaultTryAcquireMaxAttempts = 1024
+	defaultExecutePinMaxAttempts = 1024
+)
+
+// tryAcquireMaxAttempts bounds CAS retries while pinning a moduleEntry.
+// It is mutable only so tests can lower it; production code leaves it at defaultTryAcquireMaxAttempts.
+var tryAcquireMaxAttempts = defaultTryAcquireMaxAttempts
 
 // executePinMaxAttempts bounds how many times Execute retries after ensureLoaded races with Evict.
 // It is mutable only so tests can lower it; production code leaves it at defaultExecutePinMaxAttempts.
 var executePinMaxAttempts = defaultExecutePinMaxAttempts
+
+// tryAcquireCompareAndSwap is injectable for tests to deterministically force CAS contention.
+// It must be left as nil in production (defaulting to moduleEntry.refCount.CompareAndSwap).
+var tryAcquireCompareAndSwap func(e *moduleEntry, old, next int64) bool
 
 // evictAfterEnsureLoadedHook is set by tests to force eviction after a successful ensureLoaded,
 // exercising the pin retry loop and exhaustion path. It must be nil in production.
@@ -63,16 +74,23 @@ func newModuleEntry(mod host.ModuleV2) *moduleEntry {
 // A plain Add(1) would race with a release that already drove the count to zero
 // and called Close, leading to a use-after-close. CAS makes the increment
 // conditional on the entry still being live.
-func (e *moduleEntry) tryAcquire() bool {
-	for {
-		n := e.refCount.Load()
-		if n == 0 {
-			return false
-		}
-		if e.refCount.CompareAndSwap(n, n+1) {
-			return true
+func (e *moduleEntry) tryAcquire() (acquired bool, exhausted bool) {
+	cas := tryAcquireCompareAndSwap
+	if cas == nil {
+		cas = func(e *moduleEntry, old, next int64) bool {
+			return e.refCount.CompareAndSwap(old, next)
 		}
 	}
+	for attempt := 0; attempt < tryAcquireMaxAttempts; attempt++ {
+		n := e.refCount.Load()
+		if n == 0 {
+			return false, false
+		}
+		if cas(e, n, n+1) {
+			return true, false
+		}
+	}
+	return false, true
 }
 
 func (e *moduleEntry) release() {
@@ -139,9 +157,12 @@ func NewEvictableModule(
 }
 
 func (m *EvictableModule) Start() {
-	if e := m.current.Load(); e != nil && e.tryAcquire() {
-		defer e.release()
-		e.mod.Start()
+	if e := m.current.Load(); e != nil {
+		acquired, _ := e.tryAcquire()
+		if acquired {
+			defer e.release()
+			e.mod.Start()
+		}
 	}
 	m.started.Store(true)
 }
@@ -177,9 +198,15 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 			h(m)
 		}
 		m.lastUsed.Store(time.Now().UnixNano())
-		if e := m.current.Load(); e != nil && e.tryAcquire() {
-			pinned = e
-			break
+		if e := m.current.Load(); e != nil {
+			acquired, exhausted := e.tryAcquire()
+			if acquired {
+				pinned = e
+				break
+			}
+			if exhausted {
+				m.metrics.recordTryAcquireExhausted(ctx)
+			}
 		}
 	}
 	if pinned == nil {
