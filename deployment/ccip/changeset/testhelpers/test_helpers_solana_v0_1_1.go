@@ -24,6 +24,9 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -34,8 +37,6 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"

@@ -9,6 +9,9 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/wsrpc/logger"
 
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -18,8 +21,6 @@ import (
 	commonOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/operations"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
-	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
-	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 )
 
 var (

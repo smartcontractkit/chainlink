@@ -28,7 +28,6 @@ import (
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/internal/soltestutils"
@@ -497,7 +496,7 @@ func TestValidateV2(t *testing.T) {
 }
 
 func assertSolConfigEquals(
-	t *testing.T, inspector *solana.Inspector, programID solanago.PublicKey, seed state.PDASeed, want mcmstypes.Config,
+	t *testing.T, inspector *solana.Inspector, programID solanago.PublicKey, seed solstate.PDASeed, want mcmstypes.Config,
 ) {
 	t.Helper()
 
