@@ -293,6 +293,7 @@ func TestEvictable_ClosePreventsReload(t *testing.T) {
 	assert.False(t, em.IsLoaded())
 }
 
+// Ensure that calling evict once ends all concurrent execution attempts
 func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Close()
