@@ -293,7 +293,7 @@ func MaybeLoadMCMSWithTimelockChainState(chain cldf_evm.Chain, addresses map[str
 			state.CancellerMcm = mcms
 		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
 			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
-			// field. If a specifically typed contract already occupies the field, then this
+			// field.  If a specifically typed contract already occupies the field, then this
 			// contract will be ignored.
 			mcms, err := bindings.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
