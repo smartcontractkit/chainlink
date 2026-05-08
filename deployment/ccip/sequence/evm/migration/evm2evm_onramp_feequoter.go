@@ -1,6 +1,8 @@
 package migration
 
 import (
+	"math"
+
 	"github.com/ethereum/go-ethereum/common"
 
 	onramp1_5 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/evm_2_evm_onramp"
@@ -63,11 +65,16 @@ func (m *EVM2EVMOnRampMigratePremiumMultiplierCfg) TranslateOnrampToFeeQFeePremi
 }
 
 func (m EVM2EVMOnRampMigrate) TranslateOnrampToFeequoterTokenTransferFeeConfig(token common.Address, onRampTokenTransferFeeConfig onramp1_5.EVM2EVMOnRampTokenTransferFeeConfig) fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs {
+	maxFeeUSDCents := onRampTokenTransferFeeConfig.MaxFeeUSDCents
+	if maxFeeUSDCents == 0 {
+		maxFeeUSDCents = math.MaxUint32
+	}
+
 	return fee_quoter.FeeQuoterTokenTransferFeeConfigSingleTokenArgs{
 		Token: token,
 		TokenTransferFeeConfig: fee_quoter.FeeQuoterTokenTransferFeeConfig{
 			MinFeeUSDCents:    onRampTokenTransferFeeConfig.MinFeeUSDCents,
-			MaxFeeUSDCents:    onRampTokenTransferFeeConfig.MaxFeeUSDCents,
+			MaxFeeUSDCents:    maxFeeUSDCents,
 			DeciBps:           onRampTokenTransferFeeConfig.DeciBps,
 			DestGasOverhead:   onRampTokenTransferFeeConfig.DestGasOverhead,
 			DestBytesOverhead: onRampTokenTransferFeeConfig.DestBytesOverhead,
