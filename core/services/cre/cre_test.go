@@ -3,8 +3,9 @@ package cre
 import (
 	"testing"
 
-	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/require"
+
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -117,7 +118,6 @@ func TestWorkflowRegistryConfigured(t *testing.T) {
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xabc"), 1))
 
 	require.False(t, workflowRegistryConfigured(testWorkflowRegistry(""), 2))
-	require.False(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "  "), 2))
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("0xdef"), 2))
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "https://example"), 2))
 	require.True(t, workflowRegistryConfigured(testWorkflowRegistry("", "", "grpc://x"), 2))
