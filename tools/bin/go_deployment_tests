@@ -6,6 +6,8 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
 JUNIT_FILE=${JUNIT_FILE:-"./junit.xml"}
 GO_TEST_TIMEOUT=${GO_TEST_TIMEOUT:-"15m"}
+GO_TEST_SHARD_COUNT=${GO_TEST_SHARD_COUNT:?GO_TEST_SHARD_COUNT must be set}
+GO_TEST_SHARD_INDEX=${GO_TEST_SHARD_INDEX:?GO_TEST_SHARD_INDEX must be set}
 # Adjusting freeport port block size for tests.
 export CL_RESERVE_PORTS=128
 
@@ -40,6 +42,30 @@ echo "Using GO_TEST_FLAGS: $GO_TEST_FLAGS"
 echo "Using RERUN_FLAGS: $RERUN_FLAGS"
 echo "Using JUNIT_FLAG: $JUNIT_FLAG"
 
+TEST_PACKAGE_OUTPUT=$(go list -f '{{if or .TestGoFiles .XTestGoFiles}}{{.ImportPath}}{{end}}' ./... | sed '/^$/d')
+if [[ $? -ne 0 ]]; then
+  exit 1
+fi
+if [[ -z "$TEST_PACKAGE_OUTPUT" ]]; then
+  echo "No deployment test packages found."
+  exit 1
+fi
+mapfile -t TEST_PACKAGES <<<"$TEST_PACKAGE_OUTPUT"
+
+SHARD_PACKAGE_OUTPUT=$(printf '%s\n' "${TEST_PACKAGES[@]}" | go run github.com/smartcontractkit/chainlink/v2/tools/ci-testshard list --shard-count "$GO_TEST_SHARD_COUNT" --shard-index "$GO_TEST_SHARD_INDEX")
+if [[ $? -ne 0 ]]; then
+  exit 1
+fi
+if [[ -z "$SHARD_PACKAGE_OUTPUT" ]]; then
+  echo "No packages assigned to shard ${GO_TEST_SHARD_INDEX}/${GO_TEST_SHARD_COUNT}."
+  exit 0
+fi
+mapfile -t SHARD_PACKAGES <<<"$SHARD_PACKAGE_OUTPUT"
+
+echo "Using GO_TEST_SHARD_COUNT: $GO_TEST_SHARD_COUNT"
+echo "Using GO_TEST_SHARD_INDEX: $GO_TEST_SHARD_INDEX"
+echo "Shard package count: ${#SHARD_PACKAGES[@]}"
+
 echo "Test execution results: ---------------------"
 echo ""
 
@@ -49,11 +75,10 @@ gotestsum \
   --format='standard-quiet' \
   --hide-summary=skipped \
   $RERUN_FLAGS \
-  --packages='./...' \
   --jsonfile "$OUTPUT_FILE" \
   --post-run-command "sh -c \"echo; echo 'Slowest tests'; echo '----------------------------------------------'; echo; gotestsum tool slowest --num 20 --jsonfile ${OUTPUT_FILE}\"" \
   "$JUNIT_FLAG" \
-  -- $GO_TEST_FLAGS
+  -- $GO_TEST_FLAGS "${SHARD_PACKAGES[@]}"
 
 EXITCODE=${PIPESTATUS[0]}
 
