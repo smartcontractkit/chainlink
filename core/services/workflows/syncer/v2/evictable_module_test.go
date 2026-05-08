@@ -331,11 +331,15 @@ func TestEvictable_ConcurrentExecuteDuringEvict(t *testing.T) {
 func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 	var executing atomic.Bool
 	var closeCalled atomic.Bool
+	executeStarted := make(chan struct{})
+	releaseExecute := make(chan struct{})
+
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
 		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
 			executing.Store(true)
-			time.Sleep(50 * time.Millisecond)
+			close(executeStarted)
+			<-releaseExecute
 			executing.Store(false)
 			return &sdkpb.ExecutionResult{}, nil
 		},
@@ -344,15 +348,13 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 
 	em, _ := newTestEvictableModule(t, inner, nil)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	execDone := make(chan error, 1)
 	go func() {
-		defer wg.Done()
-		_, _ = em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+		_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+		execDone <- err
 	}()
 
-	// Give Execute goroutine time to pin the inner module.
-	time.Sleep(10 * time.Millisecond)
+	<-executeStarted
 	require.True(t, executing.Load(), "Execute should still be running")
 
 	evictReturned := make(chan struct{})
@@ -371,7 +373,14 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 	assert.False(t, closeCalled.Load(), "inner.Close must not fire while a pin is held")
 	assert.True(t, em.IsLoaded(), "eviction is skipped while a pin is held")
 
-	wg.Wait()
+	select {
+	case <-execDone:
+		t.Fatal("Execute returned before being released")
+	default:
+	}
+
+	close(releaseExecute)
+	require.NoError(t, <-execDone)
 	assert.False(t, executing.Load())
 	assert.False(t, closeCalled.Load(), "skipped eviction must not close the module")
 
