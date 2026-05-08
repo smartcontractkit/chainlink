@@ -327,53 +327,43 @@ func TestEvictable_EvictDoesNotWaitForExecution(t *testing.T) {
 
 	assert.True(t, executing.Load(), "Execute is still running after Evict returned")
 	assert.False(t, closeCalled.Load(), "inner.Close must not fire while a pin is held")
-	assert.False(t, em.IsLoaded(), "current entry should be cleared synchronously")
+	assert.True(t, em.IsLoaded(), "eviction is skipped while a pin is held")
 
 	wg.Wait()
 	assert.False(t, executing.Load())
-	assert.True(t, closeCalled.Load(), "inner.Close fires after the executing pin releases")
+	assert.False(t, closeCalled.Load(), "skipped eviction must not close the module")
+
+	em.Close()
+	assert.True(t, closeCalled.Load(), "close still releases module ownership")
 }
 
-func TestEvictable_NewExecuteProceedsWhileEvictPendingOnLongExecution(t *testing.T) {
+func TestEvictable_NewExecuteUsesExistingModuleWhenEvictSkipped(t *testing.T) {
 	firstExecuteStarted := make(chan struct{})
 	releaseFirstExecute := make(chan struct{})
 	firstExecuteDone := make(chan error, 1)
 	secondExecuteDone := make(chan error, 1)
-	secondInnerExecuteStarted := make(chan struct{})
 	evictReturned := make(chan struct{})
 
 	var callCount atomic.Int32
+	var closeCalled atomic.Bool
 	inner := modulemocks.NewModuleV2(t)
 	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
 		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-			if callCount.Add(1) != 1 {
-				t.Fatalf("inner mock should only run the long execution")
+			switch callCount.Add(1) {
+			case 1:
+				close(firstExecuteStarted)
+				<-releaseFirstExecute
+			case 2:
+				// second Execute should run against the same inner module while eviction is skipped
+			default:
+				t.Fatalf("unexpected execute call count: %d", callCount.Load())
 			}
-			close(firstExecuteStarted)
-			<-releaseFirstExecute
 			return &sdkpb.ExecutionResult{}, nil
 		},
 	)
-	inner.EXPECT().Close()
+	inner.EXPECT().Close().Run(func() { closeCalled.Store(true) })
 
-	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
-		reloaded := modulemocks.NewModuleV2(t)
-		reloaded.EXPECT().Start().Maybe()
-		reloaded.EXPECT().Close().Maybe()
-		reloaded.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
-			func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
-				select {
-				case <-secondInnerExecuteStarted:
-				default:
-					close(secondInnerExecuteStarted)
-				}
-				return &sdkpb.ExecutionResult{}, nil
-			},
-		)
-		return reloaded, nil
-	}
-
-	em, _ := newTestEvictableModule(t, inner, factory)
+	em, _ := newTestEvictableModule(t, inner, nil)
 	em.started.Store(true)
 
 	go func() {
@@ -401,13 +391,9 @@ func TestEvictable_NewExecuteProceedsWhileEvictPendingOnLongExecution(t *testing
 		secondExecuteDone <- err
 	}()
 
-	select {
-	case <-secondInnerExecuteStarted:
-	case <-time.After(time.Second):
-		t.Fatal("second Execute should reload and run while first Execute is still pinned")
-	}
-
 	require.NoError(t, <-secondExecuteDone)
+	assert.Equal(t, int32(2), callCount.Load(), "both executes should run on the existing module")
+	assert.True(t, em.IsLoaded(), "module should remain loaded when eviction is skipped")
 
 	select {
 	case <-firstExecuteDone:
@@ -417,6 +403,97 @@ func TestEvictable_NewExecuteProceedsWhileEvictPendingOnLongExecution(t *testing
 
 	close(releaseFirstExecute)
 	require.NoError(t, <-firstExecuteDone)
+	assert.False(t, closeCalled.Load(), "skipped eviction should not close the module")
+
+	em.Close()
+	assert.True(t, closeCalled.Load(), "Close should eventually release module ownership")
+}
+
+func TestLRU_FrequentReapSkipsPinnedModuleAndEvictsAfterDrain(t *testing.T) {
+	clock := clockwork.NewFakeClock()
+	reapTicker := make(chan time.Time, 64)
+	onReaped := make(chan struct{}, 64)
+
+	const concurrentExecs = 5
+
+	execStarted := make(chan struct{}, concurrentExecs)
+	releaseExec := make(chan struct{})
+
+	var activeExecs atomic.Int32
+	var closeCalls atomic.Int32
+	inner := modulemocks.NewModuleV2(t)
+	inner.EXPECT().Execute(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, _ *sdkpb.ExecuteRequest, _ host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+			activeExecs.Add(1)
+			execStarted <- struct{}{}
+			<-releaseExec
+			activeExecs.Add(-1)
+			return &sdkpb.ExecutionResult{}, nil
+		},
+	).Times(concurrentExecs)
+	inner.EXPECT().Close().Run(func() { closeCalls.Add(1) }).Once()
+
+	var factoryCalls atomic.Int32
+	factory := func(_ context.Context, _ *host.ModuleConfig, _ []byte, _ ...func(*host.ModuleConfig)) (host.ModuleV2, error) {
+		factoryCalls.Add(1)
+		return nil, errors.New("unexpected module reload while pinned")
+	}
+
+	em, _ := newTestEvictableModule(t, inner, factory)
+	lru := NewModuleLRU(clock,
+		WithIdleTimeout(time.Nanosecond),
+		WithReapTicker(reapTicker),
+		WithOnReaped(onReaped),
+	)
+	lru.Register("wf-test", em)
+	lru.Start()
+	defer lru.Close()
+
+	var wg sync.WaitGroup
+	execErrs := make(chan error, concurrentExecs)
+	for i := 0; i < concurrentExecs; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := em.Execute(context.Background(), &sdkpb.ExecuteRequest{}, nil)
+			execErrs <- err
+		}()
+	}
+
+	for i := 0; i < concurrentExecs; i++ {
+		<-execStarted
+	}
+	require.Equal(t, int32(concurrentExecs), activeExecs.Load(), "all executes must overlap")
+
+	// Keep forcing eviction while work is pinned; all these attempts should be skipped.
+	for i := 0; i < 25; i++ {
+		em.lastUsed.Store(clock.Now().Add(-time.Hour).UnixNano())
+		clock.Advance(time.Second)
+		reapTicker <- clock.Now()
+		<-onReaped
+
+		assert.True(t, em.IsLoaded(), "pinned module must remain loaded")
+		assert.Equal(t, int32(0), closeCalls.Load(), "Close must not fire while executes are pinned")
+	}
+	assert.Equal(t, int32(0), factoryCalls.Load(), "pinned eviction skips must not create a new module")
+
+	close(releaseExec)
+	wg.Wait()
+	close(execErrs)
+	for err := range execErrs {
+		require.NoError(t, err)
+	}
+	require.Equal(t, int32(0), activeExecs.Load())
+
+	// Once all pins are gone, next reap should evict immediately.
+	em.lastUsed.Store(clock.Now().Add(-time.Hour).UnixNano())
+	clock.Advance(time.Second)
+	reapTicker <- clock.Now()
+	<-onReaped
+
+	assert.False(t, em.IsLoaded(), "module should be evicted after executions drain")
+	assert.Equal(t, int32(1), closeCalls.Load(), "exactly one module instance should be closed")
+	assert.Equal(t, int32(0), factoryCalls.Load(), "eviction itself should not reload a module")
 }
 
 func TestEvictable_MultipleEvictReloadCycles(t *testing.T) {

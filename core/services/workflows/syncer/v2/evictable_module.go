@@ -260,15 +260,39 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	return nil
 }
 
-// Evict drops the owning reference to the inner module. In-flight Execute calls
-// keep the entry alive via their pin; the last release closes the module. Evict
-// itself never blocks on an executing call.
-// A subsequent Execute call will reload from disk.
+// Evict drops the owning reference to the inner module only when no Execute call
+// is currently pinned on that entry.
+//
+// Why this check exists:
+//   - If we clear m.current while another Execute still holds a pin, the entry
+//     remains alive (refcount > 0) but becomes unreachable through m.current.
+//   - A concurrent/new Execute that observes m.current == nil will run
+//     ensureLoaded and instantiate another module from weak-ref/disk.
+//   - That creates transient duplicate module instances for one workflow:
+//     the old one still serving in-flight work and a new one for subsequent
+//     work. This is safe, but unnecessarily increases memory churn and defeats
+//     the eviction intent under contention.
+//
+// By refusing eviction while refcount > 1 (owner + at least one pin), we make
+// eviction eventually consistent: reap/cap may skip a busy module in this cycle
+// and retry later, but we avoid duplicate live instances caused by evicting a
+// still-pinned entry.
+//
+// Evict remains non-blocking and single-pass: it performs one CAS attempt and
+// returns. If that CAS loses a race with a concurrent load/reload/evict, the
+// caller can retry on the next reap/cap cycle.
 func (m *EvictableModule) Evict() {
 	if m.closed.Load() {
 		return
 	}
-	if e := m.current.Swap(nil); e != nil {
+	e := m.current.Load()
+	if e == nil {
+		return
+	}
+	if e.refCount.Load() > 1 {
+		return
+	}
+	if m.current.CompareAndSwap(e, nil) {
 		e.release()
 	}
 }
