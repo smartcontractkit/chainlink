@@ -108,6 +108,8 @@ jobs:
             e2e-tests-files:
               - "system-tests/**"
               - "integration-tests/**"
+            deployment-files:
+              - "deployment/**"
             workflow-files:
               - ".github/workflows/ci-core.yml"
               - ".github/actions/**"
