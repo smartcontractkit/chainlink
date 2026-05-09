@@ -633,6 +633,11 @@ jobs:
           --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
           "$HOME/go/bin/protoc-gen-go-wsrpc"
       - name: make generate
+        timeout-minutes: 180
+        env:
+          # modgraph can run a long time and spike heap on the combined nested-module graph.
+          GOMEMLIMIT: 28GiB
+          GOGC: 50
         run: |
           make rm-mocked
           make generate
