@@ -1,0 +1,316 @@
+.DEFAULT_GOAL := chainlink
+
+COMMIT_SHA ?= $(shell git rev-parse HEAD)
+VERSION = $(shell jq -r '.version' package.json)
+VERSION_TAG ?= $(shell git describe --always)
+GO_LDFLAGS := $(shell tools/bin/ldflags)
+GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+GCFLAGS = -gcflags "$(GO_GCFLAGS)"
+# Set to true to install private plugins (will require GitHub auth).
+CL_INSTALL_PRIVATE_PLUGINS ?= false
+CL_INSTALL_TESTING_PLUGINS ?= false
+CL_IS_PROD_BUILD ?= true
+# Output directory for loopinstall plugin manifests (set by caller)
+CL_LOOPINSTALL_OUTPUT_DIR ?=
+# Conditionally define arsguments for loopinstall based on CL_LOOPINSTALL_OUTPUT_DIR
+LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
+LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
+LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
+GOLANGCI_LINT_VERSION = "v2.11.4"
+# Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
+MOCKERY_BIN ?= $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi)
+
+.PHONY: install
+install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
+
+.PHONY: install-git-hooks
+install-git-hooks: ## Install git hooks.
+	git config core.hooksPath .githooks
+
+.PHONY: install-chainlink-autoinstall
+install-chainlink-autoinstall: | gomod install-chainlink ## Autoinstall chainlink.
+
+.PHONY: gomod
+gomod: ## Ensure chainlink's go dependencies are installed.
+	@if [ -z "`which gencodec`" ]; then \
+		go install github.com/smartcontractkit/gencodec@latest; \
+	fi || true
+	go mod download
+
+.PHONY: gomodtidy
+gomodtidy: gomods ## Run go mod tidy on all modules.
+	gomods tidy
+	go run ./tools/plugout --update
+
+.PHONY: tidy
+tidy: gomodtidy ## Tidy all modules and add to git.
+	git add '**go.*' 'plugins/plugins.public.yaml'
+
+.PHONY: docs
+docs: ## Install and run pkgsite to view Go docs
+	go install golang.org/x/pkgsite/cmd/pkgsite@latest
+	# http://localhost:8080/pkg/github.com/smartcontractkit/chainlink/v2/
+	pkgsite
+
+.PHONY: install-chainlink
+install-chainlink: operator-ui ## Install the chainlink binary.
+	go install $(GCFLAGS) $(GOFLAGS) .
+
+.PHONY: install-chainlink-dev
+install-chainlink-dev: operator-ui ## Install the chainlink binary.
+	go install -tags dev $(GCFLAGS) $(GOFLAGS) .
+
+.PHONY: install-chainlink-cover
+install-chainlink-cover: operator-ui ## Install the chainlink binary with cover flag.
+	go install -cover $(GOFLAGS) .
+
+.PHONY: chainlink
+chainlink: ## Build the chainlink binary.
+	go build $(GOFLAGS) .
+
+.PHONY: chainlink-dev
+chainlink-dev: ## Build a dev build of chainlink binary.
+	go build -tags dev $(GOFLAGS) .
+
+.PHONY: chainlink-test
+chainlink-test: ## Build a test build of chainlink binary.
+	go build $(GOFLAGS) .
+
+.PHONY: install-loopinstall
+install-loopinstall:
+	go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
+
+.PHONY: install-plugins-public
+install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
+	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
+	else \
+		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml; \
+	fi
+
+.PHONY: install-plugins-private
+install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml; \
+	fi
+
+.PHONY: install-plugins-testing
+install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins).
+	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
+	else \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
+	fi
+
+
+.PHONY: install-plugins-local
+install-plugins-local: ## Build & install local plugins
+	go install -ldflags="-s" \
+		./plugins/cmd/chainlink-evm \
+		./plugins/cmd/chainlink-medianpoc \
+		./plugins/cmd/chainlink-ocr3-capability \
+		./plugins/cmd/capabilities/log-event-trigger
+
+.PHONY: make install-plugins
+install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
+
+.PHONY: docker ## Build the chainlink docker image
+docker: DOCKER_TAG=develop
+docker:
+	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
+		exit 1; \
+	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
+	$(PRIVATE_PLUGIN_ARGS) \
+	-f core/chainlink.Dockerfile . \
+	-t chainlink:$(DOCKER_TAG) \
+	--load
+
+.PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip: DOCKER_TAG=latest
+docker-ccip:
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:$(DOCKER_TAG)
+
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	-f ccip/ccip.Dockerfile .
+
+# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
+comma := ,
+.PHONY: docker-plugins ## Build the EXPERIMENTAL chainlink-plugins docker image
+docker-plugins: DOCKER_TAG=latest
+docker-plugins:
+	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
+		exit 1; \
+	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(or $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(filter true,$(CL_INSTALL_TESTING_PLUGINS))),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN))
+	docker buildx build \
+	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	$(PRIVATE_PLUGIN_ARGS) \
+	-f plugins/chainlink.Dockerfile . \
+	-t chainlink-plugins:$(DOCKER_TAG)
+
+.PHONY: operator-ui
+operator-ui: ## Fetch the frontend
+	go run operator_ui/install.go .
+
+.PHONY: generate
+generate: codecgen mockery protoc gomods modgraph ## Execute all go:generate commands.
+	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
+	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
+	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
+
+.PHONY: rm-mocked
+rm-mocked:
+	grep -rl "^// Code generated by mockery" | grep .go$ | xargs -r rm
+
+.PHONY: testscripts
+testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
+	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
+		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) -e VERSION_TAG=$(VERSION_TAG) $(TS_FLAGS) %/*.txtar'
+
+.PHONY: testscripts-update
+testscripts-update: ## Update testdata/scripts/* files via testscript.
+	make testscripts TS_FLAGS="-u"
+
+.PHONY: start-testdb
+start-testdb:
+	docker run --name test-db-core -p 5432:5432 -e POSTGRES_PASSWORD=postgres -d postgres
+
+.PHONY: setup-testdb
+setup-testdb: ## Setup the test database.
+	./core/scripts/setup_testdb.sh
+
+.PHONY: testdb
+testdb: ## Prepares the test database.
+	go run ./core/store/cmd/preparetest
+
+.PHONY: testdb-force
+testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
+	go run ./core/store/cmd/preparetest --force
+
+.PHONY: testdb-user-only
+testdb-user-only: ## Prepares the test database with user only.
+	go run ./core/store/cmd/preparetest --user-only
+
+.PHONY: gomods
+gomods: ## Install gomods
+	go install github.com/jmank88/gomods@v0.1.7
+
+.PHONY: gomodslocalupdate
+gomodslocalupdate: gomods ## Run gomod-local-update
+	go install ./tools/gomod-local-update/cmd/gomod-local-update
+	gomods -w gomod-local-update
+	gomods tidy
+
+.PHONY: mockery
+mockery: $(mockery) ## Install mockery.
+	go install github.com/vektra/mockery/v2@v2.53.0
+
+.PHONY: codecgen
+codecgen: $(codecgen) ## Install codecgen
+	go install github.com/ugorji/go/codec/codecgen@v1.2.10
+
+.PHONY: protoc
+protoc: ## Install protoc
+	core/scripts/install-protoc.sh 29.3 /
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
+	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
+
+.PHONY: telemetry-protobuf
+telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
+	protoc \
+	--go_out=. \
+	--go_opt=paths=source_relative \
+	--go-wsrpc_out=. \
+	--go-wsrpc_opt=paths=source_relative \
+	./core/services/synchronization/telem/*.proto
+
+.PHONY: config-docs
+config-docs: ## Generate core node configuration documentation
+	go run ./core/config/docs/cmd/generate -o ./docs/
+
+.PHONY: golangci-lint
+golangci-lint: ## Run golangci-lint for all issues.
+	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+
+.PHONY: lint-all
+lint-all: gomods ## Run golangci-lint for all modules, both printing and creating issue files
+	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --max-issues-per-linter 0 --max-same-issues 0 --output.text.path stdout --output.checkstyle.path ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).xml
+
+.PHONY: lint-fix
+lint-fix: gomods ## Run golangci-lint with --fix for all modules
+	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --fix
+
+.PHONY: modgraph
+modgraph:
+	go install github.com/jmank88/modgraph@v0.1.1
+	./tools/bin/modgraph > go.md
+
+.PHONY: test-short
+test-short: ## Run 'go test -short' and suppress uninteresting output
+	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
+
+# Chainlink tools/test harness (Postgres setup + optional diagnose). Uses the
+# nested module directly so its dependencies stay out of the root module. Pass
+# flags and packages via ARGS (quoted), e.g. make new_test ARGS="-v -p 4 ./core/..."
+# Note: do not use "make target -p 4 ..." — -p is a make flag; use ARGS= instead.
+.PHONY: new_test
+new_test: ## tools/test: passthrough go test. Usage: make new_test ARGS="-v -p 4 ./core/..."
+	go -C tools/test run . run $(ARGS)
+
+.PHONY: new_gotestsum
+new_gotestsum: ## tools/test: gotestsum. Usage: make new_gotestsum ARGS="--format=dots -- -count=1 ./core/..."
+	go -C tools/test run . gotestsum $(ARGS)
+
+.PHONY: new_test_diagnose
+new_test_diagnose: ## tools/test: diagnose (flakes/slow). Usage: make new_test_diagnose ARGS="--iterations 5 -- --timeout 9m ./core/..."
+	go -C tools/test run . diagnose $(ARGS)
+
+.PHONY: gocs
+gocs: ## Run gocs to generate changeset markdown files.
+	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
+
+.PHONY: dependabot
+ifndef DEPENDABOT_SEVERITY
+DEPENDABOT_SEVERITY := "critical,high"
+endif
+dependabot: gomods
+	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
+          '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' | \
+          jq -r '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+          go tool dependabot
+	gomods tidy
+
+help:
+	@echo ""
+	@echo "         .__           .__       .__  .__        __"
+	@echo "    ____ |  |__ _____  |__| ____ |  | |__| ____ |  | __"
+	@echo "  _/ ___\|  |  \\\\\\__  \ |  |/    \|  | |  |/    \|  |/ /"
+	@echo "  \  \___|   Y  \/ __ \|  |   |  \  |_|  |   |  \    <"
+	@echo "   \___  >___|  (____  /__|___|  /____/__|___|  /__|_ \\"
+	@echo "       \/     \/     \/        \/             \/     \/"
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+	awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

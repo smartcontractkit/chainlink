@@ -108,8 +108,6 @@ jobs:
             e2e-tests-files:
               - "system-tests/**"
               - "integration-tests/**"
-            deployment-files:
-              - "deployment/**"
             workflow-files:
               - ".github/workflows/ci-core.yml"
               - ".github/actions/**"
@@ -616,7 +614,6 @@ jobs:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
-    timeout-minutes: 360
     defaults:
       run:
         shell: bash
@@ -634,10 +631,6 @@ jobs:
           --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
           "$HOME/go/bin/protoc-gen-go-wsrpc"
       - name: make generate
-        timeout-minutes: 360
-        env:
-          # Encourage GC during large modgraph heaps (does not raise cgroup RAM limits).
-          GOGC: 50
         run: |
           make rm-mocked
           make generate
