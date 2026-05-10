@@ -14,18 +14,9 @@ description: >-
 - DO NOT modify the test's core goal to make it pass.
 - DO NOT remove tests/assertions unless replacing with better ones or deleting confirmed dead code.
 - DO NOT modify package-wide helpers (`testutils`) to fix localized tests.
-- IF Postgres sandbox error occurs (`operation not permitted`), ask the user to run the command or approve unsandboxed execution.
-- For runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
+- DO NOT use plain `go test` commands. Only use `go -C tools/test run . diagnose`. Use `--iterations 1` for a single run.
+- For `diagnose` runs expected >2m: Execute in background. Perform a single 30s crash check, then suspend task and wait for the report.json system notification. DO NOT poll.
 </absolute_constraints>
-
-<context_compaction>
-When summarizing context, strictly maintain state in this format:
-
-## [TestName]
-Failure: [suspected failure reasons]
-SuspectedFix: [the fix you've implemented or want to try]
-NextStep: [the next step for diagnosing/fixing/verifying the test]
-</context_compaction>
 
 ## Initialization
 1. Verify target scope (test, package, or issue). If unknown, prompt user.
@@ -43,6 +34,31 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - Lint check: `golangci-lint run ./<packages-you-change> --fix`
 </cli_reference>
 
+<loop>
+1. If user doesn't have recent results, run `diagnose` command with min 5 iterations to gather info. If issues due to sandbox, STOP, give user command to run and have them report results.
+2. If no issues, ask the user if they want to verify with more iterations. If not, end and output final report of findings, fixes, and lessons learned.
+3. If issues detected, focus on the ones the user wants to fix.
+4. If a `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file exists, read it to see previous fix attempts and findings.
+5. Form a hypothesis on the cause of the issues.
+6. Implement a fix
+7. Output the hypothesis and attempted fix, plus reasons why you think it would work.
+8. Run a `diagnose` loop to see if the fix works. 
+9. Append to `diagnose-attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` file in this json format:
+```json
+{"timestamp": "[current_timestamp]", "hypothesis": "Your original hypothesis for the issue", "experiment": "A concise summary of what you tried. Include small code snippets if helpful", "result": "Did it fix it or not? If not, give concise reason why", "next": "Next steps to attempt"}
+```
+1.   GOTO 2
+</loop>
+
+<context_compaction>
+When summarizing/compacting/compressing context, strictly maintain a reference to the `attempted-fixes-[test/package]-[flake/broken/timeout/slow].jsonl` you're using for this session.
+</context_compaction>
+
+<possible_execution_issues>
+- **GOCACHE permissions issues**: `[build failed]\n open .../Library/Caches/...` This is caused by some sandbox environments. If you cannot exit the sandbox to fix this, STOP. DO NOT attempt to create a new cache. Ask the user to run the command instead and give you results so you can continue.
+- **Postgres sandbox error**: `operation not permitted` connecting to postgres. Sandbox issues. If you cannot exit the sandbox to fix this, STOP. Ask the user to run the command instead and give you results so you can continue.
+</possible_execution_issues>
+
 ## Execution & Analysis
 - **Postgres:** Serial diagnose restores DB between iterations. Parallel gives each worker an ephemeral DB. Neither resets between tests *within* one iteration.
 - **Report Analysis:** Read `<resultsDir>/report.json` using `jq`. Top-level buckets: `flakes`, `failures`, `timeouts`, `slow`. Harness and `go test` invocation: `jq .run` (argv, iteration count, fail-fast, shuffle, etc.).
@@ -50,18 +66,24 @@ Base Command: `go -C tools/test run . diagnose [harness_flags] -- [go_test_flags
 - **Profiles:** When logs/report are insufficient, use standard `go test` profile flags (`-race`, `-cpuprofile`, `-trace`, etc.). View with `go tool pprof` or `go tool trace`.
 
 <logs_structure>
-<resultsDir>/
+[resultsDir]/
 |-- iteration-n.log.jsonl # DO NOT READ unless absolutely necessary; full log outputs, long and messy
 |-- postgres-state-n.md # Final state of postgres DB after test iteration. Read if diagnosing DB-based errors or hangs.
 |-- report.json # Read this; summary of full `diagnose` run (include `jq .run` for go test args and harness flags)
 |-- report.csv # DO NOT READ; human readable csv
 |-- logs/ # Extracted individual test logs
-|---- pkg_TestName_iter-n.log # Logs for individual slow/failing test
+|---- pkg_TestName_iter-n.log # Logs for individual slow/failing tests, read this as needed
 </logs_structure>
 
 <sub_agent_protocol>
-When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a sub-agent to read from the end up. 
-The sub-agent MUST output ONLY valid JSON matching this exact structure, with no markdown, no explanations, and no yapping:
+When reading log files from the `logs/` directory or `iteration-n.log.jsonl`, you MUST spawn a specialist `LogAnalyzer` sub-agent. 
+
+You MUST configure the sub-agent with these exact initialization parameters:
+1. System Prompt: "You are a headless, read-only log parser. Your sole purpose is to read Go test logs from the end up. Each log file contains logs from `chainlink` nodes, plus test-specific logs. Read the logs and construct possible reasons why the test failed or was slow. You do not converse. You output raw JSON and nothing else."
+2. Allowed Tools: File read/grep tools ONLY. Revoke all execution, write, and web search capabilities.
+3. Temperature: 0.0
+
+The sub-agent MUST output ONLY valid JSON matching this exact structure, with no markdown formatting (` ```json `), no explanations, and no yapping:
 {
   "logs_read": ["log_path_1.log", "log_path_2.log"],
   "failure_diagnosis": [
@@ -76,7 +98,7 @@ The sub-agent MUST output ONLY valid JSON matching this exact structure, with no
 ## Playbook & General Fixes
 Lead with your hypothesis before writing code. Show contextual diffs, do not describe fixes abstractly.
 
-1. **Check Known Patterns:** See `<known_patterns>` below for common flaky test patterns and fixes in this repo. Try them first.
+1. **Check Known Patterns:** See `<known_patterns>` below for common flaky test patterns and fixes in this repo. If they apply to the situation attempt them first.
 2. **Isolate (Pass alone, fail in package):** Cross-test dependency. Missing `t.Cleanup`, global state (`var` singletons, loggers), or shared mock servers. Fix by moving state to per-test constructors or using `t.Cleanup`.
 3. **Order (Shuffle changes pass rate):** Same as isolation. Fix cross-test leakage. Capture failing seed and provide to user.
 4. **Race:** Triggers on weird stack traces or nil pointers. Use `-race`. Fix with `sync.Mutex`, `atomic.*`, or narrow shared fields.
@@ -85,74 +107,6 @@ Lead with your hypothesis before writing code. Show contextual diffs, do not des
 7. **Resources:** If failing under load/CI only, DB connections might be exhausted by `t.Parallel()`. Use separate schema/user per test. 
 
 <known_patterns>
-  <pattern name="LogPoller Timing Race">
-    <symptom>
-      The dominant flake pattern in simulated-chain tests that enable `Feature.LogPoller = true`. Error message contains `"failed to retrieve log value pointer of block N: not found"` and the stack trace points to a `FilterXxx` call that immediately follows a `backend.Commit()`. Note: Raw geth bindings do NOT have this race, only interface types backed by LogPoller.
-    </symptom>
-    
-    <fix_a_receipt_parsing>
-      For one-shot events where you only need a value emitted at creation (e.g. `SubscriptionCreated`, `RequestSent`): parse the tx receipt directly instead of calling `FilterXxx`.
-      ```go
-      // AFTER (deterministic):
-      tx, err := coordinator.CreateSubscription(auth)
-      require.NoError(t, err)
-      backend.Commit()
-      receipt, err := backend.Client().TransactionReceipt(ctx, tx.Hash())
-      require.NoError(t, err)
-      require.Equal(t, uint64(1), receipt.Status)
-      var subID *big.Int
-      for _, log := range receipt.Logs {
-          if log.Address != coordinatorAddress {
-              continue
-          }
-          // SubscriptionCreated(uint64 indexed subId, address owner): Topics[1] = subId
-          subID = new(big.Int).SetBytes(log.Topics[1].Bytes())
-          break
-      }
-      require.NotNil(t, subID, "no SubscriptionCreated log in receipt")
-      ```
-    </fix_a_receipt_parsing>
-
-    <fix_b_non_fatal_filter>
-      For diagnostic/verification filters called inside a polling loop: a transient LogPoller error must not crash the test — it should retry.
-      ```go
-      // AFTER (retries):
-      require.Eventually(t, func() bool {
-          // LogPoller may not have indexed the latest block yet; skip and retry.
-          it, err := coordinator.FilterRandomWordsForced(nil, ids, subs, addrs)
-          if err == nil {
-              for it.Next() {
-                  require.Equal(t, expected, it.Event.Field)
-              }
-          }
-          return utils.IsEmpty(commitment[:])
-      }, timeout, tick)
-      ```
-    </fix_b_non_fatal_filter>
-
-    <fix_c_dynamic_reference>
-      If `require.Eventually` commits new blocks on each iteration, compute the reference block number inside the closure so it doesn't become stale.
-      ```go
-      // AFTER (dynamic):
-      require.Eventually(t, func() bool {
-          backend.Commit()
-          tip, err := backend.Client().HeaderByNumber(ctx, nil)
-          if err != nil || tip == nil || tip.Number.Uint64() < 256 {
-              return false
-          }
-          _, err = bhsContract.GetBlockhash(nil, new(big.Int).SetUint64(tip.Number.Uint64()-256))
-          return err == nil
-      }, testutils.WaitTimeoutCustom(t, 5*time.Minute), time.Second)
-      ```
-    </fix_c_dynamic_reference>
-  </pattern>
-
-  <pattern name="TXM broadcast latency (parallel load)">
-    <symptom>
-      Under 5+ parallel test workers, TXM broadcasts transactions asynchronously. A heartbeat/fulfillment tx may be logged as "sent" by the service but not yet in the mempool when the next `backend.Commit()` fires. Test detects service as active, but stored block is `N+1` or later than the fixed reference.
-    </symptom>
-    <fix>
-      Use the dynamic reference fix (`fix_c_dynamic_reference` from LogPoller Timing Race) so the check tracks wherever the tx actually lands.
-    </fix>
-  </pattern>
+Files in the `references/flaky-patterns/` dir.
+- `filter.md`: Tests using `Filter` functions to validate on-chain events. Usually LogPoller based tests.
 </known_patterns>

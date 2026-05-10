@@ -18,25 +18,55 @@ import (
 
 const chainlinkModulePrefix = "github.com/smartcontractkit/chainlink/v2"
 
-// packagePatternsFromEnd returns trailing non-flag arguments that look like package
-// patterns (containing '.', '/', or '...'). This matches the usual `go test [flags] [packages]`
-// layout (package patterns last) while avoiding misidentifying flag values like '10m'.
+// testBinaryTwoArgSuffixFlags are test-binary flags that consume the following argv token.
+// When scanning backwards from the end, a token immediately after one of these is skipped
+// so package patterns can appear before `-run TestName` (valid `go test` ordering).
+var testBinaryTwoArgSuffixFlags = map[string]bool{
+	"-run":   true,
+	"-bench": true,
+	"-skip":  true,
+	"-fuzz":  true,
+}
+
+func singleArgTestBinaryFlagPrefix(arg string) (prefix string, ok bool) {
+	for _, p := range []string{"-run=", "-bench=", "-skip=", "-fuzz="} {
+		if strings.HasPrefix(arg, p) {
+			return p, true
+		}
+	}
+	return "", false
+}
+
+func looksLikeGoPackagePattern(arg string) bool {
+	return strings.Contains(arg, ".") ||
+		strings.Contains(arg, "/") ||
+		strings.Contains(arg, "...")
+}
+
+// packagePatternsFromEnd returns trailing arguments that look like package patterns.
+// It scans backward from the end of goTestFlagsBeforeArgs(args), skipping `-run`,
+// `-bench`, `-skip`, and `-fuzz` and their values so `./pkg -run TestName` still
+// yields `./pkg`. This matches the usual `go test [flags] [packages]` layout and
+// also package-first ordering with test flags after packages.
 func packagePatternsFromEnd(args []string) []string {
+	args = goTestFlagsBeforeArgs(args)
 	var pkgs []string
 	for i := len(args) - 1; i >= 0; i-- {
 		arg := args[i]
+		if _, ok := singleArgTestBinaryFlagPrefix(arg); ok {
+			continue
+		}
 		if strings.HasPrefix(arg, "-") {
 			break
 		}
-		// Go package patterns must contain a dot (relative path or domain),
-		// a slash (path separator), or the "..." wildcard.
-		if strings.Contains(arg, ".") || strings.Contains(arg, "/") || strings.Contains(arg, "...") {
-			pkgs = append(pkgs, arg)
-		} else {
-			// If we hit something that doesn't look like a package, we stop.
-			// This might be a positional argument to a flag that was missed.
+		if i >= 1 && testBinaryTwoArgSuffixFlags[args[i-1]] {
+			i--
+			continue
+		}
+		if !looksLikeGoPackagePattern(arg) {
 			break
 		}
+		pkgs = append(pkgs, arg)
 	}
 	slices.Reverse(pkgs)
 	return pkgs

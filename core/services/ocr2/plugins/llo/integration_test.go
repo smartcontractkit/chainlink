@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"crypto/ed25519"
+	sha30 "crypto/sha3"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -25,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/proto"
 
@@ -357,9 +357,9 @@ func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, b
 func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, opts...)
 
-	var onchainPubKeys [][]byte
-	for _, signer := range signers {
-		onchainPubKeys = append(onchainPubKeys, signer)
+	onchainPubKeys := make([][]byte, len(signers))
+	for i, signer := range signers {
+		onchainPubKeys[i] = signer
 	}
 	offchainTransmitters := make([][32]byte, nNodes)
 	for i := range nNodes {
@@ -450,7 +450,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 		clientPubKeys[i] = key.PublicKey
 	}
 
-	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
+	steve, backend, _, _, verifier, _, _, _, configStore, configStoreAddress, legacyVerifier, legacyVerifierAddr, _, _ := setupBlockchain(t)
 	fromBlock := 1
 
 	// Setup bootstrap
@@ -592,7 +592,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				if feedID == quoteStreamFeedID1 { //nolint
+				//nolint:gocritic // switch case doesn't play nice with these types
+				if feedID == quoteStreamFeedID1 {
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream1.baseAsk.Mul(multiplier).BigInt()
@@ -601,14 +602,14 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
 				} else {
-					t.Fatalf("unrecognized feedID: 0x%x", feedID)
+					require.FailNow(t, "unrecognized feedID: 0x%x", feedID)
 				}
 
-				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix()))
-				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+				assert.GreaterOrEqual(t, int64(reportElems["validFromTimestamp"].(uint32)), testStartTimeStamp.Unix())
+				assert.GreaterOrEqual(t, int64(reportElems["observationsTimestamp"].(uint32)), testStartTimeStamp.Unix())
 				assert.Equal(t, "33597747607000", reportElems["nativeFee"].(*big.Int).String())
 				assert.Equal(t, "7547169811320755", reportElems["linkFee"].(*big.Int).String())
-				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+uint32(expirationWindow), reportElems["expiresAt"].(uint32))
+				assert.Equal(t, int64(reportElems["observationsTimestamp"].(uint32))+int64(expirationWindow), int64(reportElems["expiresAt"].(uint32)))
 				assert.Equal(t, expectedBm.String(), reportElems["benchmarkPrice"].(*big.Int).String())
 				assert.Equal(t, expectedBid.String(), reportElems["bid"].(*big.Int).String())
 				assert.Equal(t, expectedAsk.String(), reportElems["ask"].(*big.Int).String())
@@ -630,14 +631,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				// test on-chain verification
-				t.Run("on-chain verification", func(t *testing.T) {
-					t.Skip("SKIP - MERC-6637")
-					// Disabled because it flakes, sometimes returns "execution reverted"
-					// No idea why
-					// https://smartcontract-it.atlassian.net/browse/MERC-6637
-					_, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-					require.NoError(t, err)
-				})
+				// Disabled because it flakes, sometimes returns "execution reverted"
+				// No idea why
+				// https://smartcontract-it.atlassian.net/browse/MERC-6637
+				// _, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
+				// require.NoError(t, err)
 
 				pr, ok := peer.FromContext(req.ctx)
 				require.True(t, ok)
@@ -1546,7 +1544,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Set config on configurator
-		opts := []OCRConfigOption{WithOracles(oracles)}
+		opts := make([]OCRConfigOption, 0, 1+len(ocrConfigOpts))
+		opts = append(opts, WithOracles(oracles))
 		opts = append(opts, ocrConfigOpts...)
 		blueDigest := setProductionConfig(
 			t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...,
@@ -2414,7 +2413,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
 			require.NoError(t, err)
-			adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
+			adder1DefinitionsSHA := sha30.Sum256(adder1DefinitionsJSON)
 
 			adder1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder1DefinitionsJSON)
@@ -2455,7 +2454,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder2DefinitionsJSON, err := json.MarshalIndent(adder2Definitions, "", "  ")
 			require.NoError(t, err)
-			adder2DefinitionsSHA := sha3.Sum256(adder2DefinitionsJSON)
+			adder2DefinitionsSHA := sha30.Sum256(adder2DefinitionsJSON)
 
 			adder2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder2DefinitionsJSON)
@@ -2652,7 +2651,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder1NewDefinitionsJSON, err := json.MarshalIndent(adder1NewDefinitions, "", "  ")
 			require.NoError(t, err)
-			adder1NewDefinitionsSHA := sha3.Sum256(adder1NewDefinitionsJSON)
+			adder1NewDefinitionsSHA := sha30.Sum256(adder1NewDefinitionsJSON)
 
 			adder1NewServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder1NewDefinitionsJSON)
@@ -2902,7 +2901,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
 	channelDefinitionsJSON, err := json.MarshalIndent(channelDefinitions, "", "  ")
 	require.NoError(t, err)
-	channelDefinitionsSHA := sha3.Sum256(channelDefinitionsJSON)
+	channelDefinitionsSHA := sha30.Sum256(channelDefinitionsJSON)
 
 	// Set up channel definitions server
 	channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

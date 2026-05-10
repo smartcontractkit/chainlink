@@ -118,7 +118,10 @@ func TestStartDiagnoseAnalyzingProgress_startsNewLineAfterLiveProgress(t *testin
 	stop := startDiagnoseAnalyzingProgress(out, true)
 	stop()
 
-	assert.Equal(t, "\r\u001b[K\nanalyzing...\n", stderr.String())
+	plain := stripANSI(stderr.String())
+	assert.Contains(t, plain, "analyzing [0s]")
+	assert.Contains(t, plain, "✅")
+	assert.True(t, strings.HasPrefix(stderr.String(), "\r\u001b[K\n"))
 }
 
 func TestStartDiagnoseAnalyzingProgress_liveInline_updatesDuration(t *testing.T) {
@@ -131,10 +134,19 @@ func TestStartDiagnoseAnalyzingProgress_liveInline_updatesDuration(t *testing.T)
 	stop()
 
 	got := stderr.String()
-	assert.Contains(t, got, "analyzing...")
+	assert.Contains(t, got, "analyzing")
+	assert.NotContains(t, got, "analyzing...")
 	assert.Regexp(t, `\[[0-9]+s\]`, got)
+	assert.Contains(t, stripANSI(got), "✅")
 	assert.Contains(t, got, "\r\u001b[K")
 	assert.True(t, strings.HasSuffix(got, "\n"))
+}
+
+func TestFormatDiagnoseWallClock(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, "0s", formatDiagnoseWallClock(0))
+	assert.Equal(t, "50m4.60s", formatDiagnoseWallClock(50*time.Minute+4*time.Second+607421833*time.Nanosecond))
+	assert.Equal(t, "1h0m0s", formatDiagnoseWallClock(time.Hour))
 }
 
 func TestParseDiagnoseGoTestCount(t *testing.T) {
@@ -207,6 +219,182 @@ func TestWarnDiagnoseGoTestCount(t *testing.T) {
 		err := WarnDiagnoseGoTestCount(&buf, []string{"-count=0", "./..."})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "positive integer")
+	})
+}
+
+func TestParseGoTestTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		args     []string
+		wantSet  bool
+		wantDur  time.Duration
+		disabled bool
+		wantErr  bool
+	}{
+		{
+			name:    "equals form",
+			args:    []string{"-timeout=5m", "./pkg"},
+			wantSet: true,
+			wantDur: 5 * time.Minute,
+		},
+		{
+			name:    "separate value",
+			args:    []string{"-timeout", "10m", "./pkg"},
+			wantSet: true,
+			wantDur: 10 * time.Minute,
+		},
+		{
+			name:    "missing uses unset",
+			args:    []string{"-race", "./pkg"},
+			wantSet: false,
+		},
+		{
+			name:     "zero disables",
+			args:     []string{"-timeout=0", "./pkg"},
+			wantSet:  true,
+			disabled: true,
+		},
+		{
+			name:     "zero separate disables",
+			args:     []string{"-timeout", "0", "./pkg"},
+			wantSet:  true,
+			disabled: true,
+		},
+		{
+			name:    "after args ignored",
+			args:    []string{"-args", "-timeout", "1ns", "./pkg"},
+			wantSet: false,
+		},
+		{
+			name:    "last wins toward longer",
+			args:    []string{"-timeout=1m", "-timeout=2m", "./pkg"},
+			wantSet: true,
+			wantDur: 2 * time.Minute,
+		},
+		{
+			name:    "last wins clears disable",
+			args:    []string{"-timeout=0", "-timeout=5m", "./pkg"},
+			wantSet: true,
+			wantDur: 5 * time.Minute,
+		},
+		{
+			name:     "last wins toward disable",
+			args:     []string{"-timeout=5m", "-timeout=0", "./pkg"},
+			wantSet:  true,
+			disabled: true,
+		},
+		{
+			name:    "empty equals",
+			args:    []string{"-timeout=", "./pkg"},
+			wantErr: true,
+		},
+		{
+			name:    "missing value after flag",
+			args:    []string{"-timeout"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid duration",
+			args:    []string{"-timeout=notaduration", "./pkg"},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			set, d, disabled, err := parseGoTestTimeout(tc.args)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.wantSet, set, "set")
+			assert.Equal(t, tc.disabled, disabled, "disabled")
+			if !tc.wantSet {
+				assert.Equal(t, time.Duration(0), d)
+				return
+			}
+			if tc.disabled {
+				return
+			}
+			assert.Equal(t, tc.wantDur, d)
+		})
+	}
+}
+
+func TestDiagnoseIterationWaves(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, 0, diagnoseIterationWaves(0, 3))
+	assert.Equal(t, 10, diagnoseIterationWaves(10, 1))
+	assert.Equal(t, 4, diagnoseIterationWaves(10, 3))
+	assert.Equal(t, 3, diagnoseIterationWaves(10, 4))
+}
+
+func TestDiagnoseWallUpperBound(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parallel waves and bound", func(t *testing.T) {
+		t.Parallel()
+		diag, ok, err := diagnoseWallUpperBound(
+			&config.App{Iterations: 10, ParallelIterations: 3},
+			[]string{"-timeout=15m", "./pkg"},
+			3,
+		)
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.Equal(t, 4, diag.Waves)
+		assert.Equal(t, 3, diag.Workers)
+		assert.Equal(t, 15*time.Minute, diag.PerInv)
+		assert.False(t, diag.UsedDefault)
+		assert.Equal(t, 60*time.Minute, diag.Bound)
+	})
+
+	t.Run("resource count narrows workers", func(t *testing.T) {
+		t.Parallel()
+		diag, ok, err := diagnoseWallUpperBound(
+			&config.App{Iterations: 4, ParallelIterations: 4},
+			[]string{"-timeout=5m", "./pkg"},
+			2,
+		)
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.Equal(t, 2, diag.Workers)
+		assert.Equal(t, 2, diag.Waves)
+		assert.Equal(t, 10*time.Minute, diag.Bound)
+	})
+
+	t.Run("default timeout when unset", func(t *testing.T) {
+		t.Parallel()
+		diag, ok, err := diagnoseWallUpperBound(
+			&config.App{Iterations: 2, ParallelIterations: 1},
+			[]string{"./pkg"},
+			0,
+		)
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.True(t, diag.UsedDefault)
+		assert.Equal(t, defaultGoTestTimeout, diag.PerInv)
+		assert.Equal(t, 2*defaultGoTestTimeout, diag.Bound)
+	})
+
+	t.Run("timeout zero disables bound", func(t *testing.T) {
+		t.Parallel()
+		_, ok, err := diagnoseWallUpperBound(
+			&config.App{Iterations: 5, ParallelIterations: 1},
+			[]string{"-timeout=0", "./pkg"},
+			0,
+		)
+		require.NoError(t, err)
+		assert.False(t, ok)
+	})
+
+	t.Run("nil config errors", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := diagnoseWallUpperBound(nil, []string{"./pkg"}, 0)
+		require.Error(t, err)
 	})
 }
 
@@ -319,7 +507,7 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 		{
 			name:       "flags before package",
 			goTestArgs: []string{"-race", "-run=^TestFoo$", "./pkg"},
-			want:       diagnoseResultsNamePrefix + "pkg-20240601123045",
+			want:       diagnoseResultsNamePrefix + "pkg__run__TestFoo_-20240601123045",
 		},
 		{
 			name:       "single package",
@@ -330,6 +518,16 @@ func TestDiagnoseResultsDirName(t *testing.T) {
 			name:       "short path",
 			goTestArgs: []string{"./a"},
 			want:       diagnoseResultsNamePrefix + "a-20240601123045",
+		},
+		{
+			name:       "package then run flag",
+			goTestArgs: []string{"./core/services/foo", "-run", "TestBar"},
+			want:       diagnoseResultsNamePrefix + "core_services_foo__run_TestBar-20240601123045",
+		},
+		{
+			name:       "run flag then package",
+			goTestArgs: []string{"-run", "TestBar", "./core/services/foo"},
+			want:       diagnoseResultsNamePrefix + "core_services_foo__run_TestBar-20240601123045",
 		},
 	}
 
@@ -349,7 +547,7 @@ func TestDiagnoseResultsDirNameLongRunAndPath(t *testing.T) {
 	goTestArgs := []string{"-run=" + longRun, "./p"}
 	got := diagnoseResultsDirName(goTestArgs, diagnoseResultsDirNameAt)
 	assert.LessOrEqual(t, len(got), maxDiagnoseResultsBasename)
-	assert.Regexp(t, `diagnose-p-20240601123045`, got)
+	assert.Regexp(t, `diagnose-.+-20240601123045`, got)
 
 	longTarget := "./" + strings.Repeat("seg/", 60) + "z"
 	goTestArgs2 := []string{longTarget}
@@ -443,6 +641,8 @@ func TestPackagePatternsFromEnd(t *testing.T) {
 	assert.Nil(t, packagePatternsFromEnd([]string{"-v", "-race"}))
 	assert.Equal(t, []string{"./core/..."}, packagePatternsFromEnd([]string{"-timeout", "10m", "./core/..."}))
 	assert.Nil(t, packagePatternsFromEnd([]string{"-timeout", "10m"}))
+	assert.Equal(t, []string{"./pkg"}, packagePatternsFromEnd([]string{"./pkg", "-run", "TestName"}))
+	assert.Equal(t, []string{"./pkg"}, packagePatternsFromEnd([]string{"-run", "TestName", "./pkg"}))
 }
 
 func TestRunDiagnoseIterationsRunsInParallelWithWorkerIsolation(t *testing.T) {
@@ -561,6 +761,53 @@ func TestRunDiagnoseIterationsFailFastCancelsNewWork(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, state.failedFast)
 	assert.LessOrEqual(t, len(started), conf.ParallelIterations)
+}
+
+func TestRunDiagnoseIterationsStopsOnBuildFailure(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		iterationJSON string
+	}{
+		{
+			name:          "package_level_fail_heuristic",
+			iterationJSON: `{"Action":"fail","Package":"pkg/build","Elapsed":0.0}`,
+		},
+		{
+			name:          "failed_build_field",
+			iterationJSON: `{"Action":"fail","Package":"example.com/badpkg","Elapsed":0,"FailedBuild":"example.com/badpkg.test"}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			resultsDir := t.TempDir()
+			conf := &config.App{
+				RepoRoot:   t.TempDir(),
+				AIOutput:   true,
+				Iterations: 5,
+				// Build failure stops even without --fail-fast or --fail-fast-on.
+				FailFast: false,
+			}
+			out := output.New(true, io.Discard, io.Discard, output.SkipFD)
+			hooks := diagnoseRunHooks{
+				runIteration: func(_ context.Context, _ *config.App, _ *output.Printer, dir string, _ []string, iteration int, _ int64, _ []string, _ bool, _ *parallelDiagnoseProgress, _ time.Time, _ *sync.Mutex) error {
+					payload := tc.iterationJSON + "\n"
+					require.NoError(t, os.WriteFile(filepath.Join(dir, "iteration-"+strconv.Itoa(iteration)+".log.jsonl"), []byte(payload), 0600))
+					return errors.New("exit status 1")
+				},
+			}
+
+			state, err := runDiagnoseIterations(context.Background(), conf, out, resultsDir, []string{"./pkg"}, []diagnoseIterationResource{{}}, hooks)
+			require.NoError(t, err)
+			assert.Equal(t, 1, state.completed)
+			assert.True(t, state.failedFast)
+			assert.Equal(t, failFastReasonBuildFailure, state.failedFastReason)
+			assert.Equal(t, 0, state.failedFastIteration)
+		})
+	}
 }
 
 // Stress serial live \r progress vs digest printing: the hook redraws on a tight

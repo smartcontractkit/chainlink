@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -22,6 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/test/internal/termstyle"
 )
 
+// failFastReasonBuildFailure is used when go test reports a compile/build failure
+// (FailedBuild or package-level fail with no named tests run); diagnose stops immediately.
+const failFastReasonBuildFailure = "build-failure"
+
 type diagnoseIterationResource = db.Resource
 
 type diagnoseIterationRunner func(ctx context.Context, conf *config.App, out *output.Printer, resultsDir string, goTestArgs []string, iteration int, shuffleSeed int64, env []string, liveProgress bool, parallelProgress *parallelDiagnoseProgress, diagnoseRunStart time.Time, serialProgressMu *sync.Mutex) error
@@ -32,12 +37,13 @@ type diagnoseRunHooks struct {
 }
 
 type diagnoseRunState struct {
-	completed        int
-	failedFast       bool
-	failedFastReason string
-	iterDurations    []time.Duration
-	shuffleSeeds     map[int]int64
-	liveProgress     bool
+	completed           int
+	failedFast          bool
+	failedFastReason    string
+	failedFastIteration int // 0-based diagnose iteration index; -1 if unset
+	iterDurations       []time.Duration
+	shuffleSeeds        map[int]int64
+	liveProgress        bool
 }
 
 // GoTest runs `go test` with the given args (repo root as working directory).
@@ -72,8 +78,8 @@ func Gotestsum(ctx context.Context, conf *config.App, args []string) error {
 // With --ai-output, stdout is three lines: the results directory path, the
 // path to report.json, and one line of JSON (the report's summary object, or
 // the JSON keyword null when there is no summary).
-// Test iteration failures do not stop later runs (unless --fail-fast); they are
-// reflected in report.json. Diagnose returns a non-nil error for setup failures
+// Test iteration failures do not stop later runs (unless --fail-fast); compile/build
+// failures stop immediately. Results are reflected in report.json. Diagnose returns a non-nil error for setup failures
 // (e.g. mkdir, database reset), analyze/write report failures, or ctx errors
 // bubbling from dependencies — not for failing tests alone.
 // resources supplies the prepared per-worker database state. Each resource runs
@@ -90,6 +96,9 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 		return err
 	}
 	printDiagnoseResultsDirHeader(out, resultsDir)
+	if err := printDiagnoseRunTimeEstimate(out, conf, goTestArgs, len(resources)); err != nil {
+		return err
+	}
 
 	state, runErr := runDiagnoseIterations(ctx, conf, out, resultsDir, goTestArgs, resources, diagnoseRunHooks{})
 	if runErr != nil {
@@ -106,19 +115,38 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	if state.failedFast && !out.AIOutput() {
-		msg := "--fail-fast set, stopping early"
-		if state.failedFastReason != "" {
-			msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+		if state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
+			iter := state.failedFastIteration + 1
+			out.HumanStderr(termstyle.Bad.Render(
+				fmt.Sprintf("Build failed — stopping diagnose run (iteration %d/%d).", iter, conf.Iterations)))
+		} else {
+			msg := "--fail-fast set, stopping early"
+			if state.failedFastReason != "" {
+				msg = fmt.Sprintf("fail-fast matched %s, stopping early", state.failedFastReason)
+			}
+			out.HumanStderr(termstyle.Accent.Render(msg))
 		}
-		out.HumanStderr(termstyle.Accent.Render(msg))
 	}
 
 	stopAnalyzing := startDiagnoseAnalyzingProgress(out, state.liveProgress)
 	defer stopAnalyzing()
 	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
+	stopAnalyzing()
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
 		return analyzeErr
+	}
+	if out.AIOutput() && state.failedFastReason == failFastReasonBuildFailure && state.failedFastIteration >= 0 {
+		var pkgs []string
+		if report != nil {
+			for _, sum := range report.IterationSummaries {
+				if sum.Index == state.failedFastIteration {
+					pkgs = append(pkgs, sum.FailingTests...)
+					break
+				}
+			}
+		}
+		out.Stderrf("bf_stop iter=%d pkgs=%s\n", state.failedFastIteration+1, strings.Join(pkgs, ","))
 	}
 	if report != nil {
 		for i, d := range state.iterDurations {
@@ -160,9 +188,8 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	out.HumanStderr(
-		termstyle.Label.Render("diagnose complete") + " " +
-			termstyle.OK.Render("✅") +
-			termstyle.Muted.Render(fmt.Sprintf(" (%s)", time.Since(start))))
+		termstyle.Label.Render("diagnosis complete") + " " +
+			termstyle.Muted.Render("["+formatDiagnoseWallClock(time.Since(start))+"]"))
 	if report != nil {
 		PrintSummary(out.HumanStderrWriter(), report)
 	}
@@ -256,7 +283,8 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 	}
 	resources = resources[:parallel]
 	state := diagnoseRunState{
-		iterDurations: make([]time.Duration, conf.Iterations),
+		iterDurations:       make([]time.Duration, conf.Iterations),
+		failedFastIteration: -1,
 	}
 	if conf.Shuffle {
 		state.shuffleSeeds = make(map[int]int64)
@@ -370,6 +398,9 @@ func runDiagnoseIterations(ctx context.Context, conf *config.App, out *output.Pr
 			if state.failedFastReason == "" {
 				state.failedFastReason = result.failReason
 			}
+			if state.failedFastIteration < 0 {
+				state.failedFastIteration = result.iteration
+			}
 		}
 	}
 	return state, firstErr
@@ -442,20 +473,29 @@ func shouldFailFastIteration(conf *config.App, resultsDir string, iteration int,
 	if conf == nil {
 		return false, ""
 	}
+	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
+	f, err := os.Open(jsonPath)
+	if err != nil {
+		if iterErr != nil && conf.FailFast {
+			return true, "failure"
+		}
+		return false, ""
+	}
+	defer f.Close()
+	d, digestErr := DigestIterationJSONL(f, conf.SlowThreshold)
+	if digestErr != nil {
+		if iterErr != nil && conf.FailFast {
+			return true, "failure"
+		}
+		return false, ""
+	}
+	if d.BuildFailure {
+		return true, failFastReasonBuildFailure
+	}
 	if iterErr != nil && conf.FailFast {
 		return true, "failure"
 	}
 	if len(conf.FailFastOn) == 0 {
-		return false, ""
-	}
-	jsonPath := filepath.Join(resultsDir, fmt.Sprintf("iteration-%d.log.jsonl", iteration))
-	f, err := os.Open(jsonPath)
-	if err != nil {
-		return false, ""
-	}
-	defer f.Close()
-	d, err := DigestIterationJSONL(f, conf.SlowThreshold)
-	if err != nil {
 		return false, ""
 	}
 	return failFastDigestMatch(d, conf.FailFastOn)
@@ -534,6 +574,140 @@ func parseDiagnoseGoTestCount(goTestArgs []string) (set bool, n int, err error) 
 	return set, n, nil
 }
 
+// defaultGoTestTimeout matches `go help testflag` when -timeout is omitted.
+const defaultGoTestTimeout = 10 * time.Minute
+
+// parseGoTestTimeout returns the last -timeout in the go test flag section (before -args).
+// If the value parses to 0, disabled is true (timeout disabled for the test binary).
+// If no -timeout appears, set is false and callers should assume defaultGoTestTimeout for estimates.
+func parseGoTestTimeout(goTestArgs []string) (set bool, d time.Duration, disabled bool, err error) {
+	args := goTestFlagsBeforeArgs(goTestArgs)
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if after, ok := strings.CutPrefix(a, "-timeout="); ok {
+			v := strings.TrimSpace(after)
+			if v == "" {
+				return false, 0, false, errors.New("invalid go test arguments: -timeout= requires a duration")
+			}
+			dur, e := time.ParseDuration(v)
+			if e != nil {
+				return false, 0, false, fmt.Errorf("invalid -timeout value %q: %w", v, e)
+			}
+			set = true
+			if dur == 0 {
+				disabled = true
+			} else {
+				disabled = false
+				d = dur
+			}
+			continue
+		}
+		if a == "-timeout" {
+			if i+1 >= len(args) {
+				return false, 0, false, errors.New("invalid go test arguments: -timeout must be followed by a duration")
+			}
+			i++
+			v := strings.TrimSpace(args[i])
+			dur, e := time.ParseDuration(v)
+			if e != nil {
+				return false, 0, false, fmt.Errorf("invalid -timeout value %q: %w", args[i], e)
+			}
+			set = true
+			if dur == 0 {
+				disabled = true
+			} else {
+				disabled = false
+				d = dur
+			}
+		}
+	}
+	return set, d, disabled, nil
+}
+
+// diagnoseIterationWaves returns ceil(iterations/workers) for scheduling diagnose iterations.
+func diagnoseIterationWaves(iterations, workers int) int {
+	w := max(workers, 1)
+	if iterations < 1 {
+		return 0
+	}
+	return (iterations + w - 1) / w
+}
+
+// diagnoseWallUpperBoundDetails holds the inputs used for the human-facing estimate line.
+type diagnoseWallUpperBoundDetails struct {
+	Bound       time.Duration
+	Workers     int
+	Waves       int
+	PerInv      time.Duration
+	UsedDefault bool // true when -timeout was omitted (10m assumed)
+}
+
+// diagnoseWallUpperBound returns worst-case wall clock if each go test invocation runs
+// for the full per-invocation test timeout (Go default 10m when -timeout is unset).
+// ok is false when -timeout=0 disables the test binary timeout (no finite bound).
+func diagnoseWallUpperBound(conf *config.App, goTestArgs []string, resourceCount int) (diag diagnoseWallUpperBoundDetails, ok bool, err error) {
+	if conf == nil {
+		return diagnoseWallUpperBoundDetails{}, false, errors.New("config is nil")
+	}
+	set, d, disabled, err := parseGoTestTimeout(goTestArgs)
+	if err != nil {
+		return diagnoseWallUpperBoundDetails{}, false, err
+	}
+	if set && disabled {
+		return diagnoseWallUpperBoundDetails{}, false, nil
+	}
+	perInv := defaultGoTestTimeout
+	usedDefault := !set
+	if set && !disabled {
+		perInv = d
+		usedDefault = false
+	}
+	parallel := EffectiveParallelIterations(conf)
+	if resourceCount > 0 && resourceCount < parallel {
+		parallel = resourceCount
+	}
+	if parallel < 1 {
+		parallel = 1
+	}
+	waves := diagnoseIterationWaves(conf.Iterations, parallel)
+	bound := time.Duration(waves) * perInv
+	return diagnoseWallUpperBoundDetails{
+		Bound:       bound,
+		Workers:     parallel,
+		Waves:       waves,
+		PerInv:      perInv,
+		UsedDefault: usedDefault,
+	}, true, nil
+}
+
+func printDiagnoseRunTimeEstimate(out *output.Printer, conf *config.App, goTestArgs []string, resourceCount int) error {
+	if out == nil || conf == nil {
+		return nil
+	}
+	diag, ok, err := diagnoseWallUpperBound(conf, goTestArgs, resourceCount)
+	if err != nil {
+		return err
+	}
+	if out.AIOutput() {
+		if !ok {
+			out.Stderrf("lpr_s:inf\n")
+			return nil
+		}
+		sec := diag.Bound.Round(time.Second) / time.Second
+		if sec < 0 {
+			sec = 0
+		}
+		out.Stderrf("lpr_s:%d\n", sec)
+		return nil
+	}
+	est := "∞"
+	if ok {
+		est = formatDiagnoseWallClock(diag.Bound)
+	}
+	out.HumanStderr(termstyle.Muted.Render("Longest Possible Runtime: " + est))
+	return nil
+}
+
 // WarnDiagnoseGoTestCount prints hints when the user sets -count on go test, and
 // returns an error if -count values in the go test flag section are malformed.
 func WarnDiagnoseGoTestCount(w io.Writer, goTestArgs []string) error {
@@ -602,9 +776,46 @@ func printDiagnoseResultsDirHeader(out *output.Printer, resultsDir string) {
 	out.HumanStderr(termstyle.Muted.Render("results directory: ") + termstyle.Label.Render(resultsDir))
 }
 
-// startDiagnoseAnalyzingProgress prints an "analyzing... [duration]" line and returns
-// stop, which must be called once after AnalyzeResults finishes. On a TTY the duration
-// updates in place; stop finalizes the line with a newline.
+// formatDiagnoseWallClock formats total wall time for human diagnose footers (0.1s resolution, seconds show two decimals when fractional).
+func formatDiagnoseWallClock(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	d = d.Round(100 * time.Millisecond)
+	if d == 0 {
+		return "0s"
+	}
+	h := d / time.Hour
+	d -= h * time.Hour
+	mins := d / time.Minute
+	d -= mins * time.Minute
+	s := float64(d) / float64(time.Second)
+	secStr := formatDiagnoseSecondsFragment(s)
+	if h > 0 {
+		return fmt.Sprintf("%dh%dm%s", h, mins, secStr)
+	}
+	if mins > 0 {
+		return fmt.Sprintf("%dm%s", mins, secStr)
+	}
+	return secStr
+}
+
+func formatDiagnoseSecondsFragment(s float64) string {
+	cs := int(math.Round(s * 100))
+	if cs < 0 {
+		cs = 0
+	}
+	w := cs / 100
+	f := cs % 100
+	if f == 0 {
+		return fmt.Sprintf("%ds", w)
+	}
+	return fmt.Sprintf("%d.%02ds", w, f)
+}
+
+// startDiagnoseAnalyzingProgress prints a live "analyzing [duration]" line and returns stop.
+// Call stop once analysis is done (and defer stop as well — it is idempotent) so the final
+// "analyzing [duration] ✅" line is written before diagnosis complete, not at process exit.
 func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool) (stop func()) {
 	if out.AIOutput() {
 		return func() {}
@@ -612,18 +823,31 @@ func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool)
 	if afterLiveProgress {
 		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
 	}
-	if !out.LiveInlineProgress() {
-		out.HumanStderr("analyzing...")
-		return func() {}
-	}
 
 	analyzeStart := time.Now()
-	renderLine := func(suffix string) {
+	var once sync.Once
+	finalize := func(live bool) {
 		elapsed := max(time.Since(analyzeStart).Round(time.Second), 0)
-		line := termstyle.Label.Render("analyzing...") + " " + termstyle.Muted.Render("["+elapsed.String()+"]") + suffix
+		line := termstyle.Label.Render("analyzing") + " " + termstyle.Muted.Render("["+elapsed.String()+"]") + " " + termstyle.OK.Render("✅")
+		if live {
+			_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K"+line+"\n")
+			return
+		}
+		out.HumanStderr(line)
+	}
+
+	if !out.LiveInlineProgress() {
+		return func() {
+			once.Do(func() { finalize(false) })
+		}
+	}
+
+	renderProgress := func() {
+		elapsed := max(time.Since(analyzeStart).Round(time.Second), 0)
+		line := termstyle.Label.Render("analyzing") + " " + termstyle.Muted.Render("["+elapsed.String()+"]")
 		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K"+line)
 	}
-	renderLine("")
+	renderProgress()
 
 	done := make(chan struct{})
 	var wg sync.WaitGroup
@@ -635,15 +859,17 @@ func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool)
 			case <-done:
 				return
 			case <-tick.C:
-				renderLine("")
+				renderProgress()
 			}
 		}
 	})
 
 	return func() {
-		close(done)
-		wg.Wait()
-		renderLine("\n")
+		once.Do(func() {
+			close(done)
+			wg.Wait()
+			finalize(true)
+		})
 	}
 }
 
