@@ -616,6 +616,7 @@ jobs:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu22.04-8cores-32GB
+    timeout-minutes: 360
     defaults:
       run:
         shell: bash
@@ -633,10 +634,9 @@ jobs:
           --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
           "$HOME/go/bin/protoc-gen-go-wsrpc"
       - name: make generate
-        timeout-minutes: 180
+        timeout-minutes: 360
         env:
-          # modgraph can run a long time and spike heap on the combined nested-module graph.
-          GOMEMLIMIT: 28GiB
+          # Encourage GC during large modgraph heaps (does not raise cgroup RAM limits).
           GOGC: 50
         run: |
           make rm-mocked

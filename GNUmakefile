@@ -266,7 +266,15 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 .PHONY: modgraph
 modgraph:
 	go install github.com/jmank88/modgraph@v0.1.1
-	./tools/bin/modgraph > go.md
+	bash -ce './tools/bin/modgraph > go.md & mpid=$$!; \
+	while kill -0 $$mpid 2>/dev/null; do \
+	  echo "::notice::Generating go.md (modgraph); still running..."; \
+	  for i in $$(seq 1 30); do \
+	    kill -0 $$mpid 2>/dev/null || break 2; \
+	    sleep 1; \
+	  done; \
+	done; \
+	wait $$mpid'
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
