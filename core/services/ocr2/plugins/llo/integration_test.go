@@ -476,7 +476,7 @@ func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreams
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -715,7 +715,7 @@ func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1467,7 +1467,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
-		c.Log.Level = ptr(logLevel)
+		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
@@ -1488,8 +1488,8 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
-			c.Log.Level = ptr(logLevel)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Log.Level = new(logLevel)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1693,7 +1693,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
-		c.Log.Level = ptr(logLevel)
+		c.Log.Level = new(logLevel)
 	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
@@ -1714,9 +1714,9 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
-			c.Mercury.Transmitter.TransmitQueueMaxSize = ptr(uint32(maxQueueSize)) // Test queue overflow
-			c.Log.Level = ptr(logLevel)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.TransmitQueueMaxSize = new(uint32(maxQueueSize)) // Test queue overflow
+			c.Log.Level = new(logLevel)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -1868,7 +1868,7 @@ func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastrea
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2228,7 +2228,7 @@ func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 
 		// Setup oracle nodes
 		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 		})
 
 		chainID := testutils.SimulatedChainID
@@ -2735,7 +2735,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 	serverURL := startMercuryServer(t, srv, clientPubKeys)
 
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
-		c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+		c.Mercury.Transmitter.Protocol = new(config.MercuryTransmitterProtocolGRPC)
 	})
 
 	chainID := testutils.SimulatedChainID

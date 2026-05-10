@@ -233,9 +233,6 @@ func setupNode(
 	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }
 
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
-
 // receiveWithTimeout receives from the packet channel with a timeout.
 // It returns the packet if a packet was received or an error if the timeout is reached
 // or the channel is closed unexpectedly.
@@ -513,7 +510,7 @@ func addOCRJobsEVMPremiumLegacy(
 			jobIDs[i] = make(map[uint32]int32)
 		}
 		for j, strm := range streams {
-			// assume that streams are native, link and additionals are quote
+			// assume that streams are native, link and additional streams are quote
 			if j < 2 {
 				var name string
 				if j == 0 {
