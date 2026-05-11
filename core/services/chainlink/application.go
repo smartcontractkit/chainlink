@@ -448,6 +448,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), csaKeystore, globalLogger)
 	srvcs = append(srvcs, telemetryManager)
 
+	// Register beholder managed services (e.g. ChipIngressBatchEmitter) for
+	// health checks and ordered shutdown.
+	if ms := beholder.GetClient().ManagedServices(); len(ms) > 0 {
+		for _, s := range ms {
+			srvcs = append(srvcs, s)
+		}
+	}
+
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())

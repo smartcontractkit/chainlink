@@ -124,6 +124,7 @@ func (s *Server) Publish(ctx context.Context, event *pb.CloudEvent) (*chippb.Pub
 	return s.cfg.PublishFunc(ctx, event)
 }
 
+// PublishBatch implements chippb.ChipIngressServer.PublishBatch.
 func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch) (*chippb.PublishResponse, error) {
 	if batch == nil || len(batch.Events) == 0 {
 		return &chippb.PublishResponse{}, nil
@@ -144,8 +145,18 @@ func (s *Server) PublishBatch(ctx context.Context, batch *chippb.CloudEventBatch
 
 	for _, event := range batch.Events {
 		if _, err := s.cfg.PublishFunc(ctx, event); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("publish batch: event %s: %w", event.GetId(), err)
 		}
+	}
+
+	if s.cfg.UpstreamEndpoint != "" {
+		go func() {
+			forwardCtx, cancelFn := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancelFn()
+			if _, err := s.upstream.PublishBatch(forwardCtx, batch); err != nil {
+				log.Printf("failed to forward batch to upstream: %v", err)
+			}
+		}()
 	}
 
 	return &chippb.PublishResponse{}, nil

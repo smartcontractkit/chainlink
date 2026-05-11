@@ -436,6 +436,7 @@ func addWorkerNodeConfig(
 
 		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
+		existingConfig.Telemetry.ChipIngressBatchEmitterEnabled = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
 		existingConfig.Billing = coretoml.Billing{

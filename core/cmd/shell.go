@@ -129,6 +129,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing, cfgTeleme
 				ChipIngressEmitterEnabled:      cfgTelemetry.ChipIngressEndpoint() != "",
 				ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 				ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
+				ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
 				LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 				LogLevel:                       cfgTelemetry.LogLevel(),
 				LogBatchProcessor:              cfgTelemetry.LogBatchProcessor(),

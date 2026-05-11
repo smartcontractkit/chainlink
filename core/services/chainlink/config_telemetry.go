@@ -97,6 +97,13 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 	return *b.s.ChipIngressInsecureConnection
 }
 
+func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
+	if b.s.ChipIngressBatchEmitterEnabled == nil {
+		return false
+	}
+	return *b.s.ChipIngressBatchEmitterEnabled
+}
+
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
 	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
 		return defaultHeartbeatInterval

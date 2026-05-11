@@ -2416,6 +2416,7 @@ EmitterExportTimeout = '1s' # Default
 AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
+ChipIngressBatchEmitterEnabled = false # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2491,6 +2492,13 @@ ChipIngressEndpoint enables sending custom messages to CHIP Ingress.
 ChipIngressInsecureConnection = false # Default
 ```
 ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
+
+### ChipIngressBatchEmitterEnabled
+```toml
+ChipIngressBatchEmitterEnabled = false # Default
+```
+ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
+When false, events are sent individually (legacy behavior).
 
 ### HeartbeatInterval
 ```toml

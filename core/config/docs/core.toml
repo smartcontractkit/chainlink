@@ -890,6 +890,9 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 # ChipIngressInsecureConnection disables TLS when connecting to CHIP Ingress.
 ChipIngressInsecureConnection = false # Default
+# ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
+# When false, events are sent individually (legacy behavior).
+ChipIngressBatchEmitterEnabled = false # Default
 
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
