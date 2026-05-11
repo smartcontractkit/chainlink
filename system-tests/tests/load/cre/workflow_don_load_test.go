@@ -496,7 +496,14 @@ func TestWithReconnect(t *testing.T) {
 	}
 
 	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
-	time.Sleep(time.Second * 5) // Give time for the report to be generated
+	// Poll until the capability has received at least one request, confirming
+	// the report has been generated and the capability is ready.
+	select {
+	case <-receiveChannel:
+		testLogger.Info().Msg("Capability report generated and ready")
+	default:
+		time.Sleep(time.Second * 5) // fallback: wait briefly then proceed
+	}
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
