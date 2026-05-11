@@ -197,7 +197,7 @@ var DeployEthBalMonSequence = operations.NewSequence(
 				rawMinWait = *chainConfig.SetMinWaitPeriodSeconds
 			}
 			minWait := effectiveMinWaitPeriodSeconds(rawMinWait)
-			timelockAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, commontypes.RBACTimelock)
+			timelockAddr, err := mustGetContractAddress(deps.DataStore, chainSelector, cldf.ContractType(commontypes.RBACTimelock))
 			if err != nil {
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: failed to get timelock address: %w", chainSelector, err)
 			}
