@@ -30,9 +30,9 @@ type mockFetcher struct {
 	nativePriceErr error
 }
 
-var feedId mercurytypes.FeedID = [32]byte{1}
-var linkFeedId mercurytypes.FeedID = [32]byte{2}
-var nativeFeedId mercurytypes.FeedID = [32]byte{3}
+var feedID mercurytypes.FeedID = [32]byte{1}
+var linkFeedID mercurytypes.FeedID = [32]byte{2}
+var nativeFeedID mercurytypes.FeedID = [32]byte{3}
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return nil, nil
@@ -40,9 +40,9 @@ func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int
 
 func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, error) {
 	switch mercurytypes.FeedID(fId) {
-	case linkFeedId:
+	case linkFeedID:
 		return m.linkPrice, m.linkPriceErr
-	case nativeFeedId:
+	case nativeFeedID:
 		return m.nativePrice, m.nativePriceErr
 	}
 	return nil, nil
@@ -178,12 +178,12 @@ func Test_Datasource(t *testing.T) {
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
-			t.Run("when feedId=linkFeedID=nativeFeedId", func(t *testing.T) {
+			t.Run("when feedID=linkFeedID=nativeFeedID", func(t *testing.T) {
 				t.Cleanup(func() {
-					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
+					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, linkFeedID, nativeFeedID
 				})
 
-				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
+				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, feedID, feedID
 
 				fetcher.ts = 123123
 				fetcher.tsErr = nil
@@ -255,13 +255,13 @@ func Test_Datasource(t *testing.T) {
 		})
 
 		t.Run("when run execution succeeded", func(t *testing.T) {
-			t.Run("when feedId=linkFeedID=nativeFeedId", func(t *testing.T) {
+			t.Run("when feedID=linkFeedID=nativeFeedID", func(t *testing.T) {
 				t.Cleanup(func() {
-					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
+					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, linkFeedID, nativeFeedID
 				})
 
-				var feedId mercurytypes.FeedID = [32]byte{1}
-				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
+				var feedID mercurytypes.FeedID = [32]byte{1}
+				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, feedID, feedID
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)

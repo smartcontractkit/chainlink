@@ -249,8 +249,8 @@ func Test_Datasource(t *testing.T) {
 					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, linkFeedID, nativeFeedID
 				})
 
-				var feedId mercury.FeedID = [32]byte{1}
-				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
+				var feedID mercury.FeedID = [32]byte{1}
+				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedID, feedID, feedID
 
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
