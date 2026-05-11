@@ -150,6 +150,8 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 			select {
 			case <-done:
 				return
+			case <-ctx.Done():
+				return
 			case <-ticker.C:
 				// Scan for transactions referencing the address
 				txSigs, err := client.GetSignaturesForAddressWithOpts(
