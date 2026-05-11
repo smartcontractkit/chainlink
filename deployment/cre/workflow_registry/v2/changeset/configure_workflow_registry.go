@@ -26,6 +26,75 @@ var _ cldf.ChangeSetV2[SetUserDONOverrideInput] = SetUserDONOverride{}
 var _ cldf.ChangeSetV2[BatchSetUserDONOverrideInput] = BatchSetUserDONOverride{}
 var _ cldf.ChangeSetV2[SetCapabilitiesRegistryInput] = SetCapabilitiesRegistry{}
 
+// prepareWorkflowRegistryDeps loads MCMS state, EVM chain, registry contract, and the transaction
+// strategy needed to execute a workflow-registry operation. The returned deps is ready to pass to
+// operations.ExecuteOperation and the strategy is reachable via deps.Strategy for the subsequent
+// BuildProposal call in finalizeWorkflowRegistryOutput.
+//
+// Extracted to remove the ~30-line setup boilerplate that was previously duplicated across each
+// Apply function in this file. New code should prefer this helper; existing Apply functions can
+// be migrated incrementally.
+func prepareWorkflowRegistryDeps(
+	e cldf.Environment,
+	chainSelector uint64,
+	qualifier string,
+	mcmsConfig *crecontracts.MCMSConfig,
+	description string,
+) (contracts.WorkflowRegistryOpDeps, error) {
+	var mcmsContracts *evmstate.MCMSWithTimelockState
+	if mcmsConfig != nil {
+		loaded, err := strategies.GetMCMSContracts(e, chainSelector, *mcmsConfig)
+		if err != nil {
+			return contracts.WorkflowRegistryOpDeps{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
+		}
+		mcmsContracts = loaded
+	}
+
+	chain, ok := e.BlockChains.EVMChains()[chainSelector]
+	if !ok {
+		return contracts.WorkflowRegistryOpDeps{}, fmt.Errorf("chain with selector %d not found", chainSelector)
+	}
+
+	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, chainSelector, qualifier)
+	if err != nil {
+		return contracts.WorkflowRegistryOpDeps{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+	}
+
+	strategy, err := strategies.CreateStrategy(chain, e, mcmsConfig, mcmsContracts, registry.Address(), description)
+	if err != nil {
+		return contracts.WorkflowRegistryOpDeps{}, fmt.Errorf("failed to create strategy: %w", err)
+	}
+
+	return contracts.WorkflowRegistryOpDeps{
+		Env:      &e,
+		Strategy: strategy,
+		Registry: registry,
+		Chain:    &chain,
+	}, nil
+}
+
+// finalizeWorkflowRegistryOutput wraps a completed operation report into a ChangesetOutput,
+// building an MCMS timelock proposal from mcmsOp when non-nil.
+func finalizeWorkflowRegistryOutput(
+	strategy strategies.TransactionStrategy,
+	mcmsOp *types.BatchOperation,
+	report operations.Report[any, any],
+) (cldf.ChangesetOutput, error) {
+	if mcmsOp == nil {
+		return cldf.ChangesetOutput{
+			Reports: []operations.Report[any, any]{report},
+		}, nil
+	}
+	proposal, err := strategy.BuildProposal([]types.BatchOperation{*mcmsOp})
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", err)
+	}
+	return cldf.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		Reports:               []operations.Report[any, any]{report},
+	}, nil
+}
+
 // SetConfigInput configures metadata validation settings for workflow registry v2
 type SetConfigInput struct {
 	ChainSelector             uint64                   `json:"chainSelector"`
@@ -406,45 +475,11 @@ func (l SetUserDONOverride) VerifyPreconditions(e cldf.Environment, config SetUs
 }
 
 func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideInput) (cldf.ChangesetOutput, error) {
-	// Get MCMS contracts if needed
-	var mcmsContracts *evmstate.MCMSWithTimelockState
-	if config.MCMSConfig != nil {
-		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
-		}
-	}
-
-	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
-	if !ok {
-		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
-	}
-
-	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	deps, err := prepareWorkflowRegistryDeps(e, config.ChainSelector, config.WorkflowRegistryQualifier, config.MCMSConfig, contracts.SetUserDONOverrideDescription)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
-	// Create the appropriate strategy
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		e,
-		config.MCMSConfig,
-		mcmsContracts,
-		registry.Address(),
-		contracts.SetUserDONOverrideDescription,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	// Execute operation
-	deps := contracts.WorkflowRegistryOpDeps{
-		Env:      &e,
-		Strategy: strategy,
-		Registry: registry,
-	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
 		contracts.SetUserDONOverrideOp, deps, contracts.SetUserDONOverrideOpInput{
@@ -461,21 +496,7 @@ func (l SetUserDONOverride) Apply(e cldf.Environment, config SetUserDONOverrideI
 		return cldf.ChangesetOutput{}, err
 	}
 
-	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
-		if mcmsErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{
-		Reports: []operations.Report[any, any]{report.ToGenericReport()},
-	}, nil
+	return finalizeWorkflowRegistryOutput(deps.Strategy, report.Output.MCMSOperation, report.ToGenericReport())
 }
 
 // BatchSetUserDONOverrideInput configures multiple user DON overrides in a single MCMS BatchOperation.
@@ -519,47 +540,14 @@ func (l BatchSetUserDONOverride) Apply(e cldf.Environment, config BatchSetUserDO
 		return cldf.ChangesetOutput{}, err
 	}
 
-	// Get MCMS contracts if needed
-	var mcmsContracts *evmstate.MCMSWithTimelockState
-	if config.MCMSConfig != nil {
-		var err error
-		mcmsContracts, err = strategies.GetMCMSContracts(e, config.ChainSelector, *config.MCMSConfig)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get MCMS contracts: %w", err)
-		}
-	}
-
-	chain, ok := e.BlockChains.EVMChains()[config.ChainSelector]
-	if !ok {
-		return cldf.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", config.ChainSelector)
-	}
-
-	registry, err := contracts.GetWorkflowRegistryV2FromDatastore(&e, config.ChainSelector, config.WorkflowRegistryQualifier)
+	// The strategy is only used at the BuildProposal step inside finalizeWorkflowRegistryOutput;
+	// BatchSetUserDONOverrideOp itself builds calldata directly via deps.Chain + deps.Registry so
+	// all overrides land in a single MCMS BatchOperation.
+	deps, err := prepareWorkflowRegistryDeps(e, config.ChainSelector, config.WorkflowRegistryQualifier, config.MCMSConfig, contracts.BatchSetUserDONOverrideDescription)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get workflow registry address from datastore: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
-	// The strategy is used only for BuildProposal (timelock/mcms/inspector wiring). The Op below
-	// builds calldata directly via deps.Chain + deps.Registry instead of calling strategy.Apply per
-	// entry so we can merge all transactions into a single BatchOperation.
-	strategy, err := strategies.CreateStrategy(
-		chain,
-		e,
-		config.MCMSConfig,
-		mcmsContracts,
-		registry.Address(),
-		contracts.BatchSetUserDONOverrideDescription,
-	)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create strategy: %w", err)
-	}
-
-	deps := contracts.WorkflowRegistryOpDeps{
-		Env:      &e,
-		Strategy: strategy,
-		Registry: registry,
-		Chain:    chain,
-	}
 	report, err := operations.ExecuteOperation(
 		e.OperationsBundle,
 		contracts.BatchSetUserDONOverrideOp, deps, contracts.BatchSetUserDONOverrideOpInput{
@@ -573,21 +561,7 @@ func (l BatchSetUserDONOverride) Apply(e cldf.Environment, config BatchSetUserDO
 		return cldf.ChangesetOutput{}, err
 	}
 
-	if report.Output.MCMSOperation != nil {
-		proposal, mcmsErr := strategy.BuildProposal([]types.BatchOperation{*report.Output.MCMSOperation})
-		if mcmsErr != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build MCMS proposal: %w", mcmsErr)
-		}
-
-		return cldf.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			Reports:               []operations.Report[any, any]{report.ToGenericReport()},
-		}, nil
-	}
-
-	return cldf.ChangesetOutput{
-		Reports: []operations.Report[any, any]{report.ToGenericReport()},
-	}, nil
+	return finalizeWorkflowRegistryOutput(deps.Strategy, report.Output.MCMSOperation, report.ToGenericReport())
 }
 
 // SetCapabilitiesRegistryInput configures the Capabilities registry address

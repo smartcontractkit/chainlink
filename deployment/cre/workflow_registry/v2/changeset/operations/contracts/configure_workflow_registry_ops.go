@@ -38,8 +38,8 @@ type WorkflowRegistryOpDeps struct {
 	Strategy strategies.TransactionStrategy
 	Registry *workflow_registry_v2.WorkflowRegistry
 	// Chain is required by operations that bypass the strategy abstraction to build calldata
-	// directly (e.g. BatchSetUserDONOverrideOp). Other operations may leave it as the zero value.
-	Chain cldf_evm.Chain
+	// directly (e.g. BatchSetUserDONOverrideOp). Other operations may leave it nil.
+	Chain *cldf_evm.Chain
 }
 
 // SetConfig Operation
@@ -319,6 +319,9 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 		if len(input.Overrides) == 0 {
 			return BatchSetUserDONOverrideOpOutput{}, errors.New("must provide at least one override")
 		}
+		if deps.Chain == nil {
+			return BatchSetUserDONOverrideOpOutput{}, errors.New("deps.Chain is required for BatchSetUserDONOverrideOp")
+		}
 
 		// MCMS path uses simulated tx opts to produce calldata without sending; non-MCMS uses the deployer key.
 		txOpts := deps.Chain.DeployerKey
@@ -349,7 +352,7 @@ var BatchSetUserDONOverrideOp = operations.NewOperation(
 		}
 
 		var mergedOp *mcmstypes.BatchOperation
-		if len(mcmsTxs) > 0 {
+		if input.MCMSConfig != nil {
 			mergedOp = &mcmstypes.BatchOperation{
 				ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
 				Transactions:  mcmsTxs,
