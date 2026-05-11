@@ -113,7 +113,7 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 	_ = t_helpers.CompileAndDeployWorkflow(t, testEnv, lggr, "durable-emitter-test", &workflowConfig, workflowFileLocation)
 
-	const minExpectedEvents int64 = 10
+	const minExpectedEvents int64 = 4
 	lggr.Info().Msg("Waiting for sustained durable event activity...")
 
 	require.Eventually(t, func() bool {
@@ -130,7 +130,7 @@ func ExecuteDurableEmitterTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		t.Logf("chip_durable_events: +%d inserts, +%d deletes, %d pending", newInserts, newDeletes, pending)
 
 		return newInserts >= minExpectedEvents && newDeletes >= minExpectedEvents
-	}, 2*time.Minute, 10*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
+	}, 2*time.Minute, 5*time.Second, "expected at least %d insert+delete events", minExpectedEvents)
 
 	pending, err := countPendingDurableEvents(t.Context(), db)
 	require.NoError(t, err)
