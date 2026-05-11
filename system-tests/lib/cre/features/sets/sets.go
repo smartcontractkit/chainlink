@@ -3,13 +3,13 @@ package sets
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
-	consensus_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus"
+	consensus_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
-	evm_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm"
+	evm_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
-	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana"
+	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 )
 

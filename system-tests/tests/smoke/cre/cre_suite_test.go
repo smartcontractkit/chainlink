@@ -30,15 +30,15 @@ To execute tests start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-beholder`
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
-func Test_CRE_Suite_Bucket_A(t *testing.T) {
+func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketA)
 }
 
-func Test_CRE_Suite_Bucket_B(t *testing.T) {
+func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketB)
 }
 
-func Test_CRE_Suite_Bucket_C(t *testing.T) {
+func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketC)
 }
 
@@ -168,7 +168,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 	}
 }
 
-func Test_CRE_EVM_Write_LogTrigger(t *testing.T) {
+func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	t.Run("EVM Write - "+topology, func(t *testing.T) {
 		if parallelEnabled {
 			t.Parallel()
@@ -187,15 +187,15 @@ func Test_CRE_EVM_Write_LogTrigger(t *testing.T) {
 	})
 }
 
-func Test_CRE_EVM_Read_HeavyCalls(t *testing.T) {
+func Test_CRE_V2_EVM_Read_HeavyCalls(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketHeavyCalls)
 }
 
-func Test_CRE_EVM_Read_StateQueries(t *testing.T) {
+func Test_CRE_V2_EVM_Read_StateQueries(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketStateQueries)
 }
 
-func Test_CRE_EVM_Read_TxArtifacts(t *testing.T) {
+func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketTxArtifacts)
 }
 
@@ -211,32 +211,32 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 	})
 }
 
-func Test_CRE_Solana_Suite(t *testing.T) {
+func Test_CRE_V2_Solana_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-don-solana.toml"))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
 }
 
-func Test_CRE_Aptos_Suite(t *testing.T) {
+func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
 	t.Run("Aptos", func(t *testing.T) {
 		ExecuteAptosTest(t, testEnv)
 	})
 }
-func Test_CRE_HTTP_Action_Regression_Suite(t *testing.T) {
+func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
-func Test_CRE_Beholder_Suite(t *testing.T) {
+func Test_CRE_V2_Beholder_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
-func Test_CRE_Sharding(t *testing.T) {
+func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
