@@ -1204,9 +1204,9 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 	// Set the signing mechanism for beholder auth headers
 	// if the TTL is 0, we will use the static headers, and this signer will never be called.
 	beholder.GetClient().SetSigner(&keystore.CSASigner{CSA: keyStore.CSA()})
-	// Emit node configuration through beholder
-	s.EmitNodeConfig(ctx)
-	// If log streaming is enabled swap core to add Otel
+	// If log streaming is enabled swap core to add Otel.
+	// This must happen before Start() so that ChipIngressLogger and any other
+	// services started by the beholder client already see the otel core.
 	if s.Config.Telemetry().LogStreamingEnabled() {
 		if s.SetOtelCore == nil {
 			return errors.New("Shell.SetOtelCore is nil")
@@ -1218,6 +1218,12 @@ func (s *Shell) beforeNode(c *cli.Context) error {
 		s.SetOtelCore(otelCore)
 		lggr.Info("Log streaming enabled")
 	}
+	// Start the beholder client (after log streaming so the logger is fully wired)
+	if err = beholder.GetClient().Start(ctx); err != nil {
+		return fmt.Errorf("failed to start beholder client: %w", err)
+	}
+	// Emit node configuration through beholder
+	s.EmitNodeConfig(ctx)
 
 	return nil
 }
@@ -1244,6 +1250,11 @@ func (s *Shell) afterNode(lggr logger.SugaredLogger) {
 		if s.CloseLogger != nil {
 			if err := s.CloseLogger(); err != nil {
 				log.Printf("Failed to close Logger: %v", err)
+			}
+		}
+		if beholder.GetClient() != nil {
+			if err := beholder.GetClient().Close(); err != nil {
+				log.Printf("Failed to close Beholder client: %v", err)
 			}
 		}
 	})
