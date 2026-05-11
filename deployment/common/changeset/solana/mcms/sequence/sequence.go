@@ -1,11 +1,14 @@
 package sequence
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 	"github.com/smartcontractkit/wsrpc/logger"
 
@@ -233,6 +236,9 @@ func deployTimelock(b operations.Bundle, deps operation.Deps) error {
 
 	if !programID.IsZero() {
 		log.Infow("using existing Timelock program", "programId", programID.String())
+		if err := waitForProgramExecutable(b.GetContext(), deps.Chain.Client, programID, 30*time.Second); err != nil {
+			return fmt.Errorf("timelock program not ready: %w", err)
+		}
 		return nil
 	}
 
@@ -283,6 +289,30 @@ func initTimelock(b operations.Bundle, deps operation.Deps, minDelay *big.Int) e
 	})
 
 	return err
+}
+
+// waitForProgramExecutable polls until the program account is executable (validator may still be loading BPF).
+func waitForProgramExecutable(ctx context.Context, client *rpc.Client, programID solana.PublicKey, maxWait time.Duration) error {
+	timeout := time.After(maxWait)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("timed out waiting for program %s to be deployed", programID.String())
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			resp, err := client.GetAccountInfo(ctx, programID)
+			if err != nil {
+				continue
+			}
+			if resp != nil && resp.Value != nil && resp.Value.Executable {
+				return nil
+			}
+		}
+	}
 }
 
 func setupRoles(b operations.Bundle, deps operation.Deps) error {
