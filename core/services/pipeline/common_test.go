@@ -154,7 +154,6 @@ func TestUnmarshalTaskFromMap(t *testing.T) {
 		{pipeline.TaskTypeJSONParse, &pipeline.JSONParseTask{}},
 		{pipeline.TaskTypeCBORParse, &pipeline.CBORParseTask{}},
 		{pipeline.TaskTypeAny, &pipeline.AnyTask{}},
-		{pipeline.TaskTypeVRF, &pipeline.VRFTask{}},
 		{pipeline.TaskTypeVRFV2, &pipeline.VRFTaskV2{}},
 		{pipeline.TaskTypeVRFV2Plus, &pipeline.VRFTaskV2Plus{}},
 		{pipeline.TaskTypeEstimateGasLimit, &pipeline.EstimateGasLimitTask{}},

@@ -378,54 +378,7 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	observationSource := fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrf
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomnessRequest(bytes proof)"
-              data="{\\"proof\\": $(vrf)}"]
-submit_tx  [type=ethtx to="%s"
-            data="$(encode_tx)"
-            minConfirmations="0"
-            from="$(jobSpec.from)"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
-            transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
-decode_log->vrf->encode_tx->submit_tx
-`, coordinatorAddress, coordinatorAddress)
-	if params.V2 {
-		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"
-]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"
-]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
-	}
+	var observationSource string
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
 decode_log              [type=ethabidecodelog
@@ -453,6 +406,32 @@ simulate_fulfillment    [type=ethcall
 						 block="latest"
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	} else {
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1.1"
+              data="$(vrf.output)"
+]
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)"
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"
+]
+decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
@@ -492,13 +471,15 @@ observationSource = """
 		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(),
 		pollPeriod.String(), observationSource)
-	if len(params.FromAddresses) != 0 {
-		var addresses []string
-		for _, address := range params.FromAddresses {
-			addresses = append(addresses, fmt.Sprintf("%q", address))
-		}
-		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
+	fromAddrs := params.FromAddresses
+	if len(fromAddrs) == 0 {
+		fromAddrs = []string{"0x1111111111111111111111111111111111111111"}
 	}
+	var addresses []string
+	for _, address := range fromAddrs {
+		addresses = append(addresses, fmt.Sprintf("%q", address))
+	}
+	toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	if vrfVersion == vrfcommon.V2 {
 		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
 	}

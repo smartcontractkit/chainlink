@@ -578,7 +578,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "vrf_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
 
-	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestTimeout: 1 * time.Hour}).Toml())
+	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestTimeout: 1 * time.Hour,
+		FromAddresses:  fromAddresses,
+	}).Toml())
 	require.NoError(t, err)
 	require.NoError(t, jobORM.CreateJob(ctx, &jb))
 	cltest.AssertCount(t, db, "vrf_specs", 1)

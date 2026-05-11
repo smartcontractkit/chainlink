@@ -340,7 +340,6 @@ const (
 	TaskTypeMultiply         TaskType = "multiply"
 	TaskTypeSum              TaskType = "sum"
 	TaskTypeUppercase        TaskType = "uppercase"
-	TaskTypeVRF              TaskType = "vrf"
 	TaskTypeVRFV2            TaskType = "vrfv2"
 	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
@@ -399,8 +398,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeDivide:
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2Plus:
