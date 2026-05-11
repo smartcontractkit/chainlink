@@ -348,8 +348,8 @@ func addBootstrapNodeConfig(
 
 		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
-		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(false) // TODO: Enable post release
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        ptr.Ptr("billing-platform-service:2223"),
@@ -437,8 +437,8 @@ func addWorkerNodeConfig(
 
 		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
-		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
+		existingConfig.Telemetry.DurableEmitterEnabled = ptr.Ptr(false)
 
 		existingConfig.Billing = coretoml.Billing{
 			URL:        ptr.Ptr("billing-platform-service:2223"),
