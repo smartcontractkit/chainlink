@@ -169,6 +169,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 					select {
 					case errorCh <- err:
 					case <-done:
+					case <-ctx.Done():
 					}
 					return
 				}
@@ -207,6 +208,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						select {
 						case errorCh <- err:
 						case <-done:
+						case <-ctx.Done():
 						}
 						return
 					}
@@ -219,6 +221,7 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						select {
 						case errorCh <- err:
 						case <-done:
+						case <-ctx.Done():
 						}
 						return
 					}
