@@ -591,6 +591,10 @@ func (g *generalConfig) BridgeStatusReporter() coreconfig.BridgeStatusReporter {
 	return &bridgeStatusReporterConfig{c: g.c.BridgeStatusReporter}
 }
 
+func (g *generalConfig) JobSpecReporter() coreconfig.JobSpecReporter {
+	return &jobSpecReporterConfig{c: g.c.JobSpecReporter}
+}
+
 func (g *generalConfig) Sharding() coreconfig.Sharding {
 	return &shardingConfig{s: g.c.Sharding}
 }

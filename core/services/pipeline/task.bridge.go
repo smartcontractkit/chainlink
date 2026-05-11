@@ -5,15 +5,22 @@ import (
 	"database/sql"
 	stderrors "errors"
 	"maps"
+	"math"
+	"math/big"
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/buger/jsonparser"
 	"github.com/goccy/go-json"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -73,12 +80,31 @@ type BridgeTask struct {
 	Async             string `json:"async"`
 	CacheTTL          string `json:"cacheTTL"`
 	Headers           string `json:"headers"`
+	// CheckRequired when "true" enables validation that the HTTP response JSON
+	// contains paths required by strict downstream jsonparse tasks (see
+	// requiredJSONPaths). When empty or "false", that check is skipped.
+	CheckRequired string `json:"checkRequired"`
 
 	specId       int32
 	orm          bridges.ORM
 	config       Config
 	bridgeConfig BridgeConfig
 	httpClient   *http.Client
+
+	// requiredJSONPaths is populated in runner.InitializePipeline from strict
+	// downstream jsonparse tasks. When CheckRequired is true and cacheTTL is set,
+	// validation uses these paths to fall back to cache when the live response
+	// omits required keys.
+	requiredJSONPaths [][]string
+}
+
+// bridgeHTTPOutcome holds response state after the HTTP round-trip through EA JSON status,
+// optional required-path validation, and optional cache fallback.
+type bridgeHTTPOutcome struct {
+	body           []byte
+	statusCode     int
+	err            error
+	cachedResponse bool
 }
 
 type BridgeTelemetry struct {
@@ -115,6 +141,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		includeInputAtKey StringParam
 		cacheTTL          Uint64Param
 		reqHeaders        StringSliceParam
+		checkRequired     BoolParam
 	)
 	err = stderrors.Join(
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
@@ -122,6 +149,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
 		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
 		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
+		errors.Wrap(ResolveParam(&checkRequired, From(NonemptyString(t.CheckRequired), false)), "checkRequired"),
 	)
 	if err != nil {
 		return Result{Error: err}, runInfo
@@ -139,40 +167,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: err}, runInfo
 	}
 
-	var metaMap MapParam
-
-	meta, _ := vars.Get("jobRun.meta")
-	switch v := meta.(type) {
-	case map[string]any:
-		metaMap = MapParam(v)
-	case nil:
-	default:
-		lggr.Warnw(`"meta" field on task run is malformed, discarding`,
-			"task", t.DotID(),
-			"meta", meta,
-		)
-	}
-
-	requestData = withRunInfo(requestData, metaMap)
-	if t.IncludeInputAtKey != "" {
-		if len(inputValues) > 0 {
-			requestData[string(includeInputAtKey)] = inputValues[0]
-		}
-	}
-
-	if t.Async == "true" {
-		responseURL := t.bridgeConfig.BridgeResponseURL()
-		if responseURL != nil && *responseURL != *zeroURL {
-			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
-		}
-		var s string
-		if responseURL != nil {
-			s = responseURL.String()
-		}
-		requestData["responseURL"] = s
-	}
-
-	requestDataJSON, err := json.Marshal(requestData)
+	requestDataJSON, err := t.finalizeAndMarshalBridgeRequestData(lggr, vars, inputValues, &requestData, includeInputAtKey)
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
@@ -190,7 +185,16 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
 	promBridgeLatencyHist.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Observe(float64(elapsed.Milliseconds()))
 
+	out := bridgeHTTPOutcome{
+		body:           responseBytes,
+		statusCode:     statusCode,
+		err:            err,
+		cachedResponse: false,
+	}
+
 	defer func() {
+		// Runs when Run returns; reads the final err, responseBytes, statusCode, and cachedResponse
+		// after EA JSON handling, required-path validation, and optional cache fallback.
 		telemetryCh := GetTelemetryCh(ctx)
 		if telemetryCh != nil {
 			bt := &BridgeTelemetry{
@@ -219,46 +223,19 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		}
 	}()
 
-	// check for external adapter response object status
-	if code, ok := eautils.BestEffortExtractEAStatus(responseBytes); ok {
-		statusCode = code
+	out.statusCode = eaJSONResponseStatus(out.body, out.statusCode)
+	liveOK := out.err == nil && out.statusCode == http.StatusOK
+	out.err = t.maybeValidateRequiredJSONPaths(out.err, liveOK, cacheTTL, checkRequired, out.body)
+
+	out, earlyResult, earlyRunInfo := t.resolveFailureOrCache(overtimeCtx, lggr, url, out, cacheTTL)
+	if earlyResult != nil {
+		return *earlyResult, *earlyRunInfo
 	}
 
-	if err != nil || statusCode != http.StatusOK {
-		if adapterErr := eautils.BestEffortExtractEAError(responseBytes); adapterErr != nil {
-			err = adapterErr
-		}
-
-		promBridgeErrors.WithLabelValues(t.Name).Inc()
-		if cacheTTL == 0 {
-			lggr.Debugw("Bridge task: request failed",
-				"response", string(responseBytes),
-				"url", url.String(),
-				"status_code", statusCode,
-				"error", err,
-			)
-			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
-		}
-
-		var cacheErr error
-		responseBytes, cacheErr = t.orm.GetCachedResponse(overtimeCtx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
-		if cacheErr != nil {
-			promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
-			if !errors.Is(cacheErr, sql.ErrNoRows) {
-				lggr.Warnw("Bridge task: cache fallback failed",
-					"err", cacheErr.Error(),
-					"url", url.String(),
-				)
-			}
-			return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
-		}
-		promBridgeCacheHits.WithLabelValues(t.Name).Inc()
-		lggr.Debugw("Bridge task: request failed, falling back to cache",
-			"response", string(responseBytes),
-			"url", url.String(),
-		)
-		cachedResponse = true
-	}
+	responseBytes = out.body
+	statusCode = out.statusCode
+	err = out.err
+	cachedResponse = out.cachedResponse
 
 	if t.Async == "true" {
 		// Look for a `pending` flag. This check is case-insensitive because http.Header normalizes header names
@@ -299,6 +276,122 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	return result, runInfo
 }
 
+// finalizeAndMarshalBridgeRequestData merges job meta, upstream inputs, and async resume URL into requestData,
+// writes the merged map back through requestData for use by makeHTTPRequest, and returns the JSON body for logging
+// and telemetry.
+func (t *BridgeTask) finalizeAndMarshalBridgeRequestData(lggr logger.Logger, vars Vars, inputValues []any, requestData *MapParam, includeInputAtKey StringParam) ([]byte, error) {
+	var metaMap MapParam
+
+	meta, _ := vars.Get("jobRun.meta")
+	switch v := meta.(type) {
+	case map[string]any:
+		metaMap = MapParam(v)
+	case nil:
+	default:
+		lggr.Warnw(`"meta" field on task run is malformed, discarding`,
+			"task", t.DotID(),
+			"meta", meta,
+		)
+	}
+
+	merged := withRunInfo(*requestData, metaMap)
+	if t.IncludeInputAtKey != "" {
+		if len(inputValues) > 0 {
+			merged[string(includeInputAtKey)] = inputValues[0]
+		}
+	}
+
+	if t.Async == "true" {
+		responseURL := t.bridgeConfig.BridgeResponseURL()
+		if responseURL != nil && *responseURL != *zeroURL {
+			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
+		}
+		var s string
+		if responseURL != nil {
+			s = responseURL.String()
+		}
+		merged["responseURL"] = s
+	}
+
+	*requestData = merged
+	return json.Marshal(merged)
+}
+
+// eaJSONResponseStatus returns the external-adapter status from the response body when present, otherwise the
+// HTTP status from the round-trip.
+func eaJSONResponseStatus(body []byte, httpStatus int) int {
+	if code, ok := eautils.BestEffortExtractEAStatus(body); ok {
+		return code
+	}
+	return httpStatus
+}
+
+// maybeValidateRequiredJSONPaths runs jsonDecodeValidateRequiredPaths when the live call succeeded (HTTP 200, no
+// transport error), checkRequired is enabled, cache is enabled, and the pipeline registered required paths. A
+// failed check sets err so the caller can fall back to the bridge cache when configured.
+func (t *BridgeTask) maybeValidateRequiredJSONPaths(err error, liveOK bool, cacheTTL Uint64Param, checkRequired BoolParam, responseBytes []byte) error {
+	if err != nil || !liveOK || cacheTTL == 0 || !bool(checkRequired) || len(t.requiredJSONPaths) == 0 {
+		return err
+	}
+	if verr := jsonDecodeValidateRequiredPaths(responseBytes, t.requiredJSONPaths); verr != nil {
+		return errors.Wrap(verr, "bridge response failed required JSON path check for downstream jsonparse")
+	}
+	return err
+}
+
+// resolveFailureOrCache handles a non-success HTTP outcome: it prefers the EA error from the body over the
+// transport error, increments error metrics, then either returns immediately (no cache TTL or cache miss) or
+// replaces the response body from the bridge cache. Non-nil early Result and RunInfo mean the caller must return
+// without continuing the success path.
+func (t *BridgeTask) resolveFailureOrCache(
+	ctx context.Context,
+	lggr logger.Logger,
+	url URLParam,
+	out bridgeHTTPOutcome,
+	cacheTTL Uint64Param,
+) (bridgeHTTPOutcome, *Result, *RunInfo) {
+	if out.err == nil && out.statusCode == http.StatusOK {
+		return out, nil, nil
+	}
+	if adapterErr := eautils.BestEffortExtractEAError(out.body); adapterErr != nil {
+		out.err = adapterErr
+	}
+
+	promBridgeErrors.WithLabelValues(t.Name).Inc()
+	if cacheTTL == 0 {
+		lggr.Debugw("Bridge task: request failed",
+			"response", string(out.body),
+			"url", url.String(),
+			"status_code", out.statusCode,
+			"error", out.err,
+		)
+		retry := RunInfo{IsRetryable: isRetryableHTTPError(out.statusCode, out.err)}
+		return out, &Result{Error: out.err}, &retry
+	}
+
+	//nolint:gosec // disable G115
+	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+	if cacheErr != nil {
+		promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
+		if !errors.Is(cacheErr, sql.ErrNoRows) {
+			lggr.Warnw("Bridge task: cache fallback failed",
+				"err", cacheErr.Error(),
+				"url", url.String(),
+			)
+		}
+		retry := RunInfo{IsRetryable: isRetryableHTTPError(out.statusCode, out.err)}
+		return out, &Result{Error: out.err}, &retry
+	}
+	promBridgeCacheHits.WithLabelValues(t.Name).Inc()
+	lggr.Debugw("Bridge task: request failed, falling back to cache",
+		"response", string(cachedBytes),
+		"url", url.String(),
+	)
+	out.body = cachedBytes
+	out.cachedResponse = true
+	return out, nil, nil
+}
+
 func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger.Logger) {
 	if t.StreamID.Valid {
 		bt.StreamID = &t.StreamID.Uint32
@@ -330,4 +423,159 @@ func withRunInfo(request MapParam, meta MapParam) MapParam {
 		output["meta"] = meta
 	}
 	return output
+}
+
+// getRequiredJSONPaths returns JSON path segments (split the same way as jsonparse) that strict
+// downstream jsonparse tasks require when they read this bridge task's string output directly.
+//
+// Limitations: does not follow merge/median/etc.; skips lax jsonparse, dynamic path/data
+// containing "$(", data="$(bridge.field)", or jsonparse whose data input is not this bridge
+// (by lowest output index or explicit $(bridgeID)).
+func (t *BridgeTask) getRequiredJSONPaths() [][]string {
+	if t == nil {
+		return nil
+	}
+	bridgeID := t.ID()
+	bridgeDot := t.DotID()
+
+	seen := make(map[string]struct{})
+	var out [][]string
+
+	for _, d := range t.GetDescendantTasks() {
+		jp, ok := d.(*JSONParseTask)
+		if !ok {
+			continue
+		}
+		if jsonParseLaxStatic(jp) {
+			continue
+		}
+		if strings.Contains(jp.Path, "$(") {
+			continue
+		}
+		dataTrim := strings.TrimSpace(jp.Data)
+		if strings.Contains(dataTrim, "$(") {
+			m := bridgeDataRootVarRegexp.FindStringSubmatch(dataTrim)
+			if len(m) != 2 || m[1] != bridgeDot {
+				continue
+			}
+		}
+		if !jsonParseDataReferencesBridge(jp, bridgeID, bridgeDot) {
+			continue
+		}
+		segs, ok := jsonParseStaticPathSegments(jp)
+		if !ok {
+			continue
+		}
+		key := strings.Join(segs, "\x00")
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, segs)
+	}
+	return out
+}
+
+// bridgeDataRootVarRegexp matches a data field that is only a single $(dotID)
+// reference with no nested keypath (dotID: [a-zA-Z0-9_]+).
+var bridgeDataRootVarRegexp = regexp.MustCompile(`^\$\(\s*([a-zA-Z0-9_]+)\s*\)$`)
+
+func jsonParseLaxStatic(j *JSONParseTask) bool {
+	trimmed := strings.TrimSpace(j.Lax)
+	if trimmed == "" {
+		return false
+	}
+	b, err := strconv.ParseBool(trimmed)
+	return err == nil && b
+}
+
+func jsonParseDataReferencesBridge(j *JSONParseTask, bridgeID int, bridgeDot string) bool {
+	dataTrim := strings.TrimSpace(j.Data)
+	if dataTrim == "" {
+		src, ok := jsonParseLowestIndexPropagatingInput(j)
+		return ok && src.ID() == bridgeID
+	}
+	m := bridgeDataRootVarRegexp.FindStringSubmatch(dataTrim)
+	return len(m) == 2 && m[1] == bridgeDot
+}
+
+func jsonParseLowestIndexPropagatingInput(j *JSONParseTask) (Task, bool) {
+	var (
+		found        bool
+		minOutputIdx int32 = math.MaxInt32
+		src          Task
+	)
+	for _, dep := range j.Inputs() {
+		if !dep.PropagateResult {
+			continue
+		}
+		idx := dep.InputTask.OutputIndex()
+		if !found || idx < minOutputIdx {
+			found = true
+			minOutputIdx = idx
+			src = dep.InputTask
+		}
+	}
+	return src, found
+}
+
+func jsonParseStaticPathSegments(j *JSONParseTask) ([]string, bool) {
+	if strings.TrimSpace(j.Path) == "" {
+		return nil, false
+	}
+	sep := strings.TrimSpace(j.Separator)
+	if sep == "" {
+		sep = ","
+	}
+	parts := strings.Split(j.Path, sep)
+	if len(parts) == 0 {
+		return nil, false
+	}
+	return parts, true
+}
+
+// jsonDecodeValidateRequiredPaths checks each path in the raw JSON body using
+// streaming lookup (no full value unmarshal). Missing keys, JSON null, JSON numbers
+// that are not valid for shopspring/decimal (including exponent/size limits), and the
+// string "NaN" are treated as failure so bridge cache fallback can apply.
+//
+// For each present value, parseRequiredValidValue must succeed: decimals and floats
+// via shopspring/decimal, integer literals (decimal or hex with optional sign) via
+// math/big so huge 0x… values validate and scientific notation is not mistaken for
+// hexadecimal.
+func jsonDecodeValidateRequiredPaths(body []byte, paths [][]string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	for _, path := range paths {
+		if len(path) == 0 {
+			continue
+		}
+
+		value, dataType, _, err := jsonparser.Get(body, path...)
+		if err != nil {
+			return errors.Wrapf(err, "required path %q", strings.Join(path, ","))
+		}
+
+		if dataType == jsonparser.Null {
+			return errors.Errorf("required path %q is null", strings.Join(path, ","))
+		}
+
+		if err := parseRequiredValidValue(value); err != nil {
+			return errors.Wrapf(err, "required path %q", strings.Join(path, ","))
+		}
+	}
+	return nil
+}
+
+// parseRequiredValidValue accepts values that can be parsed by shopspring/decimal or math/big.
+func parseRequiredValidValue(value []byte) error {
+	strValue := string(value)
+	if _, err := decimal.NewFromString(strValue); err == nil {
+		return nil
+	}
+	if _, ok := new(big.Int).SetString(strValue, 0); ok {
+		return nil
+	}
+	return errors.Errorf("invalid value: %s", string(value))
 }

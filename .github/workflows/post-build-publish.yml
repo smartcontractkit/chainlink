@@ -27,12 +27,17 @@ jobs:
                       echo "Chainlink Version is required, but 'client_payload.chainlink_version' is empty"
                       exit 1
                   fi
+                  if [[ "$CHAINLINK_VERSION" != v* ]]; then
+                      echo "This workflow can only be used with semver tags, 'chainlink_version' must begin with 'v', got: $CHAINLINK_VERSION"
+                      exit 1
+                  fi
                   echo "Trigger validated successfully"
     # Upgrade compatibility tests
     # Include rc and beta releases, since we will be upgrading from them on canary servers
     df1-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: Data Feeds v1 Upgrade Test
+        needs: validate-trigger
         permissions:
             id-token: write
             contents: read
@@ -48,11 +53,13 @@ jobs:
             logs-directory: "./devenv/tests/ocr2/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
         secrets: inherit
 
     cre-compat:
         uses: ./.github/workflows/devenv-compat.yml
         name: CRE Upgrade Test
+        needs: validate-trigger
         permissions:
             id-token: write
             contents: read
@@ -68,6 +75,7 @@ jobs:
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ github.event.client_payload.chainlink_version }}
         secrets: inherit
 
     legacy-system-tests:
@@ -120,7 +128,16 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ df1-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
+
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -136,7 +153,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-compat ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -152,7 +177,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ legacy-system-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -168,7 +201,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-smoke-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:
@@ -184,7 +225,15 @@ jobs:
         runs-on: ubuntu-latest
         needs: [ cre-regression-tests ]
         if: always() && github.event.client_payload.slack_thread_ts
+        permissions:
+            contents: read
         steps:
+            - name: Checkout code
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+              with:
+                  # use default branch to avoid running action from unmerged PRs and exposing secrets it uses
+                  ref: ${{ github.event.repository.default_branch }}
+                  persist-credentials: false
             - name: Notify Slack Jobs Result
               uses: ./.github/actions/notify-slack-jobs-result
               with:

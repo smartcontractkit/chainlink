@@ -7,9 +7,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
-	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
+	cldchangesetssolana "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
