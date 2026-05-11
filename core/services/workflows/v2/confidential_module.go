@@ -62,11 +62,13 @@ type ConfidentialModule struct {
 	workflowTag   string
 	lggr          logger.Logger
 	requirements  sync.Map
+	restritions   sync.Map
 	infoOnce      sync.Once
 	provider      func(tee *sdkpb.Tee) bool
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
+var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
 func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
 	return &ConfidentialModule{
@@ -90,11 +92,10 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
-	var requirements *sdkpb.Requirements
-	rawRequirements, loaded := m.requirements.LoadAndDelete(helper.GetWorkflowExecutionID())
-	if loaded {
-		requirements = rawRequirements.(*sdkpb.Requirements)
-	}
+	workflowExecutionID := helper.GetWorkflowExecutionID()
+
+	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
+	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
@@ -103,9 +104,10 @@ func (m *ConfidentialModule) Execute(
 			BinaryHash:     m.binaryHash,
 			ExecuteRequest: request,
 			Owner:          m.workflowOwner,
-			ExecutionId:    helper.GetWorkflowExecutionID(),
+			ExecutionId:    workflowExecutionID,
 			OrgId:          contexts.CREValue(ctx).Org,
 			Requirements:   requirements,
+			Restrictions:   restrictions,
 		},
 	}
 
@@ -119,6 +121,10 @@ func (m *ConfidentialModule) Execute(
 
 func (m *ConfidentialModule) SetRequirements(executionId string, requirements *sdkpb.Requirements) {
 	m.requirements.Store(executionId, requirements)
+}
+
+func (m *ConfidentialModule) SetRestrictions(executionId string, restrictions *sdkpb.Restrictions) {
+	m.restritions.Store(executionId, restrictions)
 }
 
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
@@ -138,6 +144,15 @@ func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
 	})
 
 	return m.provider(tee)
+}
+
+func loadAndDelete[T any](m *sync.Map, key string) T {
+	var t T
+	raw, loaded := m.LoadAndDelete(key)
+	if loaded {
+		t = raw.(T)
+	}
+	return t
 }
 
 func doRequest[I, O proto.Message](

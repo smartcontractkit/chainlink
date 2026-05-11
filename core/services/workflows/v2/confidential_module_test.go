@@ -261,7 +261,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(execCap, nil).Once()
 		execCap.EXPECT().Execute(matches.AnyContext, mock.MatchedBy(func(req capabilities.CapabilityRequest) bool {
-			return req.Method == "GetRegions" &&
+			return req.Method == "ProvidedTees" &&
 				req.CapabilityId == confidentialWorkflowsCapabilityID &&
 				req.Metadata.WorkflowExecutionID == ""
 		})).Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
@@ -353,7 +353,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		mod := NewConfidentialModule(capReg, "https://example.com/wasm", []byte("hash"), "wf-xyz", "0xowner", "my-workflow", "v3", lggr)
 		_ = mod.Tee(ctx, anyRegionsTee("us-east-1"))
 
-		assert.Equal(t, "GetRegions", capturedReq.Method)
+		assert.Equal(t, "ProvidedTees", capturedReq.Method)
 		assert.Equal(t, confidentialWorkflowsCapabilityID, capturedReq.CapabilityId)
 		assert.Equal(t, "wf-xyz", capturedReq.Metadata.WorkflowID)
 		assert.Equal(t, "0xowner", capturedReq.Metadata.WorkflowOwner)
@@ -465,6 +465,154 @@ func TestConfidentialModule_SetRequirements(t *testing.T) {
 		var confReq confworkflowtypes.ConfidentialWorkflowRequest
 		require.NoError(t, secondReq.Payload.UnmarshalTo(&confReq))
 		assert.Nil(t, confReq.Execution.Requirements)
+	})
+}
+
+func TestConfidentialModule_SetRestrictions(t *testing.T) {
+	ctx := context.Background()
+	lggr := logger.Nop()
+
+	execReq := &sdkpb.ExecuteRequest{
+		Config: []byte("test-config"),
+	}
+
+	expectedResult := &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_Value{
+			Value: valuespb.NewStringValue("enclave-output"),
+		},
+	}
+
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{ExecutionResult: expectedResult}
+	respPayload, err := anypb.New(confResp)
+	require.NoError(t, err)
+
+	t.Run("restrictions forwarded in execute", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+
+		restrictions := &sdkpb.Restrictions{
+			Capabilities: &sdkpb.CapabilityRestrictions{
+				MaxTotalCalls: 7,
+			},
+		}
+		mod.SetRestrictions("exec-789", restrictions)
+
+		result, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
+		require.NotNil(t, confReq.Execution.Restrictions)
+		require.NotNil(t, confReq.Execution.Restrictions.Capabilities)
+		assert.Equal(t, int32(7), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
+	})
+
+	t.Run("restrictions consumed after execute", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Times(2)
+
+		var secondReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				secondReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod.SetRestrictions("exec-789", &sdkpb.Restrictions{})
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		_, err = mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, secondReq.Payload.UnmarshalTo(&confReq))
+		assert.Nil(t, confReq.Execution.Restrictions)
+	})
+
+	t.Run("restrictions isolated per execution id", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod.SetRestrictions("other-exec", &sdkpb.Restrictions{
+			Capabilities: &sdkpb.CapabilityRestrictions{MaxTotalCalls: 99},
+		})
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
+		assert.Nil(t, confReq.Execution.Restrictions)
+	})
+
+	t.Run("requirements and restrictions forwarded together", func(t *testing.T) {
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod := NewConfidentialModule(capReg, "", nil, "wf", "owner", "name", "tag", lggr)
+		mod.SetRequirements("exec-789", &sdkpb.Requirements{
+			Tee: &sdkpb.Tee{
+				Item: &sdkpb.Tee_AnyRegions{
+					AnyRegions: &sdkpb.Regions{Regions: []string{"us-east-1"}},
+				},
+			},
+		})
+		mod.SetRestrictions("exec-789", &sdkpb.Restrictions{
+			Capabilities: &sdkpb.CapabilityRestrictions{MaxTotalCalls: 3},
+		})
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-789"})
+		require.NoError(t, err)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
+		require.NotNil(t, confReq.Execution.Requirements)
+		require.NotNil(t, confReq.Execution.Requirements.Tee)
+		require.NotNil(t, confReq.Execution.Restrictions)
+		require.NotNil(t, confReq.Execution.Restrictions.Capabilities)
+		assert.Equal(t, int32(3), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
 	})
 }
 
