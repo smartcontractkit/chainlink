@@ -4,7 +4,4 @@
   # compose_file='https://raw.githubusercontent.com/smartcontractkit/chainlink-testing-framework/refs/tags/framework/components/dockercompose/v0.1.19/framework/components/dockercompose/chip_ingress_set/docker-compose.yml'
 
 [kafka]
-  # `cre` — workflow telemetry (source platform→cre shim). `chip-demo` — Atlas demo / DurableEmitter load tests
-  # (CHIP_INGRESS_TEST_ADDR; see core/services/beholder/durable_emitter_load_test.go).
-  # `node-platform` — PluginRelayerConfigEmitter / common.v1.ChainPluginConfig (chainlink-protos node-platform/chip-schemas.json).
   topics=['cre', 'chip-demo', 'node-platform']
