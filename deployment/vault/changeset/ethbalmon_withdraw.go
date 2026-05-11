@@ -74,7 +74,7 @@ var EthBalMonWithdrawSequence = operations.NewSequence(
 	"Sequence to create operation for EthBalMon withdraw",
 	func(b operations.Bundle, deps VaultDeps, input EthBalMonWithdrawSeqInput) (EthBalMonWithdrawSeqOutput, error) {
 		b.Logger.Infow("Starting EthBalMon withdraw sequence",
-			"chains", len(input.Chains),
+			"numChains", len(input.Chains),
 		)
 		var batches []mcmstypes.BatchOperation
 		timelockAddresses := make(map[uint64]string)
