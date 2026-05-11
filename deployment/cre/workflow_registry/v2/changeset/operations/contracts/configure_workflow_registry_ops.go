@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -10,8 +11,10 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	workflow_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
@@ -25,6 +28,7 @@ const (
 	SetWorkflowOwnerConfigDescription  = "setWorkflowOwner config on workflow registry v2"
 	SetDONLimitDescription             = "setDonLimit on workflow registry v2"
 	SetUserDONOverrideDescription      = "setUserDonOverride on workflow registry v2"
+	BatchSetUserDONOverrideDescription = "batchSetUserDonOverride on workflow registry v2"
 	SetCapabilitiesRegistryDescription = "setCapabilitiesRegistry on workflow registry v2"
 )
 
@@ -33,6 +37,9 @@ type WorkflowRegistryOpDeps struct {
 	Env      *cldf.Environment
 	Strategy strategies.TransactionStrategy
 	Registry *workflow_registry_v2.WorkflowRegistry
+	// Chain is required by operations that bypass the strategy abstraction to build calldata
+	// directly (e.g. BatchSetUserDONOverrideOp). Other operations may leave it as the zero value.
+	Chain cldf_evm.Chain
 }
 
 // SetConfig Operation
@@ -270,6 +277,91 @@ var SetUserDONOverrideOp = operations.NewOperation(
 		return SetUserDONOverrideOpOutput{
 			Success:         true,
 			MCMSOperation:   operation,
+			RegistryAddress: deps.Registry.Address(),
+		}, nil
+	},
+)
+
+// BatchSetUserDONOverride Operation
+//
+// Iterates over Overrides and either confirms each setUserDONOverride transaction directly (no MCMS)
+// or assembles a single MCMS BatchOperation containing one transaction per override. Using a single
+// BatchOperation keeps the resulting proposal compact (1 batch, N transactions) instead of producing
+// N separate batch operations as repeated SetUserDONOverride calls would.
+type SetUserDONOverrideEntry struct {
+	User      common.Address `json:"user"`
+	DONFamily string         `json:"donFamily"`
+	Limit     uint32         `json:"limit"`
+	Enabled   bool           `json:"enabled"`
+}
+
+type BatchSetUserDONOverrideOpInput struct {
+	// ChainSelector and Qualifier are kept on the input to make the operation invocation uniquely
+	// identifiable (the registry itself is passed via deps).
+	ChainSelector uint64 `json:"chainSelector"`
+	Qualifier     string `json:"qualifier"`
+
+	Overrides  []SetUserDONOverrideEntry `json:"overrides"`
+	MCMSConfig *contracts.MCMSConfig     `json:"mcmsConfig,omitempty"`
+}
+
+type BatchSetUserDONOverrideOpOutput struct {
+	Success         bool                      `json:"success"`
+	RegistryAddress common.Address            `json:"registryAddress"`
+	MCMSOperation   *mcmstypes.BatchOperation `json:"mcmsOperation"`
+}
+
+var BatchSetUserDONOverrideOp = operations.NewOperation(
+	"batch-set-user-don-override-op",
+	semver.MustParse("1.0.0"),
+	"Batch Set User DON Override in WorkflowRegistry V2",
+	func(b operations.Bundle, deps WorkflowRegistryOpDeps, input BatchSetUserDONOverrideOpInput) (BatchSetUserDONOverrideOpOutput, error) {
+		if len(input.Overrides) == 0 {
+			return BatchSetUserDONOverrideOpOutput{}, errors.New("must provide at least one override")
+		}
+
+		// MCMS path uses simulated tx opts to produce calldata without sending; non-MCMS uses the deployer key.
+		txOpts := deps.Chain.DeployerKey
+		if input.MCMSConfig != nil {
+			txOpts = cldf.SimTransactOpts()
+		}
+
+		var mcmsTxs []mcmstypes.Transaction
+		for _, entry := range input.Overrides {
+			tx, err := deps.Registry.SetUserDONOverride(txOpts, entry.User, entry.DONFamily, entry.Limit, entry.Enabled)
+			if err != nil {
+				err = cldf.DecodeErr(workflow_registry_v2.WorkflowRegistryABI, err)
+				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("failed to build SetUserDONOverride for %s: %w", entry.User.Hex(), err)
+			}
+
+			if input.MCMSConfig == nil {
+				if _, cErr := deps.Chain.Confirm(tx); cErr != nil {
+					return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("failed to confirm SetUserDONOverride for %s (tx %s): %w", entry.User.Hex(), tx.Hash().String(), cErr)
+				}
+				continue
+			}
+
+			mtx, err := cldfproposalutils.TransactionForChain(input.ChainSelector, deps.Registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+			if err != nil {
+				return BatchSetUserDONOverrideOpOutput{}, fmt.Errorf("failed to build MCMS transaction for %s: %w", entry.User.Hex(), err)
+			}
+			mcmsTxs = append(mcmsTxs, mtx)
+		}
+
+		var mergedOp *mcmstypes.BatchOperation
+		if len(mcmsTxs) > 0 {
+			mergedOp = &mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(input.ChainSelector),
+				Transactions:  mcmsTxs,
+			}
+			deps.Env.Logger.Infof("Created MCMS batch with %d SetUserDONOverride transactions on chain %d", len(mcmsTxs), input.ChainSelector)
+		} else {
+			deps.Env.Logger.Infof("Successfully applied %d SetUserDONOverride transactions on chain %d", len(input.Overrides), input.ChainSelector)
+		}
+
+		return BatchSetUserDONOverrideOpOutput{
+			Success:         true,
+			MCMSOperation:   mergedOp,
 			RegistryAddress: deps.Registry.Address(),
 		}, nil
 	},

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	crecontracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
+	"github.com/smartcontractkit/chainlink/deployment/cre/workflow_registry/v2/changeset/operations/contracts"
 )
 
 func TestSetConfig(t *testing.T) {
@@ -265,6 +266,135 @@ func TestSetUserDONOverride(t *testing.T) {
 		require.NotNil(t, output, "output should not be nil")
 		require.NotNil(t, output.MCMSTimelockProposals, "MCMS proposals should be created")
 		t.Log("MCMS set user DON override completed successfully")
+	})
+}
+
+func TestBatchSetUserDONOverride(t *testing.T) {
+	t.Parallel()
+
+	// A small but non-trivial set of overrides reused across subtests.
+	makeOverrides := func() []contracts.SetUserDONOverrideEntry {
+		return []contracts.SetUserDONOverrideEntry{
+			{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "test-don-family", Limit: 5, Enabled: true},
+			{User: common.HexToAddress("0x2222222222222222222222222222222222222222"), DONFamily: "test-don-family", Limit: 7, Enabled: true},
+			{User: common.HexToAddress("0x3333333333333333333333333333333333333333"), DONFamily: "test-don-family", Limit: 9, Enabled: false},
+		}
+	}
+
+	t.Run("verify preconditions: empty overrides rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 nil,
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: zero user address rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: common.Address{}, DONFamily: "test-don-family", Limit: 1, Enabled: true},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: empty donFamily rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: common.HexToAddress("0x1111111111111111111111111111111111111111"), DONFamily: "", Limit: 1, Enabled: true},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("verify preconditions: duplicate (user, donFamily) rejected", func(t *testing.T) {
+		fixture := setupTest(t)
+		dup := common.HexToAddress("0x1111111111111111111111111111111111111111")
+		err := BatchSetUserDONOverride{}.VerifyPreconditions(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides: []contracts.SetUserDONOverrideEntry{
+				{User: dup, DONFamily: "test-don-family", Limit: 1, Enabled: true},
+				{User: dup, DONFamily: "test-don-family", Limit: 2, Enabled: false},
+			},
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("batch set user DON override (no MCMS)", func(t *testing.T) {
+		fixture := setupTest(t)
+
+		// set DON limit first
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			DONFamily:                 "test-don-family",
+			DONLimit:                  100,
+			UserDefaultLimit:          5,
+			MCMSConfig:                nil,
+		})
+		require.NoError(t, err, "set DON limit should succeed")
+
+		overrides := makeOverrides()
+		t.Log("Starting batch set user DON override...")
+		output, err := BatchSetUserDONOverride{}.Apply(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 overrides,
+			MCMSConfig:                nil,
+		})
+		t.Logf("Batch set user DON override result: err=%v, output=%v", err, output)
+		require.NoError(t, err, "batch set user DON override should succeed")
+		require.NotNil(t, output, "output should not be nil")
+		// Non-MCMS path: each override was confirmed on-chain individually; no proposals expected.
+		require.Empty(t, output.MCMSTimelockProposals, "no MCMS proposals expected without MCMSConfig")
+		t.Log("Batch set user DON override completed successfully")
+	})
+
+	t.Run("batch set user DON override with MCMS produces single BatchOperation", func(t *testing.T) {
+		fixture := setupTestWithMCMS(t)
+
+		// set DON limit first
+		_, err := SetDONLimit{}.Apply(fixture.rt.Environment(), SetDONLimitInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			DONFamily:                 "test-don-family",
+			DONLimit:                  100,
+			UserDefaultLimit:          5,
+			MCMSConfig:                nil,
+		})
+		require.NoError(t, err, "set DON limit should succeed")
+
+		overrides := makeOverrides()
+		t.Log("Starting batch set user DON override with MCMS...")
+		output, err := BatchSetUserDONOverride{}.Apply(fixture.rt.Environment(), BatchSetUserDONOverrideInput{
+			ChainSelector:             fixture.selector,
+			WorkflowRegistryQualifier: fixture.workflowRegistryQualifier,
+			Overrides:                 overrides,
+			MCMSConfig: &crecontracts.MCMSConfig{
+				MinDelay: 30 * time.Second,
+				TimelockQualifierPerChain: map[uint64]string{
+					fixture.selector: "",
+				},
+			},
+		})
+		t.Logf("MCMS batch set user DON override result: err=%v, output=%v", err, output)
+		require.NoError(t, err, "MCMS batch set user DON override should succeed")
+		require.NotNil(t, output, "output should not be nil")
+
+		// Core invariant: 1 proposal, 1 batch operation, N transactions inside.
+		require.Len(t, output.MCMSTimelockProposals, 1, "expected exactly one MCMS proposal")
+		require.Len(t, output.MCMSTimelockProposals[0].Operations, 1, "expected exactly one BatchOperation")
+		require.Len(t, output.MCMSTimelockProposals[0].Operations[0].Transactions, len(overrides), "BatchOperation should contain one Transaction per override")
+		t.Log("MCMS batch set user DON override completed successfully")
 	})
 }
 
