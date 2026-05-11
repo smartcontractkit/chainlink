@@ -401,7 +401,7 @@ var TransferOwnershipOperation = operations.NewOperation(
 
 // ======================================================
 // ======================================================
-// Operation 3: Build accept ownership batch OPERATION
+// Operation 3: Build accept ownership batch
 // ======================================================
 // ======================================================
 
