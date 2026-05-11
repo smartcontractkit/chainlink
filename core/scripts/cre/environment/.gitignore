@@ -1,4 +1,4 @@
-# ctf binary artifacts — fully managed by the ctf binary, do not hand-edit
+# ctf binary artifacts
 compose/
 blockscout/
 binaries/

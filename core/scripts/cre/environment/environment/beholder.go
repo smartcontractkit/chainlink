@@ -59,6 +59,12 @@ func schemaCommitRefFromGoMod(ctx context.Context, repoRoot, targetModule string
 		return "", "", errors.Errorf("no version found for module %s", targetModule)
 	}
 
+	// Extract commit ref from version string
+	// Support various formats:
+	// 1. v1.2.1 -> use as-is
+	// 2. v0.0.0-20211026045750-20ab5afb07e3 -> extract short hash (20ab5afb07e3)
+	// 3. 2a35b54f48ae06be4cc81c768dc9cc9e92249571 -> full commit hash, use as-is
+	// 4. v0.0.0-YYYYMMDDHHMMSS-SHORTHASH -> extract short hash
 	commitRef := extractCommitRef(modInfo.Version)
 	return commitRef, modInfo.Version, nil
 }

@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
-# obs-up.sh — wrapper around `./bin/ctf obs up` that applies local overrides.
-#
-# CTF regenerates the compose/ directory on every `obs up`, overwriting any
-# manual edits.  This script re-applies our customisations afterwards and
-# restarts only the affected containers so Grafana and the OTel collector pick
-# them up without a full stack restart.
-#
+# obs-up.sh — wrapper around `./bin/ctf obs up` that applies local overrides for durable-emitter load tests.
 # Usage:
 #   ./obs-up.sh             # bring the stack up (or recreate it) with patches
 #   ./obs-up.sh --down      # tear down first, then bring up with patches
-#
 # Tracked overrides live in observability-overrides/ and are applied here.
 
 set -euo pipefail
