@@ -12,10 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	v2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2"
 	reportcodecv2 "github.com/smartcontractkit/chainlink-data-streams/mercury/v2/reportcodec"
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -33,16 +31,16 @@ type mockFetcher struct {
 	nativePriceErr error
 }
 
-var feedId utils.FeedID = [32]byte{1}
-var linkFeedId utils.FeedID = [32]byte{2}
-var nativeFeedId utils.FeedID = [32]byte{3}
+var feedId mercury.FeedID = [32]byte{1}
+var linkFeedId mercury.FeedID = [32]byte{2}
+var nativeFeedId mercury.FeedID = [32]byte{3}
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return nil, nil
 }
 
 func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, error) {
-	switch utils.FeedID(fId) {
+	switch mercury.FeedID(fId) {
 	case linkFeedId:
 		return m.linkPrice, m.linkPriceErr
 	case nativeFeedId:
@@ -84,7 +82,7 @@ func Test_Datasource(t *testing.T) {
 		},
 	}
 	ds := &datasource{orm: orm, lggr: logger.Test(t), jb: jb}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	repts := ocrtypes.ReportTimestamp{}
 
 	fetcher := &mockFetcher{}
@@ -251,7 +249,7 @@ func Test_Datasource(t *testing.T) {
 					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
 				})
 
-				var feedId utils.FeedID = [32]byte{1}
+				var feedId mercury.FeedID = [32]byte{1}
 				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
 
 				obs, err := ds.Observe(ctx, repts, false)

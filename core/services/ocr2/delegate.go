@@ -33,8 +33,8 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	mercurytypes "github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	evmmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 
@@ -1516,7 +1516,7 @@ func (d *Delegate) newServicesMercury(
 
 	mCfg := mercury.NewMercuryConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg.JobPipeline().ResultWriteQueueDepth(), d.cfg)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID), relayConfig.EnableTriggerCapability)
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, lggr, oracleArgsNoPlugin, mCfg, chEnhancedTelem, d.mercuryORM, (mercurytypes.FeedID)(*spec.FeedID), relayConfig.EnableTriggerCapability)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
