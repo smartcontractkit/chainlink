@@ -340,7 +340,7 @@ func TestLoad(t *testing.T) {
 			l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
 			// Poll until all upkeeps have been performed by checking that each
 			// consumer counter has increased past the pre-load baseline.
-			gomega.NewWithT(t).Eventually(func() bool {
+			require.Eventually(t, func() bool {
 				for i := range consumerContracts {
 					counter, err := consumerContracts[i].Counter(t.Context())
 					if err != nil {
