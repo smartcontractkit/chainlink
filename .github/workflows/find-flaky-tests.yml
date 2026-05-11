@@ -1,0 +1,43 @@
+name: Find Flaky Tests
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      dir:
+        description: The directory to find flaky tests in (core/services/...)
+        required: true
+        type: string
+        default: "core/..."
+      iterations:
+        description: The number of iterations to run the tests for
+        required: true
+        type: number
+        default: 10
+      parallel_iterations:
+        description: The number of iterations to run in parallel
+        required: false
+        type: number
+        default: 1
+
+jobs:
+  find-flaky-tests:
+    name: Find Flaky Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ github.sha }}
+      - name: Run `diagnose`
+        run: |
+          go -C tools/test run . diagnose --iterations ${{ inputs.iterations }} --parallel-iterations ${{ inputs.parallel_iterations }} -- ${{ inputs.dir }}
+      - name: Upload Results
+        uses: actions/upload-artifact@v7
+        with:
+          name: flaky-tests-results
+          path: ./diagnose-*
+          if-no-files-found: error
