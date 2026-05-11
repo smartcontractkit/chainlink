@@ -1140,9 +1140,10 @@ func TestAnalyzeSlowTestsNoDuplication(t *testing.T) {
 	testSlowCount := 0
 	for _, s := range rep.Slow {
 		if s.Package == "pkg/slow" {
-			if s.Test == "" {
+			switch s.Test {
+			case "":
 				pkgSlowCount++
-			} else if s.Test == "TestSlow" {
+			case "TestSlow":
 				testSlowCount++
 			}
 		}

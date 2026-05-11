@@ -698,10 +698,7 @@ func printDiagnoseRunTimeEstimate(out *output.Printer, conf *config.App, goTestA
 			out.Stderrf("lpr_s:inf\n")
 			return nil
 		}
-		sec := diag.Bound.Round(time.Second) / time.Second
-		if sec < 0 {
-			sec = 0
-		}
+		sec := max(diag.Bound.Round(time.Second)/time.Second, 0)
 		out.Stderrf("lpr_s:%d\n", sec)
 		return nil
 	}
@@ -806,10 +803,7 @@ func formatDiagnoseWallClock(d time.Duration) string {
 }
 
 func formatDiagnoseSecondsFragment(s float64) string {
-	cs := int(math.Round(s * 100))
-	if cs < 0 {
-		cs = 0
-	}
+	cs := max(int(math.Round(s*100)), 0)
 	w := cs / 100
 	f := cs % 100
 	if f == 0 {
