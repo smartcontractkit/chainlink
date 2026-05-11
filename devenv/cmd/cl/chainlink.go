@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/docker/docker/client"
+	mobyclient "github.com/moby/moby/client"
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -257,12 +257,12 @@ func init() {
 }
 
 func checkDockerIsRunning() {
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := mobyclient.New(mobyclient.FromEnv)
 	if err != nil {
 		fmt.Println("Can't create Docker client, please check if Docker daemon is running!")
 		os.Exit(1)
 	}
-	_, err = cli.Ping(context.Background())
+	_, err = cli.Ping(context.Background(), mobyclient.PingOptions{})
 	if err != nil {
 		fmt.Println("Docker is not running, please start Docker daemon first!")
 		os.Exit(1)
