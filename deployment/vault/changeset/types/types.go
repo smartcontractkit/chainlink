@@ -74,60 +74,74 @@ type BatchNativeTransferState struct {
 	ValidationErrors []TransferValidationError `json:"validation_errors"`
 }
 
-// DeployEthBalMonChainConfig is the EthBalMon configuration for a single chain.
-//
-// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder address (from the
-// upkeep "forwarder address" on chains with Chainlink automation) or the
-// KMS executor address on chains that use the Plaid/KMS automation path instead.
-//
-// SetMinWaitPeriodSeconds is optional; when omitted or non-positive it defaults to 60.
+// DeployEthBalMonChainConfig is deployment-time configuration for EthBalMon on one chain.
 type DeployEthBalMonChainConfig struct {
-	SetKeeperRegistryAddress string  `json:"setKeeperRegistryAddress"`
-	SetMinWaitPeriodSeconds  *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
+	// SetKeeperRegistryAddress is the Chainlink Automation registry forwarder (the upkeep
+	// "forwarder address") on standard automation chains, or the KMS executor address when
+	// using the Plaid/KMS automation path.
+	SetKeeperRegistryAddress string `json:"setKeeperRegistryAddress"`
+	// SetMinWaitPeriodSeconds is the minimum seconds between balance checks for this deployment.
+	// Optional: nil or 0 means the deploy changeset uses a default (currently 60 seconds).
+	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
 }
 
-// DeployEthBalMonInput configures EthBalMon deployment across chains.
-// Map keys are chain selectors; each entry is one chain’s keeper/KMS and watch list.
+// DeployEthBalMonInput is the input to the EthBalMon deploy changeset.
+// Keys are chain selectors; each value configures keeper/registry wiring and min wait for that chain.
 type DeployEthBalMonInput struct {
 	Chains map[uint64]DeployEthBalMonChainConfig `json:"chains"`
 }
 
+// EthBalMonContractType is the datastore / MCMS contract type label for EthBalMon deployments.
 const EthBalMonContractType = "EthBalMon"
 
-// setKeeperRegistryAddress config
+// SetKeeperRegistryChainConfig updates the automation executor/registry EthBalMon forwards work to.
 type SetKeeperRegistryChainConfig struct {
+	// NewKeeperRegistryAddress is the new Chainlink Automation forwarder or KMS executor address (hex).
 	NewKeeperRegistryAddress string `json:"new_keeper_registry_address"`
 }
 
+// EthBalMonSetKeeperRegistryAddressInput is the input to the setKeeperRegistryAddress changeset.
+// Keys are chain selectors with the registry address to set on each chain's EthBalMon.
 type EthBalMonSetKeeperRegistryAddressInput struct {
 	Chains map[uint64]SetKeeperRegistryChainConfig `json:"chains"`
 }
 
-// setWatchList config
+// EthBalMonSetWatchListChainConfig replaces the monitored addresses and thresholds on one chain.
+// Addresses, MinBalancesWei, and TopUpAmountsWei are parallel slices: index i applies to Addresses[i].
 type EthBalMonSetWatchListChainConfig struct {
 	Addresses       []common.Address `json:"addresses"`
 	MinBalancesWei  []big.Int        `json:"min_balance_wei"`
 	TopUpAmountsWei []big.Int        `json:"topup_amounts_wei"`
 }
+
+// EthBalMonSetWatchListInput is the input to the setWatchList changeset.
+// Keys are chain selectors; each value is the full watch list to install on that chain's EthBalMon.
 type EthBalMonSetWatchListInput struct {
 	Chains map[uint64]EthBalMonSetWatchListChainConfig `json:"chains"`
 }
 
-// withdraw config
+// EthBalMonWithdrawChainConfig configures a native-token withdraw from EthBalMon on one chain.
 type EthBalMonWithdrawChainConfig struct {
+	// Amount is the withdrawal amount in wei. Must be non-zero (validated by the changeset).
 	Amount uint64 `json:"amount"`
+	// Payeer is the recipient address (hex). JSON key is "payeer" for backward compatibility.
 	Payeer string `json:"payeer"`
 }
 
+// EthBalMonWithdrawInput is the input to the EthBalMon withdraw changeset.
+// Keys are chain selectors; each value specifies amount and recipient for that chain.
 type EthBalMonWithdrawInput struct {
 	Chains map[uint64]EthBalMonWithdrawChainConfig `json:"chains"`
 }
 
-// transferOwnership config
+// EthBalMonTransferOwnershipChainConfig sets the new owner of EthBalMon on one chain.
 type EthBalMonTransferOwnershipChainConfig struct {
+	// NewOwner is the address (hex) that will own the EthBalMon contract after the operation.
 	NewOwner string `json:"new_owner"`
 }
 
+// EthBalMonTransferOwnershipInput is the input to the EthBalMon transferOwnership changeset.
+// Keys are chain selectors; each value is the new owner for that chain's EthBalMon instance.
 type EthBalMonTransferOwnershipInput struct {
 	Chains map[uint64]EthBalMonTransferOwnershipChainConfig `json:"chains"`
 }
