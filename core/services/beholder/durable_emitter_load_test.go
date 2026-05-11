@@ -1511,16 +1511,6 @@ func newPipelineHooks(p *pipelineDeliveryStats) *beholder.DurableEmitterHooks {
 			p.batchLoopMarkEvents.Add(int64(count))
 			p.batchLoopDel.record(d)
 		},
-		OnRetransmitBatchPublish: func(d time.Duration, eventCount int, err error) {
-			if err != nil {
-				p.batchPubErr.Add(1)
-				p.batchPubEventErrs.Add(int64(eventCount))
-			}
-			p.batchPub.record(d)
-		},
-		OnRetransmitBatchDeletes: func(d time.Duration, _ int) {
-			p.batchDel.record(d)
-		},
 	}
 }
 
