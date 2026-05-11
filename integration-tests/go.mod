@@ -44,7 +44,7 @@ require (
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260423161209-5ce1dba9785e
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
-	github.com/smartcontractkit/cld-changesets v0.0.0-20260427210718-b873c54e8d22
+	github.com/smartcontractkit/cld-changesets v0.2.0
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
 	github.com/smartcontractkit/mcms v0.41.1
 	github.com/smartcontractkit/quarantine v0.0.0-20250909213106-ece491bef618

@@ -9,6 +9,9 @@ var (
 	CommitStore   deployment.ContractType = "CommitStore"
 	PriceRegistry deployment.ContractType = "PriceRegistry"
 	RMN           deployment.ContractType = "RMN"
+	// Legacy v1.5 datastore aliases (same bindings as OnRamp/OffRamp @ v1.5.0; matches on-chain typeAndVersion).
+	EVM2EVMOnRamp  deployment.ContractType = "EVM2EVMOnRamp"
+	EVM2EVMOffRamp deployment.ContractType = "EVM2EVMOffRamp"
 
 	// Not legacy
 	MockRMN              deployment.ContractType = "MockRMN"

@@ -14,6 +14,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
@@ -823,11 +824,10 @@ func TestValidateGetSecretsRequest(t *testing.T) {
 			errSubstr: "secret ID must have key set at index 1",
 		},
 		{
-			name: "empty namespace is rejected",
+			name: "empty namespace accepted",
 			requests: []*vaultcommon.SecretRequest{
 				{Id: validID("mykey", "owner1", "")},
 			},
-			errSubstr: "namespace cannot be empty",
 		},
 	}
 
@@ -1044,4 +1044,47 @@ func TestRequestValidator_ValidateCreateSecretsRequest_SkipsLabelValidationWithB
 
 	err = validator.ValidateCreateSecretsRequest(t.Context(), pk, request, true)
 	require.NoError(t, err)
+}
+
+func TestRequestValidator_NormalizesEmptyNamespaceOnStructs(t *testing.T) {
+	validator := NewRequestValidator(
+		limits.NewUpperBoundLimiter(10),
+		limits.NewUpperBoundLimiter(1024*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+		limits.NewUpperBoundLimiter(64*pkgconfig.Byte),
+	)
+
+	t.Run("GetSecretsRequest", func(t *testing.T) {
+		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
+		req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
+		require.NoError(t, validator.ValidateGetSecretsRequest(t.Context(), req))
+		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+	})
+
+	t.Run("CreateSecretsRequest", func(t *testing.T) {
+		validValue := hex.EncodeToString(make([]byte, 10))
+		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "0x1111111111111111111111111111111111111111", Namespace: ""}
+		req := &vaultcommon.CreateSecretsRequest{
+			RequestId: "rid",
+			EncryptedSecrets: []*vaultcommon.EncryptedSecret{
+				{Id: id, EncryptedValue: validValue},
+			},
+		}
+		require.NoError(t, validator.ValidateCreateSecretsRequest(t.Context(), nil, req, true))
+		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+	})
+
+	t.Run("DeleteSecretsRequest", func(t *testing.T) {
+		id := &vaultcommon.SecretIdentifier{Key: "k", Owner: "owner1", Namespace: ""}
+		req := &vaultcommon.DeleteSecretsRequest{RequestId: "rid", Ids: []*vaultcommon.SecretIdentifier{id}}
+		require.NoError(t, validator.ValidateDeleteSecretsRequest(t.Context(), req))
+		assert.Equal(t, vaulttypes.DefaultNamespace, id.Namespace)
+	})
+
+	t.Run("ListSecretIdentifiersRequest", func(t *testing.T) {
+		req := &vaultcommon.ListSecretIdentifiersRequest{RequestId: "rid", Owner: "owner1", Namespace: ""}
+		require.NoError(t, validator.ValidateListSecretIdentifiersRequest(t.Context(), req))
+		assert.Equal(t, vaulttypes.DefaultNamespace, req.Namespace)
+	})
 }
