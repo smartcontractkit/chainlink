@@ -325,6 +325,13 @@ func TestLoad(t *testing.T) {
 			startTimeTestEx := time.Now()
 			l.Info().Str("START_TIME", startTimeTestEx.String()).Msg("Test execution started")
 
+			preLoadCounters := make([]*big.Int, len(consumerContracts))
+			for i := range consumerContracts {
+				c, err := consumerContracts[i].Counter(t.Context())
+				require.NoError(t, err, "failed to read pre-load counter")
+				preLoadCounters[i] = new(big.Int).Set(c)
+			}
+
 			l.Info().Msg("Starting load generators")
 			_, err = p.Run(true)
 			require.NoError(t, err, "Error running load generators")
@@ -333,7 +340,7 @@ func TestLoad(t *testing.T) {
 			l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
 			// Poll until all upkeeps have been performed by checking that each
 			// consumer counter has increased past the pre-load baseline.
-			gom.Eventually(t, func() bool {
+			gomega.NewWithT(t).Eventually(func() bool {
 				for i := range consumerContracts {
 					counter, err := consumerContracts[i].Counter(t.Context())
 					if err != nil {
