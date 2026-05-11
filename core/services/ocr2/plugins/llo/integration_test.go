@@ -2,7 +2,7 @@ package llo_test
 
 import (
 	"crypto/ed25519"
-	sha30 "crypto/sha3"
+	sha3 "crypto/sha3"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -629,13 +629,6 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.GreaterOrEqual(t, len(reportSigners), int(fNodes+1))
 					assert.Subset(t, signerAddresses, reportSigners)
 				}
-
-				// test on-chain verification
-				// Disabled because it flakes, sometimes returns "execution reverted"
-				// No idea why
-				// https://smartcontract-it.atlassian.net/browse/MERC-6637
-				// _, err = verifierProxy.Verify(steve, req.req.Payload, []byte{})
-				// require.NoError(t, err)
 
 				pr, ok := peer.FromContext(req.ctx)
 				require.True(t, ok)
@@ -2413,7 +2406,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
 			require.NoError(t, err)
-			adder1DefinitionsSHA := sha30.Sum256(adder1DefinitionsJSON)
+			adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
 
 			adder1Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder1DefinitionsJSON)
@@ -2454,7 +2447,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder2DefinitionsJSON, err := json.MarshalIndent(adder2Definitions, "", "  ")
 			require.NoError(t, err)
-			adder2DefinitionsSHA := sha30.Sum256(adder2DefinitionsJSON)
+			adder2DefinitionsSHA := sha3.Sum256(adder2DefinitionsJSON)
 
 			adder2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder2DefinitionsJSON)
@@ -2651,7 +2644,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 			adder1NewDefinitionsJSON, err := json.MarshalIndent(adder1NewDefinitions, "", "  ")
 			require.NoError(t, err)
-			adder1NewDefinitionsSHA := sha30.Sum256(adder1NewDefinitionsJSON)
+			adder1NewDefinitionsSHA := sha3.Sum256(adder1NewDefinitionsJSON)
 
 			adder1NewServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				_, errWrite := w.Write(adder1NewDefinitionsJSON)
@@ -2901,7 +2894,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
 	channelDefinitionsJSON, err := json.MarshalIndent(channelDefinitions, "", "  ")
 	require.NoError(t, err)
-	channelDefinitionsSHA := sha30.Sum256(channelDefinitionsJSON)
+	channelDefinitionsSHA := sha3.Sum256(channelDefinitionsJSON)
 
 	// Set up channel definitions server
 	channelDefinitionsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

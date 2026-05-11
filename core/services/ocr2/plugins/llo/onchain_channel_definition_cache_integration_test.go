@@ -2,7 +2,7 @@ package llo_test
 
 import (
 	"bytes"
-	sha30 "crypto/sha3"
+	sha3 "crypto/sha3"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -143,7 +143,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	t.Parallel()
 	var (
 		invalidDefinitions    = []byte(`{{{`)
-		invalidDefinitionsSHA = sha30.Sum256(invalidDefinitions)
+		invalidDefinitionsSHA = sha3.Sum256(invalidDefinitions)
 
 		sampleDefinitions = llotypes.ChannelDefinitions{
 			1: {
@@ -186,7 +186,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 	sampleDefinitionsJSON, err := json.MarshalIndent(sampleDefinitions, "", "  ")
 	require.NoError(t, err)
-	sampleDefinitionsSHA := sha30.Sum256(sampleDefinitionsJSON)
+	sampleDefinitionsSHA := sha3.Sum256(sampleDefinitionsJSON)
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
@@ -447,7 +447,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			var err error
 			sampleDefinitionsJSON, err = json.MarshalIndent(sampleDefinitions, "", "  ")
 			require.NoError(t, err)
-			sampleDefinitionsSHA = sha30.Sum256(sampleDefinitionsJSON)
+			sampleDefinitionsSHA = sha3.Sum256(sampleDefinitionsJSON)
 			rc := NewMockReadCloser(sampleDefinitionsJSON)
 			url := "http://example.com/foo5"
 			client.SetResponseForURL(url, &http.Response{
@@ -625,7 +625,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		newDefinitionsJSON, err := json.MarshalIndent(newDefinitions, "", "  ")
 		require.NoError(t, err)
-		newDefinitionsSHA := sha30.Sum256(newDefinitionsJSON)
+		newDefinitionsSHA := sha3.Sum256(newDefinitionsJSON)
 
 		// Set up HTTP client to return new definitions
 		rc := NewMockReadCloser(newDefinitionsJSON)
@@ -776,7 +776,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder1DefinitionsJSON, err := json.MarshalIndent(adder1Definitions, "", "  ")
 		require.NoError(t, err)
-		adder1DefinitionsSHA := sha30.Sum256(adder1DefinitionsJSON)
+		adder1DefinitionsSHA := sha3.Sum256(adder1DefinitionsJSON)
 
 		url := "http://example.com/adder1-defs.json"
 		rc := NewMockReadCloser(adder1DefinitionsJSON)
@@ -818,7 +818,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefinitionsJSON, err := json.MarshalIndent(ownerDefinitions, "", "  ")
 		require.NoError(t, err)
-		ownerDefinitionsSHA := sha30.Sum256(ownerDefinitionsJSON)
+		ownerDefinitionsSHA := sha3.Sum256(ownerDefinitionsJSON)
 
 		url := "http://example.com/owner-defs.json"
 		rc := NewMockReadCloser(ownerDefinitionsJSON)
@@ -853,7 +853,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adderAttemptDefinitionsJSON, err := json.MarshalIndent(adderAttemptDefinitions, "", "  ")
 		require.NoError(t, err)
-		adderAttemptDefinitionsSHA := sha30.Sum256(adderAttemptDefinitionsJSON)
+		adderAttemptDefinitionsSHA := sha3.Sum256(adderAttemptDefinitionsJSON)
 
 		url2 := "http://example.com/adder-attempt.json"
 		rc = NewMockReadCloser(adderAttemptDefinitionsJSON)
@@ -898,7 +898,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
 		require.NoError(t, err)
-		adder1DefsSHA := sha30.Sum256(adder1DefsJSON)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
 
 		url := "http://example.com/adder1-channel300.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
@@ -934,7 +934,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder2DefsJSON, err := json.MarshalIndent(adder2Defs, "", "  ")
 		require.NoError(t, err)
-		adder2DefsSHA := sha30.Sum256(adder2DefsJSON)
+		adder2DefsSHA := sha3.Sum256(adder2DefsJSON)
 
 		url2 := "http://example.com/adder2-channel300.json"
 		rc = NewMockReadCloser(adder2DefsJSON)
@@ -979,7 +979,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adderTombstoneDefsJSON, err := json.MarshalIndent(adderTombstoneDefs, "", "  ")
 		require.NoError(t, err)
-		adderTombstoneDefsSHA := sha30.Sum256(adderTombstoneDefsJSON)
+		adderTombstoneDefsSHA := sha3.Sum256(adderTombstoneDefsJSON)
 
 		url := "http://example.com/adder-tombstone.json"
 		rc := NewMockReadCloser(adderTombstoneDefsJSON)
@@ -1024,7 +1024,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adderDefsJSON, err := json.MarshalIndent(adderDefs, "", "  ")
 		require.NoError(t, err)
-		adderDefsSHA := sha30.Sum256(adderDefsJSON)
+		adderDefsSHA := sha3.Sum256(adderDefsJSON)
 
 		url := "http://example.com/adder-channel500.json"
 		rc := NewMockReadCloser(adderDefsJSON)
@@ -1060,7 +1060,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
 		require.NoError(t, err)
-		ownerDefsSHA := sha30.Sum256(ownerDefsJSON)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
 
 		url2 := "http://example.com/owner-overwrite.json"
 		rc = NewMockReadCloser(ownerDefsJSON)
@@ -1110,7 +1110,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
 		require.NoError(t, err)
-		ownerDefsSHA := sha30.Sum256(ownerDefsJSON)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
 
 		url := "http://example.com/owner-channels600-601.json"
 		rc := NewMockReadCloser(ownerDefsJSON)
@@ -1140,7 +1140,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adderDefsJSON, err := json.MarshalIndent(adderDefs, "", "  ")
 		require.NoError(t, err)
-		adderDefsSHA := sha30.Sum256(adderDefsJSON)
+		adderDefsSHA := sha3.Sum256(adderDefsJSON)
 
 		url2 := "http://example.com/adder-channel602.json"
 		rc = NewMockReadCloser(adderDefsJSON)
@@ -1177,7 +1177,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsUpdatedJSON, err := json.MarshalIndent(ownerDefsUpdated, "", "  ")
 		require.NoError(t, err)
-		ownerDefsUpdatedSHA := sha30.Sum256(ownerDefsUpdatedJSON)
+		ownerDefsUpdatedSHA := sha3.Sum256(ownerDefsUpdatedJSON)
 
 		url3 := "http://example.com/owner-removed-600.json"
 		rc = NewMockReadCloser(ownerDefsUpdatedJSON)
@@ -1237,7 +1237,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsUpdatedJSON, err := json.MarshalIndent(ownerDefsUpdated, "", "  ")
 		require.NoError(t, err)
-		ownerDefsUpdatedSHA := sha30.Sum256(ownerDefsUpdatedJSON)
+		ownerDefsUpdatedSHA := sha3.Sum256(ownerDefsUpdatedJSON)
 
 		url3 := "http://example.com/owner-removed-600.json"
 		rc := NewMockReadCloser(ownerDefsUpdatedJSON)
@@ -1280,7 +1280,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsDroppedJSON, err := json.MarshalIndent(ownerDefsDropped, "", "  ")
 		require.NoError(t, err)
-		ownerDefsDroppedSHA := sha30.Sum256(ownerDefsDroppedJSON)
+		ownerDefsDroppedSHA := sha3.Sum256(ownerDefsDroppedJSON)
 
 		url := "http://example.com/owner-dropped-600.json"
 		rc := NewMockReadCloser(ownerDefsDroppedJSON)
@@ -1415,7 +1415,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
 		require.NoError(t, err)
-		adder1DefsSHA := sha30.Sum256(adder1DefsJSON)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
 
 		url := "http://example.com/adder1-channel700.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
@@ -1446,7 +1446,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder2DefsJSON, err := json.MarshalIndent(adder2Defs, "", "  ")
 		require.NoError(t, err)
-		adder2DefsSHA := sha30.Sum256(adder2DefsJSON)
+		adder2DefsSHA := sha3.Sum256(adder2DefsJSON)
 
 		url2 := "http://example.com/adder2-channel701.json"
 		rc = NewMockReadCloser(adder2DefsJSON)
@@ -1494,7 +1494,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		tooManyDefsJSON, err := json.MarshalIndent(tooManyDefs, "", "  ")
 		require.NoError(t, err)
-		tooManyDefsSHA := sha30.Sum256(tooManyDefsJSON)
+		tooManyDefsSHA := sha3.Sum256(tooManyDefsJSON)
 
 		url := "http://example.com/too-many-channels.json"
 		rc := NewMockReadCloser(tooManyDefsJSON)
@@ -1550,7 +1550,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		adder1DefsJSON, err := json.MarshalIndent(adder1Defs, "", "  ")
 		require.NoError(t, err)
-		adder1DefsSHA := sha30.Sum256(adder1DefsJSON)
+		adder1DefsSHA := sha3.Sum256(adder1DefsJSON)
 
 		url := "http://example.com/adder1-channel900.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
@@ -1581,7 +1581,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 
 		ownerDefsJSON, err := json.MarshalIndent(ownerDefs, "", "  ")
 		require.NoError(t, err)
-		ownerDefsSHA := sha30.Sum256(ownerDefsJSON)
+		ownerDefsSHA := sha3.Sum256(ownerDefsJSON)
 
 		url2 := "http://example.com/owner-channel900.json"
 		rc = NewMockReadCloser(ownerDefsJSON)

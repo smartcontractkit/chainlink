@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"cmp"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/json"
@@ -309,12 +310,10 @@ func buildReportFromAggs(aggs map[testKey]*aggregate, numIterations int, slowThr
 
 	// Always include top 10 slowest packages, plus any package that has slow tests.
 	slices.SortFunc(pkgEntries, func(a, b TestEntry) int {
-		if a.MaxElapsed > b.MaxElapsed {
-			return -1
-		} else if a.MaxElapsed < b.MaxElapsed {
-			return 1
-		}
-		return strings.Compare(a.Package, b.Package)
+		return cmp.Or(
+			cmp.Compare(b.MaxElapsed, a.MaxElapsed),
+			strings.Compare(a.Package, b.Package),
+		)
 	})
 
 	slowMerged := make(map[string]bool)
