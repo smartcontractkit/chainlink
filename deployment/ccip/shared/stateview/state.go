@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
@@ -30,6 +31,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -95,7 +97,6 @@ import (
 	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
@@ -377,11 +378,11 @@ func (c CCIPOnChainState) HomeChainSelector() (uint64, error) {
 	return 0, errors.New("no home chain found")
 }
 
-func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
-	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
+func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]evmstate.MCMSWithTimelockState)
 	for _, chainSelector := range c.EVMChains() {
 		chain := c.MustGetEVMChainState(chainSelector)
-		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
+		mcmsStateByChain[chainSelector] = evmstate.MCMSWithTimelockState{
 			CancellerMcm: chain.CancellerMcm,
 			BypasserMcm:  chain.BypasserMcm,
 			ProposerMcm:  chain.ProposerMcm,
@@ -414,6 +415,10 @@ func (c CCIPOnChainState) AptosMCMSStateByChain() map[uint64]aptos.AccountAddres
 		mcmsByChain[chainSelector] = state.MCMSAddress
 	}
 	return mcmsByChain
+}
+
+func (c CCIPOnChainState) TONMCMSStateByChain(e cldf.Environment) (map[uint64]tonstate.MCMSChainState, error) {
+	return tonstate.LoadMCMSOnChainState(e)
 }
 
 func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env cldf.Environment, selector uint64) (uint32, error) {
@@ -990,7 +995,7 @@ func (c CCIPOnChainState) GetEVMChainState(env cldf.Environment, chainSelector u
 }
 
 func (c CCIPOnChainState) UpdateMCMSStateWithAddressFromDatastoreForChain(e cldf.Environment, selector uint64, qualifier string) error {
-	mcmsStateWithQualifier, err := commonstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
+	mcmsStateWithQualifier, err := evmstate.MaybeLoadMCMSWithTimelockStateDataStoreWithQualifier(e, []uint64{selector}, qualifier)
 	if err != nil {
 		return fmt.Errorf("failed to load mcms state from datastore with qualifier %s: %w", qualifier, err)
 	}
@@ -1084,18 +1089,18 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 	}
 
 	var state evm.CCIPChainState
-	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := evmstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.MCMSWithTimelockState = *mcmsWithTimelock
 
-	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := evmstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
 	state.LinkTokenState = *linkState
-	staticLinkState, err := commonstate.MaybeLoadStaticLinkTokenState(chain, addresses)
+	staticLinkState, err := evmstate.MaybeLoadStaticLinkTokenState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
@@ -1273,11 +1278,11 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.USDCTokenPoolsV1_6[deployment.Version1_6_2] = utp
 			state.ABIByAddress[address] = usdc_token_pool_v1_6_2.USDCTokenPoolABI
-		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy, deployment.Version1_7_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.USDCTokenPoolProxy, deployment.Version2_0_0).String():
 			if state.USDCTokenPoolProxies == nil {
 				state.USDCTokenPoolProxies = make(map[semver.Version]common.Address)
 			}
-			state.USDCTokenPoolProxies[deployment.Version1_7_0] = common.HexToAddress(address)
+			state.USDCTokenPoolProxies[deployment.Version2_0_0] = common.HexToAddress(address)
 		case cldf.NewTypeAndVersion(ccipshared.USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -1499,7 +1504,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ERC677Tokens[ccipshared.TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below are commented out to avoid loading them by default, to be uncommented for migrations
-		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOnRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}
@@ -1516,7 +1522,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
 			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
-		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOffRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}
@@ -1784,7 +1791,7 @@ func ValidateChain(env cldf.Environment, state CCIPOnChainState, chainSel uint64
 			return fmt.Errorf("%s does not exist in state", chain)
 		}
 		if mcmsCfg != nil {
-			err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
+			err = mcmsCfg.Validate(chain, evmstate.MCMSWithTimelockState{
 				CancellerMcm: chainState.CancellerMcm,
 				ProposerMcm:  chainState.ProposerMcm,
 				BypasserMcm:  chainState.BypasserMcm,

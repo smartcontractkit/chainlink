@@ -5,9 +5,10 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type RMNRemoteCurseEntry struct {
@@ -16,7 +17,7 @@ type RMNRemoteCurseEntry struct {
 }
 
 type RMNRemoteView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	IsCursed             bool                     `json:"isCursed"`
 	Config               RMNRemoteVersionedConfig `json:"config"`
 	CursedSubjectEntries []RMNRemoteCurseEntry    `json:"cursedSubjectEntries,omitempty"`
@@ -45,7 +46,7 @@ func mapCurseSubjects(subjects [][16]byte, family string) []RMNRemoteCurseEntry 
 }
 
 func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, error) {
-	tv, err := types.NewContractMetaData(rmnReader, rmnReader.Address())
+	tv, err := commoncldchangesets.NewContractMetaData(rmnReader, rmnReader.Address())
 	if err != nil {
 		return RMNRemoteView{}, err
 	}

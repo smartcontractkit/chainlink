@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	ks_sol "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/solana"
+	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -430,10 +430,16 @@ func (c *ConfigureCapabilityRegistryInput) Validate() error {
 
 // GatewayServiceConfig represents a service in the service-centric gateway format.
 // Each service groups handlers and references the DON names it operates on.
+type GatewayServiceAuth0Config struct {
+	IssuerURL string `yaml:"issuerURL" toml:"issuerURL" json:"issuerURL"`
+	Audience  string `yaml:"audience" toml:"audience" json:"audience"`
+}
+
 type GatewayServiceConfig struct {
-	ServiceName string   `yaml:"servicename"`
-	Handlers    []string `yaml:"handlers"`
-	DONs        []string `yaml:"dons"`
+	ServiceName string                     `yaml:"servicename"`
+	Handlers    []string                   `yaml:"handlers"`
+	DONs        []string                   `yaml:"dons"`
+	Auth0       *GatewayServiceAuth0Config `yaml:"auth0,omitempty"`
 }
 
 type GatewayConnectors struct {
@@ -468,16 +474,17 @@ type (
 )
 
 type GenerateConfigsInput struct {
-	Datastore               datastore.DataStore
-	DonMetadata             *DonMetadata
-	Blockchains             map[uint64]blockchains.Blockchain
-	RegistryChainSelector   uint64
-	Flags                   []string
-	CapabilitiesPeeringData CapabilitiesPeeringData
-	OCRPeeringData          OCRPeeringData
-	ContractVersions        map[ContractType]*semver.Version
-	Topology                *Topology
-	Provider                infra.Provider
+	Datastore                 datastore.DataStore
+	DonMetadata               *DonMetadata
+	Blockchains               map[uint64]blockchains.Blockchain
+	RegistryChainSelector     uint64
+	Flags                     []string
+	CapabilitiesPeeringData   CapabilitiesPeeringData
+	OCRPeeringData            OCRPeeringData
+	ContractVersions          map[ContractType]*semver.Version
+	Topology                  *Topology
+	Provider                  infra.Provider
+	ChipRouterInternalGRPCURL string
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -507,7 +514,9 @@ func (g *GenerateConfigsInput) Validate() error {
 	if len(h) == 0 {
 		return fmt.Errorf("no addresses found for home chain %d in datastore", g.RegistryChainSelector)
 	}
-	// TODO check for required registry contracts by type and version
+	if g.ChipRouterInternalGRPCURL == "" {
+		return errors.New("chip router internal grpc url not set")
+	}
 	return nil
 }
 

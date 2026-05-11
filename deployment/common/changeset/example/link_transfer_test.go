@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
@@ -37,7 +39,7 @@ func setupLinkTransferRuntime(t *testing.T) (*runtime.Runtime, uint64) {
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
-	config := proposalutils.SingleGroupMCMSV2(t)
+	config := cldftesthelpers.SingleGroupMCMS(t)
 	err = rt.Exec(
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployLinkToken), []uint64{selector}),
 		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2), map[uint64]types.MCMSWithTimelockConfigV2{
@@ -268,7 +270,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 				OverrideRoot: true,
 			},
 		}),
-		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{proposalutils.TestXXXMCMSSigner}),
+		runtime.SignAndExecuteProposalsTask([]*ecdsa.PrivateKey{cldftesthelpers.TestXXXMCMSSigner}),
 	)
 	require.NoError(t, err)
 

@@ -7,7 +7,6 @@ import (
 
 	uuid "github.com/google/uuid"
 	toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solanaconfig "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	mock "github.com/stretchr/testify/mock"
@@ -1296,49 +1295,49 @@ func (_c *GeneralConfig_JobPipeline_Call) RunAndReturn(run func() config.JobPipe
 	return _c
 }
 
-// Keeper provides a mock function with no fields
-func (_m *GeneralConfig) Keeper() config.Keeper {
+// JobSpecReporter provides a mock function with no fields
+func (_m *GeneralConfig) JobSpecReporter() config.JobSpecReporter {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
-		panic("no return value specified for Keeper")
+		panic("no return value specified for JobSpecReporter")
 	}
 
-	var r0 config.Keeper
-	if rf, ok := ret.Get(0).(func() config.Keeper); ok {
+	var r0 config.JobSpecReporter
+	if rf, ok := ret.Get(0).(func() config.JobSpecReporter); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Keeper)
+			r0 = ret.Get(0).(config.JobSpecReporter)
 		}
 	}
 
 	return r0
 }
 
-// GeneralConfig_Keeper_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Keeper'
-type GeneralConfig_Keeper_Call struct {
+// GeneralConfig_JobSpecReporter_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'JobSpecReporter'
+type GeneralConfig_JobSpecReporter_Call struct {
 	*mock.Call
 }
 
-// Keeper is a helper method to define mock.On call
-func (_e *GeneralConfig_Expecter) Keeper() *GeneralConfig_Keeper_Call {
-	return &GeneralConfig_Keeper_Call{Call: _e.mock.On("Keeper")}
+// JobSpecReporter is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) JobSpecReporter() *GeneralConfig_JobSpecReporter_Call {
+	return &GeneralConfig_JobSpecReporter_Call{Call: _e.mock.On("JobSpecReporter")}
 }
 
-func (_c *GeneralConfig_Keeper_Call) Run(run func()) *GeneralConfig_Keeper_Call {
+func (_c *GeneralConfig_JobSpecReporter_Call) Run(run func()) *GeneralConfig_JobSpecReporter_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run()
 	})
 	return _c
 }
 
-func (_c *GeneralConfig_Keeper_Call) Return(_a0 config.Keeper) *GeneralConfig_Keeper_Call {
+func (_c *GeneralConfig_JobSpecReporter_Call) Return(_a0 config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_Keeper_Call) RunAndReturn(run func() config.Keeper) *GeneralConfig_Keeper_Call {
+func (_c *GeneralConfig_JobSpecReporter_Call) RunAndReturn(run func() config.JobSpecReporter) *GeneralConfig_JobSpecReporter_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2098,19 +2097,19 @@ func (_c *GeneralConfig_ShutdownGracePeriod_Call) RunAndReturn(run func() time.D
 }
 
 // SolanaConfigs provides a mock function with no fields
-func (_m *GeneralConfig) SolanaConfigs() solanaconfig.TOMLConfigs {
+func (_m *GeneralConfig) SolanaConfigs() chainlink.RawConfigs {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for SolanaConfigs")
 	}
 
-	var r0 solanaconfig.TOMLConfigs
-	if rf, ok := ret.Get(0).(func() solanaconfig.TOMLConfigs); ok {
+	var r0 chainlink.RawConfigs
+	if rf, ok := ret.Get(0).(func() chainlink.RawConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(solanaconfig.TOMLConfigs)
+			r0 = ret.Get(0).(chainlink.RawConfigs)
 		}
 	}
 
@@ -2134,12 +2133,12 @@ func (_c *GeneralConfig_SolanaConfigs_Call) Run(run func()) *GeneralConfig_Solan
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) Return(_a0 chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() solanaconfig.TOMLConfigs) *GeneralConfig_SolanaConfigs_Call {
+func (_c *GeneralConfig_SolanaConfigs_Call) RunAndReturn(run func() chainlink.RawConfigs) *GeneralConfig_SolanaConfigs_Call {
 	_c.Call.Return(run)
 	return _c
 }

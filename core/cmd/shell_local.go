@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -394,18 +395,18 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	// cleanExit is used to skip "fail fast" routine
 	cleanExit := make(chan struct{})
-	var shutdownStartTime time.Time
+	var shutdownStartTime atomic.Value // time.Time
 	defer func() {
 		close(cleanExit)
-		if !shutdownStartTime.IsZero() {
-			log.Printf("Graceful shutdown time: %s", time.Since(shutdownStartTime))
+		if val := shutdownStartTime.Load(); val != nil {
+			log.Printf("Graceful shutdown time: %s", time.Since(val.(time.Time)))
 		}
 	}()
 
 	go shutdown.HandleShutdown(func(sig string) {
 		lggr.Infof("Shutting down due to %s signal received...", sig)
 
-		shutdownStartTime = time.Now()
+		shutdownStartTime.Store(time.Now())
 		cancelRootCtx()
 
 		select {

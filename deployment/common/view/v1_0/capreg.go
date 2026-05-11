@@ -10,14 +10,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
 type CapabilityRegistryView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -29,7 +30,7 @@ type CapabilityRegistryView struct {
 func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		types.ContractMetaData
+		commoncldchangesets.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -56,7 +57,7 @@ func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		types.ContractMetaData
+		commoncldchangesets.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -83,7 +84,7 @@ func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
 func GenerateCapabilityRegistryView(capReg *capabilities_registry.CapabilitiesRegistry) (CapabilityRegistryView, error) {
-	tv, err := types.NewContractMetaData(capReg, capReg.Address())
+	tv, err := commoncldchangesets.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}

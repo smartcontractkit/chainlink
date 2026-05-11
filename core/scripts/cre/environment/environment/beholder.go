@@ -23,7 +23,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -289,10 +288,6 @@ func startBeholderCmd() *cobra.Command {
 				return fmt.Errorf("failed to set TESTCONTAINERS_RYUK_DISABLED environment variable: %w", setErr)
 			}
 
-			if routerErr := chiprouter.EnsureStarted(cmd.Context()); routerErr != nil {
-				return errors.Wrap(routerErr, "failed to ensure chip ingress router is running. Please make sure that local CRE environment is started and that the chip ingress router is running")
-			}
-
 			startBeholderErr = startBeholder(cmd.Context(), timeout, port)
 			if startBeholderErr != nil {
 				// remove the stack if the error is not related to proto registration
@@ -311,7 +306,7 @@ func startBeholderCmd() *cobra.Command {
 	}
 
 	cmd.Flags().DurationVarP(&timeout, "wait-on-error-timeout", "w", 15*time.Second, "Time to wait before removing Docker containers if environment fails to start (e.g. 10s, 1m, 1h)")
-	cmd.Flags().IntVarP(&port, "grpc-port", "g", ctfchiprouter.DefaultBeholderGRPCPort, "GRPC port for downstream Chip Ingress")
+	cmd.Flags().IntVarP(&port, "grpc-port", "g", 0, "GRPC port for downstream Chip Ingress")
 
 	return cmd
 }
@@ -354,7 +349,12 @@ func restorePersistedBeholderState(relativePathToRepoRoot string, cfg *envconfig
 	if cfg == nil {
 		return nil
 	}
-	return cfg.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
+	path := envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot)
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return errors.Wrap(err, "failed to create directory for persisted Beholder state")
+	}
+	return cfg.Store(path)
 }
 
 func reconcilePersistedBeholderWithRouter(ctx context.Context, cfg *envconfig.ChipIngressConfig) error {
@@ -708,23 +708,26 @@ If you want to use both together start ChIP Ingress on a different port with '--
 		// Set image version environment variables for docker-compose
 		if setupCfg.ChipIngress != nil {
 			if err := os.Setenv(chipingressset.ChipIngressImageEnvVar, setupCfg.ChipIngress.BuildConfig.LocalImage); err != nil {
-				return fmt.Errorf("failed to set CHIP_INGRESS_IMAGE environment variable: %w", err)
+				return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressImageEnvVar, err)
 			}
 		}
 		if setupCfg.ChipConfig != nil {
 			if err := os.Setenv(chipingressset.ChipConfigImageEnvVar, setupCfg.ChipConfig.BuildConfig.LocalImage); err != nil {
-				return fmt.Errorf("failed to set CHIP_CONFIG_IMAGE environment variable: %w", err)
+				return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipConfigImageEnvVar, err)
 			}
 		}
 	}
 
-	// set both internal and external (host) ChIP Ingress GRPC port to the same value
-	if err := os.Setenv(chipingressset.ChipIngressGRPCHostPortEnvVar, strconv.Itoa(port)); err != nil {
-		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCHostPortEnvVar, err)
-	}
+	// only set the port, if specified by the user, otherwise it will be automatically assigned by Docker
+	if port != 0 {
+		// set both internal and external (host) ChIP Ingress GRPC port to the same value
+		if err := os.Setenv(chipingressset.ChipIngressGRPCHostPortEnvVar, strconv.Itoa(port)); err != nil {
+			return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCHostPortEnvVar, err)
+		}
 
-	if err := os.Setenv(chipingressset.ChipIngressGRPCPortEnvVar, strconv.Itoa(port)); err != nil {
-		return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCPortEnvVar, err)
+		if err := os.Setenv(chipingressset.ChipIngressGRPCPortEnvVar, strconv.Itoa(port)); err != nil {
+			return fmt.Errorf("failed to set %s environment variable: %w", chipingressset.ChipIngressGRPCPortEnvVar, err)
+		}
 	}
 
 	// we want to restore previous configs, because Beholder might be started within the context of a different command,
@@ -780,10 +783,6 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	fmt.Println()
 	framework.L.Info().Msgf("Red Panda Console URL: %s", out.RedPanda.ConsoleExternalURL)
 
-	if err := registerBeholderWithRouter(cmdContext, port); err != nil {
-		return errors.Wrap(err, "failed to register Beholder with chip ingress router")
-	}
-
 	topicsErr := chipingressset.CreateTopics(cmdContext, out.RedPanda.KafkaExternalURL, in.Kafka.Topics)
 	if topicsErr != nil {
 		return errors.Wrap(topicsErr, "failed to create topics")
@@ -794,6 +793,14 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	for _, topic := range in.Kafka.Topics {
 		framework.L.Info().Msgf("Topic URL: %s", fmt.Sprintf("%s/topics/%s", out.RedPanda.ConsoleExternalURL, topic))
 	}
+
+	if routerErr := chiprouter.EnsureStarted(cmdContext); routerErr == nil {
+		if err := registerBeholderWithRouter(cmdContext, out.ChipIngress); err != nil {
+			return errors.Wrap(err, "failed to register Beholder with chip ingress router")
+		}
+	}
+	// ignore the fact that ChIP Ingress Router is not started. Once it is started it will detect that Beholder is running and will register it.
+
 	fmt.Println()
 	fmt.Println("To exclude a flood of heartbeat messages it is recommended that you register a JS filter with following code: `return value.msg !== 'heartbeat';`")
 	fmt.Println()
@@ -802,8 +809,8 @@ If you want to use both together start ChIP Ingress on a different port with '--
 	return in.Store(envconfig.MustChipIngressStateFileAbsPath(relativePathToRepoRoot))
 }
 
-func registerBeholderWithRouter(ctx context.Context, port int) error {
-	return registerBeholderEndpointWithRouter(ctx, fmt.Sprintf("127.0.0.1:%d", port))
+func registerBeholderWithRouter(ctx context.Context, out *chipingressset.ChipIngressOutput) error {
+	return registerBeholderEndpointWithRouter(ctx, out.GRPCInternalURL)
 }
 
 func registerBeholderEndpointWithRouter(ctx context.Context, endpoint string) error {

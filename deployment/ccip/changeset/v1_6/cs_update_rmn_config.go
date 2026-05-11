@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -21,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
@@ -327,7 +330,7 @@ func SetRMNHomeCandidateConfigChangeset(e cldf.Environment, config SetRMNHomeCan
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
+	operation, err := cldfproposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
 		setCandidateTx.Data(), big.NewInt(0), string(shared.RMN), []string{})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
@@ -341,7 +344,7 @@ func SetRMNHomeCandidateConfigChangeset(e cldf.Environment, config SetRMNHomeCan
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	inspectors, err := proposalutils.McmsInspectors(e)
+	inspectors, err := cldfproposalutils.McmsInspectors(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
@@ -410,7 +413,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e cldf.Environment, config PromoteRM
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	operation, err := proposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
+	operation, err := cldfproposalutils.BatchOperationForChain(homeChain.Selector, rmnHome.Address().Hex(),
 		promoteCandidateTx.Data(), big.NewInt(0), string(shared.RMN), []string{})
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %s: %w", homeChain.String(), err)
@@ -426,7 +429,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e cldf.Environment, config PromoteRM
 	}
 
 	inspectors := map[uint64]mcmssdk.Inspector{}
-	inspectors[config.HomeChainSelector], err = proposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
+	inspectors[config.HomeChainSelector], err = cldfproposalutils.McmsInspectorForChain(e, config.HomeChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}

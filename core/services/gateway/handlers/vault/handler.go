@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -144,9 +145,10 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	writeMethodsEnabled       limits.GateLimiter
+	orgIDAsSecretOwnerEnabled limits.GateLimiter
+	activeRequests            map[string]*activeRequest
+	metrics                   *metrics
 
 	aggregator aggregator
 
@@ -175,24 +177,36 @@ type SecretEntry struct {
 type Config struct {
 	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
+	Auth0             *vaultcap.Auth0Config       `json:"auth0,omitempty"`
 }
 
 // NewHandler creates the gateway-side Vault handler with internal auth wiring.
 func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+	var cfg Config
+	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
+	}
+
 	allowListBasedAuth := vaultcap.NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
-	jwtBasedAuth, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{}, limitsFactory, lggr, vaultcap.WithDisabledJWTBasedAuth())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+	var jwtBasedAuth vaultcap.Authorizer
+	var jwtAuth services.Service
+	if cfg.Auth0 != nil {
+		validator, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
+			IssuerURL: cfg.Auth0.IssuerURL,
+			Audience:  cfg.Auth0.Audience,
+		}, limitsFactory, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		}
+		jwtBasedAuth = validator
+		jwtAuth = validator
 	}
 	authorizer := vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
-	return newHandlerWithJWTAuth(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtBasedAuth, lggr, clock, limitsFactory)
+
+	return newHandlerWithAuthorizer(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
 }
 
-func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
-	return newHandlerWithJWTAuth(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, nil, lggr, clock, limitsFactory)
-}
-
-func newHandlerWithJWTAuth(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -220,29 +234,46 @@ func newHandlerWithJWTAuth(methodConfig json.RawMessage, donConfig *config.DONCo
 	if err != nil {
 		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
 	}
+	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier key size limiter: %w", err)
+	}
+	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier owner size limiter: %w", err)
+	}
+	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
+	if err != nil {
+		return nil, fmt.Errorf("could not create identifier namespace size limiter: %w", err)
+	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
+	orgIDAsSecretOwnerEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultOrgIdAsSecretOwnerEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create vault org ID as secret owner limiter: %w", err)
+	}
 
 	return &handler{
-		methodConfig:        cfg,
-		donConfig:           donConfig,
-		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:     nodeRateLimiter,
-		writeMethodsEnabled: writeMethodsEnabled,
-		activeRequests:      make(map[string]*activeRequest),
-		mu:                  sync.RWMutex{},
-		authorizer:          authorizer,
-		jwtAuth:             jwtAuth,
-		stopCh:              make(services.StopChan),
-		metrics:             metrics,
-		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
-		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter, ciphertextLimiter),
+		methodConfig:              cfg,
+		donConfig:                 donConfig,
+		don:                       don,
+		lggr:                      logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:            time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:           nodeRateLimiter,
+		writeMethodsEnabled:       writeMethodsEnabled,
+		orgIDAsSecretOwnerEnabled: orgIDAsSecretOwnerEnabled,
+		activeRequests:            make(map[string]*activeRequest),
+		mu:                        sync.RWMutex{},
+		authorizer:                authorizer,
+		jwtAuth:                   jwtAuth,
+		stopCh:                    make(services.StopChan),
+		metrics:                   metrics,
+		aggregator:                &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
+		clock:                     clock,
+		RequestValidator:          vaultcap.NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
 	}, nil
 }
 
@@ -288,6 +319,7 @@ func (h *handler) Close() error {
 		return errors.Join(
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
+			h.orgIDAsSecretOwnerEnabled.Close(),
 			h.MaxRequestBatchSizeLimiter.Close(),
 		)
 	})
@@ -397,11 +429,17 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
 	}
 
-	authResult, err := h.authorizer.AuthorizeRequest(ctx, req)
-	if err != nil {
-		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", err)
-		return errors.New("request not authorized: " + err.Error())
+	authResult, authErr := h.authorizer.AuthorizeRequest(ctx, req)
+	if authErr != nil {
+		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", authErr)
+		return errors.New("request not authorized: " + authErr.Error())
 	}
+	normalizedReq, normalizeErr := vaultcap.NormalizeRequestWithIdentity(req, authResult.OrgID(), authResult.WorkflowOwner())
+	if normalizeErr != nil {
+		h.lggr.Errorw("failed to normalize authorized request identity", "method", req.Method, "requestID", req.ID, "orgID", authResult.OrgID(), "workflowOwner", authResult.WorkflowOwner(), "error", normalizeErr)
+		return normalizeErr
+	}
+	req = normalizedReq
 	authorizedOwner := authResult.AuthorizedOwner()
 	// Generate a unique ID for the request.
 	// Prefix request id with authorizedOwner, to ensure uniqueness across different owners
@@ -409,9 +447,9 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	req.ID = authorizedOwner + vaulttypes.RequestIDSeparator + req.ID
 
 	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "authorizedOwner", authorizedOwner)
-	ar, err := h.newActiveRequest(req, callback)
-	if err != nil {
-		return err
+	ar, activeRequestErr := h.newActiveRequest(req, callback)
+	if activeRequestErr != nil {
+		return activeRequestErr
 	}
 
 	switch req.Method {
@@ -559,6 +597,14 @@ func (h *handler) sendSuccessResponse(ctx context.Context, l logger.Logger, ar *
 	return h.sendResponse(ctx, ar, successResp)
 }
 
+func (h *handler) skipSecretLabelValidation(ctx context.Context, orgID string) (bool, error) {
+	orgIDAsSecretOwnerEnabled, err := h.orgIDAsSecretOwnerEnabled.Limit(ctx)
+	if err != nil {
+		return false, err
+	}
+	return orgIDAsSecretOwnerEnabled && orgID == "", nil
+}
+
 func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
@@ -582,7 +628,21 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, createSecretsRequest)
+	skipLabelValidation, err := h.skipSecretLabelValidation(ctx, createSecretsRequest.OrgId)
+	if err != nil {
+		l.Errorw("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled: "+err.Error()), nil))
+	}
+	validationRequest := createSecretsRequest
+	if createSecretsRequest.OrgId != "" {
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(createSecretsRequest).(*vaultcommon.CreateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
+	}
+	err = h.ValidateCreateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if err != nil {
 		l.Warnw("failed to validate create secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
@@ -623,7 +683,21 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		}
 	}
 	_, cachedPublicKey := h.getCachedPublicKey()
-	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, updateSecretsRequest)
+	skipLabelValidation, err := h.skipSecretLabelValidation(ctx, updateSecretsRequest.OrgId)
+	if err != nil {
+		l.Errorw("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled", "error", err)
+		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if VaultOrgIdAsSecretOwnerEnabled is enabled: "+err.Error()), nil))
+	}
+	validationRequest := updateSecretsRequest
+	if updateSecretsRequest.OrgId != "" {
+		// JWT-authenticated requests carry OrgId, so the gateway can verify the
+		// org label directly. Clear WorkflowOwner only in this validation copy so
+		// workflow-owner-labeled ciphertext is rejected, while the forwarded
+		// request still preserves the authorized identity fields.
+		validationRequest = proto.Clone(updateSecretsRequest).(*vaultcommon.UpdateSecretsRequest)
+		validationRequest.WorkflowOwner = ""
+	}
+	vaultCapErr := h.ValidateUpdateSecretsRequest(ctx, cachedPublicKey, validationRequest, skipLabelValidation)
 	if vaultCapErr != nil {
 		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
@@ -662,7 +736,7 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 			id.Namespace = vaulttypes.DefaultNamespace
 		}
 	}
-	err = h.ValidateDeleteSecretsRequest(deleteSecretsRequest)
+	err = h.ValidateDeleteSecretsRequest(ctx, deleteSecretsRequest)
 	if err != nil {
 		l.Warnw("failed to validate delete secrets request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
@@ -690,7 +764,7 @@ func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) erro
 	if req.Namespace == "" {
 		req.Namespace = vaulttypes.DefaultNamespace
 	}
-	err := h.ValidateListSecretIdentifiersRequest(req)
+	err := h.ValidateListSecretIdentifiersRequest(ctx, req)
 	if err != nil {
 		l.Warnw("failed to validate list secret identifiers request", "error", err)
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))

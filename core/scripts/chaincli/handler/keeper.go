@@ -21,8 +21,6 @@ import (
 	registrylogic20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
 	registrylogica21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
 	registrylogicb21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
-	registry11 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/log_upkeep_counter_wrapper"
@@ -35,7 +33,6 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
 // Keeper is the keepers commands handler
@@ -101,7 +98,7 @@ func (k *Keeper) DeployKeepers(ctx context.Context) {
 // DeployRegistry deploys a new keeper registry.
 func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
 	if verify {
-		if k.cfg.RegistryVersion != keeper.RegistryVersion_2_1 && k.cfg.RegistryVersion != keeper.RegistryVersion_2_0 {
+		if k.cfg.RegistryVersion != config.RegistryVersion2_1 && k.cfg.RegistryVersion != config.RegistryVersion2_0 {
 			log.Fatal("keeper registry verification is only supported for version 2.0 and 2.1")
 		}
 		if k.cfg.ExplorerAPIKey == "" || k.cfg.ExplorerAPIKey == "<explorer-api-key>" || k.cfg.NetworkName == "" || k.cfg.NetworkName == "<network-name>" {
@@ -121,13 +118,9 @@ func (k *Keeper) DeployRegistry(ctx context.Context, verify bool) {
 	}
 
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
-		k.deployRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
-		k.deployRegistry12(ctx)
-	case keeper.RegistryVersion_2_0:
+	case config.RegistryVersion2_0:
 		k.deployRegistry20(ctx, verify)
-	case keeper.RegistryVersion_2_1:
+	case config.RegistryVersion2_1:
 		k.deployRegistry21(ctx, verify)
 	default:
 		panic("unsupported registry version")
@@ -138,8 +131,6 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 	var upkeepCount int64
 	var registryAddr common.Address
 	var deployer keepersDeployer
-	var keeperRegistry11 *registry11.KeeperRegistry
-	var keeperRegistry12 *registry12.KeeperRegistry
 	var keeperRegistry20 *registry20.KeeperRegistry
 	var keeperRegistry21 *iregistry21.IKeeperRegistryMaster
 	if k.cfg.RegistryAddress != "" {
@@ -150,23 +141,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 
 		// Get existing keeper registry
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
-			registryAddr, keeperRegistry11 = k.getRegistry11(ctx)
-			count, err := keeperRegistry11.GetUpkeepCount(&callOpts)
-			if err != nil {
-				log.Fatal(registryAddr.Hex(), ": UpkeepCount failed - ", err)
-			}
-			upkeepCount = count.Int64()
-			deployer = &v11KeeperDeployer{keeperRegistry11}
-		case keeper.RegistryVersion_1_2:
-			registryAddr, keeperRegistry12 = k.getRegistry12(ctx)
-			state, err := keeperRegistry12.GetState(&callOpts)
-			if err != nil {
-				log.Fatal(registryAddr.Hex(), ": failed to getState - ", err)
-			}
-			upkeepCount = state.State.NumUpkeeps.Int64()
-			deployer = &v12KeeperDeployer{keeperRegistry12}
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion2_0:
 			registryAddr, keeperRegistry20 = k.getRegistry20(ctx)
 			state, err := keeperRegistry20.GetState(&callOpts)
 			if err != nil {
@@ -174,7 +149,7 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 			}
 			upkeepCount = state.State.NumUpkeeps.Int64()
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion2_1:
 			registryAddr, keeperRegistry21 = k.getRegistry21(ctx)
 			state, err := keeperRegistry21.GetState(&callOpts)
 			if err != nil {
@@ -188,16 +163,10 @@ func (k *Keeper) prepareRegistry(ctx context.Context) (int64, common.Address, ke
 	} else {
 		// Deploy keeper registry
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
-			registryAddr, keeperRegistry11 = k.deployRegistry11(ctx)
-			deployer = &v11KeeperDeployer{keeperRegistry11}
-		case keeper.RegistryVersion_1_2:
-			registryAddr, keeperRegistry12 = k.deployRegistry12(ctx)
-			deployer = &v12KeeperDeployer{keeperRegistry12}
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion2_0:
 			registryAddr, keeperRegistry20 = k.deployRegistry20(ctx, true)
 			deployer = &v20KeeperDeployer{KeeperRegistryInterface: keeperRegistry20, cfg: k.cfg}
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion2_1:
 			registryAddr, keeperRegistry21 = k.deployRegistry21(ctx, false)
 			deployer = &v21KeeperDeployer{IKeeperRegistryMasterInterface: keeperRegistry21, cfg: k.cfg}
 		default:
@@ -363,58 +332,13 @@ func (k *Keeper) deployRegistry20(ctx context.Context, verify bool) (common.Addr
 	return registryAddr, registryInstance
 }
 
-// deployRegistry12 deploys a version 1.2 keeper registry
-func (k *Keeper) deployRegistry12(ctx context.Context) (common.Address, *registry12.KeeperRegistry) {
-	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry12.DeployKeeperRegistry(
-		k.buildTxOpts(ctx),
-		k.client,
-		common.HexToAddress(k.cfg.LinkTokenAddr),
-		common.HexToAddress(k.cfg.LinkETHFeedAddr),
-		common.HexToAddress(k.cfg.FastGasFeedAddr),
-		*k.getConfigForRegistry12(),
-	)
-	if err != nil {
-		log.Fatal("DeployAbi failed: ", err)
-	}
-	k.waitDeployment(ctx, deployKeeperRegistryTx)
-	log.Println("KeeperRegistry1.2 deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
-	return registryAddr, registryInstance
-}
-
-// deployRegistry11 deploys a version 1.1 keeper registry
-func (k *Keeper) deployRegistry11(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
-	registryAddr, deployKeeperRegistryTx, registryInstance, err := registry11.DeployKeeperRegistry(k.buildTxOpts(ctx), k.client,
-		common.HexToAddress(k.cfg.LinkTokenAddr),
-		common.HexToAddress(k.cfg.LinkETHFeedAddr),
-		common.HexToAddress(k.cfg.FastGasFeedAddr),
-		k.cfg.PaymentPremiumPBB,
-		k.cfg.FlatFeeMicroLink,
-		big.NewInt(k.cfg.BlockCountPerTurn),
-		k.cfg.CheckGasLimit,
-		big.NewInt(k.cfg.StalenessSeconds),
-		k.cfg.GasCeilingMultiplier,
-		big.NewInt(k.cfg.FallbackGasPrice),
-		big.NewInt(k.cfg.FallbackLinkPrice),
-	)
-	if err != nil {
-		log.Fatal("DeployAbi failed: ", err)
-	}
-	k.waitDeployment(ctx, deployKeeperRegistryTx)
-	log.Println("KeeperRegistry1.1 deployed:", registryAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, deployKeeperRegistryTx.Hash()))
-	return registryAddr, registryInstance
-}
-
 // UpdateRegistry attaches to an existing registry and possibly updates registry config
 func (k *Keeper) UpdateRegistry(ctx context.Context) {
 	var registryAddr common.Address
 	switch k.cfg.RegistryVersion {
-	case keeper.RegistryVersion_1_1:
-		registryAddr, _ = k.getRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
-		registryAddr, _ = k.getRegistry12(ctx)
-	case keeper.RegistryVersion_2_0:
+	case config.RegistryVersion2_0:
 		registryAddr, _ = k.getRegistry20(ctx)
-	case keeper.RegistryVersion_2_1:
+	case config.RegistryVersion2_1:
 		registryAddr, _ = k.getRegistry21(ctx)
 	default:
 		panic("unexpected registry address")
@@ -454,64 +378,6 @@ func (k *Keeper) getRegistry21(ctx context.Context) (common.Address, *iregistry2
 	}
 	log.Println("KeeperRegistry2.1 config not updated: KEEPER_CONFIG_UPDATE=false")
 	return registryAddr, keeperRegistry21
-}
-
-// getRegistry12 attaches to an existing 1.2 registry and possibly updates registry config
-func (k *Keeper) getRegistry12(ctx context.Context) (common.Address, *registry12.KeeperRegistry) {
-	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	keeperRegistry12, err := registry12.NewKeeperRegistry(
-		registryAddr,
-		k.client,
-	)
-	if err != nil {
-		log.Fatal("Registry failed: ", err)
-	}
-	if k.cfg.RegistryConfigUpdate {
-		transaction, err := keeperRegistry12.SetConfig(k.buildTxOpts(ctx), *k.getConfigForRegistry12())
-		if err != nil {
-			log.Fatal("Registry config update: ", err)
-		}
-
-		if err := k.waitTx(ctx, transaction); err != nil {
-			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is: %s", k.cfg.RegistryAddress, err.Error())
-		}
-		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
-	}
-	log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
-	return registryAddr, keeperRegistry12
-}
-
-// getRegistry11 attaches to an existing 1.1 registry and possibly updates registry config
-func (k *Keeper) getRegistry11(ctx context.Context) (common.Address, *registry11.KeeperRegistry) {
-	registryAddr := common.HexToAddress(k.cfg.RegistryAddress)
-	keeperRegistry11, err := registry11.NewKeeperRegistry(
-		registryAddr,
-		k.client,
-	)
-	if err != nil {
-		log.Fatal("Registry failed: ", err)
-	}
-	if k.cfg.RegistryConfigUpdate {
-		transaction, err := keeperRegistry11.SetConfig(k.buildTxOpts(ctx),
-			k.cfg.PaymentPremiumPBB,
-			k.cfg.FlatFeeMicroLink,
-			big.NewInt(k.cfg.BlockCountPerTurn),
-			k.cfg.CheckGasLimit,
-			big.NewInt(k.cfg.StalenessSeconds),
-			k.cfg.GasCeilingMultiplier,
-			big.NewInt(k.cfg.FallbackGasPrice),
-			big.NewInt(k.cfg.FallbackLinkPrice))
-		if err != nil {
-			log.Fatal("Registry config update: ", err)
-		}
-
-		if err := k.waitTx(ctx, transaction); err != nil {
-			log.Fatalf("KeeperRegistry config update failed on registry address: %s, error is %s", k.cfg.RegistryAddress, err.Error())
-		}
-		log.Println("KeeperRegistry config update:", k.cfg.RegistryAddress, "-", helpers.ExplorerLink(k.cfg.ChainID, transaction.Hash()))
-	}
-	log.Println("KeeperRegistry config not updated: KEEPER_CONFIG_UPDATE=false")
-	return registryAddr, keeperRegistry11
 }
 
 // deployUpkeeps deploys upkeeps and funds upkeeps
@@ -654,19 +520,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	{
 		var err error
 		switch k.cfg.RegistryVersion {
-		case keeper.RegistryVersion_1_1:
-			panic("not supported 1.1 registry")
-		case keeper.RegistryVersion_1_2:
-			upkeepGetter, err = registry12.NewKeeperRegistry(
-				registryAddr,
-				k.client,
-			)
-		case keeper.RegistryVersion_2_0:
+		case config.RegistryVersion2_0:
 			upkeepGetter, err = registry20.NewKeeperRegistry(
 				registryAddr,
 				k.client,
 			)
-		case keeper.RegistryVersion_2_1:
+		case config.RegistryVersion2_1:
 			upkeepGetter, err = iregistry21.NewIKeeperRegistryMaster(
 				registryAddr,
 				k.client,
@@ -702,7 +561,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 	}
 
 	// set administrative offchain config for mercury upkeeps
-	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == keeper.RegistryVersion_2_1 {
+	if (k.cfg.UpkeepType == config.Mercury || k.cfg.UpkeepType == config.LogTriggeredFeedLookup) && k.cfg.RegistryVersion == config.RegistryVersion2_1 {
 		reg21, err := iregistry21.NewIKeeperRegistryMaster(registryAddr, k.client)
 		if err != nil {
 			log.Fatalf("cannot create registry 2.1: %v", err)
@@ -791,22 +650,4 @@ func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry activeUpkeepGe
 		Context: ctx,
 	}, from, to)
 	return activeUpkeepIds
-}
-
-// getConfigForRegistry12 returns a config object for registry 1.2
-func (k *Keeper) getConfigForRegistry12() *registry12.Config {
-	return &registry12.Config{
-		PaymentPremiumPPB:    k.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:     k.cfg.FlatFeeMicroLink,
-		BlockCountPerTurn:    big.NewInt(k.cfg.BlockCountPerTurn),
-		CheckGasLimit:        k.cfg.CheckGasLimit,
-		StalenessSeconds:     big.NewInt(k.cfg.StalenessSeconds),
-		GasCeilingMultiplier: k.cfg.GasCeilingMultiplier,
-		MinUpkeepSpend:       big.NewInt(k.cfg.MinUpkeepSpend),
-		MaxPerformGas:        k.cfg.MaxPerformGas,
-		FallbackGasPrice:     big.NewInt(k.cfg.FallbackGasPrice),
-		FallbackLinkPrice:    big.NewInt(k.cfg.FallbackLinkPrice),
-		Transcoder:           common.HexToAddress(k.cfg.Transcoder),
-		Registrar:            common.HexToAddress(k.cfg.Registrar),
-	}
 }

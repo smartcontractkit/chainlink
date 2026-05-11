@@ -33,10 +33,10 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
+	evmmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
+	mercuryutils "github.com/smartcontractkit/chainlink-data-streams/mercury/utils"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
-	evmmercury "github.com/smartcontractkit/chainlink-evm/pkg/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink-evm/pkg/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -676,7 +676,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	}
 	srvs = append(srvs, vaultCapability)
 
-	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory)
+	handler, err := vaultcap.NewGatewayHandler(vaultCapability, gwconnector, syncer, d.lggr, limitsFactory, nil, cfg.Auth0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate vault plugin: failed to create vault handler: %w", err)
 	}
@@ -745,6 +745,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	// Get config tracker and digester, optionally wrapping with OCRConfigService
 	configTracker := provider.ContractConfigTracker()
 	configDigester := provider.OffchainConfigDigester()
+	vaultPluginLocalConfig := lc
 	if d.ocrConfigService != nil {
 		configTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, vaultOCRConfigKey, configTracker)
 		if err != nil {
@@ -754,6 +755,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
+		vaultPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(vaultPluginLocalConfig)
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", vaultCapabilityID, "ocrConfigKey", vaultOCRConfigKey)
 	}
 
@@ -768,7 +770,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		),
 		Database:                ocrDB,
 		KeyValueDatabaseFactory: kvFactory,
-		LocalConfig:             lc,
+		LocalConfig:             vaultPluginLocalConfig,
 		Logger:                  ocrLogger,
 		MonitoringEndpoint:      oracleEndpoint,
 		OffchainConfigDigester:  configDigester,
@@ -839,6 +841,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	// Get DKG config tracker and digester, optionally wrapping with OCRConfigService
 	dkgConfigTracker := dkgProvider.ContractConfigTracker()
 	dkgConfigDigester := dkgProvider.OffchainConfigDigester()
+	dkgPluginLocalConfig := lc
 	if d.ocrConfigService != nil {
 		dkgConfigTracker, err = d.ocrConfigService.GetConfigTracker(vaultCapabilityID, dkgOCRConfigKey, dkgConfigTracker)
 		if err != nil {
@@ -848,6 +851,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get DKG config digester from OCRConfigService: %w", err)
 		}
+		dkgPluginLocalConfig = generic.AdjustLocalConfigForRegistryBasedConfig(dkgPluginLocalConfig)
 		lggr.Infow("Using dynamic OCR config from registry for DKG", "capabilityID", vaultCapabilityID, "ocrConfigKey", dkgOCRConfigKey)
 	}
 
@@ -857,7 +861,7 @@ func (d *Delegate) newServicesVaultPlugin(
 		dkgConfigTracker,
 		ocrDB,
 		kvdb.NewPebbleKeyValueDatabaseFactory(fullPathDKG),
-		lc,
+		dkgPluginLocalConfig,
 		dkgOcrLogger,
 		prometheus.WrapRegistererWith(map[string]string{"job_name": string(types.DKG)}, prometheus.DefaultRegisterer),
 		dkgOracleEndpoint,
@@ -969,6 +973,7 @@ func (d *Delegate) newDonTimePlugin(
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester from OCRConfigService: %w", err)
 		}
+		lc = generic.AdjustLocalConfigForRegistryBasedConfig(lc)
 		lggr.Infow("Using dynamic OCR config from registry", "capabilityID", dontimeCapabilityID)
 	}
 

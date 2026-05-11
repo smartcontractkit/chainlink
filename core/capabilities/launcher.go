@@ -501,7 +501,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 
 	methodConfig := capabilityConfig.CapabilityMethodConfig
 	if methodConfig != nil { // v2 capability - handle via CombinedClient
-		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON)
+		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON, localRegistry)
 		if errAdd != nil {
 			return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
 		}
@@ -592,7 +592,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -618,7 +618,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -629,7 +629,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 			return fmt.Errorf("failed to add target shim: %w", err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 
 	return nil
@@ -864,7 +864,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 	return nil
 }
@@ -895,7 +895,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	if errors.Is(err, remote.ErrReceiverExists) {
 		// If a receiver already exists, let's log the error for debug purposes, but
 		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		w.lggr.Debugw("receiver already exists for capability", "capabilityID", capID, "donID", don.ID, "error", err)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
@@ -929,7 +929,7 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -984,7 +984,12 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
 				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
 			}
-			err := client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig)
+
+			signers, err := signersFor(remoteDON, localRegistry)
+			if err != nil {
+				return fmt.Errorf("failed to get signers for executable client: %w", err)
+			}
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue

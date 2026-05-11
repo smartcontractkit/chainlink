@@ -451,6 +451,26 @@ func TestKVStoreWrapper_DeleteSecret_CleansBothOwners(t *testing.T) {
 	assert.Nil(t, woSecret)
 }
 
+func TestKVStoreWrapper_DeleteSecret_PreservesOtherNamespacesForSameKey(t *testing.T) {
+	ctx := t.Context()
+	_, inner := newMigrationTestStore(t)
+	writeTestSecret(ctx, t, inner, testOrgID, "main", "shared_key", []byte("main-data"))
+	writeTestSecret(ctx, t, inner, testOrgID, "alt", "shared_key", []byte("alt-data"))
+
+	store := NewKVStoreWrapper(inner, true, logger.TestLogger(t))
+	id := &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "shared_key"}
+	require.NoError(t, store.DeleteSecret(ctx, id, testOrgID, testWorkflowOwner))
+
+	mainSecret, err := inner.GetSecret(ctx, &vault.SecretIdentifier{Owner: testOrgID, Namespace: "main", Key: "shared_key"})
+	require.NoError(t, err)
+	assert.Nil(t, mainSecret)
+
+	altSecret, err := inner.GetSecret(ctx, &vault.SecretIdentifier{Owner: testOrgID, Namespace: "alt", Key: "shared_key"})
+	require.NoError(t, err)
+	require.NotNil(t, altSecret)
+	assert.Equal(t, []byte("alt-data"), altSecret.EncryptedSecret)
+}
+
 func TestKVStoreWrapper_DeleteSecret_NotFoundAnywhere(t *testing.T) {
 	ctx := t.Context()
 	_, inner := newMigrationTestStore(t)

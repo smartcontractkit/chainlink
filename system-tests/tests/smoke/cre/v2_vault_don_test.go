@@ -2,96 +2,81 @@ package cre
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
-	"math/big"
-	"math/rand"
 	"net/http"
-	"net/url"
-	"slices"
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-	ctfblockchain "github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	crevault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
+	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
-	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
+	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
-func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
-	var testLogger = framework.L
+func uniqueVaultSecretID(prefix string) string {
+	return prefix + strings.ReplaceAll(uuid.NewString(), "-", "")
+}
 
-	testLogger.Info().Msgf("Ensuring DKG result packages are present...")
-	require.Eventually(t, func() bool {
-		for _, nodeSet := range testEnv.Config.NodeSets {
-			if slices.Contains(nodeSet.Capabilities, cre.VaultCapability) {
-				for i, node := range nodeSet.NodeSpecs {
-					if !slices.Contains(node.Roles, cre.BootstrapNode) {
-						packageCount, err := vault.GetResultPackageCount(t.Context(), i, nodeSet.DbInput.Port)
-						if err != nil || packageCount != 1 {
-							return false
-						}
-					}
-				}
-				return true
+func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	var testLogger = framework.L
+	linkingService := fixture.LinkingService
+
+	gwURL := fixture.GatewayURL.String()
+	vaultPublicKey := fixture.VaultPublicKey
+
+	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		workflowOwnerAddress := sc.MustGetRootKeyAddress()
+		owner := workflowOwnerAddress.Hex()
+		expectedResponseOwner := owner
+		orgID := ""
+		orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
+		if linkingService != nil {
+			orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+			linkingService.SetOwnerOrg(owner, orgID)
+			if orgIDAsSecretOwnerEnabled {
+				expectedResponseOwner = orgID
 			}
 		}
-		return false
-	}, time.Second*300, time.Second*5)
-
-	testLogger.Info().Msg("Getting gateway configuration...")
-	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path)
-	require.NoError(t, err, "failed to parse gateway URL")
-	testLogger.Info().Msgf("Gateway URL: %s", gatewayURL.String())
-
-	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
-
-	gwURL := gatewayURL.String()
-
-	t.Run("basic_crud", func(t *testing.T) {
-		if parallelEnabled {
-			t.Parallel()
+		if orgIDAsSecretOwnerEnabled {
+			require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
 		}
-		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-		owner := sc.MustGetRootKeyAddress().Hex()
-		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
 		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
 		require.NoError(t, err)
-		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-		secretID := strconv.Itoa(rand.Intn(10000))
-		enc, err := crevault.EncryptSecret("secret-basic", vaultPublicKey, sc.MustGetRootKeyAddress())
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlist")
+		createValue := "secret-basic-create"
+		updateValue := "secret-basic-update"
+		createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(createValue, vaultParsedPublicKey, workflowOwnerAddress)
+		require.NoError(t, err)
+		updateEnc, err := vaultutils.EncryptSecretWithWorkflowOwner(updateValue, vaultParsedPublicKey, workflowOwnerAddress)
 		require.NoError(t, err)
 		ulCh := make(chan *workflowevents.UserLogs, 1000)
 		bmCh := make(chan *commonevents.BaseMessage, 1000)
@@ -104,518 +89,506 @@ func ExecuteVaultTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		})
 		namespaces := []string{"main", "alt"}
 
-		executeVaultSecretsCreateTest(t, enc, secretID, owner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget1", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta1", secretID, "alt", ulCh, bmCh)
-		executeVaultSecretsUpdateTest(t, enc, secretID, owner, gwURL, namespaces, sc, wfReg)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bget2", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta2", secretID, "alt", ulCh, bmCh)
-		executeVaultSecretsListTest(t, secretID, owner, gwURL, "main", sc, wfReg)
-		executeVaultSecretsListTest(t, secretID, owner, gwURL, "alt", sc, wfReg)
-		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, []string{"main"}, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "bdel1", secretID, "main", ulCh, bmCh)
-		executeVaultSecretsGetViaWorkflowTest(t, subEnv, "bgeta3", secretID, "alt", ulCh, bmCh)
-		executeVaultSecretsDeleteTest(t, secretID, owner, gwURL, []string{"alt"}, sc, wfReg)
-		executeVaultSecretsGetNotFoundViaWorkflowTest(t, subEnv, "bdela1", secretID, "alt", ulCh, bmCh)
-	})
-}
-
-func executeVaultSecretsCreateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Creating secrets (namespaces=%v)...", namespaces)
-
-	uniqueRequestID := uuid.New().String()
-
-	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(namespaces))
-	for _, namespace := range namespaces {
-		encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
-			Id: &vault_helpers.SecretIdentifier{
-				Key:       secretID,
-				Owner:     owner,
-				Namespace: namespace,
-			},
-			EncryptedValue: encryptedSecret,
-		})
-	}
-
-	secretsCreateRequest := vault_helpers.CreateSecretsRequest{
-		RequestId:        uniqueRequestID,
-		EncryptedSecrets: encryptedSecrets,
-	}
-	secretsCreateRequestBody, err := json.Marshal(secretsCreateRequest) //nolint:govet // The lock field is not set on this proto
-	require.NoError(t, err, "failed to marshal secrets request")
-	secretsCreateRequestBodyJSON := json.RawMessage(secretsCreateRequestBody)
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsCreate,
-		Params:  &secretsCreateRequestBodyJSON,
-	}
-	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
-
-	requestBody, err := json.Marshal(jsonRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
-
-	signedOCRResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
-
-	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
-	createSecretsResponse := vault_helpers.CreateSecretsResponse{}
-	err = protojson.Unmarshal(signedOCRResponse.Payload, &createSecretsResponse)
-	require.NoError(t, err, "failed to decode payload into CreateSecretsResponse proto")
-	framework.L.Info().Msgf("CreateSecretsResponse decoded as: %s", createSecretsResponse.String())
-
-	require.Len(t, createSecretsResponse.Responses, len(namespaces), "Expected one item in the response per namespace")
-	respByNs := make(map[string]*vault_helpers.CreateSecretResponse, len(namespaces))
-	for _, r := range createSecretsResponse.GetResponses() {
-		respByNs[r.GetId().GetNamespace()] = r
-	}
-	for _, namespace := range namespaces {
-		result, ok := respByNs[namespace]
-		require.True(t, ok, "missing response for namespace %s", namespace)
-		require.Empty(t, result.GetError())
-		require.Equal(t, secretID, result.GetId().Key)
-		require.Equal(t, owner, result.GetId().Owner)
-	}
-
-	framework.L.Info().Msgf("Secrets created successfully (namespaces=%v)", namespaces)
-}
-
-func executeVaultSecretsGetViaWorkflowTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName, secretKey, secretNamespace string,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
-) {
-	testLogger := framework.L
-	testLogger.Info().Msgf("Verifying secret retrieval via workflow (key=%s, namespace=%s)...", secretKey, secretNamespace)
-
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfg := &vaultsecret_config.Config{
-		SecretKey:       secretKey,
-		SecretNamespace: secretNamespace,
-	}
-	const workflowFileLocation = "./vaultsecret/main.go"
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
-
-	expectedLog := "Vault secret retrieved successfully via workflow"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	testLogger.Info().Msg("Vault secret get via workflow test completed")
-}
-
-func executeVaultSecretsGetNotFoundViaWorkflowTest(
-	t *testing.T, testEnv *ttypes.TestEnvironment,
-	workflowBaseName, secretKey, secretNamespace string,
-	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
-) {
-	testLogger := framework.L
-	testLogger.Info().Msgf("Verifying secret is NOT retrievable via workflow after deletion (key=%s, namespace=%s)...", secretKey, secretNamespace)
-
-	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
-	cfg := &vaultsecret_config.Config{
-		SecretKey:       secretKey,
-		SecretNamespace: secretNamespace,
-		ExpectNotFound:  true,
-	}
-	const workflowFileLocation = "./vaultsecret/main.go"
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, cfg, workflowFileLocation)
-
-	expectedLog := "Vault secret correctly not found after deletion"
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
-	testLogger.Info().Msg("Vault secret not-found via workflow test completed")
-}
-
-func executeVaultSecretsUpdateTest(t *testing.T, encryptedSecret, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Updating secrets (namespaces=%v)...", namespaces)
-	uniqueRequestID := uuid.New().String()
-
-	encryptedSecrets := make([]*vault_helpers.EncryptedSecret, 0, len(namespaces)+1)
-	for _, namespace := range namespaces {
-		encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
-			Id: &vault_helpers.SecretIdentifier{
-				Key:       secretID,
-				Owner:     owner,
-				Namespace: namespace,
-			},
-			EncryptedValue: encryptedSecret,
-		})
-	}
-	encryptedSecrets = append(encryptedSecrets, &vault_helpers.EncryptedSecret{
-		Id: &vault_helpers.SecretIdentifier{
-			Key:       "invalid",
-			Owner:     owner,
-			Namespace: namespaces[0],
-		},
-		EncryptedValue: encryptedSecret,
-	})
-
-	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
-		RequestId:        uniqueRequestID,
-		EncryptedSecrets: encryptedSecrets,
-	}
-	secretsUpdateRequestBody, err := json.Marshal(secretsUpdateRequest) //nolint:govet // The lock field is not set on this proto
-	require.NoError(t, err, "failed to marshal secrets request")
-	secretsUpdateRequestBodyJSON := json.RawMessage(secretsUpdateRequestBody)
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsUpdate,
-		Params:  &secretsUpdateRequestBodyJSON,
-	}
-	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
-
-	requestBody, err := json.Marshal(jsonRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
-
-	signedOCRResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
-
-	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
-
-	updateSecretsResponse := vault_helpers.UpdateSecretsResponse{}
-	err = protojson.Unmarshal(signedOCRResponse.Payload, &updateSecretsResponse)
-	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
-	framework.L.Info().Msgf("UpdateSecretsResponse decoded as: %s", updateSecretsResponse.String())
-
-	require.Len(t, updateSecretsResponse.Responses, len(namespaces)+1, "Expected one updated item per namespace plus one invalid item")
-	var foundInvalid bool
-	updateRespByNs := make(map[string]*vault_helpers.UpdateSecretResponse, len(namespaces))
-	for _, r := range updateSecretsResponse.GetResponses() {
-		if r.GetId().GetKey() == "invalid" {
-			require.Contains(t, r.Error, "key does not exist")
-			foundInvalid = true
-			continue
+		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		var orgIDLabelSecretID string
+		var orgIDLabelCreateValue string
+		if orgIDAsSecretOwnerEnabled {
+			orgIDLabelSecretID = secretID + "orgidlabel"
+			orgIDLabelCreateValue = "secret-basic-create-org-id-label"
+			orgIDLabelCreateEnc, orgErr := vaultutils.EncryptSecretWithOrgID(orgIDLabelCreateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, orgErr)
+			executeVaultAllowListSecretsCreateTest(t, orgIDLabelCreateEnc, orgIDLabelSecretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
 		}
-		updateRespByNs[r.GetId().GetNamespace()] = r
-	}
-	require.True(t, foundInvalid, "expected an error response for the 'invalid' key")
-	for _, namespace := range namespaces {
-		result, ok := updateRespByNs[namespace]
-		require.True(t, ok, "missing update response for namespace %s", namespace)
-		require.Empty(t, result.GetError())
-		require.Equal(t, secretID, result.GetId().Key)
-		require.Equal(t, owner, result.GetId().Owner)
-	}
-
-	framework.L.Info().Msgf("Secrets updated successfully (namespaces=%v)", namespaces)
-}
-
-func executeVaultSecretsListTest(t *testing.T, secretID, owner, gatewayURL, namespace string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Listing secrets (namespace=%s)...", namespace)
-	uniqueRequestID := uuid.New().String()
-	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
-		RequestId: uniqueRequestID,
-		Owner:     owner,
-		Namespace: namespace,
-	}
-	secretsListRequestBody, err := json.Marshal(secretsListRequest) //nolint:govet // The lock field is not set on this proto
-	require.NoError(t, err, "failed to marshal secrets request")
-	secretsUpdateRequestBodyJSON := json.RawMessage(secretsListRequestBody)
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsList,
-		Params:  &secretsUpdateRequestBodyJSON,
-	}
-	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
-
-	// Ensure that multiple requests can be allowlisted
-	uniqueRequestIDTwo := uuid.New().String()
-	secretsListRequestTwo := vault_helpers.ListSecretIdentifiersRequest{
-		RequestId: uniqueRequestIDTwo,
-		Owner:     owner,
-		Namespace: namespace,
-	}
-	secretsListRequestBodyTwo, err := json.Marshal(secretsListRequestTwo) //nolint:govet // The lock field is not set on this proto
-	require.NoError(t, err, "failed to marshal secrets request")
-	secretsUpdateRequestBodyJSONTwo := json.RawMessage(secretsListRequestBodyTwo)
-	jsonRequestTwo := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestIDTwo,
-		Method:  vaulttypes.MethodSecretsList,
-		Params:  &secretsUpdateRequestBodyJSONTwo,
-	}
-	allowlistRequest(t, owner, jsonRequestTwo, sethClient, wfRegistryContract)
-
-	// Request 1
-	requestBody, err := json.Marshal(jsonRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
-	}
-
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponse.Method)
-
-	signedOCRResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
-
-	// Request 2
-	requestBodyTwo, err := json.Marshal(jsonRequestTwo)
-	require.NoError(t, err, "failed to marshal secrets request")
-	statusCodeTwo, httpResponseBodyTwo := sendVaultRequestToGateway(t, gatewayURL, requestBodyTwo)
-	require.Equal(t, http.StatusOK, statusCodeTwo, "Gateway endpoint should respond with 200 OK")
-	var jsonResponseTwo jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBodyTwo, &jsonResponseTwo)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponseTwo)
-	if jsonResponseTwo.Error != nil {
-		require.Empty(t, jsonResponseTwo.Error.Error())
-	}
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponseTwo.Version)
-	require.Equal(t, uniqueRequestIDTwo, jsonResponseTwo.ID)
-	require.Equal(t, vaulttypes.MethodSecretsList, jsonResponseTwo.Method)
-	signedOCRResponseTwo := jsonResponseTwo.Result
-	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponseTwo.String())
-
-	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
-
-	listSecretsResponse := vault_helpers.ListSecretIdentifiersResponse{}
-	err = protojson.Unmarshal(signedOCRResponse.Payload, &listSecretsResponse)
-	require.NoError(t, err, "failed to decode payload into ListSecretIdentifiersResponse proto")
-	framework.L.Info().Msgf("ListSecretIdentifiersResponse decoded as: %s", listSecretsResponse.String())
-
-	require.True(t, listSecretsResponse.Success, err)
-	require.GreaterOrEqual(t, len(listSecretsResponse.Identifiers), 1, "Expected at least one item in the response")
-	var keys = make([]string, 0, len(listSecretsResponse.Identifiers))
-	for _, identifier := range listSecretsResponse.Identifiers {
-		keys = append(keys, identifier.Key)
-		require.Equal(t, owner, identifier.Owner)
-		require.Equal(t, namespace, identifier.Namespace)
-	}
-	require.Contains(t, keys, secretID)
-	framework.L.Info().Msgf("Secrets listed successfully (namespace=%s)", namespace)
-}
-
-func executeVaultSecretsDeleteTest(t *testing.T, secretID, owner, gatewayURL string, namespaces []string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	framework.L.Info().Msgf("Deleting secrets (namespaces=%v)...", namespaces)
-	uniqueRequestID := uuid.New().String()
-
-	deleteIDs := make([]*vault_helpers.SecretIdentifier, 0, len(namespaces)+1)
-	for _, namespace := range namespaces {
-		deleteIDs = append(deleteIDs, &vault_helpers.SecretIdentifier{
-			Key:       secretID,
-			Owner:     owner,
-			Namespace: namespace,
+		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "main", sc, wfReg)
+		executeVaultSecretsListTest(t, secretID, owner, expectedResponseOwner, gwURL, "alt", sc, wfReg)
+		updatedChecks := []vaultWorkflowCheck{
+			{Name: "allowlist-main-updated", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: updateValue},
+			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
+		}
+		finalChecks := []vaultWorkflowCheck{
+			{Name: "allowlist-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+			{Name: "allowlist-alt-updated", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: updateValue},
+		}
+		if orgIDAsSecretOwnerEnabled {
+			orgIDChecks := []vaultWorkflowCheck{
+				{Name: "allowlist-org-id-label-main", SecretKey: orgIDLabelSecretID, SecretNamespace: "main", ExpectedValue: orgIDLabelCreateValue},
+				{Name: "allowlist-org-id-label-alt", SecretKey: orgIDLabelSecretID, SecretNamespace: "alt", ExpectedValue: orgIDLabelCreateValue},
+			}
+			updatedChecks = append(updatedChecks, orgIDChecks...)
+			finalChecks = append(finalChecks, orgIDChecks...)
+		}
+		workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "allowlist-lifecycle", []vaultWorkflowPhase{
+			{Name: "allowlist-updated", Checks: updatedChecks},
+			{Name: "allowlist-final-verify", Checks: finalChecks},
 		})
-	}
-	deleteIDs = append(deleteIDs, &vault_helpers.SecretIdentifier{
-		Key:       "invalid",
-		Owner:     owner,
-		Namespace: namespaces[0],
+		waitForVaultWorkflowPhase(t, workflowID, "allowlist-updated", ulCh, bmCh)
+		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"main"}, sc, wfReg)
+		waitForVaultWorkflowPhase(t, workflowID, "allowlist-final-verify", ulCh, bmCh)
+		executeVaultSecretsDeleteTest(t, secretID, owner, expectedResponseOwner, gwURL, []string{"alt"}, sc, wfReg)
+		if orgIDAsSecretOwnerEnabled {
+			executeVaultSecretsDeleteTest(t, orgIDLabelSecretID, owner, expectedResponseOwner, gwURL, namespaces, sc, wfReg)
+		}
 	})
 
-	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
-		RequestId: uniqueRequestID,
-		Ids:       deleteIDs,
-	}
-	secretsDeleteRequestBody, err := json.Marshal(secretsDeleteRequest) //nolint:govet // The lock field is not set on this proto
-	require.NoError(t, err, "failed to marshal secrets request")
-	secretsDeleteRequestBodyJSON := json.RawMessage(secretsDeleteRequestBody)
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodSecretsDelete,
-		Params:  &secretsDeleteRequestBodyJSON,
-	}
-	allowlistRequest(t, owner, jsonRequest, sethClient, wfRegistryContract)
-
-	requestBody, err := json.Marshal(jsonRequest)
-	require.NoError(t, err, "failed to marshal secrets request")
-
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
-	framework.L.Info().Msg("Checking jsonResponse structure...")
-	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
-	require.NoError(t, err, "failed to unmarshal getResponse")
-	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
-	if jsonResponse.Error != nil {
-		require.Empty(t, jsonResponse.Error.Error())
+	if !isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		return
 	}
 
-	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
-	require.Equal(t, uniqueRequestID, jsonResponse.ID)
-	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
+	t.Run("allowlist_crud_with_org_id_identity", func(t *testing.T) {
+		require.NotNil(t, linkingService, "JWT auth enabled topology must include a linking service")
 
-	signedOCRResponse := jsonResponse.Result
-	framework.L.Info().Msgf("Signed OCR Response: %s", signedOCRResponse.String())
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		workflowOwnerAddress := sc.MustGetRootKeyAddress()
+		workflowOwner := workflowOwnerAddress.Hex()
+		orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		linkingService.SetOwnerOrg(workflowOwner, orgID)
 
-	// TODO: Verify the authenticity of this signed report, by ensuring that the signatures indeed match the payload
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 
-	deleteSecretsResponse := vault_helpers.DeleteSecretsResponse{}
-	err = protojson.Unmarshal(signedOCRResponse.Payload, &deleteSecretsResponse)
-	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
-	framework.L.Info().Msgf("DeleteSecretResponse decoded as: %s", deleteSecretsResponse.String())
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistorgid")
+		createEnc, err := vaultutils.EncryptSecretWithOrgID("secret-org-id-owner-create", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+		updateEnc, err := vaultutils.EncryptSecretWithOrgID("secret-org-id-owner-update", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
 
-	require.Len(t, deleteSecretsResponse.Responses, len(namespaces)+1, "Expected one deleted item per namespace plus one invalid item")
-	var foundDeleteInvalid bool
-	deleteRespByNs := make(map[string]*vault_helpers.DeleteSecretResponse, len(namespaces))
-	for _, r := range deleteSecretsResponse.GetResponses() {
-		if r.GetId().GetKey() == "invalid" {
-			require.Contains(t, r.Error, "key does not exist")
-			foundDeleteInvalid = true
-			continue
+		allowlistAuth := newAllowlistVaultRequestAuth(workflowOwner, sc, wfReg)
+		namespaces := []string{"main"}
+		executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t, allowlistAuth, orgID, createEnc, secretID, []string{orgID}, gwURL, namespaces)
+		executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, updateEnc, secretID, orgID, gwURL, namespaces)
+		executeVaultSecretsListWithAuthAndOwner(t, allowlistAuth, orgID, []string{secretID}, orgID, gwURL, "main")
+		executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, allowlistAuth, orgID, secretID, orgID, gwURL, namespaces)
+	})
+
+	t.Run("identifier_validation", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
 		}
-		deleteRespByNs[r.GetId().GetNamespace()] = r
-	}
-	require.True(t, foundDeleteInvalid, "expected an error response for the 'invalid' key")
-	for _, namespace := range namespaces {
-		result, ok := deleteRespByNs[namespace]
-		require.True(t, ok, "missing delete response for namespace %s", namespace)
-		require.True(t, result.Success, result.Error)
-		require.Equal(t, owner, result.Id.Owner)
-		require.Equal(t, secretID, result.Id.Key)
-	}
-
-	framework.L.Info().Msgf("Secrets deleted successfully (namespaces=%v)", namespaces)
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+		})
+		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+	})
 }
 
-// updateVaultCapabilityConfigInRegistry updates the on-chain capabilities registry
-// so that the vault@1.0.0 capability config includes DefaultConfig with VaultPublicKey
-// and Threshold. This is required for workflows that call runtime.GetSecret().
-// Uses the original deployer key (not per-test key) since the registry is owned by the deployer.
-func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnvironment, vaultPublicKey string) {
-	t.Helper()
+func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
-	testLogger.Info().Msg("Updating vault capability config in capabilities registry with VaultPublicKey...")
+	issuer := fixture.Issuer
+	linkingService := fixture.LinkingService
 
-	capRegAddr := crecontracts.MustGetAddressFromDataStore(
+	gatewayURL := fixture.GatewayURL
+	vaultPublicKey := fixture.VaultPublicKey
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	workflowOwner := sc.MustGetRootKeyAddress().Hex()
+	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	linkingService.SetOwnerOrg(workflowOwner, orgID)
+
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.RegistryChainSelector,
-		keystone_changeset.CapabilitiesRegistry.String(),
-		testEnv.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
+		keystone_changeset.WorkflowRegistry.String(),
+		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		"",
 	)
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 
-	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0])
-	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	allowlistAuth := newAllowlistVaultRequestAuth(workflowOwner, sc, wfReg)
 
-	deployerClient, err := seth.NewClientBuilder().
-		WithRpcUrl(sethClient.URL).
-		WithPrivateKeys([]string{ctfblockchain.DefaultAnvilPrivateKey}).
-		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
-		Build()
-	require.NoError(t, err, "failed to create deployer seth client")
+	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	bmCh := make(chan *commonevents.BaseMessage, 1000)
+	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+	})
 
-	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
-		common.HexToAddress(capRegAddr), deployerClient.Client,
-	)
-	require.NoError(t, err, "failed to create capabilities registry wrapper")
+	gwURL := gatewayURL.String()
+	jwtAuth := newJWTVaultRequestAuth(issuer, orgID, workflowOwner)
+	vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+	workflowOwnerAddress := common.HexToAddress(workflowOwner)
 
-	allDONs, err := capReg.GetDONs(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
-	require.NoError(t, err, "failed to get DONs from registry")
+	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwt")
+		createValue := "secret-jwt-workflow-owner"
+		enc, err := vaultutils.EncryptSecretWithOrgID(createValue, vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
 
-	var don *capabilities_registry_v2.CapabilitiesRegistryDONInfo
-	for i := range allDONs {
-		for _, cc := range allDONs[i].CapabilityConfigurations {
-			if cc.CapabilityId == "vault@1.0.0" {
-				don = &allDONs[i]
-				break
-			}
+		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
+		workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "jwt-lifecycle", []vaultWorkflowPhase{
+			{
+				Name: "jwt-created",
+				Checks: []vaultWorkflowCheck{
+					{Name: "jwt-create-get-main", SecretKey: secretID, SecretNamespace: "main", ExpectedValue: createValue},
+					{Name: "jwt-create-get-alt", SecretKey: secretID, SecretNamespace: "alt", ExpectedValue: createValue},
+				},
+			},
+			{
+				Name: "jwt-deleted",
+				Checks: []vaultWorkflowCheck{
+					{Name: "jwt-delete-main-not-found", SecretKey: secretID, SecretNamespace: "main", ExpectNotFound: true},
+					{Name: "jwt-delete-alt-not-found", SecretKey: secretID, SecretNamespace: "alt", ExpectNotFound: true},
+				},
+			},
+		})
+		waitForVaultWorkflowPhase(t, workflowID, "jwt-created", ulCh, bmCh)
+		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "main")
+		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, workflowOwner, gwURL, "alt")
+		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, workflowOwner, gwURL, []string{"main", "alt"})
+		waitForVaultWorkflowPhase(t, workflowID, "jwt-deleted", ulCh, bmCh)
+	})
+
+	t.Run("jwt_rejected_when_secret_labeled_as_workflow_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtreject")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-wrong-label", vaultParsedPublicKey, workflowOwnerAddress)
+		require.NoError(t, err)
+
+		uniqueRequestID := uuid.New().String()
+		secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+			RequestId:        uniqueRequestID,
+			EncryptedSecrets: buildEncryptedSecrets(secretID, orgID, encryptedSecret, []string{"main"}),
 		}
-		if don != nil {
+		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+		jwtAuth.apply(t, &jsonRequest)
+
+		jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gwURL, jsonRequest, http.StatusBadRequest)
+		require.Equal(t, uniqueRequestID, jsonResponse.ID)
+		require.NotNil(t, jsonResponse.Error)
+		require.Equal(t, jsonrpc.ErrInvalidParams, jsonResponse.Error.Code)
+		require.Contains(t, jsonResponse.Error.Error(), "doesn't have owner as the label")
+	})
+
+	t.Run("mixed_allowlist_and_jwt_auth", func(t *testing.T) {
+		t.Run("cross_auth_create_update_list_and_delete", func(t *testing.T) {
+			allowlistSecretID := uniqueVaultSecretID("mixedallowlist")
+			jwtSecretID := uniqueVaultSecretID("mixedjwt")
+			allowlistCreateValue := "secret-mixed-allowlist-create"
+			jwtCreateValue := "secret-mixed-jwt-create"
+			allowlistUpdateValue := "secret-mixed-allowlist-update"
+			jwtUpdateValue := "secret-mixed-jwt-update"
+			allowlistCreateEnc, err := vaultutils.EncryptSecretWithOrgID(allowlistCreateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, err)
+			jwtCreateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtCreateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, err)
+			allowlistUpdateEnc, err := vaultutils.EncryptSecretWithOrgID(allowlistUpdateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, err)
+			jwtUpdateEnc, err := vaultutils.EncryptSecretWithOrgID(jwtUpdateValue, vaultParsedPublicKey, orgID)
+			require.NoError(t, err)
+
+			executeVaultSecretsCreateWithAuth(t, allowlistAuth, allowlistCreateEnc, allowlistSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsCreateWithAuth(t, jwtAuth, jwtCreateEnc, jwtSecretID, orgID, gwURL, []string{"main"})
+			workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "mixed-lifecycle", []vaultWorkflowPhase{
+				{
+					Name: "mixed-created",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-allowlist-create-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: allowlistCreateValue},
+						{Name: "mixed-jwt-create-get-main", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectedValue: jwtCreateValue},
+					},
+				},
+				{
+					Name: "mixed-updated",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-jwt-update-get-main", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectedValue: jwtUpdateValue},
+						{Name: "mixed-allowlist-update-get-main", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectedValue: allowlistUpdateValue},
+					},
+				},
+				{
+					Name: "mixed-deleted",
+					Checks: []vaultWorkflowCheck{
+						{Name: "mixed-allowlist-delete-not-found", SecretKey: allowlistSecretID, SecretNamespace: "main", ExpectNotFound: true},
+						{Name: "mixed-jwt-delete-not-found", SecretKey: jwtSecretID, SecretNamespace: "main", ExpectNotFound: true},
+					},
+				},
+			})
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-created", ulCh, bmCh)
+
+			executeVaultSecretsUpdateWithAuth(t, jwtAuth, jwtUpdateEnc, allowlistSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsUpdateWithAuth(t, allowlistAuth, allowlistUpdateEnc, jwtSecretID, orgID, gwURL, []string{"main"})
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-updated", ulCh, bmCh)
+
+			executeVaultSecretsListWithAuth(t, allowlistAuth, []string{allowlistSecretID, jwtSecretID}, orgID, gwURL, "main")
+			executeVaultSecretsListWithAuth(t, jwtAuth, []string{allowlistSecretID, jwtSecretID}, orgID, gwURL, "main")
+
+			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, allowlistSecretID, orgID, gwURL, []string{"main"})
+			executeVaultSecretsDeleteWithAuth(t, jwtAuth, jwtSecretID, orgID, gwURL, []string{"main"})
+			waitForVaultWorkflowPhase(t, workflowID, "mixed-deleted", ulCh, bmCh)
+		})
+	})
+
+	t.Run("jwt_without_workflow_owner_uses_org_id_identity", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtorgonly")
+		encryptedSecret, err := vaultutils.EncryptSecretWithOrgID("secret-jwt-org-only", vaultParsedPublicKey, orgID)
+		require.NoError(t, err)
+
+		orgOnlyJWTAuth := newJWTVaultRequestAuth(issuer, orgID, "")
+		executeVaultSecretsCreateWithAuth(t, orgOnlyJWTAuth, encryptedSecret, secretID, orgID, gwURL, []string{"main"})
+		executeVaultSecretsListWithAuth(t, orgOnlyJWTAuth, []string{secretID}, orgID, gwURL, "main")
+		executeVaultSecretsDeleteWithAuth(t, orgOnlyJWTAuth, secretID, orgID, gwURL, []string{"main"})
+	})
+
+	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, workflowOwner, gwURL,
+			map[string]any{vaultcap.ClaimVaultSecretManagementEnabled: "false"},
+			vaultcap.ErrVaultSecretManagementNotEnabled.Error(),
+		)
+	})
+}
+
+func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
+	t.Helper()
+	issuer := fixture.Issuer
+	gatewayURL := fixture.GatewayURL
+	vaultPublicKey := fixture.VaultPublicKey
+
+	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	gwURL := gatewayURL.String()
+
+	t.Run("jwt_with_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "0x1234567890abcdef1234567890abcdef12345678", gwURL, "JWTBasedAuth is disabled")
+	})
+
+	t.Run("jwt_without_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
+		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, "", gwURL, "JWTBasedAuth is disabled")
+	})
+}
+
+func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+
+	testCases := []struct {
+		name        string
+		configPath  string
+		wantJWTGate string
+		wantOrgGate string
+		wantLinking bool
+	}{
+		{
+			name:        "enabled",
+			configPath:  vaultJWTAuthEnabledConfigPath,
+			wantJWTGate: "true",
+			wantOrgGate: "true",
+			wantLinking: false,
+		},
+		{
+			name:        "default",
+			configPath:  vaultDefaultConfigPath,
+			wantJWTGate: "false",
+			wantOrgGate: "false",
+			wantLinking: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := &envconfig.Config{}
+			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
+
+			for _, nodeSet := range cfg.NodeSets {
+				if nodeSet.Name != "workflow" && nodeSet.Name != "capabilities" {
+					continue
+				}
+				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+				if settingsRaw == "" {
+					require.Equal(t, "false", tc.wantJWTGate)
+					require.Equal(t, "false", tc.wantOrgGate)
+				} else {
+					var settings map[string]string
+					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
+					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
+					require.Equal(t, tc.wantOrgGate, settings["VaultOrgIdAsSecretOwnerEnabled"])
+				}
+
+				for _, nodeSpec := range nodeSet.NodeSpecs {
+					if tc.wantLinking {
+						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
+						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
+						continue
+					}
+					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
+				}
+			}
+		})
+	}
+}
+
+func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
+	issuer, err := vault.NewTestJWTIssuer()
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, issuer.Close())
+	})
+
+	params, err := json.Marshal(vault_helpers.CreateSecretsRequest{
+		RequestId: "req-1",
+		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
+			{
+				Id: &vault_helpers.SecretIdentifier{
+					Key:       "9838",
+					Namespace: "main",
+					Owner:     "org-123",
+				},
+				EncryptedValue: "cipher+/==",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	rawParams := json.RawMessage(params)
+	req := jsonrpc.Request[json.RawMessage]{
+		Version: jsonrpc.JsonRpcVersion,
+		ID:      "req-1",
+		Method:  vaulttypes.MethodSecretsCreate,
+		Params:  &rawParams,
+	}
+	req.Auth = mustMintVaultJWTForRequest(t, issuer, req, "org-123", "0xAbCdEf0123456789AbCdEf0123456789AbCdEf01")
+
+	outboundReq := outboundRequestWithoutAuth(req)
+	requestDigest, err := outboundReq.Digest()
+	require.NoError(t, err)
+
+	parsedToken, _, err := new(jwt.Parser).ParseUnverified(req.Auth, jwt.MapClaims{})
+	require.NoError(t, err)
+
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	require.True(t, ok)
+	authorizationDetails, ok := claims["authorization_details"].([]interface{})
+	require.True(t, ok)
+
+	var claimedDigest string
+	for _, detail := range authorizationDetails {
+		entry, ok := detail.(map[string]interface{})
+		require.True(t, ok)
+		if entry["type"] == "request_digest" {
+			claimedDigest, ok = entry["value"].(string)
+			require.True(t, ok)
 			break
 		}
 	}
-	require.NotNil(t, don, "could not find a DON with vault@1.0.0 capability in the registry")
-	testLogger.Info().Msgf("Found vault capability on DON %q (ID=%d)", don.Name, don.Id)
 
-	newConfigs := make([]capabilities_registry_v2.CapabilitiesRegistryCapabilityConfiguration, 0, len(don.CapabilityConfigurations))
-	for _, cc := range don.CapabilityConfigurations {
-		if cc.CapabilityId == "vault@1.0.0" {
-			existingConfig := &capabilitiespb.CapabilityConfig{}
-			if len(cc.Config) > 0 {
-				require.NoError(t, proto.Unmarshal(cc.Config, existingConfig), "failed to unmarshal existing vault capability config")
-			}
-
-			vaultCfg := map[string]interface{}{
-				"VaultPublicKey": vaultPublicKey,
-				"Threshold":      1,
-			}
-			valueMap, wrapErr := values.WrapMap(vaultCfg)
-			require.NoError(t, wrapErr, "failed to wrap vault config values")
-
-			existingConfig.DefaultConfig = values.ProtoMap(valueMap)
-
-			configBytes, marshalErr := proto.Marshal(existingConfig)
-			require.NoError(t, marshalErr, "failed to marshal updated vault capability config")
-
-			cc.Config = configBytes
-			testLogger.Info().Msg("Injected VaultPublicKey and Threshold into vault@1.0.0 capability config")
-		}
-		newConfigs = append(newConfigs, cc)
-	}
-
-	updateParams := capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
-		Name:                     don.Name,
-		Nodes:                    don.NodeP2PIds,
-		CapabilityConfigurations: newConfigs,
-		IsPublic:                 don.IsPublic,
-		F:                        don.F,
-		Config:                   don.Config,
-	}
-
-	_, err = deployerClient.Decode(capReg.UpdateDONByName(deployerClient.NewTXOpts(), don.Name, updateParams))
-	require.NoError(t, err, "UpdateDONByName tx failed")
-
-	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
-	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
+	require.NotEmpty(t, claimedDigest)
+	require.Equal(t, requestDigest, claimedDigest)
 }
 
-func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
-	requestDigest, err := request.Digest()
-	require.NoError(t, err, "failed to get digest for request")
-	requestDigestBytes, err := hex.DecodeString(requestDigest)
-	require.NoError(t, err, "failed to decode digest")
-	reqDigestBytes := [32]byte(requestDigestBytes)
-	_, err = wfRegistryContract.AllowlistRequest(sethClient.NewTXOpts(), reqDigestBytes, uint32(time.Now().Add(1*time.Hour).Unix())) //nolint:gosec // disable G115
-	require.NoError(t, err, "failed to allowlist request")
+func executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(
+	t *testing.T, testEnv *ttypes.TestEnvironment,
+	workflowBaseName string,
+	userLogsCh chan *workflowevents.UserLogs, baseMessageCh chan *commonevents.BaseMessage,
+) {
+	testLogger := framework.L
+	testLogger.Info().Msg("Verifying get secret is rejected for invalid identifier via workflow...")
 
-	framework.L.Info().Msgf("Allowlisting request digest at contract %s, for owner: %s, digestHexStr: %s", wfRegistryContract.Address().Hex(), owner, requestDigest)
-	allowedList, err := wfRegistryContract.GetAllowlistedRequests(&bind.CallOpts{}, big.NewInt(0), big.NewInt(100))
-	require.NoError(t, err, "failed to validate allowlisted request")
-	for _, req := range allowedList {
-		if req.RequestDigest == reqDigestBytes {
-			framework.L.Info().Msgf("Request digest found in allowlist")
+	const workflowFileLocation = "./vaultsecret/main.go"
+
+	workflowName := t_helpers.UniqueWorkflowName(testEnv, workflowBaseName)
+	workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &vaultsecret_config.Config{
+		SecretKey:               "invalid-key-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid key
+		SecretNamespace:         "main",
+		SecretKey2:              "validkey",
+		SecretNamespace2:        "invalid-namespace-with-hyphens", // hyphen not in [a-zA-Z0-9_]; tests invalid namespace
+		ExpectInvalidIdentifier: true,
+	}, workflowFileLocation)
+
+	// Both invalid-key and invalid-namespace checks run in the same cron trigger; a single
+	// success log is emitted only after both GetSecret calls are correctly rejected.
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog,
+		"Vault get correctly rejected invalid identifier", 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
+	testLogger.Info().Msg("Vault get invalid identifier via workflow test completed")
+}
+
+// executeVaultSecretsIdentifierValidationTest verifies that the gateway rejects requests whose
+// secret identifiers contain characters outside the allowed alphanumeric+underscore set.
+// All four management request types (create, update, delete, list) are exercised across
+// invalid key, invalid namespace, and invalid owner cases. Positive-path coverage is provided
+// by basic_crud; this test focuses only on rejection behaviour.
+func executeVaultSecretsIdentifierValidationTest(t *testing.T, encryptedSecret string, owner, gatewayURL string, sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {
+	t.Helper()
+
+	const (
+		validKey         = "validkey"
+		invalidKey       = "invalid-key-with-hyphens" // hyphen not in [a-zA-Z0-9_]
+		validNamespace   = "main"
+		invalidNamespace = "invalid-namespace-hyphens" // hyphen not in [a-zA-Z0-9_]
+	)
+
+	sendWriteAndAssert := func(t *testing.T, method, caseName string, secret *vault_helpers.EncryptedSecret) {
+		t.Helper()
+		uniqueRequestID := uuid.New().String()
+		var body []byte
+		var err error
+		switch method {
+		case vaulttypes.MethodSecretsCreate:
+			body, err = json.Marshal(vault_helpers.CreateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: []*vault_helpers.EncryptedSecret{secret}})
+		case vaulttypes.MethodSecretsUpdate:
+			body, err = json.Marshal(vault_helpers.UpdateSecretsRequest{RequestId: uniqueRequestID, EncryptedSecrets: []*vault_helpers.EncryptedSecret{secret}})
+		case vaulttypes.MethodSecretsDelete:
+			body, err = json.Marshal(vault_helpers.DeleteSecretsRequest{RequestId: uniqueRequestID, Ids: []*vault_helpers.SecretIdentifier{secret.Id}})
 		}
-		framework.L.Info().Msgf("Allowlisted request digestHexStr: %s, owner: %s, expiry: %d", hex.EncodeToString(req.RequestDigest[:]), req.Owner.Hex(), req.ExpiryTimestamp)
+		require.NoError(t, err)
+		bodyJSON := json.RawMessage(body)
+		req := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: method, Params: &bodyJSON}
+		allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
+		reqBody, err := json.Marshal(req)
+		require.NoError(t, err)
+		_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+		require.Contains(t, string(respBody), "alphanumeric", "[%s] expected alphanumeric rejection for %s", method, caseName)
+		framework.L.Info().Msgf("[%s] %s correctly rejected: %s", method, caseName, string(respBody))
 	}
+
+	type writeCase struct {
+		name         string
+		key, own, ns string
+	}
+	writeCases := []writeCase{
+		{"invalid key", invalidKey, owner, validNamespace},
+		{"invalid namespace", validKey, owner, invalidNamespace},
+	}
+
+	for _, op := range []string{vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate, vaulttypes.MethodSecretsDelete} {
+		framework.L.Info().Msgf("Testing identifier validation for %s request...", op)
+		for _, tc := range writeCases {
+			sendWriteAndAssert(t, op, tc.name, &vault_helpers.EncryptedSecret{
+				Id:             &vault_helpers.SecretIdentifier{Key: tc.key, Owner: owner, Namespace: tc.ns},
+				EncryptedValue: encryptedSecret,
+			})
+		}
+	}
+
+	framework.L.Info().Msg("Testing identifier validation for list request...")
+	uniqueRequestID := uuid.New().String()
+	body, err := json.Marshal(vault_helpers.ListSecretIdentifiersRequest{RequestId: uniqueRequestID, Owner: owner, Namespace: invalidNamespace})
+	require.NoError(t, err)
+	bodyJSON := json.RawMessage(body)
+	req := jsonrpc.Request[json.RawMessage]{Version: jsonrpc.JsonRpcVersion, ID: uniqueRequestID, Method: vaulttypes.MethodSecretsList, Params: &bodyJSON}
+	allowlistRequest(t, owner, req, sethClient, wfRegistryContract)
+	reqBody, err := json.Marshal(req)
+	require.NoError(t, err)
+	_, respBody := sendVaultRequestToGateway(t, gatewayURL, reqBody)
+	require.Contains(t, string(respBody), "alphanumeric", "[list] expected alphanumeric rejection for %s", "invalid namespace")
+	framework.L.Info().Msgf("[list] %s correctly rejected: %s", "invalid namespace", string(respBody))
+
+	framework.L.Info().Msg("All identifier validation checks passed")
 }

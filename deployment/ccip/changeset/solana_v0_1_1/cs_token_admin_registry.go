@@ -30,8 +30,9 @@ var _ cldf.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleT
 // use this changeset to upgrade token admin registry from v0.1.0 to v0.1.1
 var _ cldf.ChangeSet[UpgradeTokenAdminRegistryConfig] = UpgradeTokenAdminRegistry
 
-// use this changeset to set pool on token admin registry
+// use these changesets to set or remove a pool on the token admin registry
 var _ cldf.ChangeSet[SetPoolConfig] = SetPool
+var _ cldf.ChangeSet[RemovePoolConfig] = RemovePool
 
 type RegisterTokenAdminRegistryType int
 
@@ -752,6 +753,131 @@ func SetPool(e cldf.Environment, cfg SetPoolConfig) (cldf.ChangesetOutput, error
 	if len(mcmsTxs) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return cldf.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return cldf.ChangesetOutput{}, nil
+}
+
+type RemovePoolConfig struct {
+	ChainSelector uint64
+	TokenPubKeys  []solana.PublicKey
+	MCMS          *proposalutils.TimelockConfig
+}
+
+func (cfg RemovePoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	if err := chainState.ValidateRouterConfig(chain); err != nil {
+		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMS, chain, chainState, solana.PublicKey{}, "", map[cldf.ContractType]bool{shared.Router: true}); err != nil {
+		return err
+	}
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
+	deployerKey := chain.DeployerKey.PublicKey()
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	for _, tokenPubKey := range cfg.TokenPubKeys {
+		if err := chainState.CommonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+			return err
+		}
+		tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+		if err != nil {
+			return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
+		}
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot remove pool", tokenPubKey.String(), routerProgramAddress.String())
+		}
+		if !tokenAdminRegistryAccount.Administrator.Equals(deployerKey) && !tokenAdminRegistryAccount.Administrator.Equals(timelockSignerPDA) {
+			return fmt.Errorf("token admin registry admin public key (%s) is not the deployer key (%s) or timelock signer (%s) for token %s, cannot remove pool",
+				tokenAdminRegistryAccount.Administrator.String(),
+				deployerKey.String(),
+				timelockSignerPDA.String(),
+				tokenPubKey.String(),
+			)
+		}
+		if tokenAdminRegistryAccount.Administrator.Equals(timelockSignerPDA) && cfg.MCMS == nil {
+			return errors.New("registry admin role is the timelock signer, but no mcms config is provided, hence this changeset cannot sign for the remove pool")
+		}
+	}
+	return nil
+}
+
+// RemovePool sets the token pool lookup table to the zero address, effectively removing the pool association.
+func RemovePool(e cldf.Environment, cfg RemovePoolConfig) (cldf.ChangesetOutput, error) {
+	e.Logger.Infow("Removing pool config", "cfg", cfg)
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	chainState, ok := state.SolChains[cfg.ChainSelector]
+	if !ok {
+		return cldf.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
+	}
+	if err := cfg.Validate(e, chainState); err != nil {
+		return cldf.ChangesetOutput{}, err
+	}
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
+	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
+	timelockSignerPDA, err := FetchTimelockSigner(e, cfg.ChainSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+
+	zeroAddress := solana.PublicKey{}
+	mcmsTxs := []mcmsTypes.Transaction{}
+	for _, tokenPubKey := range cfg.TokenPubKeys {
+		tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
+
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
+		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot remove pool", tokenPubKey.String(), routerProgramAddress.String())
+		}
+		currentAdmin := tokenAdminRegistryAccount.Administrator
+
+		base := solRouter.NewSetPoolInstruction(
+			[]uint8{},
+			routerConfigPDA,
+			tokenAdminRegistryPDA,
+			tokenPubKey,
+			zeroAddress,
+			currentAdmin,
+		)
+		base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(zeroAddress))
+		tempIx, err := base.ValidateAndBuild()
+		if err != nil {
+			return cldf.ChangesetOutput{}, err
+		}
+		ixData, err := tempIx.Data()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to extract data payload from router set pool instruction: %w", err)
+		}
+		instruction := solana.NewInstruction(routerProgramAddress, tempIx.Accounts(), ixData)
+
+		if currentAdmin.Equals(timelockSignerPDA) {
+			tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), shared.Router)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			mcmsTxs = append(mcmsTxs, *tx)
+		} else {
+			if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+				return cldf.ChangesetOutput{}, err
+			}
+		}
+	}
+
+	if len(mcmsTxs) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to RemovePool in Solana", cfg.MCMS.MinDelay, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
