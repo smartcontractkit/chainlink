@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -45,8 +46,13 @@ func TestGenerateRMNView(t *testing.T) {
 		BlessWeightThreshold: uint16(2),
 		CurseWeightThreshold: uint16(1),
 	}
+	permablessedStore := utils.RandomAddress()
 	_, tx, c, err := rmn_contract.DeployRMNContract(
 		chain.DeployerKey, chain.Client, cfg)
+	require.NoError(t, err)
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+	tx, err = c.OwnerRemoveThenAddPermaBlessedCommitStores(chain.DeployerKey, []common.Address{}, []common.Address{permablessedStore})
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
 	require.NoError(t, err)
@@ -56,6 +62,7 @@ func TestGenerateRMNView(t *testing.T) {
 	assert.Equal(t, "RMN 1.5.0", v.TypeAndVersion)
 	assert.Equal(t, uint32(1), v.ConfigDetails.Version)
 	assert.Equal(t, v.ConfigDetails.Config, cfg)
+	assert.Equal(t, v.PermaBlessedCommitStores, []common.Address{permablessedStore})
 	_, err = json.MarshalIndent(v, "", "  ")
 	require.NoError(t, err)
 }
