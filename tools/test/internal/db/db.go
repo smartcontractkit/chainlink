@@ -387,15 +387,18 @@ func (h *Handle) DumpDiagnostics(ctx context.Context, dir string, iteration int)
 		exitCode, out, execErr := h.container.Exec(ctx,
 			[]string{"psql", "-U", "postgres", "-d", "chainlink_test", "-P", "pager=off", "-c", q.sql},
 		)
-		switch {
-		case execErr != nil:
-			fmt.Fprintf(f, "error: %v\n", execErr)
-		case exitCode != 0:
+		if execErr != nil {
+			fmt.Fprintf(f, "error: %v\n```\n\n", execErr)
+			continue
+		}
+		if exitCode != 0 {
 			fmt.Fprintf(f, "psql exit %d\n", exitCode)
 		}
-		_, err = io.Copy(f, out)
-		if err != nil {
-			return fmt.Errorf("copy output: %w", err)
+		if out != nil {
+			_, err = io.Copy(f, out)
+			if err != nil {
+				return fmt.Errorf("copy output: %w", err)
+			}
 		}
 		fmt.Fprint(f, "```\n\n")
 	}
