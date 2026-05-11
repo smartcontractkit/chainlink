@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-// vrfV2Observation is a minimal valid VRF v2 pipeline (VRF v1 / type=vrf removed).
+// vrfV2Observation is a minimal valid VRF v2 pipeline for validation tests.
 const vrfV2Observation = `
 decode_log   [type=ethabidecodelog
               abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
