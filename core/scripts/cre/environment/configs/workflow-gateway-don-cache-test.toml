@@ -1,3 +1,5 @@
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
 
 [[blockchains]]
   type = "anvil"

@@ -8,13 +8,14 @@ import (
 	router1_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 
+	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type OffRampView struct {
-	types.ContractMetaData
+	commoncldchangesets.ContractMetaData
 	DynamicConfig                       offramp.OffRampDynamicConfig        `json:"dynamicConfig"`
 	SourceChainConfigs                  map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
 	SourceChainConfigsBasedOnTestRouter map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigsBasedOnTestRouter"`
@@ -32,7 +33,7 @@ func GenerateOffRampView(
 	offRampContract offramp.OffRampInterface,
 	routerContract, testRouterContract *router1_2.Router,
 ) (OffRampView, error) {
-	tv, err := types.NewContractMetaData(offRampContract, offRampContract.Address())
+	tv, err := commoncldchangesets.NewContractMetaData(offRampContract, offRampContract.Address())
 	if err != nil {
 		return OffRampView{}, err
 	}

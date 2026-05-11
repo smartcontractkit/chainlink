@@ -19,11 +19,22 @@ import (
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 )
 
-const defaultExecutePinMaxAttempts = 1024
+const (
+	defaultTryAcquireMaxAttempts = 1024
+	defaultExecutePinMaxAttempts = 1024
+)
+
+// tryAcquireMaxAttempts bounds CAS retries while pinning a moduleEntry.
+// It is mutable only so tests can lower it; production code leaves it at defaultTryAcquireMaxAttempts.
+var tryAcquireMaxAttempts = defaultTryAcquireMaxAttempts
 
 // executePinMaxAttempts bounds how many times Execute retries after ensureLoaded races with Evict.
 // It is mutable only so tests can lower it; production code leaves it at defaultExecutePinMaxAttempts.
 var executePinMaxAttempts = defaultExecutePinMaxAttempts
+
+// tryAcquireCompareAndSwap is injectable for tests to deterministically force CAS contention.
+// It must be left as nil in production (defaulting to moduleEntry.refCount.CompareAndSwap).
+var tryAcquireCompareAndSwap func(e *moduleEntry, old, next int64) bool
 
 // evictAfterEnsureLoadedHook is set by tests to force eviction after a successful ensureLoaded,
 // exercising the pin retry loop and exhaustion path. It must be nil in production.
@@ -93,20 +104,27 @@ func newLoadedModule(mod host.ModuleV2) *loadedModule {
 	return h
 }
 
-// tryAcquire pins the holder by incrementing refCount only if it is non-zero.
-// A plain Add(1) would race with the owning-ref drop that already brought the
-// count to zero (i.e. holder abandoned, awaiting GC). CAS makes the increment
-// conditional on the holder still being live and authoritative.
-func (h *loadedModule) tryAcquire() bool {
-	for {
-		n := h.refCount.Load()
-		if n == 0 {
-			return false
-		}
-		if h.refCount.CompareAndSwap(n, n+1) {
-			return true
+// tryAcquire pins the entry by incrementing refCount only if it is non-zero.
+// A plain Add(1) would race with a release that already drove the count to zero
+// and called Close, leading to a use-after-close. CAS makes the increment
+// conditional on the entry still being live.
+func (e *moduleEntry) tryAcquire() (acquired bool, exhausted bool) {
+	cas := tryAcquireCompareAndSwap
+	if cas == nil {
+		cas = func(e *moduleEntry, old, next int64) bool {
+			return e.refCount.CompareAndSwap(old, next)
 		}
 	}
+	for attempt := 0; attempt < tryAcquireMaxAttempts; attempt++ {
+		n := e.refCount.Load()
+		if n == 0 {
+			return false, false
+		}
+		if cas(e, n, n+1) {
+			return true, false
+		}
+	}
+	return false, true
 }
 
 // release drops one ref. It deliberately does NOT call mod.Close on zero so the
@@ -173,9 +191,12 @@ func NewEvictableModule(
 }
 
 func (m *EvictableModule) Start() {
-	if h := m.current.Load(); h != nil && h.tryAcquire() {
-		defer h.release()
-		h.mod.Start()
+	if e := m.current.Load(); e != nil {
+		acquired, _ := e.tryAcquire()
+		if acquired {
+			defer e.release()
+			e.mod.Start()
+		}
 	}
 	m.started.Store(true)
 }
@@ -224,9 +245,15 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 			h(m)
 		}
 		m.lastUsed.Store(time.Now().UnixNano())
-		if h := m.current.Load(); h != nil && h.tryAcquire() {
-			pinned = h
-			break
+		if e := m.current.Load(); e != nil {
+			acquired, exhausted := e.tryAcquire()
+			if acquired {
+				pinned = e
+				break
+			}
+			if exhausted {
+				m.metrics.recordTryAcquireExhausted(ctx)
+			}
 		}
 	}
 	if pinned == nil {
@@ -313,22 +340,40 @@ func (m *EvictableModule) ensureLoaded(ctx context.Context) error {
 	return nil
 }
 
-// Evict releases the strong reference to the inner module so its wasm runtime
-// resources can be reclaimed by the GC. The weak L2 reference survives, so an
-// Execute arriving before GC reaps the holder can skip both disk I/O and wasm
-// compilation (see ensureLoaded's L2 path). The holder's runtime.AddCleanup
-// closes the module when GC eventually reclaims it.
+// Evict drops the owning reference to the inner module only when no Execute call
+// is currently pinned on that entry.
 //
-// Evict is non-blocking: it never waits on in-flight Execute calls. The
-// owning refcount drop only abandons the slot; in-flight pins keep the holder
-// reachable until they release, after which it transitions to weak-only and
-// becomes eligible for GC + cleanup-driven close.
+// Why this check exists:
+//   - If we clear m.current while another Execute still holds a pin, the entry
+//     remains alive (refcount > 0) but becomes unreachable through m.current.
+//   - A concurrent/new Execute that observes m.current == nil will run
+//     ensureLoaded and instantiate another module from weak-ref/disk.
+//   - That creates transient duplicate module instances for one workflow:
+//     the old one still serving in-flight work and a new one for subsequent
+//     work. This is safe, but unnecessarily increases memory churn and defeats
+//     the eviction intent under contention.
+//
+// By refusing eviction while refcount > 1 (owner + at least one pin), we make
+// eviction eventually consistent: reap/cap may skip a busy module in this cycle
+// and retry later, but we avoid duplicate live instances caused by evicting a
+// still-pinned entry.
+//
+// Evict remains non-blocking and single-pass: it performs one CAS attempt and
+// returns. If that CAS loses a race with a concurrent load/reload/evict, the
+// caller can retry on the next reap/cap cycle.
 func (m *EvictableModule) Evict() {
 	if m.closed.Load() {
 		return
 	}
-	if h := m.current.Swap(nil); h != nil {
-		h.release()
+	e := m.current.Load()
+	if e == nil {
+		return
+	}
+	if e.refCount.Load() > 1 {
+		return
+	}
+	if m.current.CompareAndSwap(e, nil) {
+		e.release()
 	}
 }
 

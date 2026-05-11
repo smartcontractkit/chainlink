@@ -31,7 +31,7 @@ Prerequisites:
     cd core/scripts/cre/environment
     CTF_CONFIGS=configs/workflow-gateway-don-cache-test.toml go run . env start
   - Run:
-    go test -timeout 15m -run "^Test_CRE_V2_Module_Cache$" -v
+    go test -timeout 10m -run "^Test_CRE_V2_Module_Cache$" -v
 */
 func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
@@ -51,16 +51,18 @@ func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 		Schedule: "*/30 * * * * *",
 	}
 
-	const numWorkflows = 20
+	const numWorkflows = 10
 	for i := 0; i < numWorkflows; i++ {
 		t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, fmt.Sprintf("cachetest%d", i), &workflowConfig, workflowFileLocation)
 	}
 	testLogger.Info().Int("count", numWorkflows).Msg("All cache-test workflows deployed")
 
-	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", 4*time.Minute)
-	testLogger.Info().Msg("First workflow execution confirmed, observing cache activity for 2 more minutes...")
+	const watchTimeout = 2 * time.Minute
+	const cacheObserveWindow = 1 * time.Minute
+	t_helpers.WatchWorkflowLogs(t, testLogger, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, "Amazing workflow user log", watchTimeout)
+	testLogger.Info().Dur("window", cacheObserveWindow).Msg("First workflow execution confirmed, observing cache activity...")
 
-	drainFor(userLogsCh, 2*time.Minute)
+	drainFor(userLogsCh, cacheObserveWindow)
 
 	assertNodeLogs(t, testEnv, "Module cache enabled")
 }

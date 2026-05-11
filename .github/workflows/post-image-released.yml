@@ -2,6 +2,12 @@ name: "Post Image Released"
 on:
     # to be used with post release tests
     workflow_dispatch:
+        inputs:
+            tag-version-ceiling:
+                description: "Version ceiling for compatibility testing (tags newer than this
+                    version will be excluded)"
+                required: false
+                type: string
 
 permissions: {}
 
@@ -26,6 +32,7 @@ jobs:
             logs-directory: "./devenv/tests/ocr2/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ inputs.tag-version-ceiling }}
         secrets: inherit
 
     cre-compat:
@@ -46,5 +53,6 @@ jobs:
             logs-directory: "./system-tests/tests/smoke/cre/logs"
             ctf-log-level: "debug"
             strip-image-suffix: "v"
+            tag-version-ceiling: ${{ inputs.tag-version-ceiling }}
         secrets: inherit
         # Do not run other tests, since they were already run on the pre-release image

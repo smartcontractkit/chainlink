@@ -67,6 +67,7 @@ ok EVM.1.Txm.WrappedEvmEstimator
 ok HeadReporter
 ok Heartbeat
 ok JobSpawner
+ok JobSpecReporter
 ok LLOTransmissionReaper
 ok Mailbox.Monitor
 ok Mercury.WSRPCPool
@@ -254,6 +255,15 @@ ok WorkflowStore
       "id": "JobSpawner",
       "attributes": {
         "name": "JobSpawner",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "JobSpecReporter",
+      "attributes": {
+        "name": "JobSpecReporter",
         "status": "passing",
         "output": ""
       }
