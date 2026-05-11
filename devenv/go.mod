@@ -26,8 +26,8 @@ require (
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260504070828-3216bb63d886
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.22-0.20260508073141-9153e11b093d
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260508073141-9153e11b093d
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260511081501-829666151188
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.2
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d
