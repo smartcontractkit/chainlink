@@ -240,7 +240,16 @@ func basicAutomationTest(t *testing.T, testcase Testcase) {
 			l.Info().Msgf("Upgrading node %d to version %s", i, testcase.upgradeImage)
 			err = products.RestartNodes(t.Context(), in.NodeSets[0], in.Blockchains[0], true, time.Minute)
 			require.NoError(t, err, "Error when upgrading node %d", i)
-			time.Sleep(time.Second * 10)
+			// Poll until the node is ready by checking that the chain client
+			// can successfully retrieve a new block number, indicating the node
+			// has recovered and is processing transactions.
+			var preRestartBlock uint64
+			gom.Eventually(t, func() (uint64, error) {
+				block, err := a.ChainClient.Client.BlockNumber(t.Context())
+				return block, err
+			}, time.Minute*2, time.Second*2).Should(gomega.BeNumerically(">", preRestartBlock),
+				"Node %d should be processing new blocks after restart", i)
+			l.Info().Msgf("Node %d is ready after upgrade", i)
 			expect += testcase.ExpectedUpkeepExecutions
 			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
