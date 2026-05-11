@@ -309,7 +309,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.logs-artifact-name }}
+          name: ${{ matrix.logs-artifact-name }}-always-logs
           path: |
             ./deployment/coverage.txt
             ./postgres_logs.txt
