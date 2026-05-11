@@ -48,7 +48,7 @@ jobs:
           metrics: cpu,network,memory,disk
       - name: Run `diagnose`
         run: |
-          go -C tools/test run . diagnose --iterations ${{ env.ITERATIONS }} --parallel-iterations ${{ env.PARALLEL_ITERATIONS }} -- ${{ env.DIR }}
+          go -C tools/test run . diagnose --iterations "${ITERATIONS}" --parallel-iterations "${PARALLEL_ITERATIONS}" -- "${DIR}"
       - name: Upload Results
         uses: actions/upload-artifact@v7
         with:
