@@ -48,7 +48,6 @@
 /core/scripts/vrf*/ @smartcontractkit/dev-services
 
 # Keeper/Automation-related services
-/core/services/keeper/ @smartcontractkit/dev-services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
 # Chainlink Functions
@@ -95,7 +94,8 @@
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
 /.github/workflows/build-publish.yml @smartcontractkit/devex-cicd
 /.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
-/tools/plugout/ @smartcontractkit/devex-cicd
+/tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
+/tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

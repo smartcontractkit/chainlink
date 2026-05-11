@@ -21,12 +21,11 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1"
 	depcontracts "github.com/smartcontractkit/chainlink/deployment/cre/ocr3/ocr3_1/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -207,11 +206,21 @@ func (o *Vault) PostEnvStartup(
 	}
 
 	ocr3Config := contracts.DefaultOCR3_1Config(don.WorkersCount())
-
-	dkgConfig, dErr := dkgReportingPluginConfig(don)
-	if dErr != nil {
-		return fmt.Errorf("failed to create DKG reporting plugin config: %w", dErr)
+	dkgOffchainConfig := &ocr3_1.DKGOffchainConfig{
+		T: 1,
 	}
+
+	workers, wErr := don.Workers()
+	if wErr != nil {
+		return errors.Wrap(wErr, "failed to find worker nodes")
+	}
+
+	for _, workerNode := range workers {
+		pubKey := hex.EncodeToString(workerNode.Keys.DKGKey.PubKey)
+		dkgOffchainConfig.DealerPublicKeys = append(dkgOffchainConfig.DealerPublicKeys, pubKey)
+		dkgOffchainConfig.RecipientPublicKeys = append(dkgOffchainConfig.RecipientPublicKeys, pubKey)
+	}
+	ocr3Config.DKGOffchainConfig = dkgOffchainConfig
 
 	chain, ok := creEnv.CldfEnvironment.BlockChains.EVMChains()[creEnv.RegistryChainSelector]
 	if !ok {
@@ -238,12 +247,11 @@ func (o *Vault) PostEnvStartup(
 			Strategy: strategy,
 		},
 		ks_contracts_op.ConfigureDKGOpInput{
-			ContractAddress:       vaultDKGOCR3Addr,
-			ChainSelector:         creEnv.RegistryChainSelector,
-			DON:                   don.KeystoneDONConfig(),
-			Config:                ocr3Config,
-			DryRun:                false,
-			ReportingPluginConfig: *dkgConfig,
+			ContractAddress: vaultDKGOCR3Addr,
+			ChainSelector:   creEnv.RegistryChainSelector,
+			DON:             don.KeystoneDONConfig(),
+			Config:          ocr3Config,
+			DryRun:          false,
 		},
 	)
 	if err != nil {
@@ -510,17 +518,4 @@ func vaultMethodConfigs() map[string]*capabilitiespb.CapabilityMethodConfig {
 			},
 		},
 	}
-}
-
-func EncryptSecret(secret, masterPublicKeyStr string, owner common.Address) (string, error) {
-	masterPublicKey := tdh2easy.PublicKey{}
-	masterPublicKeyBytes, err := hex.DecodeString(masterPublicKeyStr)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to decode master public key")
-	}
-	err = masterPublicKey.Unmarshal(masterPublicKeyBytes)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal master public key")
-	}
-	return vaultutils.EncryptSecretWithWorkflowOwner(secret, &masterPublicKey, owner)
 }

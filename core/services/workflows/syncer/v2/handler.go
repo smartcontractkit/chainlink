@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sync"
 	"time"
 
@@ -53,6 +54,14 @@ type ORM interface {
 // creation since they don't support async initialization hooks.
 type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
 
+type DrainableService interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
+
+var ErrDrainInProgress = errors.New("drain in progress")
+
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
 	services.Service
@@ -78,6 +87,8 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
+	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
+	localSecretOverrides map[string]map[string]string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -95,6 +106,8 @@ type eventHandler struct {
 	shardingEnabled         bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
+
+	metrics *metrics
 }
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
@@ -179,13 +192,23 @@ func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
 	}
 }
 
-func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+// WithLocalSecretOverrides wires [CRE.LocalSecretOverrides]: per-workflow-owner name->secret map
+func WithLocalSecretOverrides(lggr logger.Logger, perOwner map[string]map[string]string) func(*eventHandler) {
 	return func(e *eventHandler) {
-		if len(secrets) == 0 {
+		if len(perOwner) == 0 {
 			return
 		}
-		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
-		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+		e.localSecretOverrides = make(map[string]map[string]string, len(perOwner))
+		for k, m := range perOwner {
+			e.localSecretOverrides[k] = maps.Clone(m)
+		}
+		owners := make([]string, 0, len(e.localSecretOverrides))
+		for owner := range e.localSecretOverrides {
+			owners = append(owners, owner)
+		}
+		lggr.Warnw("Per-owner local secret overrides are active; vault is used for secret IDs not listed under each owner",
+			"numOwners", len(e.localSecretOverrides),
+			"owners", owners)
 	}
 }
 
@@ -245,6 +268,11 @@ func NewEventHandler(
 		workflowDonSubscriber:  workflowDonSubscriber,
 		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
+	metricsInst, metricsErr := newMetrics()
+	if metricsErr != nil {
+		return nil, fmt.Errorf("new metrics: %w", metricsErr)
+	}
+	eh.metrics = metricsInst
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
 		o(eh)
@@ -363,8 +391,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if err := h.workflowPausedEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+		if err = h.workflowPausedEvent(ctx, payload); err != nil {
+			if errors.Is(err, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow pause deferred: %v", err), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			}
 			return err
 		}
 
@@ -417,8 +449,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr := h.workflowDeletedEvent(ctx, payload); herr != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+			if errors.Is(herr, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+			}
 			return herr
 		}
 
@@ -497,12 +533,24 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
+		drainable, isDrainable := prevEngine.Service.(DrainableService)
+		isDraining := false
+		if isDrainable {
+			_, isDraining = drainable.DrainStartedAt()
+		}
+		if isDrainable && isDraining {
+			h.lggr.Infow("engine is draining, replacing with a new engine", "workflowID", payload.WorkflowID.Hex())
+		}
+
 		// This is the happy-path, we're done.
-		return nil
+		if !isDrainable || !isDraining {
+			return nil
+		}
 	}
 
 	// Any other case ->
 	// - engine in registry, but service isn't running
+	// - engine in registry and service is running, but it's draining and must be replaced
 	// - state isn't active
 	// Let's clean up and recreate
 
@@ -616,13 +664,13 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		},
 	}
 
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
 	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate module: %w", err)
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
 		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
@@ -684,9 +732,31 @@ func (h *eventHandler) workflowDeletedEvent(
 	// closed.
 	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
 	// prior steps fail.
+	workflowID := payload.WorkflowID.Hex()
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
+	var drainable DrainableService
+	var isDrainable bool
 	if ok {
-		if innerErr := e.Close(); innerErr != nil {
+		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
+			if started := drainable.Drain(); started {
+				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
+				if h.metrics != nil {
+					h.metrics.incrementDrainStarted(ctx)
+				}
+			}
+
+			if active := drainable.ActiveExecutions(); active > 0 {
+				if h.metrics != nil {
+					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
+				}
+				h.lggr.Infow("workflow deletion deferred: active executions still running",
+					"workflowID", workflowID,
+					"activeExecutions", active)
+				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+			}
+		}
+
+		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}
@@ -699,7 +769,17 @@ func (h *eventHandler) workflowDeletedEvent(
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	if isDrainable {
+		startedAt, exists := drainable.DrainStartedAt()
+		if exists && h.metrics != nil {
+			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
+		}
+	}
+	return nil
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
@@ -847,6 +927,22 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	return nil
 }
 
+func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
+	if h.localSecretOverrides == nil {
+		return nil
+	}
+	key, err := v2.LocalSecretOverrideOwnerKey(owner)
+	if err != nil {
+		h.lggr.Errorw("invalid workflow owner for local secret overrides", "owner", owner, "err", err)
+		return nil
+	}
+	overrides := h.localSecretOverrides[key]
+	if len(overrides) == 0 {
+		return nil
+	}
+	return v2.NewLocalSecretsFetcher(owner, overrides)
+}
+
 // newV2EngineConfig builds the common EngineConfig shared by both the normal
 // WASM engine and the confidential engine paths. Caller supplies the module.
 func (h *eventHandler) newV2EngineConfig(
@@ -886,6 +982,7 @@ func (h *eventHandler) newV2EngineConfig(
 		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
 		OrgResolver:                   h.orgResolver,
 		SecretsFetcher:                h.secretsFetcher,
+		OverrideFetcher:               h.overrideFetcherForOwner(owner),
 		DebugMode:                     h.debugMode,
 		SdkName:                       sdkName,
 

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -72,6 +73,14 @@ func makePipelineWithSingleResult[T any](runID int64, res T, err error) *mockPip
 		trrs: []pipeline.TaskRunResult{{Task: &pipeline.MemoTask{}, Result: pipeline.Result{Value: res}}},
 		err:  err,
 	}
+}
+
+// pipelineForStream sets StreamIDs so the data source schedules Observe for this stream.
+// Distinct *mockPipeline values are distinct workers; sibling streams in one job must share one pipeline pointer.
+func pipelineForStream(streamID streams.StreamID, runID int64, res *big.Int, err error) *mockPipeline {
+	p := makePipelineWithSingleResult[*big.Int](runID, res, err)
+	p.streamIDs = []streams.StreamID{streamID}
+	return p
 }
 
 func makeStreamValues(streamIDs ...llotypes.StreamID) llo.StreamValues {
@@ -228,9 +237,15 @@ func Test_DataSource(t *testing.T) {
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
 			reg.mu.Lock()
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
-			reg.pipelines[2] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
-			reg.pipelines[3] = makePipelineWithSingleResult[*big.Int](3, big.NewInt(15), nil)
+			sids := []streams.StreamID{1, 2, 3}
+			multi := makePipelineWithMultipleStreamResults(sids, []any{
+				decimal.NewFromInt(2181),
+				decimal.NewFromInt(40602),
+				decimal.NewFromInt(15),
+			})
+			reg.pipelines[1] = multi
+			reg.pipelines[2] = multi
+			reg.pipelines[3] = multi
 			reg.mu.Unlock()
 
 			vals := makeStreamValues()
@@ -252,9 +267,9 @@ func Test_DataSource(t *testing.T) {
 			ds := newDataSource(lggr, reg, telem.NullTelemeter)
 
 			reg.mu.Lock()
-			reg.pipelines[11] = makePipelineWithSingleResult[*big.Int](11, big.NewInt(21810), errors.New("something exploded"))
-			reg.pipelines[12] = makePipelineWithSingleResult[*big.Int](12, big.NewInt(40602), nil)
-			reg.pipelines[13] = makePipelineWithSingleResult[*big.Int](13, nil, errors.New("something exploded 2"))
+			reg.pipelines[11] = pipelineForStream(11, 11, big.NewInt(21810), errors.New("something exploded"))
+			reg.pipelines[12] = pipelineForStream(12, 12, big.NewInt(40602), nil)
+			reg.pipelines[13] = pipelineForStream(13, 13, nil, errors.New("something exploded 2"))
 			reg.mu.Unlock()
 
 			vals := makeStreamValues(11, 12, 13)
@@ -278,9 +293,9 @@ func Test_DataSource(t *testing.T) {
 			ds := newDataSource(lggr, reg, tm)
 
 			reg.mu.Lock()
-			reg.pipelines[21] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), nil)
-			reg.pipelines[22] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
-			reg.pipelines[23] = makePipelineWithSingleResult[*big.Int](102, big.NewInt(15), nil)
+			reg.pipelines[21] = pipelineForStream(21, 100, big.NewInt(2181), nil)
+			reg.pipelines[22] = pipelineForStream(22, 101, big.NewInt(40602), nil)
+			reg.pipelines[23] = pipelineForStream(23, 102, big.NewInt(15), nil)
 			reg.mu.Unlock()
 
 			vals := makeStreamValues(21, 22, 23)
@@ -351,9 +366,9 @@ func Test_DataSource(t *testing.T) {
 			ds := newDataSource(lggr, reg, tm)
 
 			reg.mu.Lock()
-			reg.pipelines[31] = makePipelineWithSingleResult[*big.Int](100, big.NewInt(2181), errors.New("something exploded"))
-			reg.pipelines[32] = makePipelineWithSingleResult[*big.Int](101, big.NewInt(40602), nil)
-			reg.pipelines[33] = makePipelineWithSingleResult[*big.Int](102, nil, errors.New("something exploded 2"))
+			reg.pipelines[31] = pipelineForStream(31, 100, big.NewInt(2181), errors.New("something exploded"))
+			reg.pipelines[32] = pipelineForStream(32, 101, big.NewInt(40602), nil)
+			reg.pipelines[33] = pipelineForStream(33, 102, nil, errors.New("something exploded 2"))
 			reg.mu.Unlock()
 
 			vals := makeStreamValues(31, 32, 33)
@@ -390,8 +405,8 @@ func Test_DataSource(t *testing.T) {
 
 			// First observation to populate cache
 			reg.mu.Lock()
-			reg.pipelines[10001] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(2181), nil)
-			reg.pipelines[20001] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(40602), nil)
+			reg.pipelines[10001] = pipelineForStream(10001, 1, big.NewInt(2181), nil)
+			reg.pipelines[20001] = pipelineForStream(20001, 2, big.NewInt(40602), nil)
 			reg.mu.Unlock()
 
 			vals := llo.StreamValues{
@@ -414,8 +429,8 @@ func Test_DataSource(t *testing.T) {
 
 			// Change pipeline results
 			reg.mu.Lock()
-			reg.pipelines[10001] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(9999), nil)
-			reg.pipelines[20001] = makePipelineWithSingleResult[*big.Int](2, big.NewInt(8888), nil)
+			reg.pipelines[10001] = pipelineForStream(10001, 1, big.NewInt(9999), nil)
+			reg.pipelines[20001] = pipelineForStream(20001, 2, big.NewInt(8888), nil)
 			reg.mu.Unlock()
 
 			// Second observation should use cached values
@@ -443,7 +458,7 @@ func Test_DataSource(t *testing.T) {
 
 			// First observation
 			reg.mu.Lock()
-			reg.pipelines[50002] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+			reg.pipelines[50002] = pipelineForStream(50002, 1, big.NewInt(100), nil)
 			reg.mu.Unlock()
 			vals := llo.StreamValues{50002: nil}
 
@@ -454,7 +469,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Change pipeline result
 			reg.mu.Lock()
-			reg.pipelines[50002] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(200), nil)
+			reg.pipelines[50002] = pipelineForStream(50002, 1, big.NewInt(200), nil)
 			reg.mu.Unlock()
 
 			// Wait for cache to expire
@@ -477,7 +492,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Set up pipeline to return different values
 			reg.mu.Lock()
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+			reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(100), nil)
 			reg.mu.Unlock()
 
 			// First observation to cache
@@ -588,9 +603,9 @@ func Test_DataSource(t *testing.T) {
 
 			// First observation with error
 			reg.mu.Lock()
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, nil, errors.New("pipeline error"))
+			reg.pipelines[1] = pipelineForStream(1, 1, nil, errors.New("pipeline error"))
 			reg.mu.Unlock()
-			vals := makeStreamValues()
+			vals := makeStreamValues(1)
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 			defer cancel()
 
@@ -599,7 +614,7 @@ func Test_DataSource(t *testing.T) {
 
 			// Second observation should try again (not use cache for error case)
 			reg.mu.Lock()
-			reg.pipelines[1] = makePipelineWithSingleResult[*big.Int](1, big.NewInt(100), nil)
+			reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(100), nil)
 			reg.mu.Unlock()
 			time.Sleep(observationTimeout * 3)
 
@@ -615,131 +630,76 @@ func Test_DataSource(t *testing.T) {
 
 	promCacheHitCount.Reset()
 	promCacheMissCount.Reset()
+	promCacheHitEntryAgeMs.Reset()
+	promObservationLoopWaitOutcome.Reset()
 }
 
-func Test_removeIncompleteGroups(t *testing.T) {
+func Test_DataSource_ObservationLoopWakeSkipsPacing(t *testing.T) {
+	promObservationLoopWaitOutcome.Reset()
 	lggr := logger.NullLogger
+	mainCtx := testutils.Context(t)
+	opts := &mockOpts{}
 
-	pipelineAB := &mockPipeline{streamIDs: []streams.StreamID{1, 2, 3}}
-	pipelineC := &mockPipeline{streamIDs: []streams.StreamID{10}}
-	pipelineDE := &mockPipeline{streamIDs: []streams.StreamID{20, 21}}
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.mu.Lock()
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	reg.mu.Unlock()
 
-	reg := &mockRegistry{pipelines: map[streams.StreamID]*mockPipeline{
-		1: pipelineAB, 2: pipelineAB, 3: pipelineAB,
-		10: pipelineC,
-		20: pipelineDE, 21: pipelineDE,
-	}}
-	ds := &dataSource{registry: reg}
+	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	defer ds.Close()
 
-	t.Run("all streams present for pipeline group, nothing removed", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			1: llo.ToDecimal(decimal.NewFromInt(100)),
-			2: llo.ToDecimal(decimal.NewFromInt(200)),
-			3: llo.ToDecimal(decimal.NewFromInt(300)),
-		}
-		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
+	// Long plugin deadline => large inter-iteration pacing; wake from Observe should advance the loop without waiting.
+	longCtx, cancel := context.WithTimeout(mainCtx, 30*time.Second)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(longCtx, vals, opts))
 
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Len(t, observed, 3)
-		assert.Empty(t, dropped)
-		assert.Contains(t, observed, streams.StreamID(1))
-		assert.Contains(t, observed, streams.StreamID(2))
-		assert.Contains(t, observed, streams.StreamID(3))
-	})
-
-	t.Run("one stream missing from 3-stream pipeline, entire group dropped", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			1: llo.ToDecimal(decimal.NewFromInt(100)),
-			3: llo.ToDecimal(decimal.NewFromInt(300)),
-			// stream 2 missing (e.g. extraction failed)
-		}
-		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
-
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Empty(t, observed, "entire group should be dropped when one stream is missing")
-		assert.ElementsMatch(t, []streams.StreamID{1, 3}, dropped)
-	})
-
-	t.Run("two independent pipelines, one complete one incomplete, only incomplete dropped", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			1:  llo.ToDecimal(decimal.NewFromInt(100)),
-			3:  llo.ToDecimal(decimal.NewFromInt(300)),
-			10: llo.ToDecimal(decimal.NewFromInt(1000)),
-			// stream 2 missing from pipelineAB; pipelineC (stream 10) is complete
-		}
-		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil}
-
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Len(t, observed, 1)
-		assert.ElementsMatch(t, []streams.StreamID{1, 3}, dropped)
-		assert.Contains(t, observed, streams.StreamID(10), "complete pipeline should be kept")
-		assert.NotContains(t, observed, streams.StreamID(1), "incomplete pipeline streams should be dropped")
-		assert.NotContains(t, observed, streams.StreamID(3), "incomplete pipeline streams should be dropped")
-	})
-
-	t.Run("stream in pipeline.StreamIDs() but not in scope (not requested), group kept", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			1: llo.ToDecimal(decimal.NewFromInt(100)),
-			2: llo.ToDecimal(decimal.NewFromInt(200)),
-			// stream 3 is in pipelineAB.StreamIDs() but NOT in scope
-		}
-		scope := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
-
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Len(t, observed, 2, "group should be kept; stream 3 is out of scope, not missing")
-		assert.Empty(t, dropped)
-		assert.Contains(t, observed, streams.StreamID(1))
-		assert.Contains(t, observed, streams.StreamID(2))
-	})
-
-	t.Run("empty observedValues, no panic", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{}
-		scope := llo.StreamValues{1: nil, 2: nil, 3: nil}
-
-		var dropped []streams.StreamID
-		assert.NotPanics(t, func() {
-			dropped = ds.removeIncompleteGroups(lggr, observed, scope)
-		})
-		assert.Empty(t, observed)
-		assert.Empty(t, dropped)
-	})
-
-	t.Run("single-stream pipeline always kept when present", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			10: llo.ToDecimal(decimal.NewFromInt(1000)),
-		}
-		scope := llo.StreamValues{10: nil}
-
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Len(t, observed, 1)
-		assert.Empty(t, dropped)
-		assert.Contains(t, observed, streams.StreamID(10))
-	})
-
-	t.Run("all groups complete with multiple pipelines", func(t *testing.T) {
-		observed := map[streams.StreamID]llo.StreamValue{
-			1:  llo.ToDecimal(decimal.NewFromInt(100)),
-			2:  llo.ToDecimal(decimal.NewFromInt(200)),
-			3:  llo.ToDecimal(decimal.NewFromInt(300)),
-			10: llo.ToDecimal(decimal.NewFromInt(1000)),
-			20: llo.ToDecimal(decimal.NewFromInt(2000)),
-			21: llo.ToDecimal(decimal.NewFromInt(2100)),
-		}
-		scope := llo.StreamValues{1: nil, 2: nil, 3: nil, 10: nil, 20: nil, 21: nil}
-
-		dropped := ds.removeIncompleteGroups(lggr, observed, scope)
-
-		assert.Len(t, observed, 6, "all groups complete, nothing should be dropped")
-		assert.Empty(t, dropped)
-	})
+	require.Eventually(t, func() bool {
+		return promtest.ToFloat64(promObservationLoopWaitOutcome.WithLabelValues("wake")) >= 1
+	}, 2*time.Second, 5*time.Millisecond, "expected at least one pacing wait satisfied by plugin wake")
 }
 
-func Test_getStreamsToRefresh(t *testing.T) {
+func Test_DataSource_ObserveWakeManyConcurrent(t *testing.T) {
+	lggr := logger.NullLogger
+	mainCtx := testutils.Context(t)
+	opts := &mockOpts{}
+
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.mu.Lock()
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(1), nil)
+	reg.mu.Unlock()
+
+	ds := newDataSource(lggr, reg, telem.NullTelemeter)
+	ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(ctx, vals, opts))
+
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 200; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// Each call needs its own StreamValues map: Observe mutates it in place (UpdateStreamValues).
+			localVals := makeStreamValues(1)
+			_ = ds.Observe(ctx, localVals, opts)
+		}()
+	}
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("concurrent Observe calls did not complete")
+	}
+	require.NoError(t, ds.Close())
+}
+
+func Test_buildStreamsRefreshPlan(t *testing.T) {
 	lggr := logger.NullLogger
 	timeout := 100 * time.Millisecond
 
@@ -762,7 +722,7 @@ func Test_getStreamsToRefresh(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
 		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
 		assert.Len(t, result, 3)
 		for _, id := range []streams.StreamID{1, 2, 3} {
@@ -778,12 +738,12 @@ func Test_getStreamsToRefresh(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
 		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
 		assert.Empty(t, result)
 	})
 
-	t.Run("one stale stream triggers entire pipeline group", func(t *testing.T) {
+	t.Run("one stale driver lists only stale IDs; worker observes all requested streams on that pipeline", func(t *testing.T) {
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
@@ -791,49 +751,54 @@ func Test_getStreamsToRefresh(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
 		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
-		assert.Len(t, result, 3, "all pipeline siblings should be included when one is stale")
-		for _, id := range []streams.StreamID{1, 2, 3} {
-			assert.Contains(t, result, id)
+		assert.Equal(t, []streams.StreamID{2}, plan.streamIDsToRefresh, "streamIDsToRefresh is stale plugin-scope keys only")
+		require.Len(t, plan.groups, 1)
+		for _, sids := range plan.groups {
+			assert.ElementsMatch(t, []streams.StreamID{1, 2, 3}, sids, "all three are in plugin scope, so observe list matches pipeline StreamIDs()")
 		}
 	})
 
-	t.Run("stale stream adds pipeline siblings even if not in scope", func(t *testing.T) {
+	t.Run("staleStreamIDs lists only stale keys; groups intersect pipeline with plugin scope", func(t *testing.T) {
 		cache := NewCache(0)
 		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
 		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
-		// pipeline has {1,2,3}, but only {1,2} in scope (plugin requested streamIds)
+		// pipeline has {1,2,3}, but only {1,2} in plugin scope
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
 		sv := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
-		assert.Contains(t, result, streams.StreamID(1))
-		assert.Contains(t, result, streams.StreamID(2))
-		assert.Contains(t, result, streams.StreamID(3), "out-of-scope pipeline sibling should still be included")
+		assert.Equal(t, []streams.StreamID{1}, plan.streamIDsToRefresh)
+		assert.NotContains(t, plan.streamIDsToRefresh, streams.StreamID(3), "out-of-scope stream is not a refresh driver")
+		require.Len(t, plan.groups, 1)
+		for _, sids := range plan.groups {
+			assert.Equal(t, []streams.StreamID{1, 2}, sids, "stream 3 is not requested; observe list is intersection with streamValues")
+		}
 	})
 
-	t.Run("stream not in registry is still included", func(t *testing.T) {
+	t.Run("stream not in registry is stale driver only; no pipeline worker", func(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
 		sv := llo.StreamValues{999: nil} // plugin requested streamId not yet in registry
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
-		assert.Len(t, result, 1)
-		assert.Contains(t, result, streams.StreamID(999))
+		assert.Equal(t, []streams.StreamID{999}, plan.streamIDsToRefresh, "stale in-scope keys are listed even without registry")
+		assert.Empty(t, plan.groups, "no Observe workers without a pipeline")
+		assert.ElementsMatch(t, []streams.StreamID{999}, plan.missingStreamIDs)
 	})
 
 	t.Run("empty streamValues returns empty set", func(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
 		sv := llo.StreamValues{}
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
 		assert.Empty(t, result)
 	})
 
-	t.Run("multiple pipelines: only stale pipeline expanded", func(t *testing.T) {
+	t.Run("multiple pipelines: only stale keys appear in streamIDsToRefresh", func(t *testing.T) {
 		cache := NewCache(0)
 		// Pipeline {10}: all fresh
 		cache.Add(10, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
@@ -844,15 +809,39 @@ func Test_getStreamsToRefresh(t *testing.T) {
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
 		sv := llo.StreamValues{10: nil, 20: nil, 21: nil}
 
-		result := ds.getStreamsToRefresh(sv, timeout)
+		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
-		assert.NotContains(t, result, streams.StreamID(10), "fresh pipeline should not be refreshed")
-		assert.Contains(t, result, streams.StreamID(20), "stale stream should be refreshed")
-		assert.Contains(t, result, streams.StreamID(21), "fresh sibling of stale stream should also be refreshed")
+		assert.NotContains(t, plan.streamIDsToRefresh, streams.StreamID(10), "fresh pipeline should not be refreshed")
+		assert.Equal(t, []streams.StreamID{20}, plan.streamIDsToRefresh)
+		assert.NotContains(t, plan.streamIDsToRefresh, streams.StreamID(21), "fresh sibling is not a refresh driver")
+		require.Len(t, plan.groups, 1)
+		for _, sids := range plan.groups {
+			assert.ElementsMatch(t, []streams.StreamID{20, 21}, sids)
+		}
 	})
 
 	promCacheHitCount.Reset()
 	promCacheMissCount.Reset()
+	promCacheHitEntryAgeMs.Reset()
+	promObservationLoopWaitOutcome.Reset()
+}
+
+func Test_observationTuningHelpers(t *testing.T) {
+	t.Parallel()
+
+	const tuningTestT = 100 * time.Millisecond
+	wantStaleSkip := time.Duration(staleRefreshRemainingNumerator) * tuningTestT / time.Duration(staleRefreshRemainingDenominator)
+
+	assert.Equal(t, time.Duration(cacheTTLMultiplier)*tuningTestT, cacheEntryTTL(tuningTestT))
+	assert.Equal(t, wantStaleSkip, staleRefreshSkipThreshold(tuningTestT))
+	assert.Less(t, staleRefreshSkipThreshold(tuningTestT), cacheEntryTTL(tuningTestT))
+	assert.Less(t, staleRefreshSkipThreshold(tuningTestT)+observationLoopPacing(tuningTestT), cacheEntryTTL(tuningTestT))
+
+	assert.Equal(t, 10*time.Millisecond, observationLoopPacing(100*time.Millisecond))
+	assert.Equal(t, 50*time.Millisecond, observationLoopPacing(500*time.Millisecond))
+	assert.Equal(t, observationLoopPacingMin, observationLoopPacing(0))
+	// T/10 below floor clamps to min, then caps to T/2
+	assert.Equal(t, 10*time.Millisecond, observationLoopPacing(30*time.Millisecond))
 }
 
 func BenchmarkObserve(b *testing.B) {

@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -33,7 +35,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	// run delete JobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			commonChangesets.DeleteJobChangeset,
+			jdchangesets.DeleteJobsChangeset,
 			jobIDs,
 		),
 	)
@@ -69,7 +71,7 @@ func TestRevokeJobs(t *testing.T) {
 	// run RevokeJobChangeset
 	_, err = commonChangesets.Apply(t, e.Env,
 		commonChangesets.Configure(
-			commonChangesets.RevokeJobsChangeset,
+			jdchangesets.RevokeJobsChangeset,
 			jobIDs,
 		),
 	)

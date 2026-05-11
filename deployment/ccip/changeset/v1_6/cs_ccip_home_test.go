@@ -571,7 +571,7 @@ func Test_SetCandidateAcceptsUSDCTokenPoolProxyFromDataStore(t *testing.T) {
 		ChainSelector: dest,
 		Address:       proxyAddress.Hex(),
 		Type:          datastore.ContractType(shared.USDCTokenPoolProxy),
-		Version:       &deployment.Version1_7_0,
+		Version:       &deployment.Version2_0_0,
 		Qualifier:     "proxy-only-in-datastore",
 	}))
 	tenv.Env.DataStore = ds.Seal()
@@ -608,7 +608,7 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 			ChainSelector: dest,
 			Address:       common.HexToAddress(ref.address).Hex(),
 			Type:          datastore.ContractType(shared.USDCTokenPoolProxy),
-			Version:       &deployment.Version1_7_0,
+			Version:       &deployment.Version2_0_0,
 			Qualifier:     ref.qualifier,
 		}), "add datastore ref %d", i)
 	}
@@ -621,7 +621,7 @@ func Test_SetCandidateErrorsOnDuplicateUSDCTokenPoolProxyInDataStore(t *testing.
 		),
 	)
 	require.Error(t, err)
-	require.ErrorContains(t, err, "multiple datastore entries found for USDCTokenPoolProxy 1.7.0")
+	require.ErrorContains(t, err, "multiple datastore entries found for USDCTokenPoolProxy 2.0.0")
 }
 
 func setCandidateExecConfig(homeChainSel, feedChainSel, dest uint64, sourcePoolAddress string) v1_6.SetCandidateChangesetConfig {

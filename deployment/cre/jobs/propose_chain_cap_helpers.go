@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -83,6 +85,35 @@ func resolveContractAddresses(
 	}
 
 	return resolvedAddresses{ForwarderAddress: fwdAddress.Address}, nil
+}
+
+// resolveSolanaForwarderAddresses loads the Solana CRE forwarder program id and state account
+// from the datastore (same refs as cre/forwarder/solana deploy). versionStr defaults to "1.0.0" when empty.
+func resolveSolanaForwarderAddresses(e cldf.Environment, chainSelector uint64, qualifier, versionStr string) (programAddr, stateAddr string, err error) {
+	if qualifier == "" {
+		return "", "", errors.New("cre forwarder qualifier is required")
+	}
+	if versionStr == "" {
+		versionStr = "1.0.0"
+	}
+	v, err := semver.NewVersion(versionStr)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid forwarder version %q: %w", versionStr, err)
+	}
+
+	progRef := pkg.GetSolanaForwarderProgramRefKey(chainSelector, v, qualifier)
+	prog, err := e.DataStore.Addresses().Get(progRef)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get Solana forwarder program for ref key %s: %w", progRef, err)
+	}
+
+	stateRef := pkg.GetSolanaForwarderStateRefKey(chainSelector, v, qualifier)
+	state, err := e.DataStore.Addresses().Get(stateRef)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get Solana forwarder state for ref key %s: %w", stateRef, err)
+	}
+
+	return prog.Address, state.Address, nil
 }
 
 func validateOverrideNetwork(got, expected, nodeID string) error {

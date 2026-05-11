@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	stderrors "errors"
-	"math/big"
 	"strings"
 
 	"github.com/goccy/go-json"
@@ -68,46 +67,9 @@ func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		return Result{Error: err}, runInfo
 	}
 
-	for _, part := range path {
-		switch d := decoded.(type) {
-		case map[string]any:
-			var exists bool
-			decoded, exists = d[part]
-			if !exists && bool(lax) {
-				decoded = nil
-				break
-			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
-			}
-
-		case []any:
-			bigindex, ok := big.NewInt(0).SetString(part, 10)
-			if !ok {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}, runInfo
-			} else if !bigindex.IsInt64() {
-				if bool(lax) {
-					decoded = nil
-					break
-				}
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
-			}
-			index := int(bigindex.Int64())
-			if index < 0 {
-				index = len(d) + index
-			}
-
-			exists := index >= 0 && index < len(d)
-			if !exists && bool(lax) {
-				decoded = nil
-				break
-			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
-			}
-			decoded = d[index]
-
-		default:
-			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
-		}
+	decoded, err = traverseJSONPath(decoded, path, bool(lax))
+	if err != nil {
+		return Result{Error: errors.Wrapf(err, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 	}
 
 	decoded, err = jsonserializable.ReinterpretJSONNumbers(decoded)

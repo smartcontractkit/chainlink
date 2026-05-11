@@ -51,7 +51,7 @@ MAIN_AWS_ECR=<main-registry> SDLC_AWS_ECR=<sdlc-registry> go run . env start --a
 Deploy a first workflow:
 
 ```bash
-go run . workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron_example
+go run . env workflow deploy -w ./examples/workflows/v2/cron/main.go --compile -n cron_example
 ```
 
 The environment command writes Local CRE state to the repo-local state file, which is what the test helpers later consume.

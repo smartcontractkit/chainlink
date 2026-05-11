@@ -9,6 +9,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -39,6 +40,7 @@ type EngineConfig struct {
 	ExecutionsStore      store.Store
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
+	OverrideFetcher      SecretsFetcher // Optional local secrets overrides
 	DonSubscriber        capabilities.DonSubscriber
 
 	WorkflowID            string // hex-encoded [32]byte, no "0x" prefix
@@ -78,6 +80,9 @@ type EngineConfig struct {
 }
 
 type EngineLimiters struct {
+	// Settings is the CRE dynamic settings getter from [limits.Factory.Settings] (optional).
+	Settings settings.Getter
+
 	ExecutionResponse        limits.BoundLimiter[config.Size]
 	TriggerSubscriptionTime  limits.TimeLimiter
 	TriggerRegistrationsTime limits.TimeLimiter
@@ -123,6 +128,8 @@ func NewLimiters(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*Engine
 }
 
 func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (err error) {
+	l.Settings = lf.Settings
+
 	cfg := cresettings.Default.PerWorkflow // make copy
 	if cfgFn != nil {
 		cfgFn(&cfg)
@@ -379,6 +386,7 @@ type LifecycleHooks struct {
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
 	OnSubscribedToTriggers func(triggerIDs []string)
+	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
 	OnExecutionError       func(msg string)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
@@ -454,6 +462,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
+	}
+	if h.OnTriggerEventDropped == nil {
+		h.OnTriggerEventDropped = func(triggerID, eventID, reason string) {}
 	}
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}

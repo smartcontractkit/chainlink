@@ -22,9 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -49,6 +47,7 @@ func PrepareNodeTOMLs(
 	nodeSets []*cre.NodeSet,
 	capabilities []cre.InstallableCapability, // Deprecated, use Features instead and modify node configs inside a Feature
 	nodeConfigTransformerFns []cre.NodeConfigTransformerFn,
+	chipRouterInternalGRPCURL string,
 ) ([]*cre.NodeSet, error) {
 	bt, hasBootstrap := topology.Bootstrap()
 	if !hasBootstrap {
@@ -105,16 +104,17 @@ func PrepareNodeTOMLs(
 		if configsFound == 0 {
 			config, configErr := generateNodeTomlConfig(
 				cre.GenerateConfigsInput{
-					Datastore:               creEnv.CldfEnvironment.DataStore,
-					ContractVersions:        creEnv.ContractVersions,
-					DonMetadata:             donMetadata,
-					Blockchains:             chainPerSelector,
-					Flags:                   donMetadata.Flags,
-					CapabilitiesPeeringData: capabilitiesPeeringData,
-					OCRPeeringData:          ocrPeeringData,
-					RegistryChainSelector:   creEnv.RegistryChainSelector,
-					Topology:                topology,
-					Provider:                creEnv.Provider,
+					Datastore:                 creEnv.CldfEnvironment.DataStore,
+					ContractVersions:          creEnv.ContractVersions,
+					DonMetadata:               donMetadata,
+					Blockchains:               chainPerSelector,
+					Flags:                     donMetadata.Flags,
+					CapabilitiesPeeringData:   capabilitiesPeeringData,
+					OCRPeeringData:            ocrPeeringData,
+					RegistryChainSelector:     creEnv.RegistryChainSelector,
+					Topology:                  topology,
+					Provider:                  creEnv.Provider,
+					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
 				},
 				configFactoryFunctions,
 			)
@@ -346,7 +346,7 @@ func addBootstrapNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
 
@@ -434,7 +434,7 @@ func addWorkerNodeConfig(
 			URL: ptr.Ptr("file:///home/chainlink/workflows"),
 		}
 
-		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(strings.TrimPrefix(framework.HostDockerInternal(), "http://") + ":" + chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT)
+		existingConfig.Telemetry.ChipIngressEndpoint = ptr.Ptr(commonInputs.chipRouterInternalGRPCURL)
 		existingConfig.Telemetry.ChipIngressInsecureConnection = ptr.Ptr(true)
 		existingConfig.Telemetry.ChipIngressBatchEmitterEnabled = ptr.Ptr(true)
 		existingConfig.Telemetry.HeartbeatInterval = commonconfig.MustNewDuration(30 * time.Second)
@@ -662,6 +662,8 @@ type commonInputs struct {
 	aptosChains []*aptosChain
 
 	provider infra.Provider
+
+	chipRouterInternalGRPCURL string
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -698,7 +700,8 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
-		provider: input.Provider,
+		provider:                  input.Provider,
+		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
 	}, nil
 }
 
@@ -855,20 +858,20 @@ func appendEVMChain(existingConfig *evmconfigtoml.EVMConfigs, evmChain *evmChain
 	*existingConfig = append(*existingConfig, &cfg)
 }
 
-func appendSolanaChain(existingConfig *solcfg.TOMLConfigs, solChain *solanaChain) {
+func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solanaChain) {
 	for _, existingSol := range *existingConfig {
-		if existingSol.ChainID != nil && *existingSol.ChainID == solChain.ChainID {
+		if existingSol.ChainID() == solChain.ChainID {
 			return
 		}
 	}
 
-	*existingConfig = append(*existingConfig, &solcfg.TOMLConfig{
-		Enabled: ptr.Ptr(true),
-		ChainID: ptr.Ptr(solChain.ChainID),
-		Nodes: []*solcfg.Node{
+	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
+		"Enabled": true,
+		"ChainID": solChain.ChainID,
+		"Nodes": []map[string]any{
 			{
-				Name: &solChain.Name,
-				URL:  commonconfig.MustParseURL(solChain.NodeURL),
+				"Name": solChain.Name,
+				"URL":  solChain.NodeURL,
 			},
 		},
 	})
