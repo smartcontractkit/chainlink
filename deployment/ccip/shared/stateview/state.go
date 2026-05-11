@@ -31,6 +31,7 @@ import (
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
@@ -96,7 +97,6 @@ import (
 	factoryBurnMintERC20v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/factory_burn_mint_erc20"
 	usdc_token_pool_v1_6_2 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_2/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_pausable_freezable_transparent"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
@@ -1504,7 +1504,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ERC677Tokens[ccipshared.TokenSymbol(symbol)] = tok
 			state.ABIByAddress[address] = erc677.ERC677ABI
 		// legacy addresses below are commented out to avoid loading them by default, to be uncommented for migrations
-		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OnRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOnRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}
@@ -1521,7 +1522,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			}
 			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
 			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
-		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String():
+		case cldf.NewTypeAndVersion(ccipshared.OffRamp, deployment.Version1_5_0).String(),
+			cldf.NewTypeAndVersion(ccipshared.EVM2EVMOffRamp, deployment.Version1_5_0).String():
 			if !config.loadLegacyContracts {
 				continue
 			}

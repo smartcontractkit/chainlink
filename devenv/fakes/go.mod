@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/rs/zerolog v1.35.1
-	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260508082734-06dd11985082
+	github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.14.10-0.20260511081501-829666151188
 )
 
 require (
@@ -100,7 +100,7 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.26.4 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.15.22-0.20260508082734-06dd11985082 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.0 //indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/testcontainers/testcontainers-go v0.42.0 // indirect
