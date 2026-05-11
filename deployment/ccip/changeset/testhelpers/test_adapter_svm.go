@@ -2,6 +2,7 @@ package testhelpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	solrpc "github.com/gagliardetto/solana-go/rpc"
+	"github.com/gagliardetto/solana-go/rpc/jsonrpc"
 	"github.com/stretchr/testify/require"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -159,7 +161,13 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 					},
 				)
 				if err != nil {
-					errorCh <- err
+					if isTransientSolanaRPCError(err) {
+						continue
+					}
+					select {
+					case errorCh <- err:
+					case <-done:
+					}
 					return
 				}
 
@@ -188,7 +196,13 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						},
 					)
 					if err != nil {
-						errorCh <- err
+						if isTransientSolanaRPCError(err) {
+							continue
+						}
+						select {
+						case errorCh <- err:
+						case <-done:
+						}
 						return
 					}
 
@@ -197,7 +211,10 @@ func SolEventEmitter[T any](ctx context.Context, client *solrpc.Client, address 
 						continue
 					}
 					if err != nil {
-						errorCh <- err
+						select {
+						case errorCh <- err:
+						case <-done:
+						}
 						return
 					}
 
@@ -252,7 +269,12 @@ func confirmCommitWithExpectedSeqNumRangeSol(
 				t.Logf("Skipping CommitReportAccepted with only price updates (elapsed: %s)", time.Since(startTime).Round(time.Second))
 				continue
 			}
-			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
+			// Check source chain selector match. We might see roots from other chains on repeated test runs
+			if commitEvent.Report.SourceChainSelector != srcSelector {
+				t.Logf("[Root] Source chain mismatch: got %d, expected %d",
+					commitEvent.Report.SourceChainSelector, srcSelector)
+				continue
+			}
 
 			// TODO: this logic is duplicated with verifyCommitReport, share
 			mr := commitEvent.Report
@@ -391,4 +413,18 @@ func confirmExecWithSeqNrsSol(
 	}
 
 	return executionStates, nil
+}
+
+// isTransientSolanaRPCError returns true for RPC errors that are transient and
+// should be retried, such as "Transaction not found" (-32020) on Solana devnet.
+func isTransientSolanaRPCError(err error) bool {
+	var rpcErr *jsonrpc.RPCError
+	if errors.As(err, &rpcErr) && rpcErr.Code == -32020 {
+		return true
+	}
+	// Fallback: string match for cases where the error is wrapped differently
+	if strings.Contains(err.Error(), "not found") && strings.Contains(err.Error(), "Transaction") {
+		return true
+	}
+	return false
 }
