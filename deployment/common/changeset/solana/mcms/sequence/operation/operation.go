@@ -172,6 +172,7 @@ func initAccessController(b operations.Bundle, deps Deps, in InitAccessControlle
 	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
 		Address:       account.PublicKey().String(),
 		ChainSelector: deps.Chain.Selector,
+		Version:       &deployment.Version1_0_0,
 		Type:          datastore.ContractType(in.ContractType),
 	})
 	if err != nil {
@@ -271,6 +272,7 @@ func initMCM(b operations.Bundle, deps Deps, in InitMCMInput) (InitMCMOutput, er
 	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
 		Address:       mcmAddress,
 		ChainSelector: deps.Chain.Selector,
+		Version:       &deployment.Version1_0_0,
 		Type:          datastore.ContractType(in.ContractType),
 	})
 	if err != nil {
@@ -373,6 +375,7 @@ func initTimelock(b operations.Bundle, deps Deps, in InitTimelockInput) (InitTim
 	err = deps.Datastore.Addresses().Add(datastore.AddressRef{
 		Address:       timelockAddress,
 		ChainSelector: deps.Chain.Selector,
+		Version:       &deployment.Version1_0_0,
 		Type:          datastore.ContractType(in.ContractType),
 	})
 	if err != nil {

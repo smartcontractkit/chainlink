@@ -57,13 +57,13 @@ if [[ $? -ne 0 ]]; then
   exit 1
 fi
 if [[ -z "$SHARD_PACKAGE_OUTPUT" ]]; then
-  echo "No packages assigned to shard ${GO_TEST_SHARD_INDEX}/${GO_TEST_SHARD_COUNT}."
+  echo "No packages assigned to shard $((GO_TEST_SHARD_INDEX + 1))/${GO_TEST_SHARD_COUNT}."
   exit 0
 fi
 mapfile -t SHARD_PACKAGES <<<"$SHARD_PACKAGE_OUTPUT"
 
 echo "Using GO_TEST_SHARD_COUNT: $GO_TEST_SHARD_COUNT"
-echo "Using GO_TEST_SHARD_INDEX: $GO_TEST_SHARD_INDEX"
+echo "Using GO_TEST_SHARD_INDEX (1-based): $((GO_TEST_SHARD_INDEX + 1))"
 echo "Shard package count: ${#SHARD_PACKAGES[@]}"
 
 echo "Test execution results: ---------------------"
