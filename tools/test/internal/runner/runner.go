@@ -129,9 +129,11 @@ func Diagnose(ctx context.Context, conf *config.App, out *output.Printer, goTest
 	}
 
 	stopAnalyzing := startDiagnoseAnalyzingProgress(out, state.liveProgress)
-	defer stopAnalyzing()
-	report, logs, analyzeErr := AnalyzeResults(resultsDir, conf.SlowThreshold)
-	stopAnalyzing()
+	var report *Report
+	var logs LogMap
+	var analyzeErr error
+	defer func() { stopAnalyzing(analyzeErr) }()
+	report, logs, analyzeErr = AnalyzeResults(resultsDir, conf.SlowThreshold)
 	if analyzeErr != nil {
 		out.Stderrf("analyze results: %v\n", analyzeErr)
 		return analyzeErr
@@ -816,9 +818,9 @@ func formatDiagnoseSecondsFragment(s float64) string {
 // startDiagnoseAnalyzingProgress prints a live "analyzing [duration]" line and returns stop.
 // Call stop once analysis is done (and defer stop as well — it is idempotent) so the final
 // "analyzing [duration] ✅" line is written before diagnosis complete, not at process exit.
-func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool) (stop func()) {
+func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool) (stop func(error)) {
 	if out.AIOutput() {
-		return func() {}
+		return func(error) {}
 	}
 	if afterLiveProgress {
 		_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K\n")
@@ -826,9 +828,13 @@ func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool)
 
 	analyzeStart := time.Now()
 	var once sync.Once
-	finalize := func(live bool) {
+	finalize := func(live bool, err error) {
 		elapsed := max(time.Since(analyzeStart).Round(time.Second), 0)
-		line := termstyle.Label.Render("analyzing") + " " + termstyle.Muted.Render("["+elapsed.String()+"]") + " " + termstyle.OK.Render("✅")
+		mark := termstyle.OK.Render("✅")
+		if err != nil {
+			mark = termstyle.Bad.Render("❌")
+		}
+		line := termstyle.Label.Render("analyzing") + " " + termstyle.Muted.Render("["+elapsed.String()+"]") + " " + mark
 		if live {
 			_, _ = fmt.Fprint(out.HumanStderrWriter(), "\r\033[K"+line+"\n")
 			return
@@ -837,8 +843,8 @@ func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool)
 	}
 
 	if !out.LiveInlineProgress() {
-		return func() {
-			once.Do(func() { finalize(false) })
+		return func(err error) {
+			once.Do(func() { finalize(false, err) })
 		}
 	}
 
@@ -864,11 +870,11 @@ func startDiagnoseAnalyzingProgress(out *output.Printer, afterLiveProgress bool)
 		}
 	})
 
-	return func() {
+	return func(err error) {
 		once.Do(func() {
 			close(done)
 			wg.Wait()
-			finalize(true)
+			finalize(true, err)
 		})
 	}
 }

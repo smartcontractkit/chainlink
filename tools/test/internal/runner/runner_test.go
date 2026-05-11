@@ -116,7 +116,7 @@ func TestStartDiagnoseAnalyzingProgress_startsNewLineAfterLiveProgress(t *testin
 	out := output.New(false, io.Discard, &stderr, output.SkipFD)
 
 	stop := startDiagnoseAnalyzingProgress(out, true)
-	stop()
+	stop(nil)
 
 	plain := stripANSI(stderr.String())
 	assert.Contains(t, plain, "analyzing [0s]")
@@ -131,7 +131,7 @@ func TestStartDiagnoseAnalyzingProgress_liveInline_updatesDuration(t *testing.T)
 
 	stop := startDiagnoseAnalyzingProgress(out, false)
 	time.Sleep(300 * time.Millisecond)
-	stop()
+	stop(nil)
 
 	got := stderr.String()
 	assert.Contains(t, got, "analyzing")

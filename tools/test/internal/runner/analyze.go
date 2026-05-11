@@ -426,7 +426,12 @@ func buildReportSummary(rep *Report, aggs map[testKey]*aggregate, slowThreshold 
 			iterWithFlakeFail[i] = struct{}{}
 		}
 	}
-	slowCount := len(rep.Slow)
+	slowCount := 0
+	for _, e := range rep.Slow {
+		if e.Test != "" {
+			slowCount++
+		}
+	}
 
 	s := &ReportSummary{
 		DistinctNamedTests: distinct,
@@ -860,7 +865,12 @@ func printOverallStats(w io.Writer, rep *Report) {
 		fmt.Fprintln(w, termstyle.Muted.Render(line))
 	}
 	if s.DistinctNamedTests > 0 {
-		brokenN := len(rep.Failures)
+		brokenN := 0
+		for _, f := range rep.Failures {
+			if f.Test != "" {
+				brokenN++
+			}
+		}
 		pctBroken := float64(brokenN) / float64(s.DistinctNamedTests) * 100
 		line := fmt.Sprintf("  Broken tests: %d/%d (%.1f%%)", brokenN, s.DistinctNamedTests, pctBroken)
 		if brokenN > 0 {

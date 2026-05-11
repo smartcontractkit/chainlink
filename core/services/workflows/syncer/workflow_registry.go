@@ -858,7 +858,7 @@ func (w *workflowRegistry) getWorkflowMetadata(ctx context.Context, don capabili
 func toWorkflowRegistryEventResponse(
 	log types.Sequence,
 	evt WorkflowRegistryEventType,
-	lggr logger.Logger,
+	_ logger.Logger,
 ) (workflowRegistryEvent, error) {
 	resp := workflowRegistryEvent{
 		Cursor: log.Cursor,
