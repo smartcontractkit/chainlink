@@ -156,9 +156,8 @@ jobs:
     steps:
       - name: Build shard matrices
         id: shard-matrices
-        shell: bash
+        shell: python
         run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
           import json
           import os
 
@@ -181,7 +180,6 @@ jobs:
           add_deployment_rows()
 
           print(f"deployment-test-matrix={json.dumps(rows)}")
-          PY
 
   deployment-shard-consistency:
     name: Check Deployment Test Sharding Consistency
