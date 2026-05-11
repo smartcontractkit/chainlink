@@ -51,10 +51,10 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath             = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultDefaultConfigPath               = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath        = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultBase64EncodingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-base64-enabled.toml"
-	vaultJWTIssuerListenAddr           = "0.0.0.0:18123"
+	vaultJWTIssuerListenAddr             = "0.0.0.0:18123"
 )
 
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {

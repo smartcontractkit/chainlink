@@ -1282,8 +1282,8 @@ func TestHandleSecretsUpdate_Base64EncodingEnabled_ForwardsBase64ToNodes(t *test
 			if len(parsed.EncryptedSecrets) != 1 {
 				return false
 			}
-			raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
-			return err == nil && bytes.Equal(raw, wantRaw)
+			raw, decodeErr := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
+			return decodeErr == nil && bytes.Equal(raw, wantRaw)
 		})).Return(nil)
 
 		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{
@@ -1363,8 +1363,8 @@ func TestHandleSecretsUpdate_Base64EncodingEnabled_ForwardsBase64ToNodes(t *test
 			if len(parsed.EncryptedSecrets) != 1 {
 				return false
 			}
-			raw, err := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
-			return err == nil && bytes.Equal(raw, wantRaw)
+			raw, decodeErr := base64.StdEncoding.DecodeString(parsed.EncryptedSecrets[0].EncryptedValue)
+			return decodeErr == nil && bytes.Equal(raw, wantRaw)
 		})).Return(nil)
 
 		updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{

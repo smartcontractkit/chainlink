@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // CiphertextStringEncoding selects how an encrypted value string is encoded on the wire.
@@ -25,7 +27,7 @@ func DecodeEncryptedValue(s string, enc CiphertextStringEncoding) ([]byte, error
 		return hex.DecodeString(s)
 	case CiphertextStringEncodingBase64:
 		if s == "" {
-			return nil, fmt.Errorf("empty base64 ciphertext")
+			return nil, errors.New("empty base64 ciphertext")
 		}
 		return base64.StdEncoding.DecodeString(s)
 	default:
