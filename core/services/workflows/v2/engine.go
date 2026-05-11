@@ -809,7 +809,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		return
 	}
 	defer execCancel()
-	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID, "triggerIndex", wrappedTriggerEvent.triggerIndex)
+	executionLogger := logger.With(lggr, "executionID", executionID, "triggerID", wrappedTriggerEvent.triggerCapID,
+		"triggerIndex", wrappedTriggerEvent.triggerIndex, "eventID", triggerEvent.ID)
 
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
@@ -943,6 +944,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 }
 
 func (e *Engine) ackTriggerEvent(ctx context.Context, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
+	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", te.ID)
+
 	e.triggersRegMu.Lock()
 	trigger, ok := e.triggers[triggerRegistrationID]
 	e.triggersRegMu.Unlock()
