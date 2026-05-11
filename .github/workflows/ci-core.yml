@@ -111,6 +111,8 @@ jobs:
             workflow-files:
               - ".github/workflows/ci-core.yml"
               - ".github/actions/**"
+            deployment-files:
+              - "deployment/**"
             ignored-files:
               - "core/scripts/cre/environment/examples/workflows/**"
           # Note:
@@ -157,9 +159,10 @@ jobs:
 
   golangci:
     name: GolangCI Lint
-    needs: [ filter, run-frequency ]
+    needs: [filter, run-frequency]
     # We don't directly merge dependabot PRs to not waste the resources.
-    if: ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name !=
+    if:
+      ${{ needs.filter.outputs.affected-modules != '[]' && github.event_name !=
       'merge_group' && github.actor != 'dependabot[bot]' }}
     permissions:
       # To annotate code in the PR.
@@ -209,13 +212,14 @@ jobs:
   golangci-matrix-results-validation:
     name: lint
     if: ${{ always() }}
-    needs: [ filter, golangci ]
+    needs: [filter, golangci]
     runs-on: ubuntu-latest
     steps:
       - name: Check Golangci-lint Matrix Results
         env:
           GOLANGCI_RESULT: ${{ needs.golangci.result }}
-          ALLOW_FAILURE: ${{ contains(join(github.event.pull_request.labels.*.name, ' '),
+          ALLOW_FAILURE:
+            ${{ contains(join(github.event.pull_request.labels.*.name, ' '),
             'allow-lint-issues') }}
           SKIPPED: ${{ needs.filter.outputs.affected-modules == '[]' }}
         run: |
@@ -300,7 +304,7 @@ jobs:
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
-    needs: [ filter, run-frequency ]
+    needs: [filter, run-frequency]
     timeout-minutes: 60
     # Use ubuntu-latest for jobs that will be skipped
     runs-on: ${{ matrix.type.should-run == 'true' && matrix.type.os ||
@@ -333,7 +337,8 @@ jobs:
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
       - name: Setup Solana
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true'
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true'
           }}
         uses: ./.github/actions/setup-solana
 
@@ -376,7 +381,8 @@ jobs:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
           }}
         run: make install-plugins
 
@@ -406,7 +412,8 @@ jobs:
           # See: https://github.com/golang/go/issues/69179
 
       - name: Analyze and upload test results
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine ==
+        if:
+          ${{ matrix.type.should-run == 'true' && matrix.type.trunk-auto-quarantine ==
           'true' && !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
@@ -475,7 +482,7 @@ jobs:
 
   core-scripts-tests:
     name: test-scripts
-    needs: [ filter ]
+    needs: [filter]
     runs-on: ubuntu-latest
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
@@ -505,7 +512,7 @@ jobs:
 
   scan:
     name: SonarQube Scan
-    needs: [ golangci, core, core-scripts-tests ]
+    needs: [golangci, core, core-scripts-tests]
     # If core is cancelled, skip this to not delay the cancellation of the workflow.
     if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
