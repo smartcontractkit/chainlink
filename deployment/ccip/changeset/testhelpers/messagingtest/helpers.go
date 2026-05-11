@@ -130,6 +130,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	sourceFamily, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
+	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+	require.NoError(tc.T, err)
+
 	sourceAdapter, ok := tc.DeployedEnv.Adapters[tc.SourceChain]
 	if !ok {
 		tc.T.Errorf("unsupported source chain: %v", tc.SourceChain)
@@ -140,7 +143,7 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 
 	// Capture current slot for Solana dest chains to avoid scanning all historical transactions
-	if df, _ := chain_selectors.GetSelectorFamily(tc.DestChain); df == chain_selectors.FamilySolana {
+	if destFamily == chain_selectors.FamilySolana {
 		type currentBlocker interface {
 			CurrentBlock(t *testing.T) uint64
 		}
@@ -267,7 +270,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
-		destFamily, _ := chain_selectors.GetSelectorFamily(tc.DestChain)
 		replaySleep := 30 * time.Second
 		if sourceFamily == chain_selectors.FamilySolana || destFamily == chain_selectors.FamilySolana {
 			replaySleep = 10 * time.Second

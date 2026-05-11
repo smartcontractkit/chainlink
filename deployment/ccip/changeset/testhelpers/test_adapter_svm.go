@@ -91,6 +91,12 @@ func (a *SVMAdapter) GetInboundNonce(ctx context.Context, sender []byte, srcSel 
 	return nonceCounterAccount.Counter, nil
 }
 
+func (a *SVMAdapter) CurrentBlock(t *testing.T) uint64 {
+	slot, err := a.Client.GetSlot(context.Background(), solconfig.DefaultCommitment)
+	require.NoError(t, err)
+	return slot
+}
+
 func (a *SVMAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBlock *uint64, seqNumRange ccipocr3.SeqNumRange) {
 	var startSlot uint64
 	if startBlock != nil {
