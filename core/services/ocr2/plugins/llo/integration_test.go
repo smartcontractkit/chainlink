@@ -592,7 +592,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 
 				var expectedBm, expectedBid, expectedAsk *big.Int
-				//nolint:gocritic // switch case doesn't play nice with these types
+				//nolint:gocritic,staticcheck // switch case doesn't play nice with these types
 				if feedID == quoteStreamFeedID1 {
 					expectedBm = quoteStream1.baseBenchmarkPrice.Mul(multiplier).BigInt()
 					expectedBid = quoteStream1.baseBid.Mul(multiplier).BigInt()
@@ -602,7 +602,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					expectedBid = quoteStream2.baseBid.Mul(multiplier).BigInt()
 					expectedAsk = quoteStream2.baseAsk.Mul(multiplier).BigInt()
 				} else {
-					require.FailNow(t, "unrecognized feedID: 0x%x", feedID)
+					require.FailNowf(t, "unrecognized feedID: 0x%x", hex.EncodeToString(feedID[:]))
 				}
 
 				assert.GreaterOrEqual(t, int64(reportElems["validFromTimestamp"].(uint32)), testStartTimeStamp.Unix())
