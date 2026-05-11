@@ -539,6 +539,11 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 		delete(replayBlocks, selector)
 	}
 
+	// Solana's relayer Replay() is synchronous and blocks indefinitely in tests
+	for selector := range env.BlockChains.SolanaChains() {
+		delete(replayBlocks, selector)
+	}
+
 	// Ton chains must be funded if they exist
 	if len(env.BlockChains.TonChains()) > 0 {
 		for _, tonChain := range env.BlockChains.TonChains() {

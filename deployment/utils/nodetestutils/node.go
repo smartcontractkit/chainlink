@@ -185,6 +185,10 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
 			continue
 		}
+		if family == "solana" {
+			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
+			continue
+		}
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
